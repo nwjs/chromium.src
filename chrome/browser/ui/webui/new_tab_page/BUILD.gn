@@ -198,7 +198,10 @@ source_set("impl") {
   }
 
   if (!is_official_build) {
-    deps += [ "//chrome/browser/ui/webui/new_tab_page/foo:mojo_bindings" ]
+    deps += [
+      "//chrome/browser/ui/webui/new_tab_page/foo:foo_handler",
+      "//chrome/browser/ui/webui/new_tab_page/foo:mojo_bindings",
+    ]
   }
 }
 
@@ -267,6 +270,7 @@ if (!is_android) {
       "//chrome/browser/ui/webui/cr_components/most_visited",
       "//chrome/browser/ui/webui/customize_buttons",
       "//chrome/test:test_support",
+      "//chrome/test/user_education:impl",
       "//components/user_education/views",
       "//content/test:test_support",
       "//testing/gmock",

@@ -532,13 +532,11 @@ repack("pak") {
   sources = [
     "$root_gen_dir/base/tracing/protos/tracing_proto_resources.pak",
     "$root_gen_dir/components/ukm_resources.pak",
-    "$root_gen_dir/content/attribution_internals_resources.pak",
     "$root_gen_dir/content/browser/resources/media/media_internals_resources.pak",
     "$root_gen_dir/content/browser/webrtc/resources/webrtc_internals_resources.pak",
     "$root_gen_dir/content/content_resources.pak",
     "$root_gen_dir/content/gpu_resources.pak",
     "$root_gen_dir/content/histograms_resources.pak",
-    "$root_gen_dir/content/private_aggregation_internals_resources.pak",
     "$root_gen_dir/content/process_resources.pak",
     "$root_gen_dir/content/quota_internals_resources.pak",
     "$root_gen_dir/content/service_worker_resources.pak",
@@ -1190,6 +1188,7 @@ rust_static_library("rust_test_service") {
   sources = [ "browser/rust_test_service.rs" ]
   deps = [
     ":rust_test_mojom_rust",
+    "//base:command_line",
     "//base:feature",
     "//mojo/public/rust/bindings",
   ]

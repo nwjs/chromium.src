@@ -125,9 +125,10 @@ class WebSocketTransportClientSocketPoolTest
             /*ignore_certificate_errors=*/nullptr,
             /*early_data_enabled=*/nullptr),
         pool_(kMaxSockets,
-              SocketPoolAdditionalCapacity::CreateEmpty(),
               ProxyChain::Direct(),
               &common_connect_job_params_) {
+    pool_.SetAdditionalCapacityForTest(
+        SocketPoolAdditionalCapacity::CreateEmpty());
     if (use_happy_eyeballs_v2()) {
       scoped_feature_list_.InitAndEnableFeature(features::kHappyEyeballsV2);
     } else {
@@ -1443,17 +1444,17 @@ TEST_P(WebSocketTransportClientSocketPoolTest, LoadState) {
 TEST_P(WebSocketTransportClientSocketPoolTest,
        ValidateAdditionalCapacityForWebSocketTransportClientSocketPool) {
   WebSocketTransportClientSocketPool pool(
-      /*socket_soft_cap=*/256, SocketPoolAdditionalCapacity::Create(256),
-      ProxyChain::Direct(), &common_connect_job_params_);
+      /*socket_soft_cap=*/256, ProxyChain::Direct(),
+      &common_connect_job_params_);
   ValidateAdditionalCapacityForSocketPool(
       base::BindLambdaForTesting([&]() {
         StartRequest(kDefaultPriority, &pool);
-        return pool.StateForTest();
+        return pool.ExpandabilityForTest();
       }),
       base::BindLambdaForTesting([&]() { RunUntilIdle(); }),
       base::BindLambdaForTesting([&]() {
         EXPECT_TRUE(ReleaseOneConnection(ClientSocketPoolTest::NO_KEEP_ALIVE));
-        return pool.StateForTest();
+        return pool.ExpandabilityForTest();
       }),
       base::BindLambdaForTesting([&]() { return pool.SocketsInUse(); }));
   ReleaseAllConnections(ClientSocketPoolTest::NO_KEEP_ALIVE);

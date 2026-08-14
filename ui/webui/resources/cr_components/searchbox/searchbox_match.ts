@@ -12,7 +12,7 @@ import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import {NavigationPredictor} from '//resources/mojo/components/omnibox/browser/omnibox.mojom-webui.js';
 import type {ACMatchClassification, AutocompleteMatch, OmniboxPopupSelection, PageHandlerInterface} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import {SelectionLineState, SideType} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {KeywordType, SelectionLineState, SideType} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 
 import {createAutocompleteMatch, SearchboxBrowserProxy} from './searchbox_browser_proxy.js';
 import type {SearchboxIconElement} from './searchbox_icon.js';
@@ -100,7 +100,7 @@ export class SearchboxMatchElement extends CrLitElement {
         reflect: true,
       },
 
-      hasKeyword: {
+      hasKeywordChip: {
         type: Boolean,
         reflect: true,
       },
@@ -190,7 +190,7 @@ export class SearchboxMatchElement extends CrLitElement {
   override accessor ariaLabel: string = '';
   accessor hasAction: boolean = false;
   accessor hasImage: boolean = false;
-  accessor hasKeyword: boolean = false;
+  accessor hasKeywordChip: boolean = false;
   accessor isEntitySuggestion: boolean = false;
   accessor isRichSuggestion: boolean = false;
   accessor match: AutocompleteMatch = createAutocompleteMatch();
@@ -234,7 +234,7 @@ export class SearchboxMatchElement extends CrLitElement {
       this.contentsHtml_ = this.computeContentsHtml_();
       this.descriptionHtml_ = this.computeDescriptionHtml_();
       this.hasAction = this.computeHasAction_();
-      this.hasKeyword = this.computeHasKeyword_();
+      this.hasKeywordChip = this.computeHasKeywordChip_();
       this.hasImage = this.computeHasImage_();
       this.isContextualSuggestion_ = this.computeIsContextualSuggestion_();
       this.isEntitySuggestion = this.computeIsEntitySuggestion_();
@@ -279,7 +279,7 @@ export class SearchboxMatchElement extends CrLitElement {
       if (state === SelectionLineState.kNormal) {
         this.ariaLabel = this.computeAriaLabel_();
       } else if (state === SelectionLineState.kKeywordMode) {
-        this.ariaLabel = this.match.keywordChipA11y || '';
+        this.ariaLabel = this.match.keywordModel?.chipA11y || '';
       } else if (state === SelectionLineState.kFocusedButtonAction) {
         const action = this.match.actions[this.selection.actionIndex];
         this.ariaLabel = action ? action.a11yLabel : '';
@@ -328,8 +328,14 @@ export class SearchboxMatchElement extends CrLitElement {
 
     this.pageHandler_.openAutocompleteMatch(
         this.matchIndex, this.match.destinationUrl,
-        /* are_matches_showing */ true, e.button || 0, e.altKey, e.ctrlKey,
-        e.metaKey, e.shiftKey, /*via_keyboard=*/ false);
+        /*areMatchesShowing=*/ true,
+        /*mouseButton=*/ e.button || 0, {
+          altKey: e.altKey,
+          ctrlKey: e.ctrlKey,
+          metaKey: e.metaKey,
+          shiftKey: e.shiftKey,
+        },
+        /*viaKeyboard=*/ false);
 
     // Duplicates the logic in `ui::DispositionFromClick()`.
     const backgroundTab = (e.metaKey || e.ctrlKey) && e.shiftKey;
@@ -431,8 +437,8 @@ export class SearchboxMatchElement extends CrLitElement {
     return this.match?.actions?.length > 0;
   }
 
-  private computeHasKeyword_(): boolean {
-    return this.match && !!this.match.keywordChipHint;
+  private computeHasKeywordChip_(): boolean {
+    return this.match?.keywordModel?.type === KeywordType.kChip;
   }
 
   private computeHasImage_(): boolean {
@@ -604,7 +610,7 @@ export class SearchboxMatchElement extends CrLitElement {
   protected getFocusIndicatorCssClass_(): string {
     return this.selection.line === this.matchIndex &&
             this.selection.state !== SelectionLineState.kNormal &&
-            !this.match.hasInstantKeyword ?
+            this.match.keywordModel?.type !== KeywordType.kInstant ?
         'selected-within' :
         '';
   }

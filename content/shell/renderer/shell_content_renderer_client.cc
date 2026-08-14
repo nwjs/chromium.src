@@ -7,6 +7,7 @@
 #include <string>
 
 #include "base/base_switches.h"
+#include "base/check_is_test.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
 #include "base/files/file.h"
@@ -16,12 +17,14 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/test/allow_check_is_test_for_testing.h"
 #include "base/types/pass_key.h"
 #include "components/cdm/renderer/external_clear_key_key_system_info.h"
 #include "components/network_hints/renderer/web_prescient_networking_impl.h"
 #include "components/surface_embed/renderer/create_plugin.h"
 #include "components/web_cache/renderer/web_cache_impl.h"
 #include "content/common/pseudonymization_salt.h"
+#include "content/common/skia_utils.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/pseudonymization_util.h"
 #include "content/public/common/web_identity.h"
@@ -158,9 +161,18 @@ class TestRendererServiceImpl : public mojom::TestService {
     std::move(callback).Run(content::IsSaltInitialized());
   }
 
+  void IsSkiaInitialized(IsSkiaInitializedCallback callback) override {
+    std::move(callback).Run(IsSkiaInitializedForTesting());
+  }
+
   void PassWriteableFile(base::File file,
                          PassWriteableFileCallback callback) override {
     std::move(callback).Run();
+  }
+
+  void VerifyCheckIsTest(VerifyCheckIsTestCallback callback) override {
+    CHECK_IS_TEST();
+    std::move(callback).Run(true);
   }
 
   void WriteToPreloadedPipe() override { NOTREACHED(); }
@@ -236,7 +248,13 @@ void CreateRendererTestService(
 
 }  // namespace
 
-ShellContentRendererClient::ShellContentRendererClient() {}
+ShellContentRendererClient::ShellContentRendererClient(bool is_browsertest) {
+  if (is_browsertest &&
+      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          switches::kProcessType) == switches::kRendererProcess) {
+    base::test::AllowCheckIsTestForTesting();
+  }
+}
 
 ShellContentRendererClient::~ShellContentRendererClient() {
 }

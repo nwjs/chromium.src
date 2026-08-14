@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/values.h"
+#include "components/autofill/core/common/autofill_prefs.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace extensions {
@@ -27,9 +28,13 @@ TEST(AutofillSettingsTransformerTest, Transform) {
   EXPECT_FALSE(bad_message);
 
   const auto& browser_rule = browser_pref->GetList()[0].GetDict();
-  EXPECT_EQ("https://example.com", *browser_rule.FindString("url_pattern"));
+  EXPECT_EQ("https://example.com",
+            *browser_rule.FindString(
+                autofill::prefs::kAutofillBlockedTypesUrlPatternKey));
   EXPECT_EQ("contact_info",
-            (*browser_rule.FindList("blocked_types"))[0].GetString());
+            (*browser_rule.FindList(
+                autofill::prefs::kAutofillBlockedTypesBlockedTypesKey))[0]
+                .GetString());
 
   auto back_to_ext = transformer.BrowserToExtensionPref(*browser_pref, false);
   ASSERT_TRUE(back_to_ext);
@@ -78,6 +83,7 @@ TEST(AutofillSettingsTransformerTest, ExtensionToBrowserPref_MultipleRules) {
   blocked_types1.Append("payments");
   base::ListValue blocked_types2;
   blocked_types2.Append("travel");
+  blocked_types2.Append("all");
 
   auto browser_pref = transformer.ExtensionToBrowserPref(
       base::Value(
@@ -93,12 +99,25 @@ TEST(AutofillSettingsTransformerTest, ExtensionToBrowserPref_MultipleRules) {
   EXPECT_FALSE(bad_message);
   ASSERT_EQ(2u, browser_pref->GetList().size());
   EXPECT_EQ("https://a.com",
-            *browser_pref->GetList()[0].GetDict().FindString("url_pattern"));
-  EXPECT_EQ(
-      2u,
-      browser_pref->GetList()[0].GetDict().FindList("blocked_types")->size());
+            *browser_pref->GetList()[0].GetDict().FindString(
+                autofill::prefs::kAutofillBlockedTypesUrlPatternKey));
+  EXPECT_EQ(2u,
+            browser_pref->GetList()[0]
+                .GetDict()
+                .FindList(autofill::prefs::kAutofillBlockedTypesBlockedTypesKey)
+                ->size());
   EXPECT_EQ("https://b.com",
-            *browser_pref->GetList()[1].GetDict().FindString("url_pattern"));
+            *browser_pref->GetList()[1].GetDict().FindString(
+                autofill::prefs::kAutofillBlockedTypesUrlPatternKey));
+  EXPECT_EQ(2u,
+            browser_pref->GetList()[1]
+                .GetDict()
+                .FindList(autofill::prefs::kAutofillBlockedTypesBlockedTypesKey)
+                ->size());
+  EXPECT_EQ("all",
+            (*browser_pref->GetList()[1].GetDict().FindList(
+                autofill::prefs::kAutofillBlockedTypesBlockedTypesKey))[1]
+                .GetString());
 }
 
 TEST(AutofillSettingsTransformerTest, BrowserToExtensionPref_NotList) {
@@ -115,8 +134,10 @@ TEST(AutofillSettingsTransformerTest,
   auto ext_pref = transformer.BrowserToExtensionPref(
       base::Value(base::ListValue().Append(42).Append(
           base::DictValue()
-              .Set("url_pattern", "https://valid.com")
-              .Set("blocked_types", std::move(blocked_types)))),
+              .Set(autofill::prefs::kAutofillBlockedTypesUrlPatternKey,
+                   "https://valid.com")
+              .Set(autofill::prefs::kAutofillBlockedTypesBlockedTypesKey,
+                   std::move(blocked_types)))),
       false);
   ASSERT_TRUE(ext_pref);
   ASSERT_EQ(1u, ext_pref->GetList().size());

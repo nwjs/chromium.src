@@ -105,7 +105,7 @@ AvatarToolbarButton::AvatarToolbarButton(BrowserView* browser_view)
   // On CrOS this button should only show as badging for Incognito, Guest and
   // captivie portal signin. It's only enabled for non captive portal Incognito
   // where a menu is available for closing all Incognito windows.
-  Profile* profile = browser_view->browser()->profile();
+  Profile* profile = browser_view->browser()->GetProfile();
   CHECK(profile);
   SetEnabled(profile->IsOffTheRecord() && !profile->IsGuestSession() &&
              !profile->GetOTRProfileID().IsCaptivePortal());
@@ -195,7 +195,7 @@ void AvatarToolbarButton::UpdateIcon() {
   }
 
   // Update the layout insets as the new icon might have caused them to change
-  // size (e.g. in the case of an AI ring addition/removal).
+  // size (e.g. in the case of an avatar ring addition/removal).
   UpdateLayoutInsets();
   state_manager_.NotifyIconUpdated();
 }

@@ -790,49 +790,6 @@ void OutOfFlowLayoutPart::HandleFragmentation() {
 const OutOfFlowLayoutPart::ContainingBlockInfo
 OutOfFlowLayoutPart::GetContainingBlockInfo(
     const LogicalOofPositionedNode& candidate) {
-  const auto* container_object = container_builder_->GetLayoutObject();
-  const auto& node_style = candidate.Node().Style();
-  bool is_hidden_for_paint =
-      container_builder_->GetConstraintSpace().IsHiddenForPaint();
-
-  auto IsPlacedWithinGridOrGridLanesArea = [&](const auto* containing_block) {
-    if (!containing_block->IsLayoutGridOrGridLanes()) {
-      return false;
-    }
-
-    return !node_style.GridColumnStart().IsAuto() ||
-           !node_style.GridColumnEnd().IsAuto() ||
-           !node_style.GridRowStart().IsAuto() ||
-           !node_style.GridRowEnd().IsAuto();
-  };
-
-  auto GridAreaContainingBlockInfo = [&](const LayoutBox& containing_box,
-                                         const GridLayoutData& layout_data,
-                                         const LogicalRect& padding_box_rect)
-      -> OutOfFlowLayoutPart::ContainingBlockInfo {
-    DCHECK(containing_box.IsLayoutGrid() || containing_box.IsLayoutGridLanes());
-
-    const auto& style = containing_box.StyleRef();
-    GridItemData* item =
-        MakeGarbageCollected<GridItemData>(candidate.Node(), style);
-
-    LogicalRect rect;
-    if (containing_box.IsLayoutGrid()) {
-      rect = GridLayoutAlgorithm::ComputeOutOfFlowItemContainingRect(
-          To<LayoutGrid>(containing_box).CachedPlacementData(), layout_data,
-          style, padding_box_rect, item);
-    } else {
-      rect = GridLanesLayoutAlgorithm::ComputeOutOfFlowItemContainingRect(
-          To<LayoutGridLanes>(containing_box).CachedPlacementData(),
-          layout_data, style, padding_box_rect, item);
-    }
-
-    return {.writing_direction = style.GetWritingDirection(),
-            .is_hidden_for_paint = is_hidden_for_paint,
-            .rect = rect,
-            .scroll_direction = default_containing_block_.scroll_direction};
-  };
-
   if (const LayoutInline* container = candidate.InlineContainer()) {
     const auto it = containing_blocks_map_.find(container);
     CHECK(it != containing_blocks_map_.end());
@@ -852,12 +809,10 @@ OutOfFlowLayoutPart::GetContainingBlockInfo(
           containing_block_fragment->GetLayoutObject();
       DCHECK(containing_block);
 
-      bool is_placed_within_grid_area =
-          containing_block->IsLayoutGrid() &&
-          IsPlacedWithinGridOrGridLanesArea(containing_block);
       auto it = containing_blocks_map_.find(containing_block);
-      if (it != containing_blocks_map_.end() && !is_placed_within_grid_area)
+      if (it != containing_blocks_map_.end()) {
         return it->value;
+      }
 
       const auto writing_direction =
           containing_block->StyleRef().GetWritingDirection();
@@ -872,13 +827,6 @@ OutOfFlowLayoutPart::GetContainingBlockInfo(
           To<PhysicalBoxFragment>(containing_block_fragment)
               ->Borders()
               .ConvertToLogical(writing_direction));
-
-      // TODO(yanlingwang): Add support for grid-lanes fragmentation.
-      if (is_placed_within_grid_area) {
-        return GridAreaContainingBlockInfo(
-            *To<LayoutGrid>(containing_block),
-            *To<LayoutGrid>(containing_block)->LayoutData(), padding_box_rect);
-      }
 
       padding_box_rect.offset +=
           fragmentainer_descendant.containing_block.Offset();
@@ -899,13 +847,7 @@ OutOfFlowLayoutPart::GetContainingBlockInfo(
     }
   }
 
-  if (IsPlacedWithinGridOrGridLanesArea(container_object)) {
-    return GridAreaContainingBlockInfo(*To<LayoutBox>(container_object),
-                                       container_builder_->GetGridLayoutData(),
-                                       default_containing_block_.rect);
-  }
-
-  if (node_style.GetPosition() == EPosition::kFixed &&
+  if (candidate.Node().Style().GetPosition() == EPosition::kFixed &&
       viewport_containing_block_) {
     return *viewport_containing_block_;
   }
@@ -920,8 +862,7 @@ void OutOfFlowLayoutPart::ComputeInlineContainingBlocks(
 
   for (auto& candidate : candidates) {
     const LayoutInline* inline_container = candidate.InlineContainer();
-    if (inline_container &&
-        !inline_container_fragments.Contains(inline_container)) {
+    if (inline_container) {
       InlineContainingBlockUtils::InlineContainingBlockGeometry
           inline_geometry = {};
       inline_container_fragments.insert(inline_container, inline_geometry);
@@ -974,9 +915,9 @@ void OutOfFlowLayoutPart::ComputeInlineContainingBlocksForFragmentainer(
           descendant.InlineContainerInfo().RelativeOffset();
       auto it = inline_containing_blocks.find(containing_block);
       if (it != inline_containing_blocks.end()) {
-        if (!it->value.map.Contains(inline_container)) {
-          it->value.map.insert(inline_container, inline_geometry);
-        }
+        // insert() leaves any existing entry untouched, so the prior
+        // Contains() guard was a redundant second lookup.
+        it->value.map.insert(inline_container, inline_geometry);
         continue;
       }
       InlineContainingBlockUtils::InlineContainingBlockMap inline_container_map;
@@ -1074,12 +1015,10 @@ void OutOfFlowLayoutPart::AddInlineContainingBlockInfo(
     //
     // Note in cases [2a, 2b] we don't allow a "negative" containing block size,
     // we clamp negative sizes to zero.
-    const ComputedStyle* inline_cb_style = block_info.key->Style();
-    DCHECK(inline_cb_style);
+    const ComputedStyle& inline_cb_style = block_info.key->StyleRef();
 
-    const auto inline_writing_direction =
-        inline_cb_style->GetWritingDirection();
-    BoxStrut inline_cb_borders = ComputeBordersForInline(*inline_cb_style);
+    const auto inline_writing_direction = inline_cb_style.GetWritingDirection();
+    BoxStrut inline_cb_borders = ComputeBordersForInline(inline_cb_style);
     DCHECK_EQ(container_writing_direction.GetWritingMode(),
               inline_writing_direction.GetWritingMode());
 
@@ -1797,24 +1736,16 @@ AnchorEvaluatorImpl OutOfFlowLayoutPart::CreateAnchorEvaluator(
     }
   }
 
-  const WritingModeConverter container_converter(
-      container_info.writing_direction,
-      container_builder_->SizeForAnchorQueries());
-  PhysicalRect container_rect =
-      container_converter.ToPhysical(container_info.rect);
-  std::optional<PhysicalRect> scroll_rect =
-      container_info.scroll_rect
-          ? std::make_optional(
-                container_converter.ToPhysical(*container_info.scroll_rect))
-          : std::nullopt;
+  LogicalSize container_size = container_builder_->SizeForAnchorQueries();
+  LogicalRect container_rect = container_info.rect;
+  std::optional<LogicalRect> scroll_rect = container_info.scroll_rect;
 
   const AnchorMap* anchor_map = nullptr;
+  const LayoutObject* containing_block = nullptr;
   const LayoutObject* actual_containing_block = nullptr;
+  const GridLayoutData* grid_layout_data = nullptr;
   if (is_inside_fragmentation_context &&
-      RuntimeEnabledFeatures::FragmentedOofInCbEnabled()) {
-    // TODO(crbug.com/40267498): Implement this.
-    return AnchorEvaluatorImpl(container_info.writing_direction);
-  } else if (is_inside_fragmentation_context) {
+      !RuntimeEnabledFeatures::FragmentedOofInCbEnabled()) {
     // The containing block of the OOF is part of the fragmentation context
     // established by this container. Imagine that fragmentainers are stitched
     // together, for the purpose of calculating the bounding box of anchors.
@@ -1839,11 +1770,8 @@ AnchorEvaluatorImpl OutOfFlowLayoutPart::CreateAnchorEvaluator(
       stitched_container_size.block_size += logical_fragment.BlockSize();
     }
 
-    // Reconvert `container_rect`, this time based on the correct block-size.
-    const WritingModeConverter modified_container_converter(
-        container_info.writing_direction, stitched_container_size);
-    container_rect =
-        modified_container_converter.ToPhysical(container_info.rect);
+    // Update our container-size now that we know it.
+    container_size = stitched_container_size;
 
     // Scrollable containers are monolithic, so don't have a `scroll_rect`.
     scroll_rect = std::nullopt;
@@ -1881,17 +1809,17 @@ AnchorEvaluatorImpl OutOfFlowLayoutPart::CreateAnchorEvaluator(
     }
     anchor_map = stitched_anchor_map;
     actual_containing_block = candidate_layout_box.Container();
+    containing_block = candidate_layout_box.Container();
   } else {
     anchor_map = container_builder_->GetAnchorMap();
+    containing_block = container_builder_->Node().GetLayoutBox();
+    grid_layout_data = container_builder_->GetGridLayoutData();
   }
 
-  if (anchor_map) {
-    return AnchorEvaluatorImpl(candidate_layout_box, *anchor_map,
-                               implicit_anchor, actual_containing_block,
-                               container_info.writing_direction, container_rect,
-                               scroll_rect);
-  }
-  return AnchorEvaluatorImpl(container_info.writing_direction);
+  return AnchorEvaluatorImpl(candidate_layout_box, anchor_map, implicit_anchor,
+                             containing_block, actual_containing_block,
+                             grid_layout_data, container_info.writing_direction,
+                             container_size, container_rect, scroll_rect);
 }
 
 OutOfFlowLayoutPart::NodeInfo OutOfFlowLayoutPart::SetupNodeInfo(
@@ -2375,18 +2303,9 @@ OutOfFlowLayoutPart::TryCalculateOffset(
       candidate_style.GetWritingDirection();
   const auto container_writing_direction = container_info.writing_direction;
 
-  // Contract the container-rect based on the position-area if needed.
-  const LogicalRect container_rect = ([&]() {
-    if (const auto& offsets = candidate_style.PositionAreaOffsets()) {
-      const BoxStrut insets =
-          offsets->insets.ConvertToLogical(container_writing_direction);
-      LogicalRect rect = base_rect;
-      rect.ContractEdges(insets.block_start, insets.inline_end,
-                         insets.block_end, insets.inline_start);
-      return rect;
-    }
-    return base_rect;
-  })();
+  const LogicalRect container_rect =
+      anchor_evaluator.AdjustedContainingBlockRect(
+          candidate_style.PositionAreaOffsets(), has_default_anchor);
 
   const PhysicalSize container_physical_content_size =
       ToPhysicalSize(container_rect.size,

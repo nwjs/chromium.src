@@ -4,6 +4,7 @@
 
 #include "components/omnibox/browser/actions/contextual_search_action.h"
 
+#include "components/omnibox/common/omnibox_features.h"
 #include "base/metrics/histogram_functions.h"
 #include "components/omnibox/browser/actions/omnibox_action_concepts.h"
 #include "components/omnibox/common/omnibox_feature_configs.h"
@@ -11,6 +12,10 @@
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
+
+#if BUILDFLAG(IS_ANDROID)
+#include "components/omnibox/browser/actions/omnibox_action_factory_android.h"
+#endif
 
 #if defined(SUPPORT_PEDALS_VECTOR_ICONS)
 #include "build/branding_buildflags.h"                // nogncheck
@@ -124,7 +129,9 @@ void ContextualSearchOpenLensAction::RecordActionShown(size_t position,
 }
 
 void ContextualSearchOpenLensAction::Execute(ExecutionContext& context) const {
-  if (context.client_->ShouldOpenCoBrowsePanel()) {
+  if (context.client_->ShouldOpenComposeboxForAskG()) {
+    context.client_->OpenComposeboxForAskG();
+  } else if (context.client_->ShouldOpenCoBrowsePanel()) {
     context.client_->OpenCoBrowsePanel();
   } else {
     context.client_->OpenLensOverlay(/*show=*/true);
@@ -137,7 +144,12 @@ const gfx::VectorIcon& ContextualSearchOpenLensAction::GetVectorIcon() const {
   return omnibox_feature_configs::ContextualSearch::Get()
                  .open_lens_action_ui_tweaks
              ? vector_icons::kGoogleLensLogoIcon
-             : vector_icons::kGoogleLensMonochromeLogoIcon;
+             : (omnibox::kAskGSwapIcon.Get()
+                    ? (features::IsRoundedIconsEnabled()
+                           ? omnibox::kSearchSparkIcon
+                           : omnibox::kSearchSparkOldIcon)
+                    : vector_icons::kGoogleLensMonochromeLogoIcon);
+
 #else
   return features::IsRoundedIconsEnabled()
              ? vector_icons::kSearchIcon
@@ -146,139 +158,16 @@ const gfx::VectorIcon& ContextualSearchOpenLensAction::GetVectorIcon() const {
 }
 #endif  // defined(SUPPORT_PEDALS_VECTOR_ICONS)
 
+#if BUILDFLAG(IS_ANDROID)
+base::android::ScopedJavaLocalRef<jobject>
+ContextualSearchOpenLensAction::GetOrCreateJavaObject(JNIEnv* env) const {
+  if (!j_omnibox_action_) {
+    j_omnibox_action_.Reset(BuildOmniboxLensOverlayAction(
+        env, reinterpret_cast<intptr_t>(this), strings_.hint,
+        strings_.accessibility_hint));
+  }
+  return base::android::ScopedJavaLocalRef<jobject>(j_omnibox_action_);
+}
+#endif
+
 ContextualSearchOpenLensAction::~ContextualSearchOpenLensAction() = default;
-
-////////////////////////////////////////////////////////////////////////////////
-
-StarterPackBookmarksAction::StarterPackBookmarksAction()
-    : OmniboxAction(OmniboxAction::LabelStrings(
-                        IDS_STARTER_PACK_BOOKMARKS_ACTION_HINT,
-                        IDS_STARTER_PACK_BOOKMARKS_ACTION_SUGGESTION_CONTENTS,
-                        IDS_ACC_STARTER_PACK_BOOKMARKS_ACTION_SUFFIX,
-                        IDS_ACC_STARTER_PACK_BOOKMARKS_ACTION),
-                    GURL()) {}
-
-OmniboxActionId StarterPackBookmarksAction::ActionId() const {
-  return OmniboxActionId::STARTER_PACK_BOOKMARKS;
-}
-
-void StarterPackBookmarksAction::RecordActionShown(size_t position,
-                                                   bool executed) const {
-  base::UmaHistogramBoolean("Omnibox.StarterPackBookmarksAction.Ctr", executed);
-}
-
-void StarterPackBookmarksAction::Execute(ExecutionContext& context) const {
-  context.enter_starter_pack_id_ = static_cast<int>(
-      template_url_starter_pack_data::StarterPackId::kBookmarks);
-}
-
-#if defined(SUPPORT_PEDALS_VECTOR_ICONS)
-const gfx::VectorIcon& StarterPackBookmarksAction::GetVectorIcon() const {
-  return features::IsRoundedIconsEnabled()
-             ? omnibox::kStarFilledIcon
-             : omnibox::kStarActiveChromeRefreshOldIcon;
-}
-#endif  // defined(SUPPORT_PEDALS_VECTOR_ICONS)
-
-StarterPackBookmarksAction::~StarterPackBookmarksAction() = default;
-
-////////////////////////////////////////////////////////////////////////////////
-
-StarterPackHistoryAction::StarterPackHistoryAction()
-    : OmniboxAction(OmniboxAction::LabelStrings(
-                        IDS_STARTER_PACK_HISTORY_ACTION_HINT,
-                        IDS_STARTER_PACK_HISTORY_ACTION_SUGGESTION_CONTENTS,
-                        IDS_ACC_STARTER_PACK_HISTORY_ACTION_SUFFIX,
-                        IDS_ACC_STARTER_PACK_HISTORY_ACTION),
-                    GURL()) {}
-
-OmniboxActionId StarterPackHistoryAction::ActionId() const {
-  return OmniboxActionId::STARTER_PACK_HISTORY;
-}
-
-void StarterPackHistoryAction::RecordActionShown(size_t position,
-                                                 bool executed) const {
-  base::UmaHistogramBoolean("Omnibox.StarterPackHistoryAction.Ctr", executed);
-}
-
-void StarterPackHistoryAction::Execute(ExecutionContext& context) const {
-  context.enter_starter_pack_id_ =
-      static_cast<int>(template_url_starter_pack_data::StarterPackId::kHistory);
-}
-
-#if defined(SUPPORT_PEDALS_VECTOR_ICONS)
-const gfx::VectorIcon& StarterPackHistoryAction::GetVectorIcon() const {
-  return features::IsRoundedIconsEnabled()
-             ? vector_icons::kHistoryIcon
-             : vector_icons::kHistoryChromeRefreshOldIcon;
-}
-#endif  // defined(SUPPORT_PEDALS_VECTOR_ICONS)
-
-StarterPackHistoryAction::~StarterPackHistoryAction() = default;
-
-////////////////////////////////////////////////////////////////////////////////
-
-StarterPackTabsAction::StarterPackTabsAction()
-    : OmniboxAction(OmniboxAction::LabelStrings(
-                        IDS_STARTER_PACK_TABS_ACTION_HINT,
-                        IDS_STARTER_PACK_TABS_ACTION_SUGGESTION_CONTENTS,
-                        IDS_ACC_STARTER_PACK_TABS_ACTION_SUFFIX,
-                        IDS_ACC_STARTER_PACK_TABS_ACTION),
-                    GURL()) {}
-
-OmniboxActionId StarterPackTabsAction::ActionId() const {
-  return OmniboxActionId::STARTER_PACK_TABS;
-}
-
-void StarterPackTabsAction::RecordActionShown(size_t position,
-                                              bool executed) const {
-  base::UmaHistogramBoolean("Omnibox.StarterPackTabsAction.Ctr", executed);
-}
-
-void StarterPackTabsAction::Execute(ExecutionContext& context) const {
-  context.enter_starter_pack_id_ =
-      static_cast<int>(template_url_starter_pack_data::StarterPackId::kTabs);
-}
-
-#if defined(SUPPORT_PEDALS_VECTOR_ICONS)
-const gfx::VectorIcon& StarterPackTabsAction::GetVectorIcon() const {
-  return features::IsRoundedIconsEnabled()
-             ? omnibox::kChromeProductIcon
-             : omnibox::kProductChromeRefreshOldIcon;
-}
-#endif  // defined(SUPPORT_PEDALS_VECTOR_ICONS)
-
-StarterPackTabsAction::~StarterPackTabsAction() = default;
-
-////////////////////////////////////////////////////////////////////////////////
-
-StarterPackAiModeAction::StarterPackAiModeAction()
-    : OmniboxAction(OmniboxAction::LabelStrings(
-                        IDS_STARTER_PACK_AI_MODE_ACTION_HINT,
-                        IDS_STARTER_PACK_AI_MODE_ACTION_SUGGESTION_CONTENTS,
-                        IDS_ACC_STARTER_PACK_AI_MODE_ACTION_SUFFIX,
-                        IDS_ACC_STARTER_PACK_AI_MODE_ACTION),
-                    GURL()) {}
-
-OmniboxActionId StarterPackAiModeAction::ActionId() const {
-  return OmniboxActionId::STARTER_PACK_AI_MODE;
-}
-
-void StarterPackAiModeAction::RecordActionShown(size_t position,
-                                                bool executed) const {
-  base::UmaHistogramBoolean("Omnibox.StarterPackAiModeAction.Ctr", executed);
-}
-
-void StarterPackAiModeAction::Execute(ExecutionContext& context) const {
-  context.enter_starter_pack_id_ =
-      static_cast<int>(template_url_starter_pack_data::StarterPackId::kAiMode);
-}
-
-#if defined(SUPPORT_PEDALS_VECTOR_ICONS)
-const gfx::VectorIcon& StarterPackAiModeAction::GetVectorIcon() const {
-  return features::IsRoundedIconsEnabled() ? omnibox::kSearchSparkIcon
-                                           : omnibox::kSearchSparkOldIcon;
-}
-#endif  // defined(SUPPORT_PEDALS_VECTOR_ICONS)
-
-StarterPackAiModeAction::~StarterPackAiModeAction() = default;

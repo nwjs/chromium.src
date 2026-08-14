@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/glic/browser_ui/glic_nudge_controller_android.h"
+#include "chrome/browser/glic/browser_ui/glic_nudge_controller.h"
 
 #include "base/functional/callback_helpers.h"
+#include "base/memory/raw_ptr.h"
 #include "base/test/test_future.h"
-#include "chrome/browser/glic/browser_ui/glic_nudge_delegate.h"
+#include "chrome/browser/glic/browser_ui/glic_split_button_delegate.h"
 #include "chrome/browser/glic/test_support/glic_browser_test.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -16,7 +17,7 @@ namespace glic {
 
 namespace {
 
-class MockGlicNudgeDelegate : public GlicNudgeDelegate {
+class MockGlicNudgeDelegate : public GlicSplitButtonDelegate {
  public:
   MockGlicNudgeDelegate() = default;
   ~MockGlicNudgeDelegate() override = default;
@@ -48,19 +49,23 @@ class GlicNudgeControllerAndroidBrowserTest : public GlicBrowserTest {
 
   void SetUpOnMainThread() override {
     GlicBrowserTest::SetUpOnMainThread();
-    nudge_controller_ = std::make_unique<GlicNudgeControllerAndroid>(
-        GetTabListInterface()->GetActiveTab()->GetContents());
-    nudge_controller_->SetTabStripDelegate(&mock_delegate_);
+    nudge_controller_ = static_cast<GlicNudgeController*>(
+        GlicNudgeController::From(GetBrowser()));
+    ASSERT_TRUE(nudge_controller_);
+    nudge_controller_->SetHorizontalTabsDelegate(&mock_delegate_);
   }
 
   void TearDownOnMainThread() override {
-    nudge_controller_.reset();
+    if (nudge_controller_) {
+      nudge_controller_->SetHorizontalTabsDelegate(nullptr);
+    }
+    nudge_controller_ = nullptr;
     GlicBrowserTest::TearDownOnMainThread();
   }
 
  protected:
   MockGlicNudgeDelegate mock_delegate_;
-  std::unique_ptr<GlicNudgeControllerAndroid> nudge_controller_;
+  raw_ptr<GlicNudgeController> nudge_controller_ = nullptr;
 };
 
 IN_PROC_BROWSER_TEST_F(GlicNudgeControllerAndroidBrowserTest, ShowsNudge) {
@@ -70,9 +75,9 @@ IN_PROC_BROWSER_TEST_F(GlicNudgeControllerAndroidBrowserTest, ShowsNudge) {
   EXPECT_FALSE(mock_delegate_.GetIsShowingGlicNudge());
 
   base::test::TestFuture<GlicNudgeActivity> future;
-  nudge_controller_->UpdateNudgeLabel(
-      web_contents, "Nudge Label", "Prompt Suggestion", "Anchored Message Text",
-      std::nullopt, future.GetRepeatingCallback());
+  nudge_controller_->UpdateNudgeLabel(web_contents, "Nudge Label",
+                                      "Prompt Suggestion", std::nullopt,
+                                      future.GetRepeatingCallback());
 
   EXPECT_TRUE(mock_delegate_.GetIsShowingGlicNudge());
   EXPECT_EQ(future.Get(), GlicNudgeActivity::kNudgeShown);
@@ -87,33 +92,33 @@ IN_PROC_BROWSER_TEST_F(GlicNudgeControllerAndroidBrowserTest, HidesNudge) {
   EXPECT_FALSE(mock_delegate_.GetIsShowingGlicNudge());
 
   base::test::TestFuture<GlicNudgeActivity> show_future;
-  nudge_controller_->UpdateNudgeLabel(
-      web_contents, "Nudge Label", "Prompt Suggestion", "Anchored Message Text",
-      std::nullopt, show_future.GetRepeatingCallback());
+  nudge_controller_->UpdateNudgeLabel(web_contents, "Nudge Label",
+                                      "Prompt Suggestion", std::nullopt,
+                                      show_future.GetRepeatingCallback());
 
   EXPECT_TRUE(mock_delegate_.GetIsShowingGlicNudge());
   EXPECT_EQ(show_future.Get(), GlicNudgeActivity::kNudgeShown);
 
   base::test::TestFuture<GlicNudgeActivity> hide_future;
-  nudge_controller_->UpdateNudgeLabel(
-      web_contents, std::string(), std::nullopt, std::string(),
-      GlicNudgeActivity::kNudgeDismissed, hide_future.GetRepeatingCallback());
+  nudge_controller_->UpdateNudgeLabel(web_contents, std::string(), std::nullopt,
+                                      GlicNudgeActivity::kNudgeDismissed,
+                                      hide_future.GetRepeatingCallback());
 
   EXPECT_FALSE(mock_delegate_.GetIsShowingGlicNudge());
   EXPECT_EQ(hide_future.Get(), GlicNudgeActivity::kNudgeDismissed);
 }
 
 IN_PROC_BROWSER_TEST_F(GlicNudgeControllerAndroidBrowserTest,
-                       DISABLED_HidesNudgeOnActiveTabChanged) {
+                       HidesNudgeOnActiveTabChanged) {
   content::WebContents* web_contents =
       GetTabListInterface()->GetActiveTab()->GetContents();
 
   EXPECT_FALSE(mock_delegate_.GetIsShowingGlicNudge());
 
   base::test::TestFuture<GlicNudgeActivity> future;
-  nudge_controller_->UpdateNudgeLabel(
-      web_contents, "Nudge Label", "Prompt Suggestion", "Anchored Message Text",
-      std::nullopt, future.GetRepeatingCallback());
+  nudge_controller_->UpdateNudgeLabel(web_contents, "Nudge Label",
+                                      "Prompt Suggestion", std::nullopt,
+                                      future.GetRepeatingCallback());
 
   EXPECT_TRUE(mock_delegate_.GetIsShowingGlicNudge());
   EXPECT_EQ(future.Take(), GlicNudgeActivity::kNudgeShown);
@@ -126,7 +131,7 @@ IN_PROC_BROWSER_TEST_F(GlicNudgeControllerAndroidBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(GlicNudgeControllerAndroidBrowserTest,
-                       DISABLED_DoesNotShowNudgeForInactiveTab) {
+                       DoesNotShowNudgeForInactiveTab) {
   tabs::TabInterface* active_tab = GetTabListInterface()->GetActiveTab();
   tabs::TabInterface* inactive_tab = CreateAndActivateTab(GetSimpleTestUrl());
   GetTabListInterface()->ActivateTab(active_tab->GetHandle());
@@ -136,7 +141,7 @@ IN_PROC_BROWSER_TEST_F(GlicNudgeControllerAndroidBrowserTest,
   base::test::TestFuture<GlicNudgeActivity> future;
   nudge_controller_->UpdateNudgeLabel(
       inactive_tab->GetContents(), "Nudge Label", "Prompt Suggestion",
-      "Anchored Message Text", std::nullopt, future.GetRepeatingCallback());
+      std::nullopt, future.GetRepeatingCallback());
 
   EXPECT_FALSE(mock_delegate_.GetIsShowingGlicNudge());
   EXPECT_EQ(future.Get(), GlicNudgeActivity::kNudgeNotShownWebContents);
@@ -148,9 +153,9 @@ IN_PROC_BROWSER_TEST_F(GlicNudgeControllerAndroidBrowserTest,
       GetTabListInterface()->GetActiveTab()->GetContents();
 
   base::test::TestFuture<GlicNudgeActivity> future;
-  nudge_controller_->UpdateNudgeLabel(
-      web_contents, "Nudge Label", "Prompt Suggestion", "Anchored Message Text",
-      std::nullopt, future.GetRepeatingCallback());
+  nudge_controller_->UpdateNudgeLabel(web_contents, "Nudge Label",
+                                      "Prompt Suggestion", std::nullopt,
+                                      future.GetRepeatingCallback());
 
   EXPECT_EQ(nudge_controller_->GetPromptSuggestion(), "Prompt Suggestion");
   nudge_controller_->ClearPromptSuggestion();

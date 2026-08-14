@@ -34,7 +34,6 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) DispatchContextImplOrt final
       mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
       mojo::ScopedDataPipeProducerHandle read_tensor_producer,
       scoped_refptr<Environment> env,
-      scoped_refptr<SessionOptions> session_options,
       std::unique_ptr<GpuTaskScheduler> gpu_task_scheduler,
       scoped_refptr<gpu::MemoryTracker> memory_tracker,
       scoped_refptr<base::SingleThreadTaskRunner> owning_task_runner,
@@ -47,7 +46,6 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) DispatchContextImplOrt final
       mojo::PendingReceiver<mojom::WebNNContext> receiver,
       base::WeakPtr<WebNNContextProviderImpl> context_provider,
       const EpWorkarounds& ep_workarounds,
-      bool dequantize_linear_input_support_int32,
       mojom::CreateContextOptionsPtr options,
       scoped_refptr<SessionOptions> session_options,
       mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
@@ -76,6 +74,8 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) DispatchContextImplOrt final
   base::WeakPtr<WebNNContextImpl> AsWeakPtr() override;
 
   // mojom::WebNNContext:
+  void CreateGraphBuilder(
+      mojo::PendingReceiver<mojom::WebNNGraphBuilder> receiver) override;
   void RequestCompilerContext(mojo::PendingReceiver<mojom::WebNNCompilerContext>
                                   compiler_context_receiver) override;
 
@@ -83,10 +83,8 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) DispatchContextImplOrt final
   ~DispatchContextImplOrt() override;
 
   // mojom::WebNNModelLoader:
-  void LoadCompiledGraph(
-      mojom::CompiledGraphPtr compiled_graph,
-      mojo::PendingReceiver<mojom::WebNNGraph> graph_receiver,
-      LoadCompiledGraphCallback callback) override;
+  void LoadCompiledGraph(mojom::CompiledGraphPtr compiled_graph,
+                         LoadCompiledGraphCallback callback) override;
 
   // The EP device that was selected for this DispatchContextImplOrt. Used to
   // reconnect when requesting a CompilerContext from the Compiler process for

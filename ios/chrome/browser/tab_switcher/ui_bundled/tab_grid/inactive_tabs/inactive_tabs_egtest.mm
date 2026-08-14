@@ -126,6 +126,13 @@ id<GREYMatcher> GetMatcherForUserEducationSettingsButton() {
                                  forKey:kInactiveTabsUserEducationShownOnceKey];
 }
 
+- (void)tearDownHelper {
+  [ChromeEarlGrey removeUserDefaultsObjectForKey:@"InactiveTabsTestMode"];
+  [ChromeEarlGrey
+      removeUserDefaultsObjectForKey:kInactiveTabsUserEducationShownOnceKey];
+  [super tearDownHelper];
+}
+
 // Sets up the EmbeddedTestServer as needed for tests.
 - (void)setUpTestServer {
   RegisterQueryTitleHandler(self.testServer);

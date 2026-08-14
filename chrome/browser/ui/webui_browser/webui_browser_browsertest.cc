@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
@@ -138,6 +139,21 @@ IN_PROC_BROWSER_TEST_F(WebUIBrowserTest, StartupAndShutdown) {
       browser()->tab_strip_model()->GetActiveWebContents();
   ASSERT_TRUE(web_contents);
   EXPECT_TRUE(content::WaitForLoadStop(web_contents));
+}
+
+// Ensures that WebUIBrowser does not crash when closing tabs (rather than
+// closing window).
+IN_PROC_BROWSER_TEST_F(WebUIBrowserTest, ShutdownByClosingTabs) {
+  auto* window = WebUIBrowserWindow::FromBrowser(browser());
+  ASSERT_TRUE(window);
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(web_contents);
+  EXPECT_TRUE(content::WaitForLoadStop(web_contents));
+  browser()->tab_strip_model()->CloseAllTabs();
+  ASSERT_TRUE(base::test::RunUntil(
+      []() { return GlobalBrowserCollection::GetInstance()->IsEmpty(); }));
 }
 
 // Verifies that WebUIBrowserWindow allows keyboard lock for tab WebContents.
@@ -306,7 +322,7 @@ IN_PROC_BROWSER_TEST_F(WebUIBrowserTest, TabFullscreenEnterAndExit) {
 
 IN_PROC_BROWSER_TEST_F(WebUIBrowserTest, BookmarkNodeFaviconChangedRegression) {
   bookmarks::BookmarkModel* model =
-      BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+      BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
   ASSERT_TRUE(base::test::RunUntil([&]() { return model->loaded(); }));
 
   FakeBookmarkBarPage page;
@@ -340,11 +356,15 @@ IN_PROC_BROWSER_TEST_F(WebUIBrowserTest, BookmarkNodeFaviconChangedRegression) {
   }
 }
 
-// Verifies that when kSurfaceEmbed is enabled, the WebUI browser (Webium)
-// renders a red rectangle for the tab content. This test will need updated as
-// surface embed support is expanded.
+// TODO(crbug.com/534291359): Re-enable this test on Linux once the issue is
+// fixed.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_SurfaceEmbedRendersRedRect DISABLED_SurfaceEmbedRendersRedRect
+#else
+#define MAYBE_SurfaceEmbedRendersRedRect SurfaceEmbedRendersRedRect
+#endif
 IN_PROC_BROWSER_TEST_F(WebUIBrowserSurfaceEmbedPixelTest,
-                       SurfaceEmbedRendersRedRect) {
+                       MAYBE_SurfaceEmbedRendersRedRect) {
   // Get the UI WebContents (the embedder/outer frame that contains the <embed>
   // element with the SurfaceEmbedWebPlugin). We need to capture from this
   // WebContents since it has the fully composed view including the plugin's
@@ -505,7 +525,7 @@ IN_PROC_BROWSER_TEST_F(WebUIBrowserTest, SetContentsSizeResizesWindow) {
 IN_PROC_BROWSER_TEST_F(WebUIBrowserTest, SetContentsSizeEarlyResizesWindow) {
   // 1) Create a new browser window and add a default tab
   Browser* new_browser = Browser::Create(Browser::CreateParams(
-      Browser::Type::TYPE_NORMAL, browser()->profile(), true));
+      Browser::Type::TYPE_NORMAL, browser()->GetProfile(), true));
   chrome::AddTabAt(new_browser, GURL(), -1, true);
 
   auto* window = WebUIBrowserWindow::FromBrowser(new_browser);
@@ -542,7 +562,7 @@ IN_PROC_BROWSER_TEST_F(WebUIBrowserTest,
                        ActiveTabHasNonZeroSizeOnWindowCreation) {
   // Create a new browser window with a tab.
   Browser* new_browser = Browser::Create(Browser::CreateParams(
-      Browser::Type::TYPE_NORMAL, browser()->profile(), true));
+      Browser::Type::TYPE_NORMAL, browser()->GetProfile(), true));
   chrome::AddTabAt(new_browser, GURL(), -1, true);
   new_browser->GetWindow()->Show();
 
@@ -553,4 +573,35 @@ IN_PROC_BROWSER_TEST_F(WebUIBrowserTest,
   // The active tab's size must be non-zero immediately after the browser window
   // is created.
   EXPECT_FALSE(active_contents->GetSize().IsZero());
+  // Clean up the new browser window before test exits. This fixes flakiness on
+  // macOS. Sometimes the Browser is destroyed but the render process is still
+  // alive, then the browser process crashes due to UaF handling a mojo message
+  // from the render process.
+  CloseBrowserSynchronously(new_browser);
 }
+
+IN_PROC_BROWSER_TEST_F(WebUIBrowserTest, NewTabGetsFocus) {
+  auto* window = WebUIBrowserWindow::FromBrowser(browser());
+  ASSERT_TRUE(window);
+
+  content::WebContents* ui_web_contents =
+      window->GetWebUIBrowserUI()->web_ui()->GetWebContents();
+  EXPECT_TRUE(content::WaitForLoadStop(ui_web_contents));
+
+  // Open a new tab (e.g. simulating the new tab action or dragging a new tab).
+  GURL url = embedded_https_test_server().GetURL("a.com", "/defaultresponse");
+  EXPECT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
+      browser(), url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
+
+  content::WebContents* second_tab =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(second_tab);
+
+  // The newly created active tab should get focus.
+  EXPECT_TRUE(base::test::RunUntil([second_tab]() {
+    return second_tab->GetRenderWidgetHostView() &&
+           second_tab->GetRenderWidgetHostView()->HasFocus();
+  }));
+}
+

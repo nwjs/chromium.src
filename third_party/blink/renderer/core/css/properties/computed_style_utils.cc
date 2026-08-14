@@ -81,6 +81,7 @@
 #include "third_party/blink/renderer/platform/fonts/font_variant_emoji.h"
 #include "third_party/blink/renderer/platform/fonts/opentype/font_settings.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/transforms/matrix_3d_transform_operation.h"
 #include "third_party/blink/renderer/platform/transforms/matrix_transform_operation.h"
 #include "third_party/blink/renderer/platform/transforms/perspective_transform_operation.h"
@@ -264,7 +265,11 @@ const CSSValue* ComputedStyleUtils::ValueForFillSize(
     return CSSIdentifierValue::Create(CSSValueID::kCover);
   }
 
-  if (fill_size.size.Height().IsAuto()) {
+  // Collapse to a single value only when both axes are `auto` (`auto auto` ->
+  // `auto`). Otherwise the pair must be preserved, so e.g. a width of `1px`
+  // with an implied `auto` height serializes as `1px auto`.
+  // https://github.com/w3c/csswg-drafts/issues/7802
+  if (fill_size.size.Width().IsAuto() && fill_size.size.Height().IsAuto()) {
     return ZoomAdjustedPixelValueForLength(fill_size.size.Width(), style);
   }
 
@@ -2358,9 +2363,14 @@ std::optional<gfx::SizeF> ComputedStyleUtils::UsedBoxSize(
       return std::nullopt;
     }
     gfx::SizeF size = layout_object.ObjectBoundingBox().size();
-    // The object bounding box does not have zoom applied. Multiply with zoom
-    // here since we'll divide by it when we produce the CSS value.
-    size.Scale(layout_object.StyleRef().EffectiveZoom());
+    if (!RuntimeEnabledFeatures::SvgNewZoomEnabled()) {
+      // The CSS value producer will divide by EffectiveZoom, so the value
+      // returned here must be in zoomed-pixel units.
+      // Under SvgNewZoom, ObjectBoundingBox() is already in zoomed CSS pixels
+      // (since SVG element layout absorbs EffectiveZoom). Under the old model,
+      // the bbox is in CSS pixels, so we must multiply by zoom.
+      size.Scale(layout_object.StyleRef().EffectiveZoom());
+    }
     return size;
   }
   if (const auto* box = DynamicTo<LayoutBox>(layout_object)) {
@@ -3058,24 +3068,6 @@ CSSValue* ComputedStyleUtils::ValueForBorderRadiusCorner(
 
 CSSValue* ComputedStyleUtils::ValueForCornerShape(
     const Superellipse& superellipse) {
-  if (superellipse == Superellipse::Bevel()) {
-    return CSSIdentifierValue::Create(CSSValueID::kBevel);
-  }
-  if (superellipse == Superellipse::Notch()) {
-    return CSSIdentifierValue::Create(CSSValueID::kNotch);
-  }
-  if (superellipse == Superellipse::Round()) {
-    return CSSIdentifierValue::Create(CSSValueID::kRound);
-  }
-  if (superellipse == Superellipse::Scoop()) {
-    return CSSIdentifierValue::Create(CSSValueID::kScoop);
-  }
-  if (superellipse == Superellipse::Square()) {
-    return CSSIdentifierValue::Create(CSSValueID::kSquare);
-  }
-  if (superellipse == Superellipse::Squircle()) {
-    return CSSIdentifierValue::Create(CSSValueID::kSquircle);
-  }
   return MakeGarbageCollected<cssvalue::CSSSuperellipseValue>(
       *CSSNumericLiteralValue::Create(superellipse.Parameter(),
                                       CSSPrimitiveValue::UnitType::kNumber));
@@ -3611,7 +3603,7 @@ CSSValue* ComputedStyleUtils::ValueForShape(const ComputedStyle& style,
 
   CSSValueList* list = CSSValueList::CreateSpaceSeparated();
   list->Append(*ValueForBasicShape(style, shape_value->Shape()));
-  if (shape_value->CssBox() != ShapeBox::kMissing) {
+  if (shape_value->CssBox() != ShapeBox::kMarginBox) {
     list->Append(*CSSIdentifierValue::Create(shape_value->CssBox()));
   }
   return list;
@@ -4289,7 +4281,7 @@ CSSValueList* ComputedStyleUtils::ValueForGapDecorationRuleShorthand(
       shorthand.properties()[2]->CSSValueFromComputedStyle(
           style, layout_object, allow_visited_style, value_phase));
 
-  const size_t count = width_values->length();
+  const wtf_size_t count = width_values->length();
 
   // If the longhands differ in length, return nullptr.
   if (count != style_values->length() || count != color_values->length()) {
@@ -4298,7 +4290,7 @@ CSSValueList* ComputedStyleUtils::ValueForGapDecorationRuleShorthand(
 
   CSSValueList* result = CSSValueList::CreateCommaSeparated();
 
-  for (size_t i = 0; i < count; ++i) {
+  for (wtf_size_t i = 0; i < count; ++i) {
     const auto* style_repeat_value =
         DynamicTo<cssvalue::CSSRepeatValue>(style_values->Item(i));
     const auto* color_repeat_value =
@@ -4343,7 +4335,7 @@ CSSValueList* ComputedStyleUtils::ValueForGapDecorationRuleShorthand(
         return nullptr;
       }
 
-      for (size_t j = 0; j < rules_count; ++j) {
+      for (wtf_size_t j = 0; j < rules_count; ++j) {
         CSSValueList* gap_rule =
             GetValueListForGapRule(width_repeat_value->Values().Item(j),
                                    style_repeat_value->Values().Item(j),

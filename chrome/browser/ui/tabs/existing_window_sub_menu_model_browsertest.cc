@@ -39,13 +39,14 @@ class ExistingWindowSubMenuModelTest : public InProcessBrowserTest {
  public:
   ExistingWindowSubMenuModelTest() = default;
 
-  Profile* profile() { return browser()->profile(); }
+  Profile* profile() { return browser()->GetProfile(); }
 
  protected:
   Browser* CreateTestBrowser(bool incognito, bool popup) {
-    Profile* profile = incognito ? browser()->profile()->GetPrimaryOTRProfile(
-                                       /*create_if_needed=*/true)
-                                 : browser()->profile();
+    Profile* profile = incognito
+                           ? browser()->GetProfile()->GetPrimaryOTRProfile(
+                                 /*create_if_needed=*/true)
+                           : browser()->GetProfile();
     Browser::Type type = popup ? Browser::TYPE_POPUP : Browser::TYPE_NORMAL;
 
     Browser* browser =
@@ -56,7 +57,7 @@ class ExistingWindowSubMenuModelTest : public InProcessBrowserTest {
   }
 #if BUILDFLAG(IS_CHROMEOS)
   Browser* CreateTestBrowserOnWorkspace(std::string desk_index) {
-    Browser::CreateParams params(Browser::TYPE_NORMAL, browser()->profile(),
+    Browser::CreateParams params(Browser::TYPE_NORMAL, browser()->GetProfile(),
                                  true);
     params.initial_workspace = desk_index;
     Browser* browser = Browser::Create(params);
@@ -145,21 +146,22 @@ IN_PROC_BROWSER_TEST_F(ExistingWindowSubMenuModelTest,
   // Shouldn't show menu for one window.
   ASSERT_FALSE(ExistingWindowSubMenuModel::ShouldShowSubmenu(profile()));
   ASSERT_FALSE(ExistingWindowSubMenuModel::ShouldShowSubmenu(
-      browser()->profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true)));
+      browser()->GetProfile()->GetPrimaryOTRProfile(
+          /*create_if_needed=*/true)));
 
   // Create an incognito browser. We shouldn't show the menu, because we only
   // move tabs between windows of the same profile.
   Browser* incognito_browser_1(CreateTestBrowser(true, false));
   ASSERT_FALSE(ExistingWindowSubMenuModel::ShouldShowSubmenu(profile()));
   ASSERT_FALSE(ExistingWindowSubMenuModel::ShouldShowSubmenu(
-      incognito_browser_1->profile()->GetPrimaryOTRProfile(
+      incognito_browser_1->GetProfile()->GetPrimaryOTRProfile(
           /*create_if_needed=*/true)));
 
   // Add another incognito browser, and make sure we do show the menu now.
   Browser* incognito_browser_2(CreateTestBrowser(true, false));
   ASSERT_FALSE(ExistingWindowSubMenuModel::ShouldShowSubmenu(profile()));
   ASSERT_TRUE(ExistingWindowSubMenuModel::ShouldShowSubmenu(
-      incognito_browser_2->profile()->GetPrimaryOTRProfile(
+      incognito_browser_2->GetProfile()->GetPrimaryOTRProfile(
           /*create_if_needed=*/true)));
 }
 
@@ -168,12 +170,12 @@ IN_PROC_BROWSER_TEST_F(ExistingWindowSubMenuModelTest, ShouldShowSubmenuPopup) {
   // Popup windows aren't counted when determining whether to show the menu.
   Browser* browser_2(CreateTestBrowser(false, true));
   ASSERT_FALSE(
-      ExistingWindowSubMenuModel::ShouldShowSubmenu(browser_2->profile()));
+      ExistingWindowSubMenuModel::ShouldShowSubmenu(browser_2->GetProfile()));
 
   // Add another tabbed window, make sure the menu shows.
   Browser* browser_3(CreateTestBrowser(false, false));
   ASSERT_TRUE(
-      ExistingWindowSubMenuModel::ShouldShowSubmenu(browser_3->profile()));
+      ExistingWindowSubMenuModel::ShouldShowSubmenu(browser_3->GetProfile()));
 }
 
 // Validate that windows appear in MRU order and with the expected labels.

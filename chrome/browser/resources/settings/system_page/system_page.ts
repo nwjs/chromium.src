@@ -9,34 +9,37 @@
 
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
+// <if expr="_google_chrome">
+import 'chrome://resources/cr_elements/cr_link_row/cr_link_row.js';
+// </if>
 import 'chrome://resources/cr_elements/policy/cr_policy_indicator.js';
 import '/shared/settings/controls/cr_policy_pref_indicator.js';
 import '/shared/settings/controls/extension_controlled_indicator.js';
 import '../controls/settings_toggle_button.js';
 import '../relaunch_confirmation_dialog.js';
 import '../settings_page/settings_section.js';
-import '../settings_shared.css.js';
 
-import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
-import {CrSettingsPrefs} from '/shared/settings/prefs/prefs_types.js';
-import {WebUiListenerMixin} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
-import {OpenWindowProxyImpl} from 'chrome://resources/js/open_window_proxy.js';
-import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {PrefService} from '/shared/settings/prefs2/pref_service.js';
+import {PrefServiceObserverMixinLit} from '/shared/settings/prefs2/pref_service_observer_mixin_lit.js';
+import {WebUiListenerMixinLit} from 'chrome://resources/cr_elements/web_ui_listener_mixin_lit.js';
+import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
 import type {SettingsToggleButtonElement} from '../controls/settings_toggle_button.js';
 import {loadTimeData} from '../i18n_setup.js';
 // <if expr="_google_chrome and is_win">
 import {MetricsBrowserProxyImpl} from '../metrics_browser_proxy.js';
 // </if>
-import {RelaunchMixin, RestartType} from '../relaunch_mixin.js';
+import {RelaunchMixinLit, RestartType} from '../relaunch_mixin_lit.js';
+// <if expr="_google_chrome">
+import {routes} from '../route.js';
+import {Router} from '../router.js';
+// </if>
 import {getSearchManager} from '../search_settings.js';
 import type {SettingsPlugin} from '../settings_main/settings_plugin.js';
 
-// <if expr="_google_chrome">
-import type {OnDeviceAiBrowserProxy, OnDeviceAiEnabled} from './on_device_ai_browser_proxy.js';
-import {OnDeviceAiBrowserProxyImpl} from './on_device_ai_browser_proxy.js';
-// </if>
-import {getTemplate} from './system_page.html.js';
+import {getCss} from './system_page.css.js';
+import {getHtml} from './system_page.html.js';
 import {SystemPageBrowserProxyImpl} from './system_page_browser_proxy.js';
 
 interface ProxyOverrideRule {
@@ -56,12 +59,11 @@ export interface SettingsSystemPageElement {
     proxy: HTMLElement,
     proxyMultipleSources: HTMLElement,
     hardwareAcceleration: SettingsToggleButtonElement,
-    onDeviceAiToggle: SettingsToggleButtonElement,
   };
 }
 
-const SettingsSystemPageElementBase =
-    WebUiListenerMixin(PrefsMixin(RelaunchMixin(PolymerElement)));
+const SettingsSystemPageElementBase = WebUiListenerMixinLit(
+    PrefServiceObserverMixinLit(RelaunchMixinLit(CrLitElement)));
 
 export class SettingsSystemPageElement extends SettingsSystemPageElementBase
     implements SettingsPlugin {
@@ -69,111 +71,111 @@ export class SettingsSystemPageElement extends SettingsSystemPageElementBase
     return 'settings-system-page';
   }
 
-  static get template() {
-    return getTemplate();
+  static override get styles() {
+    return getCss();
   }
 
-  static get properties() {
+  override render() {
+    return getHtml.bind(this)();
+  }
+
+  static override get properties() {
     return {
-      // <if expr="_google_chrome">
-      showOnDeviceAiSettings_: {
-        type: Boolean,
-        value: () => loadTimeData.getBoolean('showOnDeviceAiSettings'),
-      },
-
-      onDeviceAiPref_: {
-        type: Object,
-        value() {
-          return {
-            key: 'settings.on_device_ai_enabled',
-            type: chrome.settingsPrivate.PrefType.BOOLEAN,
-            value: true,
-          };
-        },
-      },
-      // </if>
-
-      isProxyEnforcedByPolicy_: Boolean,
-      isProxyDefault_: Boolean,
-      isProxyEnforcedByMultipleSources_: Boolean,
+      isProxyEnforcedByPolicy_: {type: Boolean},
+      isProxyDefault_: {type: Boolean},
+      isProxyEnforcedByMultipleSources_: {type: Boolean},
 
       // <if expr="_google_chrome and is_win">
-      showFeatureNotificationsSetting_: {
-        readOnly: true,
-        type: Boolean,
-        value() {
-          return loadTimeData.getBoolean('showFeatureNotificationsSetting');
-        },
-      },
+      showFeatureNotificationsSetting_: {type: Boolean},
       // </if>
       // <if expr="is_win">
-      showProcessIsolationSetting_: {
-        readOnly: true,
-        type: Boolean,
-        value() {
-          return loadTimeData.getBoolean('showProcessIsolationSetting');
-        },
-      },
+      showProcessIsolationSetting_: {type: Boolean},
+      // </if>
+
+      proxyPref_: {type: Object},
+      proxyOverrideRulesPref_: {type: Object},
+      hardwareAccelerationModeEnabledPref_: {type: Object},
+      // <if expr="is_win">
+      isolationStateEnabledPref_: {type: Object},
       // </if>
     };
   }
 
-  static get observers() {
-    return [
-      'observeProxyPrefChanged_(prefs.proxy.*)',
-      'observeProxyPrefChanged_(prefs.proxy_override_rules.*)',
-    ];
-  }
+  protected accessor isProxyEnforcedByPolicy_: boolean = false;
+  protected accessor isProxyDefault_: boolean = false;
+  protected accessor isProxyEnforcedByMultipleSources_: boolean = false;
 
-  // <if expr="_google_chrome">
-  declare private showOnDeviceAiSettings_: boolean;
-  declare private onDeviceAiPref_: chrome.settingsPrivate.PrefObject<boolean>;
-  private onDeviceAiBrowserProxy_: OnDeviceAiBrowserProxy =
-      OnDeviceAiBrowserProxyImpl.getInstance();
-  // </if>
-  declare private isProxyEnforcedByPolicy_: boolean;
-  declare private isProxyDefault_: boolean;
-  declare private isProxyEnforcedByMultipleSources_: boolean;
   // <if expr="_google_chrome and is_win">
-  declare private showFeatureNotificationsSetting_: boolean;
+  protected accessor showFeatureNotificationsSetting_: boolean =
+      loadTimeData.getBoolean('showFeatureNotificationsSetting');
   // </if>
   // <if expr="is_win">
-  declare private showProcessIsolationSetting_: boolean;
+  protected accessor showProcessIsolationSetting_: boolean =
+      loadTimeData.getBoolean('showProcessIsolationSetting');
   private processIsolationEnabledAtStartup_: boolean|undefined;
   // </if>
 
-  // <if expr="_google_chrome">
-  override ready() {
-    super.ready();
-    const setOnDeviceAiPref = (onDeviceAiEnabled: OnDeviceAiEnabled) =>
-        this.setOnDeviceAiPref_(onDeviceAiEnabled);
-    this.addWebUiListener('on-device-ai-enabled-changed', setOnDeviceAiPref);
-    this.onDeviceAiBrowserProxy_.getOnDeviceAiEnabled().then(setOnDeviceAiPref);
-  }
+  protected accessor proxyPref_: chrome.settingsPrivate.PrefObject<unknown>|
+      undefined;
+  protected accessor proxyOverrideRulesPref_:
+      chrome.settingsPrivate.PrefObject<ProxyOverrideRule[]>|undefined;
+  protected accessor hardwareAccelerationModeEnabledPref_:
+      chrome.settingsPrivate.PrefObject<boolean>|undefined;
+  // <if expr="is_win">
+  protected accessor isolationStateEnabledPref_:
+      chrome.settingsPrivate.PrefObject<boolean>|undefined;
   // </if>
 
-  // <if expr="is_win">
   override connectedCallback() {
     super.connectedCallback();
-    CrSettingsPrefs.initialized.then(() => {
-      this.processIsolationEnabledAtStartup_ =
-          this.getPref<boolean>('isolation_state.enabled').value;
+
+    this.mirrorPrefs({
+      'proxy': 'proxyPref_',
+      'proxy_override_rules': 'proxyOverrideRulesPref_',
+      'hardware_acceleration_mode.enabled':
+          'hardwareAccelerationModeEnabledPref_',
+      // <if expr="is_win">
+      'isolation_state.enabled': 'isolationStateEnabledPref_',
+      // </if>
     });
+
+    // <if expr="is_win">
+    PrefService.getInstance().whenInitialized().then(() => {
+      this.processIsolationEnabledAtStartup_ =
+          PrefService.getInstance()
+              .getPref<boolean>('isolation_state.enabled')
+              .value;
+    });
+    // </if>
   }
-  // </if>
+
+  override willUpdate(changedProperties: PropertyValues<this>) {
+    super.willUpdate(changedProperties);
+
+    const changedPrivateProperties =
+        changedProperties as Map<PropertyKey, unknown>;
+    if (changedPrivateProperties.has('proxyPref_') ||
+        changedPrivateProperties.has('proxyOverrideRulesPref_')) {
+      this.observeProxyPrefChanged_();
+    }
+  }
 
   private observeProxyPrefChanged_() {
-    const pref = this.getPref('proxy');
+    if (!this.proxyPref_ || !this.proxyOverrideRulesPref_) {
+      return;
+    }
     // TODO(dbeam): do types of policy other than USER apply on ChromeOS?
-    this.isProxyEnforcedByPolicy_ =
-        pref.enforcement === chrome.settingsPrivate.Enforcement.ENFORCED &&
-        pref.controlledBy === chrome.settingsPrivate.ControlledBy.USER_POLICY;
-    this.isProxyDefault_ = !this.isProxyEnforcedByPolicy_ && !pref.extensionId;
+    this.isProxyEnforcedByPolicy_ = this.proxyPref_.enforcement ===
+            chrome.settingsPrivate.Enforcement.ENFORCED &&
+        this.proxyPref_.controlledBy ===
+            chrome.settingsPrivate.ControlledBy.USER_POLICY;
+    this.isProxyDefault_ =
+        !this.isProxyEnforcedByPolicy_ && !this.proxyPref_.extensionId;
 
-    const rulesPref = this.getPref<ProxyOverrideRule[]>('proxy_override_rules');
     // Don't need to consider multiple source display when
     // `ProxyOverrideRules` preference is not set
-    if (!rulesPref.value || rulesPref.value.length === 0) {
+    if (!this.proxyOverrideRulesPref_.value ||
+        this.proxyOverrideRulesPref_.value.length === 0) {
       this.isProxyEnforcedByMultipleSources_ = false;
       return;
     }
@@ -187,14 +189,16 @@ export class SettingsSystemPageElement extends SettingsSystemPageElementBase
 
     // When proxy settings and `ProxyOverrideRules` are from different levels of
     // sources
-    if (pref.controlledBy !== rulesPref.controlledBy) {
+    if (this.proxyPref_.controlledBy !==
+        this.proxyOverrideRulesPref_.controlledBy) {
       this.isProxyEnforcedByMultipleSources_ = true;
       return;
     }
 
     // When proxy settings and `ProxyOverrideRules` are both from policies, the
     // sources are considered to be the same
-    if (pref.controlledBy === chrome.settingsPrivate.ControlledBy.USER_POLICY) {
+    if (this.proxyPref_.controlledBy ===
+        chrome.settingsPrivate.ControlledBy.USER_POLICY) {
       this.isProxyEnforcedByMultipleSources_ = false;
       return;
     }
@@ -203,85 +207,63 @@ export class SettingsSystemPageElement extends SettingsSystemPageElementBase
     // the sources are considered to be the same only if they are set by the
     // same extension
     this.isProxyEnforcedByMultipleSources_ =
-        (pref.extensionId !== rulesPref.extensionId);
+        (this.proxyPref_.extensionId !==
+         this.proxyOverrideRulesPref_.extensionId);
   }
 
-  private onDisableExtensionClick_() {
+  protected onDisableExtensionClick_() {
     // TODO(dbeam): this is a pretty huge bummer. It means there are things
     // (inputs) that our prefs system is not observing. And that changes from
     // other sources (i.e. disabling/enabling an extension from
     // chrome://extensions or from the omnibox directly) will not update
     // |this.getPref('proxy')| directly (nor the UI). We should fix this
     // eventually.
-    this.dispatchEvent(new CustomEvent(
-        'refresh-pref', {bubbles: true, composed: true, detail: 'proxy'}));
+    this.fire('refresh-pref', 'proxy');
   }
 
-  private onProxyClick_() {
+  protected onProxyClick_() {
     if (this.isProxyDefault_) {
       SystemPageBrowserProxyImpl.getInstance().showProxySettings();
     }
   }
 
-  private onRestartClick_(e: Event) {
+  protected onRestartClick_(e: Event) {
     // Prevent event from bubbling up to the toggle button.
     e.stopPropagation();
     this.performRestart(RestartType.RESTART);
   }
 
-  // <if expr="_google_chrome">
-  private onOnDeviceAiLearnMoreClicked_() {
-    OpenWindowProxyImpl.getInstance().openUrl(
-        loadTimeData.getString('onDeviceAiLearnMoreUrl'));
-  }
-
-  private onOnDeviceAiSendFeedback_(e: Event) {
-    e.stopPropagation();
-    this.onDeviceAiBrowserProxy_.openFeedbackDialog();
-  }
-
-  private onOnDeviceAiToggleChange_(e: Event) {
-    const enabled = (e.target as SettingsToggleButtonElement).checked;
-    this.onDeviceAiBrowserProxy_.setOnDeviceAiEnabled(enabled);
-  }
-
-  private setOnDeviceAiPref_(onDeviceAiEnabled: OnDeviceAiEnabled) {
-    const pref: chrome.settingsPrivate.PrefObject<boolean> = {
-      key: 'settings.on_device_ai_enabled',
-      type: chrome.settingsPrivate.PrefType.BOOLEAN,
-      value: onDeviceAiEnabled.enabled,
-    };
-
-    if (!onDeviceAiEnabled.allowedByPolicy) {
-      pref.enforcement = chrome.settingsPrivate.Enforcement.ENFORCED;
-      pref.controlledBy = chrome.settingsPrivate.ControlledBy.USER_POLICY;
-      pref.value = false;
-    }
-
-    this.onDeviceAiPref_ = pref;
-  }
-  // </if>
-
   /**
    * @param enabled Whether hardware acceleration is currently enabled.
    */
-  private shouldShowRestart_(enabled: boolean): boolean {
+  protected shouldShowRestart_(): boolean {
+    if (!this.hardwareAccelerationModeEnabledPref_) {
+      return false;
+    }
     const proxy = SystemPageBrowserProxyImpl.getInstance();
-    return enabled !== proxy.wasHardwareAccelerationEnabledAtStartup();
+    return this.hardwareAccelerationModeEnabledPref_.value !==
+        proxy.wasHardwareAccelerationEnabledAtStartup();
   }
 
   // <if expr="is_win">
-  private shouldShowIsolationRestart_(): boolean {
-    if (this.processIsolationEnabledAtStartup_ === undefined) {
+  protected shouldShowIsolationRestart_(): boolean {
+    if (this.processIsolationEnabledAtStartup_ === undefined ||
+        !this.isolationStateEnabledPref_) {
       return false;
     }
-    return this.getPref('isolation_state.enabled').value !==
+    return this.isolationStateEnabledPref_.value !==
         this.processIsolationEnabledAtStartup_;
   }
   // </if>
 
+  // <if expr="_google_chrome">
+  protected onOnDeviceAiLinkClick_(): void {
+    Router.getInstance().navigateTo(routes.AI);
+  }
+  // </if>
+
   // <if expr="_google_chrome and is_win">
-  private onFeatureNotificationsChange_(e: Event) {
+  protected onFeatureNotificationsSettingsBooleanControlChange_(e: Event) {
     const enabled = (e.target as SettingsToggleButtonElement).checked;
     MetricsBrowserProxyImpl.getInstance().recordFeatureNotificationsChange(
         enabled);

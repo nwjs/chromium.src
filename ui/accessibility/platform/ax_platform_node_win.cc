@@ -701,20 +701,20 @@ void AXPlatformNodeWin::NotifyAccessibilityEvent(ax::mojom::Event event_type) {
       HasBoolAttribute(ax::mojom::BoolAttribute::kSelected) &&
       !GetBoolAttribute(ax::mojom::BoolAttribute::kSelected);
 
-  // Menu items fire selection events but Windows screen readers work reliably
-  // with focus events. Remap selected menu items and legacy selection events
-  // without explicit selected state, but do not remap explicitly unselected
-  // items.
+  // Menu items and the focused option of a single-select listbox fire selection
+  // events, but Windows screen readers announce reliably from focus events, so
+  // remap those to focus. Explicitly unselected nodes stay as selection events:
+  // a deselection must not be announced as a focus change.
   if (event_type == ax::mojom::Event::kSelection &&
       !selection_event_on_unselected_node) {
-    // A menu item could have something other than a role of
-    // |ROLE_SYSTEM_MENUITEM|. Zoom modification controls for example have a
-    // role of button.
+    // Some selection sources have no explicit selected state and a
+    // non-menuitem, non-listitem role (e.g. zoom controls with a button role);
+    // those only qualify for the parent-role fallback below.
     const bool selection_state_is_unknown =
         !HasBoolAttribute(ax::mojom::BoolAttribute::kSelected);
     if (int role = MSAARole(); role == ROLE_SYSTEM_MENUITEM) {
       event_type = ax::mojom::Event::kFocus;
-    } else if (selection_state_is_unknown && role == ROLE_SYSTEM_LISTITEM) {
+    } else if (role == ROLE_SYSTEM_LISTITEM) {
       if (const AXPlatformNodeBase* container = GetSelectionContainer()) {
         if (container->GetRole() == ax::mojom::Role::kListBox &&
             !container->HasState(ax::mojom::State::kMultiselectable) &&
@@ -5175,13 +5175,15 @@ IFACEMETHODIMP AXPlatformNodeWin::Navigate(
     } break;
 
     case NavigateDirection_FirstChild:
-      if (GetChildCount() > 0)
-        neighbor = GetFirstChild()->GetNativeViewAccessible();
+      if (AXPlatformNodeBase* child = GetFirstChild()) {
+        neighbor = child->GetNativeViewAccessible();
+      }
       break;
 
     case NavigateDirection_LastChild:
-      if (GetChildCount() > 0)
-        neighbor = GetLastChild()->GetNativeViewAccessible();
+      if (AXPlatformNodeBase* child = GetLastChild()) {
+        neighbor = child->GetNativeViewAccessible();
+      }
       break;
 
     case NavigateDirection_NextSibling:
@@ -6641,10 +6643,17 @@ AXPlatformNodeWin::GetMarkerTypeFromRange(
   if (IsText()) {
     AggregateRangesForMarkerType(this, marker_type, /*offset_ranges_amount=*/0,
                                  &relevant_ranges, highlight_type);
-  } else if (IsAtomicTextField()) {
+  } else if (IsAtomicTextField() && IsWebContent()) {
+    // Native Views text fields do not have an internal AXNode tree to traverse.
+    // An atomic text field (e.g. <input>, <textarea>) is exposed to the
+    // platform as a leaf, so its marker-bearing static-text descendants are
+    // hidden from the platform tree. Walk the INTERNAL accessibility tree to
+    // reach them; a platform-tree walk would find no children and lose the
+    // markers (crbug.com/503691211).
     int offset_ranges_amount = 0;
-    for (AXPlatformNodeBase* static_text = GetFirstTextOnlyDescendant();
-         static_text; static_text = static_text->GetNextSibling()) {
+    const std::vector<AXPlatformNodeWin*> text_only_descendants =
+        CollectTextOnlyDescendants();
+    for (AXPlatformNodeWin* static_text : text_only_descendants) {
       const int child_offset_ranges_amount = offset_ranges_amount;
       if (start_offset || end_offset) {
         // Break if the current node is after the desired |end_offset|.
@@ -7428,7 +7437,16 @@ int32_t AXPlatformNodeWin::ComputeIA2Role() {
       ia2_role = IA2_ROLE_CAPTION;
       break;
     case ax::mojom::Role::kForm:
-      ia2_role = IA2_ROLE_FORM;
+      // Per HTML-AAM and Core-AAM, a <form> maps to the form landmark only when
+      // it has an accessible name. An unnamed <form> must not be a landmark,
+      // otherwise screen readers announce a form region for every <form>. Note
+      // that every kForm node carries the "form" xml-roles attribute, so the
+      // accessible name is the only reliable signal here.
+      if (HasStringAttribute(ax::mojom::StringAttribute::kName)) {
+        ia2_role = IA2_ROLE_FORM;
+      } else {
+        ia2_role = IA2_ROLE_SECTION;
+      }
       break;
     case ax::mojom::Role::kGenericContainer:
       ia2_role = IA2_ROLE_SECTION;
@@ -7943,10 +7961,10 @@ std::optional<LONG> AXPlatformNodeWin::ComputeUIALandmarkType() const {
       // should have no corresponding role, removing the role breaks both
       // aria-setsize and aria-posinset.
       // The only other difference for UIA is that it should not be a landmark.
-      // If the author provided an accessible name, or the role was explicit,
-      // then allow the form landmark.
-      if (HasStringAttribute(ax::mojom::StringAttribute::kName) ||
-          HasStringAttribute(ax::mojom::StringAttribute::kRole)) {
+      // Only expose the form landmark when the form has an accessible name.
+      // Every kForm node carries the "form" xml-roles attribute, so the
+      // accessible name is the only reliable signal here.
+      if (HasStringAttribute(ax::mojom::StringAttribute::kName)) {
         return UIA_FormLandmarkTypeId;
       }
       return {};
@@ -8901,15 +8919,31 @@ AXPlatformNodeWin* AXPlatformNodeWin::GetLowestAccessibleElementForUIA() {
   NOTREACHED();
 }
 
-AXPlatformNodeWin* AXPlatformNodeWin::GetFirstTextOnlyDescendant() {
-  for (auto* child = static_cast<AXPlatformNodeWin*>(GetFirstChild()); child;
-       child = static_cast<AXPlatformNodeWin*>(child->GetNextSibling())) {
-    if (child->IsText())
-      return child;
-    if (AXPlatformNodeWin* descendant = child->GetFirstTextOnlyDescendant())
-      return descendant;
+std::vector<AXPlatformNodeWin*>
+AXPlatformNodeWin::CollectTextOnlyDescendants() {
+  std::vector<AXPlatformNodeWin*> descendants;
+  AXNode* node = GetDelegate()->node();
+  CHECK(node);
+
+  std::vector<AXNode*> stack;
+  for (size_t i = node->GetUnignoredChildCount(); i > 0; --i) {
+    stack.push_back(node->GetUnignoredChildAtIndex(i - 1));
   }
-  return nullptr;
+
+  while (!stack.empty()) {
+    AXNode* child = stack.back();
+    stack.pop_back();
+    auto* child_platform = static_cast<AXPlatformNodeWin*>(
+        GetDelegate()->GetFromNodeID(child->id()));
+    if (child_platform && child_platform->IsText()) {
+      descendants.push_back(child_platform);
+      continue;
+    }
+    for (size_t i = child->GetUnignoredChildCount(); i > 0; --i) {
+      stack.push_back(child->GetUnignoredChildAtIndex(i - 1));
+    }
+  }
+  return descendants;
 }
 
 void AXPlatformNodeWin::OnAriaNotificationIA2Fallback(
@@ -9147,7 +9181,7 @@ bool AXPlatformNodeWin::IsToggleSupported() const {
   //
   // [2]:https://learn.microsoft.com/en-us/windows/win32/winauto/uiauto-supportbuttoncontroltype#required-control-patterns
   // [3]:https://github.com/microsoft/axe-windows/blob/main/src/Rules/Library/ButtonInvokeAndExpandeCollapsePatterns.cs
-  if (GetData().SupportsExpandCollapse() && IsButton(role)) {
+  if (IsExpandCollapseButton()) {
     return false;
   }
 
@@ -9156,6 +9190,10 @@ bool AXPlatformNodeWin::IsToggleSupported() const {
   //
   // [4]:https://w3c.github.io/core-aam/#mapping_state-property_table
   return IsPlatformCheckable() || SupportsToggle(role);
+}
+
+bool AXPlatformNodeWin::IsExpandCollapseButton() const {
+  return GetData().SupportsExpandCollapse() && IsButton(GetRole());
 }
 
 bool AXPlatformNodeWin::IsInvokeSupported() const {

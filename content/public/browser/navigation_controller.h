@@ -24,9 +24,9 @@
 #include "content/public/browser/restore_type.h"
 #include "content/public/browser/session_storage_namespace.h"
 #include "content/public/browser/site_instance.h"
+#include "content/public/common/child_process_id.h"
 #include "content/public/common/referrer.h"
 #include "services/network/public/cpp/resource_request_body.h"
-#include "third_party/blink/public/common/navigation/impression.h"
 #include "third_party/blink/public/common/navigation/navigation_policy.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/navigation/was_activated_option.mojom.h"
@@ -170,7 +170,7 @@ class NavigationController {
     // ID of the renderer process of the frame host that initiated the
     // navigation. This is defined if and only if |initiator_frame_token| above
     // is, and it is only valid in conjunction with it.
-    int initiator_process_id = ChildProcessHost::kInvalidUniqueID;
+    ChildProcessId initiator_process_id;
 
     // The origin of the initiator of the navigation or std::nullopt if the
     // navigation was initiated through trusted, non-web-influenced UI
@@ -320,10 +320,6 @@ class NavigationController {
 
     // Indicates a form submission created this navigation.
     bool is_form_submission = false;
-
-    // Impression info associated with this navigation. Should only be populated
-    // for navigations originating from a link click.
-    std::optional<blink::Impression> impression;
 
     // Download policy to be applied if this navigation turns into a download.
     blink::NavigationDownloadPolicy download_policy;

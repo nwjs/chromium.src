@@ -36,8 +36,7 @@ constexpr CGFloat kLegacySymbolPointSize = 24;
 }
 
 - (ToolbarButton*)makeBackButton {
-  ToolbarButton* button = [self toolbarButtonForImageNamed:kBackSymbol
-                                              defaultImage:YES];
+  ToolbarButton* button = [self toolbarButtonForSymbol:SymbolBack];
   button.visibilityMask = ToolbarButtonVisibility::kAlways;
   button.accessibilityIdentifier = kToolbarBackButtonIdentifier;
   button.accessibilityLabel = l10n_util::GetNSString(IDS_ACCNAME_BACK);
@@ -47,8 +46,7 @@ constexpr CGFloat kLegacySymbolPointSize = 24;
 }
 
 - (ToolbarButton*)makeForwardButton {
-  ToolbarButton* button = [self toolbarButtonForImageNamed:kForwardSymbol
-                                              defaultImage:YES];
+  ToolbarButton* button = [self toolbarButtonForSymbol:SymbolForward];
   button.visibilityMask = ToolbarButtonVisibility::kWhenEnabled;
   button.accessibilityIdentifier = kToolbarForwardButtonIdentifier;
   button.accessibilityLabel = l10n_util::GetNSString(IDS_ACCNAME_FORWARD);
@@ -112,8 +110,7 @@ constexpr CGFloat kLegacySymbolPointSize = 24;
 }
 
 - (ToolbarButton*)makeReloadButton {
-  ToolbarButton* button = [self toolbarButtonForImageNamed:kArrowClockWiseSymbol
-                                              defaultImage:NO];
+  ToolbarButton* button = [self toolbarButtonForSymbol:SymbolArrowClockWise];
   button.visibilityMask = ToolbarButtonVisibility::kWideLayout;
   button.accessibilityIdentifier = kToolbarReloadButtonIdentifier;
   button.accessibilityLabel = l10n_util::GetNSString(IDS_IOS_ACCNAME_RELOAD);
@@ -121,8 +118,7 @@ constexpr CGFloat kLegacySymbolPointSize = 24;
 }
 
 - (ToolbarButton*)makeStopButton {
-  ToolbarButton* button = [self toolbarButtonForImageNamed:kXMarkSymbol
-                                              defaultImage:YES];
+  ToolbarButton* button = [self toolbarButtonForSymbol:SymbolXMark];
   button.visibilityMask = ToolbarButtonVisibility::kWideLayout;
   button.accessibilityIdentifier = kToolbarStopButtonIdentifier;
   button.accessibilityLabel = l10n_util::GetNSString(IDS_IOS_ACCNAME_STOP);
@@ -134,7 +130,7 @@ constexpr CGFloat kLegacySymbolPointSize = 24;
   UIImage* (^imageLoader)(void) = ^UIImage* {
     CGFloat pointSize = IsNextOldDesignEnabled() ? kLegacySymbolPointSize
                                                  : kDefaultSymbolPointSize;
-    UIImage* image = DefaultSymbolWithPointSize(kShareSymbol, pointSize);
+    UIImage* image = SymbolWithPointSize(SymbolShare, pointSize);
     CGSize newSize = CGSizeMake(image.size.width, image.size.height + 4);
 
     UIGraphicsImageRendererFormat* format =
@@ -156,6 +152,7 @@ constexpr CGFloat kLegacySymbolPointSize = 24;
   ToolbarButton* button =
       [[ToolbarButton alloc] initWithImageLoader:imageLoader
                                        incognito:_incognito];
+  button.geminiHandler = self.geminiHandler;
   button.visibilityMask = ToolbarButtonVisibility::kCompactHeight;
   button.accessibilityIdentifier = kToolbarShareButtonIdentifier;
   button.accessibilityLabel = l10n_util::GetNSString(IDS_IOS_TOOLS_MENU_SHARE);
@@ -166,6 +163,7 @@ constexpr CGFloat kLegacySymbolPointSize = 24;
   ToolbarTabGridBadgeButton* button =
       [[ToolbarTabGridBadgeButton alloc] initWithImageLoader:nil
                                                    incognito:_incognito];
+  button.geminiHandler = self.geminiHandler;
   button.visibilityMask = ToolbarButtonVisibility::kRegularRegular;
   button.accessibilityIdentifier = kToolbarTabGridButtonIdentifier;
   button.accessibilityHint =
@@ -174,8 +172,7 @@ constexpr CGFloat kLegacySymbolPointSize = 24;
 }
 
 - (ToolbarButton*)makeToolsMenuButton {
-  ToolbarButton* button = [self toolbarButtonForImageNamed:kMenuSymbol
-                                              defaultImage:YES];
+  ToolbarButton* button = [self toolbarButtonForSymbol:SymbolMenu];
   button.visibilityMask = ToolbarButtonVisibility::kAlways;
   button.accessibilityIdentifier = kToolbarToolsMenuButtonIdentifier;
   button.accessibilityLabel = l10n_util::GetNSString(IDS_IOS_TOOLBAR_SETTINGS);
@@ -185,14 +182,12 @@ constexpr CGFloat kLegacySymbolPointSize = 24;
 - (ToolbarButton*)makeAssistantButton {
   /// TODO(crbug.com/493956100): Update the icon for the Assistant button in the
   /// toolbar.
-  ToolbarButton* button =
 #if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
-      [self toolbarButtonForImageNamed:kGeminiBrandedLogoSymbol
-                          defaultImage:NO];
+  Symbol symbol = SymbolGeminiBrandedLogo;
 #else
-      [self toolbarButtonForImageNamed:kGeminiNonBrandedLogoSymbol
-                          defaultImage:YES];
+  Symbol symbol = SymbolGeminiNonBrandedLogo;
 #endif
+  ToolbarButton* button = [self toolbarButtonForSymbol:symbol];
   button.visibilityMask = ToolbarButtonVisibility::kRegularRegular;
   button.accessibilityIdentifier = kToolbarAssistantButtonIdentifier;
   button.accessibilityLabel =
@@ -203,22 +198,16 @@ constexpr CGFloat kLegacySymbolPointSize = 24;
 #pragma mark - Private
 
 // Returns a toolbar button with the given symbol.
-- (ToolbarButton*)toolbarButtonForImageNamed:(NSString*)imageName
-                                defaultImage:(BOOL)defaultImage {
+- (ToolbarButton*)toolbarButtonForSymbol:(Symbol)symbol {
   CGFloat pointSize = IsNextOldDesignEnabled() ? kLegacySymbolPointSize
                                                : kDefaultSymbolPointSize;
-  if (defaultImage) {
-    return [[ToolbarButton alloc]
-        initWithImageLoader:^UIImage* {
-          return DefaultSymbolWithPointSize(imageName, pointSize);
-        }
-                  incognito:_incognito];
-  }
-  return [[ToolbarButton alloc]
+  ToolbarButton* button = [[ToolbarButton alloc]
       initWithImageLoader:^UIImage* {
-        return CustomSymbolWithPointSize(imageName, pointSize);
+        return SymbolWithPointSize(symbol, pointSize);
       }
                 incognito:_incognito];
+  button.geminiHandler = self.geminiHandler;
+  return button;
 }
 
 @end

@@ -257,7 +257,7 @@ class OnDeviceTranslationBrowserTest : public InProcessBrowserTest {
   // Sets the SelectedLanguages prefs to the given value. This will change the
   // AcceptLanguages pref.
   void SetSelectedLanguages(const std::string_view value) {
-    browser()->profile()->GetPrefs()->SetString(
+    browser()->GetProfile()->GetPrefs()->SetString(
         language::prefs::kSelectedLanguages, value);
   }
 
@@ -372,7 +372,7 @@ class OnDeviceTranslationBrowserTest : public InProcessBrowserTest {
 
   void ClearSiteContentSettings() {
     content::BrowsingDataRemover* remover =
-        browser()->profile()->GetBrowsingDataRemover();
+        browser()->GetProfile()->GetBrowsingDataRemover();
     content::BrowsingDataRemoverCompletionObserver observer(remover);
     remover->RemoveAndReply(
         base::Time(), base::Time::Max(),
@@ -806,6 +806,33 @@ IN_PROC_BROWSER_TEST_F(OnDeviceTranslationBrowserTest,
 
   // The console message should be logged.
   WaitForConsoleObserver(*console_observer);
+}
+
+// Tests that a relative library path causes a crash/failure (reproducing the
+// bug/crash in PreLockdownSandboxHook on Windows).
+IN_PROC_BROWSER_TEST_F(OnDeviceTranslationBrowserTest,
+                       CreateTranslatorErrorLibraryPathRelative) {
+  MockComponentManager mock_component_manager(GetTempDir());
+  EXPECT_CALL(mock_component_manager, RegisterTranslateKitComponentImpl())
+      .Times(1);
+
+  // Set the TranslateKit binary path to a relative path.
+  g_browser_process->local_state()->SetFilePath(
+      prefs::kTranslateKitBinaryPath,
+      base::FilePath(FILE_PATH_LITERAL("relative/path/to/fakefile")));
+
+  mock_component_manager.ExpectCallRegisterLanguagePackComponentAndInstall(
+      {LanguagePackKey::kEn_Ja});
+  NavigateToEmptyPage();
+
+  EXPECT_EQ(EvalJsCatchingError(R"(
+            const translator = await Translator.create({
+              sourceLanguage: 'en',
+              targetLanguage: 'ja',
+            });
+      )"),
+            "NotSupportedError: Unable to create translator for the given "
+            "source and target language.");
 }
 
 // Tests the behavior of failing to load the library as a result of the
@@ -1440,7 +1467,7 @@ IN_PROC_BROWSER_TEST_F(
 
   url::Origin origin = embedded_https_test_server().GetOrigin();
   auto* manager =
-      ServiceControllerManagerFactory::GetInstance()->Get(browser()->profile());
+      ServiceControllerManagerFactory::GetInstance()->Get(browser()->GetProfile());
   manager->SetServiceIdleTimeoutForTesting(origin, base::Microseconds(100));
 
   // Test that Translator API works.
@@ -1490,7 +1517,7 @@ IN_PROC_BROWSER_TEST_F(
   url::Origin origin = embedded_https_test_server().GetOrigin();
 
   auto* manager =
-      ServiceControllerManagerFactory::GetInstance()->Get(browser()->profile());
+      ServiceControllerManagerFactory::GetInstance()->Get(browser()->GetProfile());
   manager->SetServiceIdleTimeoutForTesting(origin, base::Microseconds(100));
   content::RenderFrameHost* iframe = CreateIframe();
 
@@ -1600,7 +1627,7 @@ IN_PROC_BROWSER_TEST_F(OnDeviceTranslationBrowserTest,
   Browser* guest_browser = CreateGuestBrowser();
   ASSERT_TRUE(guest_browser);
 
-  guest_browser->profile()->GetPrefs()->SetString(
+  guest_browser->GetProfile()->GetPrefs()->SetString(
       language::prefs::kSelectedLanguages, "ja");
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
@@ -1914,7 +1941,7 @@ class OnDeviceTranslationCrossOriginBrowserTest
   void RemoveIframeAndWaitForServiceDeletion(size_t index,
                                              Browser* target_browser) {
     auto* manager = ServiceControllerManagerFactory::GetInstance()->Get(
-        target_browser->profile());
+        target_browser->GetProfile());
     url::Origin origin = url::Origin::Create(CreateCrossOriginIframeUrl(index));
 
     EXPECT_EQ(EvalJsCatchingError(JsReplace("return removeIframe($1);",
@@ -2059,7 +2086,7 @@ IN_PROC_BROWSER_TEST_F(OnDeviceTranslationCrossOriginBrowserTest,
   base::ScopedAllowBlockingForTesting allow_io;
   CHECK(base::CopyFile(GetMockLibraryPath(), fake_installer_.GetLibraryPath()));
   auto* manager =
-      ServiceControllerManagerFactory::GetInstance()->Get(browser()->profile());
+      ServiceControllerManagerFactory::GetInstance()->Get(browser()->GetProfile());
   manager->SetInstallerForTesting(&fake_installer_);
   NavigateToTestPage(browser());
   size_t i = 0;
@@ -2103,7 +2130,7 @@ IN_PROC_BROWSER_TEST_F(OnDeviceTranslationCrossOriginBrowserTest,
 
   Browser* incognito_browser = CreateIncognitoBrowser();
   auto* manager = ServiceControllerManagerFactory::GetInstance()->Get(
-      incognito_browser->profile());
+      incognito_browser->GetProfile());
   manager->SetInstallerForTesting(&fake_installer_);
 
   NavigateToTestPage(incognito_browser);
@@ -2132,7 +2159,7 @@ IN_PROC_BROWSER_TEST_F(OnDeviceTranslationCrossOriginBrowserTest,
 
   Browser* guest_browser = CreateGuestBrowser();
   auto* manager = ServiceControllerManagerFactory::GetInstance()->Get(
-      guest_browser->profile());
+      guest_browser->GetProfile());
   manager->SetInstallerForTesting(&fake_installer_);
 
   NavigateToTestPage(guest_browser);

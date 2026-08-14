@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.enterprise.util;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -20,9 +21,12 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.content_public.browser.WebContents;
 
 /** Unit tests for {@link DataProtectionBridge}. */
@@ -34,6 +38,9 @@ public class DataProtectionBridgeUnitTest {
     @Mock private DataProtectionBridge.Natives mDataProtectionBridgeJniMock;
     @Mock private WebContents mWebContents;
     @Mock private Runnable mCallback;
+    @Mock private Callback<Boolean> mScreenshotCallback;
+    @Mock private Profile mProfile;
+    @Mock private Tab mTab;
 
     @Before
     public void setUp() {
@@ -74,5 +81,42 @@ public class DataProtectionBridgeUnitTest {
         verify(mDataProtectionBridgeJniMock, never())
                 .shouldAllowSearchWith(10, mWebContents, mCallback);
         verify(mCallback).run();
+    }
+
+    @Test
+    public void testHasBlockingScreenshotRule() {
+        // Null profile
+        assertFalse(DataProtectionBridge.hasBlockingScreenshotRule(null));
+        verify(mDataProtectionBridgeJniMock, never()).hasBlockingScreenshotRule(any());
+
+        // Non-null profile, JNI returns true
+        when(mDataProtectionBridgeJniMock.hasBlockingScreenshotRule(mProfile)).thenReturn(true);
+        assertTrue(DataProtectionBridge.hasBlockingScreenshotRule(mProfile));
+        verify(mDataProtectionBridgeJniMock).hasBlockingScreenshotRule(mProfile);
+
+        // Non-null profile, JNI returns false
+        when(mDataProtectionBridgeJniMock.hasBlockingScreenshotRule(mProfile)).thenReturn(false);
+        assertFalse(DataProtectionBridge.hasBlockingScreenshotRule(mProfile));
+        verify(mDataProtectionBridgeJniMock, times(2)).hasBlockingScreenshotRule(mProfile);
+    }
+
+    @Test
+    public void testIsScreenshotAllowed() {
+        when(mDataProtectionBridgeJniMock.isScreenshotAllowed(mTab)).thenReturn(true);
+        assertTrue(DataProtectionBridge.isScreenshotAllowed(mTab));
+        verify(mDataProtectionBridgeJniMock).isScreenshotAllowed(mTab);
+
+        when(mDataProtectionBridgeJniMock.isScreenshotAllowed(mTab)).thenReturn(false);
+        assertFalse(DataProtectionBridge.isScreenshotAllowed(mTab));
+        verify(mDataProtectionBridgeJniMock, times(2)).isScreenshotAllowed(mTab);
+    }
+
+    @Test
+    public void testRegisterAndClearScreenshotSubscriptionCallback() {
+        DataProtectionBridge.registerScreenshotSubscriptionCallback(mTab, mScreenshotCallback);
+        verify(mDataProtectionBridgeJniMock)
+                .registerScreenshotSubscriptionCallback(mTab, mScreenshotCallback);
+        DataProtectionBridge.clearScreenshotSubscriptionCallback(mTab);
+        verify(mDataProtectionBridgeJniMock).clearScreenshotSubscriptionCallback(mTab);
     }
 }

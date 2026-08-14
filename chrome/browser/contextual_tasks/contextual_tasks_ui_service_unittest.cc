@@ -456,6 +456,7 @@ TEST_P(ContextualTasksUiServiceTestParameterized,
   EXPECT_EQ(token_future.Get(), "");
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 TEST_P(ContextualTasksUiServiceTestParameterized,
        HandleNavigation_NewTabAllowed_TracksWindow_Timeout) {
   if (GetParam() == base::test::TaskEnvironment::TimeSource::SYSTEM_TIME) {
@@ -497,6 +498,7 @@ TEST_P(ContextualTasksUiServiceTestParameterized,
   // The tracker should be destroyed.
   EXPECT_EQ(0U, service_for_nav_->window_trackers_for_testing().size());
 }
+#endif
 
 INSTANTIATE_TEST_SUITE_P(
     All,
@@ -1068,6 +1070,7 @@ TEST_F(ContextualTasksUiServiceTest, NormalLinkNotIntercepted) {
   run_loop.Run();
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 TEST_F(ContextualTasksUiServiceTest,
        HandleNavigation_NewTabAllowed_TracksWindow) {
   GURL navigated_url(kTestUrl);
@@ -1271,6 +1274,7 @@ TEST_F(ContextualTasksUiServiceTest,
   }
   EXPECT_EQ(0U, service_for_nav_->window_trackers_for_testing().size());
 }
+#endif
 
 TEST_F(ContextualTasksUiServiceTest, AiPageNotIntercepted_NotEligible) {
   GURL ai_url(kAiPageUrl);
@@ -1537,6 +1541,7 @@ TEST_F(ContextualTasksUiServiceTest, AllowedHostNavigation_ViewedInTab) {
   run_loop.Run();
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 TEST_F(ContextualTasksUiServiceTest, Navigation_ToNewTab_Allowed) {
   GURL navigated_url("https://example.com");
   GURL host_web_content_url(chrome::kChromeUIContextualTasksURL);
@@ -1572,6 +1577,7 @@ TEST_F(ContextualTasksUiServiceTest, Navigation_ToNewTab_Allowed) {
       FROM_HERE, run_loop.QuitClosure());
   run_loop.Run();
 }
+#endif
 
 // Any other link that isn't AI or an allowed host should be treated as a thread
 // link when viewed in a tab.
@@ -2578,7 +2584,10 @@ class MockCookieSynchronizer : public ContextualTasksCookieSynchronizer {
   MockCookieSynchronizer(content::BrowserContext* context,
                          signin::IdentityManager* identity_manager)
       : ContextualTasksCookieSynchronizer(context, identity_manager) {}
-  MOCK_METHOD(void, CopyCookiesToWebviewStoragePartition, (), (override));
+  MOCK_METHOD(void,
+              CopyCookiesToWebviewStoragePartition,
+              (base::OnceClosure callback),
+              (override));
 };
 
 TEST_F(ContextualTasksUiServiceTest, EnsureCookiesSynced) {
@@ -2594,7 +2603,8 @@ TEST_F(ContextualTasksUiServiceTest, EnsureCookiesSynced) {
           aim_eligibility_service_.get()),
       std::move(mock_synchronizer));
 
-  EXPECT_CALL(*mock_ptr, CopyCookiesToWebviewStoragePartition()).Times(1);
+  EXPECT_CALL(*mock_ptr, CopyCookiesToWebviewStoragePartition(testing::_))
+      .Times(1);
 
   service.EnsureCookiesSynced();
 }
@@ -2635,7 +2645,8 @@ TEST_F(ContextualTasksUiServiceTest, PrefetchOnEligibilityChange) {
 
   EXPECT_CALL(*aim_eligibility_service_, IsCobrowseEligible())
       .WillOnce(Return(true));
-  EXPECT_CALL(*mock_ptr, CopyCookiesToWebviewStoragePartition()).Times(1);
+  EXPECT_CALL(*mock_ptr, CopyCookiesToWebviewStoragePartition(testing::_))
+      .Times(1);
 
   captured_callback.Run();
 }
@@ -2661,7 +2672,8 @@ TEST_F(ContextualTasksUiServiceTest, PrefetchOnStartupIfAlreadyEligible) {
       std::make_unique<MockCookieSynchronizer>(profile_.get(), nullptr);
   MockCookieSynchronizer* mock_ptr = mock_synchronizer.get();
 
-  EXPECT_CALL(*mock_ptr, CopyCookiesToWebviewStoragePartition()).Times(1);
+  EXPECT_CALL(*mock_ptr, CopyCookiesToWebviewStoragePartition(testing::_))
+      .Times(1);
 
   ContextualTasksUiService service(
       profile_.get(), /*delegate=*/nullptr, contextual_tasks_service_.get(),
@@ -2783,6 +2795,24 @@ TEST_F(ContextualTasksUiServiceTest,
         web_contents->GetController().GetPendingEntry();
     return entry && entry->GetURL().host() == "www.google.com";
   }));
+}
+
+TEST_F(ContextualTasksUiServiceTest, HandleNavigation_WebUI_TokensNotLoaded) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      contextual_tasks::kContextualTasks);
+  GURL webui_url(chrome::kChromeUIContextualTasksURL);
+  auto web_contents = content::WebContentsTester::CreateTestWebContents(
+      profile_.get(), content::SiteInstance::Create(profile_.get()));
+
+  EXPECT_CALL(*aim_eligibility_service_, IsCobrowseEligible())
+      .WillRepeatedly(Return(true));
+
+  identity_test_env_->MakePrimaryAccountAvailable(
+      "user@gmail.com", signin::ConsentLevel::kSignin);
+  identity_test_env_->ResetToAccountsNotYetLoadedFromDiskState();
+  EXPECT_FALSE(real_service_->HandleNavigation(
+      CreateOpenUrlParams(webui_url, false), web_contents.get(), false, false,
+      true, false, std::nullopt, std::nullopt, blink::mojom::WindowFeatures()));
 }
 
 TEST_F(
@@ -3023,6 +3053,7 @@ TEST_F(ContextualTasksUiServiceTest,
   EXPECT_EQ(web_contents->GetController().GetPendingEntry(), nullptr);
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 TEST_F(ContextualTasksUiServiceTest, RegisterWindow_UpdatesTracker) {
   GURL navigated_url(kTestUrl);
   GURL host_web_content_url(chrome::kChromeUIContextualTasksURL);
@@ -3133,6 +3164,7 @@ TEST_F(ContextualTasksUiServiceTest, CloseTrackedWindow_ClosesTab) {
 
   EXPECT_EQ(0U, service_for_nav_->window_trackers_for_testing().size());
 }
+#endif
 
 TEST_F(ContextualTasksUiServiceTest, IsValidUrlForSuggestedTab) {
   SiteExclusionDetail site_exclusion_detail;

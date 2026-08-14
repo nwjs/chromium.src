@@ -102,6 +102,12 @@
 [submodule "third_party/dawn"]
 	path = third_party/dawn
 	url = https://dawn.googlesource.com/dawn
+[submodule "third_party/disarm/src"]
+	path = third_party/disarm/src
+	url = https://chromium.googlesource.com/external/github.com/aengelke/disarm
+[submodule "third_party/fadec/src"]
+	path = third_party/fadec/src
+	url = https://chromium.googlesource.com/external/github.com/aengelke/fadec
 [submodule "third_party/highway/src"]
 	path = third_party/highway/src
 	url = https://chromium.googlesource.com/external/github.com/google/highway
@@ -435,6 +441,10 @@
 	path = third_party/mutter/src
 	url = https://chromium.googlesource.com/external/gitlab.gnome.org/GNOME/mutter
 	gclient-condition = checkout_linux and checkout_mutter
+[submodule "third_party/pipewire/src"]
+	path = third_party/pipewire/src
+	url = https://chromium.googlesource.com/external/gitlab.freedesktop.org/pipewire/pipewire
+	gclient-condition = checkout_linux
 [submodule "third_party/nasm"]
 	path = third_party/nasm
 	url = https://chromium.googlesource.com/chromium/deps/nasm
@@ -711,6 +721,10 @@
 [submodule "chrome/browser/resources/webui_toolbar/internal"]
 	path = chrome/browser/resources/webui_toolbar/internal
 	url = https://chrome-internal.googlesource.com/chrome/browser/resources/webui_toolbar/internal
+	gclient-condition = checkout_src_internal
+[submodule "chrome/browser/ttc/resources/internal"]
+	path = chrome/browser/ttc/resources/internal
+	url = https://chrome-internal.googlesource.com/chrome/browser/ttc/resources/internal
 	gclient-condition = checkout_src_internal
 [submodule "chrome/browser/spellchecker/internal"]
 	path = chrome/browser/spellchecker/internal

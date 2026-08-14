@@ -58,6 +58,9 @@ class ExtensionsToolbarViewModel
     // Triggers the manage extensions IPH.
     virtual void ShowManageExtensionsIPH() {}
 
+    // Triggers the pinned by default IPH.
+    virtual void ShowPinnedByDefaultIPH(const std::string& extension_id) {}
+
    protected:
     virtual ~Delegate() = default;
   };
@@ -164,6 +167,16 @@ class ExtensionsToolbarViewModel
   static std::u16string GetToolbarButtonTooltipText(
       ExtensionsToolbarButtonState state);
 
+  // Returns the state of the extensions toolbar button based on 'web_contents'
+  // given the provided extensions state.
+  static ExtensionsToolbarButtonState GetButtonState(
+      BrowserWindowInterface* browser,
+      content::WebContents& web_contents,
+      const ToolbarActionsModel* actions_model,
+      // Callback that returns whether any of extensions have access to the
+      // WebContents.
+      base::OnceCallback<bool(content::WebContents&)> has_access_callback);
+
   // Returns the state of the extensions toolbar button based on 'web_contents'.
   ExtensionsToolbarButtonState GetButtonState(
       content::WebContents& web_contents) const;
@@ -191,6 +204,7 @@ class ExtensionsToolbarViewModel
                                         ShowPopupCallback callback) override;
   void ToggleExtensionsMenu() override;
   void ShowManageExtensionsIPH() override;
+  void ShowPinnedByDefaultIPH(const std::string& extension_id) override;
   bool HasAnyExtensions() const override;
 
   // ToolbarActionsModel::Observer:

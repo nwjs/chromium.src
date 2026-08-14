@@ -95,13 +95,14 @@ class HostZoomMapBrowserTest : public InProcessBrowserTest {
 
  protected:
   void SetDefaultZoomLevel(double level) {
-    browser()->profile()->GetZoomLevelPrefs()->SetDefaultZoomLevelPref(level);
+    browser()->GetProfile()->GetZoomLevelPrefs()->SetDefaultZoomLevelPref(
+        level);
   }
 
   double GetZoomLevel(const GURL& url) {
     content::HostZoomMap* host_zoom_map = static_cast<content::HostZoomMap*>(
         content::HostZoomMap::GetDefaultForBrowserContext(
-            browser()->profile()));
+            browser()->GetProfile()));
     return host_zoom_map->GetZoomLevelForHostAndScheme(url.GetScheme(),
                                                        url.GetHost());
   }
@@ -110,7 +111,7 @@ class HostZoomMapBrowserTest : public InProcessBrowserTest {
     typedef content::HostZoomMap::ZoomLevelVector ZoomLevelVector;
     content::HostZoomMap* host_zoom_map = static_cast<content::HostZoomMap*>(
         content::HostZoomMap::GetDefaultForBrowserContext(
-            browser()->profile()));
+            browser()->GetProfile()));
     content::HostZoomMap::ZoomLevelVector zoom_levels =
         host_zoom_map->GetAllZoomLevels();
     std::vector<std::string> results;
@@ -121,7 +122,7 @@ class HostZoomMapBrowserTest : public InProcessBrowserTest {
   }
 
   std::vector<std::string> GetHostsWithZoomLevelsFromPrefs() {
-    PrefService* prefs = browser()->profile()->GetPrefs();
+    PrefService* prefs = browser()->GetProfile()->GetPrefs();
     const base::DictValue& dictionaries =
         prefs->GetDict(prefs::kPartitionPerHostZoomLevels);
     std::string partition_key =
@@ -235,7 +236,7 @@ IN_PROC_BROWSER_TEST_F(HostZoomMapBrowserTest, ZoomEventsWorkForOffTheRecord) {
   std::string test_host(test_url.GetHost());
   std::string test_scheme(test_url.GetScheme());
   Browser* incognito_browser =
-      OpenURLOffTheRecord(browser()->profile(), test_url);
+      OpenURLOffTheRecord(browser()->GetProfile(), test_url);
 
   content::WebContents* web_contents =
       incognito_browser->tab_strip_model()->GetActiveWebContents();
@@ -274,7 +275,7 @@ IN_PROC_BROWSER_TEST_F(
   // For the webview based sign-in code, the sign in page uses the default host
   // zoom map.
   HostZoomMap* default_profile_host_zoom_map =
-      HostZoomMap::GetDefaultForBrowserContext(browser()->profile());
+      HostZoomMap::GetDefaultForBrowserContext(browser()->GetProfile());
   EXPECT_EQ(host_zoom_map, default_profile_host_zoom_map);
 }
 #endif
@@ -283,7 +284,7 @@ IN_PROC_BROWSER_TEST_F(
 IN_PROC_BROWSER_TEST_F(HostZoomMapBrowserTest, ToggleDefaultZoomLevel) {
   const double default_zoom_level = blink::ZoomFactorToZoomLevel(1.5);
 
-  ZoomLevelChangeObserver observer(browser()->profile());
+  ZoomLevelChangeObserver observer(browser()->GetProfile());
 
   GURL test_url1 = SubstituteTestServerPort(GURL("http://host1/"));
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), test_url1));
@@ -337,7 +338,7 @@ IN_PROC_BROWSER_TEST_F(HostZoomMapBrowserTest,
   const double zoom_level_30 = 3.0;
   const double zoom_level_40 = 4.0;
 
-  Profile* parent_profile = browser()->profile();
+  Profile* parent_profile = browser()->GetProfile();
   Profile* child_profile =
       parent_profile->GetPrimaryOTRProfile(/*create_if_needed=*/true);
   HostZoomMap* parent_zoom_map =
@@ -382,7 +383,7 @@ IN_PROC_BROWSER_TEST_F(HostZoomMapBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(HostZoomMapBrowserTest,
                        ParentDefaultZoomPropagatesToIncognitoChild) {
-  Profile* parent_profile = browser()->profile();
+  Profile* parent_profile = browser()->GetProfile();
   Profile* child_profile =
       parent_profile->GetPrimaryOTRProfile(/*create_if_needed=*/true);
 

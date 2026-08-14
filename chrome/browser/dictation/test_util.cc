@@ -24,20 +24,22 @@
 
 namespace dictation {
 
-content::GlobalDOMNodeId EmptyTargetId() {
-  return content::GlobalDOMNodeId();
+TargetDetails EmptyTarget() {
+  return TargetDetails(content::GlobalDOMNodeId(), /*richly_editable=*/false);
 }
 
-content::GlobalDOMNodeId DefaultInPageTargetId(
-    content::WebContents* web_contents) {
-  return content::GlobalDOMNodeId{
-      web_contents->GetPrimaryMainFrame()->GetWeakDocumentPtr()};
+TargetDetails DefaultInPageTarget(content::WebContents* web_contents) {
+  return TargetDetails(
+      content::GlobalDOMNodeId{
+          web_contents->GetPrimaryMainFrame()->GetWeakDocumentPtr()},
+      /*richly_editable=*/false);
 }
 
 base::test::ScopedFeatureList CreateEnablingFeatureList() {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeaturesAndParameters(
-      {{kDictation, {{"use_component_extension", "false"}}},
+      {{kDictation,
+        {{"use_component_extension", "false"}, {"show_caret_bubble", "true"}}},
        {blink::features::kPopulateDOMNodeIdInFocusedNodeDetails, {}}},
       {});
   return feature_list;
@@ -133,6 +135,27 @@ void ExtensionWaitForStreamStart(Profile* profile,
     (async function() {
       try {
         await globalThis.waitForStreamStart($1);
+        chrome.test.sendScriptResult('success');
+      } catch (e) {
+        chrome.test.sendScriptResult('error: ' + e.message);
+      }
+    })();
+      )JS",
+      stream_id.value());
+
+  base::Value result =
+      extensions::browsertest_util::ExecuteScriptInBackgroundPage(
+          profile, std::string(kDictationTestExtensionId), script);
+  CHECK_EQ("success", result.GetString());
+}
+
+void ExtensionWaitForStreamEnd(Profile* profile,
+                               DictationMultiplexer::StreamId stream_id) {
+  std::string script = content::JsReplace(
+      R"JS(
+    (async function() {
+      try {
+        await globalThis.waitForStreamEnd($1);
         chrome.test.sendScriptResult('success');
       } catch (e) {
         chrome.test.sendScriptResult('error: ' + e.message);

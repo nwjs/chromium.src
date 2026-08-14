@@ -230,17 +230,15 @@ class NET_EXPORT_PRIVATE SSLConnectJob : public ConnectJob,
   // flow. `endpoint_result_` will then contain the endpoint to reconnect to.
   std::optional<std::vector<uint8_t>> ech_retry_configs_;
 
-  // If not nullopt, the intersection of the client's trusted TLS Trust Anchor
-  // IDs with those advertised by the server during the handshake, in wire
-  // format.  This is the set of Trust Anchor IDs to advertise in the
-  // ClientHello when retrying the connection after receiving an error. When
-  // this is non-empty, `endpoint_result_` will contain the endpoint to
-  // reconnect to.
-  std::optional<std::vector<uint8_t>> trust_anchor_ids_for_retry_;
 
-  // True if the Trust Anchor ID retry attempted to fallback from a
-  // signatureless MTC to a classical cert. Used for metrics.
-  bool trust_anchor_retry_used_mtc_fallback_ = false;
+  // True if the connection was established using a stale DNS result. Passed
+  // up from the nested ConnectJob.
+  bool is_connected_via_stale_dns_ = false;
+
+  // True if the use of stale DNS results should be disabled for this connection
+  // attempt. Set to true when a previous connection attempt via stale DNS
+  // failed and the job needs to retry with fresh results.
+  bool disable_stale_dns_ = false;
 };
 
 }  // namespace net

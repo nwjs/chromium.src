@@ -53,6 +53,7 @@ import android.content.res.Resources;
 import android.graphics.RectF;
 import android.view.Surface;
 import android.view.View;
+import android.view.Window;
 
 import androidx.annotation.Px;
 
@@ -71,8 +72,10 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
+import org.chromium.base.UnownedUserDataHost;
 import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -103,6 +106,7 @@ import org.chromium.chrome.browser.profiles.ProfileJni;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabHidingType;
+import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
@@ -115,6 +119,7 @@ import org.chromium.ui.base.ActivityKeyboardVisibilityDelegate;
 import org.chromium.ui.base.ApplicationViewportInsetTracker;
 import org.chromium.ui.base.DeviceInput;
 import org.chromium.ui.display.DisplayAndroid;
+import org.chromium.ui.edge_to_edge.EdgeToEdgeStateProvider;
 import org.chromium.ui.insets.InsetObserver;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.mojom.VirtualKeyboardMode;
@@ -122,6 +127,7 @@ import org.chromium.ui.mojom.VirtualKeyboardMode;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Controller tests for the root controller for interactions with the manual filling UI. */
@@ -144,6 +150,7 @@ public class ManualFillingControllerTest {
 
     @Mock private ChromeWindow mMockWindow;
     @Mock private ChromeActivity mMockActivity;
+    @Mock private Window mMockActivityWindow;
     private WebContents mLastMockWebContents;
     @Mock private Profile mMockProfile;
     @Mock private Profile.Natives mProfileJniMock;
@@ -168,12 +175,15 @@ public class ManualFillingControllerTest {
     private final ManualFillingStateCache mCache = mMediator.getStateCacheForTesting();
     private final PropertyModel mModel = mMediator.getModelForTesting();
     private final UserDataHost mUserDataHost = new UserDataHost();
+    private final UnownedUserDataHost mUnownedUserDataHost = new UnownedUserDataHost();
     private final ApplicationViewportInsetTracker mInsetSupplier =
             ApplicationViewportInsetTracker.createForTests();
     private final SettableNonNullObservableSupplier<Integer> mKeyboardInsetSupplier =
             ObservableSuppliers.createNonNull(0);
     private final SettableNullableObservableSupplier<EdgeToEdgeController>
             mMockEdgeToEdgeControllerSupplier = ObservableSuppliers.createNullable();
+    private final SettableMonotonicObservableSupplier<TabModel> mMockTabModelSupplier =
+            ObservableSuppliers.createMonotonic();
 
     private final ActivityTabProvider mActivityTabProvider = new ActivityTabProvider();
 
@@ -327,11 +337,16 @@ public class ManualFillingControllerTest {
     @Before
     public void setUp() {
         when(mMockWindow.getActivity()).thenReturn(new WeakReference<>(mMockActivity));
+        when(mMockActivity.getWindow()).thenReturn(mMockActivityWindow);
+        when(mMockActivityWindow.getDecorView()).thenReturn(mock(View.class));
+        when(mMockWindow.getUnownedUserDataHost()).thenReturn(mUnownedUserDataHost);
         mInsetSupplier.setKeyboardInsetSupplier(mKeyboardInsetSupplier);
         mInsetSupplier.setKeyboardAccessoryInsetSupplier(mController.getBottomInsetSupplier());
         when(mMockWindow.getApplicationBottomInsetTracker()).thenReturn(mInsetSupplier);
         when(mMockSoftKeyboardDelegate.calculateSoftKeyboardHeight(any())).thenReturn(0);
         when(mMockActivity.getTabModelSelector()).thenReturn(mMockTabModelSelector);
+        when(mMockTabModelSelector.getCurrentTabModelSupplier()).thenReturn(mMockTabModelSupplier);
+        when(mMockTabModelSelector.getModels()).thenReturn(Collections.emptyList());
         when(mMockActivity.getActivityTabProvider()).thenReturn(mActivityTabProvider);
         BrowserControlsManager browserControlsManager =
                 new BrowserControlsManager(mMockActivity, 0, mMockMultiWindowModeStateDispatcher);
@@ -422,6 +437,15 @@ public class ManualFillingControllerTest {
         assertThat(mController, is(notNullValue()));
         assertThat(mMediator, is(notNullValue()));
         assertThat(mCache, is(notNullValue()));
+    }
+
+    @Test
+    public void testDestroyClearsActionConfirmationDialog() {
+        assertThat(mMediator.getActionConfirmationDialogForTesting(), is(notNullValue()));
+
+        mController.destroy();
+
+        assertThat(mMediator.getActionConfirmationDialogForTesting(), is(nullValue()));
     }
 
     @Test
@@ -1116,14 +1140,54 @@ public class ManualFillingControllerTest {
         assertEquals(0, style.getMaxWidth());
         reset(mMockKeyboardAccessory, mMockAccessorySheet);
 
-        // Simulate entering fullscreen mode which makes the keyboard overlaying.
+        // Simulate entering fullscreen mode. In E2E mode the accessory keeps insetting the page
+        // instead of switching to overlay, so the bottom inset stays at the accessory height.
         mFullscreenObserverCaptor
                 .getValue()
                 .onEnterFullscreen(tab, new FullscreenOptions(false, false, INVALID_DISPLAY));
 
-        // Ensure it's not insetting the page.
         assertEquals(
                 sAccessoryHeightDp * density, (int) mController.getBottomInsetSupplier().get());
+    }
+
+    @Test
+    public void testAdjustsOffsetAndHeightForFullscreenWithEdgeToEdgeStateProvider() {
+        final int density = 2;
+        mMockEdgeToEdgeControllerSupplier.set(null);
+        EdgeToEdgeStateProvider edgeToEdgeStateProvider =
+                new EdgeToEdgeStateProvider(mMockActivityWindow);
+        edgeToEdgeStateProvider.attach(mMockWindow);
+        int edgeToEdgeToken = edgeToEdgeStateProvider.acquireEdgeToEdgeToken();
+
+        mInsetSupplier.setVirtualKeyboardMode(VirtualKeyboardMode.RESIZES_CONTENT);
+        Tab tab = addBrowserTab(mMediator, 1234, null);
+
+        // Now simulate showing the accessory bar.
+        when(mMockKeyboardAccessory.empty()).thenReturn(false);
+        when(mMockKeyboardAccessory.isShown()).thenReturn(true);
+        when(mMockKeyboardAccessory.hasActiveTab()).thenReturn(false);
+        when(mMockSoftKeyboardDelegate.isSoftKeyboardShowing(any())).thenReturn(true);
+
+        mModel.set(SHOW_WHEN_VISIBLE, true);
+        mModel.set(KEYBOARD_EXTENSION_STATE, EXTENDING_KEYBOARD);
+
+        // Ensure it's bottom-aligned and insetting the page with its height.
+        assertEquals(
+                sAccessoryHeightDp * density, (int) mController.getBottomInsetSupplier().get());
+        reset(mMockKeyboardAccessory, mMockAccessorySheet);
+
+        // Simulate entering fullscreen mode where the keyboard still resizes the content because
+        // edge-to-edge is active at the window level.
+        mFullscreenObserverCaptor
+                .getValue()
+                .onEnterFullscreen(tab, new FullscreenOptions(false, false, INVALID_DISPLAY));
+
+        // Ensure it's still insetting the page, matching EdgeToEdgeController-backed mode.
+        assertEquals(
+                sAccessoryHeightDp * density, (int) mController.getBottomInsetSupplier().get());
+
+        edgeToEdgeStateProvider.releaseEdgeToEdgeToken(edgeToEdgeToken);
+        edgeToEdgeStateProvider.detach();
     }
 
     @Test

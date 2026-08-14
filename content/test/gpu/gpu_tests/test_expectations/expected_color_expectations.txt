@@ -6,6 +6,7 @@
 #         fuchsia
 #         linux ubuntu
 #         mac highsierra mojave catalina bigsur monterey ventura sonoma sequoia
+#             macos26
 #         win win8 win10 win11 ]
 # Devices
 # tags: [ android-pixel-2 android-pixel-4 android-pixel-6 android-pixel-10
@@ -130,8 +131,12 @@ crbug.com/425745937 [ fuchsia web-engine-shell fuchsia-board-nelson ] ExpectedCo
 
 
 # Flakes on Android and Windows DEMUXER_ERROR_COULD_NOT_OPEN
-crbug.com/426594100 [ win ] ExpectedColor_MediaRecorderFromVideoElement [ RetryOnFailure ]
+crbug.com/426594100 [ arch-x86_64 graphite-enabled nvidia-0x2184 nvidia_lt_32.0.15.8180 release-x64 target-cpu-64 win10 ] ExpectedColor_MediaRecorderFromVideoElement [ RetryOnFailure ]
 crbug.com/509789253 [ mac intel ] ExpectedColor_MediaRecorderFromVideoElement [ RetryOnFailure ]
+
+# Flakily timeout even when marked as slow.
+crbug.com/535697669 [ macos26 apple-angle-metal-renderer:-apple-m2 ] ExpectedColor_MediaRecorderFrom2DCanvas [ Failure ]
+crbug.com/535697669 [ macos26 apple-angle-metal-renderer:-apple-m2 ] ExpectedColor_MediaRecorderFromVideoElement [ Failure ]
 
 
 #######################################################################

@@ -118,6 +118,7 @@ class MetricsWebContentsObserver
   void ResourceLoadComplete(
       content::RenderFrameHost* render_frame_host,
       const content::GlobalRequestID& request_id,
+      const GURL& original_url,
       const blink::mojom::ResourceLoadInfo& resource_load_info) override;
   void FrameReceivedUserActivation(
       content::RenderFrameHost* render_frame_host) override;
@@ -203,12 +204,6 @@ class MetricsWebContentsObserver
   // Called when `sharedStorage.selectURL()` is called for some frame on a page
   // whose main frame is `main_rfh`.
   void OnSharedStorageSelectURLCalled(content::RenderFrameHost* main_rfh);
-
-  // Called when a Fledge auction completes.
-  void OnAdAuctionComplete(content::RenderFrameHost* rfh,
-                           bool is_server_auction,
-                           bool is_on_device_auction,
-                           content::AuctionResult result);
 
   // Returns the time this MetricsWebContentsObserver was created.
   base::TimeTicks GetCreated();

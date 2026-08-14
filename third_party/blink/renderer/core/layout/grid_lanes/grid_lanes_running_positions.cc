@@ -169,11 +169,13 @@ void GridLanesRunningPositions::UpdateRunningPositionsForSpan(
     LayoutUnit new_running_position,
     std::optional<LayoutUnit> max_running_position_for_span,
     wtf_size_t item_index,
-    GridLayoutSubtree* layout_subtree) {
+    GridLayoutSubtree* layout_subtree,
+    const GridLanesDataVector* grid_lanes) {
   const auto& span = grid_lanes_item.Span(grid_axis_direction_);
   const auto end_line = span.EndLine();
 
   CHECK_LE(end_line, track_collection_openings_.size());
+  CHECK(!grid_lanes || end_line <= grid_lanes->size());
 
   for (auto track_idx = span.StartLine(); track_idx < end_line; ++track_idx) {
     TrackOpening& last_track_opening = GetLastTrackOpening(track_idx);
@@ -190,6 +192,16 @@ void GridLanesRunningPositions::UpdateRunningPositionsForSpan(
       CHECK_LT(track_idx, track_collection_openings_.size());
       last_track_opening.start_position = current_running_position;
       last_track_opening.end_position = *max_running_position_for_span;
+
+      // This opening is directly above the current spanner. Record where that
+      // spanner will be stored in this lane so any item later dense-packed into
+      // the opening can create a relationship with it for when we perform
+      // fragmentation.
+      if (grid_lanes) {
+        const GridLaneData* lane_data = grid_lanes->at(track_idx);
+        last_track_opening.spanner_below_index =
+            lane_data ? lane_data->item_data.size() : 0;
+      }
 
       // Create a new track opening to account for the open end of the track
       // after placing the item.
@@ -307,6 +319,17 @@ GridLanesRunningPositions::AlignmentCandidateIterator::Next() {
 
 LayoutUnit GridLanesRunningPositions::GetMaxPositionForSpan(
     const GridSpan& span) const {
+  return ComputeMaxPositionForSpan(span, /*exclude_collapsed_tracks=*/false);
+}
+
+LayoutUnit GridLanesRunningPositions::GetStackingAxisSizeForSpan(
+    const GridSpan& span) const {
+  return ComputeMaxPositionForSpan(span, /*exclude_collapsed_tracks=*/true);
+}
+
+LayoutUnit GridLanesRunningPositions::ComputeMaxPositionForSpan(
+    const GridSpan& span,
+    bool exclude_collapsed_tracks) const {
   DCHECK_LE(span.EndLine(), track_collection_openings_.size());
   const wtf_size_t span_size = span.IntegerSpan();
 
@@ -315,9 +338,23 @@ LayoutUnit GridLanesRunningPositions::GetMaxPositionForSpan(
   for (wtf_size_t offset = 0; offset < span_size; ++offset) {
     const LayoutUnit running_position_for_track =
         GetRunningPositionForTrack(start_line + offset);
+
+    // Collapsed `auto-fit` tracks carry a `LayoutUnit::Max()` sentinel running
+    // position. Skip them if required.
+    if (exclude_collapsed_tracks &&
+        running_position_for_track == LayoutUnit::Max()) {
+      continue;
+    }
     if (running_position_for_track > max_running_position_for_span) {
       max_running_position_for_span = running_position_for_track;
     }
+  }
+
+  // If every track in the span was a collapsed track that we excluded, the span
+  // contributes no size to the stacking axis.
+  if (exclude_collapsed_tracks &&
+      max_running_position_for_span == LayoutUnit::Min()) {
+    return LayoutUnit();
   }
 
   return max_running_position_for_span;
@@ -402,7 +439,10 @@ GridLanesRunningPositions::GetEligibleTrackOpeningAndUpdateGridLanesItemSpan(
     const LayoutUnit item_stacking_axis_contribution,
     const LayoutUnit auto_placement_stacking_axis_offset,
     const GridLayoutTrackCollection& track_collection,
-    GridItemData& grid_lanes_item) {
+    GridItemData& grid_lanes_item,
+    wtf_size_t item_index,
+    GridLayoutSubtree* layout_subtree,
+    Vector<wtf_size_t>* spanner_indices_below_opening) {
   DCHECK(is_dense_packing_);
 
   const auto grid_axis_direction = track_collection.Direction();
@@ -504,6 +544,15 @@ GridLanesRunningPositions::GetEligibleTrackOpeningAndUpdateGridLanesItemSpan(
   // recursive nature of `AccumulateTrackOpeningsToAccommodateItem`, so we need
   // to iterate through the tracks in reverse order.
   if (highest_eligible_track_opening_result.IsValid()) {
+    // Reaching this block means the item will be densely packed into the
+    // selected track openings. If the item spans multiple tracks, each opening
+    // may have a different spanner below it. Store one spanner index per track
+    // so fragmentation can associate each lane entry with the correct spanner.
+    // `kNotFound` indicates that an opening has no spanner below it.
+    if (spanner_indices_below_opening) {
+      *spanner_indices_below_opening = Vector<wtf_size_t>(span_size, kNotFound);
+    }
+
     wtf_size_t current_track_index =
         highest_eligible_track_opening_result.starting_track_index + span_size;
     for (wtf_size_t track_opening_index :
@@ -514,6 +563,19 @@ GridLanesRunningPositions::GetEligibleTrackOpeningAndUpdateGridLanesItemSpan(
       // and remove or adjust the opening as needed.
       const TrackOpening current_track_opening =
           track_collection_openings_[current_track_index][track_opening_index];
+
+      // The selected openings are visited in reverse track order, while the
+      // `spanner_indices_below_opening` vector follows the item's forward span
+      // order. Convert the absolute track index to its position within the span
+      // before storing the corresponding spanner index.
+      if (spanner_indices_below_opening) {
+        const wtf_size_t span_index =
+            current_track_index -
+            highest_eligible_track_opening_result.starting_track_index;
+        spanner_indices_below_opening->at(span_index) =
+            current_track_opening.spanner_below_index;
+      }
+
       // If the item completely fills the opening, remove the opening.
       if (item_stacking_axis_contribution == current_track_opening.Size()) {
         track_collection_openings_[current_track_index].EraseAt(
@@ -523,9 +585,26 @@ GridLanesRunningPositions::GetEligibleTrackOpeningAndUpdateGridLanesItemSpan(
         // opening above the item.
         if (current_track_opening.start_position <
             highest_eligible_track_opening_result.start_position) {
-          const TrackOpening new_opening_above_item(
+          TrackOpening new_opening_above_item(
               current_track_opening.start_position,
               highest_eligible_track_opening_result.start_position);
+
+          // When fragmenting, we store the index of the spanner below the
+          // opening so that densely pakced items can create a relationship with
+          // the spanner below them. We associate all densely packed item with
+          // the spanner of the original opening to keep the relationships more
+          // straightforward. As such, reuse the same `spanner_below_index` for
+          // the newly created opening.
+          new_opening_above_item.spanner_below_index =
+              current_track_opening.spanner_below_index;
+
+          // The new upper opening inherits the previous `alignment_candidate`,
+          // since the item that was above the original opening is still above
+          // this newly split upper portion.
+          if (is_stacking_axis_alignment_set_) {
+            new_opening_above_item.alignment_candidate =
+                current_track_opening.alignment_candidate;
+          }
           track_collection_openings_[current_track_index].insert(
               track_opening_index, new_opening_above_item);
           ++track_opening_index;
@@ -533,9 +612,20 @@ GridLanesRunningPositions::GetEligibleTrackOpeningAndUpdateGridLanesItemSpan(
 
         // We'll want to adjust the size of the track opening to
         // account for the space the item now occupies.
-        track_collection_openings_[current_track_index][track_opening_index]
-            .start_position = current_track_opening.start_position +
-                              item_stacking_axis_contribution;
+        TrackOpening& lower_opening =
+            track_collection_openings_[current_track_index]
+                                      [track_opening_index];
+        lower_opening.start_position = current_track_opening.start_position +
+                                       item_stacking_axis_contribution;
+
+        // The just-placed dense item is now directly above the lower opening,
+        // so it becomes the `alignment_candidate` for that opening. Without
+        // this, the previous item's alignment candidate would incorrectly claim
+        // the space below the dense item as its own alignment space.
+        if (is_stacking_axis_alignment_set_) {
+          lower_opening.alignment_candidate =
+              AlignmentCandidate{&grid_lanes_item, item_index, layout_subtree};
+        }
       }
     }
 

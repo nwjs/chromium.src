@@ -126,6 +126,7 @@ source_set("permissions") {
     "//components/prefs",
     "//components/safe_browsing/core/browser:safe_browsing_metrics_collector",
     "//components/safe_browsing/core/browser/db:database_manager",
+    "//components/safe_browsing/core/browser/db:v5_get_hash_protocol_manager",
     "//components/safe_browsing/core/common",
     "//components/safe_browsing/core/common:safe_browsing_prefs",
     "//components/segmentation_platform/internal:optimization_guide_segmentation_handler",
@@ -222,15 +223,24 @@ source_set("test_support") {
     "//chrome/browser/permissions/test/enums_to_string.h",
     "//chrome/browser/permissions/test/mock_passage_embedder.cc",
     "//chrome/browser/permissions/test/mock_passage_embedder.h",
+    "crowd_deny_fake_safe_browsing_database_manager.cc",
+    "crowd_deny_fake_safe_browsing_database_manager.h",
     "system/mock_platform_handle.cc",
     "system/mock_platform_handle.h",
   ]
 
   deps = [
     ":permissions",
+    "//base",
     "//components/passage_embeddings/core:test_support",
     "//components/permissions:test_support",
+    "//components/safe_browsing/core/browser/db:database_manager",
+    "//components/safe_browsing/core/browser/db:test_database_manager",
+    "//components/safe_browsing/core/browser/db:util",
+    "//content/public/browser",
     "//testing/gmock",
+    "//testing/gtest",
+    "//url",
   ]
 }
 
@@ -274,6 +284,7 @@ source_set("unit_tests") {
     "//components/passage_embeddings/core",
     "//components/permissions/prediction_service",
     "//components/safe_browsing/core/browser:safe_browsing_metrics_collector",
+    "//components/safe_browsing/core/browser/db:v5_get_hash_protocol_manager",
     "//components/site_engagement/content",
     "//components/ukm/content",
     "//components/unified_consent",
@@ -291,7 +302,10 @@ source_set("unit_tests") {
       "//components/ukm:test_support",
     ]
   } else {
-    sources += [ "permission_hats_trigger_unittest.cc" ]
+    sources += [
+      "permission_hats_trigger_unittest.cc",
+      "system/system_media_permission_cache_unittest.cc",
+    ]
     deps += [ "//chrome/browser/ui/hats" ]
     if (enable_extensions) {
       deps += [
@@ -382,7 +396,10 @@ if (!is_android && !is_chromeos_device) {
 
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
-    sources = [ "permissions_security_model_interactive_uitest.cc" ]
+    sources = [
+      "one_time_permissions_tracker_helper_interactive_uitest.cc",
+      "permissions_security_model_interactive_uitest.cc",
+    ]
 
     deps = [
       ":permissions",
@@ -394,5 +411,15 @@ if (!is_android && !is_chromeos_device) {
       "//components/embedder_support",
       "//content/test:browsertest_support",
     ]
+
+    if (is_mac || is_win) {
+      sources += [ "system/system_permission_settings_interactive_uitest.cc" ]
+    }
+    if (is_mac) {
+      sources += [
+        "system/system_media_permission_cache_mac_test_helper.h",
+        "system/system_media_permission_cache_mac_test_helper.mm",
+      ]
+    }
   }
 }

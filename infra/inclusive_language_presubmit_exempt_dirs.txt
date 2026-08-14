@@ -27,6 +27,7 @@ build/android/pylib/utils
 build/config
 build/config/android
 build/config/fuchsia
+build/fuchsia/starview
 build/fuchsia/test
 build/rust/std/rules
 build/skia_gold_common
@@ -39,7 +40,6 @@ chrome/android/junit/src/org/chromium/chrome/browser/payments
 chrome/browser
 chrome/browser/ash/arc/file_system_watcher
 chrome/browser/ash/arc/policy
-chrome/browser/ash/crosapi
 chrome/browser/ash/extensions
 chrome/browser/ash/ownership
 chrome/browser/ash/scanning
@@ -88,7 +88,6 @@ chromeos/ash/experiences/arc
 chromeos/ash/experiences/arc/mojom
 chromeos/ash/services/ime/public/cpp/shared_lib/proto
 chromeos/ash/services/ime/public/mojom
-chromeos/crosapi
 chromeos/process_proxy
 chrome/test/base/ash/interactive/bluetooth
 chrome/test/chromedriver
@@ -148,7 +147,7 @@ components/soda
 components/strictmode/android/java/src/org/chromium/components/strictmode
 components/supervised_user/core/browser/proto
 components/surface_embed
-components/sync/nigori
+components/sync/model/crypto
 components/test/data/autofill/heuristics/input
 components/test/data/browsing_topics
 components/test/data/optimization_guide
@@ -335,7 +334,6 @@ third_party/blink/renderer/core/permissions_policy
 third_party/blink/renderer/core/resize_observer
 third_party/blink/renderer/core/scheduler
 third_party/blink/renderer/modules/accessibility
-third_party/blink/renderer/modules/ad_auction
 third_party/blink/renderer/modules/badging
 third_party/blink/renderer/modules/credentialmanagement
 third_party/blink/renderer/modules/csspaint
@@ -402,6 +400,7 @@ third_party/blink/web_tests/external/wpt/resources
 third_party/blink/web_tests/external/wpt/resources/chromium
 third_party/blink/web_tests/external/wpt/resource-timing
 third_party/blink/web_tests/external/wpt/sanitizer-api/support
+third_party/blink/web_tests/external/wpt/svg/text/reftests
 third_party/blink/web_tests/external/wpt/wai-aria/scripts
 third_party/blink/web_tests/external/wpt/webaudio/js
 third_party/blink/web_tests/external/wpt/webrtc
@@ -424,7 +423,6 @@ third_party/blink/web_tests/third_party/ChromaCheck
 third_party/blink/web_tests/third_party/Tinos
 third_party/blink/web_tests/webaudio/resources
 third_party/blink/web_tests/wpt_internal
-third_party/blink/web_tests/wpt_internal/attribution-reporting
 third_party/blink/web_tests/wpt_internal/fenced_frame/resources
 third_party/blink/web_tests/wpt_internal/hid
 third_party/blink/web_tests/wpt_internal/html/semantics/parser-blocking-stylesheets
@@ -522,7 +520,7 @@ third_party/libxslt/src/libxslt
 third_party/libxslt/src/m4
 third_party/libzip/src
 third_party/libzip/src/lib
-third_party/libzip/src/regress
+third_party/libzip/src/ossfuzz
 third_party/logdog/logdog
 third_party/logilab/logilab/astroid
 third_party/logilab/logilab/common
@@ -656,7 +654,7 @@ third_party/rust/chromium_crates_io/vendor/getrandom-v0_3
 third_party/rust/chromium_crates_io/vendor/getrandom-v0_4
 third_party/rust/chromium_crates_io/vendor/gimli-v0_32
 third_party/rust/chromium_crates_io/vendor/gimli-v0_32/src/read
-third_party/rust/chromium_crates_io/vendor/harfrust-v0_10/src/hb
+third_party/rust/chromium_crates_io/vendor/harfrust-v0_12/src/hb
 third_party/rust/chromium_crates_io/vendor/hashbrown-v0_16
 third_party/rust/chromium_crates_io/vendor/hashbrown-v0_16/src
 third_party/rust/chromium_crates_io/vendor/hashbrown-v0_17
@@ -735,10 +733,10 @@ third_party/rust/chromium_crates_io/vendor/quote-v1
 third_party/rust/chromium_crates_io/vendor/quote-v1/.github/workflows
 third_party/rust/chromium_crates_io/vendor/rand_core-v0_9
 third_party/rust/chromium_crates_io/vendor/rand_core-v0_9/src
-third_party/rust/chromium_crates_io/vendor/read-fonts-v0_40/scripts
-third_party/rust/chromium_crates_io/vendor/read-fonts-v0_40/src/ps
-third_party/rust/chromium_crates_io/vendor/read-fonts-v0_40/src/ps/cff
-third_party/rust/chromium_crates_io/vendor/read-fonts-v0_40/src/tables
+third_party/rust/chromium_crates_io/vendor/read-fonts-v0_41/scripts
+third_party/rust/chromium_crates_io/vendor/read-fonts-v0_41/src/ps
+third_party/rust/chromium_crates_io/vendor/read-fonts-v0_41/src/ps/cff
+third_party/rust/chromium_crates_io/vendor/read-fonts-v0_41/src/tables
 third_party/rust/chromium_crates_io/vendor/ref-cast-v1
 third_party/rust/chromium_crates_io/vendor/ref-cast-v1/.github/workflows
 third_party/rust/chromium_crates_io/vendor/regex-automata-v0_4
@@ -796,14 +794,19 @@ third_party/rust/chromium_crates_io/vendor/windows-link-v0_2
 third_party/rust/chromium_crates_io/vendor/windows-sys-v0_52
 third_party/rust/chromium_crates_io/vendor/windows-sys-v0_52/src/Windows/Wdk/System/SystemServices
 third_party/rust/chromium_crates_io/vendor/windows-sys-v0_52/src/Windows/Win32/Networking/Clustering
+third_party/rust/chromium_crates_io/vendor/write-fonts-v0_50/src/tables/variations
 third_party/rust/chromium_crates_io/vendor/zerocopy-v0_8
 third_party/rust/chromium_crates_io/vendor/zerocopy-v0_8/src
+third_party/rust/chromium_crates_io/vendor/zeroize_derive-v1
+third_party/rust/chromium_crates_io/vendor/zeroize-v1
 third_party/rust/chromium_crates_io/vendor/zip-v8
 third_party/rust/chromium_crates_io/vendor/zip-v8/src
 third_party/rust/chromium_crates_io/vendor/zmij-v1
 third_party/rust/chromium_crates_io/vendor/zmij-v1/.github/workflows
 third_party/rust/chromium_crates_io/vendor/zmij-v1/src
+third_party/rust/chromium_crates_io/vendor/zune-jpeg-v0_5
 third_party/rust/miniz_oxide/v0_8
+third_party/rust/zeroize_derive/v1
 third_party/screen-ai
 third_party/sentencepiece/src
 third_party/sentencepiece/src/src

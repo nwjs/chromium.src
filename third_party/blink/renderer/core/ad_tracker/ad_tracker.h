@@ -11,6 +11,9 @@
 
 #include "components/subresource_filter/core/common/scoped_rule.h"
 #include "third_party/blink/renderer/core/ad_tracker/ad_script_identifier.h"
+#include "third_party/blink/renderer/core/ad_tracker/lazy_stack_trace.h"
+#include "third_party/blink/renderer/core/ad_tracker/monkey_patchable_api.h"
+#include "third_party/blink/renderer/core/ad_tracker/script_initiation_monitor.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -31,30 +34,14 @@ enum class ResourceType : uint8_t;
 
 namespace probe {
 class AsyncTaskContext;
-class CallFunction;
-class ExecuteScript;
 }  // namespace probe
 
 // Tracker for tagging resources as ads based on the call stack scripts.
 // The tracker is maintained per local root.
-class CORE_EXPORT AdTracker : public GarbageCollected<AdTracker> {
+class CORE_EXPORT AdTracker : public GarbageCollected<AdTracker>,
+                              public ScriptInitiationMonitor::Observer {
  public:
-  // A list of JavaScript APIs that are frequently monkey patched by ad scripts.
-  // This enum is used as a parameter to `IsAdScriptInStack` to enable a
-  // heuristic that can ignore a top-level ad script, preventing false positives
-  // when the API is called from a non-ad script through an ad script's monkey
-  // patch.
-  enum class MonkeyPatchableApi {
-    // Default setting to disable the heuristic.
-    kNone,
-
-    // history.pushState
-    kHistoryPushState,
-    // history.replaceState
-    kHistoryReplaceState,
-    // Node.prototype.appendChild
-    kNodeAppendChild
-  };
+  using MonkeyPatchableApi = blink::MonkeyPatchableApi;
 
   // Stack scans of `kBottomOnly` will only scan the bottom frame of the sync
   // stack and also include async frames. `kTopOnly` will scan the top
@@ -83,47 +70,40 @@ class CORE_EXPORT AdTracker : public GarbageCollected<AdTracker> {
       Document* document,
       StackType stack_type = StackType::kTopOnly);
 
-  // Instrumenting methods.
-  // Called when a script module or script gets executed from native code.
-  void Will(const probe::ExecuteScript&);
-  void Did(const probe::ExecuteScript&);
+  // ScriptInitiationMonitor::Observer overrides:
+  void WillExecuteScript(ExecutionContext& execution_context,
+                         v8::Local<v8::Context> v8_context,
+                         V8ScriptId script_id,
+                         const String& script_url,
+                         LazyStackTrace& stack_trace) override;
+  void DidExecuteScript(V8ScriptId script_id) override;
+  void DidRegisterDynamicScript(v8::Local<v8::Context> v8_context,
+                                V8ScriptId script_id,
+                                LazyStackTrace& stack_trace) override;
+  void WillCallFunction(ExecutionContext& execution_context,
+                        V8ScriptId script_id,
+                        bool is_nested,
+                        LazyStackTrace& stack_trace) override;
+  void DidCallFunction(V8ScriptId script_id, bool is_nested) override;
+  void DidCreateAsyncTask(probe::AsyncTaskContext* task_context,
+                          LazyStackTrace& stack_trace) override;
+  void DidStartAsyncTask(probe::AsyncTaskContext* task_context) override;
+  void DidFinishAsyncTask(probe::AsyncTaskContext* task_context) override;
 
-  // Called when a function gets called from native code.
-  void Will(const probe::CallFunction&);
-  void Did(const probe::CallFunction&);
-
-  // Called when a subresource request is about to be sent or is redirected.
-  // Returns the `AdProvenance` of the subresource if it is identified as an ad,
-  // or `std::nullopt` otherwise. A subresource is considered an ad if any of
-  // the following are true:
-  // - `known_ad_provenance` has a value.
-  // - The resource is loaded in an ad iframe.
-  // - An ad script is in the v8 stack and the resource was not requested by
-  //   CSS. This stack check is only performed if `scan_stack_for_ads` is true.
-  //
-  // Virtual for testing.
+  // Returns whether the given subresource request is on behalf of advertising.
   virtual std::optional<AdProvenance> CalculateIfAdSubresource(
       ExecutionContext* execution_context,
       const KURL& request_url,
       ResourceType resource_type,
       const FetchInitiatorInfo& initiator_info,
       std::optional<AdProvenance> known_ad_provenance,
-      bool scan_stack_for_ads);
+      bool scan_javascript_stack);
 
   // Retrieves the ancestry chain of a given ad script (inclusive) and the
   // triggering filterlist rule. See `AdScriptAncestry` for more details on the
   // populated fields.
   AdScriptAncestry GetAncestry(V8ScriptId script_id);
 
-  // Called when an async task is created. Check at this point for ad script on
-  // the stack and annotate the task if so.
-  void DidCreateAsyncTask(probe::AsyncTaskContext* task_context);
-
-  // Called when an ad-related async task is eventually run.
-  void DidStartAsyncTask(probe::AsyncTaskContext* task_context);
-
-  // Called when the ad-related task has finished running.
-  void DidFinishAsyncTask(probe::AsyncTaskContext* task_context);
 
   // Registers a script as an ad script with the given provenance. This is used
   // for scripts that are not loaded via a resource request but are instead
@@ -166,10 +146,10 @@ class CORE_EXPORT AdTracker : public GarbageCollected<AdTracker> {
       MonkeyPatchableApi ignore_monkey_patch = MonkeyPatchableApi::kNone,
       AdScriptAncestry* out_ad_script_ancestry = nullptr);
 
-  virtual void Trace(Visitor*) const;
+  void Trace(Visitor*) const override;
 
   void Shutdown();
-  explicit AdTracker(LocalFrame*);
+  AdTracker(LocalFrame*, ScriptInitiationMonitor*);
   AdTracker(const AdTracker&) = delete;
   AdTracker& operator=(const AdTracker&) = delete;
   virtual ~AdTracker();
@@ -191,6 +171,7 @@ class CORE_EXPORT AdTracker : public GarbageCollected<AdTracker> {
   bool IsAdScriptInStackHelper(
       StackType stack_type,
       MonkeyPatchableApi ignore_monkey_patch,
+      LazyStackTrace& lazy_stack_trace,
       std::optional<AdScriptIdentifier>* out_ad_script);
 
   // Helper for the `ignore_monkey_patch` heuristic. Returns true if the API is
@@ -210,15 +191,6 @@ class CORE_EXPORT AdTracker : public GarbageCollected<AdTracker> {
   bool WasApiCalledByNonAdScript(v8::Isolate* isolate,
                                  MonkeyPatchableApi api) const;
 
-  // Returns true if `api` is a monkeyaptched function and matches `function` in
-  // the `isolate`'s current context.
-  // WARNING: This function executes js and can therefore modify the members of
-  // this class. Consider all iterators obtained before calling
-  // IsFunctionAMonkeyPatch to be invalid.
-  // TODO(jkarlin): This function really wants a context, not an isolate.
-  bool IsFunctionAMonkeyPatch(v8::Isolate* isolate,
-                              const v8::Local<v8::Function>& function,
-                              MonkeyPatchableApi api) const;
 
   bool IsKnownAdScript(ExecutionContext*, const String& url);
 

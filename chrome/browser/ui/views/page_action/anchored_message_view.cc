@@ -12,8 +12,8 @@
 
 #include "base/check.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback.h"
 #include "chrome/app/vector_icons/vector_icons.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/page_action/multi_icon_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_ink_drop_util.h"
 #include "chrome/grit/branded_strings.h"
@@ -44,11 +44,13 @@
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/controls/separator.h"
+#include "ui/views/focus/focus_manager.h"
 #include "ui/views/layout/animating_layout_manager.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/flex_layout.h"
 #include "ui/views/layout/layout_types.h"
 #include "ui/views/view_class_properties.h"
+#include "ui/views/widget/widget.h"
 
 namespace page_actions {
 
@@ -147,7 +149,8 @@ AnchoredMessageBubbleView::AnchoredMessageBubbleView(
                            true),
       menu_model_(model.GetAnchoredMessageMenuModel()),
       delegate_(delegate) {
-  set_close_on_deactivate(false);
+  set_close_on_deactivate(base::FeatureList::IsEnabled(
+      features::kPageActionAnchoredMessageEasyDismiss));
   SetProperty(views::kElementIdentifierKey, kAnchoredMessageBubbleId);
   SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
   SetBackgroundColor(ui::kColorSysSurface);
@@ -255,6 +258,196 @@ void AnchoredMessageBubbleView::UpdateContent(
   // an icon and/or non-empty text.
   CHECK(chip_has_icon || !model.GetText().empty());
 
+  UpdateMainIconAndLabel(model);
+  UpdateChipContainer(model);
+  UpdateActionButtons(model);
+  UpdateExpandableContent(model);
+
+  // Update margins dynamically to avoid excessive spacing when some components
+  // are hidden.
+  bool add_padding_before_chip = icon_view_->GetVisible() ||
+                                 label_->GetVisible() ||
+                                 expand_button_->GetVisible();
+  chip_container_->SetProperty(
+      views::kMarginsKey,
+      gfx::Insets::TLBR(
+          0, add_padding_before_chip ? kAnchoredMessageSpaceLeftOfChip : 0, 0,
+          0));
+
+  OnThemeChanged();
+}
+
+void AnchoredMessageBubbleView::OnThemeChanged() {
+  views::View::OnThemeChanged();
+  const ui::ColorProvider* color_provider = GetColorProvider();
+
+  if (!color_provider) {
+    return;
+  }
+
+  label_->SetEnabledColor(color_provider->GetColor(ui::kColorSysOnSurface));
+
+  if (close_button_) {
+    close_button_->SetImageModel(
+        views::Button::STATE_NORMAL,
+        ui::ImageModel::FromVectorIcon(
+            features::IsRoundedIconsEnabled()
+                ? vector_icons::kCloseIcon
+                : vector_icons::kCloseChromeRefreshOldIcon,
+            color_provider->GetColor(ui::kColorSysOnSurfaceSubtle),
+            kAnchoredMessageIconSize));
+  }
+  if (menu_button_) {
+    menu_button_->SetImageModel(
+        views::Button::STATE_NORMAL,
+        ui::ImageModel::FromVectorIcon(
+            ::features::IsRoundedIconsEnabled()
+                ? kMoreVertIcon
+                : kBrowserToolsChromeRefreshOldIcon,
+            color_provider->GetColor(ui::kColorSysOnSurfaceSubtle),
+            kAnchoredMessageIconSize));
+  }
+}
+
+bool AnchoredMessageBubbleView::CanActivate() const {
+  return true;  // Needed for the widget buttons to work on Windows
+}
+
+views::View* AnchoredMessageBubbleView::GetContentsView() {
+  return this;
+}
+
+views::Widget* AnchoredMessageBubbleView::GetWidget() {
+  return View::GetWidget();
+}
+
+const views::Widget* AnchoredMessageBubbleView::GetWidget() const {
+  return View::GetWidget();
+}
+
+AnchoredMessageBubbleView::~AnchoredMessageBubbleView() {
+  SetAnchorView(nullptr);
+}
+
+void AnchoredMessageBubbleView::OnExpandButtonPressed() {
+  expanded_ = !expanded_;
+  bottom_container_->SetVisible(expanded_);
+  UpdateExpandButtonTooltip();
+  if (expandable_content_ &&
+      expandable_content_->expand_button_style == ExpandButtonStyle::kChevron) {
+    UpdateExpandButtonIcon();
+  }
+  SizeToContents();
+  if (expanded_) {
+    delegate_->AnchoredMessageExpanded();
+  } else {
+    delegate_->AnchoredMessageCollapsed();
+  }
+}
+
+void AnchoredMessageBubbleView::MenuButtonPressed() {
+  if (!menu_model_) {
+    return;
+  }
+
+  pressed_lock_ = menu_button_->button_controller()->TakeLock();
+  menu_runner_ = std::make_unique<views::MenuRunner>(
+      menu_model_, views::MenuRunner::NO_FLAGS,
+      base::BindRepeating(&AnchoredMessageBubbleView::OnMenuClosed,
+                          base::Unretained(this)));
+  menu_runner_->RunMenuAt(GetWidget(), menu_button_->button_controller(),
+                          menu_button_->GetBoundsInScreen(),
+                          views::MenuAnchorPosition::kTopLeft,
+                          ui::mojom::MenuSourceType::kNone);
+  if (menu_runner_->IsRunning()) {
+    delegate_->AnchoredMessageExpanded();
+  } else {
+    pressed_lock_.reset();
+  }
+}
+
+void AnchoredMessageBubbleView::OnMenuClosed() {
+  pressed_lock_.reset();
+  delegate_->AnchoredMessageCollapsed();
+  if (menu_button_ && menu_button_->GetVisible()) {
+    menu_button_->RequestFocus();
+    if (GetWidget() && GetWidget()->GetFocusManager()) {
+      GetWidget()->GetFocusManager()->SetStoredFocusView(menu_button_);
+    }
+  }
+}
+
+void AnchoredMessageBubbleView::OnKeyEvent(ui::KeyEvent* event) {
+  if (event->key_code() == ui::VKEY_ESCAPE) {
+    if (event->type() == ui::EventType::kKeyReleased) {
+      event->SetHandled();
+      return;
+    }
+    if (event->type() == ui::EventType::kKeyPressed && menu_runner_ &&
+        menu_runner_->IsRunning()) {
+      menu_runner_->Cancel();
+      event->SetHandled();
+      return;
+    }
+  }
+  views::View::OnKeyEvent(event);
+}
+
+void AnchoredMessageBubbleView::OnWidgetDestroying(views::Widget* widget) {
+  if (menu_runner_ && menu_runner_->IsRunning()) {
+    menu_runner_->Cancel();
+  }
+  menu_runner_ = nullptr;
+  BubbleDialogDelegate::OnWidgetDestroying(widget);
+}
+
+void AnchoredMessageBubbleView::UpdateExpandButtonIcon() {
+  if (!expand_button_) {
+    return;
+  }
+  CHECK(expandable_content_ && expandable_content_->expand_button_style ==
+                                   ExpandButtonStyle::kChevron);
+  const gfx::VectorIcon& icon = expanded_
+                                    ? vector_icons::kKeyboardArrowUpIcon
+                                    : vector_icons::kKeyboardArrowDownIcon;
+  ui::ImageModel image_model =
+      ui::ImageModel::FromVectorIcon(icon, ui::kColorSysOnSurfaceSubtle, 16);
+
+  std::vector<std::reference_wrapper<const ui::ImageModel>> icons;
+  icons.emplace_back(image_model);
+  expand_button_->Update(icons);
+}
+
+void AnchoredMessageBubbleView::UpdateExpandButtonTooltip() {
+  if (!expand_button_) {
+    return;
+  }
+  std::u16string tooltip_text;
+  if (expanded_) {
+    tooltip_text =
+        expandable_content_ && expandable_content_->collapse_button_tooltip
+            ? *expandable_content_->collapse_button_tooltip
+            : l10n_util::GetStringUTF16(
+                  IDS_ANCHORED_MESSAGE_COLLAPSE_BUTTON_TOOLTIP);
+  } else {
+    tooltip_text =
+        expandable_content_ && expandable_content_->expand_button_tooltip
+            ? *expandable_content_->expand_button_tooltip
+            : l10n_util::GetStringUTF16(
+                  IDS_ANCHORED_MESSAGE_EXPAND_BUTTON_TOOLTIP);
+  }
+  expand_button_->SetTooltipText(tooltip_text);
+
+  // Set the semantic expanded state.
+  if (expanded_) {
+    expand_button_->GetViewAccessibility().SetIsExpanded();
+  } else {
+    expand_button_->GetViewAccessibility().SetIsCollapsed();
+  }
+}
+
+void AnchoredMessageBubbleView::UpdateMainIconAndLabel(
+    const PageActionModelInterface& model) {
   icon_ = model.GetAnchoredMessageIcon();
   if (icon_) {
     icon_view_->SetImage(icon_.value());
@@ -266,7 +459,11 @@ void AnchoredMessageBubbleView::UpdateContent(
   label_text_ = model.GetAnchoredMessageText();
   label_->SetText(label_text_);
   label_->SetVisible(!label_text_.empty());
+}
 
+void AnchoredMessageBubbleView::UpdateChipContainer(
+    const PageActionModelInterface& model) {
+  const bool chip_has_icon = !model.GetAnchoredMessageIcon();
   std::optional<ui::ImageModel> chip_icon =
       chip_has_icon ? std::optional<ui::ImageModel>(model.GetImage())
                     : std::nullopt;
@@ -275,7 +472,10 @@ void AnchoredMessageBubbleView::UpdateContent(
   chip_container_->Update(model.GetText(), chip_icon,
                           model.GetAccessibleName());
   chip_container_->SetVisible(show_chip);
+}
 
+void AnchoredMessageBubbleView::UpdateActionButtons(
+    const PageActionModelInterface& model) {
   AnchoredMessageActionIconType action_icon_type =
       model.GetAnchoredMessageActionIconType();
   show_close_button_ =
@@ -293,34 +493,28 @@ void AnchoredMessageBubbleView::UpdateContent(
   bool show_menu_button =
       action_icon_type == AnchoredMessageActionIconType::kMenu && menu_model_;
   menu_button_->SetVisible(show_menu_button);
+}
 
-  // Update margins dynamically to avoid excessive spacing when some components
-  // are hidden.
-  bool add_padding_before_chip = icon_view_->GetVisible() ||
-                                 label_->GetVisible() ||
-                                 expand_button_->GetVisible();
-  chip_container_->SetProperty(
-      views::kMarginsKey,
-      gfx::Insets::TLBR(
-          0, add_padding_before_chip ? kAnchoredMessageSpaceLeftOfChip : 0, 0,
-          0));
-
-  const auto& expandable_content = model.GetAnchoredMessageExpandableContent();
-  if (expandable_content) {
-    std::vector<std::reference_wrapper<const ui::ImageModel>> icons;
-    for (const auto& item : expandable_content->items) {
-      if (item.icon) {
-        icons.emplace_back(*item.icon);
+void AnchoredMessageBubbleView::UpdateExpandableContent(
+    const PageActionModelInterface& model) {
+  expandable_content_ = model.GetAnchoredMessageExpandableContent();
+  if (expandable_content_) {
+    if (expandable_content_->expand_button_style ==
+        ExpandButtonStyle::kChevron) {
+      UpdateExpandButtonIcon();
+    } else {
+      std::vector<std::reference_wrapper<const ui::ImageModel>> icons;
+      for (const auto& item : expandable_content_->items) {
+        if (item.icon) {
+          icons.emplace_back(*item.icon);
+        }
       }
+      expand_button_->Update(icons);
     }
-    expand_button_->Update(icons);
-    expand_button_tooltip_override_ = expandable_content->expand_button_tooltip;
-    collapse_button_tooltip_override_ =
-        expandable_content->collapse_button_tooltip;
 
-    if (expandable_content->expand_button_accessible_name) {
+    if (expandable_content_->expand_button_accessible_name) {
       expand_button_->GetViewAccessibility().SetName(
-          *expandable_content->expand_button_accessible_name);
+          *expandable_content_->expand_button_accessible_name);
     }
     UpdateExpandButtonTooltip();
     expand_button_->SetVisible(true);
@@ -337,7 +531,7 @@ void AnchoredMessageBubbleView::UpdateContent(
         views::BoxLayout::Orientation::kVertical,
         gfx::Insets::TLBR(0, kAnchoredMessageLeftInset, 8, 12), 0));
 
-    if (expandable_content->heading) {
+    if (expandable_content_->heading) {
       auto* heading_row =
           items_container->AddChildView(std::make_unique<views::View>());
       auto* heading_layout =
@@ -348,10 +542,10 @@ void AnchoredMessageBubbleView::UpdateContent(
       heading_layout->set_minimum_cross_axis_size(32);
 
       auto* title_label = heading_row->AddChildView(
-          std::make_unique<views::Label>(*expandable_content->heading));
+          std::make_unique<views::Label>(*expandable_content_->heading));
       title_label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
       title_label->SetTextStyle(views::style::STYLE_BODY_4_MEDIUM);
-      title_label->SetEnabledColor(ui::kColorSysOnSurface);
+      title_label->SetEnabledColor(ui::kColorSysOnSurfaceSubtle);
       title_label->SetElideBehavior(gfx::ELIDE_TAIL);
       // Set width to 0 so the text will fill available space, but not stretch
       // the bubble.
@@ -360,7 +554,7 @@ void AnchoredMessageBubbleView::UpdateContent(
       heading_layout->SetFlexForView(title_label, 1);
     }
 
-    for (const auto& item : expandable_content->items) {
+    for (const auto& item : expandable_content_->items) {
       auto* item_row =
           items_container->AddChildView(std::make_unique<views::View>());
       auto* item_layout =
@@ -397,131 +591,6 @@ void AnchoredMessageBubbleView::UpdateContent(
     expand_button_->SetVisible(false);
     bottom_container_->RemoveAllChildViews();
     bottom_container_->SetVisible(false);
-  }
-
-  OnThemeChanged();
-}
-
-void AnchoredMessageBubbleView::OnThemeChanged() {
-  views::View::OnThemeChanged();
-  const ui::ColorProvider* color_provider = GetColorProvider();
-
-  if (!color_provider) {
-    return;
-  }
-
-  label_->SetEnabledColor(color_provider->GetColor(ui::kColorSysOnSurface));
-
-  if (close_button_) {
-    close_button_->SetImageModel(
-        views::Button::STATE_NORMAL,
-        ui::ImageModel::FromVectorIcon(
-            features::IsRoundedIconsEnabled()
-                ? vector_icons::kCloseIcon
-                : vector_icons::kCloseChromeRefreshOldIcon,
-            color_provider->GetColor(ui::kColorSysOnSurfaceVariant),
-            kAnchoredMessageIconSize));
-  }
-  if (menu_button_) {
-    menu_button_->SetImageModel(
-        views::Button::STATE_NORMAL,
-        ui::ImageModel::FromVectorIcon(
-            ::features::IsRoundedIconsEnabled()
-                ? kMoreVertIcon
-                : kBrowserToolsChromeRefreshOldIcon,
-            color_provider->GetColor(ui::kColorSysOnSurfaceVariant),
-            kAnchoredMessageIconSize));
-  }
-}
-
-bool AnchoredMessageBubbleView::CanActivate() const {
-  return true;  // Needed for the widget buttons to work on Windows
-}
-
-views::View* AnchoredMessageBubbleView::GetContentsView() {
-  return this;
-}
-
-views::Widget* AnchoredMessageBubbleView::GetWidget() {
-  return View::GetWidget();
-}
-
-const views::Widget* AnchoredMessageBubbleView::GetWidget() const {
-  return View::GetWidget();
-}
-
-AnchoredMessageBubbleView::~AnchoredMessageBubbleView() {
-  SetAnchorView(nullptr);
-}
-
-void AnchoredMessageBubbleView::OnExpandButtonPressed() {
-  expanded_ = !expanded_;
-  bottom_container_->SetVisible(expanded_);
-  UpdateExpandButtonTooltip();
-  SizeToContents();
-  if (expanded_) {
-    delegate_->AnchoredMessageExpanded();
-  } else {
-    delegate_->AnchoredMessageCollapsed();
-  }
-}
-
-void AnchoredMessageBubbleView::MenuButtonPressed() {
-  if (!menu_model_) {
-    return;
-  }
-
-  pressed_lock_ = menu_button_->button_controller()->TakeLock();
-  menu_runner_ = std::make_unique<views::MenuRunner>(
-      menu_model_, views::MenuRunner::NO_FLAGS,
-      base::BindRepeating(&AnchoredMessageBubbleView::OnMenuClosed,
-                          base::Unretained(this)));
-  menu_runner_->RunMenuAt(
-      GetWidget(), nullptr, menu_button_->GetBoundsInScreen(),
-      views::MenuAnchorPosition::kTopLeft, ui::mojom::MenuSourceType::kNone);
-  if (menu_runner_->IsRunning()) {
-    delegate_->AnchoredMessageExpanded();
-  } else {
-    pressed_lock_.reset();
-  }
-}
-
-void AnchoredMessageBubbleView::OnMenuClosed() {
-  pressed_lock_.reset();
-  delegate_->AnchoredMessageCollapsed();
-}
-
-void AnchoredMessageBubbleView::OnWidgetDestroying(views::Widget* widget) {
-  if (menu_runner_ && menu_runner_->IsRunning()) {
-    menu_runner_->Cancel();
-  }
-  menu_runner_ = nullptr;
-  BubbleDialogDelegate::OnWidgetDestroying(widget);
-}
-
-void AnchoredMessageBubbleView::UpdateExpandButtonTooltip() {
-  if (!expand_button_) {
-    return;
-  }
-  std::u16string tooltip_text;
-  if (expanded_) {
-    tooltip_text = collapse_button_tooltip_override_
-                       ? *collapse_button_tooltip_override_
-                       : l10n_util::GetStringUTF16(
-                             IDS_ANCHORED_MESSAGE_COLLAPSE_BUTTON_TOOLTIP);
-  } else {
-    tooltip_text = expand_button_tooltip_override_
-                       ? *expand_button_tooltip_override_
-                       : l10n_util::GetStringUTF16(
-                             IDS_ANCHORED_MESSAGE_EXPAND_BUTTON_TOOLTIP);
-  }
-  expand_button_->SetTooltipText(tooltip_text);
-
-  // Set the semantic expanded state.
-  if (expanded_) {
-    expand_button_->GetViewAccessibility().SetIsExpanded();
-  } else {
-    expand_button_->GetViewAccessibility().SetIsCollapsed();
   }
 }
 

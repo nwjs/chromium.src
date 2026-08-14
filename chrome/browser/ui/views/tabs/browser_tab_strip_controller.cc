@@ -44,8 +44,12 @@
 #include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
 #include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/unload_controller.h"
+#include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_close_button_controller.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/browser_widget.h"
+#include "chrome/browser/ui/views/frame/glass_frame_service.h"
 #include "chrome/browser/ui/views/frame/horizontal_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/tabs/groups/tab_group_accessibility.h"
 #include "chrome/browser/ui/views/tabs/shared/tab_strip_types.h"
@@ -55,6 +59,7 @@
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_tabbed_utils.h"
+#include "components/contextual_tasks/public/features.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/omnibox/browser/autocomplete_classifier.h"
 #include "components/saved_tab_groups/public/saved_tab_group.h"
@@ -201,12 +206,24 @@ void BrowserTabStripController::InitFromModel(TabStrip* tabstrip) {
   }
 
   tabstrip_->StopAnimating();
+
+  if (GlassFrameService* service = GlassFrameService::GetInstance()) {
+    glass_frame_service_subscription_ =
+        service->RegisterGlassFrameEligibilityChangedCallback(
+            browser_view_->browser(),
+            base::BindRepeating(
+                &BrowserTabStripController::OnGlassFrameEligibilityChanged,
+                base::Unretained(this)));
+    OnGlassFrameEligibilityChanged(
+        service->IsBrowserWindowEligible(browser_view_->browser()));
+  }
 }
 
 void BrowserTabStripController::Reset() {
   // Stop observing.
   model_->RemoveObserver(this);
   tabstrip_ = nullptr;
+  glass_frame_service_subscription_ = {};
 }
 
 // TODO(crbug.com/435178910): Change this to return a
@@ -343,18 +360,20 @@ void BrowserTabStripController::OnCloseTab(
   if (GetCount() <= 1) {
     // Closing this tab will close the current window. See if the browser wants
     // to prompt the user before the browser is allowed to close.
-    const Browser::WarnBeforeClosingResult result =
-        browser_view_->browser()->MaybeWarnBeforeClosing(base::BindOnce(
-            [](TabStrip* tab_strip, int model_index,
-               Browser::WarnBeforeClosingResult result) {
-              if (result == Browser::WarnBeforeClosingResult::kOkToClose) {
-                tab_strip->CloseTab(tab_strip->tab_at(model_index),
-                                    CloseTabSource::kFromNonUIEvent);
-              }
-            },
-            base::Unretained(tabstrip_), model_index));
+    const UnloadController::WarnBeforeClosingResult result =
+        UnloadController::From(browser_view_->browser())
+            ->MaybeWarnBeforeClosing(base::BindOnce(
+                [](TabStrip* tab_strip, int model_index,
+                   UnloadController::WarnBeforeClosingResult result) {
+                  if (result ==
+                      UnloadController::WarnBeforeClosingResult::kOkToClose) {
+                    tab_strip->CloseTab(tab_strip->tab_at(model_index),
+                                        CloseTabSource::kFromNonUIEvent);
+                  }
+                },
+                base::Unretained(tabstrip_), model_index));
 
-    if (result != Browser::WarnBeforeClosingResult::kOkToClose) {
+    if (result != UnloadController::WarnBeforeClosingResult::kOkToClose) {
       return;
     }
   }
@@ -382,6 +401,18 @@ void BrowserTabStripController::OnCloseTab(
 void BrowserTabStripController::CloseTab(int model_index) {
   // Cancel any pending tab transition.
   hover_tab_selector_.CancelTabTransition();
+
+  if (base::FeatureList::IsEnabled(
+          contextual_tasks::kContextualTasksCloseTabExpandsSidePanel)) {
+    tabs::TabInterface* closing_tab = model_->GetTabAtIndex(model_index);
+    ContextualTasksCloseButtonController* const close_button_controller =
+        ContextualTasksCloseButtonController::From(GetBrowserWindowInterface());
+    if (closing_tab && closing_tab->IsActivated() && close_button_controller &&
+        close_button_controller->ShouldShowCloseButton()) {
+      close_button_controller->MaybeCloseTabExpandSidePanel();
+      return;
+    }
+  }
 
   model_->CloseWebContentsAt(model_index,
                              TabCloseTypes::CLOSE_USER_GESTURE |
@@ -445,9 +476,6 @@ void BrowserTabStripController::ToggleTabGroupCollapsedState(
       } else {
         // Create a new tab that will automatically be activated
         should_toggle_group = false;
-        // We intentionally do not call CreateNewTab() here because it
-        // respects the IsNewTabAddsToActiveGroupEnabled() feature, which would
-        // add the new tab to the same group as the currently active tab.
         // In the "collapse group" scenario, we want the new tab to be created
         // outside of any group to avoid it being collapsed immediately.
         model_->delegate()->AddTabAt(GURL(), -1, true);
@@ -460,13 +488,6 @@ void BrowserTabStripController::ToggleTabGroupCollapsedState(
           active_index, TabStripUserGestureDetails(
                             TabStripUserGestureDetails::GestureType::kOther));
     }
-  }
-
-  // Under the kTabGroupsFocusingAutoClose feature, switching the active tab or
-  // adding a new tab can cause the group to be automatically closed and
-  // synchronously destroyed. We must check that the group still exists.
-  if (!model_->group_model()->ContainsTabGroup(group)) {
-    return;
   }
 
   if (origin != ToggleTabGroupCollapsedStateOrigin::kMenuAction ||
@@ -933,4 +954,9 @@ bool BrowserTabStripController::GetContextMenuAccelerator(
   return TabStripModel::ContextMenuCommandToBrowserCommand(command_id,
                                                            &browser_cmd) &&
          tabstrip_->GetWidget()->GetAccelerator(browser_cmd, accelerator);
+}
+
+void BrowserTabStripController::OnGlassFrameEligibilityChanged(
+    bool is_eligible) {
+  browser_view_->tab_strip_view()->OnGlassFrameEligibilityChanged(is_eligible);
 }

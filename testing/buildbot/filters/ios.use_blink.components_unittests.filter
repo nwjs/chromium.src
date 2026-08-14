@@ -9,27 +9,27 @@
 -AutofillAcrossIframesTest.TriggerExtractionInFrame
 
 # TODO(crbug.com/40945935): Test currently fails on iOS blink.
--AutofillAgentTests.OnFormDataFilledTestWithFrameMessagingUsingRendererIDs
--AutofillAgentTests.CheckIfSuggestionsAvailable_NonUserInitiatedActivity
--AutofillAgentTests.DriverFillSpecificFormField
--AutofillAgentTests.DriverPreviewSpecificFormField
--AutofillAgentTests.FillSpecificFormField
--AutofillAgentTests.onSuggestionsReady_ClearForm
--AutofillAgentTests.onSuggestionsReady_ClearFormWithGPay
--AutofillAgentTests.showAutofillPopup_EmptyIconInCreditCardSuggestion
--AutofillAgentTests.showAutofillPopup_PlusAddresses
--AutofillAgentTests.showAutofillPopup_PreferCustomIconForCreditCardSuggestions
--AutofillAgentTests.showAutofillPopup_ShowVirtualCards
--AutofillAgentTests.FillSpecificFormField_UpdateWithResults_WhenFailure
--AutofillAgentTests.FillSpecificFormField_UpdateWithResults_WhenSuccess
+-AutofillAgentTest.OnFormDataFilledTestWithFrameMessagingUsingRendererIDs
+-AutofillAgentTest.CheckIfSuggestionsAvailable_NonUserInitiatedActivity
+-AutofillAgentTest.DriverFillSpecificFormField
+-AutofillAgentTest.DriverPreviewSpecificFormField
+-AutofillAgentTest.FillSpecificFormField
+-AutofillAgentTest.onSuggestionsReady_ClearForm
+-AutofillAgentTest.onSuggestionsReady_ClearFormWithGPay
+-AutofillAgentTest.showAutofillPopup_EmptyIconInCreditCardSuggestion
+-AutofillAgentTest.showAutofillPopup_PlusAddresses
+-AutofillAgentTest.showAutofillPopup_PreferCustomIconForCreditCardSuggestions
+-AutofillAgentTest.showAutofillPopup_ShowVirtualCards
+-AutofillAgentTest.FillSpecificFormField_UpdateWithResults_WhenFailure
+-AutofillAgentTest.FillSpecificFormField_UpdateWithResults_WhenSuccess
 
 # TODO(crbug.com/339492594): The below tests have been failing since
 # https://crrev.com/c/5496051. It looks like it's missing a
 # content::BrowserTaskEnvironment member in your fixture.
--AutofillAgentTests.DidSelectSuggestion_AutocompleteEntry
--AutofillAgentTests.DidSelectSuggestion_ClearFormEntry
--AutofillAgentTests.FillData_UnknowFieldIdInResults
--AutofillAgentTests.FillData_UpdateWithResults
+-AutofillAgentTest.DidSelectSuggestion_AutocompleteEntry
+-AutofillAgentTest.DidSelectSuggestion_ClearFormEntry
+-AutofillAgentTest.FillData_UnknowFieldIdInResults
+-AutofillAgentTest.FillData_UpdateWithResults
 -SharedPasswordControllerTest.DidFillField
 
 # TODO(crbug.com/332933545): Test currently fails on iOS Blink.
@@ -104,15 +104,26 @@
 # TODO(crbug.com/335686693): FormMutationTests have been failing since
 # https://crrev.com/c/5460162. Currently they fail with use_blink due to
 # spinning up on an unexpected thread.
--FormMutationTest.AddForm
--FormMutationTest.PasswordFormRemovalRegistered
--FormMutationTest.RemoveFormlessFields
--FormMutationTest.RemoveFormlessPasswordFields
--FormMutationTest.RemoveMultipleForms
--FormMutationTest.RemoveMultipleFormsAndFormlessFields
--FormMutationTest.RemoveNonPasswordForm
--FormMutationTest.RemovedAndAddedFormsRegistered
--FormMutationTest.RemovedAndAddedFormsRegistered_WithDroppedMessages
+-All/FormMutationTest.AddForm/0
+-All/FormMutationTest.AddForm/1
+-All/FormMutationTest.OptimizedFormMutations_ThrottledAcrossTicks/0
+-All/FormMutationTest.OptimizedFormMutations_ThrottledAcrossTicks/1
+-All/FormMutationTest.PasswordFormRemovalRegistered/0
+-All/FormMutationTest.PasswordFormRemovalRegistered/1
+-All/FormMutationTest.RemovedAndAddedFormsRegistered_WithDroppedMessages/0
+-All/FormMutationTest.RemovedAndAddedFormsRegistered_WithDroppedMessages/1
+-All/FormMutationTest.RemovedAndAddedFormsRegistered/0
+-All/FormMutationTest.RemovedAndAddedFormsRegistered/1
+-All/FormMutationTest.RemoveFormlessFields/0
+-All/FormMutationTest.RemoveFormlessFields/1
+-All/FormMutationTest.RemoveFormlessPasswordFields/0
+-All/FormMutationTest.RemoveFormlessPasswordFields/1
+-All/FormMutationTest.RemoveMultipleForms/0
+-All/FormMutationTest.RemoveMultipleForms/1
+-All/FormMutationTest.RemoveMultipleFormsAndFormlessFields/0
+-All/FormMutationTest.RemoveMultipleFormsAndFormlessFields/1
+-All/FormMutationTest.RemoveNonPasswordForm/0
+-All/FormMutationTest.RemoveNonPasswordForm/1
 
 # TODO(crbug.com/40945942): Test currently fails on iOS blink.
 -FormJsTest.GetIframeElements
@@ -161,6 +172,11 @@
 -SharedPasswordControllerTest.ReturnsSuggestionsIfAvailable
 -SharedPasswordControllerTest.SuggestsGeneratedPassword
 -SharedPasswordControllerTest.TriggerPasswordGeneration
+-SharedPasswordControllerTest.FillField
+-SharedPasswordControllerTest.ReturnsPasskeyAndPasswordSuggestionsWhenAvailable
+-SharedPasswordControllerTest.ScrollAndCheckViewAreaVisible
+-SharedPasswordControllerTest.SelectPasskeySuggestion
+-SharedPasswordControllerTest.SelectPasswordSuggestionWithAutoSubmission
 
 # TODO(crbug.com/40945948): Test currently fails on iOS blink.
 -SecurityStateUtilsTest.GetMaliciousContentStatus
@@ -366,10 +382,42 @@
 
 # TODO(crbug.com/514423252): SafariDataImporter and SqliteVfs multiprocess tests
 # crash on iOS Blink.
+-SafariDataImporterTest.Bookmarks_Basic
+-SafariDataImporterTest.Bookmarks_Folders
+-SafariDataImporterTest.Bookmarks_MiscJunk
+-SafariDataImporterTest.Bookmarks_NoTopLevelDL
+-SafariDataImporterTest.Bookmarks_ReadingList
+-SafariDataImporterTest.CancelImport
+-SafariDataImporterTest.DuplicateBookmarkFolders
+-SafariDataImporterTest.HandleGarbageFile
+-SafariDataImporterTest.HandleNonASCIIFile
 -SafariDataImporterTest.ImportBookmarks
+-SafariDataImporterTest.ImportBookmarksBlockedByPolicy
 -SafariDataImporterTest.ImportCreditCard
+-SafariDataImporterTest.ImportFileEndToEnd
+-SafariDataImporterTest.ImportFileEndToEndWithDefaultThreshold
 -SafariDataImporterTest.ImportHistory
+-SafariDataImporterTest.ImportHistoryBlockedByPolicy
 -SafariDataImporterTest.ImportPasswords
+-SafariDataImporterTest.ImportPasswordsBlockedByPolicy
+-SafariDataImporterTest.ImportPaymentCardsBlockedByPolicy
+-SafariDataImporterTest.ImportReadingListBlockedByPolicy
+-SafariDataImporterTest.ImportsEmptyFolder
+-SafariDataImporterTest.ImportSingleBookmark
+-SafariDataImporterTest.ImportsMultipleBookmarks
+-SafariDataImporterTest.ImportsMultipleReadingListItems
+-SafariDataImporterTest.ImportsNestedBookmark
+-SafariDataImporterTest.ImportToBothStoresSequentially
+-SafariDataImporterTest.ImportWithNoBookmarks
+-SafariDataImporterTest.NoPassword
+-SafariDataImporterTest.NoPaymentCard
+-SafariDataImporterTest.PasswordImport
+-SafariDataImporterTest.PasswordImportConflicts
+-SafariDataImporterTest.PasswordsImportedToAccountStoreWhenSyncIsEnabled
+-SafariDataImporterTest.PasswordsImportedToProfileStoreWhenSyncIsDisabled
+-SafariDataImporterTest.PasswordsImportLocallyWithSyncTypesListDisabled
+-SafariDataImporterTest.PrepareImportFileTwice
+-SafariDataImporterTest.TotalFailure
 -SqliteVfsMultiprocessTest.AbandonAndReconnect/Rollback
 -SqliteVfsMultiprocessTest.AbandonAndReconnect/Wal
 -SqliteVfsMultiprocessTest.AbandonReadOnlyShared/Rollback
@@ -407,12 +455,18 @@
 -DeviceEventLogTest.TestTimeFormat
 -FieldLogUkmMetricTest/LogFocusedComplexFormAtFormRemoveTest.TestEmittedUKM/ablation_study
 -FieldLogUkmMetricTest/LogFocusedComplexFormAtFormRemoveTest.TestEmittedUKM/ablation_study_in_dry_run_mode
--PasskeyTabHelperTest.HandleCreateRequestedEventDefersOnInvalidOrigin
--PasskeyTabHelperTest.HandleGetRequestedEventDefersOnInvalidOrigin
--PasskeyTabHelperTest.StartPasskeyCreationFromCrossOriginIframe
 -PolicyLoggerTest.DeleteOldLogsMultithreaded
 -UmaPageLoadMetricsObserverTest.TestTracingDomContentLoadedEventStart
 -UmaPageLoadMetricsObserverTest.TestTracingLoadEventStart
+
+# TODO(crbug.com/538332325): PasskeyTabHelperTest have been failing on iOS blink
+# port. Some of the tests were added by https://crrev.com/c/7868131.
+-PasskeyTabHelperTest.HandleAssertionEmptyRemoteFrameIdGraceful
+-PasskeyTabHelperTest.HandleAssertionMalformedRemoteFrameIdGraceful
+-PasskeyTabHelperTest.StartPasskeyCreationWithExcludedCredential
+-PasskeyTabHelperTest.HandleCreateRequestedEventDefersOnInvalidOrigin
+-PasskeyTabHelperTest.HandleGetRequestedEventDefersOnInvalidOrigin
+-PasskeyTabHelperTest.StartPasskeyCreationFromCrossOriginIframe
 
 # TODO(crbug.com/517208683): The test is flaky on the ios-blink and tvos bots.
 # The test was updated by https://crrev.com/c/7676358.

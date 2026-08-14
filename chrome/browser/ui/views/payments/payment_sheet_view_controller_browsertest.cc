@@ -4,28 +4,15 @@
 
 #include "chrome/browser/ui/views/payments/payment_sheet_view_controller.h"
 
-#include "base/strings/utf_string_conversions.h"
-#include "base/test/scoped_command_line.h"
 #include "chrome/browser/ui/views/payments/payment_request_browsertest_base.h"
 #include "chrome/browser/ui/views/payments/payment_request_dialog_view_ids.h"
+#include "chrome/browser/ui/views/payments/payment_request_dialog_view_test_api.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "components/autofill/core/browser/data_manager/personal_data_manager.h"
-#include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
-#include "components/autofill/core/browser/data_model/payments/credit_card.h"
-#include "components/autofill/core/browser/field_types.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
-#include "components/strings/grit/components_strings.h"
-#include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
-#include "net/dns/mock_host_resolver.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/base/l10n/l10n_util.h"
-#include "ui/events/base_event_utils.h"
 #include "ui/views/controls/scroll_view.h"
-#include "ui/views/metrics.h"
 #include "ui/views/test/mock_input_event_activation_protector.h"
-#include "ui/views/views_switches.h"
 
 namespace payments {
 
@@ -67,15 +54,16 @@ IN_PROC_BROWSER_TEST_F(PaymentSheetViewControllerTest,
       std::make_unique<views::MockInputEventActivationProtector>();
   // Expect that `allow_key_events` is set to false to protect against
   // enter-jacking.
-  EXPECT_CALL(*input_protector, IsPossiblyUnintendedInteraction(
-                                    testing::_, /*allow_key_events=*/false))
+  EXPECT_CALL(*input_protector,
+              IsPossiblyUnintendedInteraction(
+                  testing::_, /*allow_key_events=*/false, testing::_))
       .WillOnce(testing::Return(true))
       .WillRepeatedly(testing::Return(false));
 
   views::View* sheet_view =
       GetByDialogViewID(DialogViewID::PAYMENT_REQUEST_SHEET);
   static_cast<PaymentSheetViewController*>(
-      dialog_view()->controller_map_for_testing()->at(sheet_view).get())
+      test_api(dialog_view()).controller_map()->at(sheet_view).get())
       ->SetInputEventActivationProtectorForTesting(std::move(input_protector));
 
   // Because of the input protector, the first press of the button should be

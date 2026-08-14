@@ -7,31 +7,19 @@
 
 #import <Foundation/Foundation.h>
 
-namespace at_memory {
-
-// Represents the different content states of the AtMemory screen.
-enum class AtMemoryContentState {
-  // Shows the empty state view.
-  kEmpty,
-  // Shows previously filled items.
-  kPreviouslyFilled,
-  // Shows search cell (including loading state).
-  kSearch,
-  // Shows search results.
-  kSearchResults,
-  // Shows that the query is unsupported.
-  kQueryUnsupported,
-  // Shows a "no data" message.
-  kNoData,
-};
-
-}  // namespace at_memory
+@class AtMemoryGranularFillItem;
 
 // Consumer for AtMemory.
 @protocol AtMemoryConsumer <NSObject>
 
-// Sets the current content state of the AtMemory screen.
-- (void)setContentState:(at_memory::AtMemoryContentState)contentState;
+// Sets the granular fill items.
+- (void)setGranularFillItems:(NSArray<AtMemoryGranularFillItem*>*)items;
+
+// Sets the current search query.
+- (void)setSearchQuery:(NSString*)query;
+
+// Sets whether the search is loading.
+- (void)setSearchLoading:(BOOL)loading;
 
 @end
 

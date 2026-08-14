@@ -7,12 +7,12 @@ import 'chrome://settings/settings.js';
 
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import type {CrActionMenuElement} from 'chrome://settings/settings.js';
-import type {CrInputElement, CrTextareaElement, SettingsSimpleConfirmationDialogElement} from 'chrome://settings/lazy_load.js';
+import type { CrInputElement, CrTextareaElement, SettingsAutofillSectionElement, SettingsSimpleConfirmationDialogElement } from 'chrome://settings/lazy_load.js';
 import {AutofillAddressOptInChange, AutofillManagerImpl, CountryDetailManagerProxyImpl} from 'chrome://settings/lazy_load.js';
 import {assertEquals, assertFalse, assertGT, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
 import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
-import type {CrLinkRowElement} from 'chrome://settings/settings.js';
+import type {SettingsToggleButtonElement} from 'chrome://settings/settings.js';
 import {loadTimeData, OpenWindowProxyImpl} from 'chrome://settings/settings.js';
 import {eventToPromise, whenAttributeIs, isVisible} from 'chrome://webui-test/test_util.js';
 import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
@@ -143,7 +143,10 @@ const ADDRESS_COMPONENTS_IL = {
 
 suite('AutofillSectionUiTest', function() {
   setup(function() {
-    loadTimeData.overrideValues({emailVerificationProtocolEnabled: false});
+    loadTimeData.overrideValues({
+      emailVerificationProtocolEnabled: false,
+      autofillGmailOtpFillingEnabled: false,
+    });
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
   });
 
@@ -521,6 +524,92 @@ suite('AutofillSectionUiTest', function() {
       // Make sure closing clean-ups are finished.
       await eventToPromise('close', dialog.$.dialog);
     }
+  });
+
+  interface GmailOtpFillingOptions {
+    profileEnabled?: boolean;
+    gmailOtpFilling?: boolean;
+    accountInfo?: chrome.autofillPrivate.AccountInfo|null;
+  }
+
+  interface AutofillSectionElementWithToggle {
+    section: SettingsAutofillSectionElement;
+    toggle: SettingsToggleButtonElement|null;
+  }
+
+  async function createAutofillSectionForGmailOtpFilling({
+    profileEnabled = true,
+    gmailOtpFilling = false,
+    accountInfo,
+  }: GmailOtpFillingOptions = {}): Promise<AutofillSectionElementWithToggle> {
+    const section = await createAutofillSection(
+        [], {
+          profile_enabled: {
+            type: chrome.settingsPrivate.PrefType.BOOLEAN,
+            value: profileEnabled,
+          },
+          gmail_otp_filling: {
+            enabled: {
+              type: chrome.settingsPrivate.PrefType.BOOLEAN,
+              value: gmailOtpFilling,
+            },
+          },
+        },
+        accountInfo);
+    await flushTasks();
+    const toggle =
+        section.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+            '#autofillOtpFillingToggle');
+    return {section, toggle};
+  }
+
+  test('OtpFillingToggleShown', async function() {
+    loadTimeData.overrideValues({autofillGmailOtpFillingEnabled: true});
+    const {toggle} = await createAutofillSectionForGmailOtpFilling();
+
+    assertTrue(!!toggle);
+  });
+
+  test('OtpFillingToggleHiddenWhenSignedOut', async function() {
+    loadTimeData.overrideValues({autofillGmailOtpFillingEnabled: true});
+    const {toggle} =
+        await createAutofillSectionForGmailOtpFilling({accountInfo: null});
+
+    assertFalse(!!toggle);
+  });
+
+  test('OtpFillingToggleHiddenWhenFlagDisabled', async function() {
+    loadTimeData.overrideValues({autofillGmailOtpFillingEnabled: false});
+    const {toggle} = await createAutofillSectionForGmailOtpFilling();
+
+    assertFalse(!!toggle);
+  });
+
+  test('OtpFillingToggleDisabledThenToggledAndEnabled', async function() {
+    const metricsTracker = fakeMetricsPrivate();
+    loadTimeData.overrideValues({autofillGmailOtpFillingEnabled: true});
+    const {section, toggle} = await createAutofillSectionForGmailOtpFilling();
+    assertTrue(!!toggle);
+
+    assertTrue(isVisible(toggle));
+    assertFalse(toggle.checked);
+    assertFalse(
+        section.getPref<boolean>('autofill.gmail_otp_filling.enabled').value);
+
+    toggle.click();
+
+    assertTrue(isVisible(toggle));
+    assertTrue(toggle.checked);
+    assertTrue(
+        section.getPref<boolean>('autofill.gmail_otp_filling.enabled').value);
+    assertEquals(
+        1, metricsTracker.count('Autofill.GmailOtpOptIn.SettingsChange', true));
+
+    toggle.click();
+    assertFalse(toggle.checked);
+    assertEquals(
+        1,
+        metricsTracker.count('Autofill.GmailOtpOptIn.SettingsChange', false));
   });
 });
 
@@ -1193,127 +1282,6 @@ suite('AutofillSectionAddressTests', function() {
 
     document.body.removeChild(section);
   });
-
-  // TODO(crbug.com/40943238): Remove when toggle becomes available on the Sync
-  // page for non-syncing users.
-  test('verifyAutofillSyncToggleAvailability', async () => {
-    const autofillManager = new TestAutofillManager();
-    autofillManager.data.accountInfo = {
-      ...STUB_USER_ACCOUNT_INFO,
-      isAutofillSyncToggleAvailable: false,
-    };
-    AutofillManagerImpl.setInstance(autofillManager);
-
-    const section = document.createElement('settings-autofill-section');
-    document.body.appendChild(section);
-    await autofillManager.whenCalled('getAddressList');
-    await flushTasks();
-
-    assertFalse(
-        isVisible(section.$.autofillSyncToggle),
-        'The toggle should not be visible because of ' +
-            'accountInfo.isAutofillSyncToggleAvailable == false');
-    const changeListener =
-        autofillManager.lastCallback.setPersonalDataManagerListener;
-    assertTrue(
-        !!changeListener,
-        'PersonalDataChangedListener should be set in the section element');
-
-    // Imitate native code `PersonalDataChangedListener` triggering.
-    changeListener([], [], [], [], {
-      ...STUB_USER_ACCOUNT_INFO,
-      isAutofillSyncToggleAvailable: true,
-      isAutofillSyncToggleEnabled: false,
-    });
-
-    await flushTasks();
-    assertTrue(
-        isVisible(section.$.autofillSyncToggle),
-        'The toggle should be visible because of ' +
-            'accountInfo.isAutofillSyncToggleAvailable == true');
-    assertFalse(
-        section.$.autofillSyncToggle.checked,
-        'The toggle should not be checked because of ' +
-            'accountInfo.isAutofillSyncToggleEnabled == false');
-
-    // Imitate native code `PersonalDataChangedListener` triggering.
-    changeListener([], [], [], [], {
-      ...STUB_USER_ACCOUNT_INFO,
-      isAutofillSyncToggleAvailable: true,
-      isAutofillSyncToggleEnabled: true,
-    });
-
-    await flushTasks();
-    assertTrue(
-        isVisible(section.$.autofillSyncToggle),
-        'The toggle should be visible because of ' +
-            'accountInfo.isAutofillSyncToggleAvailable == true');
-    assertTrue(
-        section.$.autofillSyncToggle.checked,
-        'The toggle should be checked because of ' +
-            'accountInfo.isAutofillSyncToggleEnabled == true');
-  });
-
-  // TODO(crbug.com/40943238): Remove as part of the cleanup work for the ticket.
-  test('verifyAutofillSyncToggleChanges', async () => {
-    const autofillManager = new TestAutofillManager();
-    autofillManager.data.accountInfo = {
-      ...STUB_USER_ACCOUNT_INFO,
-      isAutofillSyncToggleAvailable: true,
-      isAutofillSyncToggleEnabled: false,
-    };
-    AutofillManagerImpl.setInstance(autofillManager);
-
-    const section = document.createElement('settings-autofill-section');
-    document.body.appendChild(section);
-    await autofillManager.whenCalled('getAddressList');
-    await flushTasks();
-
-    const changeListener =
-        autofillManager.lastCallback.setPersonalDataManagerListener;
-    assertTrue(
-        !!changeListener,
-        'PersonalDataChangedListener should be set in the section element');
-
-    assertFalse(
-        section.$.autofillSyncToggle.checked,
-        'The toggle should not be checked because of initial ' +
-            'accountInfo.isAutofillSyncToggleEnabled == false');
-
-    section.$.autofillSyncToggle.click();
-    await section.$.autofillSyncToggle.updateComplete;
-
-    assertTrue(
-        section.$.autofillSyncToggle.checked,
-        'The toggle should be checked after the click.');
-    assertEquals(
-        autofillManager.getCallCount('setAutofillSyncToggleEnabled'), 1);
-
-    section.$.autofillSyncToggle.click();
-    await section.$.autofillSyncToggle.updateComplete;
-
-    assertFalse(
-        section.$.autofillSyncToggle.checked,
-        'The toggle should not be checked after another click.');
-    assertEquals(
-        autofillManager.getCallCount('setAutofillSyncToggleEnabled'), 2);
-
-    // Imitate native code `PersonalDataChangedListener` triggering. Notice
-    // that it was unchecked after the second click, but the listener was
-    // given `true`, the following assert checks it an covers the case when
-    // the toggle was not updated in the native code for some reason.
-    changeListener([], [], [], [], {
-      ...STUB_USER_ACCOUNT_INFO,
-      isAutofillSyncToggleAvailable: true,
-      isAutofillSyncToggleEnabled: true,
-    });
-    await flushTasks();
-
-    assertTrue(
-        section.$.autofillSyncToggle.checked,
-        'The toggle should be checked because of ' +
-            'accountInfo.isAutofillSyncToggleEnabled == true');
-  });
 });
 
 suite('AutofillSectionAddressLocaleTests', function() {
@@ -1676,66 +1644,4 @@ suite('AutofillSectionAddressLocaleTests', function() {
     assertEquals(state, cols[1]!.value);
     assertEquals(zip, cols[2]!.value);
   });
-});
-
-suite('PlusAddressesTest', function() {
-  const fakeUrl = 'https://foo.bar';
-  let metrics: MetricsTracker;
-  let openWindowProxy: TestOpenWindowProxy;
-
-  setup(function() {
-    metrics = fakeMetricsPrivate();
-    openWindowProxy = new TestOpenWindowProxy();
-    OpenWindowProxyImpl.setInstance(openWindowProxy);
-    loadTimeData.overrideValues({
-      // Required to show the plus address management entry.
-      plusAddressEnabled: true,
-      plusAddressManagementUrl: fakeUrl,
-    });
-  });
-
-  test('verifyPlusAddressManagementEntryExistence', async function() {
-    const autofillSection = await createAutofillSection([], {});
-
-    const plusAddressButton =
-        autofillSection.shadowRoot!.querySelector<CrLinkRowElement>(
-            '#plusAddressSettingsButton');
-    assertTrue(!!plusAddressButton);
-
-    autofillSection.remove();
-  });
-
-  test(
-      'verifyPlusAddressManagementEntryExistenceWhenNotEnabled',
-      async function() {
-        loadTimeData.overrideValues({
-          plusAddressEnabled: false,
-        });
-        const autofillSection = await createAutofillSection([], {});
-
-        const plusAddressButton =
-            autofillSection.shadowRoot!.querySelector<CrLinkRowElement>(
-                '#plusAddressSettingsButton');
-        assertFalse(!!plusAddressButton);
-
-        autofillSection.remove();
-      });
-
-  test(
-      'verifyClickingPlusAddressManagementEntryOpensWebsite', async function() {
-        const autofillSection = await createAutofillSection([], {});
-
-        const plusAddressButton =
-            autofillSection.shadowRoot!.querySelector<CrLinkRowElement>(
-                '#plusAddressSettingsButton');
-        assertTrue(!!plusAddressButton);
-        // Validate that, when present, the button results in opening the URL
-        // passed in via the `loadTimeData` override.
-        plusAddressButton.click();
-        const url = await openWindowProxy.whenCalled('openUrl');
-        assertEquals(url, fakeUrl);
-        assertEquals(
-            1, metrics.count('Settings.ManageOptionOnSettingsSelected'));
-        autofillSection.remove();
-      });
 });

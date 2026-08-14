@@ -25,7 +25,6 @@
 #include "build/build_config.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_common.h"
-#include "ui/accessibility/ax_language_detection.h"
 #include "ui/accessibility/ax_tree_data.h"
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/accessibility/ax_tree_serializer.h"
@@ -164,9 +163,7 @@ BrowserAccessibilityManager::BrowserAccessibilityManager(
       node_id_delegate_(node_id_delegate),
       user_is_navigating_away_(false),
       device_scale_factor_(1.0f),
-      use_custom_device_scale_factor_for_testing_(false) {
-  ax_tree()->language_detection_manager->RegisterLanguageDetectionObserver();
-}
+      use_custom_device_scale_factor_for_testing_(false) {}
 
 BrowserAccessibilityManager::~BrowserAccessibilityManager() = default;
 
@@ -1168,6 +1165,32 @@ void BrowserAccessibilityManager::ShowContextMenu(
   AXPlatform::GetInstance().OnActionFromAssistiveTech();
 }
 
+void BrowserAccessibilityManager::ShowTooltip(
+    const BrowserAccessibility& node) {
+  if (!delegate_) {
+    return;
+  }
+
+  AXActionData action_data;
+  action_data.action = ax::mojom::Action::kShowTooltip;
+  action_data.target_node_id = node.GetId();
+  delegate_->AccessibilityPerformAction(action_data);
+  AXPlatform::GetInstance().OnActionFromAssistiveTech();
+}
+
+void BrowserAccessibilityManager::HideTooltip(
+    const BrowserAccessibility& node) {
+  if (!delegate_) {
+    return;
+  }
+
+  AXActionData action_data;
+  action_data.action = ax::mojom::Action::kHideTooltip;
+  action_data.target_node_id = node.GetId();
+  delegate_->AccessibilityPerformAction(action_data);
+  AXPlatform::GetInstance().OnActionFromAssistiveTech();
+}
+
 void BrowserAccessibilityManager::SignalEndOfTest() {
   if (!delegate_)
     return;
@@ -1941,6 +1964,14 @@ BrowserAccessibilityManager::GetDelegateFromRootManager() const {
   if (root_manager)
     return root_manager->delegate();
   return nullptr;
+}
+
+AXPlatformTreeManagerDelegate*
+BrowserAccessibilityManager::GetDelegateForNativeView() const {
+  if (delegate_ && !delegate_->AccessibilityIsWebContentSource()) {
+    return delegate_.get();
+  }
+  return GetDelegateFromRootManager();
 }
 
 bool BrowserAccessibilityManager::IsRootFrameManager() const {

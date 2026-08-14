@@ -2,9 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <memory>
-
-#include "base/functional/callback_helpers.h"
 #include "base/strings/strcat.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
@@ -101,7 +98,7 @@ class ProfileTypeChoiceUIPixelTest
     profile_picker_view_ = new ProfileManagementStepTestView(
         ProfilePicker::Params::ForTesting(
             ProfilePicker::EntryPoint::kProfileMenuAddNewProfile,
-            browser()->profile()->GetPath()),
+            browser()->GetProfile()->GetPath()),
         ProfileManagementFlowController::Step::kProfilePicker,
         /*step_controller_factory=*/
         base::BindLambdaForTesting(

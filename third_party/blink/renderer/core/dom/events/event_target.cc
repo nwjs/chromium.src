@@ -138,12 +138,11 @@ void ReportBlockedEvent(EventTarget& target,
   if (!listener)
     return;
 
-  String message_text = String::Format(
-      "Handling of '%s' input event was delayed for %" PRId64
-      " ms due to main thread being busy. "
-      "Consider marking event handler as 'passive' to make the page more "
-      "responsive.",
-      event.type().GetString().Utf8().c_str(), delayed.InMilliseconds());
+  String message_text =
+      StrCat({"Handling of '", event.type(), "' input event was delayed for ",
+              String::Number(delayed.InMilliseconds()),
+              " ms due to main thread being busy. Consider marking event "
+              "handler as 'passive' to make the page more responsive."});
   PerformanceMonitor::ReportGenericViolation(
       target.GetExecutionContext(), PerformanceMonitor::kBlockedEvent,
       message_text, delayed, listener->GetSourceLocation(target));
@@ -710,6 +709,10 @@ void EventTarget::AddedEventListener(
                    DesktopPWAsAdditionalWindowingControlsOnMoveEnabled() &&
                (event_type == event_type_names::kMove)) {
       UseCounter::Count(*document, WebFeature::kMoveEvent);
+    } else if (event_type == event_type_names::kUareplacestart) {
+      UseCounter::Count(*document, WebFeature::kUAReplaceStartAddListener);
+    } else if (event_type == event_type_names::kUareplaceend) {
+      UseCounter::Count(*document, WebFeature::kUAReplaceEndAddListener);
     }
   }
 

@@ -223,9 +223,10 @@ public class CronetLibraryLoader {
                 }
                 Log.i(
                         TAG,
-                        "Cronet version: %s, arch: %s",
+                        "Cronet version: %s, arch: %s, source: %s",
                         implVersion,
-                        System.getProperty("os.arch"));
+                        System.getProperty("os.arch"),
+                        NativeCronetEngineBuilderImpl.getCronetSource());
                 setNativeLoggingLevel();
                 TraceEvent.onNativeTracingReady();
                 sWaitForLibLoad.open();
@@ -423,7 +424,7 @@ public class CronetLibraryLoader {
 
     @CalledByNative
     private static void setNetworkThreadPriorityOnNetworkThread(int priority) {
-        Log.d(TAG, "Setting network thread priority to " + priority);
+        Log.d(TAG, "Setting network thread priority to %d", priority);
         Process.setThreadPriority(priority);
     }
 

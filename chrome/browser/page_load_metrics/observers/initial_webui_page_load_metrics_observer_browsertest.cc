@@ -91,7 +91,11 @@ class WebUIControllerInitalizer : protected content::WebContentsObserver {
 class ToolbarDependencyProvider : public WebUIToolbarUI::DependencyProvider {
  public:
   explicit ToolbarDependencyProvider(Browser* browser) : browser_(browser) {}
-  ~ToolbarDependencyProvider() = default;
+  ~ToolbarDependencyProvider() override = default;
+
+  base::WeakPtr<DependencyProvider> GetWeakPtr() override {
+    return weak_factory_.GetWeakPtr();
+  }
 
   browser_controls_api::BrowserControlsService::BrowserControlsServiceDelegate*
   GetBrowserControlsDelegate() override {
@@ -122,6 +126,7 @@ class ToolbarDependencyProvider : public WebUIToolbarUI::DependencyProvider {
 
  private:
   raw_ptr<Browser> browser_;
+  base::WeakPtrFactory<DependencyProvider> weak_factory_{this};
 };
 
 class WebUIToolbarInitializer : public WebUIControllerInitalizer {
@@ -652,7 +657,7 @@ IN_PROC_BROWSER_TEST_F(InitialWebUIPageLoadMetricsObserverBrowserTest,
   base::HistogramTester histograms;
 
   // Create a new window
-  Browser::CreateParams params(browser()->profile(), true);
+  Browser::CreateParams params(browser()->GetProfile(), true);
   Browser* new_browser = Browser::Create(params);
 
   auto* manager = InitialWebUIWindowMetricsManager::From(new_browser);
@@ -664,10 +669,10 @@ IN_PROC_BROWSER_TEST_F(InitialWebUIPageLoadMetricsObserverBrowserTest,
   // Define expected metrics
   const std::string first_paint_metric =
       "InitialWebUI.NewWindow.AllSources.WithExistingWindow."
-      "ReloadButton.FirstPaint.FromConstructor";
+      "ReloadButton.FirstPaint.FromConstructor2";
   const std::string fcp_metric =
       "InitialWebUI.NewWindow.AllSources.WithExistingWindow."
-      "ReloadButton.FirstContentfulPaint.FromConstructor";
+      "ReloadButton.FirstContentfulPaint.FromConstructor2";
 
   {
     base::StatisticsRecorder::HistogramWaiter first_paint_waiter(
@@ -677,7 +682,7 @@ IN_PROC_BROWSER_TEST_F(InitialWebUIPageLoadMetricsObserverBrowserTest,
     // Navigate to WebUI URL in the new window.
     GURL url(chrome::kChromeUIWebUIToolbarURL);
 
-    content::BrowserContext* browser_context = new_browser->profile();
+    content::BrowserContext* browser_context = new_browser->GetProfile();
     content::WebContents::CreateParams new_contents_params(
         browser_context,
         content::SiteInstance::CreateForURL(browser_context, url));

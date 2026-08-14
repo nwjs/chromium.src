@@ -94,6 +94,7 @@ class WaitForMainFrameResourceObserver : public content::WebContentsObserver {
   void ResourceLoadComplete(
       RenderFrameHost* render_frame_host,
       const content::GlobalRequestID& request_id,
+      const GURL& original_url,
       const blink::mojom::ResourceLoadInfo& resource_load_info) override {
     EXPECT_EQ(network::mojom::RequestDestination::kDocument,
               resource_load_info.request_destination);
@@ -504,16 +505,16 @@ IN_PROC_BROWSER_TEST_P(NetworkRequestMetricsBrowserTest, Download) {
     return;
   }
 
-  browser()->profile()->GetPrefs()->SetInteger(
+  browser()->GetProfile()->GetPrefs()->SetInteger(
       policy::policy_prefs::kDownloadRestrictions,
       static_cast<int>(policy::DownloadRestriction::ALL_FILES));
-  browser()->profile()->GetPrefs()->SetBoolean(prefs::kPromptForDownload,
-                                               false);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kPromptForDownload,
+                                                  false);
 
   // Need this to wait for the download to be fully cancelled to avoid a
   // confirmation prompt on quit.
   DownloadTestObserverTerminal download_test_observer_terminal(
-      browser()->profile()->GetDownloadManager(), 1,
+      browser()->GetProfile()->GetDownloadManager(), 1,
       DownloadTestObserver::ON_DANGEROUS_DOWNLOAD_IGNORE);
 
   TestNavigationObserver navigation_observer(active_web_contents(), 1);

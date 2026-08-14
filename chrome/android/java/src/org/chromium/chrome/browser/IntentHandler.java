@@ -70,6 +70,7 @@ import org.chromium.chrome.browser.webapps.WebappActivity;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.bookmarks.BookmarkType;
 import org.chromium.components.embedder_support.util.UrlConstants;
+import org.chromium.components.external_intents.ExternalIntentsFeatures;
 import org.chromium.components.external_intents.ExternalNavigationHandler;
 import org.chromium.components.externalauth.ExternalAuthUtils;
 import org.chromium.components.omnibox.AutocompleteMatch;
@@ -207,6 +208,10 @@ public class IntentHandler {
      */
     public static final String EXTRA_OPEN_ADDITIONAL_URLS_IN_TAB_GROUP =
             "org.chromium.chrome.browser.open_additional_urls_in_tab_group";
+
+    /** Extra specifying the title of the tab group to be created. */
+    public static final String EXTRA_TAB_GROUP_TITLE =
+            "org.chromium.chrome.browser.tab_group_title";
 
     /** Extra specifying to show regular overview mode. */
     public static final String EXTRA_OPEN_REGULAR_OVERVIEW_MODE =
@@ -459,6 +464,9 @@ public class IntentHandler {
     /** Intent extra to open an incognito window. */
     public static final String EXTRA_OPEN_NEW_INCOGNITO_WINDOW =
             "com.google.android.apps.chrome.EXTRA_OPEN_NEW_INCOGNITO_WINDOW";
+
+    public static final String EXTRA_TAB_OPEN_TYPE =
+            "com.google.android.apps.chrome.EXTRA_TAB_OPEN_TYPE";
 
     /** Scheme used by web pages to start up Chrome without an explicit Intent. */
     public static final String GOOGLECHROME_SCHEME = "googlechrome";
@@ -732,7 +740,7 @@ public class IntentHandler {
         if (referrer != null) {
             params.setReferrer(new Referrer(referrer, getReferrerPolicyFromIntent(intent)));
         }
-        String headers = getExtraHeadersFromIntent(intent);
+        String headers = getExtraHeadersFromIntent(intent, params.getUrl());
         if (headers != null) params.setVerbatimHeaders(headers);
     }
 
@@ -915,13 +923,25 @@ public class IntentHandler {
      * @param intent The intent containing the bundle extra with the HTTP headers.
      */
     public static @Nullable String getExtraHeadersFromIntent(Intent intent) {
+        return getExtraHeadersFromIntent(intent, IntentHandler.getUrlFromIntent(intent));
+    }
+
+    /**
+     * Returns a String (or null) containing the extra headers sent by the intent, if any.
+     *
+     * <p>This methods skips the referrer header.
+     *
+     * @param intent The intent containing the bundle extra with the HTTP headers.
+     * @param url The destination URL to verify first party origin against.
+     */
+    public static @Nullable String getExtraHeadersFromIntent(Intent intent, @Nullable String url) {
         Bundle bundleExtraHeaders = IntentUtils.safeGetBundleExtra(intent, Browser.EXTRA_HEADERS);
         if (bundleExtraHeaders == null) return null;
         StringBuilder extraHeaders = new StringBuilder();
 
         boolean fromChrome = IntentHandler.wasIntentSenderChrome(intent);
         boolean shouldAllowNonSafelistedHeaders =
-                CustomTabsConnection.getInstance().isFirstPartyOriginForIntent(intent);
+                CustomTabsConnection.getInstance().isFirstPartyOriginForIntent(intent, url);
 
         for (String key : bundleExtraHeaders.keySet()) {
             String value = bundleExtraHeaders.getString(key);
@@ -1009,8 +1029,8 @@ public class IntentHandler {
 
                 for (int i = urls.size() - 1; i >= 0; i--) {
                     if (shouldIgnoreIntentUrl(intent, context, urls.get(i), isCustomTab)) {
-                        urls.remove(i);
-                        tabIds.remove(i);
+                        urls.remove(/* index */ i);
+                        tabIds.remove(/* index */ i);
                     }
                 }
                 setMultiTabMetadata(intent, multiTabMetadata);
@@ -1194,6 +1214,11 @@ public class IntentHandler {
      * intents with action NDEF_DISCOVERED (links beamed over NFC) are handled properly.
      */
     public static @TabOpenType int getTabOpenType(Intent intent) {
+        if (IntentUtils.isTrustedIntentFromSelf(intent)) {
+            @TabOpenType
+            int tabOpenType = IntentUtils.safeGetIntExtra(intent, EXTRA_TAB_OPEN_TYPE, -1);
+            if (tabOpenType != -1) return tabOpenType;
+        }
         if (IntentUtils.safeGetBooleanExtra(
                 intent, WebappConstants.REUSE_URL_MATCHING_TAB_ELSE_NEW_TAB, false)) {
             return TabOpenType.REUSE_URL_MATCHING_TAB_ELSE_NEW_TAB;
@@ -1220,6 +1245,11 @@ public class IntentHandler {
                         intent, TabOpenType.REUSE_TAB_MATCHING_ID_STRING, Tab.INVALID_TAB_ID);
         if (tabId != Tab.INVALID_TAB_ID) {
             return TabOpenType.REUSE_TAB_MATCHING_ID_ELSE_NEW_TAB;
+        }
+
+        if (ExternalIntentsFeatures.DONT_CLOBBER_TABS_WITH_CHROME_APP_ID.isEnabled()
+                && ContextUtils.getApplicationContext().getPackageName().equals(appId)) {
+            return TabOpenType.OPEN_NEW_TAB;
         }
 
         // Intents from chrome open in the same tab by default, all others only clobber
@@ -1679,15 +1709,44 @@ public class IntentHandler {
      * @return The {@link Intent} to launch.
      */
     public static Intent createTrustedOpenNewWindowIntent(Context context, boolean incognito) {
-        Intent newIntent = new Intent();
-        newIntent.setClass(context, ChromeLauncherActivity.class);
-        newIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        newIntent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
-        newIntent.putExtra(IntentHandler.EXTRA_PREFER_NEW, true);
-        newIntent.putExtra(IntentHandler.EXTRA_OPEN_NEW_INCOGNITO_WINDOW, incognito);
-        IntentUtils.addTrustedIntentExtras(newIntent);
+        return createBaseTrustedNewWindowIntent(context, incognito, null);
+    }
 
-        return newIntent;
+    /**
+     * Creates a trusted {@link Intent} that redirects or converts an existing source intent
+     * to launch in a new Incognito ChromeTabbedActivity window.
+     *
+     * If the source intent contains data, it is cloned to preserve the payload, and
+     * the necessary Incognito content routing flags are applied. Otherwise, a clean new Incognito
+     * window intent is returned.
+     *
+     * @param context A {@link Context} to access class and package information.
+     * @param sourceIntent The original {@link Intent} to redirect, or null.
+     * @return The trusted {@link Intent} to launch.
+     */
+    public static Intent createTrustedRedirectToIncognitoWindowIntent(
+            Context context, @Nullable Intent sourceIntent) {
+        Intent intent = createBaseTrustedNewWindowIntent(context, /*incognito=*/ true, sourceIntent);
+        if (sourceIntent != null && sourceIntent.getData() != null) {
+            intent.putExtra(IntentHandler.EXTRA_OPEN_NEW_INCOGNITO_TAB, true);
+        }
+        return intent;
+    }
+
+    private static Intent createBaseTrustedNewWindowIntent(
+            Context context, boolean incognito, @Nullable Intent sourceIntent) {
+        Intent intent = (sourceIntent != null && sourceIntent.getData() != null)
+                ? new Intent(sourceIntent)
+                : new Intent();
+
+        intent.setClass(context, ChromeLauncherActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+        intent.putExtra(IntentHandler.EXTRA_PREFER_NEW, true);
+        intent.putExtra(IntentHandler.EXTRA_OPEN_NEW_INCOGNITO_WINDOW, incognito);
+
+        IntentUtils.addTrustedIntentExtras(intent);
+        return intent;
     }
 
     /**

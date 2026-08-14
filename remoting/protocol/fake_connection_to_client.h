@@ -32,7 +32,6 @@ class FakeVideoStream : public protocol::VideoStream {
   void SetEventTimestampsSource(scoped_refptr<InputEventTimestampsSource>
                                     event_timestamps_source) override;
   void Pause(bool pause) override;
-  void SetObserver(Observer* observer) override;
   void SelectSource(webrtc::ScreenId id) override;
   void SetComposeEnabled(bool enabled) override;
   void SetMouseCursor(
@@ -42,13 +41,9 @@ class FakeVideoStream : public protocol::VideoStream {
 
   webrtc::ScreenId selected_source() const;
 
-  Observer* observer() { return observer_; }
-
   base::WeakPtr<FakeVideoStream> GetWeakPtr();
 
  private:
-  raw_ptr<Observer> observer_ = nullptr;
-
   webrtc::ScreenId selected_source_ = -200;
 
   base::WeakPtrFactory<FakeVideoStream> weak_factory_{this};
@@ -56,7 +51,7 @@ class FakeVideoStream : public protocol::VideoStream {
 
 class FakeConnectionToClient : public ConnectionToClient {
  public:
-  explicit FakeConnectionToClient(std::unique_ptr<Session> session);
+  FakeConnectionToClient();
 
   FakeConnectionToClient(const FakeConnectionToClient&) = delete;
   FakeConnectionToClient& operator=(const FakeConnectionToClient&) = delete;
@@ -74,11 +69,12 @@ class FakeConnectionToClient : public ConnectionToClient {
   void SetAudioWriter(std::unique_ptr<FifoBufferWriter> writer) override;
 
   ClientStub* client_stub() override;
+  void Start() override;
   void Disconnect(ErrorCode error,
                   std::string_view error_details,
                   const SourceLocation& error_location) override;
 
-  Session* session() override;
+  Transport* transport() override;
 
   void set_clipboard_stub(ClipboardStub* clipboard_stub) override;
   void set_host_stub(HostStub* host_stub) override;
@@ -104,12 +100,15 @@ class FakeConnectionToClient : public ConnectionToClient {
   ErrorCode disconnect_error() { return disconnect_error_; }
   const NetworkSettings& network_settings() const { return network_settings_; }
 
+  base::WeakPtr<FakeConnectionToClient> GetWeakPtr() {
+    return weak_factory_.GetWeakPtr();
+  }
+
  private:
   // TODO(crbug.com/40115219): Remove the requirement that ConnectionToClient
   // retains a pointer to the capturer if the relative pointer experiment is
   // a success.
   std::unique_ptr<DesktopCapturer> desktop_capturer_;
-  std::unique_ptr<Session> session_;
   raw_ptr<EventHandler> event_handler_ = nullptr;
 
   base::WeakPtr<FakeVideoStream> last_video_stream_;
@@ -125,6 +124,8 @@ class FakeConnectionToClient : public ConnectionToClient {
   ErrorCode disconnect_error_ = ErrorCode::OK;
   NetworkSettings network_settings_;
   std::unique_ptr<FifoBufferWriter> audio_writer_;
+
+  base::WeakPtrFactory<FakeConnectionToClient> weak_factory_{this};
 };
 
 }  // namespace remoting::protocol

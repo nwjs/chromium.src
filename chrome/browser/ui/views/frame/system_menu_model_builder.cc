@@ -171,7 +171,7 @@ void SystemMenuModelBuilder::BuildSystemMenuForBrowserWindow(
 #if BUILDFLAG(IS_WIN)
   // On Windows we can not remove an item when showing the menu. So only add
   // the glic toggle option if glic is enabled when building the menu.
-  if (glic::GlicEnabling::IsEnabledForProfile(browser()->profile())) {
+  if (glic::GlicEnabling::IsEnabledForProfile(browser()->GetProfile())) {
 #endif  // BUILDFLAG(IS_WIN)
     model->AddItemWithStringId(IDC_GLIC_TOGGLE_PIN, IDS_GLIC_PIN);
 #if BUILDFLAG(IS_WIN)
@@ -280,8 +280,8 @@ void SystemMenuModelBuilder::BuildSystemMenuForAppOrPopupWindow(
     bool is_captive_portal_signin = false;
 #if BUILDFLAG(IS_CHROMEOS)
     is_captive_portal_signin =
-        browser()->profile()->IsOffTheRecord() &&
-        browser()->profile()->GetOTRProfileID().IsCaptivePortal();
+        browser()->GetProfile()->IsOffTheRecord() &&
+        browser()->GetProfile()->GetOTRProfileID().IsCaptivePortal();
 #endif
     if (!is_captive_portal_signin) {
       model->AddSeparator(ui::NORMAL_SEPARATOR);
@@ -303,8 +303,8 @@ void SystemMenuModelBuilder::BuildSystemMenuForAppOrPopupWindow(
     zoom_menu_contents_->AddItemWithStringId(IDC_ZOOM_PLUS, IDS_ZOOM_PLUS);
     zoom_menu_contents_->AddItemWithStringId(IDC_ZOOM_NORMAL, IDS_ZOOM_NORMAL);
     zoom_menu_contents_->AddItemWithStringId(IDC_ZOOM_MINUS, IDS_ZOOM_MINUS);
-    model->AddSubMenuWithStringId(IDC_ZOOM_MENU, IDS_ZOOM_MENU,
-                                  zoom_menu_contents_.get());
+    model->AddSubMenuWithStringId(AppMenuModel::kZoomMenuPlaceholder,
+                                  IDS_ZOOM_MENU, zoom_menu_contents_.get());
   }
 
   bool should_show_task_manager =
@@ -370,7 +370,7 @@ void SystemMenuModelBuilder::AppendTeleportMenu(ui::SimpleMenuModel* model) {
   }
 
   // Don't show the menu for incognito windows.
-  if (browser()->profile()->IsOffTheRecord()) {
+  if (browser()->GetProfile()->IsOffTheRecord()) {
     return;
   }
 
@@ -386,7 +386,7 @@ void SystemMenuModelBuilder::AppendTeleportMenu(ui::SimpleMenuModel* model) {
   // is not owned by anyone, we don't show the menu addition.
   auto* window_manager = ash::Shell::Get()->multi_user_window_manager();
   const AccountId account_id =
-      multi_user_util::GetAccountIdFromProfile(browser()->profile());
+      multi_user_util::GetAccountIdFromProfile(browser()->GetProfile());
   aura::Window* window = browser()->GetWindow()->GetNativeWindow();
   if (!account_id.is_valid() || !window ||
       !window_manager->GetWindowOwner(window).is_valid()) {

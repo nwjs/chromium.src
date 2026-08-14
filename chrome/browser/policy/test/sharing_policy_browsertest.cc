@@ -49,7 +49,7 @@ class TabGroupSharingTest : public PolicyTest {
     // Sign in.
     identity_test_env_adaptor_ =
         std::make_unique<IdentityTestEnvironmentProfileAdaptor>(
-            browser()->profile());
+            browser()->GetProfile());
     auto account_info =
         identity_test_env_adaptor_->identity_test_env()
             ->MakePrimaryAccountAvailable("user@google.com",
@@ -90,7 +90,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupSharingTest, TabGroupSharingEnableToDisable) {
                 collaboration::prefs::kSharedTabGroupsManagedAccountSetting));
 
   testing::StrictMock<MockCollaborationServiceObserver> mock_observer;
-  auto* profile = browser()->profile();
+  auto* profile = browser()->GetProfile();
   auto* service =
       collaboration::CollaborationServiceFactory::GetForProfile(profile);
   service->AddObserver(&mock_observer);

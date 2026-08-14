@@ -68,7 +68,6 @@ static_library("arc") {
     "//chrome/browser/ash/login/demo_mode",
     "//chrome/browser/ash/login/session",
     "//chrome/browser/ash/platform_keys/key_permissions",
-    "//chrome/browser/ash/profiles",
     "//chrome/browser/chromeos/arc",
     "//chrome/browser/consent_auditor",
     "//chrome/browser/notifications",
@@ -76,6 +75,7 @@ static_library("arc") {
     "//chrome/browser/resources:component_extension_resources_grit",
     "//chrome/browser/signin",
     "//chrome/browser/ui/extensions",
+    "//chrome/browser/ui/webui:theme_source",
     "//chrome/browser/ui/webui/ash/diagnostics_dialog",
     "//chrome/common",
     "//chromeos/ash/components/browser_context_helper",
@@ -239,6 +239,7 @@ if (is_chromeos_device && is_chrome_branded) {
       "//chrome/browser/ash/login/test:test_support",
       "//chrome/test:ash_integration_test_support",
       "//chrome/test:test_support",
+      "//chrome/test/base/chromeos/crosier:test_support",
       "//chromeos/ui/base",
       "//ui/aura",
     ]

@@ -8,7 +8,9 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.CompressFormat;
 import android.graphics.BitmapFactory;
+import android.graphics.ImageDecoder;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -21,14 +23,18 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.FileUtils;
+import org.chromium.base.Log;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.device.DeviceConditions;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxMetrics.FuseboxAttachmentButtonType;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxMetrics.FuseboxAttachmentSizeLimitCheck;
+import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.ui.base.MimeTypeUtils;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -41,14 +47,19 @@ import java.io.InputStream;
  */
 @NullMarked
 class FuseboxAttachmentDetailsFetcher extends AsyncTask<Boolean> {
-
+    private static final String TAG = "FbAttachFetcher";
     private static final int THUMBNAIL_BITMAP_EDGE_SIZE = 256;
+    @VisibleForTesting static final int MAX_IMAGE_AREA = 1600 * 1600;
 
     @VisibleForTesting
     static final long MAX_ATTACHMENT_SIZE_BYTES = 100 * 1000 * 1000L; /* 100 MB */
 
     @VisibleForTesting
     static final long MAX_ATTACHMENT_SIZE_BYTES_ON_METERED_NETWORK = 20 * 1000 * 1000L; /* 20 MB */
+
+    private static BitmapDecoder sBitmapDecoder = BitmapFactory::decodeByteArray;
+    private static FileStreamReader sFileStreamReader = FileUtils::readStream;
+    private static DownscaledImageDecoder sImageDecoder = ImageDecoder::decodeBitmap;
 
     private final Context mContext;
     private final ContentResolver mContentResolver;
@@ -60,11 +71,6 @@ class FuseboxAttachmentDetailsFetcher extends AsyncTask<Boolean> {
     private @Nullable String mTitle;
     private @Nullable String mMimeType;
     private byte @Nullable [] mData;
-
-    private static final class ImageDimensions {
-        int mWidth;
-        int mHeight;
-    }
 
     FuseboxAttachmentDetailsFetcher(
             Context context,
@@ -114,7 +120,7 @@ class FuseboxAttachmentDetailsFetcher extends AsyncTask<Boolean> {
 
         recordAttachmentSizeLimitCheck(isMetered, /* isTooLarge= */ false);
 
-        mData = fetchData();
+        mData = fetchData(mMimeType);
         if (mData == null) return false;
 
         mThumbnail = fetchThumbnail(mData, mMimeType);
@@ -201,17 +207,107 @@ class FuseboxAttachmentDetailsFetcher extends AsyncTask<Boolean> {
         return cursor.getLong(sizeIndex);
     }
 
-    private byte @Nullable [] fetchData() {
-        byte[] data;
+    private byte @Nullable [] fetchData(String mimeType) {
+        byte[] data = null;
 
-        try (InputStream inputStream = mContentResolver.openInputStream(mUri)) {
-            if (inputStream == null) return null;
-            data = FileUtils.readStream(inputStream);
-        } catch (IOException e) {
+        @Nullable CompressFormat outputFormat = getCompressionFormat(mimeType);
+        boolean oomOccurred = false;
+
+        if (outputFormat != null && OmniboxFeatures.sOmniboxAimImageDownscaling.isEnabled()) {
+            try {
+                data = loadDownscaledImage(outputFormat);
+            } catch (OutOfMemoryError e) {
+                Log.w(TAG, "Failed to read attachment data", e);
+                oomOccurred = true;
+            }
+        }
+
+        if (data == null) {
+            try (InputStream inputStream = mContentResolver.openInputStream(mUri)) {
+                if (inputStream != null) {
+                    data = sFileStreamReader.readStream(inputStream);
+                }
+            } catch (IOException e) {
+                Log.w(TAG, "Failed to read attachment data", e);
+            } catch (OutOfMemoryError e) {
+                Log.w(TAG, "Failed to read attachment data", e);
+                oomOccurred = true;
+            }
+        }
+
+        FuseboxMetrics.recordAttachmentLoadOom(
+                oomOccurred, MimeTypeUtils.getTypeFromMimeType(mimeType));
+
+        return data;
+    }
+
+    private byte @Nullable [] loadDownscaledImage(CompressFormat outputFormat) {
+        Bitmap bitmap;
+        try {
+            bitmap =
+                    sImageDecoder.decodeBitmap(
+                            ImageDecoder.createSource(mContentResolver, mUri),
+                            FuseboxAttachmentDetailsFetcher::setDecoderForDownscaling);
+        } catch (IOException | IllegalArgumentException e) {
+            Log.w(TAG, "Failed to decode image from URI", e);
             return null;
         }
 
-        return data;
+        try {
+            ByteArrayOutputStream stream = new ByteArrayOutputStream();
+            bitmap.compress(outputFormat, /* quality= */ 100, stream);
+            return stream.toByteArray();
+        } finally {
+            bitmap.recycle();
+        }
+    }
+
+    private static void setDecoderForDownscaling(
+            ImageDecoder decoder, ImageDecoder.ImageInfo info, ImageDecoder.Source source) {
+        decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+
+        Size size = info.getSize();
+        Size targetSize = getTargetSizeForDownscaling(size.getWidth(), size.getHeight());
+        if (targetSize == null) return;
+
+        decoder.setTargetSize(targetSize.getWidth(), targetSize.getHeight());
+    }
+
+    /**
+     * Calculate the target size to downscale an image to, preserving aspect ratio, so that its
+     * total area does not exceed {@link #MAX_IMAGE_AREA}.
+     *
+     * @param width The original width of the image.
+     * @param height The original height of the image.
+     * @return The target {@link Size} if downscaling is required (the original area exceeds the
+     *     limit and target dimensions are valid), or {@code null} if no downscaling is needed or if
+     *     the downscaled dimensions would round down to 0.
+     */
+    @VisibleForTesting
+    static @Nullable Size getTargetSizeForDownscaling(int width, int height) {
+        long area = (long) width * height;
+        if (area <= MAX_IMAGE_AREA) {
+            return null;
+        }
+
+        double ratio = Math.sqrt((double) MAX_IMAGE_AREA / area);
+        int targetWidth = (int) (width * ratio);
+        int targetHeight = (int) (height * ratio);
+
+        if (targetWidth <= 0 || targetHeight <= 0) {
+            return null;
+        }
+
+        return new Size(targetWidth, targetHeight);
+    }
+
+    private static @Nullable CompressFormat getCompressionFormat(String mimeType) {
+        return switch (mimeType) {
+            case MimeTypeUtils.IMAGE_JPEG_MIME_TYPE, MimeTypeUtils.IMAGE_JPG_MIME_TYPE ->
+                    CompressFormat.JPEG;
+            case MimeTypeUtils.IMAGE_PNG_MIME_TYPE -> CompressFormat.PNG;
+            default -> null;
+        };
     }
 
     private @Nullable Drawable fetchThumbnail(byte[] data, String mimeType) {
@@ -270,7 +366,7 @@ class FuseboxAttachmentDetailsFetcher extends AsyncTask<Boolean> {
     private static ImageDimensions getBitmapDimensionsFromBytes(byte[] data) {
         BitmapFactory.Options options = new BitmapFactory.Options();
         options.inJustDecodeBounds = true;
-        BitmapFactory.decodeByteArray(data, /* offset= */ 0, /* length= */ data.length, options);
+        sBitmapDecoder.decodeByteArray(data, /* offset= */ 0, /* length= */ data.length, options);
         ImageDimensions dims = new ImageDimensions();
         dims.mWidth = options.outWidth;
         dims.mHeight = options.outHeight;
@@ -280,7 +376,51 @@ class FuseboxAttachmentDetailsFetcher extends AsyncTask<Boolean> {
     private static @Nullable Bitmap getBitmapFromBytes(byte[] data, int inSampleSize) {
         BitmapFactory.Options options = new BitmapFactory.Options();
         options.inSampleSize = inSampleSize;
-        return BitmapFactory.decodeByteArray(
-                data, /* offset= */ 0, /* length= */ data.length, options);
+        try {
+            return sBitmapDecoder.decodeByteArray(
+                    data, /* offset= */ 0, /* length= */ data.length, options);
+        } catch (OutOfMemoryError e) {
+            Log.w(TAG, "Failed to generate attachment thumbnail", e);
+            return null;
+        }
+    }
+
+    static void setBitmapDecoderForTesting(BitmapDecoder decoder) {
+        sBitmapDecoder = decoder;
+        ResettersForTesting.register(() -> sBitmapDecoder = BitmapFactory::decodeByteArray);
+    }
+
+    static void setFileStreamReaderForTesting(FileStreamReader reader) {
+        sFileStreamReader = reader;
+        ResettersForTesting.register(() -> sFileStreamReader = FileUtils::readStream);
+    }
+
+    static void setImageDecoderForTesting(DownscaledImageDecoder decoder) {
+        sImageDecoder = decoder;
+        ResettersForTesting.register(() -> sImageDecoder = ImageDecoder::decodeBitmap);
+    }
+
+    @VisibleForTesting
+    interface BitmapDecoder {
+        @Nullable Bitmap decodeByteArray(
+                byte[] data, int offset, int length, BitmapFactory.Options options)
+                throws OutOfMemoryError;
+    }
+
+    @VisibleForTesting
+    interface FileStreamReader {
+        byte[] readStream(InputStream inputStream) throws IOException, OutOfMemoryError;
+    }
+
+    @VisibleForTesting
+    interface DownscaledImageDecoder {
+        Bitmap decodeBitmap(
+                ImageDecoder.Source source, ImageDecoder.OnHeaderDecodedListener listener)
+                throws IOException;
+    }
+
+    private static final class ImageDimensions {
+        int mWidth;
+        int mHeight;
     }
 }

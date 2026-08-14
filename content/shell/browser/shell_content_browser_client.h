@@ -94,6 +94,8 @@ class ShellContentBrowserClient : public ContentBrowserClient {
                               blink::web_pref::WebPreferences* prefs) override;
   std::unique_ptr<content::DevToolsManagerDelegate>
   CreateDevToolsManagerDelegate() override;
+  std::unique_ptr<DigitalIdentityProvider> CreateDigitalIdentityProvider()
+      override;
   void ExposeInterfacesToRenderer(
       service_manager::BinderRegistry* registry,
       blink::AssociatedInterfaceRegistry* associated_registry,
@@ -106,6 +108,9 @@ class ShellContentBrowserClient : public ContentBrowserClient {
   void RegisterBrowserInterfaceBindersForFrame(
       RenderFrameHost* render_frame_host,
       mojo::BinderMapWithContext<RenderFrameHost*>* map) override;
+  void RegisterAssociatedInterfaceBindersForRenderFrameHost(
+      RenderFrameHost& render_frame_host,
+      blink::AssociatedInterfaceRegistry& associated_registry) override;
   void OpenURL(SiteInstance* site_instance,
                const OpenURLParams& params,
                base::OnceCallback<void(WebContents*)> callback) override;

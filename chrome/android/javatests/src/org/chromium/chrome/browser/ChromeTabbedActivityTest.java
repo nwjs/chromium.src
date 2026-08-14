@@ -60,6 +60,8 @@ import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedIns
 import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestratorFactory;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.night_mode.NightModeStateProvider;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
+import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
@@ -74,9 +76,13 @@ import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorImpl;
 import org.chromium.chrome.browser.tabstrip.StripVisibilityState;
 import org.chromium.chrome.browser.tabwindow.TabWindowManager;
+import org.chromium.chrome.browser.url_constants.UrlConstantResolver;
+import org.chromium.chrome.browser.url_constants.UrlConstantResolverFactory;
+import org.chromium.chrome.browser.url_constants.UrlOverrideUtils;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
+import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.components.tab_group_sync.LocalTabGroupId;
 import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.SavedTabGroupTab;
@@ -251,6 +257,62 @@ public class ChromeTabbedActivityTest {
 
         viewIntent.putExtra(IntentHandler.EXTRA_OPEN_ADDITIONAL_URLS_IN_TAB_GROUP, true);
         mActivity.getApplicationContext().startActivity(viewIntent);
+    }
+
+    @Test
+    @MediumTest
+    public void testSingleTabGroupWithoutMetadataIntent() {
+        testTabGroupIntentWithoutMetadata(/* isSingleTab= */ true, "Single Tab Group");
+    }
+
+    @Test
+    @MediumTest
+    public void testMultipleTabGroupWithoutMetadataIntent() {
+        testTabGroupIntentWithoutMetadata(/* isSingleTab= */ false, "Multiple Tab Group");
+    }
+
+    private void testTabGroupIntentWithoutMetadata(boolean isSingleTab, String expectedTitle) {
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(JUnitTestGURLs.URL_1.getSpec()));
+        intent.addCategory(Intent.CATEGORY_BROWSABLE);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+        intent.setClass(mActivity, ChromeTabbedActivity.class);
+        IntentHandler.setTabLaunchType(intent, TabLaunchType.FROM_LONGPRESS_BACKGROUND_IN_GROUP);
+        if (expectedTitle != null) {
+            intent.putExtra(IntentHandler.EXTRA_TAB_GROUP_TITLE, expectedTitle);
+        }
+
+        if (!isSingleTab) {
+            ArrayList<String> extraUrls =
+                    Lists.newArrayList(
+                            JUnitTestGURLs.URL_2.getSpec(), JUnitTestGURLs.URL_3.getSpec());
+            intent.putExtra(IntentHandler.EXTRA_ADDITIONAL_URLS, extraUrls);
+            intent.putExtra(IntentHandler.EXTRA_OPEN_ADDITIONAL_URLS_IN_TAB_GROUP, true);
+        }
+        IntentUtils.setForceIsTrustedIntentForTesting(true);
+
+        ThreadUtils.runOnUiThreadBlocking(() -> mActivity.onNewIntent(intent));
+
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    TabModel tabModel = mActivity.getCurrentTabModel();
+                    Tab targetTab = null;
+                    for (int i = 0; i < tabModel.getCount(); i++) {
+                        Tab tab = tabModel.getTabAt(i);
+                        if (tab.getUrl().getSpec().equals(JUnitTestGURLs.URL_1.getSpec())) {
+                            targetTab = tab;
+                            break;
+                        }
+                    }
+                    Assert.assertNotNull("Tab with URL_1 not found", targetTab);
+
+                    Token groupId = targetTab.getTabGroupId();
+                    Assert.assertNotNull("Tab should be in a group", groupId);
+
+                    if (expectedTitle != null) {
+                        Assert.assertEquals(expectedTitle, tabModel.getTabGroupTitle(groupId));
+                    }
+                });
     }
 
     @Test
@@ -1234,7 +1296,10 @@ public class ChromeTabbedActivityTest {
     public void testRestoreTabFromClosedWindow_hasRemainingTabs() throws Exception {
         int windowId = 2;
 
-        TabWindowManagerSingleton.setTabWindowManagerForTesting(mMockTabWindowManager);
+        ThreadUtils.runOnUiThreadBlocking(
+                () ->
+                        TabWindowManagerSingleton.setTabWindowManagerForTesting(
+                                mMockTabWindowManager));
 
         when(mMockNormalModel.getCount()).thenReturn(1);
         when(mMockIncognitoModel.getCount()).thenReturn(0);
@@ -1252,7 +1317,10 @@ public class ChromeTabbedActivityTest {
     public void testRestoreTabFromClosedWindow_noRemainingTabs() throws Exception {
         int windowId = 2;
 
-        TabWindowManagerSingleton.setTabWindowManagerForTesting(mMockTabWindowManager);
+        ThreadUtils.runOnUiThreadBlocking(
+                () ->
+                        TabWindowManagerSingleton.setTabWindowManagerForTesting(
+                                mMockTabWindowManager));
 
         when(mMockNormalModel.getCount()).thenReturn(0);
         when(mMockIncognitoModel.getCount()).thenReturn(0);
@@ -1263,5 +1331,34 @@ public class ChromeTabbedActivityTest {
 
         Assert.assertTrue("Restoration should succeed", success);
         verify(mMockHeadlessSelector).moveTabToWindow(mMockTab, mActivity, -1);
+    }
+
+    @Test
+    @MediumTest
+    @Restriction(DeviceFormFactor.DESKTOP)
+    @EnableFeatures({ChromeFeatureList.USE_WEB_UI_NTP_ANDROID})
+    public void testWebUiNtpOverrideEnabledOnStartup() {
+        String ntpUrl =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> {
+                            ChromeSharedPreferences.getInstance()
+                                    .writeBoolean(ChromePreferenceKeys.IS_DSE_GOOGLE, true);
+                            Assert.assertTrue(UrlOverrideUtils.isWebUiNtpOverrideEnabled());
+
+                            UrlConstantResolver resolver =
+                                    UrlConstantResolverFactory.getForProfile(
+                                            mActivity.getCurrentTabModel().getProfile());
+                            Assert.assertEquals(
+                                    UrlConstantResolver.getOriginalWebUiNtpUrl(),
+                                    resolver.getNtpUrl());
+                            Assert.assertNotEquals(
+                                    UrlConstantResolver.getOriginalNativeNtpUrl(),
+                                    resolver.getNtpUrl());
+                            return resolver.getNtpUrl();
+                        });
+
+        mActivityTestRule.loadUrl(ntpUrl);
+        Tab tab = ThreadUtils.runOnUiThreadBlocking(() -> mActivity.getActivityTab());
+        ChromeTabUtils.waitForTabPageLoaded(tab, ntpUrl);
     }
 }

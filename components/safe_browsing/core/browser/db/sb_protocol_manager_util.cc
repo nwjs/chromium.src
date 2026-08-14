@@ -8,6 +8,7 @@
 #include <string_view>
 
 #include "base/base64.h"
+#include "base/feature_list.h"
 #include "base/hash/hash.h"
 #include "base/hash/sha1.h"
 #include "base/metrics/histogram_functions.h"
@@ -19,15 +20,18 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/safe_browsing/core/browser/db/v4_protocol_config.h"
+#include "components/safe_browsing/core/common/features.h"
 #include "crypto/sha2.h"
 #include "google_apis/google_api_keys.h"
 #include "net/base/ip_address.h"
 #include "net/base/net_errors.h"
+#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/http/http_request_headers.h"
 #include "url/url_util.h"
 
 using base::Time;
 
+// TODO(crbug.com/362791941): change all DCHECKs to CHECKs for v5 usages.
 namespace safe_browsing {
 
 // Can be overriden by tests.
@@ -74,6 +78,88 @@ std::string Escape(const std::string& url) {
   }
 
   return escaped_str;
+}
+
+void GenerateHostVariantsToCheckV5(const std::string& host,
+                                   std::vector<std::string>* hosts) {
+  // Per the Safe Browsing Protocol spec, we try the host, and also up to 4
+  // hostnames formed by starting with the last 5 components and successively
+  // removing the leading component.  The last component isn't examined alone,
+  // since it's not a full site.
+  //
+  // In v5, the base component is the eTLD+1 instead of TLD+1. We use
+  // net::registry_controlled_domains to avoid including the eTLD in the host
+  // variants, excluding private registries. This can sometimes unlock one
+  // additional host that can be checked (which otherwise would have been
+  // wasted on the eTLD).
+  // Note: This will automatically fall back to TLD+1 for unknown registries.
+  const size_t kMaxHostsToCheck = 4;
+  std::string etld_plus_one =
+      net::registry_controlled_domains::GetDomainAndRegistry(
+          host,
+          /*filter=*/
+          net::registry_controlled_domains::EXCLUDE_PRIVATE_REGISTRIES);
+
+  if (etld_plus_one.empty()) {
+    // eTLD+1 is only empty when a TLD+1 does not exist (e.g., single-label
+    // hosts like "localhost" or hostnames that are themselves registries like
+    // "co.uk"). In those cases, check only the exact hostname.
+    hosts->push_back(host);
+    return;
+  }
+
+  // Note that because blocklist checking is simple, it doesn't matter what
+  // order we check the components.
+
+  CHECK(base::EndsWith(host, etld_plus_one));
+  // Example: For a.b.c.d.e.f.co.uk, this line adds f.co.uk.
+  hosts->push_back(etld_plus_one);
+  // If there are subcomponents before eTLD+1, scan backwards for preceding
+  // dots to generate host suffixes up to kMaxHostsToCheck.
+  // Example: This would add e.f.co.uk, d.e.f.co.uk, and c.d.e.f.co.uk.
+  if (host.size() > etld_plus_one.size()) {
+    size_t dot_pos = host.size() - etld_plus_one.size() - 1;
+    CHECK_EQ(host[dot_pos], '.');
+    while (hosts->size() < kMaxHostsToCheck) {
+      dot_pos = host.rfind('.', dot_pos - 1);
+      if (dot_pos == std::string::npos) {
+        break;
+      }
+      hosts->push_back(host.substr(dot_pos + 1));
+    }
+    // Example: This would add a.b.c.d.e.f.co.uk.
+    hosts->push_back(host);
+  }
+}
+
+void GenerateHostVariantsToCheckV4(const std::string& host,
+                                   std::vector<std::string>* hosts) {
+  // Per the Safe Browsing Protocol v2 spec, we try the host, and also up to 4
+  // hostnames formed by starting with the last 5 components and successively
+  // removing the leading component.  The last component isn't examined alone,
+  // since it's the TLD or a subcomponent thereof.
+  //
+  // Note that we don't need to be clever about stopping at the "real" eTLD --
+  // the data on the server side has been filtered to ensure it will not
+  // blocklist a whole TLD, and it's not significantly slower on our side to
+  // just check too much.
+  //
+  // Also note that because we have a simple blocklist, not some sort of complex
+  // allowlist-in-blocklist or vice versa, it doesn't matter what order we check
+  // these in.
+  const size_t kMaxHostsToCheck = 4;
+  bool skipped_last_component = false;
+  for (std::string::const_reverse_iterator i(host.rbegin());
+       i != host.rend() && hosts->size() < kMaxHostsToCheck; ++i) {
+    if (*i == '.') {
+      if (skipped_last_component) {
+        hosts->push_back(std::string(i.base(), host.end()));
+      } else {
+        skipped_last_component = true;
+      }
+    }
+  }
+  hosts->push_back(host);
 }
 
 }  // namespace
@@ -219,7 +305,11 @@ std::string GetUmaSuffixForStore(const base::FilePath& file_path) {
 
 PrefixSize GetV5ListPrefixSize(const ListIdentifier& list_identifier) {
   CHECK(base::FeatureList::IsEnabled(safe_browsing::kLocalListsUseSBv5));
-  switch (list_identifier.sb_threat_type()) {
+  return GetV5PrefixSizeForThreatType(list_identifier.sb_threat_type());
+}
+
+PrefixSize GetV5PrefixSizeForThreatType(SBThreatType sb_threat_type) {
+  switch (sb_threat_type) {
     case SBThreatType::SB_THREAT_TYPE_EXTENSION:
       return 16;
     case SBThreatType::SB_THREAT_TYPE_BILLING:
@@ -260,9 +350,10 @@ PrefixSize GetV5ListPrefixSize(const ListIdentifier& list_identifier) {
     case SBThreatType::SB_THREAT_TYPE_MANAGED_POLICY_WARN:
     case SBThreatType::SB_THREAT_TYPE_MANAGED_POLICY_BLOCK:
     case SBThreatType::SB_THREAT_TYPE_WARNABLE_SUSPICIOUS_SITE:
-      NOTREACHED() << "GetV5ListPrefixSize not supported for SBThreatType: "
-                   << static_cast<std::underlying_type<SBThreatType>::type>(
-                          list_identifier.sb_threat_type());
+      NOTREACHED()
+          << "GetV5PrefixSizeForThreatType not supported for SBThreatType: "
+          << static_cast<std::underlying_type<SBThreatType>::type>(
+                 sb_threat_type);
   }
 }
 
@@ -353,6 +444,10 @@ bool ListIdentifier::operator==(const ListIdentifier& other) const {
   return platform_type_ == other.platform_type_ &&
          threat_entry_type_ == other.threat_entry_type_ &&
          threat_type_ == other.threat_type_;
+}
+
+bool ListIdentifier::operator!=(const ListIdentifier& other) const {
+  return !(*this == other);
 }
 
 size_t ListIdentifier::hash() const {
@@ -470,6 +565,13 @@ void SBProtocolManagerUtil::UrlToFullHashes(
       full_hashes->push_back(crypto::SHA256HashString(host + path));
     }
   }
+}
+
+// static
+HashPrefixStr SBProtocolManagerUtil::GetHashPrefix(
+    const FullHashStr& full_hash) {
+  CHECK_EQ(full_hash.length(), kMaxHashPrefixLength);
+  return full_hash.substr(0, kMinHashPrefixLength);
 }
 
 // static
@@ -661,32 +763,11 @@ void SBProtocolManagerUtil::GenerateHostVariantsToCheck(
     return;
   }
 
-  // Per the Safe Browsing Protocol v2 spec, we try the host, and also up to 4
-  // hostnames formed by starting with the last 5 components and successively
-  // removing the leading component.  The last component isn't examined alone,
-  // since it's the TLD or a subcomponent thereof.
-  //
-  // Note that we don't need to be clever about stopping at the "real" eTLD --
-  // the data on the server side has been filtered to ensure it will not
-  // blocklist a whole TLD, and it's not significantly slower on our side to
-  // just check too much.
-  //
-  // Also note that because we have a simple blocklist, not some sort of complex
-  // allowlist-in-blocklist or vice versa, it doesn't matter what order we check
-  // these in.
-  const size_t kMaxHostsToCheck = 4;
-  bool skipped_last_component = false;
-  for (std::string::const_reverse_iterator i(host.rbegin());
-       i != host.rend() && hosts->size() < kMaxHostsToCheck; ++i) {
-    if (*i == '.') {
-      if (skipped_last_component) {
-        hosts->push_back(std::string(i.base(), host.end()));
-      } else {
-        skipped_last_component = true;
-      }
-    }
+  if (base::FeatureList::IsEnabled(safe_browsing::kLocalListsUseSBv5)) {
+    GenerateHostVariantsToCheckV5(host, hosts);
+  } else {
+    GenerateHostVariantsToCheckV4(host, hosts);
   }
-  hosts->push_back(host);
 }
 
 // static
@@ -739,5 +820,31 @@ void SBProtocolManagerUtil::GetListClientStatesFromStoreStateMap(
                          std::back_inserter(*list_client_states),
                          &StoreStateMap::value_type::second);
 }
+
+ListInfo::ListInfo(const bool fetch_updates,
+                   const std::string& name,
+                   const ListIdentifier& list_id,
+                   const SBThreatType sb_threat_type)
+    : fetch_updates_(fetch_updates),
+      list_id_(list_id),
+      sb_threat_type_(sb_threat_type) {
+  CHECK(!fetch_updates_ || !name.empty());
+  CHECK_NE(SBThreatType::SB_THREAT_TYPE_SAFE, sb_threat_type_);
+  if (!name.empty()) {
+    filename_ = base::FeatureList::IsEnabled(kLocalListsUseSBv5)
+                    ? name + "_v5.store"
+                    : name + ".store";
+    v4_filename_ = name + ".store";
+  }
+  if (fetch_updates) {
+    v5_prefix_size_ = GetV5PrefixSizeForThreatType(sb_threat_type);
+  }
+}
+
+ListInfo::~ListInfo() = default;
+ListInfo::ListInfo(const ListInfo&) = default;
+ListInfo::ListInfo(ListInfo&&) noexcept = default;
+ListInfo& ListInfo::operator=(const ListInfo&) = default;
+ListInfo& ListInfo::operator=(ListInfo&&) noexcept = default;
 
 }  // namespace safe_browsing

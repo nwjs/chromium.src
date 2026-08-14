@@ -6,8 +6,6 @@ package org.chromium.chrome.browser.tab.state;
 
 import android.content.Context;
 
-import androidx.annotation.VisibleForTesting;
-
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import org.jni_zero.JNINamespace;
@@ -236,31 +234,6 @@ public class SendTabToSelfTabCardLabelData extends PersistedTabData {
                 R.string.send_tab_to_self_message_banner_subtitle, mSenderDeviceName);
     }
 
-    /**
-     * Sets the addition timestamp for testing purposes.
-     *
-     * @param additionTimestampMs The timestamp to set.
-     */
-    @VisibleForTesting
-    public void setAdditionTimestampMsForTesting(long additionTimestampMs) {
-        mAdditionTimestampMs = additionTimestampMs;
-    }
-
-    @VisibleForTesting
-    public String getGuidForTesting() {
-        return mGuid;
-    }
-
-    @VisibleForTesting
-    public String getSenderDeviceNameForTesting() {
-        return mSenderDeviceName;
-    }
-
-    /** Returns the timestamp in milliseconds when the tab was added in the background. */
-    public long getAdditionTimestampMs() {
-        return mAdditionTimestampMs;
-    }
-
     // PersistedTabData implementation.
 
     @Override
@@ -310,5 +283,29 @@ public class SendTabToSelfTabCardLabelData extends PersistedTabData {
                 @JniType("Profile*") Profile profile,
                 String guid,
                 @ShareActivatedEntryPoint int entryPoint);
+    }
+
+    public String getGuidForTesting() {
+        return mGuid;
+    }
+
+    /** Returns the timestamp in milliseconds when the tab was added in the background. */
+    public long getAdditionTimestampMs() {
+        return mAdditionTimestampMs;
+    }
+
+    public String getSenderDeviceNameForTesting() {
+        return mSenderDeviceName;
+    }
+
+
+
+    /**
+     * Sets the addition timestamp for testing purposes.
+     *
+     * @param additionTimestampMs The timestamp to set.
+     */
+    public void setAdditionTimestampMsForTesting(long additionTimestampMs) {
+        mAdditionTimestampMs = additionTimestampMs;
     }
 }

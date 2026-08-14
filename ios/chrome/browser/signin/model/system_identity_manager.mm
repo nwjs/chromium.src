@@ -124,3 +124,4 @@ bool SystemIdentityManager::IsScopeLimitedError(
     id<RefreshAccessTokenError> error) {
   return false;
 }
+

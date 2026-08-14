@@ -21,10 +21,12 @@
 #include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_context_wrapper.h"
 #include "content/browser/service_worker/service_worker_host.h"
+#include "content/browser/service_worker/service_worker_metrics.h"
 #include "content/browser/service_worker/service_worker_object_host.h"
 #include "content/browser/service_worker/service_worker_registration_object_host.h"
 #include "content/browser/service_worker/service_worker_security_utils.h"
 #include "content/browser/web_contents/web_contents_impl.h"
+#include "content/common/features.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/origin_util.h"
@@ -1044,6 +1046,15 @@ void ServiceWorkerContainerHostForClient::GetRegistrationsComplete(
 
   for (const auto& registration : registrations) {
     DCHECK(registration.get());
+    SCOPED_CRASH_KEY_STRING256(
+        "SWCH_GRC", "client_origin",
+        service_worker_client().key().origin().Serialize());
+    SCOPED_CRASH_KEY_STRING256("SWCH_GRC", "client_url",
+                               service_worker_client().url().spec());
+    SCOPED_CRASH_KEY_STRING256("SWCH_GRC", "reg_scope",
+                               registration->scope().spec());
+    SCOPED_CRASH_KEY_STRING256("SWCH_GRC", "reg_origin",
+                               registration->key().origin().Serialize());
     // TODO(crbug.com/372879072): remove this CHECK
     CHECK_EQ(service_worker_client().key().origin(),
              url::Origin::Create(registration->scope()));
@@ -1345,6 +1356,19 @@ void ServiceWorkerContainerHostForServiceWorker::DispatchExtendableMessageEvent(
     scoped_refptr<ServiceWorkerVersion> version,
     ::blink::TransferableMessage message,
     StatusCallback callback) {
+  bool is_allowed = AllowServiceWorker(version->scope(), version->script_url());
+  ServiceWorkerMetrics::RecordMessageDispatchContextValidationResult(
+      is_allowed
+          ? ServiceWorkerMessageDispatchContextValidationResult::kAllowed
+          : ServiceWorkerMessageDispatchContextValidationResult::kDisallowed);
+  if (base::FeatureList::IsEnabled(
+          features::kServiceWorkerStrictContextValidation)) {
+    if (!is_allowed) {
+      std::move(callback).Run(blink::ServiceWorkerStatusCode::kErrorDisallowed);
+      return;
+    }
+  }
+
   // Clamp timeout to the sending worker's remaining timeout, to prevent
   // postMessage from keeping workers alive forever.
   base::TimeDelta timeout =
@@ -1362,6 +1386,19 @@ void ServiceWorkerContainerHostForClient::DispatchExtendableMessageEvent(
     scoped_refptr<ServiceWorkerVersion> version,
     ::blink::TransferableMessage message,
     StatusCallback callback) {
+  bool is_allowed = AllowServiceWorker(version->scope(), version->script_url());
+  ServiceWorkerMetrics::RecordMessageDispatchContextValidationResult(
+      is_allowed
+          ? ServiceWorkerMessageDispatchContextValidationResult::kAllowed
+          : ServiceWorkerMessageDispatchContextValidationResult::kDisallowed);
+  if (base::FeatureList::IsEnabled(
+          features::kServiceWorkerStrictContextValidation)) {
+    if (!is_allowed) {
+      std::move(callback).Run(blink::ServiceWorkerStatusCode::kErrorDisallowed);
+      return;
+    }
+  }
+
   if (IsClientValidForCall(service_worker_client())) {
     service_worker_client_utils::GetClient(
         &service_worker_client(),

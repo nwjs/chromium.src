@@ -4,6 +4,16 @@
 
 assert(is_win)
 
+source_set("register_search_promotion_task") {
+  public = [ "register_search_promotion_task.h" ]
+  sources = [ "register_search_promotion_task.cc" ]
+  public_deps = [
+    "//base",
+    "//chrome/browser/platform_experience:delegated_tasks",
+    "//url",
+  ]
+}
+
 source_set("search_promotion") {
   public = [
     "search_promotion_manager.h",
@@ -27,8 +37,10 @@ source_set("search_promotion") {
   ]
 
   deps = [
+    ":register_search_promotion_task",
     "//chrome/browser:shell_integration",
     "//chrome/browser/feature_engagement",
+    "//chrome/browser/platform_experience:delegated_tasks",
     "//chrome/browser/segmentation_platform",
     "//chrome/browser/ui/user_education",
     "//components/feature_engagement/public",
@@ -42,9 +54,12 @@ source_set("unit_tests") {
   testonly = true
   sources = [ "search_promotion_manager_unittest.cc" ]
   deps = [
+    ":register_search_promotion_task",
     ":search_promotion",
+    "//chrome/browser/platform_experience:test_support",
     "//chrome/browser/segmentation_platform",
     "//chrome/test:test_support",
+    "//chrome/test/user_education",
     "//components/feature_engagement/public",
     "//components/feature_engagement/test:test_support",
     "//components/segmentation_platform/public",

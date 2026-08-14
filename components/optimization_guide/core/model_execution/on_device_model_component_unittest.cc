@@ -6,9 +6,10 @@
 
 #include <memory>
 
-#include "base/byte_count.h"
+#include "base/byte_size.h"
 #include "base/check.h"
 #include "base/command_line.h"
+#include "base/files/file_util.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/weak_ptr.h"
 #include "base/run_loop.h"
@@ -30,6 +31,7 @@
 #include "components/optimization_guide/core/model_execution/test/fake_model_assets.h"
 #include "components/optimization_guide/core/model_execution/test/fake_model_broker.h"
 #include "components/optimization_guide/core/model_execution/test/test_on_device_model_component_state_manager.h"
+#include "components/optimization_guide/core/optimization_guide_constants.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_switches.h"
@@ -326,8 +328,8 @@ TEST_F(OnDeviceModelComponentTest, DynamicOnDeviceAIEnabledChange) {
 
 TEST_F(OnDeviceModelComponentTest, NotEnoughDiskSpaceToInstall) {
   // 20gb is the default in `IsFreeDiskSpaceSufficientForOnDeviceModelInstall`.
-  broker_.component_state().SetFreeDiskSpace(base::GiB(20) -
-                                             base::ByteCount(1));
+  broker_.component_state().SetFreeDiskSpace(base::GiBU(20) -
+                                             base::ByteSizeDelta(1));
   DoStartup();
   EnsurePerformanceClassAvailable();
   ASSERT_FALSE(WaitForUnexpectedInstallerRegistered());
@@ -437,7 +439,8 @@ TEST_F(OnDeviceModelComponentTest, UninstallNeededDueToDiskSpace) {
                                 base::Time::Now());
 
   // 10gb is the default in `IsFreeDiskSpaceTooLowForOnDeviceModelInstall`.
-  broker_.component_state().SetFreeDiskSpace(base::GiB(5) - base::ByteCount(1));
+  broker_.component_state().SetFreeDiskSpace(base::GiBU(5) -
+                                             base::ByteSizeDelta(1));
 
   // Should uninstall right away. Unlike most install requirements, the disk
   // space requirement is not subject to `GetOnDeviceModelRetentionTime()`.
@@ -451,6 +454,57 @@ TEST_F(OnDeviceModelComponentTest, UninstallNeededDueToDiskSpace) {
       OnDeviceModelComponentStateManager::RegistrationCriteria::
           UninstallReason::kInsufficientDisk,
       1);
+}
+
+TEST_F(OnDeviceModelComponentTest, InsufficientDiskSpaceForCaches) {
+  DoStartup();
+  EnsurePerformanceClassAvailable();
+  EXPECT_TRUE(WaitUntilInstallerRegistered());
+
+  auto asset = std::make_unique<FakeBaseModelAsset>(AllHints());
+  broker_.component_state().Install(std::move(asset));
+  task_environment_.RunUntilIdle();
+
+  EXPECT_EQ(manager().GetDebugState().status_, OnDeviceModelStatus::kReady);
+
+  // Set free space below 10 GiB requirement for building caches.
+  broker_.component_state().SetFreeDiskSpace(base::GiBU(8));
+  SimulateShutdown();
+  DoStartup();
+  EnsurePerformanceClassAvailable();
+  EXPECT_TRUE(WaitUntilInstallerRegistered());
+  task_environment_.RunUntilIdle();
+
+  // Without existing cache files, status should be
+  // kInsufficientDiskSpaceForCaches.
+  EXPECT_EQ(manager().GetDebugState().status_,
+            OnDeviceModelStatus::kInsufficientDiskSpaceForCaches);
+}
+
+TEST_F(OnDeviceModelComponentTest, CachesAlreadyExistWithLowDiskSpace) {
+  DoStartup();
+  EnsurePerformanceClassAvailable();
+  EXPECT_TRUE(WaitUntilInstallerRegistered());
+
+  auto asset = std::make_unique<FakeBaseModelAsset>(AllHints());
+  // Create a non-empty cache file in the install directory.
+  ASSERT_TRUE(
+      base::WriteFile(asset->path().Append(kWeightCacheFile), "cache_data"));
+
+  broker_.component_state().Install(std::move(asset));
+  task_environment_.RunUntilIdle();
+
+  // Set free space below 10 GiB requirement for building caches.
+  broker_.component_state().SetFreeDiskSpace(base::GiBU(8));
+  SimulateShutdown();
+  DoStartup();
+  EnsurePerformanceClassAvailable();
+  EXPECT_TRUE(WaitUntilInstallerRegistered());
+  task_environment_.RunUntilIdle();
+
+  // Since caches already exist on disk, model should be kReady despite low disk
+  // space.
+  EXPECT_EQ(manager().GetDebugState().status_, OnDeviceModelStatus::kReady);
 }
 
 TEST_F(OnDeviceModelComponentTest, KeepInstalledWhileNotEligible) {
@@ -813,7 +867,7 @@ TEST_F(OnDeviceModelComponentTest,
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(features::kOnDeviceModelBackgroundDownload);
   broker_.local_state().ClearPref(kLastUsageByFeature);
-  broker_.component_state().SetFreeDiskSpace(base::GiB(49));
+  broker_.component_state().SetFreeDiskSpace(base::GiBU(49));
   DoStartup();
 
   EnsurePerformanceClassAvailable();
@@ -826,7 +880,7 @@ TEST_F(OnDeviceModelComponentTest, BackgroundDownloadBlockedOnBattery) {
   broker_.local_state().ClearPref(kLastUsageByFeature);
   power_monitor_source_.SetBatteryPowerStatus(
       base::PowerStateObserver::BatteryPowerStatus::kBatteryPower);
-  broker_.component_state().SetFreeDiskSpace(base::GiB(51));
+  broker_.component_state().SetFreeDiskSpace(base::GiBU(51));
   DoStartup();
 
   EnsurePerformanceClassAvailable();

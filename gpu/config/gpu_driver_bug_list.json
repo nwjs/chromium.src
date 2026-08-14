@@ -2920,22 +2920,6 @@
       ]
     },
     {
-      "id": 418,
-      "description": "Uploading data or rendering to R8 EGL images generates driver errors.",
-      "cr_bugs": [1455752],
-      "os": {
-        "type": "android",
-        "version": {
-          "op": "<=",
-          "value": "9.0"
-        }
-      },
-      "gl_vendor": "ARM.*",
-      "features": [
-        "r8_egl_images_broken"
-      ]
-    },
-    {
       "id": 420,
       "cr_bugs": [1475546],
       "description": "GPU process crash when decoding HEVC on Intel with specific drivers.",
@@ -3809,6 +3793,18 @@
       ]
     },
     {
+      "id": 482,
+      "cr_bugs": [496807874],
+      "description": "Split full-image level 0 PBO uploads via TexSubImage2D into two calls to work around driver bugs.",
+      "os": {
+        "type": "android"
+      },
+      "gl_vendor": "Imagination.*",
+      "features": [
+        "split_level_0_pbo_full_sub_image_2d"
+      ]
+    },
+    {
       "id": 483,
       "cr_bugs": [528131939],
       "description": "Reset texture base level before calling glCompressedTexSubImage2D for ASTC textures to work around PowerVR driver bug.",
@@ -3827,6 +3823,18 @@
       "gl_vendor": "ARM.*",
       "features": [
         "pack_large_row_length_separately_pack_buffer"
+      ]
+    },
+    {
+      "id": 485,
+      "cr_bugs": [529991907],
+      "description": "Limit the number of declared varying output components at compile time to work around a PowerVR driver bug.",
+      "os": {
+        "type": "android"
+      },
+      "gl_vendor": "Imagination.*",
+      "features": [
+        "limit_output_varyings_at_compile_time"
       ]
     },
     {

@@ -334,7 +334,7 @@ class WebHidExtensionBrowserTest : public InProcessBrowserTestMixinHostSupport<
 
     auto expected_pinned_notification_id =
         device_pinned_notification_renderer->GetNotificationId(
-            browser->profile());
+            browser->GetProfile());
     auto maybe_indicator_notification =
         display_service_for_system_notification_->GetNotification(
             expected_pinned_notification_id);
@@ -428,7 +428,7 @@ IN_PROC_BROWSER_TEST_F(WebHidExtensionBrowserTest, RequestDevice) {
 IN_PROC_BROWSER_TEST_F(WebHidExtensionBrowserTest,
                        DeviceConnectAndOpenDeviceWhenServiceWorkerStopped) {
   content::ServiceWorkerContext* context = browser()
-                                               ->profile()
+                                               ->GetProfile()
                                                ->GetDefaultStoragePartition()
                                                ->GetServiceWorkerContext();
   // Set up an observer for service worker events.
@@ -538,7 +538,7 @@ IN_PROC_BROWSER_TEST_F(WebHidExtensionBrowserTest,
       "events/";
 
   content::ServiceWorkerContext* context = browser()
-                                               ->profile()
+                                               ->GetProfile()
                                                ->GetDefaultStoragePartition()
                                                ->GetServiceWorkerContext();
   // Set up an observer for service worker events.

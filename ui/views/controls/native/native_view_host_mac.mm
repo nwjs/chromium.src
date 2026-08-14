@@ -10,6 +10,7 @@
 #include "base/notimplemented.h"
 #import "ui/accessibility/platform/ax_platform_node_mac.h"
 #include "ui/compositor/layer.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/native_ui_types.h"
 #import "ui/views/cocoa/native_widget_mac_ns_window_host.h"
 #include "ui/views/controls/native/native_view_host.h"
@@ -220,13 +221,23 @@ void NativeViewHostMac::RemovedFromWidget() {
   NativeViewDetaching(false);
 }
 
-bool NativeViewHostMac::SetCornerRadii(
+bool NativeViewHostMac::SetNativeViewCornerRadii(
     const gfx::RoundedCornersF& corner_radii) {
   ui::Layer* layer = GetUiLayer();
   DCHECK(layer);
   layer->SetRoundedCornerRadius(corner_radii);
   layer->SetIsFastRoundedCorner(true);
   return true;
+}
+
+gfx::RoundedCornersF NativeViewHostMac::GetNativeViewCornerRadii() const {
+  ui::Layer* layer = GetUiLayer();
+  return layer ? layer->rounded_corner_radii() : gfx::RoundedCornersF();
+}
+
+gfx::Rect NativeViewHostMac::GetNativeViewClipRect() const {
+  ui::Layer* layer = GetUiLayer();
+  return layer ? layer->clip_rect() : gfx::Rect();
 }
 
 void NativeViewHostMac::SetHitTestTopInset(int top_inset) {
@@ -248,6 +259,18 @@ bool NativeViewHostMac::HasInstalledClip() {
 
 void NativeViewHostMac::UninstallClip() {
   NOTIMPLEMENTED();
+}
+
+bool NativeViewHostMac::SetNativeViewClipRect(const gfx::Rect& clip_rect) {
+  ui::Layer* layer = GetUILayer();
+  if (!layer) {
+    return false;
+  }
+  if (layer->clip_rect() == clip_rect) {
+    return false;
+  }
+  layer->SetClipRect(clip_rect);
+  return true;
 }
 
 void NativeViewHostMac::ShowWidget(int x,

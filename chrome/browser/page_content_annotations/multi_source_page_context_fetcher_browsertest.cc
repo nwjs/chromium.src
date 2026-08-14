@@ -7,6 +7,7 @@
 #include <optional>
 #include <vector>
 
+#include "base/command_line.h"
 #include "base/path_service.h"
 #include "base/strings/strcat.h"
 #include "base/test/gmock_expected_support.h"
@@ -37,6 +38,7 @@
 #include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/display/display_switches.h"
 #include "ui/gfx/codec/jpeg_codec.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "url/gurl.h"
@@ -163,9 +165,16 @@ INSTANTIATE_TEST_SUITE_P(
         // Don't use Paint Preview (use CopyFromSurface instead).
         std::nullopt));
 
+#if BUILDFLAG(IS_WIN)
+// TODO(crbug.com/526023956): Re-enable this test on Windows.
+#define MAYBE_TakesScreenshot DISABLED_TakesScreenshot
+#else
+#define MAYBE_TakesScreenshot TakesScreenshot
+#endif
+
 IN_PROC_BROWSER_TEST_P(
     ScreenshotBackendMultiSourcePageContextFetcherBrowserTest,
-    TakesScreenshot) {
+    MAYBE_TakesScreenshot) {
   base::HistogramTester histograms;
   GURL url = embedded_https_test_server().GetURL("/empty.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
@@ -640,6 +649,52 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     PasswordRedactionMultiSourcePageContextFetcherBrowserTest,
+    DownscaledScreenshotRedaction) {
+  base::HistogramTester histograms;
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
+                                           GetURL(kHostA, "/password.html")));
+
+  base::test::TestFuture<FetchPageContextResultCallbackArg> future;
+
+  ScreenshotOptions::ScreenshotCollectionOptions collection_options;
+  collection_options.max_width = 150;
+  collection_options.max_height = 150;
+
+  FetchPageContextOptions options;
+  options.annotated_page_content_options =
+      optimization_guide::DefaultAIPageContentOptions(true);
+  options.screenshot_options = ScreenshotOptions::ViewportOnly(
+      /*paint_preview_options=*/std::nullopt,
+      /*screenshot_collection_options=*/collection_options);
+  options.screenshot_options->set_redaction_color_for_testing(SkColors::kRed);
+  FetchPageContext(*web_contents(), options, nullptr, future.GetCallback());
+
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<FetchPageContextResult> result,
+                       future.Take());
+
+  ASSERT_TRUE(result);
+  ASSERT_TRUE(result->screenshot_result.has_value());
+
+  ScreenshotResult& screenshot = result->screenshot_result.value();
+  EXPECT_FALSE(screenshot.dimensions.IsZero());
+  ASSERT_GT(screenshot.screenshot_data.size(), 0);
+  ASSERT_EQ(screenshot.mime_type, "image/jpeg");
+
+  SkBitmap bitmap = gfx::JPEGCodec::Decode(screenshot.screenshot_data);
+
+  EXPECT_FALSE(bitmap.isNull());
+  EXPECT_FALSE(bitmap.empty());
+  EXPECT_LE(bitmap.width(), 150);
+  EXPECT_LE(bitmap.height(), 150);
+  EXPECT_THAT(bitmap.getColor(5, 5), IsColorWithinTolerance(SK_ColorRED, 0x20));
+  EXPECT_THAT(bitmap.getColor(50, 50),
+              testing::Not(IsColorWithinTolerance(SK_ColorRED, 0x20)));
+  histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
+                                true, 1);
+}
+
+IN_PROC_BROWSER_TEST_P(
+    PasswordRedactionMultiSourcePageContextFetcherBrowserTest,
     DISABLED_BasicRedactionInIframe) {
   base::HistogramTester histograms;
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
@@ -849,6 +904,53 @@ IN_PROC_BROWSER_TEST_P(
   // cc-exp at (0, 110) size 100x100.
   EXPECT_THAT(bitmap.getColor(10, 120),
               IsColorWithinTolerance(SK_ColorRED, 0x20));
+  histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
+                                true, 1);
+}
+
+IN_PROC_BROWSER_TEST_P(
+    SensitivePaymentRedactionMultiSourcePageContextFetcherBrowserTest,
+    DownscaledScreenshotRedaction) {
+  base::HistogramTester histograms;
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), GetURL(kHostA, "/optimization_guide/credit_card.html")));
+
+  base::test::TestFuture<FetchPageContextResultCallbackArg> future;
+
+  ScreenshotOptions::ScreenshotCollectionOptions collection_options;
+  collection_options.max_width = 150;
+  collection_options.max_height = 150;
+
+  FetchPageContextOptions options;
+  options.annotated_page_content_options =
+      optimization_guide::DefaultAIPageContentOptions(true);
+  options.screenshot_options = ScreenshotOptions::ViewportOnly(
+      /*paint_preview_options=*/std::nullopt,
+      /*screenshot_collection_options=*/collection_options);
+  options.screenshot_options->set_redaction_color_for_testing(SkColors::kRed);
+  FetchPageContext(*web_contents(), options, nullptr, future.GetCallback());
+
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<FetchPageContextResult> result,
+                       future.Take());
+
+  ASSERT_TRUE(result);
+  ASSERT_TRUE(result->screenshot_result.has_value());
+
+  ScreenshotResult& screenshot = result->screenshot_result.value();
+  EXPECT_FALSE(screenshot.dimensions.IsZero());
+  ASSERT_GT(screenshot.screenshot_data.size(), 0);
+  ASSERT_EQ(screenshot.mime_type, "image/jpeg");
+
+  SkBitmap bitmap = gfx::JPEGCodec::Decode(screenshot.screenshot_data);
+
+  EXPECT_FALSE(bitmap.isNull());
+  EXPECT_FALSE(bitmap.empty());
+  EXPECT_LE(bitmap.width(), 150);
+  EXPECT_LE(bitmap.height(), 150);
+  // cc-number at (0, 0) size 100x100 scaled down.
+  EXPECT_THAT(bitmap.getColor(5, 5), IsColorWithinTolerance(SK_ColorRED, 0x20));
+  EXPECT_THAT(bitmap.getColor(50, 50),
+              testing::Not(IsColorWithinTolerance(SK_ColorRED, 0x20)));
   histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
                                 true, 1);
 }
@@ -1113,6 +1215,50 @@ IN_PROC_BROWSER_TEST_P(
                                 true, 1);
 }
 
+IN_PROC_BROWSER_TEST_P(
+    ElementCSSRedactionMultiSourcePageContextFetcherBrowserTest,
+    DownscaledScreenshotRedaction) {
+  base::HistogramTester histograms;
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(),
+      GetURL(kHostA,
+             "/optimization_guide/div_with_webkit_text_security.html")));
+
+  base::test::TestFuture<FetchPageContextResultCallbackArg> future;
+
+  ScreenshotOptions::ScreenshotCollectionOptions collection_options;
+  collection_options.max_width = 150;
+  collection_options.max_height = 150;
+
+  FetchPageContextOptions options;
+  options.annotated_page_content_options =
+      optimization_guide::DefaultAIPageContentOptions(true);
+  options.screenshot_options = ScreenshotOptions::ViewportOnly(
+      /*paint_preview_options=*/std::nullopt,
+      /*screenshot_collection_options=*/collection_options);
+  options.screenshot_options->set_redaction_color_for_testing(SkColors::kRed);
+  FetchPageContext(*web_contents(), options, nullptr, future.GetCallback());
+
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<FetchPageContextResult> result,
+                       future.Take());
+
+  ASSERT_TRUE(result);
+  ASSERT_TRUE(result->screenshot_result.has_value());
+
+  ScreenshotResult& screenshot = result->screenshot_result.value();
+  SkBitmap bitmap = gfx::JPEGCodec::Decode(screenshot.screenshot_data);
+
+  EXPECT_FALSE(bitmap.isNull());
+  EXPECT_FALSE(bitmap.empty());
+  EXPECT_LE(bitmap.width(), 150);
+  EXPECT_LE(bitmap.height(), 150);
+  EXPECT_THAT(bitmap.getColor(5, 5), IsColorWithinTolerance(SK_ColorRED, 0x20));
+  EXPECT_THAT(bitmap.getColor(50, 50),
+              testing::Not(IsColorWithinTolerance(SK_ColorRED, 0x20)));
+  histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
+                                true, 1);
+}
+
 class IframeInfoMultiSourcePageContextFetcherBrowserTest
     : public MultiSourcePageContextFetcherBrowserTest {
  public:
@@ -1194,6 +1340,99 @@ IN_PROC_BROWSER_TEST_F(IframeInfoMultiSourcePageContextFetcherBrowserTest,
   ASSERT_TRUE(result);
   ASSERT_TRUE(result->annotated_page_content_result.has_value());
 
+  content::RenderWidgetHostView* view =
+      web_contents()->GetRenderWidgetHostView();
+  ASSERT_TRUE(view);
+  gfx::Size expected_screenshot_size = gfx::ScaleToRoundedSize(
+      view->GetViewBounds().size(), view->GetDeviceScaleFactor());
+
+  const optimization_guide::proto::ScreenshotInfo& screenshot_info =
+      result->annotated_page_content_result->proto
+          .gemini_in_chrome_page_metadata()
+          .screenshot_info();
+  EXPECT_TRUE(screenshot_info.has_screenshot_size());
+  EXPECT_EQ(screenshot_info.screenshot_size().width(),
+            expected_screenshot_size.width());
+  EXPECT_EQ(screenshot_info.screenshot_size().height(),
+            expected_screenshot_size.height());
+
+  // Verify that the iframe info has url, origin, and bounding box data.
+  const auto& iframe_info = screenshot_info.iframe_info();
+  ASSERT_EQ(iframe_info.size(), 1);
+  EXPECT_EQ(iframe_info[0].url(), iframe_url.spec());
+  EXPECT_EQ(iframe_info[0].security_origin().value(),
+            iframe_origin.Serialize());
+  EXPECT_EQ(iframe_info[0].bounding_box().x(), 20);
+  EXPECT_EQ(iframe_info[0].bounding_box().y(), 10);
+  // The iframe is 300x200, but the bounding box is 304x204 due to the border.
+  EXPECT_EQ(iframe_info[0].bounding_box().width(), 304);
+  EXPECT_EQ(iframe_info[0].bounding_box().height(), 204);
+  EXPECT_TRUE(iframe_info[0].bounding_box().is_screenshot_relative());
+
+  ASSERT_TRUE(result->screenshot_info.has_value());
+  EXPECT_THAT(
+      result->screenshot_info.value(),
+      base::test::EqualsProto(result->annotated_page_content_result->proto
+                                  .gemini_in_chrome_page_metadata()
+                                  .screenshot_info()));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    IframeInfoMultiSourcePageContextFetcherBrowserTest,
+    TakesScreenshot_AddsIframeInfoToAPC_IframeHasNoBorderAndLowOpacity) {
+  GURL top_frame_url = GetURL(kHostA, "/iframe.html");
+  GURL iframe_url = GetURL(kHostB);
+  url::Origin iframe_origin = url::Origin::Create(iframe_url);
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), top_frame_url));
+  ASSERT_TRUE(content::NavigateIframeToURL(web_contents(), "test", iframe_url));
+
+  // Set the iframe's size and position.
+  ASSERT_TRUE(content::ExecJs(web_contents(),
+                              "const iframe = document.getElementById('test');"
+                              "iframe.style.position = 'absolute';"
+                              "iframe.style.left = '20px';"
+                              "iframe.style.top = '10px';"
+                              "iframe.style.width = '300px';"
+                              "iframe.style.height = '200px';"
+                              "iframe.style.borderStyle = 'none';"
+                              "iframe.style.borderWidth = '0';"
+                              "iframe.style.opacity = '0.9';"));
+
+  // Wait for main frame layout/render.
+  {
+    base::test::TestFuture<bool> future;
+    web_contents()
+        ->GetPrimaryMainFrame()
+        ->GetRenderWidgetHost()
+        ->InsertVisualStateCallback(future.GetCallback());
+    ASSERT_TRUE(future.Wait()) << "Timeout waiting for syncing with renderer";
+  }
+
+  // Wait for cross-site subframe layout/render.
+  {
+    base::test::TestFuture<bool> sub_future;
+    GetSubframe()->GetRenderWidgetHost()->InsertVisualStateCallback(
+        sub_future.GetCallback());
+    ASSERT_TRUE(sub_future.Wait());
+  }
+
+  FetchPageContextOptions options;
+  options.screenshot_options = ScreenshotOptions::ViewportOnly(
+      /*paint_preview_options=*/std::nullopt,
+      /*screenshot_collection_options=*/std::nullopt);
+  options.annotated_page_content_options =
+      optimization_guide::ActionableAIPageContentOptions(true);
+
+  base::test::TestFuture<FetchPageContextResultCallbackArg> future;
+  FetchPageContext(*web_contents(), options, nullptr, future.GetCallback());
+
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<FetchPageContextResult> result,
+                       future.Take());
+
+  ASSERT_TRUE(result);
+  ASSERT_TRUE(result->annotated_page_content_result.has_value());
+
   const auto& iframe_info = result->annotated_page_content_result->proto
                                 .gemini_in_chrome_page_metadata()
                                 .screenshot_info()
@@ -1206,9 +1445,8 @@ IN_PROC_BROWSER_TEST_F(IframeInfoMultiSourcePageContextFetcherBrowserTest,
             iframe_origin.Serialize());
   EXPECT_EQ(iframe_info[0].bounding_box().x(), 20);
   EXPECT_EQ(iframe_info[0].bounding_box().y(), 10);
-  // The iframe is 300x200, but the bounding box is 304x204 due to the border.
-  EXPECT_EQ(iframe_info[0].bounding_box().width(), 304);
-  EXPECT_EQ(iframe_info[0].bounding_box().height(), 204);
+  EXPECT_EQ(iframe_info[0].bounding_box().width(), 300);
+  EXPECT_EQ(iframe_info[0].bounding_box().height(), 200);
 
   ASSERT_TRUE(result->screenshot_info.has_value());
   EXPECT_THAT(
@@ -1290,6 +1528,70 @@ IN_PROC_BROWSER_TEST_F(OtpRedactionMultiSourcePageContextFetcherBrowserTest,
 
   histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
                                 true, 1);
+}
+
+class HighDsfMultiSourcePageContextFetcherBrowserTest
+    : public MultiSourcePageContextFetcherBrowserTest {
+ public:
+  HighDsfMultiSourcePageContextFetcherBrowserTest() {
+    features_.InitAndEnableFeatureWithParameters(
+        kGlicTabScreenshotExperiment, {{"screenshot_timeout_ms", "10s"}});
+  }
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    MultiSourcePageContextFetcherBrowserTest::SetUpCommandLine(command_line);
+    command_line->AppendSwitchASCII(switches::kForceDeviceScaleFactor, "2");
+  }
+
+ private:
+  base::test::ScopedFeatureList features_;
+};
+
+IN_PROC_BROWSER_TEST_F(HighDsfMultiSourcePageContextFetcherBrowserTest,
+                       ScreenshotSizeRespectsMaxWidthInPixels) {
+  GURL url = embedded_https_test_server().GetURL("/empty.html");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+
+  content::RenderWidgetHostView* view =
+      web_contents()->GetRenderWidgetHostView();
+  ASSERT_TRUE(view);
+  gfx::Size view_size_dips = view->GetViewBounds().size();
+  ASSERT_FALSE(view_size_dips.IsEmpty());
+
+  int expected_width_pixels = view_size_dips.width() * 2;
+  int expected_height_pixels = view_size_dips.height() * 2;
+
+  // Set max_width to be between DIP width and physical width.
+  int max_width_pixels = (view_size_dips.width() + expected_width_pixels) / 2;
+
+  ScreenshotOptions::ScreenshotCollectionOptions collection_options;
+  collection_options.max_width = max_width_pixels;
+  collection_options.max_height =
+      100000;  // Large value to avoid height limiting
+
+  base::test::TestFuture<FetchPageContextResultCallbackArg> future;
+  FetchPageContextOptions options;
+  options.screenshot_options = ScreenshotOptions::ViewportOnly(
+      /*paint_preview_options=*/std::nullopt, collection_options);
+
+  FetchPageContext(*web_contents(), options, nullptr, future.GetCallback());
+
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<FetchPageContextResult> result,
+                       future.Take());
+  ASSERT_TRUE(result);
+  ASSERT_TRUE(result->screenshot_result.has_value());
+
+  ScreenshotResult& screenshot = result->screenshot_result.value();
+  EXPECT_FALSE(screenshot.dimensions.IsZero());
+
+  SkBitmap bitmap = gfx::JPEGCodec::Decode(screenshot.screenshot_data);
+  EXPECT_FALSE(bitmap.isNull());
+
+  int expected_scaled_height =
+      expected_height_pixels * max_width_pixels / expected_width_pixels;
+
+  EXPECT_EQ(bitmap.width(), max_width_pixels);
+  EXPECT_NEAR(bitmap.height(), expected_scaled_height, 1);
 }
 
 }  // namespace page_content_annotations

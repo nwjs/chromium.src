@@ -44,6 +44,17 @@ static_library("installer_policies_no_content_deps") {
     "//services/network/public/cpp",
   ]
 
+  if (is_chromeos || is_win || is_mac || is_linux) {
+    sources += [
+      "iwa_key_distribution_component_installer_policy.cc",
+      "iwa_key_distribution_component_installer_policy.h",
+    ]
+    deps += [
+      "//components/crx_file",
+      "//components/webapps/isolated_web_apps/key_distribution",
+    ]
+  }
+
   # Disallow depending on content.
   assert_no_deps = [ "//content/public" ]
 }
@@ -56,6 +67,8 @@ static_library("installer_policies_with_content_deps") {
     "on_device_head_suggest_component_installer.h",
     "optimization_hints_component_installer.cc",
     "optimization_hints_component_installer.h",
+    "prediction_model_component_installer.cc",
+    "prediction_model_component_installer.h",
   ]
 
   deps = [
@@ -76,6 +89,7 @@ source_set("unit_tests") {
     "first_party_sets_component_installer_policy_unittest.cc",
     "history_search_strings_component_installer_unittest.cc",
     "optimization_hints_component_installer_unittest.cc",
+    "prediction_model_component_installer_unittest.cc",
     "private_verification_tokens_installer_policy_unittest.cc",
     "trust_token_key_commitments_component_installer_policy_unittest.cc",
   ]

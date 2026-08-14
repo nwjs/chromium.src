@@ -3,14 +3,23 @@
 // found in the LICENSE file.
 
 import './extension.js';
+import './toolbar_divider.js';
 
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {ExtensionActionInfo} from '/shared/extensions_bar_data_model.mojom-webui.js';
 
 import {getCss} from './extensions.css.js';
 import {getHtml} from './extensions.html.js';
+import {ToolbarActionContainerMixin} from './toolbar_action_container_mixin.js';
 
-export class ExtensionsElement extends CrLitElement {
+export type {KeyedActionState as KeyedExtensionState} from './toolbar_action_container_mixin.js';
+
+const initialState: ExtensionActionInfo[] = [];
+
+const ExtensionsElementBase =
+    ToolbarActionContainerMixin(CrLitElement, initialState);
+
+export class ExtensionsElement extends ExtensionsElementBase {
   static get is() {
     return 'webui-toolbar-extensions';
   }
@@ -23,13 +32,10 @@ export class ExtensionsElement extends CrLitElement {
     return getHtml.bind(this)();
   }
 
-  static override get properties() {
-    return {
-      state: {type: Array},
-    };
+  // ToolbarActionContainerMixin override
+  override getKey(state: ExtensionActionInfo): string {
+    return state.id;
   }
-
-  protected accessor state: ExtensionActionInfo[] = [];
 }
 
 declare global {

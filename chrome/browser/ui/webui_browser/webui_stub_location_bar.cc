@@ -97,7 +97,7 @@ ui::TrackedElement* WebUIStubLocationBar::GetAnchorOrNull() {
   return nullptr;
 }
 
-Browser* WebUIStubLocationBar::GetBrowser() {
+BrowserWindowInterface* WebUIStubLocationBar::GetBrowser() {
   NOTIMPLEMENTED();
   return nullptr;
 }
@@ -141,6 +141,11 @@ bool WebUIStubLocationBar::IsEditingOrEmpty() const {
 }
 
 bool WebUIStubLocationBar::IsMouseHovered() const {
+  NOTIMPLEMENTED();
+  return false;
+}
+
+bool WebUIStubLocationBar::IsFocusWithin() const {
   NOTIMPLEMENTED();
   return false;
 }

@@ -64,7 +64,6 @@ import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinatorFactory;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.ntp_customization.theme.NtpCustomizationPromoManager;
-import org.chromium.chrome.browser.omnibox.HintTextUpdater;
 import org.chromium.chrome.browser.omnibox.SearchEngineService;
 import org.chromium.chrome.browser.omnibox.SearchEngineService.SearchEngineIconObserver;
 import org.chromium.chrome.browser.omnibox.SearchEngineService.SearchEngineNameObserver;
@@ -85,6 +84,10 @@ import org.chromium.chrome.browser.tasks.HomeSurfaceTracker;
 import org.chromium.chrome.browser.tasks.ReturnToChromeUtil;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.native_page.TouchEnabledDelegate;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.AnchorSide;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
+import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
+import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
 import org.chromium.chrome.browser.ui.signin.signin_promo.NtpSigninPromoCoordinator;
 import org.chromium.chrome.browser.url_constants.UrlConstantResolver;
 import org.chromium.chrome.browser.url_constants.UrlConstantResolverFactory;
@@ -95,6 +98,7 @@ import org.chromium.components.browser_ui.widget.displaystyle.DisplayStyleObserv
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.omnibox.AutocompleteRequestType;
+import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.signin.SigninFeatureMap;
 import org.chromium.components.signin.SigninFeatures;
@@ -140,6 +144,8 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
     private final SnackbarManager mSnackbarManager;
     private final boolean mIsLff;
     private final Supplier<Integer> mTabStripHeightSupplier;
+    private final OneshotSupplier<SideUiStateProvider> mSideUiStateProviderSupplier;
+    private final SideUiObserver mSideUiObserver;
     private final SearchEngineService mSearchEngineService;
     private final BackPressManager mBackPressManager;
     private final int mNtpSearchBoxTransitionStartOffset;
@@ -161,6 +167,7 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
     private SetupListManager.@Nullable Observer mSetupListObserver;
     private @Nullable Point mContextMenuStartPosition;
     private @Nullable NtpCustomizationCoordinator mNtpCustomizationCoordinator;
+    private @Nullable SideUiStateProvider mSideUiStateProvider;
 
     /**
      * Whether the tiles shown in the layout have finished loading. With {@link #mHasShownView},
@@ -236,6 +243,7 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
      * @param snackbarManager Manages snackbars shown in the app.
      * @param isLff {@code true} if the NTP surface is on a large form factor (LFF) device.
      * @param tabStripHeightSupplier Supplier of the tab strip height.
+     * @param sideUiStateProviderSupplier Supplier for the {@link SideUiStateProvider}.
      * @param homeSurfaceTracker Used to decide whether we are the home surface.
      * @param backPressManager Manages back press dispatching.
      */
@@ -254,6 +262,7 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
             SnackbarManager snackbarManager,
             boolean isLff,
             Supplier<Integer> tabStripHeightSupplier,
+            OneshotSupplier<SideUiStateProvider> sideUiStateProviderSupplier,
             @Nullable HomeSurfaceTracker homeSurfaceTracker,
             BackPressManager backPressManager) {
         mBackPressManager = backPressManager;
@@ -272,6 +281,7 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         mSnackbarManager = snackbarManager;
         mIsLff = isLff;
         mTabStripHeightSupplier = tabStripHeightSupplier;
+        mSideUiStateProviderSupplier = sideUiStateProviderSupplier;
         mSearchEngineService = SearchEngineService.getForProfile(mProfile);
 
         Resources resources = mActivity.getResources();
@@ -306,6 +316,21 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         mModel.set(NewTabPageLayoutProperties.DELEGATE, mLayoutDelegate);
         sCount++;
 
+        // TODO(crbug.com/517393491): Refactor to a reusable component to apply to other UiConfigs.
+        mSideUiObserver =
+                sideUiSpecs -> {
+                    if (mUiConfig != null) {
+                        mUiConfig.setHorizontalInset(getSideUiWidthDp(sideUiSpecs));
+                    }
+                };
+        mSideUiStateProviderSupplier.onAvailable(
+                mCallbackController.makeCancelable(
+                        provider -> {
+                            mSideUiStateProvider = provider;
+                            provider.addObserver(mSideUiObserver);
+                            mSideUiObserver.onSideUiSpecsChanged(provider.getCurrentSideUiSpecs());
+                        }));
+
         NtpCustomizationPromoManager.maybeShowHomepageCustomizationSnackbarOnRecreate(
                 mActivity, mSnackbarManager, ApplicationStatus.getTaskId(mActivity));
     }
@@ -320,7 +345,8 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
      * @param scrollDelegate The delegate used to obtain information about scroll state.
      * @param touchEnabledDelegate The {@link TouchEnabledDelegate} for handling whether touch
      *     events are allowed.
-     * @param uiConfig UiConfig that provides display information about this view.
+     * @param uiConfig UiConfig that will provide the preferred display style for NTP based on the
+     *     available space.
      * @param lifecycleDispatcher Activity lifecycle dispatcher.
      */
     @Initializer
@@ -336,6 +362,7 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         TraceEvent.begin(TAG + ".initialize()");
         mScrollDelegate = scrollDelegate;
         mUiConfig = uiConfig;
+        mUiConfig.setHorizontalInset(getSideUiWidthDp());
         mComposeplateUrlSupplier = composeplateUrlSupplier;
 
         mContextMenuStartPosition =
@@ -390,15 +417,15 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
 
         // This should be called after both mNtpSearchBox and mComposeplateCoordinator are
         // initialized.
-        onCustomizedBackgroundChanged(
-                NtpCustomizationUtils.shouldApplyWhiteBackgroundOnSearchBox());
+        onCustomizedBackgroundChanged();
 
         // This should called after flags of composeplate view are initialized.
         setSearchBoxHeightBoundsVerticalInset();
 
         updateActionButtonVisibility();
         initializeLayoutChangeListener();
-        if (SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)) {
+        if (SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
+                && !OmniboxCapabilities.isDesktopPlatform()) {
             initializeSigninPromoCoordinator();
         }
 
@@ -488,8 +515,7 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
 
     public void onSearchBoxHintTextChanged() {
         if (mNtpSearchBox != null) {
-            mNtpSearchBox.setSearchBoxHintText(
-                    HintTextUpdater.getNtpHintText(mActivity, mSearchEngineService));
+            mNtpSearchBox.setSearchBoxHintText(mSearchEngineService.getNtpHintText(mActivity));
         }
     }
 
@@ -497,16 +523,19 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
     void setSearchBoxTextAppearance() {
         if (mNtpSearchBox == null) return;
 
-        boolean shouldApplyWhiteBackground =
-                NtpCustomizationUtils.shouldApplyWhiteBackgroundOnSearchBox();
-
-        if (shouldApplyWhiteBackground) {
+        if (shouldApplyWhiteBackgroundOnSearchBox()) {
             mNtpSearchBox.setSearchBoxTextAppearance(
                     R.style.TextAppearance_FakeSearchBoxTextMediumDark);
         } else {
             mNtpSearchBox.setSearchBoxTextAppearance(
                     R.style.TextAppearance_FakeSearchBoxTextMedium);
         }
+    }
+
+    @VisibleForTesting
+    boolean shouldApplyWhiteBackgroundOnSearchBox() {
+        return NtpCustomizationUtils.shouldApplyWhiteBackgroundOnSearchBox()
+                || OmniboxCapabilities.isDesktopPlatform();
     }
 
     private void initializeComposeplateFlags(Profile profile) {
@@ -521,9 +550,6 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
 
         mIsComposeplateViewInitialized = true;
 
-        boolean shouldApplyWhiteBackgroundOnSearchBox =
-                NtpCustomizationUtils.shouldApplyWhiteBackgroundOnSearchBox();
-
         ViewStub composeplateViewStub = mNewTabPageLayout.findViewById(R.id.composeplate_view_stub);
         ViewGroup composeplateView = (ViewGroup) composeplateViewStub.inflate();
         mComposeplateCoordinator = new ComposeplateCoordinator(composeplateView, mProfile);
@@ -533,7 +559,7 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         mComposeplateCoordinator.setComposeplateButtonClickListener(
                 this::onComposeplateButtonClicked);
 
-        if (shouldApplyWhiteBackgroundOnSearchBox) {
+        if (shouldApplyWhiteBackgroundOnSearchBox()) {
             // It is safe to call mComposeplateCoordinator.applyWhiteBackground() again since it is
             // no-op if the white background has been applied.
             mComposeplateCoordinator.applyWhiteBackground(/* apply= */ true);
@@ -552,15 +578,14 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         GURL composeplateUrl = assumeNonNull(mComposeplateUrlSupplier).get();
         if (composeplateUrl == null) return;
 
-        mManager.getNativePageHost()
-                .loadUrl(new LoadUrlParams(composeplateUrl), /* incognito= */ false);
+        mManager.loadUrl(new LoadUrlParams(composeplateUrl), /* incognito= */ false);
     }
 
     private void onIncognitoButtonClicked(View view) {
         if (!IncognitoUtils.isIncognitoModeEnabled(mProfile)) return;
 
         UrlConstantResolver resolver = UrlConstantResolverFactory.getForProfile(mProfile);
-        mManager.getNativePageHost().loadUrl(new LoadUrlParams(resolver.getNtpUrl()), true);
+        mManager.loadUrl(new LoadUrlParams(resolver.getNtpUrl()), /* incognito= */ true);
     }
 
     @VisibleForTesting
@@ -603,7 +628,7 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         Callback<LoadUrlParams> logoClickedCallback =
                 mCallbackController.makeCancelable(
                         (urlParams) -> {
-                            mManager.getNativePageHost().loadUrl(urlParams, /* incognito= */ false);
+                            mManager.loadUrl(urlParams, /* incognito= */ false);
                             BrowserUiUtils.recordModuleClickHistogram(
                                     ModuleTypeOnStartAndNtp.DOODLE);
                         });
@@ -1365,6 +1390,11 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         }
         mUiConfig = null;
 
+        if (mSideUiStateProvider != null) {
+            mSideUiStateProvider.removeObserver(mSideUiObserver);
+            mSideUiStateProvider = null;
+        }
+
         mModel.set(NewTabPageLayoutProperties.DELEGATE, null);
 
         mSearchBoxScrollListener = null;
@@ -1431,6 +1461,18 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         ViewUtils.requestLayout(mNewTabPageLayout, "NewTabPageCoordinator.onDisplayStyleChanged");
     }
 
+    private int getSideUiWidthDp() {
+        if (mSideUiStateProvider == null) return 0;
+        return getSideUiWidthDp(mSideUiStateProvider.getCurrentSideUiSpecs());
+    }
+
+    private int getSideUiWidthDp(SideUiSpecs sideUiSpecs) {
+        int sideUiWidthPx =
+                sideUiSpecs.getWidth(AnchorSide.LEFT) + sideUiSpecs.getWidth(AnchorSide.RIGHT);
+        float density = mActivity.getResources().getDisplayMetrics().density;
+        return Math.round(sideUiWidthPx / density);
+    }
+
     /**
      * Adjusts the doodle size while the tablet transitions to or from a multi-screen layout,
      * ensuring the change occurs post-logo initialization.
@@ -1477,13 +1519,10 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         }
     }
 
-    /**
-     * Called when a customized background image is selected or deselected.
-     *
-     * @param applyWhiteBackgroundOnSearchBox Whether to apply a white background color to the fake
-     *     search box.
-     */
-    void onCustomizedBackgroundChanged(boolean applyWhiteBackgroundOnSearchBox) {
+    /** Called when a customized background image is selected or deselected. */
+    void onCustomizedBackgroundChanged() {
+        boolean applyWhiteBackgroundOnSearchBox = shouldApplyWhiteBackgroundOnSearchBox();
+
         // If shouldn't apply a white background and the background hasn't been updated before,
         // returns now.
         if (mIsWhiteBackgroundOnSearchBoxApplied == null && !applyWhiteBackgroundOnSearchBox) {

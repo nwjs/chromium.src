@@ -53,6 +53,8 @@ namespace media {
 
 namespace {
 
+constexpr base::TimeDelta kGpuChannelTimeout = base::Seconds(3);
+
 mojom::MeteringMode ToMojomMeteringMode(
     PhotoCapabilities::AndroidMeteringMode android_mode) {
   switch (android_mode) {
@@ -173,6 +175,9 @@ std::optional<gpu::VulkanYCbCrInfo> GetVulkanYCbCrInfo(
   return result;
 }
 
+BASE_FEATURE(kUseNV12FormatForAndroidZeroCopyVideoCapture,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 }  // anonymous namespace
 
 VideoCaptureDeviceAndroid::VideoCaptureDeviceAndroid(
@@ -187,14 +192,9 @@ VideoCaptureDeviceAndroid::~VideoCaptureDeviceAndroid() {
   StopAndDeAllocate();
 }
 
-bool VideoCaptureDeviceAndroid::Init() {
-  int id;
-  if (!base::StringToInt(device_descriptor_.device_id, &id))
-    return false;
-
+void VideoCaptureDeviceAndroid::Init() {
   j_capture_.Reset(VideoCaptureDeviceFactoryAndroid::createVideoCaptureAndroid(
-      id, reinterpret_cast<intptr_t>(this)));
-  return true;
+      device_descriptor_.device_id, reinterpret_cast<intptr_t>(this)));
 }
 
 void VideoCaptureDeviceAndroid::AllocateAndStart(
@@ -434,12 +434,17 @@ void VideoCaptureDeviceAndroid::OnHardwareBufferAvailableOnMainThread(
   viz::SharedImageFormat shared_image_format;
   switch (desc.format) {
     case AndroidImageFormat::ANDROID_IMAGE_FORMAT_YUV_420_888:
-      // Even though the AHB has an NV12 internal format, its pixel layout
-      // is never directly exposed anywhere, we only access it via
-      // the external texture sampler.
-      // Shared image readback will produce RGB output, that's why it makes
-      // sense to use PIXEL_FORMAT_XBGR VideoFrame format.
-      video_pixel_format = PIXEL_FORMAT_XBGR;
+      if (base::FeatureList::IsEnabled(
+              kUseNV12FormatForAndroidZeroCopyVideoCapture)) {
+        video_pixel_format = PIXEL_FORMAT_NV12;
+      } else {
+        // Even though the AHB has an NV12 internal format, its pixel layout
+        // is never directly exposed anywhere, we only access it via
+        // the external texture sampler.
+        // Shared image readback will produce RGB output, that's why it makes
+        // sense to use PIXEL_FORMAT_XBGR VideoFrame format.
+        video_pixel_format = PIXEL_FORMAT_XBGR;
+      }
       shared_image_format = viz::MultiPlaneFormat::kNV12;
       shared_image_format.SetPrefersExternalSampler();
       break;
@@ -451,17 +456,28 @@ void VideoCaptureDeviceAndroid::OnHardwareBufferAvailableOnMainThread(
   VideoCaptureFormat format(gfx::Size(desc.width, desc.height),
                             capture_format_.frame_rate, video_pixel_format);
 
-  if (!need_ycbcr_info_.has_value()) {
-    scoped_refptr<gpu::GpuChannelHost> gpu_channel_host =
-        VideoCaptureGpuChannelHost::GetInstance().GetGpuChannel();
+  auto gpu_channel_host =
+      VideoCaptureGpuChannelHost::GetInstance().GetGpuChannel();
+  auto sii =
+      VideoCaptureGpuChannelHost::GetInstance().GetSharedImageInterface();
 
-    if (gpu_channel_host) {
-      auto skia_backend = gpu_channel_host->gpu_info().skia_backend_type;
-      need_ycbcr_info_ =
-          (skia_backend == gpu::SkiaBackendType::kGraphiteDawnVulkan);
-    } else {
-      need_ycbcr_info_ = false;
+  if (!gpu_channel_host || !sii) {
+    if (first_failed_shared_image_time_.is_null()) {
+      first_failed_shared_image_time_ = current_time;
+    } else if (current_time - first_failed_shared_image_time_ >
+               kGpuChannelTimeout) {
+      SetErrorState(media::VideoCaptureError::kAndroidFailedToStartCapture,
+                    FROM_HERE,
+                    "Failed to get GpuChannel or SharedImageInterface.");
     }
+    return;
+  }
+  first_failed_shared_image_time_ = base::TimeTicks();
+
+  if (!need_ycbcr_info_.has_value()) {
+    auto skia_backend = gpu_channel_host->gpu_info().skia_backend_type;
+    need_ycbcr_info_ =
+        (skia_backend == gpu::SkiaBackendType::kGraphiteDawnVulkan);
   }
 
   if (*need_ycbcr_info_ && !ycbcr_info_) {
@@ -472,15 +488,6 @@ void VideoCaptureDeviceAndroid::OnHardwareBufferAvailableOnMainThread(
                     FROM_HERE, "Failed to get Vulkan YCbCr info.");
       return;
     }
-  }
-
-  auto sii =
-      VideoCaptureGpuChannelHost::GetInstance().GetSharedImageInterface();
-  if (!sii) {
-    LOG(ERROR) << "Failed to get SharedImageInterface.";
-    SetErrorState(media::VideoCaptureError::kAndroidFailedToStartCapture,
-                  FROM_HERE, "Failed to get SharedImageInterface.");
-    return;
   }
 
   gfx::GpuMemoryBufferHandle gmb_handle;
@@ -780,10 +787,6 @@ void VideoCaptureDeviceAndroid::OnStarted(JNIEnv* env) {
 void VideoCaptureDeviceAndroid::DCheckCurrentlyOnIncomingTaskRunner(
     JNIEnv* env) {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
-}
-
-void VideoCaptureDeviceAndroid::ConfigureForTesting() {
-  Java_VideoCapture_setTestMode(AttachCurrentThread(), j_capture_);
 }
 
 void VideoCaptureDeviceAndroid::ProcessFirstFrameAvailable(

@@ -57,12 +57,6 @@ constexpr char kBlockedTopicsBlockTimeKey[] = "blockedOn";
 constexpr char kIsTopicsAllowedHistogram[] = "PrivacySandbox.IsTopicsAllowed";
 constexpr char kIsTopicsAllowedForContextHistogram[] =
     "PrivacySandbox.IsTopicsAllowedForContext";
-constexpr char kIsAttributionReportingEverAllowedHistogram[] =
-    "PrivacySandbox.IsAttributionReportingEverAllowed";
-constexpr char kIsAttributionReportingAllowedHistogram[] =
-    "PrivacySandbox.IsAttributionReportingAllowed";
-constexpr char kMaySendAttributionReportHistogram[] =
-    "PrivacySandbox.MaySendAttributionReport";
 constexpr char kIsFledgeJoinAllowedHistogram[] =
     "PrivacySandbox.IsFledgeJoinAllowed";
 constexpr char kIsFledgeLeaveAllowedHistogram[] =
@@ -140,25 +134,25 @@ void PrivacySandboxSettingsImpl::JoinHistogram(const char* name,
 
 // static
 void PrivacySandboxSettingsImpl::JoinFledgeHistogram(
-    content::InterestGroupApiOperation interest_group_api_operation,
+    InterestGroupApiOperation interest_group_api_operation,
     Status status) {
   switch (interest_group_api_operation) {
-    case content::InterestGroupApiOperation::kJoin:
+    case InterestGroupApiOperation::kJoin:
       JoinHistogram(kIsFledgeJoinAllowedHistogram, status);
       break;
-    case content::InterestGroupApiOperation::kLeave:
+    case InterestGroupApiOperation::kLeave:
       JoinHistogram(kIsFledgeLeaveAllowedHistogram, status);
       break;
-    case content::InterestGroupApiOperation::kUpdate:
+    case InterestGroupApiOperation::kUpdate:
       JoinHistogram(kIsFledgeUpdateAllowedHistogram, status);
       break;
-    case content::InterestGroupApiOperation::kSell:
+    case InterestGroupApiOperation::kSell:
       JoinHistogram(kIsFledgeSellAllowedHistogram, status);
       break;
-    case content::InterestGroupApiOperation::kBuy:
+    case InterestGroupApiOperation::kBuy:
       JoinHistogram(kIsFledgeBuyAllowedHistogram, status);
       break;
-    case content::InterestGroupApiOperation::kRead:
+    case InterestGroupApiOperation::kRead:
       JoinHistogram(kIsFledgeReadAllowedHistogram, status);
       break;
   }
@@ -385,109 +379,6 @@ PrivacySandboxSettingsImpl::GetM1AdMeasurementAllowedStatus(
                                     reporting_origin.GetURL());
 }
 
-bool PrivacySandboxSettingsImpl::IsAttributionReportingEverAllowed() const {
-  Status status = GetM1PrivacySandboxApiEnabledStatus(
-      prefs::kPrivacySandboxM1AdMeasurementEnabled);
-  JoinHistogram(kIsAttributionReportingEverAllowedHistogram, status);
-  return IsAllowed(status);
-}
-
-bool PrivacySandboxSettingsImpl::IsAttributionReportingAllowed(
-    const url::Origin& top_frame_origin,
-    const url::Origin& reporting_origin,
-    content::RenderFrameHost* console_frame) const {
-  // Check for attestation on the reporting origin.
-  Status attestation_status =
-      PrivacySandboxAttestations::GetInstance()->IsSiteAttested(
-          net::SchemefulSite(reporting_origin),
-          PrivacySandboxAttestationsGatedAPI::kAttributionReporting);
-  if (!IsAllowed(attestation_status)) {
-    JoinHistogram(kIsAttributionReportingAllowedHistogram, attestation_status);
-    if (console_frame) {
-      console_frame->AddMessageToConsole(
-          blink::mojom::ConsoleMessageLevel::kError,
-          "Attestation check for Attribution Reporting on " +
-              reporting_origin.Serialize() + " failed.");
-    }
-    dwa::builders::PrivacySandbox_IsAttributionReportingAllowed()
-        .SetContent(reporting_origin.Serialize())
-        .SetStatus(static_cast<int64_t>(attestation_status))
-        .Record(metrics::dwa::DwaRecorder::Get());
-    return false;
-  }
-
-  Status status =
-      GetM1AdMeasurementAllowedStatus(top_frame_origin, reporting_origin);
-  JoinHistogram(kIsAttributionReportingAllowedHistogram, status);
-  dwa::builders::PrivacySandbox_IsAttributionReportingAllowed()
-      .SetContent(reporting_origin.Serialize())
-      .SetStatus(static_cast<int64_t>(status))
-      .Record(metrics::dwa::DwaRecorder::Get());
-  return IsAllowed(status);
-}
-
-bool PrivacySandboxSettingsImpl::MaySendAttributionReport(
-    const url::Origin& source_origin,
-    const url::Origin& destination_origin,
-    const url::Origin& reporting_origin,
-    content::RenderFrameHost* console_frame) const {
-  // Check for attestation on the reporting origin.
-  Status attestation_status =
-      PrivacySandboxAttestations::GetInstance()->IsSiteAttested(
-          net::SchemefulSite(reporting_origin),
-          PrivacySandboxAttestationsGatedAPI::kAttributionReporting,
-          AttestationsDefaultBehavior::kAllow);
-  if (!IsAllowed(attestation_status)) {
-    JoinHistogram(kMaySendAttributionReportHistogram, attestation_status);
-    if (console_frame) {
-      console_frame->AddMessageToConsole(
-          blink::mojom::ConsoleMessageLevel::kError,
-          "Attestation check for Attribution Reporting on " +
-              reporting_origin.Serialize() + " failed.");
-    }
-    return false;
-  }
-
-  Status status = GetM1AdMeasurementAllowedStatus(
-      /*top_frame_origin=*/source_origin,
-      /*reporting_origin=*/reporting_origin);
-  if (IsAllowed(status)) {
-    status = GetM1AdMeasurementAllowedStatus(
-        /*top_frame_origin=*/destination_origin,
-        /*reporting_origin=*/reporting_origin);
-  }
-  JoinHistogram(kMaySendAttributionReportHistogram, status);
-  return IsAllowed(status);
-}
-
-bool PrivacySandboxSettingsImpl::
-    IsAttributionReportingTransitionalDebuggingAllowed(
-        const url::Origin& top_frame_origin,
-        const url::Origin& reporting_origin) const {
-  content_settings::CookieSettingsBase::CookieSettingWithMetadata
-      cookie_setting_with_metadata;
-  // With what is available here, we can create a cookie_partition_key for the
-  // given top_frame_origin and we can assume the ancestor chain bit is
-  // cross_site since the `IsFullCookieAccessAllowed` call below uses a null
-  // `SiteForCookies`, which means that we will always be in a cross site
-  // context.
-  net::SchemefulSite top_frame_site(top_frame_origin);
-  std::optional<net::CookiePartitionKey> cookie_partition_key =
-      net::CookiePartitionKey::FromStorageKeyComponents(
-          top_frame_site,
-          net::CookiePartitionKey::BoolToAncestorChainBit(/*cross_site=*/true),
-          /*nonce=*/std::nullopt);
-
-  // Third party cookies must also be available for this context. An empty site
-  // for cookies is provided so the context is always treated as a third party.
-  bool allowed = cookie_settings_->IsFullCookieAccessAllowed(
-      reporting_origin.GetURL(), net::SiteForCookies(), top_frame_origin,
-      net::CookieSettingOverrides(), cookie_partition_key,
-      &cookie_setting_with_metadata);
-
-  return allowed;
-}
-
 void PrivacySandboxSettingsImpl::SetFledgeJoiningAllowed(
     const std::string& top_frame_etld_plus1,
     bool allowed) {
@@ -604,7 +495,7 @@ bool PrivacySandboxSettingsImpl::IsEventReportingDestinationAttested(
 bool PrivacySandboxSettingsImpl::IsFledgeAllowed(
     const url::Origin& top_frame_origin,
     const url::Origin& auction_party,
-    content::InterestGroupApiOperation interest_group_api_operation,
+    InterestGroupApiOperation interest_group_api_operation,
     content::RenderFrameHost* console_frame) const {
   // Check for attestation on the auction party's site. The auction party is a
   // variety of entities during the auction, all of which need to be attested.
@@ -623,8 +514,7 @@ bool PrivacySandboxSettingsImpl::IsFledgeAllowed(
     return false;
   }
 
-  if (interest_group_api_operation ==
-          content::InterestGroupApiOperation::kJoin &&
+  if (interest_group_api_operation == InterestGroupApiOperation::kJoin &&
       !IsFledgeJoiningAllowed(top_frame_origin)) {
     JoinFledgeHistogram(interest_group_api_operation,
                         Status::kJoiningTopFrameBlocked);

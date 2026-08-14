@@ -16,6 +16,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/bookmarks/url_and_id.h"
+#include "chrome/browser/page_load_metrics/chrome_initiator_location.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_host/chrome_navigation_ui_data.h"
@@ -128,7 +129,7 @@ OpenedWebContentsSet OpenAllHelper(
   bookmarks::BookmarkNavigationWrapper nav_wrapper;
   Profile* profile = nullptr;
   if (browser) {
-    profile = browser->profile();
+    profile = browser->GetProfile();
   }
   bool opening_urls_in_incognito = false;
   if (profile) {
@@ -141,6 +142,12 @@ OpenedWebContentsSet OpenAllHelper(
   }
 
   for (const auto& bookmark_url : bookmark_urls) {
+    // Javascript URLs should not open in a new tab. See crbug.com/528757894.
+    if (disposition != WindowOpenDisposition::CURRENT_TAB &&
+        bookmark_url.url.SchemeIs(url::kJavaScriptScheme)) {
+      continue;
+    }
+
     const bool url_allowed_in_incognito =
         IsURLAllowedInIncognito(bookmark_url.url);
 
@@ -159,7 +166,7 @@ OpenedWebContentsSet OpenAllHelper(
       }
     }
     if (browser_to_use) {
-      profile = browser_to_use->profile();
+      profile = browser_to_use->GetProfile();
     }
     NavigateParams params(profile, bookmark_url.url,
                           ui::PAGE_TRANSITION_AUTO_BOOKMARK);
@@ -169,7 +176,9 @@ OpenedWebContentsSet OpenAllHelper(
         nav_wrapper.NavigateTo(&params);
     if (handle) {
       page_load_metrics::NavigationHandleUserData::CreateForNavigationHandle(
-          *handle, navigation_type);
+          *handle, navigation_type,
+          StringifyChromeInitiatorLocation(
+              GetChromeInitiatorLocation(navigation_type)));
     }
     content::WebContents* opened_tab =
         handle ? handle->GetWebContents() : nullptr;
@@ -389,7 +398,7 @@ void DoOpen(Browser* browser,
 
     tab_groups::TabGroupSyncService* tab_group_sync_service =
         tab_groups::TabGroupSyncServiceFactory::GetForProfile(
-            browser->profile());
+            browser->GetProfile());
 
     std::optional<base::Uuid> connected_group_id =
         GetConnectedTabGroupIdFromBookmarkFolder(tab_group_sync_service,
@@ -491,7 +500,8 @@ void DoOpenPromptConfirm(
   }
 
   tab_groups::TabGroupSyncService* tab_group_sync_service =
-      tab_groups::TabGroupSyncServiceFactory::GetForProfile(browser->profile());
+      tab_groups::TabGroupSyncServiceFactory::GetForProfile(
+          browser->GetProfile());
   std::optional<base::Uuid> connected_group_id =
       GetConnectedTabGroupIdFromBookmarkFolder(tab_group_sync_service,
                                                bookmark_folder_node_id);
@@ -549,7 +559,7 @@ void ShowBookmarkTabGroupDialogHelper(
     const std::u16string& title,
     std::vector<BookmarkEditor::EditDetails::BookmarkData> children,
     base::OnceClosure on_confirm_callback) {
-  Profile* profile = browser->profile();
+  Profile* profile = browser->GetProfile();
   BookmarkModel* model = BookmarkModelFactory::GetForBrowserContext(profile);
   DCHECK(model && model->loaded());
 
@@ -565,7 +575,7 @@ void ShowBookmarkTabGroupDialogHelper(
       BookmarkEditor::SHOW_TREE,
       base::BindOnce(
           [](Browser* browser, base::OnceClosure callback) {
-            RecordBookmarksAdded(browser->profile());
+            RecordBookmarksAdded(browser->GetProfile());
             base::RecordAction(base::UserMetricsAction(
                 "BookmarkTabGroupConversion_ConvertToBookmarkConfirmed"));
             if (callback) {
@@ -710,7 +720,7 @@ void ShowBookmarkSavedTabGroupDialog(Browser* browser,
           [](Browser* browser, const base::Uuid& saved_guid) {
             tab_groups::TabGroupSyncService* tab_group_service =
                 tab_groups::TabGroupSyncServiceFactory::GetForProfile(
-                    browser->profile());
+                    browser->GetProfile());
             if (!tab_group_service) {
               return;
             }

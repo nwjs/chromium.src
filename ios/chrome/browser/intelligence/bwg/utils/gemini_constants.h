@@ -39,6 +39,8 @@ enum class EntryPoint {
   ExternalAppStoreEvent = 11,
   // Gemini was opened from the Toolbar.
   Toolbar = 12,
+  // Gemini was opened via App Switcher AI Summarization entry point.
+  AppSwitcherAISummarization = 13,
   // The entry point is unknown.
   Unknown = 100,
   kMaxValue = Unknown,
@@ -204,7 +206,9 @@ enum class InputType {
   // Input from Helios entry point on the Edit menu when user highlights text
   // Something like: “Explain this to me: <selected text>”
   kEditMenuPrompt = 26,
-  kMaxValue = kEditMenuPrompt,
+  // Summarization query originating from the App Switcher.
+  kAppSwitcherSummarize = 27,
+  kMaxValue = kAppSwitcherSummarize,
 };
 // LINT.ThenChange(
 //   /ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h:IOSGeminiFirstPromptSubmissionMethod,
@@ -309,5 +313,8 @@ extern NSString* const kGeminiFootNoteTextViewAccessibilityIdentifier;
 // shown within this time range (in hours) relative to the last chip that was
 // displayed.
 extern const int kGeminiContextualCueChipSlidingWindow;
+
+// The accessibility ID of the Gemini wrapper stack in the first run flow.
+extern NSString* const kGeminiFirstRunWrapperStackAccessibilityIdentifier;
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_BWG_UTILS_GEMINI_CONSTANTS_H_

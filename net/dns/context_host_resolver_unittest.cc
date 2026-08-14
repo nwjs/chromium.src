@@ -93,7 +93,7 @@ class ContextHostResolverTest : public ::testing::Test,
     dns_client_ = dns_client.get();
     manager_->SetDnsClientForTesting(std::move(dns_client));
     manager_->SetInsecureDnsClientEnabled(
-        HostResolverManager::InsecureDnsMode::kEnabledBuiltIn,
+        InsecureDnsMode::kEnabledBuiltIn,
         /*additional_dns_types_enabled=*/true);
 
     // Ensure DnsClient is fully usable.
@@ -862,7 +862,7 @@ TEST_F(ContextHostResolverServiceEndpointTest, DestroyResolver) {
 
   FakeServiceEndpontRequestDelegate delegate;
   int rv = request->Start(&delegate);
-  EXPECT_THAT(rv, test::IsError(ERR_CONTEXT_SHUT_DOWN));
+  EXPECT_THAT(rv, test::IsError(ERR_NAME_NOT_RESOLVED));
   EXPECT_THAT(request->GetResolveErrorInfo(),
               ResolveErrorInfo(ERR_CONTEXT_SHUT_DOWN));
 }

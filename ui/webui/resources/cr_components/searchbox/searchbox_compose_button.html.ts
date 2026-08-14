@@ -9,7 +9,8 @@ import type {SearchboxComposeButtonElement} from './searchbox_compose_button.js'
 export function getHtml(this: SearchboxComposeButtonElement) {
   // clang-format off
   return html`<!--_html_template_start_-->
-<div id="glowAnimationWrapper" class="glow-container play">
+<div id="glowAnimationWrapper" class="glow-container play"
+    part="glow-container">
   ${this.energyEffectAnimationEnabled_ ? html`
   <div class="input-plate-gradient">
     <div class="input-plate-gradient-mask">
@@ -35,11 +36,25 @@ export function getHtml(this: SearchboxComposeButtonElement) {
   </div>`}
   <cr-button @click="${this.onClick_}" id="composeButton"
       class="compose-container"
-      title="${this.i18n('searchboxComposeButtonTitle')}">
-    <img slot="prefix-icon" src="${this.composeIcon_}" class="compose-icon">
-    <span id="label">${this.i18n('searchboxComposeButtonText')}</span>
-    <img id="arrowIcon" slot="suffix-icon" class="arrow-icon"
-        src="${this.arrowIcon_}">
+      part="compose-button"
+      exportparts="hoverBackground"
+      aria-label="${this.a11yLabel}"
+      title="${this.tooltipTitle}">
+    ${this.hasFavicon_() ? html`
+    <img slot="prefix-icon" class="compose-icon compose-icon-favicon"
+         part="compose-icon compose-icon-favicon"
+        src="${this.composeIcon}">
+    ` : html`
+    <div slot="prefix-icon" class="compose-icon" part="compose-icon"
+        style="-webkit-mask-image: url(${this.composeIcon});
+               mask-image: url(${this.composeIcon});">
+    </div>
+    `}
+    <span id="label" part="label">${this.labelText}</span>
+    <div id="arrowIcon" slot="suffix-icon" class="arrow-icon" part="arrow-icon"
+        style="-webkit-mask-image: url(${this.arrowIcon_});
+               mask-image: url(${this.arrowIcon_});">
+    </div>
   </cr-button>
 </div>
 <!--_html_template_end_-->`;

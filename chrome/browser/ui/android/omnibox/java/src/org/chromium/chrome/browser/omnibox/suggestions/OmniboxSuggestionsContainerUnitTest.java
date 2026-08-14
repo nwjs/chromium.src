@@ -9,6 +9,9 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.intThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
@@ -17,10 +20,10 @@ import android.view.MotionEvent;
 import android.view.View.MeasureSpec;
 import android.view.ViewGroup;
 import android.view.ViewGroup.MarginLayoutParams;
+import android.widget.FrameLayout.LayoutParams;
 
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.recyclerview.widget.RecyclerView.LayoutParams;
 import androidx.test.core.app.ApplicationProvider;
 
 import org.junit.Before;
@@ -37,9 +40,6 @@ import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features.DisableFeatures;
-import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestionsDropdownEmbedder.OmniboxAlignment;
 
@@ -58,12 +58,16 @@ public class OmniboxSuggestionsContainerUnitTest {
             ObservableSuppliers.createNullable();
     private boolean mIsTablet;
     private boolean mAttachedToWindow;
-    private boolean mShouldPassThroughUnhandledTouchEvents;
     private final OmniboxSuggestionsDropdownEmbedder mEmbedder =
             new OmniboxSuggestionsDropdownEmbedder() {
                 @Override
-                public boolean isTablet() {
+                public boolean isWideWindow() {
                     return mIsTablet;
+                }
+
+                @Override
+                public boolean isPhoneStyleWindow() {
+                    return !mIsTablet;
                 }
 
                 @Override
@@ -95,11 +99,6 @@ public class OmniboxSuggestionsContainerUnitTest {
                 @Override
                 public float getVerticalTranslationForAnimation() {
                     return 0.0f;
-                }
-
-                @Override
-                public boolean shouldPassThroughUnhandledTouchEvents() {
-                    return mShouldPassThroughUnhandledTouchEvents;
                 }
             };
 
@@ -133,6 +132,12 @@ public class OmniboxSuggestionsContainerUnitTest {
         // Replace the view created via inflation with a mock.
         when(mDropdown.getId()).thenReturn(R.id.omnibox_suggestions_dropdown);
         when(mDropdown.getRecycledViewPool()).thenReturn(mRecycledViewPool);
+        when(mDropdown.getLayoutParams())
+                .thenReturn(
+                        new LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.WRAP_CONTENT));
+        mContainer.addView(mDropdown);
     }
 
     @Test
@@ -312,41 +317,26 @@ public class OmniboxSuggestionsContainerUnitTest {
         assertTrue(mContainer.onTouchEvent(event));
     }
 
-    @Test
-    @EnableFeatures(ChromeFeatureList.OMNIBOX_AUTOFOCUS_ON_INCOGNITO_NTP)
-    public void testOnTouchEvent_whenIncognitoNtpAndAutofocusEnabled_returnsFalse() {
-        checkContainerConsumesTouchEvents(false);
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.OMNIBOX_AUTOFOCUS_ON_INCOGNITO_NTP)
-    public void testOnTouchEvent_whenNotIncognitoNtpAndAutofocusEnabled_returnsTrue() {
-        checkContainerConsumesTouchEvents(true);
-    }
-
-    @Test
-    @DisableFeatures(ChromeFeatureList.OMNIBOX_AUTOFOCUS_ON_INCOGNITO_NTP)
-    public void testOnTouchEvent_whenAutofocusDisabled_returnsTrue() {
-        checkContainerConsumesTouchEvents(true);
-    }
-
-    public void checkContainerConsumesTouchEvents(boolean consume) {
-        mContainer.setEmbedder(mEmbedder);
-        mShouldPassThroughUnhandledTouchEvents = !consume;
-
-        var event = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
-        boolean isConsumed = mContainer.onTouchEvent(event);
-
-        if (consume) {
-            assertTrue(isConsumed);
-        } else {
-            assertFalse(isConsumed);
-        }
-    }
 
     @Test
     public void testPerformClick_returnsFalse() {
         assertFalse(mContainer.performClick());
+    }
+
+    @Test
+    public void testOnMeasure_shouldWrapDropdownHeight() {
+        mContainer.setEmbedder(mEmbedder);
+        mContainer.onOmniboxSessionStateChange(true);
+
+        mOmniboxAlignment = new OmniboxAlignment(0, 80, 600, 400, 10, 10, 0, 0);
+        mOmniboxAlignmentSupplier.set(mOmniboxAlignment);
+
+        layoutDropdown(600, 800);
+
+        verify(mDropdown)
+                .measure(
+                        anyInt(),
+                        intThat(argument -> MeasureSpec.getMode(argument) == MeasureSpec.AT_MOST));
     }
 
     @Test

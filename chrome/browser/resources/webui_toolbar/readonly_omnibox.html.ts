@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {html} from '//resources/lit/v3_0/lit.rollup.js';
+import {html, nothing} from '//resources/lit/v3_0/lit.rollup.js';
 
 import {ReadonlyOmniboxElement} from './readonly_omnibox.js';
 
@@ -24,19 +24,32 @@ export function getHtml(this: ReadonlyOmniboxElement) {
        #textInput contains plaintext version of the input plus optionally an
        inline autocompletion rendered as selection.
    -->
-  <input id="textInput">
+  <input id="textInput"
+        placeholder="${this.getInputPlaceholder_() ?? nothing}"
+        class="${this.getInputClasses_() ?? nothing}">
   <!-- custom formatting/long line to prevent whitespace below -->
   <div id="textContainer">${
     this.omniboxViewState.textPieces.map(
       item => html`<span
           class="${ReadonlyOmniboxElement.getTextPieceClasses(item)}">${item.text}</span>`)
   }</div>
-  <!-- #inlineAutocomplete is used to position #additionalText to the
-    right of both the text and the inline completion within the
-    #textInput -->
-  <span id="inlineAutocomplete">${
+  <!-- #inlineAutocomplete has two possible uses:
+    1. If the inline suggestion is rendered by <input>, it's is used to position
+       #additionalText to the right of both the text and the inline completion.
+       In that case, it's invisible.
+    2. In case there is an IME composition going on, it does actually render
+       the suggestion; this is done since trying to render it with selection
+       would mess up the IME.
+
+    The composing attribute distinguishes the two cases. -->
+  <span id="inlineAutocomplete" ?composing="${this.isComposing}">${
         this.omniboxViewState.inlineAutocompletion}</span>
   <span id="additionalText">${this.omniboxViewState.additionalText}</span>
+</div>
+
+<div id="dragTemplate" aria-hidden="true">
+  <img id="dragFavicon" src="${this.getDragFaviconUrl_()}" alt="">
+  <span id="dragTitle">${this.getDragTitle_()}</span>
 </div>
 <!--_html_template_end_-->`;
   // clang-format on

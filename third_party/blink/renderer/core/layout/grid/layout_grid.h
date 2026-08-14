@@ -5,6 +5,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_GRID_LAYOUT_GRID_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_GRID_LAYOUT_GRID_H_
 
+#include <optional>
+
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/grid/grid_data.h"
 #include "third_party/blink/renderer/core/layout/grid/subgrid_min_max_sizes_cache.h"
@@ -42,6 +44,16 @@ class CORE_EXPORT LayoutGrid : public LayoutBlock {
   static LayoutUnit ComputeGridGap(const GridLayoutData* grid_layout_data,
                                    GridTrackSizingDirection track_direction);
 
+  // Returns true if the difference between `old_style` and `new_style` can
+  // change grid item placement. When `track_direction` is provided, only the
+  // placement inputs for that axis are considered. When it is `nullopt`, both
+  // axes are considered.
+  static bool GridPlacementInputsDidChange(
+      const ComputedStyle& new_style,
+      const ComputedStyle& old_style,
+      const StyleDifference& diff,
+      std::optional<GridTrackSizingDirection> track_direction = std::nullopt);
+
   bool HasCachedPlacementData() const;
   const GridPlacementData& CachedPlacementData() const;
   void SetCachedPlacementData(GridPlacementData&& placement_data);
@@ -72,8 +84,10 @@ class CORE_EXPORT LayoutGrid : public LayoutBlock {
 
   const GridLayoutData* LayoutData() const;
 
-  wtf_size_t StitchedRowGapIndex(const PhysicalBoxFragment& fragment,
-                                 wtf_size_t gap_index) const override;
+  wtf_size_t StitchedRowGapIndex(
+      const PhysicalBoxFragment& fragment,
+      wtf_size_t gap_index,
+      std::optional<wtf_size_t> line_index) const override;
 
   void Trace(Visitor* visitor) const override {
     LayoutBlock::Trace(visitor);

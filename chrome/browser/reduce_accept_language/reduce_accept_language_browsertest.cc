@@ -77,6 +77,12 @@ const char kLargeLanguages[] =
     "so,sl,sk,si,wa,vi,uz,ug,uk,ur,yi,xh,wo,fy,cy,yo,zu,es-CL,es-CO,su,ta,sv,"
     "sw,tg,tn,to,ti,th,te,tt,tr,tk,tw";
 
+const size_t kLargeLanguagesCount = base::SplitString(kLargeLanguages,
+                                                      ",",
+                                                      base::TRIM_WHITESPACE,
+                                                      base::SPLIT_WANT_ALL)
+                                        .size();
+
 static constexpr const char kFirstPartyOriginUrl[] = "https://127.0.0.1:44444";
 static constexpr char kThirdPartyOriginUrl[] = "https://my-site.com:44444";
 
@@ -150,7 +156,7 @@ class ReduceAcceptLanguageBrowserTest : public policy::PolicyTest {
   void TearDownOnMainThread() override {
     // Clean up any saved settings after test run.
     browser()
-        ->profile()
+        ->GetProfile()
         ->GetOriginTrialsControllerDelegate()
         ->ClearPersistedTokens();
 
@@ -258,7 +264,7 @@ class ReduceAcceptLanguageBrowserTest : public policy::PolicyTest {
   void SetPrefsAcceptLanguage(
       const std::vector<std::string>& accept_languages) {
     auto language_prefs = std::make_unique<language::LanguagePrefs>(
-        browser()->profile()->GetPrefs());
+        browser()->GetProfile()->GetPrefs());
     language_prefs->SetUserSelectedLanguagesList(accept_languages);
   }
 
@@ -747,7 +753,7 @@ IN_PROC_BROWSER_TEST_P(SameOriginReduceAcceptLanguageBrowserTest,
   histograms.ExpectTotalCount("ReduceAcceptLanguage.StoreLatency", 1);
 
   // Disable script for first party origin.
-  HostContentSettingsMapFactory::GetForProfile(browser()->profile())
+  HostContentSettingsMapFactory::GetForProfile(browser()->GetProfile())
       ->SetContentSettingCustomScope(
           ContentSettingsPattern::FromURL(GURL(kFirstPartyOriginUrl)),
           ContentSettingsPattern::Wildcard(), ContentSettingsType::JAVASCRIPT,
@@ -1194,7 +1200,7 @@ IN_PROC_BROWSER_TEST_P(SameOriginReduceAcceptLanguageBrowserTest,
   EXPECT_EQ(LastRequestUrl().GetPath(), "/subframe_simple.html");
 
   // Disable script for first party origin.
-  HostContentSettingsMapFactory::GetForProfile(browser()->profile())
+  HostContentSettingsMapFactory::GetForProfile(browser()->GetProfile())
       ->SetContentSettingCustomScope(
           ContentSettingsPattern::FromURL(GURL(kFirstPartyOriginUrl)),
           ContentSettingsPattern::Wildcard(), ContentSettingsType::JAVASCRIPT,
@@ -3186,12 +3192,13 @@ IN_PROC_BROWSER_TEST_P(ReduceAcceptLanguageCountBrowserTest, RegularRequest) {
   }
 
   metrics::SubprocessMetricsProvider::MergeHistogramDeltasForTesting();
-  // Expect a total count of 5. The histogram is recorded once during initial
-  // profile setup, and then twice more when SetPrefsAcceptLanguage is called
-  // to sync the preference to the renderer and network services. Additionally,
-  // there should be 1 for WebUI Omnibox WebContents, and 1 for Omnibox Aim
+  // Expect 5 samples recorded for kLargeLanguages when SetPrefsAcceptLanguage
+  // is called (1 during initial profile setup, twice more when
+  // SetPrefsAcceptLanguage is called to sync the preference to the renderer and
+  // network services, 1 for WebUI Omnibox WebContents, and 1 for Omnibox Aim
   // Popup Webcontents).
-  histograms.ExpectTotalCount("LanguageUsage.AcceptLanguage.Count2", 5);
+  histograms.ExpectBucketCount("LanguageUsage.AcceptLanguage.Count2",
+                               kLargeLanguagesCount, 5);
 }
 
 IN_PROC_BROWSER_TEST_P(ReduceAcceptLanguageCountBrowserTest, Iframe) {
@@ -3222,10 +3229,11 @@ IN_PROC_BROWSER_TEST_P(ReduceAcceptLanguageCountBrowserTest, Iframe) {
   EXPECT_EQ(LastRequestUrl().GetPath(), "/subframe_simple.html");
 
   metrics::SubprocessMetricsProvider::MergeHistogramDeltasForTesting();
-  // Expect a total count of 5. The histogram is recorded once during initial
-  // profile setup, and then twice more when SetPrefsAcceptLanguage is called
-  // to sync the preference to the renderer and network services. Additionally,
-  // there should be 1 for WebUI Omnibox WebContents, and 1 for Omnibox Aim
+  // Expect 5 samples recorded for kLargeLanguages when SetPrefsAcceptLanguage
+  // is called (1 during initial profile setup, twice more when
+  // SetPrefsAcceptLanguage is called to sync the preference to the renderer and
+  // network services, 1 for WebUI Omnibox WebContents, and 1 for Omnibox Aim
   // Popup Webcontents).
-  histograms.ExpectTotalCount("LanguageUsage.AcceptLanguage.Count2", 5);
+  histograms.ExpectBucketCount("LanguageUsage.AcceptLanguage.Count2",
+                               kLargeLanguagesCount, 5);
 }

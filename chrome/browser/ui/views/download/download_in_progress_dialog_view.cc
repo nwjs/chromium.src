@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/views/download/download_in_progress_dialog_view.h"
 
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
-#include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/constrained_window/constrained_window_views.h"
@@ -13,7 +12,6 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
-#include "ui/gfx/geometry/size.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/layout/fill_layout.h"
 
@@ -21,7 +19,7 @@
 void DownloadInProgressDialogView::Show(
     gfx::NativeWindow parent,
     int download_count,
-    Browser::DownloadCloseType dialog_type,
+    UnloadController::DownloadCloseType dialog_type,
     base::OnceCallback<void(bool)> callback) {
   DownloadInProgressDialogView* window = new DownloadInProgressDialogView(
       download_count, dialog_type, std::move(callback));
@@ -30,7 +28,7 @@ void DownloadInProgressDialogView::Show(
 
 DownloadInProgressDialogView::DownloadInProgressDialogView(
     int download_count,
-    Browser::DownloadCloseType dialog_type,
+    UnloadController::DownloadCloseType dialog_type,
     base::OnceCallback<void(bool)> callback)
     : callback_(std::move(callback)) {
   SetTitle(l10n_util::GetPluralStringFUTF16(IDS_ABANDON_DOWNLOAD_DIALOG_TITLE,
@@ -62,16 +60,16 @@ DownloadInProgressDialogView::DownloadInProgressDialogView(
 
   int message_id = 0;
   switch (dialog_type) {
-    case Browser::DownloadCloseType::kLastWindowInIncognitoProfile:
+    case UnloadController::DownloadCloseType::kLastWindowInIncognitoProfile:
       message_id = IDS_ABANDON_DOWNLOAD_DIALOG_INCOGNITO_MESSAGE;
       break;
-    case Browser::DownloadCloseType::kLastWindowInGuestSession:
+    case UnloadController::DownloadCloseType::kLastWindowInGuestSession:
       message_id = IDS_ABANDON_DOWNLOAD_DIALOG_GUEST_MESSAGE;
       break;
-    case Browser::DownloadCloseType::kBrowserShutdown:
+    case UnloadController::DownloadCloseType::kBrowserShutdown:
       message_id = IDS_ABANDON_DOWNLOAD_DIALOG_BROWSER_MESSAGE;
       break;
-    case Browser::DownloadCloseType::kOk:
+    case UnloadController::DownloadCloseType::kOk:
       // This dialog should have been created within the same thread invocation
       // as the original test, so it's never ok to close.
       NOTREACHED();

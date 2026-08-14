@@ -13,6 +13,7 @@ ActorUiHandoffButtonControllerPixelTest.*
 *AutofillAiLocalSaveNotificationViewBrowsertest.*
 AddNewAddressProfileTest.*
 AppInfoDialogBrowserTest.*
+AppMenuAiRingBrowserTest*.InvokeUi_*
 AppMenuBrowserTest*.InvokeUi_*
 AskGoogleForSuggestionsDialogTest.*
 *AutofillAiImportDataBubbleViewBrowsertest.*
@@ -115,6 +116,7 @@ ParentPermissionDialogViewTest.*
 *PasswordCrossDomainConfirmationPopupViewBrowsertest.*
 *PasswordChangeToastBrowserTest.InvokeUi_*
 *PasswordChangeUiBrowserTest.*
+*PasswordDialogViewTest.*
 *PasswordGenerationPopupViewBrowsertest.*
 *PasswordGenerationPopupViewWithSoftNudgeBrowsertest.*
 *PasswordManagementRevampedBubbleInteractiveUiTest.*

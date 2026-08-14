@@ -6,10 +6,11 @@ import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js'
 
 import type {CrButtonElement} from '//resources/cr_elements/cr_button/cr_button.js';
 import type {CrIconButtonElement} from '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
+import {loadTimeData} from '//resources/js/load_time_data.js';
 import type {ReadAnythingToolbarElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {IMAGES_DISABLED_ICON, IMAGES_ENABLED_ICON, IMAGES_TOGGLE_BUTTON_ID, LINK_TOGGLE_BUTTON_ID, LINKS_DISABLED_ICON, LINKS_ENABLED_ICON, ToolbarEvent} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {assertEquals, assertFalse, assertStringContains, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
-import {isVisible, microtasksFinished} from 'chrome-untrusted://webui-test/test_util.js';
+import {eventToPromise, isVisible, microtasksFinished} from 'chrome-untrusted://webui-test/test_util.js';
 
 import {mockMetrics, stubAnimationFrame} from './common.js';
 import {FakeReadingMode} from './fake_reading_mode.js';
@@ -383,7 +384,11 @@ suite('Toolbar', () => {
       toolbar.isSpeechActive = false;
       await microtasksFinished();
 
-      assertEquals('read-anything-20:play', playPauseButton.ironIcon);
+      assertEquals(
+          loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+              'read-anything-20:play-circle-filled' :
+              'read-anything-20:play-old',
+          playPauseButton.ironIcon);
       assertStringContains('play (k)', playPauseButton.title.toLowerCase());
       assertStringContains(
           'play / pause, keyboard shortcut k',
@@ -394,7 +399,11 @@ suite('Toolbar', () => {
       toolbar.isSpeechActive = true;
       await microtasksFinished();
 
-      assertEquals('read-anything-20:pause', playPauseButton.ironIcon);
+      assertEquals(
+          loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+              'read-anything-20:pause-circle-filled' :
+              'read-anything-20:pause-old',
+          playPauseButton.ironIcon);
       assertStringContains('pause (k)', playPauseButton.title.toLowerCase());
       assertStringContains(
           'play / pause, keyboard shortcut k',
@@ -618,6 +627,59 @@ suite('Toolbar', () => {
       await microtasksFinished();
 
       assertFalse(menuButton.disabled);
+    });
+  });
+
+  suite('line focus button', () => {
+    async function getLineFocusButton(): Promise<CrIconButtonElement|null> {
+      await createToolbar();
+      return getButton('line-focus-off');
+    }
+
+    test('shows with line focus on', async () => {
+      chrome.readingMode.isLineFocusEnabled = true;
+      await createToolbar();
+
+      toolbar.isLineFocusShowing = true;
+      await microtasksFinished();
+
+      assertTrue(!!getButton('line-focus-off'));
+    });
+
+    test('turns line focus off', async () => {
+      chrome.readingMode.isLineFocusEnabled = true;
+      await createToolbar();
+      toolbar.isLineFocusShowing = true;
+      await microtasksFinished();
+      const button = getButton('line-focus-off');
+      const whenFired = eventToPromise<CustomEvent<{data: boolean}>>(
+          ToolbarEvent.LINE_FOCUS_TOGGLE, toolbar);
+
+      assertTrue(!!button);
+      button.click();
+      const event = await whenFired;
+
+      assertFalse(event.detail.data);
+    });
+
+    test('does not show with line focus off', async () => {
+      chrome.readingMode.isLineFocusEnabled = true;
+      const button = await getLineFocusButton();
+
+      toolbar.isLineFocusShowing = false;
+      await microtasksFinished();
+
+      assertFalse(!!button);
+    });
+
+    test('does not show with line focus flag disabled', async () => {
+      chrome.readingMode.isLineFocusEnabled = false;
+      const button = await getLineFocusButton();
+
+      toolbar.isLineFocusShowing = true;
+      await microtasksFinished();
+
+      assertFalse(!!button);
     });
   });
 });

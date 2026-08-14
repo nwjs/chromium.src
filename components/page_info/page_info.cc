@@ -975,13 +975,17 @@ void PageInfo::OpenConnectionHelpCenterPage(const ui::Event& event) {
 #endif
 }
 
-void PageInfo::OpenSafeBrowsingHelpCenterPage(const ui::Event& event) {
-#if BUILDFLAG(IS_ANDROID)
-  NOTREACHED();
-#else
+void PageInfo::OpenSafeBrowsingHelpCenterPage(const ui::Event* event) {
   RecordPageInfoAction(page_info::PAGE_INFO_SAFE_BROWSING_HELP_OPENED);
   delegate_->OpenSafeBrowsingHelpCenterPage(event);
-#endif
+}
+
+void PageInfo::OnSuspiciousSiteBackToSafety() {
+  delegate_->OnSuspiciousSiteBackToSafety();
+}
+
+void PageInfo::OnSuspiciousSiteMarkAsSafe() {
+  delegate_->OnSuspiciousSiteMarkAsSafe();
 }
 
 void PageInfo::OpenContentSettingsExceptions(
@@ -1288,10 +1292,7 @@ void PageInfo::ComputeUIInputs(const GURL& url) {
   // without the user proceeding through a warning. Only show a warning decision
   // revocation button for HTTP allowlist entries added because HTTPS was
   // enforced by HTTPS-First Mode.
-  bool is_https_enforced =
-      delegate->IsHttpsEnforcedForUrl(
-          url, web_contents_->GetPrimaryMainFrame()->GetStoragePartition()) ||
-      delegate_->IsHttpsFirstModeEnabled();
+  bool is_https_enforced = delegate_->IsHttpsFirstModeEnabledForUrl(url);
 
   bool has_warning_bypass_exception =
       has_cert_allow_exception ||
@@ -1868,6 +1869,11 @@ void PageInfo::GetSafeBrowsingStatusByMaliciousContentStatus(
       *status = PageInfo::SAFE_BROWSING_STATUS_MANAGED_POLICY_WARN;
       *details =
           l10n_util::GetStringUTF16(IDS_PAGE_INFO_ENTERPRISE_WARN_DETAILS);
+      break;
+    case security_state::MALICIOUS_CONTENT_STATUS_WARNABLE_SUSPICIOUS_SITE:
+      *status = PageInfo::SAFE_BROWSING_STATUS_WARNABLE_SUSPICIOUS_SITE;
+      *details =
+          l10n_util::GetStringUTF16(IDS_PAGE_INFO_SUSPICIOUS_SITE_DETAILS);
       break;
   }
 }

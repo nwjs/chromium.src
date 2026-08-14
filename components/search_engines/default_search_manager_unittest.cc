@@ -17,6 +17,7 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/regional_capabilities/regional_capabilities_switches.h"
+#include "components/regional_capabilities/regional_capabilities_utils.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_service.h"
 #include "components/search_engines/search_engine_type.h"
 #include "components/search_engines/search_engines_pref_names.h"
@@ -463,32 +464,28 @@ TEST_F(DefaultSearchManagerTest,
   ExpectSimilar(&expected_engine, result);
 }
 
-TEST_F(DefaultSearchManagerTest,
-       DefaultSearchSetByPlayAPI_MergeByDomainName_FeatureEnabled) {
-  SetOverrides(pref_service(), false);
+TEST_F(DefaultSearchManagerTest, DefaultSearchSetByPlayAPI_MergeByDomainName) {
   auto manager = create_manager();
 
   // Find the expected engine. We could fabricate one too, this is easier.
-  auto all_engines = prepopulate_data_resolver().GetPrepopulatedEngines();
-  const auto& builtin_engine =
-      *std::ranges::find_if(all_engines, [](const auto& engine) {
-        GURL url(engine->url());
-        return url.is_valid() && url.host() == "emea.search.yahoo.com";
-      });
+  const TemplateURLPrepopulateData::PrepopulatedEngine& builtin_engine =
+      TemplateURLPrepopulateData::yahoo_emea;
+  ASSERT_EQ(GURL(builtin_engine.search_url).host(), "emea.search.yahoo.com");
 
   auto supplied_engine = GenerateDummyTemplateURLData("yahoo.com");
   supplied_engine->SetURL("https://emea.search.yahoo.com/any_path");
   supplied_engine->regulatory_origin = RegulatoryExtensionType::kAndroidEEA;
   // Needed by ExpectSimilar.
-  supplied_engine->favicon_url = builtin_engine->favicon_url;
+  supplied_engine->favicon_url = GURL(builtin_engine.favicon_url);
 
   // Verify engine reconciled with builtin definition.
   manager->SetUserSelectedDefaultSearchEngine(*supplied_engine);
   auto* result = manager->GetDefaultSearchEngine(nullptr);
 
-  TemplateURLData expected_engine = *builtin_engine;
-  expected_engine.regulatory_origin = RegulatoryExtensionType::kAndroidEEA;
-  ExpectSimilar(&expected_engine, result);
+  std::unique_ptr<TemplateURLData> expected_engine =
+      TemplateURLDataFromPrepopulatedEngine(builtin_engine);
+  expected_engine->regulatory_origin = RegulatoryExtensionType::kAndroidEEA;
+  ExpectSimilar(expected_engine.get(), result);
 }
 
 TEST_F(DefaultSearchManagerTest,
@@ -617,6 +614,54 @@ TEST_F(DefaultSearchManagerTest, DefaultSearchNotResetForManagedDefaultSearch) {
   DefaultSearchManager::Source source;
   ExpectSimilar(policy_data.get(), manager->GetDefaultSearchEngine(&source));
   EXPECT_EQ(DefaultSearchManager::FROM_POLICY, source);
+}
+
+TEST_F(DefaultSearchManagerTest,
+       DefaultSearchNotResetOnRecommendedPolicyChangeWithoutUserSetting) {
+  base::test::ScopedFeatureList feature_list{
+      switches::kResetTamperedDefaultSearchEngine};
+  base::HistogramTester histograms;
+
+  // Set the mirrored DSE pref to simulate a roamed/old value (Yahoo).
+  set_mirrored_default_search_provider_data_pref("search_engine_B");
+
+  // No user-set preference exists (kDefaultSearchProviderDataPrefName is
+  // empty). Now set the recommended policy default search to Google (different
+  // from Yahoo).
+  std::unique_ptr<TemplateURLData> policy_data =
+      GenerateDummyTemplateURLData("policy");
+  SetPolicy(pref_service(), true, policy_data.get(), /*is_mandatory=*/false);
+
+  auto manager = create_manager();
+
+  // Reset skipped due to recommended policy without user setting recorded.
+  histograms.ExpectUniqueSample(
+      DefaultSearchManager::kDefaultSearchEngineMirrorCheckOutcomeMetric,
+      static_cast<int>(
+          DefaultSearchManager::DefaultSearchEngineMirrorCheckOutcomeType::
+              kResetSkippedForManagedDefaultSearch),
+      1);
+
+  // The mirrored DSE pref should be updated to the recommended policy value
+  // (policy) to eliminate the mismatch, but kDefaultSearchProviderDataPrefName
+  // should NOT be reset/cleared (since it was already empty, clearing it is
+  // unnecessary, but the warning must not be triggered).
+  EXPECT_FALSE(pref_service()->GetBoolean(
+      prefs::kUnacknowledgedDefaultSearchEngineResetOccurred));
+  EXPECT_TRUE(pref_service()->GetTime(
+                  prefs::kDefaultSearchEngineMirrorCheckResetTimeStamp) ==
+              base::Time());
+
+  // The mirrored pref should now match the recommended policy.
+  const base::DictValue& mirrored_dict = pref_service()->GetDict(
+      DefaultSearchManager::kMirroredDefaultSearchProviderDataPrefName);
+  auto mirrored_data = TemplateURLDataFromDictionary(mirrored_dict);
+  ExpectSimilar(policy_data.get(), mirrored_data.get());
+
+  // The active DSE should be the recommended policy.
+  DefaultSearchManager::Source source;
+  ExpectSimilar(policy_data.get(), manager->GetDefaultSearchEngine(&source));
+  EXPECT_EQ(DefaultSearchManager::FROM_POLICY_RECOMMENDED, source);
 }
 
 TEST_F(DefaultSearchManagerTest, UserDseChangeDisablesResetNotification) {

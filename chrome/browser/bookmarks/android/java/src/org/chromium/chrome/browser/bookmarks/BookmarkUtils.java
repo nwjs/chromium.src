@@ -11,18 +11,22 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.LocaleList;
 import android.os.Looper;
+import android.view.View;
 
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ApkInfo;
 import org.chromium.base.Callback;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.Log;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.commerce.ShoppingServiceFactory;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.price_tracking.PriceDropNotificationManager;
@@ -140,8 +144,23 @@ public class BookmarkUtils {
             boolean isBookmarkBarVisible) {
         assert bookmarkModel.isBookmarkModelLoaded();
         if (existingBookmarkItem != null) {
-            bookmarkManagerOpener.startEditActivity(
-                    activity, tab.getProfile(), existingBookmarkItem.getId());
+            if (DeviceInfo.isDesktop()
+                    && ChromeFeatureList.isEnabled(
+                            ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_POPUP)) {
+                showSaveFlow(
+                        activity,
+                        bottomSheetController,
+                        tab.getProfile(),
+                        existingBookmarkItem.getId(),
+                        fromExplicitTrackUi,
+                        /* wasBookmarkMoved= */ false,
+                        /* isNewBookmark= */ false,
+                        bookmarkManagerOpener,
+                        priceDropNotificationManager);
+            } else {
+                bookmarkManagerOpener.startEditActivity(
+                        activity, tab.getProfile(), existingBookmarkItem.getId());
+            }
             callback.onResult(Collections.singletonList(existingBookmarkItem.getId()));
             return;
         }
@@ -287,6 +306,22 @@ public class BookmarkUtils {
             return;
         }
 
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_POPUP)
+                && DeviceInfo.isDesktop()) {
+            View anchor = activity.findViewById(R.id.bookmark_button);
+            if (anchor == null) {
+                anchor = activity.findViewById(android.R.id.content);
+            }
+            // TODO(crbug.com/536095968): Support anchor-less invocation, and anchoring on the app
+            // menu for small screen sizes.
+            if (anchor == null) return;
+
+            BookmarkPopupCoordinator popupCoordinator =
+                    new BookmarkPopupCoordinator(activity, profile, anchor, bookmarkManagerOpener);
+            popupCoordinator.show(bookmarkId, isNewBookmark);
+            return;
+        }
+
         ShoppingService shoppingService = ShoppingServiceFactory.getForProfile(profile);
         UserEducationHelper userEducationHelper =
                 new UserEducationHelper(
@@ -307,6 +342,7 @@ public class BookmarkUtils {
                         identityManager,
                         bookmarkManagerOpener,
                         priceDropNotificationManager);
+
         bookmarkSaveFlowCoordinator.show(
                 bookmarkId, fromExplicitTrackUi, wasBookmarkMoved, isNewBookmark);
     }
@@ -893,6 +929,14 @@ public class BookmarkUtils {
         return bookmarkIds;
     }
 
+    /**
+     * @return Whether the desktop bookmarks layout is enabled.
+     */
+    public static boolean isDesktopBookmarksLayoutEnabled() {
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.BOOKMARKS_DESKTOP_LAYOUT)
+                && DeviceInfo.isDesktop();
+    }
+
     private static Locale getLocale(Activity activity) {
         LocaleList locales = activity.getResources().getConfiguration().getLocales();
         if (locales.size() > 0) {
@@ -901,5 +945,10 @@ public class BookmarkUtils {
         @SuppressWarnings("deprecation")
         Locale locale = activity.getResources().getConfiguration().locale;
         return locale;
+    }
+
+    public static void setReadingListSupportedForTesting(Boolean supported) {
+        sReadingListSupportedForTesting = supported;
+        ResettersForTesting.register(() -> sReadingListSupportedForTesting = null);
     }
 }

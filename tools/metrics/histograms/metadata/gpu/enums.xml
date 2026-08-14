@@ -296,7 +296,7 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Failed Create Displaylink"/>
   <int value="3" label="Failed Register Callback"/>
   <int value="4" label="Success Forced Update"/>
-  <int value="5" label="Failed Forced Update Create Displaylink"/>
+  <int value="5" label="Failed Forced Update"/>
 </enum>
 
 <enum name="DisplayResolution">
@@ -408,6 +408,18 @@ chromium-metrics-reviews@google.com.
   <int value="18" label="ANGLE Metal NULL"/>
   <int value="19" label="ANGLE D3D11 WARP"/>
 </enum>
+
+<!-- LINT.IfChange(FrameDeadlineDeciderSelectionReason) -->
+
+<enum name="FrameDeadlineDeciderSelectionReason">
+  <int value="0" label="PlatformPreferred"/>
+  <int value="1" label="OngoingSequence"/>
+  <int value="2" label="Chrome Preferred New Sequence"/>
+  <int value="3" label="kOsPreferredNoDeadlineWithinTarget"/>
+  <int value="4" label="kOsPreferredChromePreferredSooner"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/viz/service/display/frame_deadline_decider.h:SelectionReason) -->
 
 <enum name="FrameIntervalMatcherType">
   <int value="0" label="kNone"/>

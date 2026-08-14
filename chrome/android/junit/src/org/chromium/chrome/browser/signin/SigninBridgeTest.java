@@ -64,6 +64,7 @@ import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncCoor
 import org.chromium.chrome.browser.ui.signin.DelegateContext;
 import org.chromium.chrome.browser.ui.signin.FullscreenSigninAndHistorySyncConfig;
 import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncActivityLauncher;
+import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetStrings;
 import org.chromium.chrome.browser.ui.signin.account_picker.SigninDelegateContext;
 import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncConfig;
 import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
@@ -90,12 +91,14 @@ import java.util.Collection;
 @RunWith(ParameterizedRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
 public class SigninBridgeTest {
+    private static final String TEST_EXTENSION_NAME = "Test Extension";
+
     @Parameters
     public static Collection<Object[]> data() {
         return Arrays.asList(
                 new Object[][] {
-                    {/* isWebSignin= */ true, SigninAccessPoint.WEB_SIGNIN},
-                    {/* isWebSignin= */ false, SigninAccessPoint.EXTENSIONS}
+                    {/* isWebSignin= */ true, SigninAccessPoint.WEB_SIGNIN, ""},
+                    {/* isWebSignin= */ false, SigninAccessPoint.EXTENSIONS, TEST_EXTENSION_NAME}
                 });
     }
 
@@ -115,6 +118,9 @@ public class SigninBridgeTest {
 
     @Parameter(1)
     public @SigninAccessPoint int mSigninAccessPoint;
+
+    @Parameter(2)
+    public @Nullable String mExtensionName;
 
     @Mock private Tab mTabMock;
 
@@ -177,8 +183,7 @@ public class SigninBridgeTest {
                 mContinueUrl,
                 mAccountPickerBottomSheetCoordinatorFactoryMock,
                 TestAccounts.ACCOUNT1.getId(),
-                mIsWebSignin,
-                mSigninAccessPoint);
+                mExtensionName);
         verify(mAccountPickerBottomSheetCoordinatorFactoryMock, never())
                 .create(
                         any(),
@@ -207,8 +212,7 @@ public class SigninBridgeTest {
                 mContinueUrl,
                 mAccountPickerBottomSheetCoordinatorFactoryMock,
                 TestAccounts.ACCOUNT1.getId(),
-                mIsWebSignin,
-                mSigninAccessPoint);
+                mExtensionName);
         verify(mAccountPickerBottomSheetCoordinatorFactoryMock, never())
                 .create(
                         any(),
@@ -234,8 +238,7 @@ public class SigninBridgeTest {
                 mContinueUrl,
                 mAccountPickerBottomSheetCoordinatorFactoryMock,
                 TestAccounts.ACCOUNT1.getId(),
-                mIsWebSignin,
-                mSigninAccessPoint);
+                mExtensionName);
         verify(mSigninMetricsUtilsJniMock)
                 .logAccountConsistencyPromoAction(
                         AccountConsistencyPromoAction.SUPPRESSED_SIGNIN_NOT_ALLOWED,
@@ -265,8 +268,7 @@ public class SigninBridgeTest {
                 mContinueUrl,
                 mAccountPickerBottomSheetCoordinatorFactoryMock,
                 TestAccounts.ACCOUNT1.getId(),
-                mIsWebSignin,
-                mSigninAccessPoint);
+                mExtensionName);
         verify(mSigninMetricsUtilsJniMock)
                 .logAccountConsistencyPromoAction(
                         AccountConsistencyPromoAction.SUPPRESSED_NO_ACCOUNTS, mSigninAccessPoint);
@@ -297,12 +299,7 @@ public class SigninBridgeTest {
                         SigninBridge.ACCOUNT_PICKER_BOTTOM_SHEET_DISMISS_LIMIT);
 
         SigninBridge.openAccountPickerBottomSheet(
-                mTabMock,
-                mContinueUrl,
-                mAccountPickerBottomSheetCoordinatorFactoryMock,
-                null,
-                mIsWebSignin,
-                mSigninAccessPoint);
+                mTabMock, mContinueUrl, mAccountPickerBottomSheetCoordinatorFactoryMock, null, "");
 
         verify(mSigninMetricsUtilsJniMock)
                 .logAccountConsistencyPromoAction(
@@ -318,8 +315,8 @@ public class SigninBridgeTest {
                         any(),
                         any(),
                         anyInt(),
-                        eq(mIsWebSignin),
-                        eq(mSigninAccessPoint),
+                        eq(true),
+                        eq(SigninAccessPoint.WEB_SIGNIN),
                         eq(null));
     }
 
@@ -343,8 +340,7 @@ public class SigninBridgeTest {
                 mContinueUrl,
                 mAccountPickerBottomSheetCoordinatorFactoryMock,
                 TestAccounts.ACCOUNT2.getId(),
-                mIsWebSignin,
-                mSigninAccessPoint);
+                "");
 
         verify(mSigninMetricsUtilsJniMock, never())
                 .logAccountConsistencyPromoAction(
@@ -360,8 +356,8 @@ public class SigninBridgeTest {
                         any(),
                         any(),
                         anyInt(),
-                        eq(mIsWebSignin),
-                        eq(mSigninAccessPoint),
+                        eq(true),
+                        eq(SigninAccessPoint.WEB_SIGNIN),
                         eq(TestAccounts.ACCOUNT2.getId()));
     }
 
@@ -385,8 +381,7 @@ public class SigninBridgeTest {
                 mContinueUrl,
                 mAccountPickerBottomSheetCoordinatorFactoryMock,
                 TestAccounts.ACCOUNT2.getId(),
-                mIsWebSignin,
-                mSigninAccessPoint);
+                mExtensionName);
 
         verify(mSigninMetricsUtilsJniMock, never())
                 .logAccountConsistencyPromoAction(
@@ -412,8 +407,7 @@ public class SigninBridgeTest {
                 mContinueUrl,
                 mAccountPickerBottomSheetCoordinatorFactoryMock,
                 TestAccounts.ACCOUNT1.getId(),
-                mIsWebSignin,
-                mSigninAccessPoint);
+                "");
         verify(mAccountPickerBottomSheetCoordinatorFactoryMock)
                 .create(
                         eq(mWindowAndroidMock),
@@ -424,8 +418,8 @@ public class SigninBridgeTest {
                         any(),
                         any(),
                         anyInt(),
-                        eq(mIsWebSignin),
-                        eq(mSigninAccessPoint),
+                        eq(true),
+                        eq(SigninAccessPoint.WEB_SIGNIN),
                         eq(TestAccounts.ACCOUNT1.getId()));
     }
 
@@ -444,8 +438,7 @@ public class SigninBridgeTest {
                 mContinueUrl,
                 mAccountPickerBottomSheetCoordinatorFactoryMock,
                 TestAccounts.ACCOUNT1.getId(),
-                mIsWebSignin,
-                mSigninAccessPoint);
+                mExtensionName);
 
         verifyNoInteractions(mAccountPickerBottomSheetCoordinatorFactoryMock);
         verifyBottomSheetStartSigninFlow(TestAccounts.ACCOUNT1.getId());
@@ -463,12 +456,7 @@ public class SigninBridgeTest {
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
 
         SigninBridge.openAccountPickerBottomSheet(
-                mTabMock,
-                mContinueUrl,
-                mAccountPickerBottomSheetCoordinatorFactoryMock,
-                null,
-                mIsWebSignin,
-                mSigninAccessPoint);
+                mTabMock, mContinueUrl, mAccountPickerBottomSheetCoordinatorFactoryMock, null, "");
         verify(mAccountPickerBottomSheetCoordinatorFactoryMock)
                 .create(
                         eq(mWindowAndroidMock),
@@ -479,8 +467,8 @@ public class SigninBridgeTest {
                         any(),
                         any(),
                         anyInt(),
-                        eq(mIsWebSignin),
-                        eq(mSigninAccessPoint),
+                        eq(true),
+                        eq(SigninAccessPoint.WEB_SIGNIN),
                         isNull());
     }
 
@@ -499,8 +487,7 @@ public class SigninBridgeTest {
                 mContinueUrl,
                 mAccountPickerBottomSheetCoordinatorFactoryMock,
                 null,
-                mIsWebSignin,
-                mSigninAccessPoint);
+                mExtensionName);
 
         verifyNoInteractions(mAccountPickerBottomSheetCoordinatorFactoryMock);
         verifyBottomSheetStartSigninFlow(/* accountId= */ null);
@@ -530,8 +517,7 @@ public class SigninBridgeTest {
                 TestAccounts.ACCOUNT2.getEmail(),
                 mContinueUrl,
                 mAccountPickerBottomSheetCoordinatorFactoryMock,
-                mIsWebSignin,
-                mSigninAccessPoint);
+                "");
 
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT2);
         intentCaptor.getValue().onIntentCompleted(Activity.RESULT_OK, null);
@@ -546,8 +532,8 @@ public class SigninBridgeTest {
                         any(),
                         any(),
                         anyInt(),
-                        eq(mIsWebSignin),
-                        eq(mSigninAccessPoint),
+                        eq(true),
+                        eq(SigninAccessPoint.WEB_SIGNIN),
                         eq(TestAccounts.ACCOUNT2.getId()));
     }
 
@@ -570,8 +556,7 @@ public class SigninBridgeTest {
                 TestAccounts.ACCOUNT2.getEmail(),
                 mContinueUrl,
                 mAccountPickerBottomSheetCoordinatorFactoryMock,
-                mIsWebSignin,
-                mSigninAccessPoint);
+                mExtensionName);
 
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT2);
         intentCaptor.getValue().onIntentCompleted(Activity.RESULT_OK, null);
@@ -845,7 +830,17 @@ public class SigninBridgeTest {
     private void verifyBottomSheetStartSigninFlow(@Nullable CoreAccountId accountId) {
         ArgumentCaptor<BottomSheetSigninAndHistorySyncConfig> configCaptor =
                 ArgumentCaptor.forClass(BottomSheetSigninAndHistorySyncConfig.class);
+        String expectedTitleString;
+        String expectedSubtitleString;
         if (mIsWebSignin) {
+            expectedTitleString =
+                    ApplicationProvider.getApplicationContext()
+                            .getString(R.string.signin_account_picker_bottom_sheet_title);
+            expectedSubtitleString =
+                    ApplicationProvider.getApplicationContext()
+                            .getString(
+                                    R.string
+                                            .signin_account_picker_bottom_sheet_subtitle_for_web_signin);
             ArgumentCaptor<DelegateContext> delegateContextCaptor =
                     ArgumentCaptor.forClass(DelegateContext.class);
             verify(mCoordinatorMock)
@@ -856,9 +851,28 @@ public class SigninBridgeTest {
             Assert.assertEquals(mContinueUrl, delegateContext.getContinueUrl());
             Assert.assertEquals(TAB_ID, delegateContext.getTabId());
         } else {
+            expectedTitleString =
+                    ApplicationProvider.getApplicationContext()
+                            .getString(
+                                    R.string
+                                            .signin_account_picker_bottom_sheet_title_for_extensions,
+                                    TEST_EXTENSION_NAME);
+            expectedSubtitleString =
+                    ApplicationProvider.getApplicationContext()
+                            .getString(
+                                    R.string
+                                            .signin_account_picker_bottom_sheet_subtitle_for_extensions);
             verify(mCoordinatorMock).startSigninFlow(configCaptor.capture());
         }
         BottomSheetSigninAndHistorySyncConfig config = configCaptor.getValue();
         Assert.assertEquals(accountId, config.selectedCoreAccountId);
+        Assert.assertEquals(
+                new AccountPickerBottomSheetStrings.Builder(expectedTitleString)
+                        .setSubtitleString(expectedSubtitleString)
+                        .setDismissButtonString(
+                                ApplicationProvider.getApplicationContext()
+                                        .getString(R.string.signin_account_picker_dismiss_button))
+                        .build(),
+                config.bottomSheetStrings);
     }
 }

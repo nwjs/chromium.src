@@ -19,6 +19,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.view.View;
 import android.widget.FrameLayout;
 
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -45,6 +46,7 @@ import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRule;
 import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
@@ -344,6 +346,42 @@ public class HubCoordinatorUnitTest {
     }
 
     @Test
+    public void testCloseButtonWithTab() {
+        UserActionTester userActionTester = new UserActionTester();
+        mTabSupplier.set(mTab);
+
+        View closeButton = mRootView.findViewById(R.id.toolbar_close_button);
+        if (mIsXrDevice) {
+            assertNull(closeButton);
+            return;
+        }
+        assertNotNull(closeButton);
+        closeButton.performClick();
+
+        verify(mHubLayoutController).selectTabAndHideHubLayout(eq(TAB_ID));
+        verify(mTabSwitcherPane, never()).createNewTab();
+        assertEquals(1, userActionTester.getActionCount("Hub.CloseButtonPressed"));
+    }
+
+    @Test
+    public void testCloseButtonWithNullTab() {
+        UserActionTester userActionTester = new UserActionTester();
+        mTabSupplier.set(null);
+
+        View closeButton = mRootView.findViewById(R.id.toolbar_close_button);
+        if (mIsXrDevice) {
+            assertNull(closeButton);
+            return;
+        }
+        assertNotNull(closeButton);
+        closeButton.performClick();
+
+        verify(mHubLayoutController, never()).selectTabAndHideHubLayout(anyInt());
+        verify(mTabSwitcherPane).createNewTab();
+        assertEquals(1, userActionTester.getActionCount("Hub.CloseButtonPressed"));
+    }
+
+    @Test
     public void testFocusPane() {
         reset(mPaneManager);
         mHubCoordinator.focusPane(PaneId.TAB_SWITCHER);
@@ -442,13 +480,13 @@ public class HubCoordinatorUnitTest {
     }
 
     @Test
-    public void onPaneSwipe_recordsHistograms() {
+    public void onSwipeSwitchComplete_recordsHistograms() {
         var leftSwipeWatcher =
                 HistogramWatcher.newBuilder()
                         .expectIntRecord("Android.Hub.PaneSwiped.Left", PaneId.TAB_SWITCHER)
                         .expectNoRecords("Android.Hub.PaneSwiped.Right")
                         .build();
-        mHubCoordinator.onPaneSwipe(true);
+        mHubCoordinator.onSwipeSwitchComplete(true);
         leftSwipeWatcher.assertExpected("Expected a left swipe to be recorded.");
 
         var rightSwipeWatcher =
@@ -457,27 +495,36 @@ public class HubCoordinatorUnitTest {
                                 "Android.Hub.PaneSwiped.Right", PaneId.INCOGNITO_TAB_SWITCHER)
                         .expectNoRecords("Android.Hub.PaneSwiped.Left")
                         .build();
-        mHubCoordinator.onPaneSwipe(false);
+        mHubCoordinator.onSwipeSwitchComplete(false);
         rightSwipeWatcher.assertExpected("Expected a right swipe to be recorded.");
     }
 
     @Test
-    public void onPaneSwipe_cyclesToNextPane() {
-        mHubCoordinator.onPaneSwipe(true);
+    public void onSwipeSwitchComplete_cyclesToNextPane() {
+        mHubCoordinator.onSwipeSwitchComplete(true);
         verify(mPaneManager).focusPane(PaneId.INCOGNITO_TAB_SWITCHER);
     }
 
     @Test
-    public void onPaneSwipe_cyclesToPreviousPane() {
-        mHubCoordinator.onPaneSwipe(false);
+    public void onSwipeSwitchComplete_cyclesToPreviousPane() {
+        mHubCoordinator.onSwipeSwitchComplete(false);
         verify(mPaneManager).focusPane(PaneId.INCOGNITO_TAB_SWITCHER);
     }
 
     @Test
-    public void onPaneSwipe_wrapsAroundFromLastPane() {
+    public void onSwipeSwitchComplete_wrapsAroundFromLastPane() {
         reset(mPaneManager);
         assertTrue(mPaneManager.focusPane(PaneId.INCOGNITO_TAB_SWITCHER));
-        mHubCoordinator.onPaneSwipe(true);
+        mHubCoordinator.onSwipeSwitchComplete(true);
         verify(mPaneManager).focusPane(PaneId.TAB_SWITCHER);
+    }
+
+    @Test
+    public void onSwipeSwitchCancel_setsLoadHintToWarm() {
+        mHubCoordinator.onSwipeSwitchCancel(true);
+        verify(mIncognitoTabSwitcherPane).notifyLoadHint(LoadHint.WARM);
+
+        mHubCoordinator.onSwipeSwitchCancel(false);
+        verify(mIncognitoTabSwitcherPane, times(2)).notifyLoadHint(LoadHint.WARM);
     }
 }

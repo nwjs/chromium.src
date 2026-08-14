@@ -678,28 +678,27 @@ gfx::Rect PaintLayerScrollableArea::VisibleContentRect(
 
 PhysicalRect PaintLayerScrollableArea::VisibleScrollSnapportRect(
     IncludeScrollbarsInRect scrollbar_inclusion) const {
-  const ComputedStyle* style = GetLayoutBox()->Style();
+  const ComputedStyle& style = GetLayoutBox()->StyleRef();
   PhysicalRect layout_content_rect(LayoutContentRect(scrollbar_inclusion));
   layout_content_rect.Move(PhysicalOffset(-ScrollOrigin().OffsetFromOrigin()));
-  PhysicalBoxStrut padding(MinimumValueForLength(style->ScrollPaddingTop(),
+  PhysicalBoxStrut padding(MinimumValueForLength(style.ScrollPaddingTop(),
                                                  layout_content_rect.Height()),
-                           MinimumValueForLength(style->ScrollPaddingRight(),
+                           MinimumValueForLength(style.ScrollPaddingRight(),
                                                  layout_content_rect.Width()),
-                           MinimumValueForLength(style->ScrollPaddingBottom(),
+                           MinimumValueForLength(style.ScrollPaddingBottom(),
                                                  layout_content_rect.Height()),
-                           MinimumValueForLength(style->ScrollPaddingLeft(),
+                           MinimumValueForLength(style.ScrollPaddingLeft(),
                                                  layout_content_rect.Width()));
   layout_content_rect.Contract(padding);
   return layout_content_rect;
 }
 
 gfx::Size PaintLayerScrollableArea::ContentsSize() const {
-  // We need to take into account of ClientLeft and ClientTop  for
+  // We need to take into account of the border/scrollbar/padding for
   // PaintLayerScrollableAreaTest.NotScrollsOverflowWithScrollableScrollbar.
-  PhysicalOffset offset(GetLayoutBox()->ClientLeft(),
-                        GetLayoutBox()->ClientTop());
   // TODO(crbug.com/962299): The pixel snapping is incorrect in some cases.
-  return PixelSnappedContentsSize(offset);
+  return PixelSnappedContentsSize(
+      GetLayoutBox()->PhysicalPaddingBoxRect().offset);
 }
 
 gfx::Size PaintLayerScrollableArea::PixelSnappedContentsSize(
@@ -1908,6 +1907,29 @@ void PaintLayerScrollableArea::RemoveScrollbarsForReconstruction() {
   }
 }
 
+void PaintLayerScrollableArea::DidUpdateCullRect() {
+  last_cull_rect_update_scroll_position_ = ScrollPosition();
+
+  if (RuntimeEnabledFeatures::ScrollingContentsCullRectOnScrollNodeEnabled()) {
+    auto& fragment = GetLayoutBox()->GetMutableForPainting().FirstFragment();
+    if (auto* properties = fragment.PaintProperties()) {
+      if (auto* scroll_node = properties->MutableScroll()) {
+        scroll_node->SetScrollingContentsCullRect(
+            fragment.GetContentsCullRect().Rect());
+        if (auto* compositor =
+                GetLayoutBox()->GetFrameView()->GetPaintArtifactCompositor()) {
+          if (compositor->DirectlyUpdateScrollingContentsCullRect(
+                  *scroll_node)) {
+            scroll_node->CompositorSimpleValuesUpdated();
+          } else {
+            compositor->SetNeedsUpdate();
+          }
+        }
+      }
+    }
+  }
+}
+
 CompositorElementId PaintLayerScrollableArea::GetScrollCornerElementId() const {
   CompositorElementId scrollable_element_id = GetScrollElementId();
   DCHECK(scrollable_element_id);
@@ -2756,14 +2778,11 @@ bool PaintLayerScrollableArea::PrefersNonCompositedScrolling() const {
         return true;
       }
     }
-    if (auto* element = DynamicTo<Element>(node)) {
-      if (RuntimeEnabledFeatures::CanvasDrawElementEnabled(
-              element->GetExecutionContext())) {
-        if (element->IsInCanvasSubtree()) {
-          return true;
-        }
-      }
-    }
+  }
+  if (RuntimeEnabledFeatures::CanvasDrawElementEnabled(
+          GetLayoutBox()->GetDocument().GetExecutionContext()) &&
+      GetLayoutBox()->IsInCanvasSubtree()) {
+    return true;
   }
   return false;
 }
@@ -3138,9 +3157,18 @@ bool PaintLayerScrollableArea::MayCompositeScrollbar(
   if (scrollbar.IsCustomScrollbar()) {
     return false;
   }
+  // Disable composited scrollbars under canvas.
+  const auto* box = GetLayoutBox();
+  if (RuntimeEnabledFeatures::CanvasDrawElementEnabled(
+          box->GetDocument().GetExecutionContext()) &&
+      box->IsInCanvasSubtree()) {
+    return false;
+  }
   // Compositing of scrollbar is decided in PaintArtifactCompositor. We assume
   // compositing here so that paint invalidation will be skipped here. We'll
   // invalidate raster if needed after paint, without paint invalidation.
+  // TODO(crbug.com/40517276): The above comment doesn't apply to
+  // RasterInducingScroll.
   return true;
 }
 
@@ -3371,7 +3399,8 @@ void PaintLayerScrollableArea::DropCompositorScrollDeltaNextCommit() {
 gfx::Rect PaintLayerScrollableArea::ScrollingBackgroundVisualRect(
     const PhysicalOffset& paint_offset) const {
   const auto* box = GetLayoutBox();
-  auto clip_rect = box->OverflowClipRect(paint_offset);
+  auto clip_rect = box->OverflowClipRect();
+  clip_rect.Move(paint_offset);
   auto overflow_clip_rect = ToPixelSnappedRect(clip_rect);
   auto scroll_size = PixelSnappedContentsSize(clip_rect.offset);
   // Ensure scrolling contents are at least as large as the scroll clip
@@ -3733,9 +3762,7 @@ gfx::Vector2d PaintLayerScrollableArea::ComputeScrollableSize() const {
     visible_size = controller.RootScrollerVisibleArea();
   } else {
     visible_size = ToRoundedSize(
-        GetLayoutBox()
-            ->OverflowClipRect(PhysicalOffset(), kIgnoreOverlayScrollbarSize)
-            .size);
+        GetLayoutBox()->OverflowClipRect(kIgnoreOverlayScrollbarSize).size);
   }
 
   // TODO(skobes): We should really ASSERT that contentSize >= visibleSize

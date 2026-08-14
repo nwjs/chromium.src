@@ -9,7 +9,9 @@
 
 #include "base/synchronization/waitable_event.h"
 #include "base/test/run_until.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
+#include "third_party/blink/public/common/features.h"
 #include "media/base/audio_timestamp_helper.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -24,6 +26,7 @@
 #include "third_party/blink/public/platform/web_audio_sink_descriptor.h"
 #include "third_party/blink/public/platform/web_runtime_features.h"
 #include "third_party/blink/public/web/web_heap.h"
+#include "third_party/blink/renderer/bindings/core/v8/script_promise_tester.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_testing.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_worklet_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_audio_sink_options.h"
@@ -39,7 +42,6 @@
 #include "third_party/blink/renderer/modules/mediastream/sub_capture_target.h"
 #include "third_party/blink/renderer/modules/peerconnection/peer_connection_dependency_factory.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_playback_stats.h"
-#include "third_party/blink/renderer/modules/webaudio/audio_playout_stats.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_worklet.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_worklet_messaging_proxy.h"
 #include "third_party/blink/renderer/modules/webaudio/delay_node.h"
@@ -48,8 +50,7 @@
 #include "third_party/blink/renderer/modules/webrtc/webrtc_audio_device_impl.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/scheduler/public/event_loop.h"
-#include "third_party/blink/renderer/platform/scheduler/public/non_main_thread.h"
-#include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
+#include "third_party/blink/renderer/modules/webaudio/testing/fake_audio_thread.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/scoped_mocked_url.h"
@@ -312,6 +313,43 @@ String GetAecDevice(ExecutionContext* execution_context) {
       ->GetOutputDeviceForAecForTesting();
 }
 
+// Mock implementation of the AudioContextManager Mojo service. This mock
+// tracks the start/stop notifications received from the AudioContext and
+// records their invocation counts to verify correct audibility state
+// reporting.
+class MockAudioContextManager : public mojom::blink::AudioContextManager {
+ public:
+  MockAudioContextManager() = default;
+  ~MockAudioContextManager() override = default;
+
+  void BindRequest(mojo::ScopedMessagePipeHandle handle) {
+    receivers_.Add(
+        this, mojo::PendingReceiver<mojom::blink::AudioContextManager>(
+                  std::move(handle)));
+  }
+
+  void AudioContextAudiblePlaybackStarted(uint32_t id) override {
+    started_count_++;
+  }
+  void AudioContextAudiblePlaybackStopped(uint32_t id) override {
+    stopped_count_++;
+  }
+  void AudioContextCreated(uint32_t id) override {}
+  void AudioContextClosed(uint32_t id) override {}
+
+  int started_count() const { return started_count_; }
+  int stopped_count() const { return stopped_count_; }
+  void reset() {
+    started_count_ = 0;
+    stopped_count_ = 0;
+  }
+
+ private:
+  int started_count_ = 0;
+  int stopped_count_ = 0;
+  mojo::ReceiverSet<mojom::blink::AudioContextManager> receivers_;
+};
+
 }  // namespace
 
 class AudioContextTest : public PageTestBase {
@@ -319,6 +357,8 @@ class AudioContextTest : public PageTestBase {
   AudioContextTest() {
     mock_media_devices_dispatcher_host_ =
         std::make_unique<MockMediaDevicesDispatcherHost>();
+    mock_audio_context_manager_ =
+        std::make_unique<MockAudioContextManager>();
   }
 
   ~AudioContextTest() override = default;
@@ -336,11 +376,17 @@ class AudioContextTest : public PageTestBase {
         mojom::blink::MediaDevicesDispatcherHost::Name_,
         BindRepeating(&MockMediaDevicesDispatcherHost::BindRequest,
                       Unretained(mock_media_devices_dispatcher_host_.get())));
+    GetFrame().DomWindow()->GetBrowserInterfaceBroker().SetBinderForTesting(
+        mojom::blink::AudioContextManager::Name_,
+        BindRepeating(&MockAudioContextManager::BindRequest,
+                      Unretained(mock_audio_context_manager_.get())));
   }
 
   void TearDown() override {
     GetFrame().DomWindow()->GetBrowserInterfaceBroker().SetBinderForTesting(
         mojom::blink::MediaDevicesDispatcherHost::Name_, {});
+    GetFrame().DomWindow()->GetBrowserInterfaceBroker().SetBinderForTesting(
+        mojom::blink::AudioContextManager::Name_, {});
   }
 
   void ResetAudioContextManagerForAudioContext(AudioContext* audio_context) {
@@ -350,6 +396,11 @@ class AudioContextTest : public PageTestBase {
   void SetContextState(AudioContext* audio_context,
                        V8AudioContextState::Enum state) {
     audio_context->SetContextState(state);
+  }
+
+  void ClearAudibilityState(AudioContext* audio_context)
+      NO_THREAD_SAFETY_ANALYSIS {
+    audio_context->ClearAudibilityState();
   }
 
   void ExpectContextBecomesRunningAsync(AudioContext* audio_context) {
@@ -398,6 +449,10 @@ class AudioContextTest : public PageTestBase {
     return platform_.GetTestingPlatformSupport();
   }
 
+  MockAudioContextManager* mock_audio_context_manager() const {
+    return mock_audio_context_manager_.get();
+  }
+
   void ClearAudioContextAsyncStateUseCounters() {
     GetDocument().ClearUseCounterForTesting(
         WebFeature::kAudioContextAsyncStateTransitions);
@@ -411,6 +466,7 @@ class AudioContextTest : public PageTestBase {
   ScopedTestingPlatformSupport<AudioContextTestPlatform> platform_;
   std::unique_ptr<MockMediaDevicesDispatcherHost>
       mock_media_devices_dispatcher_host_;
+  std::unique_ptr<MockAudioContextManager> mock_audio_context_manager_;
 };
 
 TEST_F(AudioContextTest, DisposeOrphansHandlerWhenInterrupted) {
@@ -526,6 +582,294 @@ TEST_F(AudioContextTest, ExecutionContextPaused) {
   EXPECT_FALSE(web_audio_device_paused_);
 }
 
+// Test that the AudioContext correctly handles audibility state transitions
+// and implements the 2-second silence hysteresis.
+TEST_F(AudioContextTest, AudioContextAudibilityHysteresis) {
+  AudioContextOptions* options = AudioContextOptions::Create();
+  AudioContext* audio_context = AudioContext::Create(
+      GetFrame().DomWindow(), options, ASSERT_NO_EXCEPTION);
+
+  SetContextState(audio_context, V8AudioContextState::Enum::kRunning);
+  ExpectContextBecomesRunningAsync(audio_context);
+
+  // Create a background thread to simulate the audio thread.
+  std::unique_ptr<NonMainThread> audio_thread = NonMainThread::CreateThread(
+      ThreadCreationParams(ThreadType::kTestThread));
+
+  auto run_on_audio_thread = [&](CrossThreadOnceClosure closure) {
+    base::WaitableEvent event;
+    PostCrossThreadTask(
+        *audio_thread->GetTaskRunner(), FROM_HERE,
+        CrossThreadBindOnce(
+            [](CrossThreadOnceClosure closure, base::WaitableEvent* event) {
+              std::move(closure).Run();
+              event->Signal();
+            },
+            std::move(closure), CrossThreadUnretained(&event)));
+    event.Wait();
+  };
+
+  // Register the background thread as the audio thread.
+  run_on_audio_thread(CrossThreadBindOnce(
+      [](AudioContext* context) {
+        context->GetDeferredTaskHandler().SetAudioThreadToCurrentThread();
+      },
+      WrapCrossThreadPersistent(audio_context)));
+
+  auto feed_audio = [&](AudioBus* bus) {
+    run_on_audio_thread(CrossThreadBindOnce(
+        [](AudioContext* context, AudioBus* bus) {
+          context->HandleAudibility(bus);
+        },
+        WrapCrossThreadPersistent(audio_context), CrossThreadUnretained(bus)));
+  };
+
+  auto sync_main_thread = [&]() {
+    bool task_run = false;
+    PostCrossThreadTask(
+        *GetFrame().DomWindow()->GetTaskRunner(TaskType::kInternalMedia),
+        FROM_HERE,
+        CrossThreadBindOnce([](bool* task_run) { *task_run = true; },
+                            CrossThreadUnretained(&task_run)));
+    EXPECT_TRUE(base::test::RunUntil([&]() { return task_run; }));
+  };
+
+  scoped_refptr<AudioBus> audible_bus = AudioBus::Create(1, 128);
+  audible_bus->Channel(0)->MutableSpan()[0] = 1.0f;
+
+  scoped_refptr<AudioBus> silent_bus = AudioBus::Create(1, 128);
+
+  // Initially, audibility is false and no starts/stops should be called.
+  EXPECT_EQ(mock_audio_context_manager()->started_count(), 0);
+  EXPECT_EQ(mock_audio_context_manager()->stopped_count(), 0);
+
+  // 1. Transitioning to audible should immediately trigger a start
+  // notification.
+  feed_audio(audible_bus.get());
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return mock_audio_context_manager()->started_count() == 1;
+  }));
+  EXPECT_EQ(mock_audio_context_manager()->stopped_count(), 0);
+
+  // 2. A short duration of silence should NOT trigger a stop notification
+  // (hysteresis).
+  for (int i = 0; i < 10; ++i) {
+    feed_audio(silent_bus.get());
+  }
+  sync_main_thread();
+  EXPECT_EQ(mock_audio_context_manager()->started_count(), 1);
+  EXPECT_EQ(mock_audio_context_manager()->stopped_count(), 0);
+
+  // 3. Resuming audible audio before the threshold resets the silence timer.
+  feed_audio(audible_bus.get());
+  sync_main_thread();
+  EXPECT_EQ(mock_audio_context_manager()->started_count(), 1);
+  EXPECT_EQ(mock_audio_context_manager()->stopped_count(), 0);
+
+  // 4. A prolonged period of silence exceeding the threshold triggers a stop.
+  for (int i = 0; i < 700; ++i) {
+    feed_audio(silent_bus.get());
+  }
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return mock_audio_context_manager()->stopped_count() == 1;
+  }));
+  EXPECT_EQ(mock_audio_context_manager()->started_count(), 1);
+
+  // 5. Playing audible sound again immediately starts.
+  feed_audio(audible_bus.get());
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return mock_audio_context_manager()->started_count() == 2;
+  }));
+  EXPECT_EQ(mock_audio_context_manager()->stopped_count(), 1);
+
+  // 6. Suspending the context should immediately stop the audibility,
+  // bypassing the hysteresis.
+  {
+    V8TestingScope scope;
+    audio_context->suspendContext(scope.GetScriptState(),
+                                  scope.GetExceptionState());
+  }
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return mock_audio_context_manager()->stopped_count() == 2;
+  }));
+  EXPECT_EQ(mock_audio_context_manager()->started_count(), 2);
+
+  // Clean up the background thread registration.
+  run_on_audio_thread(CrossThreadBindOnce(
+      [](AudioContext* context) {
+        // Clear the audio thread registration by setting it to
+        // nullptr/empty task runner context. Or simply let the
+        // thread be destroyed.
+      },
+      WrapCrossThreadPersistent(audio_context)));
+}
+
+// Test that when the audibility hysteresis feature flag is disabled,
+// transitioning to silence immediately triggers a stop notification.
+TEST_F(AudioContextTest, AudioContextAudibilityNoHysteresis) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      blink::features::kWebAudioAudibilityHysteresis);
+
+  AudioContextOptions* options = AudioContextOptions::Create();
+  AudioContext* audio_context = AudioContext::Create(
+      GetFrame().DomWindow(), options, ASSERT_NO_EXCEPTION);
+
+  SetContextState(audio_context, V8AudioContextState::Enum::kRunning);
+  ExpectContextBecomesRunningAsync(audio_context);
+
+  // Create a background thread to simulate the audio thread.
+  std::unique_ptr<NonMainThread> audio_thread = NonMainThread::CreateThread(
+      ThreadCreationParams(ThreadType::kTestThread));
+
+  auto run_on_audio_thread = [&](CrossThreadOnceClosure closure) {
+    base::WaitableEvent event;
+    PostCrossThreadTask(
+        *audio_thread->GetTaskRunner(), FROM_HERE,
+        CrossThreadBindOnce(
+            [](CrossThreadOnceClosure closure, base::WaitableEvent* event) {
+              std::move(closure).Run();
+              event->Signal();
+            },
+            std::move(closure), CrossThreadUnretained(&event)));
+    event.Wait();
+  };
+
+  // Register the background thread as the audio thread.
+  run_on_audio_thread(CrossThreadBindOnce(
+      [](AudioContext* context) {
+        context->GetDeferredTaskHandler().SetAudioThreadToCurrentThread();
+      },
+      WrapCrossThreadPersistent(audio_context)));
+
+  auto feed_audio = [&](AudioBus* bus) {
+    run_on_audio_thread(CrossThreadBindOnce(
+        [](AudioContext* context, AudioBus* bus) {
+          context->HandleAudibility(bus);
+        },
+        WrapCrossThreadPersistent(audio_context), CrossThreadUnretained(bus)));
+  };
+
+  scoped_refptr<AudioBus> audible_bus = AudioBus::Create(1, 128);
+  audible_bus->Channel(0)->MutableSpan()[0] = 1.0f;
+
+  scoped_refptr<AudioBus> silent_bus = AudioBus::Create(1, 128);
+
+  // Initially, audibility is false and no starts/stops should be called.
+  EXPECT_EQ(mock_audio_context_manager()->started_count(), 0);
+  EXPECT_EQ(mock_audio_context_manager()->stopped_count(), 0);
+
+  // 1. Transitioning to audible should immediately trigger a start.
+  feed_audio(audible_bus.get());
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return mock_audio_context_manager()->started_count() == 1;
+  }));
+  EXPECT_EQ(mock_audio_context_manager()->stopped_count(), 0);
+
+  // 2. Feeding a single silent block should immediately trigger a stop
+  // (no hysteresis).
+  feed_audio(silent_bus.get());
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return mock_audio_context_manager()->stopped_count() == 1;
+  }));
+  EXPECT_EQ(mock_audio_context_manager()->started_count(), 1);
+}
+
+// Test that stale asynchronous audibility tasks posted from the audio thread
+// are discarded if a lifecycle reset (ClearAudibilityState) occurs before
+// they execute.
+TEST_F(AudioContextTest, AudioContextAudibilitySequenceFiltering) {
+  AudioContextOptions* options = AudioContextOptions::Create();
+  AudioContext* audio_context = AudioContext::Create(
+      GetFrame().DomWindow(), options, ASSERT_NO_EXCEPTION);
+
+  SetContextState(audio_context, V8AudioContextState::Enum::kRunning);
+  ExpectContextBecomesRunningAsync(audio_context);
+
+  // Create a background thread to simulate the audio thread.
+  std::unique_ptr<NonMainThread> audio_thread = NonMainThread::CreateThread(
+      ThreadCreationParams(ThreadType::kTestThread));
+
+  auto run_on_audio_thread = [&](CrossThreadOnceClosure closure) {
+    base::WaitableEvent event;
+    PostCrossThreadTask(
+        *audio_thread->GetTaskRunner(), FROM_HERE,
+        CrossThreadBindOnce(
+            [](CrossThreadOnceClosure closure, base::WaitableEvent* event) {
+              std::move(closure).Run();
+              event->Signal();
+            },
+            std::move(closure), CrossThreadUnretained(&event)));
+    event.Wait();
+  };
+
+  // Register the background thread as the audio thread.
+  run_on_audio_thread(CrossThreadBindOnce(
+      [](AudioContext* context) {
+        context->GetDeferredTaskHandler().SetAudioThreadToCurrentThread();
+      },
+      WrapCrossThreadPersistent(audio_context)));
+
+  auto feed_audio = [&](AudioBus* bus) {
+    run_on_audio_thread(CrossThreadBindOnce(
+        [](AudioContext* context, AudioBus* bus) {
+          context->HandleAudibility(bus);
+        },
+        WrapCrossThreadPersistent(audio_context), CrossThreadUnretained(bus)));
+  };
+
+  auto sync_main_thread = [&]() {
+    bool task_run = false;
+    PostCrossThreadTask(
+        *GetFrame().DomWindow()->GetTaskRunner(TaskType::kInternalMedia),
+        FROM_HERE,
+        CrossThreadBindOnce([](bool* task_run) { *task_run = true; },
+                            CrossThreadUnretained(&task_run)));
+    EXPECT_TRUE(base::test::RunUntil([&]() { return task_run; }));
+  };
+
+  scoped_refptr<AudioBus> audible_bus = AudioBus::Create(1, 128);
+  audible_bus->Channel(0)->MutableSpan()[0] = 1.0f;
+
+  // Initially, audibility is false.
+  EXPECT_EQ(mock_audio_context_manager()->started_count(), 0);
+  EXPECT_EQ(mock_audio_context_manager()->stopped_count(), 0);
+
+  // 1. Feed audible audio. This posts NotifyAudibleAudioStarted(sequence_id=0)
+  // to the main thread, but we do NOT run the main thread loop yet.
+  feed_audio(audible_bus.get());
+
+  // 2. Call ClearAudibilityState() synchronously. This resets was_audible_ to
+  // false and increments the sequence ID to 1.
+  ClearAudibilityState(audio_context);
+
+  // 4. Feed audible audio again. This posts
+  // NotifyAudibleAudioStarted(sequence_id=1).
+  feed_audio(audible_bus.get());
+
+  // 5. Now run the main thread task runner.
+  // The first task (sequence_id=0) should be discarded because its sequence ID
+  // (0) does not match the current audibility_sequence_id (1).
+  // The second task (sequence_id=1) should be processed because it matches.
+  // Therefore, started_count() should be exactly 1, and no crashes should occur.
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return mock_audio_context_manager()->started_count() == 1;
+  }));
+  sync_main_thread();
+
+  EXPECT_EQ(mock_audio_context_manager()->started_count(), 1);
+  EXPECT_EQ(mock_audio_context_manager()->stopped_count(), 0);
+
+  // Clean up the background thread registration.
+  run_on_audio_thread(CrossThreadBindOnce(
+      [](AudioContext* context) {
+        // Clear the audio thread registration by setting it to
+        // nullptr/empty task runner context. Or simply let the
+        // thread be destroyed.
+      },
+      WrapCrossThreadPersistent(audio_context)));
+}
+
 // Test initialization/uninitialization of MediaDeviceService.
 TEST_F(AudioContextTest, MediaDevicesService) {
   AudioContextOptions* options = AudioContextOptions::Create();
@@ -555,47 +899,31 @@ class ContextRenderer : public GarbageCollected<ContextRenderer> {
  public:
   explicit ContextRenderer(AudioContext* context)
       : context_(context),
-        audio_thread_(NonMainThread::CreateThread(
-            ThreadCreationParams(ThreadType::kRealtimeAudioWorkletThread))) {}
+        audio_thread_(ThreadType::kRealtimeAudioWorkletThread) {}
   ~ContextRenderer() = default;
 
   void Init() {
-    PostCrossThreadTask(
-        *audio_thread_->GetTaskRunner(), FROM_HERE,
-        CrossThreadBindOnce(&ContextRenderer::SetContextAudioThread,
-                            WrapCrossThreadWeakPersistent(this)));
-    event_.Wait();
+    audio_thread_.RunOnAudioThreadWithContext(
+        context_.Get(),
+        CrossThreadBindOnce([]() {}));
   }
 
   void Render(uint32_t frames_to_process,
               base::TimeDelta playout_delay,
               const media::AudioGlitchInfo& glitch_info) {
-    PostCrossThreadTask(
-        *audio_thread_->GetTaskRunner(), FROM_HERE,
+    audio_thread_.RunOnAudioThread(
         CrossThreadBindOnce(&ContextRenderer::RenderOnAudioThread,
                             WrapCrossThreadWeakPersistent(this),
                             frames_to_process, playout_delay, glitch_info));
-    event_.Wait();
   }
 
   void Trace(Visitor* visitor) const { visitor->Trace(context_); }
-
-  AudioPlayoutStats* GetPlayoutStats() {
-    return static_cast<AudioContext*>(context_)->playoutStats();
-  }
 
   AudioPlaybackStats* GetPlaybackStats() {
     return static_cast<AudioContext*>(context_)->playbackStats();
   }
 
  private:
-  void SetContextAudioThread() {
-    static_cast<AudioContext*>(context_)
-        ->GetDeferredTaskHandler()
-        .SetAudioThreadToCurrentThread();
-    event_.Signal();
-  }
-
   void RenderOnAudioThread(uint32_t frames_to_process,
                            base::TimeDelta playout_delay,
                            const media::AudioGlitchInfo& glitch_info) {
@@ -604,12 +932,10 @@ class ContextRenderer : public GarbageCollected<ContextRenderer> {
     static_cast<AudioContext*>(context_)->HandlePreRenderTasks(
         frames_to_process, &output_position, &audio_callback_metric,
         playout_delay, glitch_info);
-    event_.Signal();
   }
 
   WeakMember<AudioContext> context_;
-  const std::unique_ptr<blink::NonMainThread> audio_thread_;
-  base::WaitableEvent event_{base::WaitableEvent::ResetPolicy::AUTOMATIC};
+  FakeAudioThread audio_thread_;
 };
 
 class AudioContextStatsTest : public AudioContextTest, public base::TickClock {
@@ -641,39 +967,6 @@ class AudioContextStatsTest : public AudioContextTest, public base::TickClock {
     AudioContextTest::TearDown();
     GetFrame().DomWindow()->GetBrowserInterfaceBroker().SetBinderForTesting(
         mojom::blink::PermissionService::Name_, {});
-  }
-
-  void VerifyPlayoutStats(AudioPlayoutStats* playout_stats,
-                          ScriptState* script_state,
-                          int total_processed_frames,
-                          const media::AudioGlitchInfo& total_glitches,
-                          base::TimeDelta average_delay,
-                          base::TimeDelta min_delay,
-                          base::TimeDelta max_delay,
-                          int source_line) {
-    EXPECT_EQ(playout_stats->fallbackFramesEvents(script_state),
-              total_glitches.count)
-        << " LINE " << source_line;
-    EXPECT_FLOAT_EQ(playout_stats->fallbackFramesDuration(script_state),
-                    total_glitches.duration.InMillisecondsF())
-        << " LINE " << source_line;
-    EXPECT_EQ(playout_stats->averageLatency(script_state),
-              average_delay.InMillisecondsF())
-        << " LINE " << source_line;
-    EXPECT_EQ(playout_stats->minimumLatency(script_state),
-              min_delay.InMillisecondsF())
-        << " LINE " << source_line;
-    EXPECT_EQ(playout_stats->maximumLatency(script_state),
-              max_delay.InMillisecondsF())
-        << " LINE " << source_line;
-    EXPECT_NEAR(
-        playout_stats->totalFramesDuration(script_state),
-        (media::AudioTimestampHelper::FramesToTime(
-             total_processed_frames, platform()->AudioHardwareSampleRate()) +
-         total_glitches.duration)
-            .InMillisecondsF(),
-        0.01)
-        << " LINE " << source_line;
   }
 
   void VerifyPlaybackStats(AudioPlaybackStats* playback_stats,
@@ -709,31 +1002,6 @@ class AudioContextStatsTest : public AudioContextTest, public base::TickClock {
         << " LINE " << source_line;
   }
 
-  void RenderAndCheckIfPlayoutStatsChanged(base::TimeDelta render_duration,
-                                           ContextRenderer* renderer,
-                                           ScriptState* script_state,
-                                           bool expect_change) {
-    fake_time_now_ += render_duration;
-
-    AudioPlayoutStats* playout_stats = renderer->GetPlayoutStats();
-    int glitches_before = playout_stats->fallbackFramesEvents(script_state);
-    double duration_before = playout_stats->totalFramesDuration(script_state);
-    double latency_before = playout_stats->averageLatency(script_state);
-
-    renderer->Render(
-        1000,
-        base::Milliseconds(50) + (fake_time_now_ - base::TimeTicks()) / 10,
-        media::AudioGlitchInfo{.duration = base::Milliseconds(10), .count = 1});
-    ToEventLoop(script_state).PerformMicrotaskCheckpoint();
-
-    int glitches_after = playout_stats->fallbackFramesEvents(script_state);
-    double duration_after = playout_stats->totalFramesDuration(script_state);
-    double latency_after = playout_stats->averageLatency(script_state);
-    EXPECT_EQ(glitches_before != glitches_after, expect_change);
-    EXPECT_EQ(duration_before != duration_after, expect_change);
-    EXPECT_EQ(latency_before != latency_after, expect_change);
-  }
-
   void RenderAndCheckIfPlaybackStatsChanged(base::TimeDelta render_duration,
                                             ContextRenderer* renderer,
                                             ScriptState* script_state,
@@ -766,230 +1034,6 @@ class AudioContextStatsTest : public AudioContextTest, public base::TickClock {
 
   std::unique_ptr<MockPermissionService> mock_permission_service_;
 };
-
-TEST_F(AudioContextStatsTest, PlayoutStatsValues) {
-  blink::WebRuntimeFeatures::EnableFeatureFromString("AudioContextPlayoutStats",
-                                                     true);
-  AudioContextOptions* options = AudioContextOptions::Create();
-  AudioContext* audio_context = AudioContext::Create(
-      GetFrame().DomWindow(), options, ASSERT_NO_EXCEPTION);
-  audio_context->set_clock_for_testing(this);
-
-  constexpr int kNumberOfRenderEvents = 9;
-  std::array<uint32_t, kNumberOfRenderEvents> frames_to_process{
-      100, 200, 300, 10, 500, 120, 120, 30, 100};
-  std::array<base::TimeDelta, kNumberOfRenderEvents> playout_delay{
-      base::Milliseconds(10),  base::Milliseconds(20), base::Milliseconds(300),
-      base::Milliseconds(107), base::Milliseconds(17), base::Milliseconds(3),
-      base::Milliseconds(500), base::Milliseconds(10), base::Milliseconds(112)};
-  const std::array<media::AudioGlitchInfo, kNumberOfRenderEvents> glitch_info{
-      media::AudioGlitchInfo{.duration = base::Milliseconds(5), .count = 1},
-      {},
-      {.duration = base::Milliseconds(60), .count = 3},
-      {},
-      {.duration = base::Milliseconds(600), .count = 20},
-      {.duration = base::Milliseconds(200), .count = 5},
-      {},
-      {.duration = base::Milliseconds(2), .count = 1},
-      {.duration = base::Milliseconds(15), .count = 5}};
-
-  media::AudioGlitchInfo total_glitches;
-  int total_processed_frames = 0;
-  int interval_processed_frames = 0;
-  base::TimeDelta interval_delay_sum;
-  base::TimeDelta last_delay;
-  base::TimeDelta max_delay;
-  base::TimeDelta min_delay = base::TimeDelta::Max();
-
-  ScriptState* script_state = ToScriptStateForMainWorld(&GetFrame());
-  AudioPlayoutStats* playout_stats = audio_context->playoutStats();
-
-  ContextRenderer* renderer =
-      MakeGarbageCollected<ContextRenderer>(audio_context);
-  renderer->Init();
-
-  // Empty stats in be beginning, all latencies are zero.
-  VerifyPlayoutStats(playout_stats, script_state, total_processed_frames,
-                     total_glitches, last_delay, last_delay, last_delay,
-                     __LINE__);
-
-  int i = 0;
-  for (; i < 3; ++i) {
-    fake_time_now_ += base::Seconds(1);
-    // Do some rendering.
-    renderer->Render(frames_to_process[i], playout_delay[i], glitch_info[i]);
-
-    total_glitches += glitch_info[i];
-    last_delay = playout_delay[i];
-    total_processed_frames += frames_to_process[i];
-    interval_processed_frames += frames_to_process[i];
-    interval_delay_sum += playout_delay[i] * frames_to_process[i];
-    max_delay = std::max<base::TimeDelta>(max_delay, playout_delay[i]);
-    min_delay = std::min<base::TimeDelta>(min_delay, playout_delay[i]);
-
-    // New execution cycle.
-    ToEventLoop(script_state).PerformMicrotaskCheckpoint();
-
-    // Stats updated.
-    VerifyPlayoutStats(playout_stats, script_state, total_processed_frames,
-                       total_glitches,
-                       interval_delay_sum / interval_processed_frames,
-                       min_delay, max_delay, __LINE__);
-  }
-
-  // Same stats, since we are within the same execution cycle.
-  VerifyPlayoutStats(playout_stats, script_state, total_processed_frames,
-                     total_glitches,
-                     interval_delay_sum / interval_processed_frames, min_delay,
-                     max_delay, __LINE__);
-
-  // Reset stats.
-  playout_stats->resetLatency(script_state);
-
-  min_delay = base::TimeDelta::Max();
-  max_delay = base::TimeDelta();
-  interval_processed_frames = 0;
-  interval_delay_sum = base::TimeDelta();
-
-  // Getting reset stats.
-  VerifyPlayoutStats(playout_stats, script_state, total_processed_frames,
-                     total_glitches, last_delay, last_delay, last_delay,
-                     __LINE__);
-
-  // New execution cycle.
-  ToEventLoop(script_state).PerformMicrotaskCheckpoint();
-
-  // Stats are still the same, since there have been no rendering yet.
-  VerifyPlayoutStats(playout_stats, script_state, total_processed_frames,
-                     total_glitches, last_delay, last_delay, last_delay,
-                     __LINE__);
-
-  for (; i < 4; ++i) {
-    fake_time_now_ += base::Seconds(1);
-    // Do some rendering after reset.
-    renderer->Render(frames_to_process[i], playout_delay[i], glitch_info[i]);
-
-    total_glitches += glitch_info[i];
-    last_delay = playout_delay[i];
-    total_processed_frames += frames_to_process[i];
-    interval_processed_frames += frames_to_process[i];
-    interval_delay_sum += playout_delay[i] * frames_to_process[i];
-    max_delay = std::max<base::TimeDelta>(max_delay, playout_delay[i]);
-    min_delay = std::min<base::TimeDelta>(min_delay, playout_delay[i]);
-
-    // New execution cycle.
-    ToEventLoop(script_state).PerformMicrotaskCheckpoint();
-
-    // Stats reflect the state after the last reset.
-    VerifyPlayoutStats(playout_stats, script_state, total_processed_frames,
-                       total_glitches,
-                       interval_delay_sum / interval_processed_frames,
-                       min_delay, max_delay, __LINE__);
-  }
-
-  // Cache the current state: we'll be doing rendering several times without
-  // advancing to the next execution cycle.
-  const media::AudioGlitchInfo observed_total_glitches = total_glitches;
-  const int observed_total_processed_frames = total_processed_frames;
-  const base::TimeDelta observed_average_delay =
-      interval_delay_sum / interval_processed_frames;
-  const base::TimeDelta observed_max_delay = max_delay;
-  const base::TimeDelta observed_min_delay = min_delay;
-
-  VerifyPlayoutStats(playout_stats, script_state,
-                     observed_total_processed_frames, observed_total_glitches,
-                     observed_average_delay, observed_min_delay,
-                     observed_max_delay, __LINE__);
-
-  // Starting the execution cycle.
-  ToEventLoop(script_state).PerformMicrotaskCheckpoint();
-
-  // Still same stats: there has been no new rendering.
-  VerifyPlayoutStats(playout_stats, script_state,
-                     observed_total_processed_frames, observed_total_glitches,
-                     observed_average_delay, observed_min_delay,
-                     observed_max_delay, __LINE__);
-
-  for (; i < 8; ++i) {
-    fake_time_now_ += base::Seconds(1);
-    // Render.
-    renderer->Render(frames_to_process[i], playout_delay[i], glitch_info[i]);
-
-    // Still same stats: we are in the same execution cycle.
-    VerifyPlayoutStats(playout_stats, script_state,
-                       observed_total_processed_frames, observed_total_glitches,
-                       observed_average_delay, observed_min_delay,
-                       observed_max_delay, __LINE__);
-
-    total_glitches += glitch_info[i];
-    last_delay = playout_delay[i];
-    total_processed_frames += frames_to_process[i];
-    interval_processed_frames += frames_to_process[i];
-    interval_delay_sum += playout_delay[i] * frames_to_process[i];
-    max_delay = std::max<base::TimeDelta>(max_delay, playout_delay[i]);
-    min_delay = std::min<base::TimeDelta>(min_delay, playout_delay[i]);
-  }
-
-  // New execution cycle.
-  ToEventLoop(script_state).PerformMicrotaskCheckpoint();
-
-  // Stats are updated with all the new info.
-  VerifyPlayoutStats(playout_stats, script_state, total_processed_frames,
-                     total_glitches,
-                     interval_delay_sum / interval_processed_frames, min_delay,
-                     max_delay, __LINE__);
-
-  // Reset stats.
-  playout_stats->resetLatency(script_state);
-
-  // Cache the current state: we'll be doing rendering several times without
-  // advancing to the next execution cycle.
-  const media::AudioGlitchInfo reset_total_glitches = total_glitches;
-  const int reset_total_processed_frames = total_processed_frames;
-  const base::TimeDelta reset_average_delay = last_delay;
-  const base::TimeDelta reset_max_delay = last_delay;
-  const base::TimeDelta reset_min_delay = last_delay;
-
-  // Still same stats: we are in the same execution cycle.
-  VerifyPlayoutStats(playout_stats, script_state, reset_total_processed_frames,
-                     reset_total_glitches, reset_average_delay, reset_min_delay,
-                     reset_max_delay, __LINE__);
-
-  min_delay = base::TimeDelta::Max();
-  max_delay = base::TimeDelta();
-  interval_processed_frames = 0;
-  interval_delay_sum = base::TimeDelta();
-
-  // Render while in the same execution cycle.
-  for (; i < kNumberOfRenderEvents; ++i) {
-    fake_time_now_ += base::Seconds(1);
-    renderer->Render(frames_to_process[i], playout_delay[i], glitch_info[i]);
-
-    // Still same stats we got after reset: we are in the same execution cycle.
-    VerifyPlayoutStats(playout_stats, script_state,
-                       reset_total_processed_frames, reset_total_glitches,
-                       reset_average_delay, reset_min_delay, reset_max_delay,
-                       __LINE__);
-
-    total_glitches += glitch_info[i];
-    last_delay = playout_delay[i];
-    total_processed_frames += frames_to_process[i];
-    interval_processed_frames += frames_to_process[i];
-    interval_delay_sum += playout_delay[i] * frames_to_process[i];
-    max_delay = std::max<base::TimeDelta>(max_delay, playout_delay[i]);
-    min_delay = std::min<base::TimeDelta>(min_delay, playout_delay[i]);
-  }
-
-  // New execution cycle.
-  ToEventLoop(script_state).PerformMicrotaskCheckpoint();
-
-  // In the new execution cycle stats have all the info received after the last
-  // reset.
-  VerifyPlayoutStats(playout_stats, script_state, total_processed_frames,
-                     total_glitches,
-                     interval_delay_sum / interval_processed_frames, min_delay,
-                     max_delay, __LINE__);
-}
 
 TEST_F(AudioContextStatsTest, PlaybackStatsValues) {
   blink::WebRuntimeFeatures::EnableFeatureFromString(
@@ -1215,130 +1259,6 @@ TEST_F(AudioContextStatsTest, PlaybackStatsValues) {
                       total_glitches,
                       interval_delay_sum / interval_processed_frames, min_delay,
                       max_delay, __LINE__);
-}
-
-TEST_F(AudioContextStatsTest, PlayoutStatsUpdateRateRestriction) {
-  blink::WebRuntimeFeatures::EnableFeatureFromString("AudioContextPlayoutStats",
-                                                     true);
-  AudioContextOptions* options = AudioContextOptions::Create();
-  AudioContext* audio_context = AudioContext::Create(
-      GetFrame().DomWindow(), options, ASSERT_NO_EXCEPTION);
-  audio_context->set_clock_for_testing(this);
-  FlushPermissionService(audio_context);
-
-  ScriptState* script_state = ToScriptStateForMainWorld(&GetFrame());
-  ContextRenderer* renderer =
-      MakeGarbageCollected<ContextRenderer>(audio_context);
-  renderer->Init();
-
-  // 0.5s interval is too short for the stats to update.
-  RenderAndCheckIfPlayoutStatsChanged(
-      base::Seconds(0.5), renderer, script_state, /*expect_change=*/false);
-
-  // 1s interval is long enough for the stats to update.
-  RenderAndCheckIfPlayoutStatsChanged(
-      base::Seconds(1), renderer, script_state, /*expect_change=*/true);
-
-  // 0.5s interval is too short for the stats to update.
-  RenderAndCheckIfPlayoutStatsChanged(
-      base::Seconds(0.5), renderer, script_state, /*expect_change=*/false);
-}
-
-TEST_F(AudioContextStatsTest, PlayoutStatsVisibilityRestriction) {
-  blink::WebRuntimeFeatures::EnableFeatureFromString("AudioContextPlayoutStats",
-                                                     true);
-  AudioContextOptions* options = AudioContextOptions::Create();
-  AudioContext* audio_context = AudioContext::Create(
-      GetFrame().DomWindow(), options, ASSERT_NO_EXCEPTION);
-  audio_context->set_clock_for_testing(this);
-  FlushPermissionService(audio_context);
-
-  ScriptState* script_state = ToScriptStateForMainWorld(&GetFrame());
-  ContextRenderer* renderer =
-      MakeGarbageCollected<ContextRenderer>(audio_context);
-  renderer->Init();
-
-  // The page is visible by default.
-  RenderAndCheckIfPlayoutStatsChanged(base::Seconds(1), renderer, script_state,
-                                      /*expect_change=*/true);
-
-  // Hide the page.
-  GetPage().SetVisibilityState(mojom::blink::PageVisibilityState::kHidden,
-                               /*is_initial_state=*/false);
-
-  // Now that the page is hidden, the stats will not be updated.
-  RenderAndCheckIfPlayoutStatsChanged(base::Seconds(1), renderer, script_state,
-                                      /*expect_change=*/false);
-
-  // Make the page visible again.
-  GetPage().SetVisibilityState(mojom::blink::PageVisibilityState::kVisible,
-                               /*is_initial_state=*/false);
-
-  // Now that the page is visible again, the stats will be updated.
-  RenderAndCheckIfPlayoutStatsChanged(base::Seconds(1), renderer, script_state,
-                                      /*expect_change=*/true);
-}
-
-TEST_F(AudioContextStatsTest, PlayoutStatsMicrophoneRestrictionStartsDenied) {
-  blink::WebRuntimeFeatures::EnableFeatureFromString("AudioContextPlayoutStats",
-                                                     true);
-  AudioContextOptions* options = AudioContextOptions::Create();
-  AudioContext* audio_context = AudioContext::Create(
-      GetFrame().DomWindow(), options, ASSERT_NO_EXCEPTION);
-  audio_context->set_clock_for_testing(this);
-  FlushPermissionService(audio_context);
-
-  ScriptState* script_state = ToScriptStateForMainWorld(&GetFrame());
-  ContextRenderer* renderer =
-      MakeGarbageCollected<ContextRenderer>(audio_context);
-  renderer->Init();
-
-  // Since we want to test that the microphone permission allows stat updates,
-  // the page needs to be hidden.
-  GetPage().SetVisibilityState(mojom::blink::PageVisibilityState::kHidden,
-                               /*is_initial_state=*/false);
-
-  // There is no microphone permission, so stats will not be updated.
-  RenderAndCheckIfPlayoutStatsChanged(base::Seconds(1), renderer, script_state,
-                                      /*expect_change=*/false);
-
-  mock_permission_service_->permission_ =
-      mojom::blink::PermissionStatus::GRANTED;
-  mock_permission_service_->NotifyObserver();
-  FlushPermissionService(audio_context);
-
-  // Now that we have microphone permission, the stats will be updated.
-  RenderAndCheckIfPlayoutStatsChanged(base::Seconds(1), renderer, script_state,
-                                      /*expect_change=*/true);
-}
-
-TEST_F(AudioContextStatsTest, PlayoutStatsMicrophoneRestrictionStartsGranted) {
-  blink::WebRuntimeFeatures::EnableFeatureFromString("AudioContextPlayoutStats",
-                                                     true);
-  AudioContextOptions* options = AudioContextOptions::Create();
-
-  // Grant microphone permission before creating the AudioContext.
-  mock_permission_service_->permission_ =
-      mojom::blink::PermissionStatus::GRANTED;
-
-  AudioContext* audio_context = AudioContext::Create(
-      GetFrame().DomWindow(), options, ASSERT_NO_EXCEPTION);
-  audio_context->set_clock_for_testing(this);
-  FlushPermissionService(audio_context);
-
-  ScriptState* script_state = ToScriptStateForMainWorld(&GetFrame());
-  ContextRenderer* renderer =
-      MakeGarbageCollected<ContextRenderer>(audio_context);
-  renderer->Init();
-
-  // Since we want to test that the microphone permission allows stat updates,
-  // the page needs to be hidden.
-  GetPage().SetVisibilityState(mojom::blink::PageVisibilityState::kHidden,
-                               /*is_initial_state=*/false);
-
-  // Since we have microphone permission, the stats will be updated.
-  RenderAndCheckIfPlayoutStatsChanged(base::Seconds(1), renderer, script_state,
-                                      /*expect_change=*/true);
 }
 
 TEST_F(AudioContextStatsTest, PlaybackStatsUpdateRateRestriction) {
@@ -2741,6 +2661,103 @@ TEST_F(AudioContextTest, AsyncStateUseCountersResumeAfterSuspend) {
           EXPECT_FALSE(GetDocument().IsUseCounted(
               WebFeature::kAudioContextAsyncTransitionToSuspendedStateRead));
           ClearAudioContextAsyncStateUseCounters();
+        }
+      }
+    }
+  }
+}
+
+// Verifies the suspend() and resume() promises settle correctly when both are
+// pending.
+TEST_F(AudioContextTest, TestPromiseWhenSuspendAndResume) {
+  enum SuspendTiming {
+    kSuspendBeforeInitialTransition,
+    kSuspendAfterInitialTransition
+  };
+  enum ResumeTiming {
+    kResumeBeforeSuspendTransition,
+    kResumeAfterSuspendTransition,
+  };
+  for (bool feature_enabled : {true, false}) {
+    for (SuspendTiming suspend_timing :
+         {kSuspendBeforeInitialTransition, kSuspendAfterInitialTransition}) {
+      for (ResumeTiming resume_timing :
+           {kResumeBeforeSuspendTransition, kResumeAfterSuspendTransition}) {
+        for (bool close_before_resumed : {true, false}) {
+          SCOPED_TRACE(testing::Message()
+                       << "feature_enabled: " << feature_enabled
+                       << ", suspend_timing: " << suspend_timing
+                       << ", resume_timing: " << resume_timing
+                       << ", close_before_resumed: " << close_before_resumed);
+          ScopedAudioContextAsyncStateTransitionsForTest scoped_feature(
+              feature_enabled);
+
+          ScriptState* script_state = ToScriptStateForMainWorld(&GetFrame());
+          ScriptState::Scope scope(script_state);
+          AudioContextOptions* options = AudioContextOptions::Create();
+
+          AudioContext* audio_context = AudioContext::Create(
+              GetFrame().DomWindow(), options, ASSERT_NO_EXCEPTION);
+
+          if (suspend_timing == kSuspendAfterInitialTransition) {
+            // Wait until "running".
+            ExpectContextBecomesRunningAsync(audio_context);
+          }
+
+          auto suspend_promise =
+              audio_context->suspendContext(script_state, ASSERT_NO_EXCEPTION);
+          ScriptPromiseTester suspend_tester(script_state, suspend_promise);
+
+          if (resume_timing == kResumeAfterSuspendTransition) {
+            // Wait until "suspended".
+            ExpectContextBecomesSuspendedAsync(audio_context);
+          }
+
+          auto resume_promise =
+              audio_context->resumeContext(script_state, ASSERT_NO_EXCEPTION);
+          ScriptPromiseTester resume_tester(script_state, resume_promise);
+          // Resuming the context should make everything start playing again.
+          ContextRenderer* renderer =
+              MakeGarbageCollected<ContextRenderer>(audio_context);
+          renderer->Init();
+          renderer->Render(128, base::Milliseconds(0), {});
+
+          if (close_before_resumed) {
+            auto close_promise =
+                audio_context->closeContext(script_state, ASSERT_NO_EXCEPTION);
+            ScriptPromiseTester close_tester(script_state, close_promise);
+
+            close_tester.WaitUntilSettled();
+            EXPECT_TRUE(close_tester.IsFulfilled());
+
+            suspend_tester.WaitUntilSettled();
+            if (resume_timing == kResumeAfterSuspendTransition) {
+              EXPECT_TRUE(suspend_tester.IsFulfilled());
+            } else {
+              // With the feature disabled, suspend() is synchronous, so its
+              // promise is already fulfilled before close() is called.
+              EXPECT_TRUE(feature_enabled ? suspend_tester.IsRejected()
+                                          : suspend_tester.IsFulfilled());
+            }
+
+            resume_tester.WaitUntilSettled();
+            if (feature_enabled &&
+                suspend_timing == kSuspendAfterInitialTransition &&
+                resume_timing == kResumeBeforeSuspendTransition) {
+              EXPECT_TRUE(resume_tester.IsFulfilled());
+            } else {
+              EXPECT_TRUE(resume_tester.IsRejected());
+            }
+          } else {
+            // Wait until "running".
+            ExpectContextBecomesRunningAsync(audio_context);
+
+            suspend_tester.WaitUntilSettled();
+            EXPECT_TRUE(suspend_tester.IsFulfilled());
+
+            resume_tester.WaitUntilSettled();
+            EXPECT_TRUE(resume_tester.IsFulfilled());
+          }
         }
       }
     }

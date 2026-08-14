@@ -289,6 +289,11 @@ template("rust_target") {
     _cxx_bindings = invoker.cxx_bindings
   }
   _rustenv = [ "OUT_DIR=" + rebase_path(_env_out_dir, root_build_dir) ]
+  if (rust_clippy_conf_file != "") {
+    _clippy_conf_dir = get_path_info(rust_clippy_conf_file, "dir")
+    _rustenv +=
+        [ "CLIPPY_CONF_DIR=" + rebase_path(_clippy_conf_dir, root_build_dir) ]
+  }
   if (defined(invoker.rustenv)) {
     _rustenv += invoker.rustenv
   }
@@ -724,6 +729,9 @@ template("rust_target") {
           } else {
             inputs += [ "//third_party/rust-toolchain/bin/clippy-driver" ]
           }
+          if (rust_clippy_conf_file != "") {
+            inputs += [ rust_clippy_conf_file ]
+          }
 
           args = [
             "--clippy-driver",
@@ -746,6 +754,19 @@ template("rust_target") {
           rustc_env_and_flags = _rustc_env_and_flags
           original_attributes = _cpp_api_from_rust_attributes
           crate_name = _crate_name
+
+          if (defined(_cpp_api_from_rust_attributes.h_out)) {
+            h_out = _cpp_api_from_rust_attributes.h_out
+          } else if (defined(invoker.crate_name)) {
+            # For targets with an explicit `crate_name` (such as
+            # `third_party/rust/...`) use the crate name as the basename of the
+            # generated header file.  This ensures that Chromium uses the same
+            # `#include` paths to these libraries as other major Crubit clients
+            # (e.g. google3).
+            h_out = "${target_gen_dir}/${_crate_name}.h"
+          } else {
+            h_out = "${target_gen_dir}/${_main_target_name}.h"
+          }
         }
       }
     }

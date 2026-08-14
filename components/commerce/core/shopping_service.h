@@ -191,7 +191,7 @@ using UrlProductIdentifierTupleCallback =
 // To get the MockShoppingService:
 // auto* mock_shopping_service = static_cast<commerce::MockShoppingService*>(
 //     commerce::ShoppingServiceFactory::GetForBrowserContext(
-//         browser()->profile()));
+//         browser()->GetProfile()));
 // clang-format on
 
 class ShoppingService : public KeyedService,
@@ -638,7 +638,7 @@ class ShoppingService : public KeyedService,
   // The object for local extractions of commerce information.
   std::unique_ptr<commerce::WebExtractor> web_extractor_;
 
-  std::unordered_set<WebWrapper*> open_web_wrappers_;
+  std::unordered_set<raw_ptr<WebWrapper>> open_web_wrappers_;
 
   // A list of UrlInfo ordered by most recently viewed. This is based on
   // selected tab (not necessarily navigation).

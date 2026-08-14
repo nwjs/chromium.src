@@ -31,6 +31,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.WindowInsetsCompat;
 
+import org.chromium.base.ApplicationStatus;
 import org.chromium.base.Callback;
 import org.chromium.base.CallbackController;
 import org.chromium.base.DeviceInfo;
@@ -207,6 +208,7 @@ import org.chromium.chrome.browser.ui.lens.LensOverlayCoordinator;
 import org.chromium.chrome.browser.ui.lens.LensOverlayInvocationSource;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
+import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
 import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncCoordinator;
 import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncCoordinatorSupplier;
 import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncCoordinatorSupplier.SupplierFlow;
@@ -423,7 +425,7 @@ public class RootUiCoordinator
     protected final @ActivityType int mActivityType;
     protected final Supplier<Boolean> mIsInOverviewModeSupplier;
     private final AppMenuDelegate mAppMenuDelegate;
-    private final Supplier<TabContentManager> mTabContentManagerSupplier;
+    protected final Supplier<TabContentManager> mTabContentManagerSupplier;
     private final IntentRequestTracker mIntentRequestTracker;
     private final boolean mInitializeUiWithIncognitoColors;
     protected final SettableMonotonicObservableSupplier<EphemeralTabCoordinator>
@@ -764,6 +766,12 @@ public class RootUiCoordinator
                             @Override
                             public boolean isCurrentTabNull() {
                                 return mActivityTabProvider.get() == null;
+                            }
+
+                            @Override
+                            public boolean isActivityFocused() {
+                                return ApplicationStatus.getLastTrackedFocusedActivity()
+                                        == mActivity;
                             }
                         });
 
@@ -1334,7 +1342,8 @@ public class RootUiCoordinator
                             /* itemDelegate= */ null,
                             mShareDelegateSupplier,
                             ChromeContextMenuPopulator.ContextMenuMode.THIN_WEB_VIEW,
-                            /* customContentActions= */ Collections.emptyList());
+                            /* customContentActions= */ Collections.emptyList(),
+                            getLeftSideUiWidthSupplier());
             mEphemeralTabCoordinatorSupplier.set(
                     new EphemeralTabCoordinator(
                             mActivity,
@@ -1357,7 +1366,8 @@ public class RootUiCoordinator
                         mWindowAndroid,
                         mActivityLifecycleDispatcher,
                         mLayoutStateProviderOneShotSupplier,
-                        mFullscreenManager);
+                        mFullscreenManager,
+                        getSideUiStateProviderSupplier());
         mReadAloudControllerSupplier.set(controller);
         mReadAloudContextualSearchObserver =
                 new ContextualSearchObserver() {
@@ -1430,6 +1440,10 @@ public class RootUiCoordinator
     }
 
     protected boolean isContextualSearchEnabled() {
+        // Caution: this cannot return anything else. A lot of code implicitly assumes the
+        // mContextualSearchManager is always available.
+        // Only special cases can currently override this value - ones where no logic ever
+        // calls `assumeNonNull` on `mContextualSearchManagerSupplier`.
         return true;
     }
 
@@ -1833,6 +1847,7 @@ public class RootUiCoordinator
             return true;
         } else if (id == R.id.paint_preview_show_id) {
             DemoPaintPreview.showForTab(mActivityTabProvider.get());
+            RecordUserAction.record("MobileMenuPaintPreview");
             return true;
         } else if (id == R.id.get_image_descriptions_id) {
             Tab tab = mActivityTabProvider.get();
@@ -2434,7 +2449,10 @@ public class RootUiCoordinator
                                     : edgeToEdgeController.getBottomInset();
                         },
                         getDesktopWindowStateManager(),
-                        mWindowAndroid.getInsetObserver());
+                        mWindowAndroid.getInsetObserver(),
+                        /* enableLargeFormFactorUi= */ ChromeFeatureList
+                                .sBottomSheetOnDesktopWindowing
+                                .isEnabled());
         mBottomSheetControllerSupplier.set(bottomSheetController);
         BottomSheetControllerFactory.setExceptionReporter(
                 ChromePureJavaExceptionReporter::reportJavaException);
@@ -2879,5 +2897,29 @@ public class RootUiCoordinator
 
     public @Nullable HandoffController getHandoffController() {
         return mHandoffController;
+    }
+
+    /**
+     * Returns the {@link OneshotSupplier} for the {@link SideUiStateProvider}. Can return null if
+     * the current activity does not support Side Panel.
+     */
+    protected @Nullable OneshotSupplier<SideUiStateProvider> getSideUiStateProviderSupplier() {
+        return null;
+    }
+
+    /**
+     * Returns the supplier for the left side UI width in px.
+     *
+     * <p>If the current Activity does not have left side UI, the supplier will always supply 0
+     *
+     * <p>NOTE: Always prefer {@link SideUiStateProvider} rather than this supplier. This supplier
+     * is created because some components can't depend on {@link SideUiStateProvider}, such as
+     * {@link ContextMenuPopulatorFactory}.
+     *
+     * <p>TOOD(crbug.com/543470110): Fix the dependency issue and remove this supplier.
+     */
+    @Deprecated
+    public Supplier<Integer> getLeftSideUiWidthSupplier() {
+        return () -> 0;
     }
 }

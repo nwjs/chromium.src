@@ -36,9 +36,10 @@ void AppendLayerPropertiesMatchedStyle(
                     base::NumberToString(layer->layer_grayscale()));
   ret->emplace_back("layer-fills-bounds-opaquely",
                     base::ToString(layer->fills_bounds_opaquely()));
-  if (layer->type() == ui::LAYER_SOLID_COLOR) {
-    ret->emplace_back("layer-color",
-                      base::StringPrintf("%X", layer->GetTargetColor()));
+  if (auto* solid_color = layer->AsSolidColor(); solid_color) {
+    ret->emplace_back(
+        "layer-color",
+        base::StringPrintf("%X", solid_color->GetTargetColor().toSkColor()));
   }
 
   const auto offset = layer->GetSubpixelOffset();

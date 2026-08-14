@@ -14,9 +14,12 @@ source_set("common") {
     "tab_collection_animating_layout_manager.h",
     "tab_collection_node.h",
     "tab_drag_scroll_handler.h",
+    "tab_group_view_layout.h",
     "tab_strip_utils.h",
     "tab_strip_view.h",
+    "tab_strip_view_layout.h",
     "unpinned_tab_container_view.h",
+    "unpinned_tab_container_view_layout.h",
   ]
 
   deps = [
@@ -52,15 +55,18 @@ source_set("impl") {
     "tab_group_header_view.h",
     "tab_group_view.cc",
     "tab_group_view.h",
+    "tab_group_view_layout.cc",
     "tab_link_drop_handler.cc",
     "tab_link_drop_handler.h",
     "tab_strip_collection_controller.cc",
     "tab_strip_collection_controller.h",
     "tab_strip_utils.cc",
     "tab_strip_view.cc",
+    "tab_strip_view_layout.cc",
     "tab_view.cc",
     "tab_view.h",
     "unpinned_tab_container_view.cc",
+    "unpinned_tab_container_view_layout.cc",
   ]
 
   deps = [
@@ -82,7 +88,7 @@ source_set("impl") {
     "//chrome/browser/ui/tabs:tab_menu",
     "//chrome/browser/ui/tabs:tab_strip",
     "//chrome/browser/ui/tabs:utils",
-    "//chrome/browser/ui/tabs/projects:impl",
+    "//chrome/browser/ui/tabs/organizer:impl",
     "//chrome/browser/ui/tabs/saved_tab_groups",
     "//chrome/browser/ui/user_education",
     "//chrome/browser/ui/views:layout_provider",

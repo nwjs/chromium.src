@@ -148,11 +148,10 @@ TouchToFillPaymentMethodDelegateAndroidImpl::DryRun(FormGlobalId form_id,
   if (!IsTouchToFillPaymentMethodSupported()) {
     return {TriggerOutcome::kUnsupportedFieldType, {}};
   }
-  const FormStructure* form = manager_->FindCachedFormById(form_id);
+  auto [form, field] = manager_->FindFormAndField(form_id, field_id);
   if (!form) {
     return {TriggerOutcome::kUnknownForm, {}};
   }
-  const AutofillField* field = form->GetFieldById(field_id);
   if (!field) {
     return {TriggerOutcome::kUnknownField, {}};
   }
@@ -235,13 +234,13 @@ TouchToFillPaymentMethodDelegateAndroidImpl::DryRunForAffiliatedLoyaltyCard() {
 
   // Only show the TTF surface if any loyalty card have a matching merchant
   // domain.
-  const GURL& current_domain =
-      manager_->client().GetLastCommittedPrimaryMainFrameURL();
-  if (std::ranges::any_of(
-          loyalty_cards, [&current_domain](const LoyaltyCard& loyalty_card) {
-            return loyalty_card.GetAffiliationCategory(current_domain) ==
-                   LoyaltyCard::AffiliationCategory::kAffiliated;
-          })) {
+  if (std::ranges::any_of(loyalty_cards, [&](const LoyaltyCard& loyalty_card) {
+        return loyalty_card.GetAffiliationCategory(
+                   manager_->client().GetLastCommittedPrimaryMainFrameURL()) ==
+                   LoyaltyCard::AffiliationCategory::kAffiliated &&
+               manager_->client().GetLastCommittedPrimaryMainFrameOrigin() ==
+                   query_field_.origin();
+      })) {
     return DryRunResult(TriggerOutcome::kShown, loyalty_cards);
   }
   return DryRunResult(TriggerOutcome::kNoValidPaymentMethods, {});
@@ -313,15 +312,18 @@ bool TouchToFillPaymentMethodDelegateAndroidImpl::TryToShowTouchToFill(
       /*product=*/std::nullopt);
   if (std::get_if<std::vector<CreditCard>>(&dry_run.items_to_suggest)) {
     manager_->DidShowSuggestions({Suggestion(SuggestionType::kCreditCardEntry)},
+                                 /*parent_suggestion_metadata=*/std::nullopt,
                                  form.global_id(), field.global_id(),
                                  /*update_suggestions_callback=*/{});
   } else if (std::get_if<std::vector<LoyaltyCard>>(&dry_run.items_to_suggest)) {
     manager_->DidShowSuggestions(
-        {Suggestion(SuggestionType::kLoyaltyCardEntry)}, form.global_id(),
+        {Suggestion(SuggestionType::kLoyaltyCardEntry)},
+        /*parent_suggestion_metadata=*/std::nullopt, form.global_id(),
         field.global_id(),
         /*update_suggestions_callback=*/{});
   } else {
     manager_->DidShowSuggestions({Suggestion(SuggestionType::kIbanEntry)},
+                                 /*parent_suggestion_metadata=*/std::nullopt,
                                  form.global_id(), field.global_id(),
                                  /*update_suggestions_callback=*/{});
   }
@@ -351,6 +353,7 @@ bool TouchToFillPaymentMethodDelegateAndroidImpl::
       SuggestionHidingReason::kOverlappingWithTouchToFillSurface,
       /*product=*/std::nullopt);
   manager_->DidShowSuggestions({Suggestion(SuggestionType::kLoyaltyCardEntry)},
+                               /*parent_suggestion_metadata=*/std::nullopt,
                                form.global_id(), field.global_id(),
                                /*update_suggestions_callback=*/{});
   return true;
@@ -466,13 +469,14 @@ void TouchToFillPaymentMethodDelegateAndroidImpl::IbanSuggestionSelected(
           base::BindOnce(
               [](base::WeakPtr<TouchToFillPaymentMethodDelegateAndroidImpl>
                      delegate,
-                 const std::u16string& value) {
-                if (delegate) {
+                 base::expected<std::u16string,
+                                IbanAccessManager::FailureReason> result) {
+                if (delegate && result.has_value()) {
                   delegate->manager_->FillOrPreviewField(
                       mojom::ActionPersistence::kFill,
                       mojom::FieldActionType::kReplaceAll,
                       delegate->query_form_.global_id(),
-                      delegate->query_field_.global_id(), value,
+                      delegate->query_field_.global_id(), *result,
                       FillingProduct::kIban, IBAN_VALUE);
                 }
               },
@@ -547,8 +551,7 @@ void TouchToFillPaymentMethodDelegateAndroidImpl::LogTriggerOutcomeMetrics(
   if (outcome == TriggerOutcome::kUnsupportedFieldType) {
     return;
   }
-  const FormStructure* form = manager_->FindCachedFormById(form_id);
-  const AutofillField* field = form ? form->GetFieldById(field_id) : nullptr;
+  auto [form, field] = manager_->FindFormAndField(form_id, field_id);
   const FieldTypeGroupSet groups =
       field ? field->Type().GetGroups() : FieldTypeGroupSet{};
   if (groups.contains(FieldTypeGroup::kIban)) {

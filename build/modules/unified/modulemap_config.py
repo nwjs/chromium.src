@@ -14,6 +14,7 @@
 # platforms.
 
 import dataclasses
+from typing import Optional
 
 
 @dataclasses.dataclass
@@ -26,7 +27,7 @@ class Header:
   # A good signal for this is if the header is missing include guards.
   # Note: Textual headers are a formal term used by clang.
   # See https://clang.llvm.org/docs/Modules.html
-  textual: bool | None = None
+  textual: Optional[bool] = None
   # Lazy headers are not added to the modulemap unless they are included by
   # another system header.
   lazy: bool = False
@@ -37,7 +38,7 @@ class Header:
   exists: bool = True
   # The name of the module for this header. Only useful for listing as an
   # export.
-  module_name: str | None = None
+  module_name: Optional[str] = None
   # A list of module names that things that #include this header should gain
   # access to. If you specify *, then it gains access to anything in its direct
   # dependencies.
@@ -46,6 +47,11 @@ class Header:
   # If true, will force the header to create itself even if it wasn't in the
   # depfile.
   force: bool = False
+
+  # If true, the header will be marked private.
+  # Note: If a header is both textual and private, it will not be added to the
+  # modulemap.
+  private: bool = False
 
 
 # An allowed header is one that is here purely to add it to the allowlist of
@@ -64,6 +70,7 @@ def headers(os):
   is_apple = os == 'mac' or os == 'ios'
   is_fuchsia = os == 'fuchsia'
   is_win = os == 'win'
+  is_chromeos = os == 'chromeos'
 
   # Keep this list of headers alphabetically sorted, but comments should remain
   # attached to the entry under them, and blank lines should be preserved.
@@ -72,6 +79,7 @@ def headers(os):
       Header('alloca.h'),
       # Include loop with sys/cdefs.h
       Header('android/api-level.h', exists=is_android, textual=True),
+      Header('android/legacy_stdlib_inlines.h', textual=True),
       Header('android/ndk-version.h', exists=is_android),
       Header('android/versioning.h', exists=is_android),
       AllowedHeader('arpa/inet.h'),
@@ -80,6 +88,10 @@ def headers(os):
       Header('asm/ioctl.h', lazy=True, textual=True),
       AllowedHeader('asm/ptrace.h'),
       Header('asm/sigcontext.h', lazy=True),
+      Header('asm/unistd.h'),
+      Header('asm/unistd_64.h'),
+      Header('asm-generic/errno-base.h'),
+      Header('asm-generic/errno.h'),
       Header('asm-generic/fcntl.h',
              module_name='asm_generic_fcntl',
              exists=is_android),
@@ -90,7 +102,7 @@ def headers(os):
       # We need posix_types_32.h to define __kernel_mode_t in the same TU.
       # This way it appears as an override rather than a second definition.
       Header('asm-generic/posix_types.h', textual=True, lazy=True),
-      Header('asm-generic/posix_types.h', textual=True, lazy=True),
+      Header('asm-generic/unistd.h'),
       # Inherently textual
       Header('assert.h', textual=True),
       # avx512 headers are missing from clang modulemap.
@@ -114,9 +126,10 @@ def headers(os):
       AllowedHeader('dlfcn.h'),
       AllowedHeader('elf.h'),
       Header('endian.h'),
+      # POSIX standard says that fcntl.h must re-export most dependencies.
       Header('fcntl.h',
              exports=[
-                 'asm_fcntl', 'asm_generic_fcntl', 'bits_fcntl',
+                 '*', 'asm_fcntl', 'asm_generic_fcntl', 'bits_fcntl',
                  'linux_fadvise', 'linux_fcntl'
              ]),
       Header('features.h'),
@@ -139,9 +152,14 @@ def headers(os):
       AllowedHeader('linux/posix_types.h'),
       AllowedHeader('linux/random.h'),
       AllowedHeader('linux/sched.h'),
+      # On ChromeOS, linux/sched/types.h defines struct sched_param and
+      # conflicts with the definition in bits/types/struct_sched_param.h. We
+      # mark it private and textual to prevent the conflict.
+      Header('linux/sched/types.h', textual=True, private=True),
       Header('linux/fcntl.h', module_name='linux_fcntl'),
       Header('linux/stat.h', module_name='linux_stat'),
       Header('linux/types.h'),
+      Header('linux/unistd.h'),
       Header('locale.h'),
       Header('malloc.h'),
       AllowedHeader('netdb.h'),
@@ -188,7 +206,10 @@ def headers(os):
       AllowedHeader('syscall.h'),
       Header('time.h'),
       AllowedHeader('ucontext.h'),
-      Header('unistd.h', exports=['bits_getopt']),
+      # Unistd re-exports basically everything it #includes
+      Header('unistd.h', exports=['*', 'bits_getopt']),
+      # Sysroot unwind.h should only ever be included by clang's unwind.h
+      Header('unwind.h', textual=True, private=True),
       # We need to re-export std::exception in std.exception.exception and type
       # info.
       Header('vcruntime_exception.h',

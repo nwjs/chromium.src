@@ -10,6 +10,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/notimplemented.h"
 #include "base/task/single_thread_task_runner.h"
+#include "chrome/browser/dictation/features.h"
 #include "chrome/browser/dictation/session_ui_delegate.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
@@ -21,23 +22,28 @@
 #include "chrome/browser/ui/toasts/api/toast_id.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/browser/ui/views/dictation/dictation_bubble_ui.h"
+#include "chrome/browser/ui/views/dictation/dictation_overlay_view.h"
+#include "chrome/browser/ui/views/dictation/ui_state.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/web_contents.h"
 
 namespace dictation {
 
 namespace {
 
-DictationBubbleUi::State ToBubbleUiState(SessionState state) {
+UiState ToUiState(SessionState state) {
   switch (state) {
     case SessionState::kInactive:
-      return DictationBubbleUi::State::kInactive;
+      return UiState::kInactive;
     case SessionState::kStreamInitializing:
-      return DictationBubbleUi::State::kInitializing;
+      return UiState::kInitializing;
     case SessionState::kTranscribing:
-      return DictationBubbleUi::State::kTranscribing;
+      return UiState::kTranscribing;
     case SessionState::kFinalizing:
-      return DictationBubbleUi::State::kFinalizing;
+      return UiState::kFinalizing;
   }
 }
 
@@ -107,7 +113,9 @@ void SessionUiImpl::OnError(StreamType stream_type) {
   }
 
   if (stream_type == StreamType::kAttached) {
-    controller_->UiRequestEndSession();
+    // If the attached stream failed, we still want to let any finalizing
+    // streams finish before ending the session.
+    controller_->FinalizeAndShutdown();
   }
 }
 
@@ -122,8 +130,44 @@ void SessionUiImpl::OnStopped() {
   }
 }
 
+void SessionUiImpl::UpdateAudioLevel(float audio_level) {
+  bubble_ui_->UpdateAudioLevel(audio_level);
+  if (overlay_view_) {
+    overlay_view_->UpdateAudioLevel(audio_level);
+  }
+}
+
+void SessionUiImpl::OnStartedStream(content::GlobalDOMNodeId target_id) {
+  if (!kShowCaretBubble.Get()) {
+    return;
+  }
+
+  content::RenderFrameHost* target_rfh =
+      target_id.document.AsRenderFrameHostIfValid();
+  content::WebContents* web_contents =
+      content::WebContents::FromRenderFrameHost(target_rfh);
+  if (!target_rfh || web_contents != tab_->GetContents()) {
+    return;
+  }
+
+  if (!overlay_view_) {
+    gfx::NativeView parent_view = web_contents->GetContentNativeView();
+    overlay_view_ = std::make_unique<DictationOverlayView>(
+        parent_view,
+        base::BindRepeating(&SessionUiImpl::OnToggleActiveStreamClicked,
+                            base::Unretained(this)));
+    overlay_view_->SetState(ToUiState(controller_->GetState()));
+  }
+
+  overlay_view_->OnStartedStream(target_id);
+}
+
 void SessionUiImpl::OnSessionStateChanged(SessionState state) {
-  bubble_ui_->SetState(ToBubbleUiState(state));
+  UiState ui_state = ToUiState(state);
+  bubble_ui_->SetState(ui_state);
+  if (overlay_view_) {
+    overlay_view_->SetState(ui_state);
+  }
 }
 
 void SessionUiImpl::OnDictationBubbleCloseClicked() {

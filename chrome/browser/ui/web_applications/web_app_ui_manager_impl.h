@@ -58,6 +58,7 @@ namespace web_app {
 
 class IsolatedWebAppInstallerCoordinator;
 class WithAppResources;
+struct SubAppUninstallMetadata;
 
 // Implementation of WebAppUiManager that depends upon //c/b/ui.
 // Allows //c/b/web_applications code to call into //c/b/ui without directly
@@ -141,12 +142,21 @@ class WebAppUiManagerImpl : public BrowserCollectionObserver,
   void TriggerInstallDialog(content::WebContents* web_contents,
                             webapps::WebappInstallSource source,
                             InstallCallback callback) override;
+  // TODO(crbug.com/520025525): Remove install_url code.
   void TriggerInstallDialogForBackgroundInstall(
       content::WebContents* initiating_web_contents,
       std::unique_ptr<webapps::MlInstallOperationTracker> tracker,
       const GURL& install_url,
       const std::optional<GURL>& manifest_id,
       const GURL& last_committed_url,
+      InstallCallback callback) override;
+  void TriggerInstallDialogForManifestInstall(
+      content::WebContents* initiating_web_contents,
+      base::WeakPtr<content::Page> initiating_page,
+      std::unique_ptr<webapps::MlInstallOperationTracker> tracker,
+      blink::mojom::ManifestPtr manifest,
+      const GURL& manifest_url,
+      const GURL& requesting_page_url,
       InstallCallback callback) override;
   void TriggerLaunchDialogForBackgroundInstall(
       content::WebContents* initiating_web_contents,
@@ -231,19 +241,15 @@ class WebAppUiManagerImpl : public BrowserCollectionObserver,
 
   void OnExtensionSystemReady();
 
-  // Triggers the uninstall dialog with the icons read from the disk. If the
-  // icon assets for any size are missing for whatever reason, uses a fallback
-  // behavior of generating the icons from the app's name. This is necessary
-  // for the dialog to show up in high-DPI screens where the icon assets might
-  // not be available in all sizes.
-  void OnIconsReadForUninstall(
+  void OnAllIconsReadForUninstall(
       const webapps::AppId& app_id,
       webapps::WebappUninstallSource uninstall_source,
       gfx::NativeWindow parent_window,
       std::unique_ptr<ui::NativeWindowTracker> parent_window_tracker,
       UninstallCompleteCallback complete_callback,
       UninstallScheduledCallback uninstall_scheduled_callback,
-      IconMetadataFromDisk icon_metadata);
+      IconMetadataFromDisk icon_metadata,
+      std::vector<SubAppUninstallMetadata> sub_apps);
 
   void OnIsolatedWebAppInstallerClosed(base::FilePath bundle_path);
 

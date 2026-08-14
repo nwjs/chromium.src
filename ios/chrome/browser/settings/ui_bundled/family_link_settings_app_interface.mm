@@ -23,6 +23,7 @@
 #import "ios/chrome/browser/shared/model/browser/browser_provider_interface.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/supervised_user/model/family_link_settings_service_factory.h"
+#import "ios/chrome/browser/supervised_user/model/list_family_members_service_factory.h"
 #import "ios/chrome/browser/supervised_user/model/supervised_user_error_container.h"
 #import "ios/chrome/browser/supervised_user/model/supervised_user_service_factory.h"
 #import "ios/chrome/test/app/chrome_test_util.h"
@@ -123,7 +124,7 @@ bool IsShowingInterstitialForState(web::WebState* web_state) {
   mocked_creator->SetEnabled();
 
   supervised_user::SupervisedUserService* service =
-      SupervisedUserServiceFactory::GetForProfile(
+      supervised_user::SupervisedUserServiceFactory::GetForProfile(
           chrome_test_util::GetOriginalProfile());
   CHECK(service);
   service->remote_web_approvals_manager().ClearApprovalRequestsCreators();
@@ -158,7 +159,7 @@ bool IsShowingInterstitialForState(web::WebState* web_state) {
 }
 
 + (void)setDefaultClassifyURLNavigationIsAllowed:(BOOL)is_allowed {
-  SupervisedUserServiceFactory::GetInstance()
+  supervised_user::SupervisedUserServiceFactory::GetInstance()
       ->GetForProfile(chrome_test_util::GetOriginalProfile())
       ->GetURLFilter()
       ->SetURLCheckerClientForTesting(std::make_unique<StaticUrlCheckerClient>(
@@ -176,6 +177,12 @@ bool IsShowingInterstitialForState(web::WebState* web_state) {
     }
   }
   return count;
+}
+
++ (BOOL)isListFamilyMembersServiceCreated {
+  return supervised_user::ListFamilyMembersServiceFactory::
+             GetForProfileIfExists(chrome_test_util::GetOriginalProfile()) !=
+         nullptr;
 }
 
 @end

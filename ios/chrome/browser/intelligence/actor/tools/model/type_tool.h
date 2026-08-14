@@ -15,8 +15,6 @@
 #import "ios/chrome/browser/intelligence/actor/tools/model/web_actor_tool.h"
 #import "ios/chrome/browser/intelligence/actor/tools/public/actor_tool_types.h"
 
-class ProfileIOS;
-
 namespace web {
 class WebState;
 }  // namespace web
@@ -30,18 +28,19 @@ class TypeTool : public WebActorTool {
  public:
   ~TypeTool() override;
 
-  static base::expected<std::unique_ptr<TypeTool>, ToolExecutionResult> Create(
-      const optimization_guide::proto::TypeAction& action,
-      ProfileIOS* profile);
+  static std::unique_ptr<TypeTool> Create(
+      base::WeakPtr<web::WebState> web_state,
+      const optimization_guide::proto::TypeAction& action);
 
   // ActorTool:
+  void Validate(ToolExecutionCallback callback) override;
   void Execute(ToolExecutionCallback callback) override;
   base::WeakPtr<web::WebState> GetTargetWebState() const override;
   ToolType GetToolType() const override;
 
  private:
-  TypeTool(const optimization_guide::proto::TypeAction& action,
-           base::WeakPtr<web::WebState> web_state);
+  TypeTool(base::WeakPtr<web::WebState> web_state,
+           const optimization_guide::proto::TypeAction& action);
 
   void OnTargetFrameResolved(
       optimization_guide::proto::TypeAction action,

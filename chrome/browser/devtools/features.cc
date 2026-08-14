@@ -180,9 +180,6 @@ BASE_FEATURE(kDevToolsNewPermissionDialog, base::FEATURE_ENABLED_BY_DEFAULT);
 // Whether DevTools drawer can be toggled to vertical orientation.
 BASE_FEATURE(kDevToolsVerticalDrawer, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Turns on the GreenDev experimental UI.
-BASE_FEATURE(kDevToolsGreenDevUi, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Whether the global AI entrypoint is enabled.
 BASE_FEATURE(kDevToolsGlobalAiButton, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -245,4 +242,9 @@ BASE_FEATURE(kDevToolsUseGcaApi, base::FEATURE_DISABLED_BY_DEFAULT);
 // Whether the Plus Button is shown in main DevTools panel/drawer tabbed
 // locations, replacing the "More tools" overflow menu.
 BASE_FEATURE(kDevToolsPlusButton, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Whether instrumentation breakpoints are enabled in DevTools.
+BASE_FEATURE(kDevToolsInstrumentationBreakpoints,
+             "DevToolsInstrumentationBreakpoints",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 }  // namespace features

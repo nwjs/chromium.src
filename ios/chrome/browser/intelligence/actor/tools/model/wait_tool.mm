@@ -26,24 +26,19 @@ constexpr base::TimeDelta kDefaultWaitDuration = base::Seconds(3);
 WaitTool::~WaitTool() = default;
 
 // static
-base::expected<std::unique_ptr<WaitTool>, ToolExecutionResult> WaitTool::Create(
-    const optimization_guide::proto::WaitAction& action,
-    ProfileIOS* profile) {
+std::unique_ptr<WaitTool> WaitTool::Create(
+    base::WeakPtr<web::WebState> web_state,
+    const optimization_guide::proto::WaitAction& action) {
   base::TimeDelta wait_duration = kDefaultWaitDuration;
   if (action.has_wait_time_ms()) {
     wait_duration = base::Milliseconds(action.wait_time_ms());
   }
-
-  base::WeakPtr<web::WebState> observe_web_state;
-  if (action.has_observe_tab_id()) {
-    base::expected<TabResolutionResult, ToolExecutionResult> resolution_result =
-        ResolveTab(action.observe_tab_id(), profile);
-    if (resolution_result.has_value()) {
-      observe_web_state = resolution_result.value().web_state;
-    }
-  }
   return std::unique_ptr<WaitTool>(
-      new WaitTool(wait_duration, observe_web_state));
+      new WaitTool(wait_duration, /*observe_web_state=*/web_state));
+}
+
+void WaitTool::Validate(ToolExecutionCallback callback) {
+  std::move(callback).Run(ToolExecutionResult::Ok());
 }
 
 void WaitTool::Execute(ToolExecutionCallback callback) {

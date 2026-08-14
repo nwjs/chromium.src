@@ -49,6 +49,7 @@
 #include "ui/native_theme/native_theme.h"
 #include "ui/views/accessibility/ax_virtual_view.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/actions/action_view_interface.h"
 #include "ui/views/badge_painter.h"
 #include "ui/views/controls/button/menu_button.h"
 #include "ui/views/controls/image_view.h"
@@ -791,11 +792,17 @@ MenuItemView* MenuItemView::GetMenuItemByID(int id) {
 }
 
 void MenuItemView::ChildrenChanged() {
-  MenuController* controller = GetMenuController();
-  if (controller) {
+  auto* const controller_ptr = GetMenuController();
+  if (controller_ptr) {
     UpdateEmptyMenusAndMetrics();
 
+    // Certain accessibility callbacks could destroy the menu indirectly through
+    // activation changes.
+    const auto controller = controller_ptr->AsWeakPtr();
     controller->MenuChildrenChanged(this);
+    if (!controller) {
+      return;
+    }
 
     if (submenu_) {
       // Force a paint and a synchronous layout. This needs a synchronous layout
@@ -1089,9 +1096,9 @@ void MenuItemView::UpdateEmptyMenusAndMetrics() {
           return;
         }
       }
-      submenu_
-          ->InvalidateLayout();  // Ideally the submenu would have a layout
-                                 // manager that would do this automatically.
+      // TODO(https://crbug.com/537701460): Remove after SubmenuView gets a
+      // proper layout.
+      submenu_->InvalidateLayout();
     } else {
       has_visible_menu_items |= child->GetVisible();
     }
@@ -1912,6 +1919,25 @@ void MenuItemView::UpdateAccessibleExpandedCollapsedState() {
     GetViewAccessibility().SetIsExpanded();
   } else {
     GetViewAccessibility().SetIsCollapsed();
+  }
+}
+
+std::unique_ptr<ActionViewInterface> MenuItemView::GetActionViewInterface() {
+  return std::make_unique<MenuItemActionViewInterface>(this);
+}
+
+MenuItemActionViewInterface::MenuItemActionViewInterface(
+    MenuItemView* action_view)
+    : BaseActionViewInterface(action_view) {}
+
+void MenuItemActionViewInterface::ActionItemChangedImpl(
+    actions::ActionItem* action_item) {
+  BaseActionViewInterface::ActionItemChangedImpl(action_item);
+  auto* menu_item_view = views::AsViewClass<MenuItemView>(action_view());
+  CHECK(menu_item_view);
+  menu_item_view->SetTitle(std::u16string(action_item->GetText()));
+  if (!action_item->GetImage().IsEmpty()) {
+    menu_item_view->SetIcon(action_item->GetImage());
   }
 }
 

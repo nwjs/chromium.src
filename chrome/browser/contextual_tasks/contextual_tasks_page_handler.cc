@@ -56,6 +56,7 @@
 #include "components/tabs/public/tab_handle_factory.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "google_apis/gaia/gaia_constants.h"
@@ -258,6 +259,9 @@ ContextualTasksPageHandler::ContextualTasksPageHandler(
       panel_controller_(panel_controller) {
   CHECK(contextual_tasks_service_);
   contextual_tasks_service_observation_.Observe(contextual_tasks_service_);
+  ui_service_->EnsureCookiesSynced(
+      base::BindOnce(&ContextualTasksPageHandler::OnCookieSyncCompleted,
+                     weak_ptr_factory_.GetWeakPtr()));
 
 #if !BUILDFLAG(IS_ANDROID)
   if (contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled()) {
@@ -272,6 +276,12 @@ ContextualTasksPageHandler::ContextualTasksPageHandler(
 }
 
 ContextualTasksPageHandler::~ContextualTasksPageHandler() = default;
+
+void ContextualTasksPageHandler::OnCookieSyncCompleted() {
+  if (web_ui_controller_ && web_ui_controller_->GetPageRemote()) {
+    web_ui_controller_->GetPageRemote()->OnCookieSyncCompleted();
+  }
+}
 
 void ContextualTasksPageHandler::GetThreadUrl(GetThreadUrlCallback callback) {
   std::optional<base::Uuid> task_id = web_ui_controller_->GetTaskId();
@@ -385,7 +395,7 @@ void ContextualTasksPageHandler::ShowThreadHistory() {
   // Send a message to AIM to open the threads view.
   lens::ClientToAimMessage message;
   message.mutable_open_threads_view()->mutable_payload();
-  PostMessageToWebview(message);
+  PostAimMessage(message);
 }
 
 void ContextualTasksPageHandler::IsShownInTab(IsShownInTabCallback callback) {
@@ -431,6 +441,17 @@ void ContextualTasksPageHandler::OpenOnboardingHelpUi() {
   OpenUrlWithDisposition(
       web_ui_controller_->GetProfile(),
       GURL(contextual_tasks::GetContextualTasksOnboardingTooltipHelpUrl()),
+      WindowOpenDisposition::NEW_FOREGROUND_TAB, browser);
+}
+
+void ContextualTasksPageHandler::OpenOverflowMenuHelpUi() {
+  BrowserWindowInterface* browser = web_ui_controller_->GetBrowser();
+  if (!browser) {
+    return;
+  }
+  OpenUrlWithDisposition(
+      web_ui_controller_->GetProfile(),
+      GURL(contextual_tasks::GetContextualTasksOverflowMenuHelpUrl()),
       WindowOpenDisposition::NEW_FOREGROUND_TAB, browser);
 }
 
@@ -598,7 +619,7 @@ void ContextualTasksPageHandler::ReopenTabs() {
   // TODO(crbug.com/489832161): Implement tab restoration logic.
 }
 
-void ContextualTasksPageHandler::PostMessageToWebview(
+void ContextualTasksPageHandler::PostAimMessage(
     const lens::ClientToAimMessage& message) {
   DCHECK(web_ui_controller_->GetPageRemote());
   if (!web_ui_controller_->GetPageRemote()) {
@@ -607,7 +628,7 @@ void ContextualTasksPageHandler::PostMessageToWebview(
 
   const size_t size = message.ByteSizeLong();
   if (size == 0) {
-    LOG(WARNING) << "PostMessageToWebview called with an empty message.";
+    LOG(WARNING) << "PostAimMessage called with an empty message.";
     return;
   }
   std::vector<uint8_t> serialized_message(size);
@@ -616,10 +637,10 @@ void ContextualTasksPageHandler::PostMessageToWebview(
     return;
   }
 
-  OMNIBOX_LOG_WITH_PROTO("PostMessageToWebview", message,
+  OMNIBOX_LOG_WITH_PROTO("PostAimMessage", message,
                          std::string("lens.chrome.ClientToAimMessage"));
 
-  web_ui_controller_->GetPageRemote()->PostMessageToWebview(serialized_message);
+  web_ui_controller_->GetPageRemote()->PostAimMessage(serialized_message);
 }
 
 void ContextualTasksPageHandler::OnTaskAdded(
@@ -971,4 +992,28 @@ void ContextualTasksPageHandler::MaybeTriggerPinningPromo() {
       ->MaybeShowFeaturePromo(
               feature_engagement::kIPHSidePanelContextualTasksPinnableFeature);
 #endif
+}
+
+void ContextualTasksPageHandler::ShowPageInfoBubble() {
+  if (!contextual_tasks::IsContextualTasksSidePanelRearchitectureEnabled()) {
+    return;
+  }
+  if (panel_controller_) {
+    panel_controller_->ShowPageInfoBubble();
+  }
+}
+
+void ContextualTasksPageHandler::CreateNewThread() {
+  std::optional<base::Uuid> task_id = web_ui_controller_->GetTaskId();
+  GURL url;
+  if (task_id.has_value()) {
+    url = ui_service_->GetDefaultAiPageUrlForTask(task_id.value());
+  } else {
+    url = ui_service_->GetDefaultAiPageUrl();
+  }
+  if (auto* inner_contents = web_ui_controller_->GetInnerWebContents()) {
+    content::NavigationController::LoadURLParams params(url);
+    params.transition_type = ui::PAGE_TRANSITION_AUTO_TOPLEVEL;
+    inner_contents->GetController().LoadURLWithParams(params);
+  }
 }

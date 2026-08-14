@@ -88,8 +88,8 @@ void AtMemorySuggestionController::AcceptSuggestion(
   Suggestion suggestion = suggestions_[index];
   if (delegate_) {
     delegate_->DidAcceptSuggestion(
-        suggestion,
-        AutofillSuggestionDelegate::SuggestionMetadata{.row = index});
+        suggestion, AutofillSuggestionDelegate::SuggestionMetadata{
+                        .multi_index = {static_cast<size_t>(index)}});
   }
 }
 
@@ -131,7 +131,7 @@ void AtMemorySuggestionController::Show(
     client->ShowAtMemoryBottomSheet(suggestions_, delegate_);
   }
   if (delegate_) {
-    delegate_->OnSuggestionsShown(suggestions_);
+    delegate_->OnSuggestionsShown(suggestions_, std::nullopt);
   }
 }
 

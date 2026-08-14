@@ -40,6 +40,12 @@ BASE_DECLARE_FEATURE(kSendTabToSelfPropagateNavigationHistory);
 // in the foreground if Chrome is currently being used.
 BASE_DECLARE_FEATURE(kSendTabToSelfAutoOpen);
 
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
+// If this feature is enabled along with kSendTabToSelfAutoOpen, received tabs
+// will be automatically opened in the background even while in the Tab Grid.
+BASE_DECLARE_FEATURE(kSendTabToSelfSupportAutoOpenInTabGrid);
+#endif  // BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
+
 // If this feature is enabled, several UIs on desktop are enhanced, like showing
 // a list of devices directly in the context menu, the new Desktop device picker
 // flow, and the visually enhanced STTS target device picker bubble.
@@ -52,6 +58,10 @@ BASE_DECLARE_FEATURE(kSendTabToSelfPostSendToast);
 // If this feature is enabled, "Send to your device" entry points will be added
 // to the Omnibox context menu.
 BASE_DECLARE_FEATURE(kSendTabToSelfExtraEntryPoints);
+
+// If this feature is enabled, desktop entry points get submenu treatment as
+// part of the enhanced desktop UI v2.
+BASE_DECLARE_FEATURE(kSendTabToSelfEnhancedDesktopUIv2);
 
 #if BUILDFLAG(IS_ANDROID)
 // If this feature is enabled, physical double-tap gestures will be detected
@@ -71,6 +81,11 @@ BASE_DECLARE_FEATURE(kSendTabToSelfEnhancedBottomsheet);
 // actions in the native iOS Share Sheet.
 BASE_DECLARE_FEATURE(kSendTabToSelfIOSShareSheetDeviceList);
 
+// If this feature is enabled, prevents duplicate SendTabToSelfBrowserAgent
+// instances from logging outcomes for the same entry (e.g. regular vs inactive
+// browser).
+BASE_DECLARE_FEATURE(kSendTabToSelfIOSLimitToRegularBrowsers);
+
 // If this feature is enabled, users can schedule tab reminder iOS push
 // notifications.
 BASE_DECLARE_FEATURE(kIOSTabReminders);
@@ -87,6 +102,12 @@ extern const char kReminderNotificationsDefaultTimeOffset[];
 // controlled by the `kReminderNotificationsDefaultTimeOffset` Finch parameter.
 const base::TimeDelta GetReminderNotificationsDefaultTimeOffset();
 #endif  // BUILDFLAG(IS_IOS)
+
+#if BUILDFLAG(IS_ANDROID)
+// If this feature is enabled, dynamic shortcuts will be registered for other
+// syncing devices.
+BASE_DECLARE_FEATURE(kSendTabToSelfDynamicShortcuts);
+#endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace send_tab_to_self
 

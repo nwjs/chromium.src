@@ -8,11 +8,12 @@
 #include <variant>
 
 #include "base/functional/bind.h"
-#include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/trace_event.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/enterprise/signin/profile_management_disclaimer_service.h"
+#include "chrome/browser/enterprise/signin/profile_management_disclaimer_service_factory.h"
 #include "chrome/browser/metrics/first_web_contents_profiler_base.h"
 #include "chrome/browser/profiles/delete_profile_helper.h"
 #include "chrome/browser/profiles/profile.h"
@@ -46,13 +47,14 @@
 #include "chrome/browser/ui/views/profiles/profile_picker_reauth_provider.h"
 #include "chrome/browser/ui/views/profiles/profile_picker_sign_in_provider.h"
 #include "chrome/browser/ui/views/profiles/profile_picker_web_contents_host.h"
+#include "chrome/browser/ui/webui/signin/managed_user_profile_notice_ui.h"
 #include "chrome/browser/ui/webui/signin/profile_picker_handler.h"
 #include "chrome/browser/ui/webui/signin/signin_ui_error.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
+#include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/base/signin_switches.h"
-#include "google_apis/gaia/core_account_id.h"
 #include "net/base/url_util.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
@@ -93,6 +95,7 @@ GURL GetInitialURL(ProfilePicker::EntryPoint entry_point) {
       return base_url.Resolve("new-profile");
     case ProfilePicker::EntryPoint::kFirstRun:
     case ProfilePicker::EntryPoint::kGlicManager:
+    case ProfilePicker::EntryPoint::kOmniboxEverywhere:
       // Should not be used for this entry point.
       NOTREACHED();
   }
@@ -297,6 +300,12 @@ class ReauthFlowStepController : public ProfileManagementStepController {
 
   void OnHidden() override {
     host()->SetNativeToolbarSigninButtonsVisible(false);
+  }
+
+  bool CanNavigateBack() const override {
+    return reauth_provider_
+               ? CanNavigateBackInternal(reauth_provider_->contents())
+               : false;
   }
 
   void OnNavigateBackRequested() override {
@@ -639,6 +648,7 @@ void ProfilePickerFlowController::CancelSigninFlow() {
     }
     case ProfilePicker::EntryPoint::kFirstRun:
     case ProfilePicker::EntryPoint::kGlicManager:
+    case ProfilePicker::EntryPoint::kOmniboxEverywhere:
       NOTREACHED() << "CancelSigninFlow() is not reachable from "
                       "this entry point";
   }
@@ -739,16 +749,21 @@ void ProfilePickerFlowController::PickProfile(
     profile_picked_time_on_startup_ = base::TimeTicks::Now();
   }
 
-  bool open_command_line_urls = ProfilePicker::GetOpenCommandLineUrlsInNextProfileOpened();
+  bool open_command_line_urls =
+      ProfilePicker::GetOpenCommandLineUrlsInNextProfileOpened();
   ProfilePicker::SetOpenCommandLineUrlsInNextProfileOpened(false);
 
-  profiles::SwitchToProfile(
-      profile_path, /*always_create=*/false,
+  base::OnceCallback<void(Browser*)> switch_to_profile_complete_callback =
       base::BindOnce(&ProfilePickerFlowController::OnSwitchToProfileComplete,
                      weak_ptr_factory_.GetWeakPtr(), args.open_settings,
                      args.exit_flow_after_profile_picked,
-                     std::move(pick_profile_complete_callback)),
-      open_command_line_urls);
+                     std::move(pick_profile_complete_callback));
+
+  g_browser_process->profile_manager()->CreateProfileAsync(
+      profile_path,
+      base::BindOnce(&ProfilePickerFlowController::OnProfileLoadedForPicking,
+                     weak_ptr_factory_.GetWeakPtr(), open_command_line_urls,
+                     std::move(switch_to_profile_complete_callback)));
 }
 
 void ProfilePickerFlowController::OnSwitchToProfileComplete(
@@ -768,7 +783,7 @@ void ProfilePickerFlowController::OnSwitchToProfileComplete(
   if (pick_profile_complete_callback) {
     std::move(pick_profile_complete_callback).Run(true);
   }
-  Profile* profile = browser->profile();
+  Profile* profile = browser->GetProfile();
   TRACE_EVENT1("browser",
                "ProfilePickerFlowController::OnSwitchToProfileComplete",
                "profile_path", profile->GetPath().AsUTF8Unsafe());
@@ -871,4 +886,76 @@ ProfilePickerFlowController::RegisterPostIdentitySteps(
       ProfileManagementFlowController::Step::kFinishFlow);
 
   return post_identity_steps;
+}
+
+void ProfilePickerFlowController::OnProfileLoadedForPicking(
+    bool open_command_line_urls,
+    base::OnceCallback<void(Browser*)> pick_profile_complete_callback,
+    Profile* profile) {
+  CHECK(pick_profile_complete_callback);
+  if (!profile) {
+    std::move(pick_profile_complete_callback).Run(nullptr);
+    return;
+  }
+
+  ProfileManagementDisclaimerService* disclaimer_service =
+      ProfileManagementDisclaimerServiceFactory::GetForProfile(profile);
+  if (disclaimer_service &&
+      disclaimer_service->IsDeviceSignalsDisclaimerRequired(nullptr)) {
+    // Cleanup the step controller if already initialized.
+    if (IsStepInitialized(Step::kDeviceSignalsDisclaimer)) {
+      UnregisterStep(Step::kDeviceSignalsDisclaimer);
+    }
+
+    // Despite the name we can use these WebContents for our needs,
+    // there is nothing signout specific about them.
+    CreateSignedOutFlowWebContents(profile);
+
+    RegisterStep(
+        Step::kDeviceSignalsDisclaimer,
+        ProfileManagementStepController::CreateForDeviceSignalsDisclaimer(
+            host(), GetSignedOutFlowWebContents(),
+            base::BindOnce(
+                &ProfilePickerFlowController::OnDeviceSignalsDisclaimerResult,
+                weak_ptr_factory_.GetWeakPtr(), profile, open_command_line_urls,
+                std::move(pick_profile_complete_callback))));
+
+    SwitchToStep(Step::kDeviceSignalsDisclaimer, /*reset_state=*/true);
+    return;
+  }
+
+  profiles::OpenBrowserWindowForProfile(
+      std::move(pick_profile_complete_callback), /*always_create=*/false,
+      /*is_new_profile=*/false, open_command_line_urls, profile);
+}
+
+void ProfilePickerFlowController::OnDeviceSignalsDisclaimerResult(
+    Profile* profile,
+    bool open_command_line_urls,
+    base::OnceCallback<void(Browser*)> pick_profile_complete_callback,
+    signin::DeviceSignalsDisclaimerResult result) {
+  switch (result) {
+    case signin::DeviceSignalsDisclaimerResult::kAccepted:
+      ProfileManagementDisclaimerServiceFactory::GetForProfile(profile)
+          ->OnDeviceSignalsCollectionConsentGranted();
+
+      profiles::OpenBrowserWindowForProfile(
+          std::move(pick_profile_complete_callback), /*always_create=*/false,
+          /*is_new_profile=*/false, open_command_line_urls, profile);
+      break;
+    case signin::DeviceSignalsDisclaimerResult::kCanceled:
+      SwitchToStep(Step::kProfilePicker, /*reset_state=*/true);
+      UnregisterStep(Step::kDeviceSignalsDisclaimer);
+      if (pick_profile_complete_callback) {
+        std::move(pick_profile_complete_callback).Run(nullptr);
+      }
+      break;
+    case signin::DeviceSignalsDisclaimerResult::kDismissed:
+      // signin::DeviceSignalsDisclaimerResult::kDismissed is caused by the
+      // destruction of WebUI.
+      if (pick_profile_complete_callback) {
+        std::move(pick_profile_complete_callback).Run(nullptr);
+      }
+      break;
+  }
 }

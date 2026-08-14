@@ -5,7 +5,7 @@
 import 'chrome://metrics-internals/app.js';
 
 import {MetricsInternalsBrowserProxyImpl} from 'chrome://metrics-internals/browser_proxy.js';
-import type {FieldTrialState, HashNameMap, KeyValue, MetricsInternalsBrowserProxy, SeedType, Trial} from 'chrome://metrics-internals/browser_proxy.js';
+import type {FieldTrialState, HashNameMap, KeyValue, MetricsInternalsBrowserProxy, RuntimeMutableFeature, SeedType, Trial} from 'chrome://metrics-internals/browser_proxy.js';
 import type {FieldTrialsAppElement} from 'chrome://metrics-internals/field_trials.js';
 import type {CwtKeyInfo} from 'chrome://metrics-internals/private_metrics.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -38,7 +38,14 @@ class FakeBrowser extends TestBrowserProxy implements
       'fetchTrialState',
       'lookupTrialOrGroupName',
       'fetchEncryptionPublicKey',
+      'fetchRuntimeMutableFeatures',
+      'isSeedFetchingPaused',
+      'setSeedFetchingPaused',
+      'uploadSeed',
       'restart',
+      'fetchUkmSummary',
+      'getUkmLogData',
+      'isUsingUkmServiceObserver',
     ]);
   }
 
@@ -102,9 +109,51 @@ class FakeBrowser extends TestBrowserProxy implements
     return {};
   }
 
+  async fetchRuntimeMutableFeatures(): Promise<RuntimeMutableFeature[]> {
+    this.methodCalled('fetchRuntimeMutableFeatures');
+    await wait();
+    return [];
+  }
+
+  // Returns the default unpaused state. This stub does not support pausing
+  // and resuming seed fetching.
+  async isSeedFetchingPaused(): Promise<boolean> {
+    this.methodCalled('isSeedFetchingPaused');
+    await wait();
+    return false;
+  }
+
+  async setSeedFetchingPaused(paused: boolean): Promise<void> {
+    this.methodCalled('setSeedFetchingPaused', paused);
+    await wait();
+  }
+
+  async uploadSeed(seed: Uint8Array): Promise<void> {
+    this.methodCalled('uploadSeed', seed);
+    await wait();
+  }
+
   async restart(): Promise<void> {
     this.methodCalled('restart');
     await wait();
+  }
+
+  async fetchUkmSummary(): Promise<KeyValue[]> {
+    this.methodCalled('fetchUkmSummary');
+    await wait();
+    return [];
+  }
+
+  async getUkmLogData(): Promise<string> {
+    this.methodCalled('getUkmLogData');
+    await wait();
+    return '';
+  }
+
+  async isUsingUkmServiceObserver(): Promise<boolean> {
+    this.methodCalled('isUsingUkmServiceObserver');
+    await wait();
+    return false;
   }
 }
 

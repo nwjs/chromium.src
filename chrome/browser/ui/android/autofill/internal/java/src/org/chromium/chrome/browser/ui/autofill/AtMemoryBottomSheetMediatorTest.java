@@ -8,36 +8,53 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import static org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetCoordinator.ITEM_TYPE_ZERO_STATE;
-import static org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.IS_LOADING;
-import static org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.ON_QUERY_TEXT_CHANGED_CALLBACK;
+import static org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.CURRENT_SCREEN;
+import static org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.SuggestionItemProperties.IS_FLYOUT_VISIBLE;
+import static org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.SuggestionItemProperties.ON_FLYOUT_CLICKED;
+import static org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.SuggestionItemProperties.ON_SUGGESTION_CLICKED;
+import static org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.SuggestionItemProperties.TITLE;
+import static org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.SuggestionItemProperties.TRAILING_ICON_ID;
 import static org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.VISIBLE;
-import static org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetSearchTileProperties.ON_TILE_CLICKED;
-import static org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetSearchTileProperties.TILE_TITLE;
-import static org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetSuggestionProperties.ON_FLYOUT_CLICKED;
-import static org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetSuggestionProperties.ON_SUGGESTION_CLICKED;
-import static org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetSuggestionProperties.TITLE;
+
+import android.os.Bundle;
+
+import androidx.test.core.app.ApplicationProvider;
 
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.base.test.util.UserActionTester;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsFragment;
+import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsReferrer;
+import org.chromium.chrome.browser.autofill.settings.personal_context.AutofillPersonalContextFragment;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.personal_context.first_run.PersonalContextFirstRunService;
 import org.chromium.chrome.browser.personal_context.first_run.PersonalContextFirstRunServiceJni;
-import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
+import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.FlyoutProperties;
+import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.HomeProperties;
+import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.ScreenId;
 import org.chromium.chrome.browser.ui.autofill.internal.R;
 import org.chromium.components.autofill.AutofillSuggestion;
 import org.chromium.components.autofill.SuggestionType;
-import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
+import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -50,22 +67,25 @@ public class AtMemoryBottomSheetMediatorTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private AtMemoryBottomSheetCoordinator.Delegate mDelegate;
-    @Mock private Runnable mHideKeyboardCallback;
-    @Mock private Profile mProfile;
+    @Mock private HomeProperties.SearchDelegate mSearchDelegate;
     @Mock private PersonalContextFirstRunService.Natives mFirstRunServiceJniMock;
+    @Mock private SettingsNavigation mSettingsNavigation;
 
     private PropertyModel mModel;
+    private PropertyModel mHomeModel;
     private ModelList mModelList;
     private AtMemoryBottomSheetMediator mMediator;
 
     @Before
     public void setUp() {
         PersonalContextFirstRunServiceJni.setInstanceForTesting(mFirstRunServiceJniMock);
-        mModelList = new ModelList();
+        SettingsNavigationFactory.setInstanceForTesting(mSettingsNavigation);
         mMediator =
                 new AtMemoryBottomSheetMediator(
-                        mProfile, mDelegate, mModelList, mHideKeyboardCallback);
+                        ApplicationProvider.getApplicationContext(), mDelegate, mSearchDelegate);
         mModel = mMediator.getModel();
+        mHomeModel = mMediator.getHomeModel();
+        mModelList = mHomeModel.get(HomeProperties.SHEET_ITEMS);
     }
 
     @Test
@@ -76,11 +96,13 @@ public class AtMemoryBottomSheetMediatorTest {
                                 .setIconId(R.drawable.flight)
                                 .setLabel("KLM204")
                                 .setSubLabel("Flight ⋅ 15 May ⋅ SEA - MUC")
+                                .setIsAcceptable(true)
                                 .build(),
                         new AutofillSuggestion.Builder()
                                 .setIconId(R.drawable.travel_trip)
                                 .setLabel("Hotel Booking")
                                 .setSubLabel("Hilton ⋅ 16 May")
+                                .setIsAcceptable(true)
                                 .build());
 
         mMediator.show(suggestions);
@@ -98,7 +120,144 @@ public class AtMemoryBottomSheetMediatorTest {
     }
 
     @Test
+    public void testOnSuggestionClicked_unacceptable() {
+        List<AutofillSuggestion> suggestions =
+                List.of(
+                        new AutofillSuggestion.Builder()
+                                .setIconId(R.drawable.sad_tab)
+                                .setLabel("No Connection")
+                                .setSubLabel("No connection")
+                                .setSuggestionType(SuggestionType.AT_MEMORY_NO_CONNECTION)
+                                .setIsAcceptable(false)
+                                .build());
+
+        mMediator.show(suggestions);
+
+        PropertyModel itemModel1 = mModelList.get(0).model;
+        itemModel1.get(ON_SUGGESTION_CLICKED).run();
+
+        verify(mDelegate, never()).onSuggestionClicked(/* position= */ 0);
+    }
+
+    @Test
     public void testOnFlyoutClicked() {
+        AutofillSuggestion childSuggestion =
+                new AutofillSuggestion.Builder()
+                        .setLabel("Hilton Check-in")
+                        .setSubLabel("May 16")
+                        .build();
+        List<AutofillSuggestion> suggestions =
+                List.of(
+                        new AutofillSuggestion.Builder()
+                                .setIconId(R.drawable.flight)
+                                .setLabel("KLM204")
+                                .setSubLabel("Flight ⋅ 15 May ⋅ SEA - MUC")
+                                .build(),
+                        new AutofillSuggestion.Builder()
+                                .setIconId(R.drawable.travel_trip)
+                                .setLabel("Hotel Booking")
+                                .setSecondaryLabel("Hotel Booking Type")
+                                .setSubLabel("Hilton ⋅ 16 May")
+                                .setChildren(List.of(childSuggestion))
+                                .build());
+
+        mMediator.show(suggestions);
+
+        PropertyModel itemModel2 = mModelList.get(1).model;
+        itemModel2.get(ON_FLYOUT_CLICKED).run();
+
+        PropertyModel flyoutModel = mMediator.getFlyoutModel();
+        assertEquals("Hotel Booking Type", flyoutModel.get(FlyoutProperties.TITLE));
+        assertEquals(List.of(childSuggestion), flyoutModel.get(FlyoutProperties.SUGGESTIONS));
+    }
+
+    @Test
+    public void testFlyoutVisible() {
+        AutofillSuggestion childSuggestion =
+                new AutofillSuggestion.Builder()
+                        .setLabel("Hilton Check-in")
+                        .setSubLabel("May 16")
+                        .build();
+        AutofillSuggestion suggestion =
+                new AutofillSuggestion.Builder()
+                        .setIconId(R.drawable.flight)
+                        .setLabel("KLM204")
+                        .setSubLabel("Flight ⋅ 15 May ⋅ SEA - MUC")
+                        .setSuggestionType(SuggestionType.AT_MEMORY_SEARCH_RESULT)
+                        .setChildren(List.of(childSuggestion))
+                        .build();
+        List<AutofillSuggestion> suggestions = List.of(suggestion);
+        mMediator.show(suggestions);
+        assertTrue(mModelList.get(0).model.get(IS_FLYOUT_VISIBLE));
+    }
+
+    @Test
+    public void testFlyoutNotVisible() {
+        AutofillSuggestion suggestion =
+                new AutofillSuggestion.Builder()
+                        .setIconId(R.drawable.sad_tab)
+                        .setLabel("Recent")
+                        .setSubLabel("No connection")
+                        .setSuggestionType(SuggestionType.AT_MEMORY_NO_CONNECTION)
+                        .setIsAcceptable(false)
+                        .build();
+        List<AutofillSuggestion> suggestions = List.of(suggestion);
+        mMediator.show(suggestions);
+        assertFalse(mModelList.get(0).model.get(IS_FLYOUT_VISIBLE));
+        assertEquals(R.drawable.ic_north_west_24dp, mModelList.get(0).model.get(TRAILING_ICON_ID));
+    }
+
+    @Test
+    public void testTrailingIconForOpenGemini() {
+        AutofillSuggestion suggestion =
+                new AutofillSuggestion.Builder()
+                        .setIconId(R.drawable.ic_spark_24dp)
+                        .setLabel("Ask Gemini")
+                        .setSubLabel("Search with Gemini")
+                        .setSuggestionType(SuggestionType.OPEN_GEMINI)
+                        .build();
+        List<AutofillSuggestion> suggestions = List.of(suggestion);
+        mMediator.show(suggestions);
+        assertFalse(mModelList.get(0).model.get(IS_FLYOUT_VISIBLE));
+        assertEquals(R.drawable.open_in_new, mModelList.get(0).model.get(TRAILING_ICON_ID));
+    }
+
+    @Test
+    public void testOnFlyoutClickedTriggersDelegate() {
+        AutofillSuggestion childSuggestion =
+                new AutofillSuggestion.Builder()
+                        .setLabel("Hilton Check-in")
+                        .setSubLabel("May 16")
+                        .build();
+        List<AutofillSuggestion> suggestions =
+                List.of(
+                        new AutofillSuggestion.Builder()
+                                .setIconId(R.drawable.travel_trip)
+                                .setLabel("Hotel Booking")
+                                .setSubLabel("Hilton ⋅ 16 May")
+                                .setChildren(List.of(childSuggestion))
+                                .build());
+
+        mMediator.show(suggestions);
+
+        PropertyModel itemModel = mModelList.get(0).model;
+        itemModel.get(ON_FLYOUT_CLICKED).run();
+
+        verify(mDelegate).onChildSuggestionsShown(/* parentPosition= */ 0);
+    }
+
+    @Test
+    public void testOnFlyoutSuggestionClicked() {
+        AutofillSuggestion childSuggestion0 =
+                new AutofillSuggestion.Builder()
+                        .setLabel("Hilton Check-in")
+                        .setSubLabel("May 16")
+                        .build();
+        AutofillSuggestion childSuggestion1 =
+                new AutofillSuggestion.Builder()
+                        .setLabel("Hilton Checkout")
+                        .setSubLabel("May 20")
+                        .build();
         List<AutofillSuggestion> suggestions =
                 List.of(
                         new AutofillSuggestion.Builder()
@@ -110,59 +269,73 @@ public class AtMemoryBottomSheetMediatorTest {
                                 .setIconId(R.drawable.travel_trip)
                                 .setLabel("Hotel Booking")
                                 .setSubLabel("Hilton ⋅ 16 May")
+                                .setChildren(List.of(childSuggestion0, childSuggestion1))
                                 .build());
 
         mMediator.show(suggestions);
 
-        PropertyModel itemModel2 = mModelList.get(1).model;
-        itemModel2.get(ON_FLYOUT_CLICKED).run();
+        PropertyModel itemModel = mModelList.get(1).model;
+        itemModel.get(ON_FLYOUT_CLICKED).run();
 
-        assertEquals(
-                List.of(suggestions.get(1)),
-                mModel.get(AtMemoryBottomSheetProperties.FLYOUT_SUGGESTIONS));
+        PropertyModel flyoutModel = mMediator.getFlyoutModel();
+        flyoutModel.get(FlyoutProperties.ON_SUGGESTION_CLICKED).onResult(1);
+
+        verify(mDelegate).onChildSuggestionClicked(1, 1);
     }
 
     @Test
     public void testOnDismissed() {
         mModel.set(VISIBLE, true);
-        mModel.set(IS_LOADING, true);
+        mHomeModel.set(HomeProperties.IS_LOADING, true);
+
+        PropertyModel flyoutModel = mMediator.getFlyoutModel();
+        flyoutModel.set(FlyoutProperties.TITLE, "Title");
+
         mMediator.onDismissed();
+
         assertFalse(mModel.get(VISIBLE));
-        assertFalse(mModel.get(IS_LOADING));
+        assertFalse(mHomeModel.get(HomeProperties.IS_LOADING));
+        assertEquals(ScreenId.HOME_SCREEN, mModel.get(CURRENT_SCREEN));
+
+        assertEquals("", flyoutModel.get(FlyoutProperties.TITLE));
+        assertEquals(List.of(), flyoutModel.get(FlyoutProperties.SUGGESTIONS));
+
         verify(mDelegate).onDismissed();
     }
 
     @Test
     public void testOnQuerySubmitted() {
+        when(mDelegate.isSearching()).thenReturn(true);
         mMediator.onQuerySubmitted("flight");
+        assertTrue(mHomeModel.get(HomeProperties.IS_LOADING));
         verify(mDelegate).onQuerySubmitted("flight");
 
-        when(mDelegate.isSearching()).thenReturn(true);
-        mMediator.show(List.of());
-        assertTrue(mModel.get(IS_LOADING));
+        AutofillSuggestion suggestion =
+                new AutofillSuggestion.Builder().setLabel("Flight").setSubLabel("KLM").build();
+        mMediator.show(List.of(suggestion));
+        assertTrue(mHomeModel.get(HomeProperties.IS_LOADING));
+        assertEquals(1, mModelList.size());
+        assertEquals(HomeProperties.ItemType.SUGGESTION, mModelList.get(0).type);
 
         when(mDelegate.isSearching()).thenReturn(false);
-        mMediator.show(
-                List.of(
-                        new AutofillSuggestion.Builder()
-                                .setLabel("No data")
-                                .setSubLabel("")
-                                .build()));
-        assertFalse(mModel.get(IS_LOADING));
+        mMediator.show(List.of(suggestion));
+        assertFalse(mHomeModel.get(HomeProperties.IS_LOADING));
+        assertEquals(1, mModelList.size());
+        assertEquals(HomeProperties.ItemType.SUGGESTION, mModelList.get(0).type);
     }
 
     @Test
     public void testOnQueryTextChanged() {
-        mModel.get(ON_QUERY_TEXT_CHANGED_CALLBACK).onResult("flight");
+        mHomeModel.get(HomeProperties.SEARCH_BAR_DELEGATE).onQueryTextChanged("flight");
         verify(mDelegate).onQueryTextChanged("flight");
 
         mMediator.show(List.of(createSearchAffordance("flight")));
         assertEquals(1, mModelList.size());
-        assertEquals(AtMemoryBottomSheetCoordinator.ITEM_TYPE_SEARCH_TILE, mModelList.get(0).type);
-        assertEquals("flight", mModelList.get(0).model.get(TILE_TITLE));
+        assertEquals(HomeProperties.ItemType.SUGGESTION_WITH_NO_BACKGROUND, mModelList.get(0).type);
+        assertEquals("flight", mModelList.get(0).model.get(TITLE));
 
-        mModelList.get(0).model.get(ON_TILE_CLICKED).run();
-        verify(mHideKeyboardCallback).run();
+        mModelList.get(0).model.get(ON_SUGGESTION_CLICKED).run();
+        verify(mSearchDelegate).hideKeyboardAndClearFocus();
         verify(mDelegate).onQuerySubmitted("flight");
     }
 
@@ -170,13 +343,11 @@ public class AtMemoryBottomSheetMediatorTest {
     public void testOnQueryTextChanged_subsequentKeystrokes() {
         mMediator.show(List.of(createSearchAffordance("f")));
         assertEquals(1, mModelList.size());
-        ListItem firstItem = mModelList.get(0);
-        assertEquals("f", firstItem.model.get(TILE_TITLE));
+        assertEquals("f", mModelList.get(0).model.get(TITLE));
 
         mMediator.show(List.of(createSearchAffordance("fl")));
         assertEquals(1, mModelList.size());
-        assertTrue(firstItem == mModelList.get(0));
-        assertEquals("fl", firstItem.model.get(TILE_TITLE));
+        assertEquals("fl", mModelList.get(0).model.get(TITLE));
     }
 
     @Test
@@ -186,7 +357,23 @@ public class AtMemoryBottomSheetMediatorTest {
 
         mMediator.show(List.of());
         assertEquals(1, mModelList.size());
-        assertEquals(ITEM_TYPE_ZERO_STATE, mModelList.get(0).type);
+        assertEquals(HomeProperties.ItemType.ZERO_STATE, mModelList.get(0).type);
+    }
+
+    @Test
+    public void testOnQueryTextChanged_resumeTypingAfterEmptyQuery() {
+        mMediator.show(List.of(createSearchAffordance("f")));
+        assertEquals(1, mModelList.size());
+        assertEquals(HomeProperties.ItemType.SUGGESTION_WITH_NO_BACKGROUND, mModelList.get(0).type);
+
+        mMediator.show(List.of());
+        assertEquals(1, mModelList.size());
+        assertEquals(HomeProperties.ItemType.ZERO_STATE, mModelList.get(0).type);
+
+        mMediator.show(List.of(createSearchAffordance("a")));
+        assertEquals(1, mModelList.size());
+        assertEquals(HomeProperties.ItemType.SUGGESTION_WITH_NO_BACKGROUND, mModelList.get(0).type);
+        assertEquals("a", mModelList.get(0).model.get(TITLE));
     }
 
     private AutofillSuggestion createSearchAffordance(String query) {
@@ -195,6 +382,7 @@ public class AtMemoryBottomSheetMediatorTest {
                 .setSubLabel("test details")
                 .setIconId(R.drawable.flight)
                 .setSuggestionType(SuggestionType.AT_MEMORY_SEARCH_AFFORDANCE)
+                .setIsAcceptable(true)
                 .build();
     }
 
@@ -203,37 +391,177 @@ public class AtMemoryBottomSheetMediatorTest {
         mMediator.show(List.of());
 
         assertEquals(1, mModelList.size());
-        assertEquals(ITEM_TYPE_ZERO_STATE, mModelList.get(0).type);
+        assertEquals(HomeProperties.ItemType.ZERO_STATE, mModelList.get(0).type);
     }
 
     @Test
     public void testNoticeShownAndDismissedAfterClick() {
-        when(mFirstRunServiceJniMock.shouldShowNotice(mProfile)).thenReturn(true);
+        AutofillSuggestion noticeSuggestion =
+                new AutofillSuggestion.Builder()
+                        .setSuggestionType(SuggestionType.PERSONAL_CONTEXT_NOTICE)
+                        .setSubLabel("")
+                        .build();
 
-        AtMemoryBottomSheetMediator mediator =
-                new AtMemoryBottomSheetMediator(
-                        mProfile, mDelegate, mModelList, mHideKeyboardCallback);
-        PropertyModel model = mediator.getModel();
+        HistogramWatcher shownWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        AtMemoryBottomSheetMediator.NOTICE_INTERACTIONS_HISTOGRAM,
+                        AtMemoryBottomSheetMediator.NoticeInteraction.SHOWN);
 
-        assertTrue(model.get(AtMemoryBottomSheetProperties.IS_NOTICE_VISIBLE));
+        mMediator.show(List.of(noticeSuggestion));
+        assertEquals(1, mModelList.size());
+        assertEquals(HomeProperties.ItemType.NOTICE, mModelList.get(0).type);
+        shownWatcher.assertExpected();
+
+        HistogramWatcher acknowledgedWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        AtMemoryBottomSheetMediator.NOTICE_INTERACTIONS_HISTOGRAM,
+                        AtMemoryBottomSheetMediator.NoticeInteraction.ACKNOWLEDGED);
 
         Runnable okClickListener =
-                model.get(AtMemoryBottomSheetProperties.NOTICE_OK_CLICK_LISTENER);
+                mModelList
+                        .get(0)
+                        .model
+                        .get(AtMemoryBottomSheetProperties.NoticeItemProperties.ON_OK_CLICKED);
         assertNotNull(okClickListener);
         okClickListener.run();
 
-        assertFalse(model.get(AtMemoryBottomSheetProperties.IS_NOTICE_VISIBLE));
-        verify(mFirstRunServiceJniMock).noticeAcknowledged(mProfile);
+        acknowledgedWatcher.assertExpected();
+        verify(mDelegate).onSuggestionDismissed(0);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)
+    public void testNoticeSettingsClicked_withYourSavedInfoEnabled() {
+        UserActionTester userActionTester = new UserActionTester();
+        AutofillSuggestion noticeSuggestion =
+                new AutofillSuggestion.Builder()
+                        .setSuggestionType(SuggestionType.PERSONAL_CONTEXT_NOTICE)
+                        .setSubLabel("")
+                        .build();
+        mMediator.show(List.of(noticeSuggestion));
+
+        Runnable settingsClickListener =
+                mModelList
+                        .get(0)
+                        .model
+                        .get(
+                                AtMemoryBottomSheetProperties.NoticeItemProperties
+                                        .ON_SETTINGS_CLICKED);
+        assertNotNull(settingsClickListener);
+        settingsClickListener.run();
+
+        assertTrue(
+                userActionTester
+                        .getActions()
+                        .contains("PersonalContext.AtMemory.Notice.SettingsLinkClick"));
+        verify(mSettingsNavigation)
+                .startSettings(
+                        eq(ApplicationProvider.getApplicationContext()),
+                        eq(AutofillPersonalContextFragment.class),
+                        isNull(),
+                        eq(true));
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)
+    public void testNoticeSettingsClicked_withYourSavedInfoDisabled() {
+        UserActionTester userActionTester = new UserActionTester();
+        AutofillSuggestion noticeSuggestion =
+                new AutofillSuggestion.Builder()
+                        .setSuggestionType(SuggestionType.PERSONAL_CONTEXT_NOTICE)
+                        .setSubLabel("")
+                        .build();
+        mMediator.show(List.of(noticeSuggestion));
+
+        Runnable settingsClickListener =
+                mModelList
+                        .get(0)
+                        .model
+                        .get(
+                                AtMemoryBottomSheetProperties.NoticeItemProperties
+                                        .ON_SETTINGS_CLICKED);
+        assertNotNull(settingsClickListener);
+        settingsClickListener.run();
+
+        assertTrue(
+                userActionTester
+                        .getActions()
+                        .contains("PersonalContext.AtMemory.Notice.SettingsLinkClick"));
+
+        ArgumentCaptor<Bundle> bundleCaptor = ArgumentCaptor.forClass(Bundle.class);
+        verify(mSettingsNavigation)
+                .startSettings(
+                        eq(ApplicationProvider.getApplicationContext()),
+                        eq(AutofillOptionsFragment.class),
+                        bundleCaptor.capture(),
+                        eq(true));
+        assertEquals(
+                AutofillOptionsReferrer.PERSONAL_CONTEXT_ATMEMORY_NOTICE,
+                bundleCaptor.getValue().getInt(AutofillOptionsFragment.AUTOFILL_OPTIONS_REFERRER));
     }
 
     @Test
     public void testNoticeNotShown() {
-        when(mFirstRunServiceJniMock.shouldShowNotice(mProfile)).thenReturn(false);
+        mMediator.show(List.of());
 
-        AtMemoryBottomSheetMediator mediator =
-                new AtMemoryBottomSheetMediator(
-                        mProfile, mDelegate, mModelList, mHideKeyboardCallback);
+        assertEquals(1, mModelList.size());
+        assertEquals(HomeProperties.ItemType.ZERO_STATE, mModelList.get(0).type);
+    }
 
-        assertFalse(mediator.getModel().get(AtMemoryBottomSheetProperties.IS_NOTICE_VISIBLE));
+    @Test
+    public void testNoticeShownRecordedOnlyOnce() {
+        AutofillSuggestion noticeSuggestion =
+                new AutofillSuggestion.Builder()
+                        .setSuggestionType(SuggestionType.PERSONAL_CONTEXT_NOTICE)
+                        .setSubLabel("")
+                        .build();
+
+        HistogramWatcher shownWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                AtMemoryBottomSheetMediator.NOTICE_INTERACTIONS_HISTOGRAM,
+                                AtMemoryBottomSheetMediator.NoticeInteraction.SHOWN)
+                        .build();
+
+        mMediator.show(List.of(noticeSuggestion));
+        mMediator.show(List.of(noticeSuggestion)); // Second call should not log again.
+
+        shownWatcher.assertExpected();
+    }
+
+    @Test
+    public void testOnSearchFocus() {
+        mHomeModel.get(HomeProperties.SEARCH_BAR_DELEGATE).onSearchFocus(true);
+        verify(mDelegate).requestExpandSheet(/* expandInFullHeight= */ true);
+    }
+
+    @Test
+    public void testSeparatorSuggestionsSkipped() {
+        AutofillSuggestion searchAffordance = createSearchAffordance("query");
+        AutofillSuggestion separator =
+                new AutofillSuggestion.Builder()
+                        .setSuggestionType(SuggestionType.SEPARATOR)
+                        .setSubLabel("")
+                        .build();
+        AutofillSuggestion noticeSuggestion =
+                new AutofillSuggestion.Builder()
+                        .setSuggestionType(SuggestionType.PERSONAL_CONTEXT_NOTICE)
+                        .setSubLabel("")
+                        .build();
+
+        mMediator.show(List.of(searchAffordance, separator, noticeSuggestion));
+
+        assertEquals(2, mModelList.size());
+        assertEquals(HomeProperties.ItemType.SUGGESTION_WITH_NO_BACKGROUND, mModelList.get(0).type);
+        assertEquals(HomeProperties.ItemType.NOTICE, mModelList.get(1).type);
+
+        Runnable okClickListener =
+                mModelList
+                        .get(1)
+                        .model
+                        .get(AtMemoryBottomSheetProperties.NoticeItemProperties.ON_OK_CLICKED);
+        assertNotNull(okClickListener);
+        okClickListener.run();
+        verify(mDelegate).onSuggestionDismissed(2);
     }
 }

@@ -412,6 +412,8 @@ try_.builder(
     experiments = {
         # crbug/940930
         "chromium.enable_cleandead": 100,
+        # go/rts-project-proposal
+        "chromium_rts.filter_file_analysis": 100,
     },
     main_list_view = "try",
 )
@@ -472,6 +474,8 @@ try_.orchestrator_builder(
         # go/rts-project-proposal
         "chromium_rts.filter_file_analysis": 100,
         "luci.buildbucket.run_in_turboci": 100,
+        # crbug.com/40280175
+        "chromium_checkout.expand_submodules": 100,
     },
     main_list_view = "try",
     use_clang_coverage = True,
@@ -480,6 +484,20 @@ try_.orchestrator_builder(
 try_.compilator_builder(
     name = "linux-rel-compilator",
     branch_selector = branches.selector.LINUX_BRANCHES,
+    main_list_view = "try",
+)
+
+try_.builder(
+    name = "linux-webdriver-bidi-rel",
+    description_html = "Runs webdriver bidi tests exactly like linux-rel",
+    mirrors = [
+        "ci/linux-webdriver-bidi-rel",
+    ],
+    gn_args = "ci/linux-webdriver-bidi-rel",
+    contact_team_email = "chrome-devtools@google.com",
+    cq_settings = try_.cq_settings(
+        includable_only = True,
+    ),
     main_list_view = "try",
 )
 
@@ -707,6 +725,8 @@ try_.orchestrator_builder(
         "chromium.add_one_test_shard": 10,
         # crbug/940930
         "chromium.enable_cleandead": 100,
+        # go/rts-project-proposal
+        "chromium_rts.filter_file_analysis": 100,
     },
     main_list_view = "try",
 )
@@ -852,6 +872,8 @@ try_.builder(
     experiments = {
         # crbug/940930
         "chromium.enable_cleandead": 100,
+        # go/rts-project-proposal
+        "chromium_rts.filter_file_analysis": 100,
     },
     main_list_view = "try",
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
@@ -955,6 +977,8 @@ try_.orchestrator_builder(
         "chromium.add_one_test_shard": 10,
         # crbug/940930
         "chromium.enable_cleandead": 100,
+        # go/rts-project-proposal
+        "chromium_rts.filter_file_analysis": 100,
     },
     main_list_view = "try",
 )
@@ -1150,6 +1174,9 @@ gpu.try_.optional_tests_builder(
     cq_settings = try_.cq_settings(
         location_filters = gpu.try_.optional_trybot_location_filters.LINUX,
     ),
+    experiments = {
+        "luci.buildbucket.run_in_turboci": 3,
+    },
     main_list_view = "try",
     max_concurrent_builds = 7,
 )
@@ -1194,7 +1221,7 @@ try_.builder(
     check_for_flakiness = False,
     check_for_flakiness_with_resultdb = False,
     cq_settings = try_.cq_settings(
-        experiment_percentage = 50,
+        experiment_percentage = 5,
         location_filters = [
             cq.location_filter(path_regexp = r".*\.(js|ts)"),
         ],

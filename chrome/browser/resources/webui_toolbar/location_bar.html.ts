@@ -4,6 +4,7 @@
 
 import {html, nothing} from '//resources/lit/v3_0/lit.rollup.js';
 
+import {BrowserProxyImpl} from './browser_proxy.js';
 import type {LocationBarElement} from './location_bar.js';
 
 export function getHtml(this: LocationBarElement) {
@@ -17,16 +18,14 @@ ${this.locationBarState.lhsChipsState.securityChip.isVisible &&
     @pointercancel="${this.onChipPointercancel_}">
 </location-icon>
 ` : nothing}
-${this.locationBarState.lhsChipsState.permissionDashboard ?
-       html`
-  <permission-dashboard
-    .dashboardState="${
-           this.locationBarState.lhsChipsState.permissionDashboard}"
+<permission-dashboard
+    .delegate="${BrowserProxyImpl.getInstance()}"
+    .dashboardState="${this.locationBarState.lhsChipsState.permissionDashboard}"
+    ?visible="${!!this.locationBarState.lhsChipsState.permissionDashboard}"
     @pointerenter="${this.onChipPointerenter_}"
     @pointerleave="${this.onChipPointerleave_}"
     @pointercancel="${this.onChipPointercancel_}">
-  </permission-dashboard>
-` : nothing}
+</permission-dashboard>
 ${this.locationBarState.selectedKeyword ? html`
   <selected-keyword
     .selectedKeywordState="${this.locationBarState.selectedKeyword}"
@@ -45,6 +44,13 @@ ${this.locationBarState.selectedKeyword ? html`
     @chip-pointerleave="${this.onChipPointerleave_}"
     @chip-pointercancel="${this.onChipPointercancel_}">
 </content-settings-icons>
+<page-action-icons id="pageActions"
+    .pageActionStates=
+        "${this.locationBarState.pageActionStates}"
+    @chip-pointerenter="${this.onChipPointerenter_}"
+    @chip-pointerleave="${this.onChipPointerleave_}"
+    @chip-pointercancel="${this.onChipPointercancel_}">
+</page-action-icons>
 <!--_html_template_end_-->`;
   // clang-format on
 }

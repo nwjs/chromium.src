@@ -178,7 +178,7 @@ class RecentActivityBubbleDialogViewInteractiveUiTest
   SavedTabGroup ShareTabGroup(TabGroupId group_id,
                               syncer::CollaborationId collaboration_id) {
     TabGroupSyncService* tab_group_sync_service =
-        TabGroupSyncServiceFactory::GetForProfile(browser()->profile());
+        TabGroupSyncServiceFactory::GetForProfile(browser()->GetProfile());
     tab_group_sync_service->MakeTabGroupSharedForTesting(group_id,
                                                          collaboration_id);
     auto saved_tab_group = tab_group_sync_service->GetGroup(group_id);
@@ -194,7 +194,7 @@ class RecentActivityBubbleDialogViewInteractiveUiTest
       BubbleCoordinator()->Show(
           views::BubbleAnchor(tab_strip),
           browser()->tab_strip_model()->GetWebContentsAt(0), activity_log,
-          browser()->profile());
+          browser()->GetProfile());
     });
   }
 
@@ -204,7 +204,7 @@ class RecentActivityBubbleDialogViewInteractiveUiTest
       BubbleCoordinator()->ShowForCurrentTab(
           views::BubbleAnchor(tab_strip),
           browser()->tab_strip_model()->GetWebContentsAt(0), {}, activity_log,
-          browser()->profile());
+          browser()->GetProfile());
     });
   }
 

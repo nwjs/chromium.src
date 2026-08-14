@@ -7,7 +7,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "GPU FYI Mac arm64 Builder",
-              "project": "chromium-m151"
+              "project": "chromium-m152"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu.fyi",
@@ -31,7 +31,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Mac FYI Retina Release (Apple M2)",
-              "project": "chromium-m151"
+              "project": "chromium-m152"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu.fyi",
@@ -52,7 +52,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "GPU FYI Mac arm64 Builder",
-                "project": "chromium-m151"
+                "project": "chromium-m152"
               },
               "run_tests_serially": true
             }
@@ -63,7 +63,7 @@
         {
           "bucket": "ci",
           "builder": "Mac FYI Retina Release (Apple M2)",
-          "project": "chromium-m151"
+          "project": "chromium-m152"
         }
       ],
       "mirroring_builder_group_and_names": [

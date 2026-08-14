@@ -20,7 +20,6 @@ import androidx.annotation.VisibleForTesting;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.NonNullObservableSupplier;
-import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -40,7 +39,6 @@ import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
-import org.chromium.url.GURL;
 
 import java.util.function.Supplier;
 
@@ -81,7 +79,6 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
      * @param fuseboxStateSupplier Used to decide if an plus button for fusebox should be shown.
      * @param fuseboxLayoutModeSupplier Used to decide if the plus button should be hidden (AL).
      * @param onPlusButtonClicked Toggle the fusebox attachments menu when plus button used.
-     * @param exactMatchUrlSupplier The URL if there is an exact match.
      */
     public StatusCoordinator(
             boolean isTablet,
@@ -95,8 +92,7 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
                     browserControlsVisibilityDelegate,
             NonNullObservableSupplier<@FuseboxState Integer> fuseboxStateSupplier,
             NonNullObservableSupplier<@FuseboxLayoutMode Integer> fuseboxLayoutModeSupplier,
-            Runnable onPlusButtonClicked,
-            NullableObservableSupplier<GURL> exactMatchUrlSupplier) {
+            Runnable onPlusButtonClicked) {
         mIsTablet = isTablet;
         mStatusView = statusView;
         mLocationBarDataProvider = locationBarDataProvider;
@@ -128,8 +124,7 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
                         pageInfoAction,
                         fuseboxStateSupplier,
                         fuseboxLayoutModeSupplier,
-                        onPlusButtonClicked,
-                        exactMatchUrlSupplier);
+                        onPlusButtonClicked);
 
         Resources res = mStatusView.getResources();
         mMediator.setUrlMinWidth(
@@ -163,6 +158,7 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
 
     /** Signals that native initialization has completed. */
     public void onNativeInitialized() {
+        updateSecurityIcon();
         mMediator.updateLocationBarIcon(StatusView.IconTransitionType.CROSSFADE);
     }
 
@@ -240,6 +236,20 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
 
     public void setUseSmallWidget(boolean useSmallWidget) {
         mMediator.setUseSmallWidget(useSmallWidget);
+    }
+
+    /**
+     * Sets an icon override resource ID to replace the default status icon. For each {@link
+     * PageClassification} type, a status icon for the location bar is set up within the status
+     * mediator via #updateLocationBarIcon(), which is considered to be the default status icon. At
+     * runtime, this helper can replace that default status icon for edge cases which require the
+     * functionality of the used page classification with a different icon.
+     *
+     * @param iconOverrideResId The resource ID of the override icon, or {@link Resources#ID_NULL}
+     *     to clear.
+     */
+    public void setDefaultStatusIconOverrideResId(@DrawableRes int iconOverrideResId) {
+        mMediator.setDefaultStatusIconOverrideResId(iconOverrideResId);
     }
 
     /** Returns the resource identifier of the current security icon drawable. */

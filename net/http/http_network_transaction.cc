@@ -5,12 +5,14 @@
 #include "net/http/http_network_transaction.h"
 
 #include <deque>
+#include <optional>
 #include <queue>
 #include <set>
 #include <utility>
 #include <vector>
 
 #include "base/base64url.h"
+#include "base/byte_size.h"
 #include "base/compiler_specific.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
@@ -1698,7 +1700,7 @@ int HttpNetworkTransaction::DoReadHeadersComplete(int result) {
   // Note: This will report a success for a redirect even if an error is
   // encountered later while draining the body.
   int response_code = response_.headers->response_code();
-  std::optional<base::ByteCount> content_length =
+  std::optional<base::ByteSize> content_length =
       response_.headers->GetContentLength();
   if ((response_code >= 400 && response_code < 600) ||
       response_code == HTTP_NO_CONTENT || response_code == HTTP_RESET_CONTENT ||
@@ -1941,6 +1943,14 @@ void HttpNetworkTransaction::GenerateNetworkErrorLoggingReport(int rv) {
     details.server_ip = connection_attempts_.back().endpoint.address();
   } else {
     details.server_ip = IPAddress();
+  }
+  // Also report any other addresses that were contacted, so that the downgrade
+  // step can take all of them into account when the resolved address list
+  // contained more than one address.
+  for (const auto& attempt : connection_attempts_) {
+    if (attempt.endpoint.address() != details.server_ip) {
+      details.other_server_ips.push_back(attempt.endpoint.address());
+    }
   }
   // HttpResponseHeaders::response_code() returns 0 if response code couldn't
   // be parsed, which is also how NEL represents the same.

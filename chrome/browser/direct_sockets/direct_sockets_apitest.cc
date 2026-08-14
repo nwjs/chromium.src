@@ -2,8 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <string>
 #include <string_view>
 #include <type_traits>
+#include <vector>
 
 #include "base/check_deref.h"
 #include "base/command_line.h"
@@ -31,6 +33,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_base.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/direct_sockets_test_helpers.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "extensions/browser/api/sockets_udp/test_udp_echo_server.h"
 #include "extensions/browser/extension_host.h"
@@ -38,6 +41,7 @@
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/manifest_constants.h"
 #include "net/base/host_port_pair.h"
+#include "net/base/ip_address.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "services/network/public/mojom/network_context.mojom.h"
@@ -410,7 +414,7 @@ class ChromeDirectSocketsTest : public TestHarness {
     TestHarness::SetUpOnMainThread();
     TestHarness::host_resolver()->AddRule(kHostname, "127.0.0.1");
     test_server()->Start(InProcessBrowserTest::browser()
-                             ->profile()
+                             ->GetProfile()
                              ->GetDefaultStoragePartition()
                              ->GetNetworkContext());
   }
@@ -773,9 +777,68 @@ class IsolatedWebAppApiTest : public web_app::IsolatedWebAppBrowserTestHarness {
     web_app::IsolatedWebAppUrlInfo url_info = app->Install(profile()).value();
     return OpenApp(url_info.app_id());
   }
+
+  void TestMulticastSend(bool with_pna,
+                         bool with_multicast,
+                         bool connected_else_bound,
+                         std::string_view expected_result) {
+    content::RenderFrameHost* app_frame =
+        InstallAndOpenIsolatedWebApp(with_pna, with_multicast);
+
+    std::string script;
+    if (connected_else_bound) {
+      script = R"(
+        (async () => {
+          try {
+            const socket = new UDPSocket({
+              remoteAddress: '239.255.255.250',
+              remotePort: 1900
+            });
+            await socket.opened;
+            await socket.close();
+            return 'success';
+          } catch (e) {
+            return e.message;
+          }
+        })()
+      )";
+    } else {
+      script = R"(
+        (async () => {
+          try {
+            const socket = new UDPSocket({
+              localAddress: '0.0.0.0'
+            });
+            const { writable } = await socket.opened;
+            const writer = writable.getWriter();
+            await writer.write({
+              data: new Uint8Array([1, 2, 3]),
+              remoteAddress: '239.255.255.250',
+              remotePort: 1900
+            });
+            writer.releaseLock();
+            await socket.close();
+            return 'success';
+          } catch (e) {
+            return e.message;
+          }
+        })()
+      )";
+    }
+    EXPECT_EQ(expected_result, EvalJs(app_frame, script));
+  }
 };
 
-using IsolatedWebAppMulticastApiTest = IsolatedWebAppApiTest;
+class IsolatedWebAppMulticastApiTest : public IsolatedWebAppApiTest {
+ public:
+  IsolatedWebAppMulticastApiTest() {
+    features_.InitWithFeatures(
+        {blink::features::kSourceSpecificMulticastInDirectSockets}, {});
+  }
+
+ private:
+  base::test::ScopedFeatureList features_;
+};
 
 class IsolatedWebAppSharedWorkerApiTest
     : public web_app::IsolatedWebAppBrowserTestHarness {
@@ -1274,7 +1337,8 @@ IN_PROC_BROWSER_TEST_F(ChromeDirectSocketsUdpIsolatedWebAppMulticastTest,
                                     kMulticastAddress)));
 }
 
-// TODO(crbug.com/443716695): Fails on mac-rel bots.
+// TODO(crbug.com/443716695): The multicast loopback exchange fails on mac-rel
+// bots (see DirectSocketsBoundUdpBrowserTest.MulticastExchangeUdp).
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_UdpSocketMulticastExchange DISABLED_UdpSocketMulticastExchange
 #else
@@ -1282,8 +1346,8 @@ IN_PROC_BROWSER_TEST_F(ChromeDirectSocketsUdpIsolatedWebAppMulticastTest,
 #endif
 IN_PROC_BROWSER_TEST_F(ChromeDirectSocketsUdpIsolatedWebAppMulticastTest,
                        MAYBE_UdpSocketMulticastExchange) {
-  content::RenderFrameHost* app_frame = InstallAndOpenIsolatedWebApp(
-      /*with_pna=*/true, /*with_multicast=*/true);
+  content::RenderFrameHost* app_frame =
+      InstallAndOpenIsolatedWebApp(/*with_pna=*/true, /*with_multicast=*/true);
 
   std::string script = std::string(kMulticastFunctionsScript) + R"(
 
@@ -1318,7 +1382,98 @@ IN_PROC_BROWSER_TEST_F(ChromeDirectSocketsUdpIsolatedWebAppMulticastTest,
                          kMulticastAddress)));
 }
 
-// TODO(crbug.com/443716695): Fails on mac-rel bots.
+IN_PROC_BROWSER_TEST_F(ChromeDirectSocketsUdpIsolatedWebAppMulticastTest,
+                       MulticastJoinLeaveGroupSSM) {
+  content::RenderFrameHost* app_frame =
+      InstallAndOpenIsolatedWebApp(/*with_pna=*/true, /*with_multicast=*/true);
+
+  auto sources = content::DeriveSsmSourceAddresses(1);
+  if (sources.empty()) {
+    GTEST_SKIP() << "No IPv4 interface found";
+  }
+
+  constexpr std::string_view kMulticastJoinLeaveGroupSSM = R"(
+    (async () => {
+      const socket = new UDPSocket({ localAddress: $1 });
+      const { multicastController } = await socket.opened;
+
+      await multicastController.joinGroup($2, {sourceAddress: $3});
+      await multicastController.leaveGroup($2, {sourceAddress: $3});
+    })();
+  )";
+
+  ASSERT_TRUE(ExecJs(
+      app_frame, content::JsReplace(kMulticastJoinLeaveGroupSSM,
+                                    net::IPAddress::IPv4AllZeros().ToString(),
+                                    "232.1.1.1", sources[0])));
+}
+
+// TODO(crbug.com/443716695): IWA equivalent of the
+// JoinGroupSSMSameGroupDifferentSources browsertest; joining the same SSM group
+// with a second source fails with "NetworkError: Network Error" on macOS 15
+// (mac15-x64-rel-tests) while passing on macOS 26. See that browsertest.
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_MulticastJoinGroupSSMSameGroupDifferentSources \
+  DISABLED_MulticastJoinGroupSSMSameGroupDifferentSources
+#else
+#define MAYBE_MulticastJoinGroupSSMSameGroupDifferentSources \
+  MulticastJoinGroupSSMSameGroupDifferentSources
+#endif
+IN_PROC_BROWSER_TEST_F(ChromeDirectSocketsUdpIsolatedWebAppMulticastTest,
+                       MAYBE_MulticastJoinGroupSSMSameGroupDifferentSources) {
+  content::RenderFrameHost* app_frame =
+      InstallAndOpenIsolatedWebApp(/*with_pna=*/true, /*with_multicast=*/true);
+
+  auto sources = content::DeriveSsmSourceAddresses(2);
+  if (sources.empty()) {
+    GTEST_SKIP() << "No IPv4 interface found";
+  }
+
+  constexpr std::string_view kJoinGroupSSMDifferentSources = R"(
+    (async () => {
+      const socket = new UDPSocket({ localAddress: $1 });
+      const { multicastController } = await socket.opened;
+
+      await multicastController.joinGroup($2, {sourceAddress: $3});
+      await multicastController.joinGroup($2, {sourceAddress: $4});
+      await multicastController.leaveGroup($2, {sourceAddress: $3});
+      await multicastController.leaveGroup($2, {sourceAddress: $4});
+    })();
+  )";
+
+  ASSERT_TRUE(ExecJs(
+      app_frame, content::JsReplace(kJoinGroupSSMDifferentSources,
+                                    net::IPAddress::IPv4AllZeros().ToString(),
+                                    "232.1.1.1", sources[0], sources[1])));
+}
+
+IN_PROC_BROWSER_TEST_F(ChromeDirectSocketsUdpIsolatedWebAppMulticastTest,
+                       MulticastCannotMixASMAndSSM) {
+  content::RenderFrameHost* app_frame =
+      InstallAndOpenIsolatedWebApp(/*with_pna=*/true, /*with_multicast=*/true);
+
+  constexpr std::string_view kCannotMixASMAndSSM = R"(
+    (async () => {
+      const socket = new UDPSocket({ localAddress: $1 });
+      const { multicastController } = await socket.opened;
+
+      await multicastController.joinGroup($2);
+      await multicastController.joinGroup($2, {sourceAddress: $3});
+    })();
+  )";
+
+  // The SSM source address is arbitrary here: the join is rejected at the Blink
+  // layer (ASM/SSM mixing) before reaching the network service, so it never
+  // needs to be a routable on-subnet address.
+  ASSERT_THAT(EvalJs(app_frame, content::JsReplace(
+                                    kCannotMixASMAndSSM,
+                                    net::IPAddress::IPv4AllZeros().ToString(),
+                                    "232.1.1.1", "192.0.2.1")),
+              ErrorIs(testing::HasSubstr("Cannot join SSM group")));
+}
+
+// TODO(crbug.com/443716695): The multicast loopback exchange fails on mac-rel
+// bots (see DirectSocketsBoundUdpBrowserTest.MulticastExchangeUdp).
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_UdpSocketMulticastExchangeMultipleReceivers \
   DISABLED_UdpSocketMulticastExchangeMultipleReceivers
@@ -1328,8 +1483,8 @@ IN_PROC_BROWSER_TEST_F(ChromeDirectSocketsUdpIsolatedWebAppMulticastTest,
 #endif
 IN_PROC_BROWSER_TEST_F(ChromeDirectSocketsUdpIsolatedWebAppMulticastTest,
                        MAYBE_UdpSocketMulticastExchangeMultipleReceivers) {
-  content::RenderFrameHost* app_frame = InstallAndOpenIsolatedWebApp(
-      /*with_pna=*/true, /*with_multicast=*/true);
+  content::RenderFrameHost* app_frame =
+      InstallAndOpenIsolatedWebApp(/*with_pna=*/true, /*with_multicast=*/true);
 
   std::string script = std::string(kMulticastFunctionsScript) + R"(
     (async () => {
@@ -1835,25 +1990,55 @@ IN_PROC_BROWSER_TEST_F(IsolatedWebAppDirectSocketsPermissionPrompt,
 }
 
 IN_PROC_BROWSER_TEST_F(IsolatedWebAppApiTest,
-                       MulticastSendWithoutPrivatePolicyBypass) {
-  content::RenderFrameHost* app_frame = InstallAndOpenIsolatedWebApp(
-      /*with_pna=*/false, /*with_multicast=*/false);
+                       MulticastConnectedWithPnaAndMulticastPolicy) {
+  TestMulticastSend(/*with_pna=*/true, /*with_multicast=*/true,
+                    /*connected_else_bound=*/true, "success");
+}
 
-  const std::string script = R"(
-    (async () => {
-      try {
-        const socket = new UDPSocket({ remoteAddress: '239.255.255.250', remotePort: 1900 });
-        const { writable } = await socket.opened;
-        const writer = writable.getWriter();
-        await writer.write({ data: new TextEncoder().encode("M-SEARCH * HTTP/1.1\r\n...") });
-        writer.releaseLock();
-        await socket.close();
-        return 'success';
-      } catch (e) {
-        return e.message;
-      }
-    })()
-  )";
-  EXPECT_EQ("Access to local network is blocked.", EvalJs(app_frame, script));
+IN_PROC_BROWSER_TEST_F(IsolatedWebAppApiTest,
+                       MulticastBoundWithPnaAndMulticastPolicy) {
+  TestMulticastSend(/*with_pna=*/true, /*with_multicast=*/true,
+                    /*connected_else_bound=*/false, "success");
+}
+
+IN_PROC_BROWSER_TEST_F(IsolatedWebAppApiTest,
+                       MulticastConnectedWithPnaWithoutMulticastPolicy) {
+  TestMulticastSend(/*with_pna=*/true, /*with_multicast=*/false,
+                    /*connected_else_bound=*/true, "Network Error.");
+}
+
+IN_PROC_BROWSER_TEST_F(IsolatedWebAppApiTest,
+                       MulticastBoundWithPnaWithoutMulticastPolicy) {
+  TestMulticastSend(
+      /*with_pna=*/true, /*with_multicast=*/false,
+      /*connected_else_bound=*/false,
+      "Stream aborted by the remote: net::ERR_MULTICAST_NOT_ALLOWED");
+}
+
+IN_PROC_BROWSER_TEST_F(IsolatedWebAppApiTest,
+                       MulticastConnectedWithoutPnaWithMulticastPolicy) {
+  TestMulticastSend(/*with_pna=*/false, /*with_multicast=*/true,
+                    /*connected_else_bound=*/true,
+                    "Access to local network is blocked.");
+}
+
+IN_PROC_BROWSER_TEST_F(IsolatedWebAppApiTest,
+                       MulticastBoundWithoutPnaWithMulticastPolicy) {
+  TestMulticastSend(/*with_pna=*/false, /*with_multicast=*/true,
+                    /*connected_else_bound=*/false,
+                    "Access to local network is blocked.");
+}
+
+IN_PROC_BROWSER_TEST_F(IsolatedWebAppApiTest,
+                       MulticastConnectedWithoutPnaWithoutMulticastPolicy) {
+  TestMulticastSend(/*with_pna=*/false, /*with_multicast=*/false,
+                    /*connected_else_bound=*/true, "Network Error.");
+}
+
+IN_PROC_BROWSER_TEST_F(IsolatedWebAppApiTest,
+                       MulticastBoundWithoutPnaWithoutMulticastPolicy) {
+  TestMulticastSend(/*with_pna=*/false, /*with_multicast=*/false,
+                    /*connected_else_bound=*/false,
+                    "Access to local network is blocked.");
 }
 }  // namespace

@@ -8,7 +8,6 @@
 #include "base/component_export.h"
 #include "base/containers/flat_map.h"
 #include "base/functional/callback_forward.h"
-#include "base/memory/scoped_refptr.h"
 #include "base/types/expected.h"
 #include "base/types/pass_key.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
@@ -17,7 +16,6 @@
 #include "services/webnn/public/cpp/webnn_types.h"
 #include "services/webnn/public/mojom/webnn_context_provider.mojom-forward.h"
 #include "services/webnn/public/mojom/webnn_error.mojom-forward.h"
-#include "services/webnn/public/mojom/webnn_graph.mojom.h"
 #include "services/webnn/public/mojom/webnn_graph_builder.mojom.h"
 #include "services/webnn/webnn_constant_operand.h"
 #include "services/webnn/webnn_graph_impl.h"
@@ -25,7 +23,6 @@
 namespace webnn {
 
 class WebNNGraphBuilderImpl;
-class WebNNTensorImpl;
 
 // Interface for the context that hosts WebNNGraphBuilderImpl instances.
 // Implemented by WebNNContextImpl (GPU process) and CompilerContextImplOrt
@@ -57,13 +54,10 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) GraphBuilderContext {
   // compiles the graph and loads it locally. For Compiler-hosted contexts, this
   // compiles the graph and sends the compiled model to GPU process.
   virtual void BuildGraph(
-      mojo::PendingReceiver<mojom::WebNNGraph> receiver,
       mojom::GraphInfoPtr graph_info,
       WebNNGraphImpl::ComputeResourceInfo compute_resource_info,
       base::flat_map<OperandId, std::unique_ptr<WebNNConstantOperand>>
           constant_operands,
-      base::flat_map<OperandId, scoped_refptr<WebNNTensorImpl>>
-          constant_tensor_operands,
       BuildGraphCallback callback) = 0;
 
   // Called by a graph builder to destroy itself.

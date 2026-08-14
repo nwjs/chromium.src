@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 
 #include "base/containers/queue.h"
@@ -337,8 +338,13 @@ class CONTENT_EXPORT WebRTCInternals : public PeerConnectionTrackerHostObserver,
   // Weak factory for this object that we use for bulking up updates.
   base::WeakPtrFactory<WebRTCInternals> weak_factory_{this};
 
+  // Removes tracked getUserMedia/getDisplayMedia requests whose timestamp is
+  // older than kMaxMediaEntryAge so that long-lived sessions do not accumulate
+  // stale entries.
+  void PruneOldGetUserMediaRequests();
+
   // Helper functions for getUserMedia/getDisplayMedia.
-  void OnGetMedia(const std::string& request_type,
+  void OnGetMedia(std::string_view request_type,
                   GlobalRenderFrameHostId frame_id,
                   base::ProcessId pid,
                   int request_id,
@@ -346,14 +352,14 @@ class CONTENT_EXPORT WebRTCInternals : public PeerConnectionTrackerHostObserver,
                   bool video,
                   const std::string& audio_constraints,
                   const std::string& video_constraints);
-  void OnGetMediaSuccess(const std::string& request_type,
+  void OnGetMediaSuccess(std::string_view request_type,
                          GlobalRenderFrameHostId frame_id,
                          base::ProcessId pid,
                          int request_id,
                          const std::string& stream_id,
                          const std::string& audio_track_info,
                          const std::string& video_track_info);
-  void OnGetMediaFailure(const std::string& request_type,
+  void OnGetMediaFailure(std::string_view request_type,
                          GlobalRenderFrameHostId frame_id,
                          base::ProcessId pid,
                          int request_id,

@@ -73,10 +73,11 @@ void SendTabToSelfToolbarIconController::DisplayNewEntries(
       // background.
       OpenEntryInNewForegroundTab(profile_, *new_entries[0],
                                   ShareActivatedEntryPoint::kAutoOpened);
-      RecordAutoOpenOutcome(AutoOpenOutcome::kSuccess);
+      RecordAutoOpenOutcome(AutoOpenOutcome::kTabOpenedInForeground);
       for (size_t ii = 1; ii < new_entries.size(); ++ii) {
         OpenEntryInNewBackgroundTab(profile_, *new_entries[ii]);
-        RecordAutoOpenOutcome(AutoOpenOutcome::kSuccess);
+        RecordAutoOpenOutcome(
+            AutoOpenOutcome::kTabsOpenedImmediatelyInBackground);
       }
 
       // Show a toast.
@@ -94,7 +95,7 @@ void SendTabToSelfToolbarIconController::DisplayNewEntries(
       // If no browser is active, record the entries as pending and wait for
       // a browser window to be activated.
       for (size_t ii = 0; ii < new_entries.size(); ++ii) {
-        RecordAutoOpenOutcome(AutoOpenOutcome::kPending);
+        RecordAutoOpenOutcome(AutoOpenOutcome::kUnopenedImmediately);
       }
       StartObservingBrowserCollection();
     }
@@ -154,7 +155,8 @@ void SendTabToSelfToolbarIconController::OnBrowserActivated(
           tabs::TabInterface::GetFromContents(opened_contents.get())
               ->GetWeakPtr());
     }
-    RecordAutoOpenOutcome(AutoOpenOutcome::kOpenedPending);
+    RecordAutoOpenOutcome(
+        AutoOpenOutcome::kTabsOpenedInBackgroundUponActivation);
   }
   // Show a toast (only if there are tabs that were successfully opened in
   // the background).
@@ -234,16 +236,12 @@ void SendTabToSelfToolbarIconController::SwitchToLatestTabsOpenedInBackground(
 
   for (const base::WeakPtr<tabs::TabInterface>& tab :
        latest_tabs_opened_in_background_) {
-    if (!tab) {
+    if (!tab || tab->GetBrowserWindowInterface() != browser) {
       continue;
     }
-    int index = browser->GetTabStripModel()->GetIndexOfTab(tab.get());
-    if (index != TabStripModel::kNoTab) {
-      SendTabToSelfActivationTracker::SetEntryOpenedViaToast(
-          tab->GetContents());
-      browser->GetTabStripModel()->ActivateTabAt(index);
-      return;
-    }
+    SendTabToSelfActivationTracker::SetEntryOpenedViaToast(tab->GetContents());
+    browser->GetTabStripModel()->ActivateTab(tab.get());
+    return;
   }
 }
 

@@ -448,8 +448,10 @@ IN_PROC_BROWSER_TEST_F(NavigateAndroidBrowserTest,
             tab_list_->GetActiveTab()->GetContents()->GetLastCommittedURL());
 }
 
-IN_PROC_BROWSER_TEST_F(NavigateAndroidBrowserTest,
-                       Navigate_FromEmptyPopup_PopulatesPopup_Foreground) {
+// TODO(crbug.com/527174183): Enable this after fixing flakiness.
+IN_PROC_BROWSER_TEST_F(
+    NavigateAndroidBrowserTest,
+    DISABLED_Navigate_FromEmptyPopup_PopulatesPopup_Foreground) {
   BrowserWindowInterface* popup_window = CreatePopupBrowserWindow();
   TabListInterface* popup_tab_list = TabListInterface::From(popup_window);
 
@@ -475,8 +477,10 @@ IN_PROC_BROWSER_TEST_F(NavigateAndroidBrowserTest,
             popup_tab_list->GetTab(0)->GetContents()->GetLastCommittedURL());
 }
 
-IN_PROC_BROWSER_TEST_F(NavigateAndroidBrowserTest,
-                       Navigate_FromEmptyPopup_PopulatesPopup_Background) {
+// TODO(crbug.com/527174183): Enable this after fixing flakiness.
+IN_PROC_BROWSER_TEST_F(
+    NavigateAndroidBrowserTest,
+    DISABLED_Navigate_FromEmptyPopup_PopulatesPopup_Background) {
   BrowserWindowInterface* popup_window = CreatePopupBrowserWindow();
   TabListInterface* popup_tab_list = TabListInterface::From(popup_window);
 
@@ -1977,8 +1981,10 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_EQ(2u, windows.size());
 }
 
-IN_PROC_BROWSER_TEST_F(NavigateAndroidBrowserTest,
-                       Async_Navigate_FromIncognitoPopup_FallbackToNewWindow) {
+// TODO(crbug.com/529550838): Flaky on all (android-desktop) builders.
+IN_PROC_BROWSER_TEST_F(
+    NavigateAndroidBrowserTest,
+    DISABLED_Async_Navigate_FromIncognitoPopup_FallbackToNewWindow) {
   const GURL url1 = StartAtURL("/title1.html");
   ASSERT_EQ(1u, GetAllBrowserWindowInterfaces().size());
 

@@ -257,7 +257,7 @@ class StyleBuilderConverter {
   static TabSize ConvertLengthOrTabSpaces(StyleResolverState&, const CSSValue&);
   static Length ConvertLineHeight(StyleResolverState&, const CSSValue&);
   static float ConvertNumberOrPercentage(StyleResolverState&, const CSSValue&);
-  static float ConvertPathLength(StyleResolverState&, const CSSValue&);
+  static Length ConvertPathLength(StyleResolverState&, const CSSValue&);
   static int ConvertInteger(StyleResolverState&, const CSSValue&);
   template <int NoneValue = 0>
   static int ConvertIntegerOrNone(StyleResolverState&, const CSSValue&);
@@ -471,9 +471,6 @@ class StyleBuilderConverter {
   static TextOverflowData ConvertTextOverflow(StyleResolverState&,
                                               const CSSValue&);
   static MaxLinesData ConvertMaxLines(StyleResolverState&, const CSSValue&);
-
-  static ScopedCSSNameList* ConvertTimelineTriggerName(StyleResolverState&,
-                                                       const CSSValue&);
 
   static StyleTriggerScope ConvertTriggerScope(StyleResolverState&,
                                                const CSSValue&);

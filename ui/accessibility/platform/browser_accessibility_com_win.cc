@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "ui/accessibility/platform/browser_accessibility_com_win.h"
 
 #include <algorithm>
@@ -33,6 +28,7 @@
 #include "ui/accessibility/ax_mode.h"
 #include "ui/accessibility/ax_role_properties.h"
 #include "ui/accessibility/platform/ax_platform.h"
+#include "ui/accessibility/platform/ax_platform_node_win.h"
 #include "ui/accessibility/platform/browser_accessibility_manager_win.h"
 #include "ui/accessibility/platform/browser_accessibility_win.h"
 #include "ui/base/win/accessibility_ids_win.h"
@@ -1184,11 +1180,13 @@ IFACEMETHODIMP BrowserAccessibilityComWin::get_attributes(USHORT max_attribs,
 
   AXPlatform::GetInstance().OnHTMLAttributesUsed();
 
-#define ADD_ATTRIBUTE(name, value)                                          \
-  if (index < max_attribs) {                                                \
-    attrib_names[index] = SysAllocString(base::UTF8ToWide(name).c_str());   \
-    attrib_values[index] = SysAllocString(base::UTF8ToWide(value).c_str()); \
-    ++index;                                                                \
+#define ADD_ATTRIBUTE(name, value)                       \
+  if (index < max_attribs) {                             \
+    UNSAFE_TODO(attrib_names[index]) =                   \
+        SysAllocString(base::UTF8ToWide(name).c_str());  \
+    UNSAFE_TODO(attrib_values[index]) =                  \
+        SysAllocString(base::UTF8ToWide(value).c_str()); \
+    ++index;                                             \
   }
 
   BrowserAccessibilityWin* const owner = GetOwner();
@@ -1868,8 +1866,13 @@ BrowserAccessibilityComWin* BrowserAccessibilityComWin::GetTargetFromChildID(
     return ToBrowserAccessibilityComWin(owner->PlatformGetChild(child_id - 1));
   }
 
-  auto* child = static_cast<BrowserAccessibilityComWin*>(
-      AXPlatformNodeWin::GetFromUniqueId(-child_id));
+  auto* platform_node = AXPlatformNodeWin::GetFromUniqueId(-child_id);
+  if (!platform_node) {
+    return nullptr;
+  }
+  auto* child = ToBrowserAccessibilityComWin(
+      BrowserAccessibility::FromAXPlatformNodeDelegate(
+          platform_node->GetDelegate()));
   if (child && child->GetOwner()->IsDescendantOf(owner)) {
     return child;
   }

@@ -3,25 +3,18 @@
 // found in the LICENSE file.
 #include <string_view>
 
-#include "base/test/bind.h"
-#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
-#include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_util.h"
-#include "chrome/browser/ui/toasts/api/toast_id.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/browser/ui/toasts/toast_view.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_bubble_controller.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_bubble_device_button.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_device_picker_bubble_view.h"
-#include "chrome/common/url_constants.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
@@ -31,12 +24,9 @@
 #include "components/send_tab_to_self/send_tab_to_self_sync_service.h"
 #include "components/send_tab_to_self/stub_send_tab_to_self_sync_service.h"
 #include "components/send_tab_to_self/target_device_info.h"
-#include "components/signin/public/identity_manager/identity_test_utils.h"
-#include "components/sync/test/fake_data_type_controller_delegate.h"
 #include "content/public/test/browser_test.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/views/interaction/element_tracker_views.h"
-#include "ui/views/view_class_properties.h"
 #include "ui/views/window/dialog_client_view.h"
 
 namespace send_tab_to_self {
@@ -67,7 +57,7 @@ class SendTabToSelfInteractiveUiTest : public InteractiveBrowserTest {
     InteractiveBrowserTest::SetUpOnMainThread();
     identity_test_env_adaptor_ =
         std::make_unique<IdentityTestEnvironmentProfileAdaptor>(
-            browser()->profile());
+            browser()->GetProfile());
     ASSERT_TRUE(embedded_test_server()->Start());
   }
 
@@ -141,7 +131,7 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfInteractiveUiTest,
         StubSendTabToSelfSyncService* sync_service =
             static_cast<StubSendTabToSelfSyncService*>(
                 SendTabToSelfSyncServiceFactory::GetForProfile(
-                    browser()->profile()));
+                    browser()->GetProfile()));
         sync_service->GetFakeSendTabToSelfModel()
             ->SetTargetDeviceInfoSortedList({TargetDeviceInfo(
                 "device_1", "device_1",
@@ -196,7 +186,7 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfDeviceSelectionInteractiveUiTest,
         StubSendTabToSelfSyncService* sync_service =
             static_cast<StubSendTabToSelfSyncService*>(
                 SendTabToSelfSyncServiceFactory::GetForProfile(
-                    browser()->profile()));
+                    browser()->GetProfile()));
         sync_service->GetFakeSendTabToSelfModel()
             ->SetTargetDeviceInfoSortedList({TargetDeviceInfo(
                 "device_1", "device_1",
@@ -219,6 +209,10 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfDeviceSelectionInteractiveUiTest,
                         &views::View::GetEnabled, true),
       CheckViewProperty("device_button_1",
                         &SendTabToSelfBubbleDeviceButton::IsSelected, true),
+      // Verify that initial focus lands on the selected device button so screen
+      // reader users hear the currently selected device in the list of options
+      // first.
+      CheckViewProperty("device_button_1", &views::View::HasFocus, true),
       PressButton(views::DialogClientView::kOkButtonElementId),
       WaitForShow(toasts::ToastView::kToastViewId), StopToastTimer(),
       Do([this]() {
@@ -246,7 +240,7 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfDeviceSelectionInteractiveUiTest,
         StubSendTabToSelfSyncService* sync_service =
             static_cast<StubSendTabToSelfSyncService*>(
                 SendTabToSelfSyncServiceFactory::GetForProfile(
-                    browser()->profile()));
+                    browser()->GetProfile()));
         sync_service->GetFakeSendTabToSelfModel()
             ->SetTargetDeviceInfoSortedList(
                 {TargetDeviceInfo("device_1", "device_1",
@@ -271,6 +265,10 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfDeviceSelectionInteractiveUiTest,
                         &views::View::GetEnabled, true),
       CheckViewProperty("device_button_1",
                         &SendTabToSelfBubbleDeviceButton::IsSelected, true),
+      // Verify that initial focus lands on the selected device button so screen
+      // reader users hear the currently selected device in the list of options
+      // first.
+      CheckViewProperty("device_button_1", &views::View::HasFocus, true),
       CheckViewProperty("device_button_2",
                         &SendTabToSelfBubbleDeviceButton::IsSelected, false),
       // Clicking the already selected device should keep it selected.
@@ -308,7 +306,7 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfDeviceSelectionInteractiveUiTest,
         StubSendTabToSelfSyncService* sync_service =
             static_cast<StubSendTabToSelfSyncService*>(
                 SendTabToSelfSyncServiceFactory::GetForProfile(
-                    browser()->profile()));
+                    browser()->GetProfile()));
         sync_service->GetFakeSendTabToSelfModel()
             ->SetTargetDeviceInfoSortedList({TargetDeviceInfo(
                 "device_1", "device_1",

@@ -181,6 +181,49 @@ bool IsTabGroupsCommand(int command_id) {
           kTabGroupsCommandIdOffset);
 }
 
+// Computes the target row height for the "Other profiles" section based on
+// the sizes of the profile icons. It ensures that all rows have the same
+// height, and that there is a minimum gap between adjacent icons.
+int ComputeTargetProfileRowHeight(int default_margin, ui::MenuModel* model) {
+  const int default_avatar_icon_size =
+      GetLayoutConstant(LayoutConstant::kAppMenuProfileRowAvatarIconSize);
+  // By default, the target height is the standard avatar row height.
+  int target_height = default_avatar_icon_size + 2 * default_margin;
+
+  // Iterate over all icons and pick a target height that allows for the icons
+  // to be displayed with a gap between them.
+  int previous_icon_height = 0;
+  constexpr int kMinIconSpacing = 1;
+  for (size_t i = 0, max = model->GetItemCount(); i < max; ++i) {
+    if (!IsOtherProfileCommand(model->GetCommandIdAt(i))) {
+      previous_icon_height = 0;
+      continue;
+    }
+
+    ui::ImageModel icon = model->GetIconAt(i);
+    int icon_height =
+        icon.IsEmpty() ? views::kMenuCheckSize : icon.Size().height();
+    // A row must be at least as tall as its icon.
+    target_height = std::max(target_height, icon_height);
+
+    if (previous_icon_height > 0) {
+      // Average the icon heights (rounded up) and add the minimum icon spacing.
+      int required_height =
+          (icon_height + previous_icon_height + 1) / 2 + kMinIconSpacing;
+      target_height = std::max(target_height, required_height);
+    }
+    previous_icon_height = icon_height;
+  }
+
+  // Ensure target_height has the same parity as avatar_icon_size so that
+  // integer division for margins doesn't truncate and cause varying heights.
+  if ((target_height - default_avatar_icon_size) % 2 != 0) {
+    ++target_height;
+  }
+
+  return target_height;
+}
+
 // Combination border/background for the buttons contained in the menu. The
 // painting of the border/background is done here as LabelButton does not always
 // paint the border.
@@ -467,9 +510,14 @@ void AddSignedInChipToProfileMenuItem(
   // single container view. The Profile MenuItemView has a title and multiple
   // views. As a result, the accessible name must be manually computed to
   // account for the profile chip.
-  item->GetViewAccessibility().SetName(
+  std::u16string accessible_name =
       views::MenuItemView::GetAccessibleNameForMenuItem(
-          item->title(), GetSigninStatusChipString(profile), std::nullopt));
+          item->title(), GetSigninStatusChipString(profile), std::nullopt);
+  if (ShouldShowAvatarGradientRing(profile)) {
+    accessible_name = l10n_util::GetStringFUTF16(
+        IDS_PROFILE_AVATAR_NAME_WITH_AI_MEMBERSHIP, accessible_name);
+  }
+  item->GetViewAccessibility().SetName(accessible_name);
 }
 
 // AppMenuView is a view that can contain label buttons.
@@ -699,7 +747,8 @@ class AppMenu::ZoomView : public AppMenuView, public views::WidgetObserver {
            size_t fullscreen_index)
       : AppMenuView(menu, menu_model) {
     browser_zoom_subscription_ =
-        zoom::ZoomEventManager::GetForBrowserContext(menu->browser_->profile())
+        zoom::ZoomEventManager::GetForBrowserContext(
+            menu->browser_->GetProfile())
             ->AddZoomLevelChangedCallback(
                 base::BindRepeating(&AppMenu::ZoomView::OnZoomLevelChanged,
                                     base::Unretained(this)));
@@ -1054,7 +1103,7 @@ AppMenu::AppMenu(Browser* browser,
       run_types_(run_types),
       on_menu_closed_callback_(std::move(on_menu_closed_callback)) {
   global_error_observation_.Observe(
-      GlobalErrorServiceFactory::GetForProfile(browser->profile()));
+      GlobalErrorServiceFactory::GetForProfile(browser->GetProfile()));
 
   DCHECK(!root_);
   auto root = std::make_unique<MenuItemView>(/*delegate=*/this);
@@ -1077,7 +1126,8 @@ AppMenu::AppMenu(Browser* browser,
 AppMenu::~AppMenu() {
   if (bookmark_menu_delegate_.get()) {
     BookmarkMergedSurfaceService* service =
-        BookmarkMergedSurfaceServiceFactory::GetForProfile(browser_->profile());
+        BookmarkMergedSurfaceServiceFactory::GetForProfile(
+            browser_->GetProfile());
     if (service) {
       service->RemoveObserver(this);
     }
@@ -1124,6 +1174,10 @@ const gfx::FontList* AppMenu::GetLabelFontList(int command_id) const {
   ui::MenuModel* model = model_;
   size_t index = 0;
   ui::MenuModel::GetModelAndIndexForCommandId(command_id, &model, &index);
+  if (model->GetTypeAt(index) == ui::MenuModel::TYPE_TITLE) {
+    return &views::TypographyProvider::Get().GetFont(
+        views::style::CONTEXT_LABEL, views::style::STYLE_HEADLINE_5);
+  }
   return model->GetLabelFontListAt(index);
 }
 
@@ -1226,7 +1280,7 @@ int AppMenu::GetDragOperations(MenuItemView* sender) {
 }
 
 int AppMenu::GetMaxWidthForMenu(MenuItemView* menu) {
-  if (menu->GetCommand() == IDC_BOOKMARKS_MENU ||
+  if (menu->GetCommand() == AppMenuModel::kBookmarksMenuPlaceholder ||
       IsBookmarkCommand(menu->GetCommand())) {
     return bookmark_menu_delegate_->GetMaxWidthForMenu(menu);
   }
@@ -1251,9 +1305,6 @@ bool AppMenu::IsCommandEnabled(int command_id) const {
     return true;
   }
 
-  if (command_id == IDC_CREATE_NEW_TAB_GROUP_TOP_LEVEL) {
-    return true;
-  }
 
   if (IsTabGroupsCommand(command_id)) {
     return stg_everything_menu_->ShouldEnableCommand(command_id);
@@ -1264,22 +1315,23 @@ bool AppMenu::IsCommandEnabled(int command_id) const {
     return true;
   }
 
-  if (command_id == IDC_MORE_TOOLS_MENU) {
+  if (command_id == AppMenuModel::kMoreToolsMenuPlaceholder) {
     return true;
   }
 
-  if (command_id == IDC_EXTENSIONS_SUBMENU) {
+  if (command_id == AppMenuModel::kExtensionsSubmenuPlaceholder) {
     return true;
   }
 
-  if (command_id == IDC_SHARING_HUB_MENU) {
+  if (command_id == AppMenuModel::kSharingHubMenuPlaceholder) {
     return true;
   }
 
   // The items representing the cut menu (cut/copy/paste), zoom menu
   // (increment/decrement/reset) and extension toolbar view are always enabled.
   // The child views of these items enabled state updates appropriately.
-  if (command_id == IDC_EDIT_MENU || command_id == IDC_ZOOM_MENU) {
+  if (command_id == AppMenuModel::kEditMenuPlaceholder ||
+      command_id == AppMenuModel::kZoomMenuPlaceholder) {
     return true;
   }
 
@@ -1312,17 +1364,14 @@ void AppMenu::ExecuteCommand(int command_id, int mouse_event_flags) {
     return;
   }
 
-  if (command_id == IDC_EDIT_MENU || command_id == IDC_ZOOM_MENU) {
+  if (command_id == AppMenuModel::kEditMenuPlaceholder ||
+      command_id == AppMenuModel::kZoomMenuPlaceholder) {
     // These items are represented by child views. If ExecuteCommand is invoked
     // it means the user clicked on the area around the buttons and we should
     // not do anyting.
     return;
   }
 
-  if (command_id == IDC_CREATE_NEW_TAB_GROUP_TOP_LEVEL) {
-    base::RecordAction(
-        base::UserMetricsAction("TabGroups_NewTabGroup_AppMenu"));
-  }
 
   const Entry& entry = command_id_to_entry_.find(command_id)->second;
   return entry.first->ActivatedAt(entry.second, mouse_event_flags);
@@ -1343,13 +1392,6 @@ bool AppMenu::GetAccelerator(int command_id,
     return false;
   }
 
-  if (command_id == IDC_CREATE_NEW_TAB_GROUP_TOP_LEVEL) {
-    // Same as 'Create new tab group' except the menu item is at the top level
-    // of the app menu instead of in the tab groups submenu.
-    return browser_->browser_window_features()
-        ->accelerator_provider()
-        ->GetAcceleratorForCommandId(IDC_CREATE_NEW_TAB_GROUP, accelerator);
-  }
 
   if (IsTabGroupsCommand(command_id)) {
     return false;
@@ -1360,7 +1402,8 @@ bool AppMenu::GetAccelerator(int command_id,
     return false;
   }
 
-  if (command_id == IDC_EDIT_MENU || command_id == IDC_ZOOM_MENU) {
+  if (command_id == AppMenuModel::kEditMenuPlaceholder ||
+      command_id == AppMenuModel::kZoomMenuPlaceholder) {
     // These have special child views; don't show the accelerator for them.
     return false;
   }
@@ -1432,7 +1475,8 @@ void AppMenu::OnMenuClosed(views::MenuItemView* menu) {
   if (has_safety_hub_notification &&
       menu_opened_timer_.Elapsed() >= base::Seconds(5)) {
     if (SafetyHubHatsService* hats_service =
-            SafetyHubHatsServiceFactory::GetForProfile(browser_->profile())) {
+            SafetyHubHatsServiceFactory::GetForProfile(
+                browser_->GetProfile())) {
       hats_service->SafetyHubNotificationSeen();
     }
   }
@@ -1441,7 +1485,8 @@ void AppMenu::OnMenuClosed(views::MenuItemView* menu) {
 
   if (bookmark_menu_delegate_.get()) {
     BookmarkMergedSurfaceService* service =
-        BookmarkMergedSurfaceServiceFactory::GetForProfile(browser_->profile());
+        BookmarkMergedSurfaceServiceFactory::GetForProfile(
+            browser_->GetProfile());
     if (service) {
       service->RemoveObserver(this);
     }
@@ -1537,7 +1582,7 @@ void AppMenu::OnGlobalErrorsChanged() {
 }
 
 views::View* AppMenu::GetZoomAppMenuViewForTest() {
-  std::optional<int> zoom_view_command_id = IDC_ZOOM_MENU;
+  std::optional<int> zoom_view_command_id = AppMenuModel::kZoomMenuPlaceholder;
   auto* menu_item = root_->GetMenuItemByID(zoom_view_command_id.value());
   DCHECK(menu_item);
 
@@ -1550,6 +1595,9 @@ views::View* AppMenu::GetZoomAppMenuViewForTest() {
 }
 
 void AppMenu::PopulateMenu(MenuItemView* parent, MenuModel* model) {
+  int target_profile_row_height = ComputeTargetProfileRowHeight(
+      views::MenuConfig::instance().item_vertical_margin, model);
+
   for (size_t i = 0, max = model->GetItemCount(); i < max; ++i) {
     // Add the menu item at the end.
     size_t menu_index = parent->HasSubmenu()
@@ -1573,17 +1621,17 @@ void AppMenu::PopulateMenu(MenuItemView* parent, MenuModel* model) {
     };
 
     switch (model->GetCommandIdAt(i)) {
-      case IDC_PROFILE_MENU_IN_APP_MENU: {
+      case AppMenuModel::kProfileMenuPlaceholder: {
         add_menu_row_background(ChromeLayoutProvider::Get()->GetDistanceMetric(
                                     DISTANCE_CONTENT_LIST_VERTICAL_MULTI),
                                 ui::kColorAppMenuProfileRowBackground);
         ProfileAttributesEntry* profile_attributes =
-            GetProfileAttributesFromProfile(browser_->profile());
+            GetProfileAttributesFromProfile(browser_->GetProfile());
         if (profile_attributes &&
             !profile_attributes->GetLocalProfileName().empty()) {
           const MenuConfig& config = MenuConfig::instance();
           AddSignedInChipToProfileMenuItem(
-              browser_->profile(), item,
+              browser_->GetProfile(), item,
               config.arrow_to_edge_padding + config.arrow_size,
               profile_menu_item_selected_subscription_list_);
         }
@@ -1624,7 +1672,7 @@ void AppMenu::PopulateMenu(MenuItemView* parent, MenuModel* model) {
         }
         break;
       }
-      case IDC_EDIT_MENU: {
+      case AppMenuModel::kEditMenuPlaceholder: {
         ui::ButtonMenuItemModel* submodel = model->GetButtonMenuItemAt(i);
         DCHECK_EQ(IDC_CUT, submodel->GetCommandIdAt(0));
         DCHECK_EQ(IDC_COPY, submodel->GetCommandIdAt(1));
@@ -1636,7 +1684,7 @@ void AppMenu::PopulateMenu(MenuItemView* parent, MenuModel* model) {
         break;
       }
 
-      case IDC_ZOOM_MENU: {
+      case AppMenuModel::kZoomMenuPlaceholder: {
         ui::ButtonMenuItemModel* submodel = model->GetButtonMenuItemAt(i);
         DCHECK_EQ(IDC_ZOOM_MINUS, submodel->GetCommandIdAt(0));
         DCHECK_EQ(IDC_ZOOM_PLUS, submodel->GetCommandIdAt(1));
@@ -1647,12 +1695,12 @@ void AppMenu::PopulateMenu(MenuItemView* parent, MenuModel* model) {
         break;
       }
 
-      case IDC_BOOKMARKS_MENU:
+      case AppMenuModel::kBookmarksMenuPlaceholder:
         DCHECK(!bookmark_menu_);
         bookmark_menu_ = item;
         break;
 
-      case IDC_SAVED_TAB_GROUPS_MENU:
+      case AppMenuModel::kSavedTabGroupsMenuPlaceholder:
         DCHECK(!saved_tab_groups_menu_);
         saved_tab_groups_menu_ = item;
         break;
@@ -1671,7 +1719,7 @@ void AppMenu::PopulateMenu(MenuItemView* parent, MenuModel* model) {
         break;
 #endif
 
-      case IDC_RECENT_TABS_MENU:
+      case AppMenuModel::kRecentTabsMenuPlaceholder:
         DCHECK(!recent_tabs_menu_model_delegate_.get());
         recent_tabs_menu_model_delegate_ =
             std::make_unique<RecentTabsMenuModelDelegate>(
@@ -1682,6 +1730,13 @@ void AppMenu::PopulateMenu(MenuItemView* parent, MenuModel* model) {
                            IDC_SHOW_MANAGEMENT_PAGE);
         break;
       default:
+        if (IsOtherProfileCommand(model->GetCommandIdAt(i))) {
+          ui::ImageModel icon = model->GetIconAt(i);
+          int icon_height =
+              icon.IsEmpty() ? views::kMenuCheckSize : icon.Size().height();
+          item->set_vertical_margin(
+              std::max(0, (target_profile_row_height - icon_height) / 2));
+        }
         break;
     }
   }
@@ -1731,7 +1786,8 @@ void AppMenu::CreateBookmarkMenu() {
   }
 
   BookmarkMergedSurfaceService* service =
-      BookmarkMergedSurfaceServiceFactory::GetForProfile(browser_->profile());
+      BookmarkMergedSurfaceServiceFactory::GetForProfile(
+          browser_->GetProfile());
   if (!service->loaded()) {
     return;
   }

@@ -26,6 +26,7 @@
 #include "components/lens/lens_url_utils.h"
 #include "components/metrics/metrics_provider.h"
 #include "components/omnibox/browser/autocomplete_match_type.h"
+#include "components/omnibox/common/composebox_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "content/public/browser/page_navigator.h"
@@ -88,7 +89,6 @@ void ComposeboxOmniboxClient::OnAutocompleteAccept(
 
 ComposeboxHandler::ComposeboxHandler(
     mojo::PendingReceiver<composebox::mojom::PageHandler> pending_handler,
-    mojo::PendingRemote<composebox::mojom::Page> pending_page,
     mojo::PendingReceiver<searchbox::mojom::PageHandler>
         pending_searchbox_handler,
     mojo::PendingRemote<searchbox::mojom::Page> pending_searchbox_page,
@@ -97,7 +97,6 @@ ComposeboxHandler::ComposeboxHandler(
     GetSessionHandleCallback get_session_callback,
     ClearSessionHandleCallback clear_session_callback)
     : ComposeboxHandler(std::move(pending_handler),
-                        std::move(pending_page),
                         std::move(pending_searchbox_handler),
                         std::move(pending_searchbox_page),
                         profile,
@@ -110,7 +109,6 @@ ComposeboxHandler::ComposeboxHandler(
 
 ComposeboxHandler::ComposeboxHandler(
     mojo::PendingReceiver<composebox::mojom::PageHandler> pending_handler,
-    mojo::PendingRemote<composebox::mojom::Page> pending_page,
     mojo::PendingReceiver<searchbox::mojom::PageHandler>
         pending_searchbox_handler,
     mojo::PendingRemote<searchbox::mojom::Page> pending_searchbox_page,
@@ -126,7 +124,6 @@ ComposeboxHandler::ComposeboxHandler(
                                  std::move(omnibox_client),
                                  std::move(get_session_callback)),
       clear_session_callback_(std::move(clear_session_callback)),
-      page_{std::move(pending_page)},
       handler_(this, std::move(pending_handler)) {
   // Set the callback for getting suggest inputs from the session.
   // The session is owned by WebUI controller and accessed via callback.
@@ -257,7 +254,9 @@ void ComposeboxHandler::ClearFiles(bool should_block_auto_suggested_tabs) {
   // Reset the AIM tool mode to not include file upload if it currently does.
   if (GetInputState().active_tool ==
       omnibox::ToolMode::TOOL_MODE_IMAGE_GEN_UPLOAD) {
-    input_state_model_->setActiveTool(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN);
+    if (auto* model = input_state_model()) {
+      model->setActiveTool(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN);
+    }
   }
 }
 
@@ -294,7 +293,12 @@ void ComposeboxHandler::SubmitQuery(
     omnibox::ChromeAimEntryPoint aim_entrypoint,
     std::map<std::string, std::string> additional_params,
     bool is_voice_search) {
-  CHECK(input_state_model());
+  if (!input_state_model()) {
+    InitializeInputStateModel();
+    if (!input_state_model()) {
+      return;
+    }
+  }
 
   if (auto* metrics_recorder = GetMetricsRecorder()) {
     // Record AIM tool and model mode on query submission.
@@ -337,7 +341,8 @@ void ComposeboxHandler::CanShowNextboxAnimation(
       prefs->GetDict(prefs::kContextMenuAnimationState);
 
   int lifetime_count = state_dict.FindInt("nextbox_lifetime_count").value_or(0);
-  if (lifetime_count >= 20) {
+  if (lifetime_count >=
+      omnibox::kContextMenuAnimationLifetimeLimit.Get()) {
     std::move(callback).Run(false);
     return;
   }
@@ -353,7 +358,8 @@ void ComposeboxHandler::CanShowNextboxAnimation(
     daily_count = 0;
   }
 
-  bool can_show = daily_count < 5;
+  bool can_show =
+      daily_count < omnibox::kContextMenuAnimationDailyLimit.Get();
   std::move(callback).Run(can_show);
 }
 
@@ -374,7 +380,9 @@ void ComposeboxHandler::RecordNextboxAnimationImpression() {
     daily_count = 0;
   }
 
-  if (lifetime_count < 20 && daily_count < 5) {
+  if (lifetime_count <
+          omnibox::kContextMenuAnimationLifetimeLimit.Get() &&
+      daily_count < omnibox::kContextMenuAnimationDailyLimit.Get()) {
     daily_count++;
     lifetime_count++;
 

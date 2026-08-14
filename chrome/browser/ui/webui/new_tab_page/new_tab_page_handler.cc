@@ -45,7 +45,7 @@
 #include "chrome/browser/new_tab_page/modules/modules_constants.h"
 #include "chrome/browser/new_tab_page/modules/new_tab_page_modules.h"
 #include "chrome/browser/new_tab_page/new_tab_page_util.h"
-#include "chrome/browser/new_tab_page/ntp_pref_names.h"
+#include "chrome/browser/new_tab_page/prefs/ntp_pref_names.h"
 #include "chrome/browser/new_tab_page/promos/promo_service_factory.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
@@ -78,6 +78,7 @@
 #include "components/keyed_service/core/service_access_type.h"
 #include "components/ntp_tiles/tile_type.h"
 #include "components/omnibox/browser/omnibox.mojom.h"
+#include "components/omnibox/common/composebox_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/search/ntp_features.h"
@@ -114,9 +115,11 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
-#include "components/user_education/webui/help_bubble_handler.h"
+#include "components/user_education/webui/help_bubble_handler.h"  // nogncheck
 #include "ui/webui/tracked_element/tracked_element_handler.h"
 #include "ui/webui/tracked_element/tracked_element_web_ui.h"
+#else
+#include "chrome/browser/flags/android/chrome_feature_list.h"
 #endif
 
 namespace {
@@ -221,8 +224,11 @@ new_tab_page::mojom::ThemePtr MakeTheme(
     bool use_alternate_logo =
         theme_provider && theme_provider->GetDisplayProperty(
                               ThemeProperties::NTP_LOGO_ALTERNATE) == 1;
-// TODO(b/502297163): Implement for Android.
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
+    use_alternate_logo =
+        use_alternate_logo ||
+        base::FeatureList::IsEnabled(chrome::android::kWebUiAndroidTheming);
+#else
     use_alternate_logo =
         use_alternate_logo || (!theme_service->GetIsGrayscale() &&
                                theme_service->GetUserColor().has_value());
@@ -511,12 +517,13 @@ NewTabPageHandler::NewTabPageHandler(
         segmentation_platform_service,
     content::WebContents* web_contents,
     const base::Time& ntp_navigation_start_time,
+    base::TimeTicks ntp_navigation_start_time_ticks,
     const std::vector<ntp::ModuleIdDetail>* module_id_details)
     : SettingsEnabledObserver(
           optimization_guide::UserVisibleFeatureKey::kWallpaperSearch),
       logger_(profile,
               chrome::ChromeUINewTabPageURLAsGURL(),
-              ntp_navigation_start_time),
+              ntp_navigation_start_time_ticks),
       ntp_custom_background_service_(ntp_custom_background_service),
       logo_service_(logo_service),
 // TODO(b/502297163): Implement for Android.
@@ -1181,7 +1188,8 @@ void NewTabPageHandler::CanShowRealboxContextMenuAnimation(
       prefs->GetDict(prefs::kContextMenuAnimationState);
 
   int lifetime_count = state_dict.FindInt("realbox_lifetime_count").value_or(0);
-  if (lifetime_count >= 20) {
+  if (lifetime_count >=
+      omnibox::kContextMenuAnimationLifetimeLimit.Get()) {
     std::move(callback).Run(false);
     return;
   }
@@ -1197,7 +1205,8 @@ void NewTabPageHandler::CanShowRealboxContextMenuAnimation(
     daily_count = 0;
   }
 
-  bool can_show = daily_count < 5;
+  bool can_show =
+      daily_count < omnibox::kContextMenuAnimationDailyLimit.Get();
   std::move(callback).Run(can_show);
 }
 
@@ -1218,7 +1227,10 @@ void NewTabPageHandler::RecordRealboxContextMenuAnimationImpression() {
     daily_count = 0;
   }
 
-  if (lifetime_count < 20 && daily_count < 5) {
+  if (lifetime_count <
+          omnibox::kContextMenuAnimationLifetimeLimit.Get() &&
+      daily_count <
+          omnibox::kContextMenuAnimationDailyLimit.Get()) {
     daily_count++;
     lifetime_count++;
 

@@ -1956,22 +1956,6 @@ void PrefetchService::DumpPrefetchesForDebug() const {
 #endif  // DCHECK_IS_ON()
 }
 
-std::pair<std::vector<PrefetchContainer*>,
-          base::flat_map<PrefetchKey, PrefetchServableState>>
-PrefetchService::CollectMatchCandidates(
-    const PrefetchKey& key,
-    bool is_nav_prerender,
-    base::WeakPtr<PrefetchServingPageMetricsContainer>
-        serving_page_metrics_container,
-    const PrefetchKey* key_ahead_of_prerender,
-    PrefetchPotentialCandidateCollectResult*
-        collect_result_ahead_of_prerender) {
-  return CollectMatchCandidatesGeneric(
-      owned_prefetches(), key, is_nav_prerender,
-      std::move(serving_page_metrics_container), key_ahead_of_prerender,
-      collect_result_ahead_of_prerender);
-}
-
 PrefetchContainer* PrefetchService::FindPrefetchAheadOfPrerenderForMetrics(
     const PreloadPipelineInfo& pipeline_info) {
   for (const auto& it : owned_prefetches()) {
@@ -2095,6 +2079,16 @@ void PrefetchService::CancelUnrelatedPrefetchForNavigation(
     if (is_cancel_target(*prefetch_container)) {
       prefetches_to_reset.push_back(prefetch_container->GetWeakPtr());
     }
+  }
+
+  // See https://crbug.com/532560786.
+  //
+  // Crash if it's called in observer notification. This is to prevent
+  // scattering crash reports with the same root cause.
+  //
+  // TODO(crbug.com/532560786): Remove it.
+  for (const auto& prefetch_container : prefetches_to_reset) {
+    CHECK(!prefetch_container->during_observer_notification());
   }
 
   ResetPrefetchContainersAndProgressAsync(

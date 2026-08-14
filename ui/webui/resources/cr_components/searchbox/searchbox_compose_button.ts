@@ -11,8 +11,17 @@ import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import {getCss} from './searchbox_compose_button.css.js';
 import {getHtml} from './searchbox_compose_button.html.js';
 
+export interface ComposeClickEventDetail {
+  button: number;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  shiftKey: boolean;
+  viaKeyboard?: boolean;
+}
+
 export interface SearchboxComposeButtonElement {
   $: {
+    composeButton: HTMLElement,
     glowAnimationWrapper: HTMLElement,
   };
 }
@@ -52,7 +61,19 @@ export class SearchboxComposeButtonElement extends
 
   static override get properties() {
     return {
-      composeIcon_: {
+      labelText: {
+        type: String,
+        reflect: true,
+      },
+      tooltipTitle: {
+        type: String,
+        reflect: true,
+      },
+      a11yLabel: {
+        type: String,
+        reflect: true,
+      },
+      composeIcon: {
         type: String,
         reflect: true,
       },
@@ -63,9 +84,10 @@ export class SearchboxComposeButtonElement extends
         type: Boolean,
         reflect: true,
       },
-      ntpRealboxNextEnabled_: {
+      isFuseboxEnabled_: {
         type: Boolean,
         reflect: true,
+        attribute: 'is-fusebox-enabled',
       },
       energyEffectAnimationEnabled_: {
         type: Boolean,
@@ -75,23 +97,38 @@ export class SearchboxComposeButtonElement extends
     };
   }
 
-  protected accessor ntpRealboxNextEnabled_: boolean =
-      loadTimeData.getBoolean('ntpRealboxNextEnabled');
+  accessor labelText: string =
+      loadTimeData.getString('searchboxComposeButtonText');
+
+  accessor tooltipTitle: string =
+      loadTimeData.getString('searchboxComposeButtonTitle');
+
+  accessor a11yLabel: string =
+      loadTimeData.getString('searchboxComposeButtonA11yLabel');
+
+  accessor composeIcon: string =
+      loadTimeData.valueExists('searchboxComposeButtonIcon') ?
+      loadTimeData.getString('searchboxComposeButtonIcon') :
+      '//resources/cr_components/searchbox/icons/search_spark.svg';
+
+  protected accessor isFuseboxEnabled_: boolean =
+      loadTimeData.getBoolean('isFuseboxEnabled');
 
   protected accessor energyEffectAnimationEnabled_: boolean =
       loadTimeData.getBoolean('energyEffectAnimationEnabled');
-
-  protected accessor composeIcon_: string =
-      '//resources/cr_components/searchbox/icons/search_spark.svg';
 
   protected accessor arrowIcon_: string =
       '//resources/cr_components/searchbox/icons/arrow_forward.svg';
 
   protected accessor showAnimation_: boolean = false;
 
+  protected hasFavicon_(): boolean {
+    return this.composeIcon.startsWith('chrome://favicon2/');
+  }
+
   override firstUpdated() {
     if (this.$.glowAnimationWrapper) {
-      if (this.ntpRealboxNextEnabled_) {
+      if (this.isFuseboxEnabled_) {
         this.$.glowAnimationWrapper.addEventListener(
             'mouseenter', this.onMouseEnter_);
         this.$.glowAnimationWrapper.addEventListener(
@@ -146,6 +183,7 @@ export class SearchboxComposeButtonElement extends
       ctrlKey: e.ctrlKey,
       metaKey: e.metaKey,
       shiftKey: e.shiftKey,
+      viaKeyboard: e.detail === 0,
     });
   }
 

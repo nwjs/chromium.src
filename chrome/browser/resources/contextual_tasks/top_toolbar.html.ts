@@ -6,30 +6,35 @@ import '/strings.m.js';
 
 import {html} from '//resources/lit/v3_0/lit.rollup.js';
 
+import {getHtml as getLogoHtml} from './top_toolbar_logo.html.js';
 import type {TopToolbarElement} from './top_toolbar.js';
 
 // clang-format off
 export function getHtml(this: TopToolbarElement) {
   return html`<!--_html_template_start_-->
 <div id="top-row" data-element-id="kContextualTasksWebUIToolbarElementId">
-<if expr="_google_chrome">
-    <img src="chrome://resources/cr_components/searchbox/icons/google_g_gradient.svg"
-        class="top-toolbar-logo">
-</if>
-<if expr="not _google_chrome">
-    <img class="top-toolbar-logo chrome-logo-light"
-        src="chrome://resources/cr_components/searchbox/icons/chrome_product.svg"
-        alt="Chrome Logo">
-    <img class="top-toolbar-logo chrome-logo-dark"
-        src="chrome://resources/images/chrome_logo_dark.svg" alt="Chrome Logo">
-</if>
+<div class="top-toolbar-logo-container">
+  ${this.isSidePanelRearchitectureEnabled_ ? html`
+    <cr-button class="top-toolbar-logo-button clickable"
+        data-element-id="kContextualTasksSuperGButtonElementId"
+        @click="${this.onLogoClick_}">
+      ${getLogoHtml()}
+    </cr-button>
+  ` : html`
+    <div class="top-toolbar-logo-button">
+      ${getLogoHtml()}
+    </div>
+  `}
+</div>
   <div class="top-toolbar-title">
     ${this.title}
   </div>
   <div class="top-toolbar-action-buttons">
     <cr-icon-button id="newThreadButton"
         @click="${this.onNewThreadClick_}"
-        iron-icon="contextual_tasks:edit_square"
+        iron-icon="${this.webuiRoundedIconsEnabled_
+            ? 'contextual_tasks:edit-square'
+            : 'contextual_tasks:edit_square-old'}"
         class="no-overlap" title="$i18n{newThreadTooltip}"
         aria-label="$i18n{newThreadTooltip}"
         ?hidden="${!this.isAimEligible ||
@@ -38,7 +43,9 @@ export function getHtml(this: TopToolbarElement) {
     </cr-icon-button>
     <cr-icon-button id="threadHistoryButton"
         @click="${this.onThreadHistoryClick_}"
-        iron-icon="contextual_tasks:notes_spark"
+        iron-icon="${this.webuiRoundedIconsEnabled_
+            ? 'contextual_tasks:notes-spark'
+            : 'contextual_tasks:notes_spark-old'}"
         class="no-overlap" title="$i18n{threadHistoryTooltip}"
         aria-label="$i18n{threadHistoryTooltip}"
         ?hidden="${!this.isAiPage || !this.isUserSignedIn ||
@@ -55,7 +62,9 @@ export function getHtml(this: TopToolbarElement) {
     </contextual-tasks-favicon-group>` : ''}
     ${this.isExpandButtonEnabled ? html`
       <cr-icon-button id="openInNewTabButton"
-        iron-icon="contextual_tasks:open_in_full_tab"
+        iron-icon="${this.webuiRoundedIconsEnabled_
+            ? 'contextual_tasks:open-in-full'
+            : 'contextual_tasks:open_in_full_tab-old'}"
         class="no-overlap" title="$i18n{openInNewTab}"
         aria-label="$i18n{openInNewTab}"
         @click="${this.onOpenInNewTabClick_}"

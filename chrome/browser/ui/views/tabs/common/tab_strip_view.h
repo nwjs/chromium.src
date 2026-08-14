@@ -9,7 +9,6 @@
 #include "base/scoped_observation.h"
 #include "components/tabs/public/tab_interface.h"
 #include "ui/base/metadata/metadata_header_macros.h"
-#include "ui/views/layout/delegating_layout_manager.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget_observer.h"
 
@@ -25,8 +24,8 @@ class Separator;
 // The view class for tab strip which holds the pinned and unpinned
 // regions and associates them to their scroll views. It also is responsible for
 // scrolling to the active tab view when the active tab changes.
+// Layout is managed by `TabStripViewLayout`.
 class TabStripView final : public views::View,
-                           public views::LayoutDelegate,
                            public views::WidgetObserver {
   METADATA_HEADER(TabStripView, views::View)
 
@@ -36,15 +35,15 @@ class TabStripView final : public views::View,
   TabStripView& operator=(const TabStripView&) = delete;
   ~TabStripView() override;
 
-  views::Separator* GetTabsSeparator() { return tabs_separator_; }
+  views::Separator* GetTabsSeparator() const { return tabs_separator_; }
 
-  PinnedTabContainerView* GetPinnedTabsContainer();
-  UnpinnedTabContainerView* GetUnpinnedTabsContainer();
+  PinnedTabContainerView* GetPinnedTabsContainer() const;
+  UnpinnedTabContainerView* GetUnpinnedTabsContainer() const;
 
-  views::ScrollView* pinned_tabs_scroll_view() {
+  views::ScrollView* pinned_tabs_scroll_view() const {
     return pinned_tabs_scroll_view_;
   }
-  views::ScrollView* unpinned_tabs_scroll_view() {
+  views::ScrollView* unpinned_tabs_scroll_view() const {
     return unpinned_tabs_scroll_view_;
   }
 
@@ -52,10 +51,6 @@ class TabStripView final : public views::View,
   void SetIsAnimatingSize(bool is_animating);
 
   bool IsPositionInWindowCaption(const gfx::Point& point);
-
-  // LayoutDelegate:
-  views::ProposedLayout CalculateProposedLayout(
-      const views::SizeBounds& size_bounds) const override;
 
   // views::View:
   void AddedToWidget() override;
@@ -69,22 +64,47 @@ class TabStripView final : public views::View,
   void OnChildMoved(TabCollectionNode* moved_node);
   void OnTabChanged(const tabs::TabInterface* active_tab);
 
+  // Scrolls the scroll view(s) to ensure that the specified target tabs/views
+  // are visible within the viewport.
+  //
+  // - `active_tab` (or `view1`) is treated as the primary view, and `new_tab`
+  // (or
+  //   `view2`) is treated as the secondary view.
+  // - Attempts to scroll so that the combined bounds of both views are visible
+  //   simultaneously within the viewport.
+  // - If the combined bounds exceed the height of the scroll viewport, it falls
+  //   back to prioritizing the primary view (the active tab).
+  // - If the views belong to separate scroll containers (e.g., pinned vs.
+  //   unpinned), each container independently scrolls to reveal its target
+  //   view.
+  void ScrollToFitTabs(const tabs::TabInterface* active_tab,
+                       const tabs::TabInterface* new_tab);
+  void ScrollToFitViews(views::View* view1, views::View* view2);
+
   void RecordMousePressedInTab();
   bool IsFocusInTabStrip();
 
+  views::ScrollView* GetUnpinnedTabsScrollViewForTesting() {
+    return unpinned_tabs_scroll_view_;
+  }
+  views::ScrollView* GetPinnedTabsScrollViewForTesting() {
+    return pinned_tabs_scroll_view_;
+  }
+  views::View* GetPrimaryScrollTargetForTesting() const;
+  views::View* GetSecondaryScrollTargetForTesting() const;
+
  private:
-  class ActivatedViewTracker;
+  class TargetViewsTracker;
 
   views::View* AddScrollViewContents(std::unique_ptr<views::View> view);
   void RemoveScrollViewContents(views::View* view);
-  void ScrollToView(views::View* view);
   void SetScrollViewProperties(views::ScrollView* scroll_view);
   void ResetCollectionNode();
 
-  // Invoked after layout has been invoked for the activated view's associated
-  // ScrollView. Ensures that the activated view is visible in the viewport.
-  void EnsureVisibleInViewportPostActivationAndLayout(
-      views::ScrollView* scroll_view);
+  // Invoked after layout has been invoked for target views' associated
+  // ScrollView. Performs a best-effort attempt to ensure target views are
+  // visible in the viewport (prioritizing the active tab view if not all fit).
+  void EnsureViewsVisibleInViewportPostLayout(views::ScrollView* scroll_view);
 
   // Enables and disables overflow visuals on `scroll_view` respectively. Used
   // in combination to avoid visual artifacts caused by repeatedly scrolling-in
@@ -92,11 +112,16 @@ class TabStripView final : public views::View,
   void EnableOverflowVisuals(views::ScrollView* scroll_view);
   void DisableOverflowVisuals(views::ScrollView* scroll_view);
 
+  gfx::Rect GetBoundsInScrollViewContents(views::View* view,
+                                          views::ScrollView* scroll_view);
+
   void UpdateColors();
 
   bool IsFrameActive() const;
 
   void HideHoverCardOnScroll();
+
+  friend class TabStripViewLayout;
 
   raw_ptr<TabCollectionNode> collection_node_ = nullptr;
   raw_ptr<views::ScrollView> pinned_tabs_scroll_view_ = nullptr;
@@ -111,9 +136,7 @@ class TabStripView final : public views::View,
   // Used to track if the time from mouse entered to tab switch been reported.
   bool has_reported_time_mouse_entered_to_switch_ = false;
 
-  // Tracks the most recently activated view as reported by
-  // `OnActiveTabChanged()`.
-  std::unique_ptr<ActivatedViewTracker> activated_view_tracker_;
+  std::unique_ptr<TargetViewsTracker> target_views_tracker_;
 
   base::CallbackListSubscription node_destroyed_subscription_;
   base::CallbackListSubscription paint_as_active_subscription_;

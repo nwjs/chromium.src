@@ -7,6 +7,26 @@
 import os
 import re
 
+# BUILD.gn files that are edited by many concurrent CLs. The global
+# CheckPatchFormatted() in the root PRESUBMIT.py only emits a warning, which is
+# easy to miss; when unformatted edits to these large, high-traffic files land
+# close together they cause `gn format` churn and needless merge conflicts.
+# Enforce `git cl format` as an error on these specific files only, to keep the
+# blast radius small.
+_FORMAT_REQUIRED_BUILD_GN = (
+    'chrome/browser/BUILD.gn',
+    'chrome/browser/ui/BUILD.gn',
+)
+
+
+def _CheckHighTrafficBuildGnFormatted(input_api, output_api):
+    return input_api.canned_checks.CheckPatchFormatted(
+        input_api,
+        output_api,
+        result_factory=output_api.PresubmitError,
+        file_filter=lambda f: f.LocalPath() in _FORMAT_REQUIRED_BUILD_GN)
+
+
 # Checks whether an autofill-related browsertest fixture class inherits from
 # either InProcessBrowserTest or AndroidBrowserTest without having a member of
 # type `autofill::test::AutofillBrowserTestEnvironment`. In that case, the
@@ -239,6 +259,49 @@ def _CheckBuildFilesForIndirectAshSources(input_api, output_api):
     return results
 
 
+def _GetUpstream(input_api):
+    change = input_api.change
+    upstream = None
+    if hasattr(change, 'UpstreamBranch'):
+        upstream = change.UpstreamBranch()
+    return upstream or 'origin/main'
+
+
+def _GetSimpleRenamedFiles(input_api):
+    """Returns a set of new paths for files that were simply renamed (R100)."""
+    change = input_api.change
+    scm = getattr(change, 'scm', '')
+    if scm != 'git':
+        return set()
+
+    upstream = _GetUpstream(input_api)
+    end_commit = getattr(change, '_end_commit', 'HEAD') or 'HEAD'
+
+    try:
+        merge_base = input_api.subprocess.check_output(
+            ['git', 'merge-base', upstream, end_commit],
+            cwd=change.RepositoryRoot()).decode('utf-8').strip()
+
+        cmd = ['git', 'diff', '--name-status', '-M', merge_base]
+        if end_commit and end_commit != 'HEAD':
+            cmd.append(end_commit)
+        cmd.extend(['--', '*test*'])
+
+        output = input_api.subprocess.check_output(
+            cmd, cwd=change.RepositoryRoot()).decode('utf-8')
+    except (input_api.subprocess.CalledProcessError, AttributeError):
+        return set()
+
+    simple_renamed = set()
+    for line in output.splitlines():
+        if line.startswith('R100'):
+            parts = line.split('\t')
+            if len(parts) == 3:
+                new_path = parts[2].replace('\\', '/')
+                simple_renamed.add(new_path)
+    return simple_renamed
+
+
 def _CheckAshSourcesForBadIncludes(input_api, output_api):
     """Make sure changes to Ash sources don't include c/b/ui/browser.h
 
@@ -258,11 +321,22 @@ def _CheckAshSourcesForBadIncludes(input_api, output_api):
         "chrome/browser/ui/browser.h",
     ]
 
+    renamed_files = None
+
     def should_check_path(affected_path):
         # TODO(crbug.com/447299513): Use pathlib's full_match once we are at
         # Python >= 3.13
-        return (affected_path.startswith('chrome/browser/') and
-                ('/ash/' in affected_path or '/chromeos/' in affected_path))
+        if not (affected_path.startswith('chrome/browser/') and
+                ('/ash/' in affected_path or '/chromeos/' in affected_path)):
+            return False
+
+        nonlocal renamed_files
+        if renamed_files is None:
+            renamed_files = _GetSimpleRenamedFiles(input_api)
+
+        if affected_path in renamed_files:
+            return False
+        return True
 
     bad_includes_re = re.compile('|'.join(
         re.escape(f'#include "{file}"') for file in bad_includes))
@@ -580,24 +654,19 @@ def _CheckForUnwantedFlagDescriptionContent(input_api, output_api):
 def _CheckForOrphanedFlagMetadata(input_api, output_api):
     flag_tools_dir = input_api.os_path.join(input_api.change.RepositoryRoot(),
                                             'tools', 'flags')
-    cmd = [input_api.python3_executable,
-           input_api.os_path.join(flag_tools_dir, 'lint_flags.py')]
-    try:
-      # Run from `//tools/flags/` to give access to the `flags_utils` module.
-      input_api.subprocess.check_call(cmd,
-                                      cwd=flag_tools_dir,
-                                      stdout=input_api.subprocess.PIPE)
-      return []
-    except input_api.subprocess.CalledProcessError as error:
-      result = input_api.json.loads(error.stdout)
-      # Output a hard error to block new orphans from landing.
-      return [
-        output_api.PresubmitError(
-            message=(
-                '`//chrome/browser/flag-metadata.json` appears to contain '
-                'entries not used in `about_flags.cc` or `about_flags.mm`.'),
-            items=result['unused_flags'])
-      ]
+    script_path = input_api.os_path.join(flag_tools_dir, 'lint_flags.py')
+    cmd = [input_api.python3_executable, script_path]
+
+    # Use Command API so that the check can run concurrently when --parallel
+    # is used.
+    return input_api.RunTests([
+        input_api.Command(
+            name='CheckForOrphanedFlagMetadata',
+            cmd=cmd,
+            kwargs={'cwd': flag_tools_dir},
+            message=output_api.PresubmitError
+        )
+    ])
 
 def _CheckNewDirectoryHasBuildGn(input_api, output_api):
     """Checks that any new direct subdirectory under chrome/browser or
@@ -689,6 +758,7 @@ def _CheckNoNewProfileIDPrefixes(input_api, output_api):
 def _CommonChecks(input_api, output_api):
     """Checks common to both upload and commit."""
     results = []
+    results.extend(_CheckHighTrafficBuildGnFormatted(input_api, output_api))
     results.extend(_CheckNewDirectoryHasBuildGn(input_api, output_api))
     results.extend(
         _CheckNoAutofillBrowserTestsWithoutAutofillBrowserTestEnvironment(

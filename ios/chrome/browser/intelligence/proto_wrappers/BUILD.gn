@@ -91,7 +91,7 @@ source_set("page_context_extractor_feature") {
     "//base",
     "//components/autofill/ios/form_util:frame_registration_feature",
     "//ios/chrome/browser/intelligence/features",
-    "//ios/public/provider/chrome/browser/bwg:bwg_api",
+    "//ios/public/provider/chrome/browser/bwg:gemini_api",
     "//ios/web/public/js_messaging",
   ]
 }
@@ -139,13 +139,16 @@ source_set("proto_wrappers") {
     "//components/optimization_guide/core:features",
     "//components/optimization_guide/core:page_content",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//components/security_state/core",
+    "//components/security_state/ios",
     "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/snapshots/model",
-    "//ios/public/provider/chrome/browser/bwg:bwg_api",
+    "//ios/public/provider/chrome/browser/bwg:gemini_api",
     "//ios/web/find_in_page",
     "//ios/web/public",
     "//ios/web/public/js_messaging",
+    "//net",
     "//url",
   ]
 }
@@ -185,10 +188,12 @@ source_set("utils") {
     "page_context_utils.mm",
   ]
   deps = [
+    "//base",
     "//components/autofill/core/common",
     "//components/autofill/ios/browser:util",
+    "//ios/chrome/browser/intelligence/features",
+    "//ios/chrome/browser/shared/model/utils",
     "//ios/web/public",
-    "//ios/web/util",
     "//url",
   ]
 }
@@ -244,6 +249,8 @@ source_set("unit_tests") {
     "//components/autofill/ios/form_util:test_support",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/prefs:test_support",
+    "//components/safe_browsing/ios/browser:allow_list",
+    "//components/security_state/core",
     "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/intelligence/persist_tab_context/model",
     "//ios/chrome/browser/shared/model/browser/test:test_support",
@@ -286,6 +293,7 @@ source_set("eg_app_support+eg2") {
   deps = [
     "//base",
     "//base/test:test_support",
+    "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/intelligence/proto_wrappers",
     "//ios/chrome/test/app:test_support",
     "//ios/web/public",

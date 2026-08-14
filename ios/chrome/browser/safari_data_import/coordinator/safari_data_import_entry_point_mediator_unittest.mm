@@ -31,7 +31,7 @@ class SafariDataImportEntryPointMediatorTest : public PlatformTest {
         {feature_engagement::kIPHiOSSafariImportFeature});
 
     ProfileState* profile_state = [[ProfileState alloc] initWithAppState:nil];
-    scene_state_ = [[SceneState alloc] initWithAppState:nil];
+    scene_state_ = [[SceneState alloc] init];
     scene_state_.profileState = profile_state;
     promos_manager_ = std::make_unique<MockPromosManager>();
     tracker_ = feature_engagement::CreateTestTracker();
@@ -39,7 +39,7 @@ class SafariDataImportEntryPointMediatorTest : public PlatformTest {
     run_loop_.Run();
 
     mediator_ = [[SafariDataImportEntryPointMediator alloc]
-         initWithUIBlockerTarget:scene_state_
+              initWithSceneState:scene_state_
                    promosManager:promos_manager_.get()
         featureEngagementTracker:tracker_.get()
                      prefService:nil];

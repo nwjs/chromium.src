@@ -8,7 +8,6 @@
 #include "base/memory/raw_ref.h"
 #include "base/notreached.h"
 #include "base/run_loop.h"
-#include "base/scoped_observation.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/test/scoped_feature_list.h"
@@ -35,10 +34,13 @@
 #include "components/prefs/pref_service.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
 namespace web_app {
+
+using apps_util::PreferredAppsListReadyWaiter;
 
 webapps::AppId FindAppIdByPath(WebAppProvider& provider,
                                std::string_view path) {
@@ -50,47 +52,6 @@ webapps::AppId FindAppIdByPath(WebAppProvider& provider,
   ADD_FAILURE() << "App not found for path: " << path;
   return "";
 }
-
-// Waiter class that blocks until the `apps::PreferredAppsListHandle` has
-// finished initializing and is ready to be queried.
-class PreferredAppsListReadyWaiter
-    : public apps::PreferredAppsListHandle::Observer {
- public:
-  explicit PreferredAppsListReadyWaiter(apps::PreferredAppsListHandle& handle)
-      : handle_(handle) {
-    if (!handle_->IsInitialized()) {
-      observation_.Observe(&*handle_);
-    }
-  }
-
-  PreferredAppsListReadyWaiter(const PreferredAppsListReadyWaiter&) = delete;
-  PreferredAppsListReadyWaiter& operator=(const PreferredAppsListReadyWaiter&) =
-      delete;
-  ~PreferredAppsListReadyWaiter() override = default;
-
-  void Wait() {
-    if (handle_->IsInitialized()) {
-      return;
-    }
-    run_loop_.Run();
-  }
-
-  void OnPreferredAppsListInitialized() override { run_loop_.Quit(); }
-
-  void OnPreferredAppChanged(const std::string& app_id,
-                             bool is_preferred_app) override {}
-  void OnPreferredAppsListWillBeDestroyed(
-      apps::PreferredAppsListHandle* handle) override {
-    observation_.Reset();
-  }
-
- private:
-  const raw_ref<apps::PreferredAppsListHandle> handle_;
-  base::RunLoop run_loop_;
-  base::ScopedObservation<apps::PreferredAppsListHandle,
-                          apps::PreferredAppsListHandle::Observer>
-      observation_{this};
-};
 
 // Verifies the automated startup migration routine for PWA navigation capturing
 // user preferences across two successive browser sessions:
@@ -174,6 +135,8 @@ IN_PROC_BROWSER_TEST_P(WebAppNavigationCapturingMigrationSuccessTest,
   EXPECT_EQ(static_cast<MigrationState>(prefs->GetInteger(
                 prefs::kLastNavigationCapturingMigrationState)),
             MigrationState::kDefaultOff);
+  // TODO(crbug.com/537369804): Replace with a targeted waiter for disk writes.
+  content::RunAllTasksUntilIdle();
 }
 
 IN_PROC_BROWSER_TEST_P(WebAppNavigationCapturingMigrationSuccessTest,
@@ -318,6 +281,8 @@ IN_PROC_BROWSER_TEST_P(WebAppNavigationCapturingMigrationRollbackTest,
   EXPECT_EQ(static_cast<MigrationState>(prefs->GetInteger(
                 prefs::kLastNavigationCapturingMigrationState)),
             MigrationState::kDefaultOff);
+  // TODO(crbug.com/537369804): Replace with a targeted waiter for disk writes.
+  content::RunAllTasksUntilIdle();
 }
 
 IN_PROC_BROWSER_TEST_P(WebAppNavigationCapturingMigrationRollbackTest,
@@ -357,6 +322,8 @@ IN_PROC_BROWSER_TEST_P(WebAppNavigationCapturingMigrationRollbackTest,
       prefs->GetList(prefs::kWebAppsPreviouslyAppSupportedLinks);
   EXPECT_EQ(backup.size(), 1u);
   EXPECT_EQ(backup[0].GetString(), app_b);
+  // TODO(crbug.com/537369804): Replace with a targeted waiter for disk writes.
+  content::RunAllTasksUntilIdle();
 }
 
 IN_PROC_BROWSER_TEST_P(WebAppNavigationCapturingMigrationRollbackTest,
@@ -476,6 +443,8 @@ IN_PROC_BROWSER_TEST_F(WebAppNavigationCapturingMigrationSwaConflictTest,
       proxy->PreferredAppsList().IsPreferredAppForSupportedLinks(app_a));
   EXPECT_TRUE(
       proxy->PreferredAppsList().IsPreferredAppForSupportedLinks(app_e));
+  // TODO(crbug.com/537369804): Replace with a targeted waiter for disk writes.
+  content::RunAllTasksUntilIdle();
 }
 
 IN_PROC_BROWSER_TEST_F(WebAppNavigationCapturingMigrationSwaConflictTest,

@@ -137,11 +137,11 @@ class BrowserSwitcherServiceTest : public InProcessBrowserTest {
   void SetUpOnMainThread() override {
 #if BUILDFLAG(IS_WIN)
     fake_appdata_dir_ =
-        browser()->profile()->GetPath().AppendASCII("FakeAppData");
+        browser()->GetProfile()->GetPath().AppendASCII("FakeAppData");
     ASSERT_TRUE(DirectoryExists(fake_appdata_dir_) ||
                 CreateDirectory(fake_appdata_dir_));
     BrowserSwitcherServiceFactory::GetInstance()->SetTestingFactory(
-        browser()->profile(),
+        browser()->GetProfile(),
         base::BindRepeating(
             [](base::FilePath cache_dir, content::BrowserContext* context) {
               auto* instance = new BrowserSwitcherServiceWin(
@@ -167,7 +167,7 @@ class BrowserSwitcherServiceTest : public InProcessBrowserTest {
   void UpdatePolicies(policy::PolicyMap& policies) {
     provider_.UpdateChromePolicy(policies);
     base::RunLoop().RunUntilIdle();
-    BrowserSwitcherServiceFactory::GetForBrowserContext(browser()->profile())
+    BrowserSwitcherServiceFactory::GetForBrowserContext(browser()->GetProfile())
         ->Init();
   }
 
@@ -194,7 +194,7 @@ class BrowserSwitcherServiceTest : public InProcessBrowserTest {
 
   BrowserSwitcherService* GetService() {
     return BrowserSwitcherServiceFactory::GetForBrowserContext(
-        browser()->profile());
+        browser()->GetProfile());
   }
 
   policy::MockConfigurationPolicyProvider& policy_provider() {
@@ -448,8 +448,8 @@ IN_PROC_BROWSER_TEST_F(BrowserSwitcherServiceTest,
 
 IN_PROC_BROWSER_TEST_F(BrowserSwitcherServiceTest,
                        ExternalIgnoresNonManagedPref) {
-  browser()->profile()->GetPrefs()->SetString(prefs::kExternalSitelistUrl,
-                                              kAValidUrl);
+  browser()->GetProfile()->GetPrefs()->SetString(prefs::kExternalSitelistUrl,
+                                                 kAValidUrl);
 
   bool fetch_happened = false;
   content::URLLoaderInterceptor interceptor(base::BindRepeating(
@@ -573,7 +573,7 @@ IN_PROC_BROWSER_TEST_F(BrowserSwitcherServiceTest, IeemIgnoresFailedDownload) {
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserSwitcherServiceTest, IeemIgnoresNonManagedPref) {
-  browser()->profile()->GetPrefs()->SetBoolean(prefs::kUseIeSitelist, true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kUseIeSitelist, true);
   BrowserSwitcherServiceWin::SetIeemSitelistUrlForTesting(kAValidUrl);
 
   bool fetch_happened = false;
@@ -846,7 +846,7 @@ IN_PROC_BROWSER_TEST_F(BrowserSwitcherServiceTest,
                            .Set("manifest_version", 2)
                            .Set("version", "5.9"))
           .Build();
-  extensions::ExtensionRegistrar::Get(browser()->profile())
+  extensions::ExtensionRegistrar::Get(browser()->GetProfile())
       ->AddExtension(extension);
 
   // Cache files already exist.

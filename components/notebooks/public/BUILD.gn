@@ -1,0 +1,37 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+source_set("public") {
+  sources = [
+    "features.cc",
+    "features.h",
+    "notebook.cc",
+    "notebook.h",
+    "notebook_id.h",
+    "notebooks_constants.h",
+    "notebooks_eligibility_service.h",
+    "notebooks_network_service.cc",
+    "notebooks_network_service.h",
+    "notebooks_service.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//components/keyed_service/core",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  visibility = [ "//components/notebooks:unit_tests" ]
+
+  sources = [ "notebook_unittest.cc" ]
+
+  deps = [
+    ":public",
+    "//base",
+    "//testing/gtest",
+  ]
+}

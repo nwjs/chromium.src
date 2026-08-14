@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <variant>
@@ -479,19 +480,38 @@ void PasswordStore::NotifyLoginsChangedOnMainSequence(
   }
 
   PasswordChanges changes = std::nullopt;
-  ActionableError error = ActionableError::kNoError;
+  std::optional<ActionableError> error;
   if (std::holds_alternative<PasswordStoreBackendError>(changes_or_error)) {
     const PasswordStoreBackendError& backend_error =
         std::get<PasswordStoreBackendError>(changes_or_error);
     error = BackendErrorToActionableError(backend_error.type);
   } else {
     changes = std::move(std::get<PasswordChanges>(changes_or_error));
-  }
-  if (base::FeatureList::IsEnabled(
-          features::kPasswordStorePropagatesActionableErrors)) {
-    for (auto& observer : observers_) {
-      observer.OnErrorStateChanged(this, error);
+    // On Android the `nullopt` value of `PasswordChangesOrError` is interpreted
+    // as not knowing the actual error state yet. On other platforms the
+    // `nullopt` value of `PasswordChangesOrError` means that there no
+    // actionable errors.
+    // TODO(crbug.com/535288574): Interpret the `nullopt` value consistently
+    // across platforms (or avoid using `nullopt`).
+#if BUILDFLAG(IS_ANDROID)
+    // If `changes` is std::nullopt, a refresh is starting (e.g. when Chrome
+    // comes to foreground). We don't know the actual error state yet, so we
+    // leave `error` as std::nullopt to defer propagation. The error state
+    // will be determined and propagated when the subsequent `GetAllLoginsAsync`
+    // call completes in `NotifyLoginsRetainedOnMainSequence`.
+    if (changes.has_value()) {
+      error = ActionableError::kNoError;
     }
+#else
+    // On platforms other than Android we know that in this case there are no
+    // errors.
+    error = ActionableError::kNoError;
+#endif
+  }
+  if (error.has_value() &&
+      base::FeatureList::IsEnabled(
+          features::kPasswordStorePropagatesActionableErrors)) {
+    NotifyObserversIfErrorStateChanged(error.value());
   }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -532,6 +552,23 @@ void PasswordStore::NotifyLoginsRetainedOnMainSequence(
     return;
   }
 
+  // During a read call to the store, we deferred propagating the error state
+  // because it was unknown. Now that the get call has completed, we
+  // must propagate the actual error state (either kNoError or the backend
+  // error). This does not cause duplicate signals because the propagation
+  // was skipped in `NotifyLoginsChangedOnMainSequence`.
+  ActionableError error = ActionableError::kNoError;
+  if (std::holds_alternative<PasswordStoreBackendError>(result)) {
+    const PasswordStoreBackendError& backend_error =
+        std::get<PasswordStoreBackendError>(result);
+    error = BackendErrorToActionableError(backend_error.type);
+  }
+
+  if (base::FeatureList::IsEnabled(
+          features::kPasswordStorePropagatesActionableErrors)) {
+    NotifyObserversIfErrorStateChanged(error);
+  }
+
   // Clients don't expect errors yet, so just wait for the next notification.
   if (std::holds_alternative<PasswordStoreBackendError>(result)) {
     return;
@@ -554,6 +591,17 @@ void PasswordStore::NotifySyncEnabledOrDisabledOnMainSequence() {
   DCHECK(main_task_runner_->RunsTasksInCurrentSequence());
   if (sync_enabled_or_disabled_cbs_) {
     sync_enabled_or_disabled_cbs_->Notify();
+  }
+}
+
+void PasswordStore::NotifyObserversIfErrorStateChanged(ActionableError error) {
+  DCHECK(main_task_runner_->RunsTasksInCurrentSequence());
+  if (last_reported_actionable_error_ == error) {
+    return;
+  }
+  last_reported_actionable_error_ = error;
+  for (auto& observer : observers_) {
+    observer.OnErrorStateChanged(this, error);
   }
 }
 

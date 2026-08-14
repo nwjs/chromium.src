@@ -50,7 +50,6 @@ import java.lang.annotation.RetentionPolicy;
     FeatureConstants.CHROME_REENGAGEMENT_NOTIFICATION_3_FEATURE,
     FeatureConstants.CONTEXTUAL_PAGE_ACTIONS_ACTION_CHIP,
     FeatureConstants.CONTEXTUAL_PAGE_ACTIONS_QUIET_VARIANT,
-    FeatureConstants.COOKIE_CONTROLS_FEATURE,
     FeatureConstants.DATA_SAVER_DETAIL_FEATURE,
     FeatureConstants.DATA_SAVER_MILESTONE_PROMO_FEATURE,
     FeatureConstants.DATA_SAVER_PREVIEW_FEATURE,
@@ -76,6 +75,7 @@ import java.lang.annotation.RetentionPolicy;
     FeatureConstants.INSTANCE_SWITCHER,
     FeatureConstants.IPH_EXTENSIONS_MANAGE_APP_MENU_FEATURE,
     FeatureConstants.IPH_EXTENSIONS_MANAGE_TOOLBAR_FEATURE,
+    FeatureConstants.IPH_EXTENSIONS_PINNED_BY_DEFAULT_FEATURE,
     FeatureConstants.IPH_INCOGNITO_INDICATOR_CLOSE_ALL_WINDOWS,
     FeatureConstants.IPH_MIC_TOOLBAR_FEATURE,
     FeatureConstants.IPH_PDF_PAGE_DOWNLOAD,
@@ -234,8 +234,6 @@ public @interface FeatureConstants {
 
     String CONTEXTUAL_PAGE_ACTIONS_QUIET_VARIANT = "IPH_ContextualPageActions_QuietVariant";
 
-    String COOKIE_CONTROLS_FEATURE = "IPH_CookieControls";
-
     String DATA_SAVER_DETAIL_FEATURE = "IPH_DataSaverDetail";
 
     String DATA_SAVER_MILESTONE_PROMO_FEATURE = "IPH_DataSaverMilestonePromo";
@@ -303,6 +301,10 @@ public @interface FeatureConstants {
      */
     String IDENTITY_DISC_FEATURE = "IPH_IdentityDisc";
 
+    /**
+     * An IPH feature prompting user that app menu has a menu for managing multiple Chrome windows
+     * with instance switcher.
+     */
     String INSTANCE_SWITCHER = "IPH_InstanceSwitcher";
 
     /**
@@ -316,6 +318,9 @@ public @interface FeatureConstants {
      * their extensions in the toolbar.
      */
     String IPH_EXTENSIONS_MANAGE_TOOLBAR_FEATURE = "IPH_ExtensionsManageToolbar";
+
+    /** An IPH feature that shows when an extension is pinned by default. */
+    String IPH_EXTENSIONS_PINNED_BY_DEFAULT_FEATURE = "IPH_ExtensionsPinnedByDefault";
 
     /**
      * An IPH feature to inform users that they can close all Incognito windows by tapping the
@@ -418,6 +423,12 @@ public @interface FeatureConstants {
     String READ_LATER_BOTTOM_SHEET_FEATURE = "IPH_ReadLaterBottomSheet";
 
     String READ_LATER_CONTEXT_MENU_FEATURE = "IPH_ReadLaterContextMenu";
+
+    /**
+     * An IPH feature prompting user that they can find their recently closed tabs and windows in
+     * the 'Recent tabs' surface.
+     */
+    String RECENT_TABS = "IPH_RecentTabs";
 
     String REQUEST_DESKTOP_SITE_DEFAULT_ON_FEATURE = "IPH_RequestDesktopSiteDefaultOn";
 

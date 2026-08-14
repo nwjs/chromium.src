@@ -11,6 +11,7 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/functional/callback_helpers.h"
 #include "base/json/values_util.h"
 #include "base/strings/strcat.h"
 #include "base/task/current_thread.h"
@@ -42,6 +43,7 @@
 #include "components/permissions/permission_decision_auto_blocker.h"
 #include "components/permissions/permission_uma_util.h"
 #include "components/permissions/permission_util.h"
+#include "components/safe_browsing/buildflags.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/site_instance.h"
@@ -77,6 +79,11 @@
 #include "chrome/browser/enterprise/connectors/test/deep_scanning_test_utils.h"  // nogncheck
 #include "chrome/browser/enterprise/connectors/test/fake_content_analysis_delegate.h"
 #include "chrome/browser/policy/dm_token_utils.h"
+#include "storage/browser/file_system/external_mount_points.h"
+#endif
+
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+#include "components/safe_browsing/content/common/file_type_policies_test_util.h"
 #endif
 
 using content::BrowserContext;
@@ -163,8 +170,9 @@ class SelfDestructingPermissionGrantObserver
 #if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 constexpr char kDummyDmToken[] = "dm_token";
 
-void EnableEnterpriseAnalysis(Profile* profile) {
-  static constexpr char kEnabled[] = R"(
+void EnableEnterpriseAnalysis(Profile* profile, bool fail_closed = false) {
+  std::string policy_value = base::StrCat({
+      R"(
     {
         "service_provider": "google",
         "enable": [
@@ -173,10 +181,12 @@ void EnableEnterpriseAnalysis(Profile* profile) {
             "tags": ["dlp"]
           }
         ],
-        "block_until_verdict": 1
-    })";
+        "block_until_verdict": 1)",
+      fail_closed ? R"(, "default_action": "block")" : "",
+      R"(
+    })"});
   enterprise_connectors::test::SetAnalysisConnector(
-      profile->GetPrefs(), enterprise_connectors::FILE_ATTACHED, kEnabled);
+      profile->GetPrefs(), enterprise_connectors::FILE_ATTACHED, policy_value);
   enterprise_connectors::ContentAnalysisDelegate::DisableUIForTesting();
   policy::SetDMTokenForTesting(
       policy::DMToken::CreateValidToken(kDummyDmToken));
@@ -674,20 +684,22 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
   EXPECT_TRUE(IsOpenAbort(app_data_dir.AppendASCII("foo"), HandleType::kFile));
   EXPECT_TRUE(
       IsOpenAbort(app_data_dir.AppendASCII("foo"), HandleType::kDirectory));
+#endif  // BUILDFLAG(IS_ANDROID)
 
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
   base::FilePath cache_dir = temp_dir_.GetPath().AppendASCII("cache");
   base::ScopedPathOverride cache_override(base::DIR_CACHE, cache_dir, true,
                                           true);
   ResetBlockPath();
-  // The android cache directory, its parent and paths inside should not be
+  // The cache directory, its parent and paths inside should not be
   // allowed.
   EXPECT_TRUE(IsOpenAbort(cache_dir, HandleType::kDirectory));
   EXPECT_TRUE(IsOpenAbort(temp_dir_.GetPath(), HandleType::kDirectory));
   EXPECT_TRUE(IsOpenAbort(cache_dir.AppendASCII("foo"), HandleType::kFile));
   EXPECT_TRUE(
       IsOpenAbort(cache_dir.AppendASCII("foo"), HandleType::kDirectory));
-
-#endif  // BUILDFLAG(IS_ANDROID)
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
+        // BUILDFLAG(IS_ANDROID)
 }
 
 // TODO(crbug.com/432011571): Flaky test.
@@ -1143,6 +1155,30 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
                         "%2efileprovider/cache/file"})),
       HandleType::kFile));
 
+  // Authority exactly matching package name (no dot) should fail.
+  EXPECT_TRUE(IsOpenAbort(
+      base::FilePath(
+          base::StrCat({"content://", base::android::apk_info::package_name(),
+                        "/cache/dir"})),
+      HandleType::kDirectory));
+  EXPECT_TRUE(IsOpenAbort(
+      base::FilePath(
+          base::StrCat({"content://", base::android::apk_info::package_name(),
+                        "/cache/file"})),
+      HandleType::kFile));
+
+  // Userinfo bypass should also fail.
+  EXPECT_TRUE(IsOpenAbort(
+      base::FilePath(base::StrCat({"content://user@",
+                                   base::android::apk_info::package_name(),
+                                   ".fileprovider/cache/dir"})),
+      HandleType::kDirectory));
+  EXPECT_TRUE(IsOpenAbort(
+      base::FilePath(base::StrCat({"content://user@",
+                                   base::android::apk_info::package_name(),
+                                   "/cache/file"})),
+      HandleType::kFile));
+
   EXPECT_TRUE(IsOpenAllowed(base::FilePath("content://authority/dir"),
                             HandleType::kDirectory));
   EXPECT_TRUE(IsOpenAllowed(base::FilePath("content://authority/file"),
@@ -1421,6 +1457,16 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
   // setting here because `ALLOW` is not an acceptable option.
   EXPECT_TRUE(permission_context()->CanObtainWritePermission(kChromeOrigin));
 }
+
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+TEST_F(ChromeFileSystemAccessPermissionContextTest, IsFileTypeDangerous) {
+  safe_browsing::FileTypePoliciesTestOverlay scoped_dangerous =
+      safe_browsing::ScopedMarkAllFilesDangerousForTesting();
+
+  const base::FilePath kPath(FILE_PATH_LITERAL("/foo/bar.dll"));
+  EXPECT_TRUE(permission_context()->IsFileTypeDangerous(kPath));
+}
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 TEST_F(ChromeFileSystemAccessPermissionContextTest, PolicyReadGuardPermission) {
   auto* prefs = profile()->GetTestingPrefService();
@@ -3749,6 +3795,78 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
             PermissionStatus::ASK);
 }
 
+// Tests that calling NotifyEntryRemoved with a directory path also revokes
+// read permission grants for descendants whose stored path differs only in
+// case from the removed directory. Native file pickers on case-insensitive
+// filesystems can return such case-variant paths for the same on-disk entry.
+TEST_F(ChromeFileSystemAccessPermissionContextTest,
+       NotifyEntryRemoved_RecursiveDir_CaseInsensitiveDescendantDowngraded) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      blink::features::kFileSystemAccessRevokeReadOnRemove);
+  FileSystemAccessPermissionRequestManager::FromWebContents(web_contents())
+      ->set_auto_response_for_test(PermissionAction::GRANTED);
+
+  // Set up a directory path and a child file path that differ only in the
+  // case of one component.
+  const auto dir_info = PathInfo(FILE_PATH_LITERAL("/foo/project"));
+  const auto file_info =
+      PathInfo(FILE_PATH_LITERAL("/foo/Project/config.json"));
+  const auto sibling_info =
+      PathInfo(FILE_PATH_LITERAL("/foo/projects/config.json"));
+
+  // Grant a standalone read permission for the case-variant child file.
+  auto file_read_grant = permission_context()->GetReadPermissionGrant(
+      kTestOrigin, file_info, HandleType::kFile, UserAction::kOpen);
+  ASSERT_EQ(file_read_grant->GetStatus(), PermissionStatus::GRANTED);
+
+  // Grant a standalone read permission for an unrelated sibling whose path
+  // shares a case-insensitive prefix string but is not actually a descendant.
+  auto sibling_read_grant = permission_context()->GetReadPermissionGrant(
+      kTestOrigin, sibling_info, HandleType::kFile, UserAction::kOpen);
+  ASSERT_EQ(sibling_read_grant->GetStatus(), PermissionStatus::GRANTED);
+
+  // Grant read and write permission to the directory.
+  auto dir_read_grant = permission_context()->GetReadPermissionGrant(
+      kTestOrigin, dir_info, HandleType::kDirectory, UserAction::kOpen);
+  {
+    base::test::TestFuture<PermissionRequestOutcome> f;
+    dir_read_grant->RequestPermission(
+        frame_id(), UserActivationState::kNotRequired, f.GetCallback());
+    ASSERT_EQ(f.Get(), PermissionRequestOutcome::kUserGranted);
+  }
+  auto dir_write_grant = permission_context()->GetWritePermissionGrant(
+      kTestOrigin, dir_info, HandleType::kDirectory, UserAction::kOpen);
+  {
+    base::test::TestFuture<PermissionRequestOutcome> f;
+    dir_write_grant->RequestPermission(
+        frame_id(), UserActivationState::kNotRequired, f.GetCallback());
+    ASSERT_EQ(f.Get(), PermissionRequestOutcome::kUserGranted);
+  }
+  ASSERT_EQ(dir_read_grant->GetStatus(), PermissionStatus::GRANTED);
+  ASSERT_EQ(dir_write_grant->GetStatus(), PermissionStatus::GRANTED);
+
+  // Revoke permissions for the directory. This represents a recursive removal
+  // of the directory.
+  permission_context()->NotifyEntryRemoved(kTestOrigin, dir_info);
+
+  // Verify that the directory's own read permission is downgraded.
+  EXPECT_EQ(dir_read_grant->GetStatus(), PermissionStatus::DENIED);
+  EXPECT_TRUE(permission_context()->IsPathInDowngradedReadPathsForTesting(
+      kTestOrigin, dir_info.path));
+
+  // Verify that the case-variant descendant file's read permission is also
+  // downgraded.
+  EXPECT_EQ(file_read_grant->GetStatus(), PermissionStatus::DENIED);
+  EXPECT_TRUE(permission_context()->IsPathInDowngradedReadPathsForTesting(
+      kTestOrigin, file_info.path));
+
+  // Verify that the unrelated sibling is not affected.
+  EXPECT_EQ(sibling_read_grant->GetStatus(), PermissionStatus::GRANTED);
+  EXPECT_FALSE(permission_context()->IsPathInDowngradedReadPathsForTesting(
+      kTestOrigin, sibling_info.path));
+}
+
 // Tests that moving a file to a destination with a pre-existing permission
 // grant works correctly.
 TEST_F(ChromeFileSystemAccessPermissionContextTest,
@@ -4230,6 +4348,105 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
   EXPECT_THAT(future.Get<0>(), testing::SizeIs(1));
   EXPECT_EQ(future.Get<0>()[0].path, path_foo);
 }
+
+#if BUILDFLAG(IS_CHROMEOS)
+TEST_F(ChromeFileSystemAccessPermissionContextTest,
+       CheckPathsAgainstEnterprisePolicy_ExternalFile) {
+  EnableEnterpriseAnalysis(profile());
+
+  // 1. Set up the external mount point.
+  base::FilePath mount_path = temp_dir_.GetPath().AppendASCII("mount");
+  ASSERT_TRUE(base::CreateDirectory(mount_path));
+  base::FilePath physical_path = mount_path.AppendASCII("foo");
+  EXPECT_TRUE(CreateNonEmptyFile(physical_path));
+
+  const std::string mount_name = "test_mount";
+  scoped_refptr<storage::ExternalMountPoints> mount_points =
+      storage::ExternalMountPoints::GetSystemInstance();
+  // Revoke if already exists (should not, but good practice)
+  mount_points->RevokeFileSystem(mount_name);
+  EXPECT_TRUE(mount_points->RegisterFileSystem(
+      mount_name, storage::kFileSystemTypeLocal,
+      storage::FileSystemMountOption(), mount_path));
+  base::ScopedClosureRunner cleanup_mount(
+      base::BindOnce([](scoped_refptr<storage::ExternalMountPoints> mp,
+                        std::string name) { mp->RevokeFileSystem(name); },
+                     mount_points, mount_name));
+
+  // The virtual path that the FSA manager would see.
+  base::FilePath virtual_path =
+      mount_points->CreateVirtualRootPath(mount_name).AppendASCII("foo");
+
+  // 2. Set up the fake delegate to verify it receives the PHYSICAL path.
+  ContentAnalysisDelegate::SetFactoryForTesting(base::BindRepeating(
+      &FakeContentAnalysisDelegate::Create, base::DoNothing(),
+      base::BindLambdaForTesting([physical_path](const std::string& contents,
+                                                 const base::FilePath& path) {
+        // VERIFY: The path passed to the scanner must be the physical path!
+        EXPECT_EQ(path, physical_path);
+        return FakeContentAnalysisDelegate::SuccessfulResponse({"dlp"});
+      }),
+      kDummyDmToken));
+
+  std::vector<PathInfo> entries{
+      {PathType::kExternal, virtual_path},
+  };
+
+  // 3. Run the check.
+  base::test::TestFuture<std::vector<PathInfo>> future;
+  permission_context_->CheckPathsAgainstEnterprisePolicy(entries, frame_id(),
+                                                         future.GetCallback());
+
+  // VERIFY: The returned entry must have the original VIRTUAL path and
+  // kExternal type.
+  EXPECT_THAT(future.Get<0>(), testing::ElementsAreArray(entries));
+}
+
+TEST_F(ChromeFileSystemAccessPermissionContextTest,
+       CheckPathsAgainstEnterprisePolicy_ResolutionFailure_FailClosed) {
+  EnableEnterpriseAnalysis(profile(), /*fail_closed=*/true);
+
+  // We do NOT register the mount point, so virtual_path will fail to resolve.
+  base::FilePath virtual_path(
+      FILE_PATH_LITERAL("/special/mount/test_mount/foo"));
+
+  std::vector<PathInfo> entries{
+      {PathType::kExternal, virtual_path},
+  };
+
+  // Run the check.
+  base::test::TestFuture<std::vector<PathInfo>> future;
+  permission_context_->CheckPathsAgainstEnterprisePolicy(entries, frame_id(),
+                                                         future.GetCallback());
+
+  // VERIFY: The returned entries must be empty because the unresolved file
+  // is blocked under the fail-closed policy.
+  EXPECT_TRUE(future.Get<0>().empty());
+}
+
+TEST_F(ChromeFileSystemAccessPermissionContextTest,
+       CheckPathsAgainstEnterprisePolicy_ResolutionFailure_FailOpen) {
+  EnableEnterpriseAnalysis(profile());  // Default policy is fail-open
+
+  // We do NOT register the mount point, so virtual_path will fail to resolve.
+  base::FilePath virtual_path(
+      FILE_PATH_LITERAL("/special/mount/test_mount/foo"));
+
+  std::vector<PathInfo> entries{
+      {PathType::kExternal, virtual_path},
+  };
+
+  // Run the check.
+  base::test::TestFuture<std::vector<PathInfo>> future;
+  permission_context_->CheckPathsAgainstEnterprisePolicy(entries, frame_id(),
+                                                         future.GetCallback());
+
+  // VERIFY: The returned entry must have the original VIRTUAL path and
+  // kExternal type because the unresolved file is allowed under the fail-open
+  // policy.
+  EXPECT_THAT(future.Get<0>(), testing::ElementsAreArray(entries));
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 

@@ -32,7 +32,7 @@
 #include "chrome/browser/new_tab_page/microsoft_auth/microsoft_auth_service_observer.h"
 #include "chrome/browser/new_tab_page/modules/modules_constants.h"
 #include "chrome/browser/new_tab_page/modules/new_tab_page_modules.h"
-#include "chrome/browser/new_tab_page/ntp_pref_names.h"
+#include "chrome/browser/new_tab_page/prefs/ntp_pref_names.h"
 #include "chrome/browser/new_tab_page/promos/promo_data.h"
 #include "chrome/browser/new_tab_page/promos/promo_service.h"
 #include "chrome/browser/new_tab_page/promos/promo_service_factory.h"
@@ -375,7 +375,7 @@ class NewTabPageHandlerTest : public testing::Test {
 #endif
         &mock_logo_service_, &test_sync_service_,
         &mock_segmentation_platform_service_, web_contents_, base::Time::Now(),
-        &module_id_details);
+        base::TimeTicks::Now(), &module_id_details);
     mock_page_.FlushForTesting();
 #if !BUILDFLAG(IS_ANDROID)
     EXPECT_EQ(handler_.get(), theme_service_observer_);

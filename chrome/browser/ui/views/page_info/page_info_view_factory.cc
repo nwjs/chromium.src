@@ -7,17 +7,13 @@
 #include <memory>
 #include <string>
 
-#include "base/feature_list.h"
 #include "base/memory/raw_ptr.h"
-#include "base/strings/utf_string_conversions.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
-#include "chrome/browser/page_info/page_info_features.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/page_info/chrome_page_info_ui_delegate.h"
-#include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/page_info/page_info_ad_personalization_content_view.h"
 #include "chrome/browser/ui/views/page_info/page_info_cookies_content_view.h"
@@ -29,14 +25,10 @@
 #include "components/content_settings/core/browser/permission_settings_registry.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
-#include "components/content_settings/core/common/cookie_controls_state.h"
-#include "components/page_info/core/features.h"
-#include "components/page_info/core/proto/about_this_site_metadata.pb.h"
 #include "components/page_info/page_info.h"
 #include "components/permissions/permission_util.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/strings/grit/components_strings.h"
-#include "components/strings/grit/privacy_sandbox_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
@@ -323,9 +315,8 @@ const ui::ImageModel PageInfoViewFactory::GetPermissionIcon(
                  ? &(features::IsRoundedIconsEnabled()
                          ? vector_icons::kAccountCircleOffIcon
                          : vector_icons::kAccountCircleOffChromeRefreshOldIcon)
-                 : &(features::IsRoundedIconsEnabled() ? kAccountCircleIcon
-                     : features::IsRoundedIconsEnabled()
-                         ? vector_icons::kAccountCircleIcon
+                 : &(features::IsRoundedIconsEnabled()
+                         ? kAccountCircleIcon
                          : vector_icons::kAccountCircleChromeRefreshOldIcon);
       break;
     case ContentSettingsType::IMAGES:
@@ -426,8 +417,7 @@ const ui::ImageModel PageInfoViewFactory::GetPermissionIcon(
                  ? &(features::IsRoundedIconsEnabled()
                          ? vector_icons::kSyncDisabledIcon
                          : vector_icons::kSyncOffChromeRefreshOldIcon)
-                 : &(features::IsRoundedIconsEnabled() ? kSyncIcon
-                     : features::IsRoundedIconsEnabled()
+                 : &(features::IsRoundedIconsEnabled()
                          ? vector_icons::kSyncIcon
                          : vector_icons::kSyncChromeRefreshOldIcon);
       break;
@@ -565,14 +555,12 @@ const ui::ImageModel PageInfoViewFactory::GetPermissionIcon(
                          : vector_icons::kVideogameAssetChromeRefreshOldIcon);
       break;
     case ContentSettingsType::IDLE_DETECTION:
-      icon = show_blocked_badge
-                 ? &(features::IsRoundedIconsEnabled()
-                         ? vector_icons::kDevicesOffIcon
-                         : vector_icons::kDevicesOffOldIcon)
-                 : &(features::IsRoundedIconsEnabled() ? kDevicesIcon
-                     : features::IsRoundedIconsEnabled()
-                         ? vector_icons::kDevicesIcon
-                         : vector_icons::kDevicesOldIcon);
+      icon = show_blocked_badge ? &(features::IsRoundedIconsEnabled()
+                                        ? vector_icons::kDevicesOffIcon
+                                        : vector_icons::kDevicesOffOldIcon)
+                                : &(features::IsRoundedIconsEnabled()
+                                        ? kDevicesIcon
+                                        : vector_icons::kDevicesOldIcon);
       break;
     case ContentSettingsType::STORAGE_ACCESS:
       icon = show_blocked_badge
@@ -784,10 +772,9 @@ const ui::ImageModel PageInfoViewFactory::GetPermissionIcon(
                    : vector_icons::kVideogameAssetOldIcon);
       break;
     case ContentSettingsType::IDLE_DETECTION:
-      icon = &(features::IsRoundedIconsEnabled() ? kDevicesIcon
-               : features::IsRoundedIconsEnabled()
-                   ? vector_icons::kDevicesIcon
-                   : vector_icons::kDevicesOldIcon);
+      icon =
+          &(features::IsRoundedIconsEnabled() ? kDevicesIcon
+                                              : vector_icons::kDevicesOldIcon);
       break;
     case ContentSettingsType::STORAGE_ACCESS:
       icon = &(features::IsRoundedIconsEnabled()

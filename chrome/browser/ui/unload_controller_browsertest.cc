@@ -8,7 +8,6 @@
 #include "base/json/json_reader.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/values.h"
-#include "chrome/browser/ash/boca/on_task/on_task_locked_controller.h"
 #include "chrome/browser/policy/policy_test_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -30,6 +29,10 @@
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
+
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/ash/boca/on_task/on_task_locked_controller.h"
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 namespace {
 constexpr char kCalculatorAppUrl[] = "https://calculator.apps.chrome/";
@@ -118,7 +121,7 @@ class UnloadControllerWithOnTaskTest : public InProcessBrowserTest {
  protected:
   webapps::AppId InstallMockApp() {
     return web_app::test::InstallDummyWebApp(
-        browser()->profile(), /*app_name=*/"Mock app",
+        browser()->GetProfile(), /*app_name=*/"Mock app",
         /*app_url=*/GURL("https://www.example.com/"));
   }
 };
@@ -128,7 +131,7 @@ IN_PROC_BROWSER_TEST_F(UnloadControllerWithOnTaskTest,
   // Install and launch app.
   webapps::AppId app_id = InstallMockApp();
   Browser* const app_browser =
-      web_app::LaunchWebAppBrowser(browser()->profile(), app_id);
+      web_app::LaunchWebAppBrowser(browser()->GetProfile(), app_id);
   ash::boca::OnTaskLockedController::From(app_browser)
       ->set_locked_for_on_task(true);
 
@@ -144,7 +147,7 @@ IN_PROC_BROWSER_TEST_F(UnloadControllerWithOnTaskTest,
   // Install and launch app.
   webapps::AppId app_id = InstallMockApp();
   Browser* const app_browser =
-      web_app::LaunchWebAppBrowser(browser()->profile(), app_id);
+      web_app::LaunchWebAppBrowser(browser()->GetProfile(), app_id);
   ash::boca::OnTaskLockedController::From(app_browser)
       ->set_locked_for_on_task(false);
 

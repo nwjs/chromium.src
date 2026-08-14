@@ -4,11 +4,14 @@
 
 #include "third_party/blink/renderer/core/highlight/highlight_registry.h"
 
+#include <optional>
+
 #include "base/functional/function_ref.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_highlight_hit_result.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_highlights_from_point_options.h"
 #include "third_party/blink/renderer/core/dom/abstract_range.h"
 #include "third_party/blink/renderer/core/dom/element.h"
+#include "third_party/blink/renderer/core/dom/node_range.h"
 #include "third_party/blink/renderer/core/dom/opaque_range.h"
 #include "third_party/blink/renderer/core/dom/static_range.h"
 #include "third_party/blink/renderer/core/dom/text.h"
@@ -40,6 +43,27 @@ bool IsTrackableReplacedElement(const Element& element) {
   const LayoutObject* layout_object = element.GetLayoutObject();
   return layout_object && layout_object->IsLayoutReplaced() &&
          layout_object->CanBeSelectionLeaf();
+}
+
+// Resolves `abstract_range` to an EphemeralRange for geometry queries. When the
+// OpaqueRange feature is enabled and the range is opaque, this builds its inner
+// value-geometry range and returns std::nullopt if that can't be built.
+std::optional<EphemeralRange> ResolveEphemeralRange(
+    AbstractRange* abstract_range,
+    Document* document) {
+  if (RuntimeEnabledFeatures::OpaqueRangeEnabled(
+          document->GetExecutionContext())) {
+    if (auto* opaque_range = DynamicTo<OpaqueRange>(abstract_range)) {
+      Range* inner_range = opaque_range->BuildValueGeometryContext();
+      if (!inner_range) {
+        return std::nullopt;
+      }
+      return EphemeralRange(inner_range);
+    }
+  }
+  auto* node_range = DynamicTo<NodeRange>(abstract_range);
+  CHECK(node_range);
+  return EphemeralRange(node_range);
 }
 
 }  // namespace
@@ -95,10 +119,12 @@ bool HighlightRegistry::IsAbstractRangePaintable(AbstractRange* abstract_range,
     }
   }
 
-  if (!abstract_range->startContainer() ||
-      !abstract_range->startContainer()->isConnected() ||
-      !abstract_range->endContainer() ||
-      !abstract_range->endContainer()->isConnected()) {
+  auto* node_range = DynamicTo<NodeRange>(abstract_range);
+  CHECK(node_range);
+  if (!node_range->startContainer() ||
+      !node_range->startContainer()->isConnected() ||
+      !node_range->endContainer() ||
+      !node_range->endContainer()->isConnected()) {
     return false;
   }
 
@@ -174,40 +200,32 @@ void HighlightRegistry::ValidateHighlightMarkers() {
     const auto& highlight_name = highlight_registry_map_entry->highlight_name;
     const auto& highlight = highlight_registry_map_entry->highlight;
     for (const auto& abstract_range : highlight->GetRanges()) {
-      if (IsAbstractRangePaintable(abstract_range, document)) {
-        EphemeralRange eph_range;
-        if (RuntimeEnabledFeatures::OpaqueRangeEnabled(
-                document->GetExecutionContext()) &&
-            abstract_range->IsOpaqueRange()) {
-          auto* opaque_range = static_cast<OpaqueRange*>(abstract_range.Get());
-          Range* inner_range = opaque_range->BuildValueGeometryContext();
-          if (inner_range) {
-            eph_range = EphemeralRange(inner_range);
-          } else {
-            continue;
-          }
-        } else {
-          eph_range = EphemeralRange(abstract_range);
-        }
-
-        // Track replaced elements (e.g. <img>) covered by this range in the
-        // same TextIterator pass that builds the text markers. The marker
-        // pipeline emits an object replacement character for each replaced
-        // element it crosses and reports it through this callback; the marker
-        // pipeline itself still only creates markers for text nodes, so
-        // without this callback the ::highlight() background would never paint
-        // over images.
-        auto track_replaced_element = [&](const Element& element) {
-          if (IsTrackableReplacedElement(element) &&
-              IsNodeFullyContained(eph_range, element)) {
-            TrackReplacedElementForHighlight(element, highlight_name);
-          }
-        };
-        base::FunctionRef<void(const Element&)> on_replaced_element(
-            track_replaced_element);
-        markers_controller.AddCustomHighlightMarker(
-            eph_range, highlight_name, highlight, &on_replaced_element);
+      if (!IsAbstractRangePaintable(abstract_range, document)) {
+        continue;
       }
+      std::optional<EphemeralRange> eph_range =
+          ResolveEphemeralRange(abstract_range.Get(), document);
+      if (!eph_range) {
+        continue;
+      }
+
+      // Track replaced elements (e.g. <img>) covered by this range in the
+      // same TextIterator pass that builds the text markers. The marker
+      // pipeline emits an object replacement character for each replaced
+      // element it crosses and reports it through this callback; the marker
+      // pipeline itself still only creates markers for text nodes, so
+      // without this callback the ::highlight() background would never paint
+      // over images.
+      auto track_replaced_element = [&](const Element& element) {
+        if (IsTrackableReplacedElement(element) &&
+            IsNodeFullyContained(*eph_range, element)) {
+          TrackReplacedElementForHighlight(element, highlight_name);
+        }
+      };
+      base::FunctionRef<void(const Element&)> on_replaced_element(
+          track_replaced_element);
+      markers_controller.AddCustomHighlightMarker(
+          *eph_range, highlight_name, highlight, &on_replaced_element);
     }
   }
 
@@ -544,33 +562,28 @@ HeapVector<Member<HighlightHitResult>> HighlightRegistry::highlightsFromPoint(
       // If the range starts and ends in a different tree scope than the hit
       // node (i.e., the range encloses a shadow tree), do not return it when
       // the hit is on a node inside that shadow tree. Only consider ranges
-      // within the same tree scope as the hit node.
-      auto* opaque_range = RuntimeEnabledFeatures::OpaqueRangeEnabled(
-                               document->GetExecutionContext())
-                               ? DynamicTo<OpaqueRange>(abstract_range.Get())
-                               : nullptr;
-      if (!opaque_range && abstract_range->startContainer()->GetTreeScope() !=
-                               hit_node->GetTreeScope()) {
+      // within the same tree scope as the hit node. OpaqueRanges are internal
+      // to a text control and always share the hit node's effective scope.
+      if (!IsAbstractRangePaintable(abstract_range, document)) {
         continue;
       }
 
-      if (IsAbstractRangePaintable(abstract_range, document)) {
-        EphemeralRange ephemeral_range;
-        if (opaque_range) {
-          Range* inner_range = opaque_range->BuildValueGeometryContext();
-          if (!inner_range) {
-            continue;
-          }
-          ephemeral_range = EphemeralRange(inner_range);
-        } else {
-          ephemeral_range = EphemeralRange(abstract_range);
-        }
-        Vector<gfx::QuadF> quads = ComputeTextBounds(ephemeral_range);
-        for (const auto& quad : quads) {
-          if (quad.Contains(hit_point)) {
-            highlight_ranges_hit.push_back(abstract_range);
-            break;
-          }
+      auto* node_range = DynamicTo<NodeRange>(abstract_range.Get());
+      if (node_range && node_range->startContainer()->GetTreeScope() !=
+                            hit_node->GetTreeScope()) {
+        continue;
+      }
+
+      std::optional<EphemeralRange> ephemeral_range =
+          ResolveEphemeralRange(abstract_range.Get(), document);
+      if (!ephemeral_range) {
+        continue;
+      }
+      Vector<gfx::QuadF> quads = ComputeTextBounds(*ephemeral_range);
+      for (const auto& quad : quads) {
+        if (quad.Contains(hit_point)) {
+          highlight_ranges_hit.push_back(abstract_range);
+          break;
         }
       }
     }

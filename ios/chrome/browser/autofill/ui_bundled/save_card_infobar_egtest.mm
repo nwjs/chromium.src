@@ -5,9 +5,9 @@
 #import <memory>
 
 #import "base/base_paths.h"
-#import "base/i18n/time_formatting.h"
 #import "base/ios/ios_util.h"
 #import "base/path_service.h"
+#import "base/strings/stringprintf.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
 #import "base/test/ios/wait_util.h"
@@ -216,9 +216,10 @@ void FillAndSubmitXframeCreditCardForm() {
 
   // Fill the credit card fields that are hosting in iframes.
   // Set the year to fill as 4 years from now.
+  base::Time::Exploded exploded;
+  (base::Time::Now() + base::Days(366 * 4)).LocalExplode(&exploded);
   NSString* year_to_fill =
-      base::SysUTF8ToNSString(base::UnlocalizedTimeFormatWithPattern(
-          base::Time::Now() + base::Days(366 * 4), "yyyy"));
+      base::SysUTF8ToNSString(base::StringPrintf("%04d", exploded.year));
   std::vector<std::tuple<NSString*, NSString*, NSString*>> typingInstructions =
       {std::make_tuple(@"cc-number-frame", @"CCNo", @"5454545454545454"),
        std::make_tuple(@"cc-exp-frame", @"CCExpiresMonth", @"12"),
@@ -267,7 +268,13 @@ void FillAndSubmitXframeCreditCardForm() {
     config.features_enabled.push_back(
         autofill::features::kAutofillAcrossIframesIos);
   }
-  // DISABLED_testUserData_LocalSave_UserAccepts_Xframe
+  if ([self isRunningTest:@selector(
+                              testLocalSaveBottomSheetStrikeLimitExperiment)]) {
+    config.features_enabled.push_back(
+        autofill::features::kAutofillSaveCardBottomSheetStrikeLimitIos);
+    config.features_disabled.push_back(
+        autofill::features::kAutofillUpstreamEnforceStrikeDelay);
+  }
 
   return config;
 }
@@ -351,6 +358,18 @@ void FillAndSubmitXframeCreditCardForm() {
                paymentsResponse:(NSString*)fakeResponse
                       errorCode:(int)errorCode
                    forLocalSave:(BOOL)localSave {
+  [self fillAndSubmitFormWithID:formID
+               paymentsResponse:fakeResponse
+                      errorCode:errorCode
+                   forLocalSave:localSave
+                     numStrikes:0];
+}
+
+- (void)fillAndSubmitFormWithID:(NSString*)formID
+               paymentsResponse:(NSString*)fakeResponse
+                      errorCode:(int)errorCode
+                   forLocalSave:(BOOL)localSave
+                     numStrikes:(int)numStrikes {
   [ChromeEarlGrey loadURL:self.testServer->GetURL(kCreditCardUploadForm)];
 
   // Set up the Google Payments server response.
@@ -372,7 +391,16 @@ void FillAndSubmitXframeCreditCardForm() {
   [AutofillAppInterface resetEventWaiterForEvents:events
                                           timeout:kWaitForDownloadTimeout];
 
-  [self fillAndSubmitFormWithID:formID];
+  // Fill the form first to ensure the Autofill manager is active and bound to
+  // the page.
+  [ChromeEarlGrey tapWebStateElementWithID:formID];
+
+  // Set strike count on the active page.
+  [AutofillAppInterface setFormFillMaxStrikes:numStrikes
+                                      forCard:@"CreditCardSave__5454"];
+
+  // Submit the form.
+  [self submitForm];
 
   GREYAssertTrue(
       [AutofillAppInterface waitForEvents],
@@ -1215,6 +1243,62 @@ void FillAndSubmitXframeCreditCardForm() {
                              showingConfirmation:YES],
       @"Local save card bottomsheet failed to auto-dismiss in confirmation "
       @"state.");
+}
+
+// Tests that the local save bottom sheet is shown up to 2 strikes when the
+// strike limit experiment is enabled.
+- (void)testLocalSaveBottomSheetStrikeLimitExperiment {
+  // Scenario A: 1 strike.
+  // Set strike count as 1. With the experiment enabled, the bottom sheet
+  // should still show instead of falling back to the banner.
+  [self fillAndSubmitFormWithID:kFillFullFormId
+               paymentsResponse:kResponseGetUploadDetailsFailure
+                      errorCode:net::HTTP_OK
+                   forLocalSave:YES
+                     numStrikes:1];
+
+  // Wait until the save card bottomsheet becomes visible.
+  GREYAssert(
+      [self waitForUIElementToAppearWithMatcher:LocalBottomSheetTitleMatcher()],
+      @"Local save card bottomsheet failed to show with 1 strike.");
+
+  // Dismiss bottomsheet.
+  [self dismissLocalSaveCardBottomSheetWithoutAccepting];
+
+  // Scenario B: 2 strikes.
+  // Set strike count as 2. With the experiment enabled, the bottom sheet
+  // should still show.
+  [self fillAndSubmitFormWithID:kFillFullFormId
+               paymentsResponse:kResponseGetUploadDetailsFailure
+                      errorCode:net::HTTP_OK
+                   forLocalSave:YES
+                     numStrikes:2];
+
+  GREYAssert(
+      [self waitForUIElementToAppearWithMatcher:LocalBottomSheetTitleMatcher()],
+      @"Local save card bottomsheet failed to show with 2 strikes.");
+
+  // Dismiss bottomsheet.
+  [self dismissLocalSaveCardBottomSheetWithoutAccepting];
+
+  // Scenario C: 3 strikes (max strikes limit reached).
+  // Set strike count as 3. With the experiment enabled, neither the bottom
+  // sheet nor the banner should show.
+  [self fillAndSubmitFormWithID:kFillFullFormId
+               paymentsResponse:kResponseGetUploadDetailsFailure
+                      errorCode:net::HTTP_OK
+                   forLocalSave:NO
+                     numStrikes:3];
+
+  // The bottom sheet should not appear.
+  GREYAssertFalse(
+      [self waitForUIElementToAppearWithMatcher:LocalBottomSheetTitleMatcher()],
+      @"Local save card bottomsheet should not show with 3 strikes.");
+
+  // The infobar banner should also not appear.
+  GREYAssertFalse(
+      [self waitForUIElementToAppearWithMatcher:LocalBannerLabelsMatcher()],
+      @"Local save card infobar banner should not show with 3 strikes.");
 }
 
 // Test local save bottomsheet doesn't show loading state after being accepted.

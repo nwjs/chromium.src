@@ -82,7 +82,6 @@ namespace {
   DO_FIELD(request_body) __VA_ARGS__                               \
   DO_FIELD(keepalive) __VA_ARGS__                                  \
   DO_FIELD(browsing_topics) __VA_ARGS__                            \
-  DO_FIELD(ad_auction_headers) __VA_ARGS__                         \
   DO_FIELD(shared_storage_writable_eligible) __VA_ARGS__           \
   DO_FIELD(has_user_gesture) __VA_ARGS__                           \
   DO_FIELD(enable_load_timing) __VA_ARGS__                         \
@@ -109,10 +108,7 @@ namespace {
   DO_FIELD(net_log_create_info) __VA_ARGS__                        \
   DO_FIELD(net_log_reference_info) __VA_ARGS__                     \
   DO_FIELD(storage_access_api_status) __VA_ARGS__                  \
-  DO_FIELD(attribution_reporting_support) __VA_ARGS__              \
-  DO_FIELD(attribution_reporting_eligibility) __VA_ARGS__          \
   DO_FIELD(shared_dictionary_writer_enabled) __VA_ARGS__           \
-  DO_FIELD(attribution_reporting_src_token) __VA_ARGS__            \
   DO_FIELD(is_ad_tagged) __VA_ARGS__                               \
   DO_FIELD(client_side_content_decoding_enabled) __VA_ARGS__       \
   DO_FIELD(prefetch_token) __VA_ARGS__                             \
@@ -182,7 +178,7 @@ enum class FieldsForUma {
   kRequestBody = 26,
   kKeepalive = 27,
   kBrowsingTopics = 28,
-  kAdAuctionHeaders = 29,
+  // DEPRECATED: kAdAuctionHeaders = 29,
   kSharedStorageWritableEligible = 30,
   kHasUserGesture = 31,
   kEnableLoadTiming = 32,
@@ -211,10 +207,10 @@ enum class FieldsForUma {
   kNetLogReferenceInfo = 55,
   // DEPRECATED: kTargetIpAddressSpace = 56,
   kStorageAccessApiStatus = 57,
-  kAttributionReportingSupport = 58,
-  kAttributionReportingEligibility = 59,
+  // DEPRECATED: kAttributionReportingSupport = 58,
+  // DEPRECATED: kAttributionReportingEligibility = 59,
   kSharedDictionaryWriterEnabled = 60,
-  kAttributionReportingSrcToken = 61,
+  // DEPRECATED: kAttributionReportingSrcToken = 61,
   kIsAdTagged = 62,
   kKeepaliveToken = 63,
   kExpectedPublicKeys = 64,
@@ -258,7 +254,6 @@ constexpr auto kUmaEnumMap = base::MakeFixedFlatMap<Fields, FieldsForUma>({
     {Fields::krequest_body, FieldsForUma::kRequestBody},
     {Fields::kkeepalive, FieldsForUma::kKeepalive},
     {Fields::kbrowsing_topics, FieldsForUma::kBrowsingTopics},
-    {Fields::kad_auction_headers, FieldsForUma::kAdAuctionHeaders},
     {Fields::kshared_storage_writable_eligible,
      FieldsForUma::kSharedStorageWritableEligible},
     {Fields::khas_user_gesture, FieldsForUma::kHasUserGesture},
@@ -286,14 +281,8 @@ constexpr auto kUmaEnumMap = base::MakeFixedFlatMap<Fields, FieldsForUma>({
     {Fields::knet_log_create_info, FieldsForUma::kNetLogCreateInfo},
     {Fields::knet_log_reference_info, FieldsForUma::kNetLogReferenceInfo},
     {Fields::kstorage_access_api_status, FieldsForUma::kStorageAccessApiStatus},
-    {Fields::kattribution_reporting_support,
-     FieldsForUma::kAttributionReportingSupport},
-    {Fields::kattribution_reporting_eligibility,
-     FieldsForUma::kAttributionReportingEligibility},
     {Fields::kshared_dictionary_writer_enabled,
      FieldsForUma::kSharedDictionaryWriterEnabled},
-    {Fields::kattribution_reporting_src_token,
-     FieldsForUma::kAttributionReportingSrcToken},
     {Fields::kis_ad_tagged, FieldsForUma::kIsAdTagged},
     {Fields::kclient_side_content_decoding_enabled,
      FieldsForUma::kClientSideContentDecodingEnabled},

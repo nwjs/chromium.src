@@ -17,8 +17,10 @@
 #include "base/compiler_specific.h"
 #include "base/dcheck_is_on.h"
 #include "base/location.h"
+#include "base/memory/page_size.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/strings/strcat.h"
 #include "base/threading/scoped_thread_priority.h"
 #include "base/trace_event/trace_event.h"
@@ -31,7 +33,14 @@
 
 #include "base/byte_size.h"
 #include "base/win/windows_handle_util.h"
+#elif BUILDFLAG(IS_MAC)
+#include <mach/mach.h>
+#include <mach/task.h>
+#elif BUILDFLAG(IS_LINUX)
+#include <sys/resource.h>
+#endif
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 namespace {
 
 // These values are taken from the
@@ -53,6 +62,12 @@ constexpr uint32_t kWarmStartHardFaultCountThreshold = 5;
 // and split from chrome_child.dll) and was made 3500 in M81 when chrome.dll
 // was 126MB).
 constexpr uint32_t kColdStartHardFaultCountThreshold = 3500;
+
+}  // namespace
+#endif
+
+#if BUILDFLAG(IS_WIN)
+namespace {
 
 // The struct used to return system process information via the NT internal
 // QuerySystemInformation call. This is partially documented at
@@ -265,7 +280,32 @@ BrowserStartupMetricRecorder::GetHardFaultCountForCurrentProcess() {
 
   return std::nullopt;
 }
-#endif  // BUILDFLAG(IS_WIN)
+#elif BUILDFLAG(IS_MAC)
+std::optional<uint32_t>
+BrowserStartupMetricRecorder::GetHardFaultCountForCurrentProcess() {
+  task_events_info_data_t events_info;
+  mach_msg_type_number_t count = TASK_EVENTS_INFO_COUNT;
+  // TASK_EVENTS_INFO is passed to task_info() to retrieve event
+  // statistics for a task (such as page faults and pageins). See:
+  // https://github.com/apple-oss-distributions/xnu/blob/main/osfmk/mach/task_info.h
+  kern_return_t kr =
+      task_info(mach_task_self(), TASK_EVENTS_INFO,
+                reinterpret_cast<task_info_t>(&events_info), &count);
+  if (kr != KERN_SUCCESS) {
+    return std::nullopt;
+  }
+  return base::saturated_cast<uint32_t>(events_info.pageins);
+}
+#elif BUILDFLAG(IS_LINUX)
+std::optional<uint32_t>
+BrowserStartupMetricRecorder::GetHardFaultCountForCurrentProcess() {
+  struct rusage usage;
+  if (getrusage(RUSAGE_SELF, &usage) != 0) {
+    return std::nullopt;
+  }
+  return base::saturated_cast<uint32_t>(usage.ru_majflt);
+}
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 void BrowserStartupMetricRecorder::ResetSessionForTesting() {
   GetCommon().ResetSessionForTesting();
@@ -281,7 +321,6 @@ void BrowserStartupMetricRecorder::ResetSessionForTesting() {
   is_browser_window_display_metric_emitted_ = false;
   did_record_startup_fcp_ = false;
   did_record_startup_lcp_ = false;
-  startup_fcp_navigation_start_ = base::TimeTicks();
 }
 
 bool BrowserStartupMetricRecorder::WasMainWindowStartupInterrupted() const {
@@ -448,7 +487,6 @@ void BrowserStartupMetricRecorder::
 }
 
 void BrowserStartupMetricRecorder::RecordFirstWebContentsFirstContentfulPaint(
-    base::TimeTicks navigation_start,
     base::TimeTicks fcp_ticks) {
   if (did_record_startup_fcp_) {
     return;
@@ -464,7 +502,6 @@ void BrowserStartupMetricRecorder::RecordFirstWebContentsFirstContentfulPaint(
   }
 
   did_record_startup_fcp_ = true;
-  startup_fcp_navigation_start_ = navigation_start;
 
   EmitHistogramWithTemperatureAndTraceEvent(
       &base::UmaHistogramLongTimes100,
@@ -473,14 +510,9 @@ void BrowserStartupMetricRecorder::RecordFirstWebContentsFirstContentfulPaint(
 }
 
 void BrowserStartupMetricRecorder::RecordFirstWebContentsLargestContentfulPaint(
-    base::TimeTicks navigation_start,
     base::TimeTicks lcp_ticks) {
   // Only record LCP if FCP was already recorded for the same page load.
   if (!did_record_startup_fcp_ || did_record_startup_lcp_) {
-    return;
-  }
-
-  if (navigation_start != startup_fcp_navigation_start_) {
     return;
   }
 
@@ -562,7 +594,7 @@ void BrowserStartupMetricRecorder::RecordFirstRunSentinelCreation(
 }
 
 void BrowserStartupMetricRecorder::RecordHardFaultHistogram() {
-#if BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   DCHECK_EQ(UNDETERMINED_STARTUP_TEMPERATURE, g_startup_temperature);
 
   const std::optional<uint32_t> hard_fault_count =
@@ -576,6 +608,11 @@ void BrowserStartupMetricRecorder::RecordHardFaultHistogram() {
     base::UmaHistogramCustomCounts(
         "Startup.BrowserMessageLoopStartHardFaultCount",
         hard_fault_count.value(), 1, 40000, 50);
+    int hard_fault_bytes = base::saturated_cast<int>(hard_fault_count.value() *
+                                                     base::GetPageSize());
+    base::UmaHistogramCustomCounts(
+        "Startup.BrowserMessageLoopStartHardFaultBytes", hard_fault_bytes, 1024,
+        1073741824, 50);
 
     // Determine the startup type based on the number of observed hard faults.
     if (hard_fault_count < kWarmStartHardFaultCountThreshold) {
@@ -597,7 +634,7 @@ void BrowserStartupMetricRecorder::RecordHardFaultHistogram() {
   // Record the startup 'temperature'.
   base::UmaHistogramEnumeration("Startup.Temperature", g_startup_temperature,
                                 STARTUP_TEMPERATURE_COUNT);
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 }
 
 bool BrowserStartupMetricRecorder::ShouldLogStartupHistogram() const {

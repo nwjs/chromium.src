@@ -92,7 +92,7 @@ class ExtensionRequestObserverTest : public InProcessBrowserTest {
     InProcessBrowserTest::SetUpOnMainThread();
     display_service_tester_ =
         std::make_unique<NotificationDisplayServiceTester>(
-            browser()->profile());
+            browser()->GetProfile());
     ToggleExtensionRequest(true);
   }
 
@@ -116,7 +116,7 @@ class ExtensionRequestObserverTest : public InProcessBrowserTest {
           id, base::DictValue().Set(extension_misc::kExtensionRequestTimestamp,
                                     ::base::TimeToValue(base::Time::Now())));
     }
-    browser()->profile()->GetPrefs()->Set(
+    browser()->GetProfile()->GetPrefs()->Set(
         enterprise_reporting::kCloudExtensionRequestIds,
         base::Value(std::move(id_values)));
   }
@@ -154,7 +154,7 @@ class ExtensionRequestObserverTest : public InProcessBrowserTest {
     // Record the number of requests before closing any notification.
     size_t number_of_existing_requests =
         browser()
-            ->profile()
+            ->GetProfile()
             ->GetPrefs()
             ->GetDict(enterprise_reporting::kCloudExtensionRequestIds)
             .size();
@@ -170,7 +170,7 @@ class ExtensionRequestObserverTest : public InProcessBrowserTest {
 
     // Verify that only |expected_removed_requests| are removed from the pref.
     const base::DictValue& actual_pending_requests =
-        browser()->profile()->GetPrefs()->GetDict(
+        browser()->GetProfile()->GetPrefs()->GetDict(
             enterprise_reporting::kCloudExtensionRequestIds);
     EXPECT_EQ(number_of_existing_requests - expected_removed_requests.size(),
               actual_pending_requests.size());
@@ -195,7 +195,7 @@ class ExtensionRequestObserverTest : public InProcessBrowserTest {
 
 IN_PROC_BROWSER_TEST_F(ExtensionRequestObserverTest, NoPendingRequestTest) {
   SetPendingList({});
-  ExtensionRequestObserver observer(browser()->profile());
+  ExtensionRequestObserver observer(browser()->GetProfile());
   VerifyNotification(false);
 
   SetExtensionSettings(kExtensionSettings);
@@ -206,7 +206,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionRequestObserverTest, NoPendingRequestTest) {
 IN_PROC_BROWSER_TEST_F(ExtensionRequestObserverTest, UserConfirmNotification) {
   SetPendingList({kExtensionId1, kExtensionId2, kExtensionId3, kExtensionId4,
                   kExtensionId5, kExtensionId6});
-  ExtensionRequestObserver observer(browser()->profile());
+  ExtensionRequestObserver observer(browser()->GetProfile());
   VerifyNotification(false);
 
   SetExtensionSettings(kExtensionSettings);
@@ -225,7 +225,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionRequestObserverTest,
                                            kExtensionId5, kExtensionId6};
   SetPendingList(pending_list);
   std::unique_ptr<ExtensionRequestObserver> observer =
-      std::make_unique<ExtensionRequestObserver>(browser()->profile());
+      std::make_unique<ExtensionRequestObserver>(browser()->GetProfile());
   VerifyNotification(false);
 
   SetExtensionSettings(kExtensionSettings);
@@ -237,7 +237,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionRequestObserverTest,
   // No request removed when notification is not closed by user.
   EXPECT_EQ(pending_list.size(),
             browser()
-                ->profile()
+                ->GetProfile()
                 ->GetPrefs()
                 ->GetDict(enterprise_reporting::kCloudExtensionRequestIds)
                 .size());
@@ -247,7 +247,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionRequestObserverTest,
 IN_PROC_BROWSER_TEST_F(ExtensionRequestObserverTest, NotificationClose) {
   SetPendingList({kExtensionId1, kExtensionId2, kExtensionId3, kExtensionId4,
                   kExtensionId5, kExtensionId6});
-  ExtensionRequestObserver observer(browser()->profile());
+  ExtensionRequestObserver observer(browser()->GetProfile());
   VerifyNotification(false);
 
   SetExtensionSettings(kExtensionSettings);
@@ -261,7 +261,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionRequestObserverTest, NotificationClose) {
 IN_PROC_BROWSER_TEST_F(ExtensionRequestObserverTest, NotificationUpdate) {
   SetPendingList({kExtensionId1, kExtensionId2, kExtensionId3, kExtensionId4,
                   kExtensionId5, kExtensionId6});
-  ExtensionRequestObserver observer(browser()->profile());
+  ExtensionRequestObserver observer(browser()->GetProfile());
   VerifyNotification(false);
 
   SetExtensionSettings(kExtensionSettings);
@@ -282,7 +282,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionRequestObserverTest,
   ToggleExtensionRequest(false);
 
   // No notification without the policy.
-  ExtensionRequestObserver observer(browser()->profile());
+  ExtensionRequestObserver observer(browser()->GetProfile());
   VerifyNotification(false);
 
   // Show notification when the policy is turned on.
@@ -296,7 +296,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionRequestObserverTest,
   // And no pending requests are removed.
   EXPECT_EQ(pending_list.size(),
             browser()
-                ->profile()
+                ->GetProfile()
                 ->GetPrefs()
                 ->GetDict(enterprise_reporting::kCloudExtensionRequestIds)
                 .size());
@@ -305,7 +305,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionRequestObserverTest,
 
 IN_PROC_BROWSER_TEST_F(ExtensionRequestObserverTest,
                        PendingRequestAddedAfterPolicyUpdated) {
-  ExtensionRequestObserver observer(browser()->profile());
+  ExtensionRequestObserver observer(browser()->GetProfile());
   VerifyNotification(false);
 
   SetExtensionSettings(kExtensionSettings);
@@ -321,12 +321,12 @@ IN_PROC_BROWSER_TEST_F(ExtensionRequestObserverTest,
 
 IN_PROC_BROWSER_TEST_F(ExtensionRequestObserverTest,
                        UpdateWithReportEnabledAndDisabled) {
-  ExtensionRequestObserver observer(browser()->profile());
+  ExtensionRequestObserver observer(browser()->GetProfile());
 
   base::MockCallback<ExtensionRequestObserver::ReportTrigger> callback;
 
   observer.EnableReport(callback.Get());
-  EXPECT_CALL(callback, Run(browser()->profile())).Times(1);
+  EXPECT_CALL(callback, Run(browser()->GetProfile())).Times(1);
   SetPendingList({kExtensionId1});
 
   observer.DisableReport();

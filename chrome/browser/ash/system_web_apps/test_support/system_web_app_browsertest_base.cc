@@ -6,9 +6,12 @@
 
 #include <algorithm>
 
+#include "base/check_deref.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/app_service/browser_app_launcher.h"
+#include "chrome/browser/ash/browser_delegate/browser_controller.h"
+#include "chrome/browser/ash/browser_delegate/browser_delegate.h"
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
 #include "chrome/browser/ash/system_web_apps/test_support/test_system_web_app_installation.h"
 #include "chrome/browser/profiles/profile.h"
@@ -32,7 +35,7 @@ SystemWebAppBrowserTestBase::SystemWebAppBrowserTestBase() = default;
 SystemWebAppBrowserTestBase::~SystemWebAppBrowserTestBase() = default;
 
 SystemWebAppManager& SystemWebAppBrowserTestBase::GetManager() {
-  auto* swa_manager = SystemWebAppManager::Get(browser()->profile());
+  auto* swa_manager = SystemWebAppManager::Get(browser()->GetProfile());
   DCHECK(swa_manager);
   return *swa_manager;
 }
@@ -72,20 +75,20 @@ content::WebContents* SystemWebAppBrowserTestBase::LaunchApp(
   // AppServiceProxyFactory will DCHECK when called with wrong profile. In
   // normal scenarios, no code path should trigger this.
   DCHECK(apps::AppServiceProxyFactory::IsAppServiceAvailableForProfile(
-      browser()->profile()));
+      browser()->GetProfile()));
 
   if (!params.launch_files.empty()) {
     // SWA browser tests bypass the code in `WebAppPublisherHelper` that fills
     // in `override_url`, so fill it in here, assuming the file handler action
     // URL matches the start URL.
-    params.override_url =
-        web_app::WebAppProvider::GetForLocalAppsUnchecked(browser()->profile())
-            ->registrar_unsafe()
-            .GetAppStartUrl(params.app_id);
+    params.override_url = web_app::WebAppProvider::GetForLocalAppsUnchecked(
+                              browser()->GetProfile())
+                              ->registrar_unsafe()
+                              .GetAppStartUrl(params.app_id);
   }
 
   content::WebContents* web_contents =
-      apps::AppServiceProxyFactory::GetForProfile(browser()->profile())
+      apps::AppServiceProxyFactory::GetForProfile(browser()->GetProfile())
           ->BrowserAppLauncher()
           ->LaunchAppWithParamsForTesting(std::move(params));
 
@@ -136,7 +139,7 @@ GURL SystemWebAppBrowserTestBase::GetStartUrl(
   return params.override_url.is_valid()
              ? params.override_url
              : web_app::WebAppProvider::GetForLocalAppsUnchecked(
-                   browser()->profile())
+                   browser()->GetProfile())
                    ->registrar_unsafe()
                    .GetAppStartUrl(params.app_id);
 }
@@ -153,7 +156,10 @@ size_t SystemWebAppBrowserTestBase::GetSystemWebAppBrowserCount(
     SystemWebAppType type) {
   auto browsers = ui_test_utils::FindMatchingBrowsers(
       [type](BrowserWindowInterface* browser) {
-        return ash::IsBrowserForSystemWebApp(browser, type);
+        return ash::IsBrowserForSystemWebApp(
+            CHECK_DEREF(
+                ash::BrowserController::GetInstance()->GetDelegate(browser)),
+            type);
       });
   return browsers.size();
 }

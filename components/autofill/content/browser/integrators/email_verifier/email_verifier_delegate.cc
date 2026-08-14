@@ -105,9 +105,14 @@ void EmailVerifierDelegate::Verify(
   content::webid::EmailVerifier* verifier =
       GetOrCreateEmailVerifier(manager->client(), rfh);
   if (!verifier) {
-    NotifyFlowCompleted(EvpAutofillFlowResult::kVerifierUnavailable);
+    NotifyFlowCompleted(manager.get(), email_field_id,
+                        EvpAutofillFlowResult::kVerifierUnavailable);
     return;
   }
+
+  manager->driver().UpdateEmailVerificationState(
+      email_field_id, mojom::EmailVerificationState::kLoading);
+
   in_flight_verify_count_++;
   verifier->Verify(
       result, nonce,
@@ -130,22 +135,26 @@ void EmailVerifierDelegate::OnVerificationResponseReceived(
   }
   in_flight_verify_count_--;
   if (!manager) {
-    NotifyFlowCompleted(EvpAutofillFlowResult::kManagerDestroyed);
+    NotifyFlowCompleted(manager.get(), email_field_id,
+                        EvpAutofillFlowResult::kManagerDestroyed);
     return;
   }
   if (manager->driver().GetLifecycleState() !=
       AutofillDriver::LifecycleState::kActive) {
-    NotifyFlowCompleted(EvpAutofillFlowResult::kDriverInactive);
+    NotifyFlowCompleted(manager.get(), email_field_id,
+                        EvpAutofillFlowResult::kDriverInactive);
     return;
   }
   if (!token) {
-    NotifyFlowCompleted(EvpAutofillFlowResult::kVerificationFailed);
+    NotifyFlowCompleted(manager.get(), email_field_id,
+                        EvpAutofillFlowResult::kVerificationFailed);
     return;
   }
   issuers_[token_field_id] = issuer_site.GetURL();
   manager->driver().SendEmailVerificationToken(email_field_id, email,
                                                token_field_id, *token);
-  NotifyFlowCompleted(EvpAutofillFlowResult::kTokenSentToRenderer);
+  NotifyFlowCompleted(manager.get(), email_field_id,
+                      EvpAutofillFlowResult::kTokenSentToRenderer);
 }
 
 void EmailVerifierDelegate::OnEmailVerificationDecision(
@@ -157,12 +166,14 @@ void EmailVerifierDelegate::OnEmailVerificationDecision(
     content::webid::EmailVerifier::Result result,
     AutofillClient::EmailVerificationPermissionUiResult ui_result) {
   if (!manager) {
-    NotifyFlowCompleted(EvpAutofillFlowResult::kManagerDestroyed);
+    NotifyFlowCompleted(manager.get(), email_field_id,
+                        EvpAutofillFlowResult::kManagerDestroyed);
     return;
   }
   if (manager->driver().GetLifecycleState() !=
       AutofillDriver::LifecycleState::kActive) {
-    NotifyFlowCompleted(EvpAutofillFlowResult::kDriverInactive);
+    NotifyFlowCompleted(manager.get(), email_field_id,
+                        EvpAutofillFlowResult::kDriverInactive);
     return;
   }
 
@@ -202,11 +213,13 @@ void EmailVerifierDelegate::OnEmailVerificationDecision(
             manager->client().GetStrikeDatabase());
         strike_db.AddStrike(EmailVerificationStrikeDatabase::GetId(email_utf8));
       }
-      NotifyFlowCompleted(EvpAutofillFlowResult::kUserDeclinedPermissionPrompt);
+      NotifyFlowCompleted(manager.get(), email_field_id,
+                          EvpAutofillFlowResult::kUserDeclinedPermissionPrompt);
       break;
     }
     case AutofillClient::EmailVerificationPermissionUiResult::kIgnored: {
-      NotifyFlowCompleted(EvpAutofillFlowResult::kUserIgnoredPermissionPrompt);
+      NotifyFlowCompleted(manager.get(), email_field_id,
+                          EvpAutofillFlowResult::kUserIgnoredPermissionPrompt);
       break;
     }
   }
@@ -222,17 +235,20 @@ void EmailVerifierDelegate::OnIsVerifiable(
     bool already_allowed,
     std::optional<content::webid::EmailVerifier::Result> result) {
   if (!manager) {
-    NotifyFlowCompleted(EvpAutofillFlowResult::kManagerDestroyed);
+    NotifyFlowCompleted(manager.get(), email_field_id,
+                        EvpAutofillFlowResult::kManagerDestroyed);
     return;
   }
   if (manager->driver().GetLifecycleState() !=
       AutofillDriver::LifecycleState::kActive) {
-    NotifyFlowCompleted(EvpAutofillFlowResult::kDriverInactive);
+    NotifyFlowCompleted(manager.get(), email_field_id,
+                        EvpAutofillFlowResult::kDriverInactive);
     return;
   }
 
   if (!result) {
-    NotifyFlowCompleted(EvpAutofillFlowResult::kNotVerifiable);
+    NotifyFlowCompleted(manager.get(), email_field_id,
+                        EvpAutofillFlowResult::kNotVerifiable);
     return;
   }
 
@@ -279,7 +295,48 @@ void EmailVerifierDelegate::MetricsObserver::OnFlowCompleted(
   base::UmaHistogramEnumeration("Blink.Evp.Autofill.FlowResult", result);
 }
 
-void EmailVerifierDelegate::NotifyFlowCompleted(EvpAutofillFlowResult result) {
+void EmailVerifierDelegate::NotifyFlowCompleted(
+    AutofillManager* manager,
+    const std::optional<FieldGlobalId>& field_id,
+    EvpAutofillFlowResult result) {
+  if (manager && field_id) {
+    mojom::EmailVerificationState state = mojom::EmailVerificationState::kNone;
+    bool should_update = false;
+    switch (result) {
+      case EvpAutofillFlowResult::kTokenSentToRenderer:
+        state = mojom::EmailVerificationState::kVerified;
+        should_update = true;
+        break;
+      case EvpAutofillFlowResult::kNotVerifiable:
+        state = mojom::EmailVerificationState::kLoggedOutOrUnsupported;
+        should_update = true;
+        break;
+      case EvpAutofillFlowResult::kVerificationFailed:
+        state = mojom::EmailVerificationState::kFailed;
+        should_update = true;
+        break;
+      case EvpAutofillFlowResult::kSuccess:
+        should_update = false;
+        break;
+      case EvpAutofillFlowResult::kTokenFieldHasNoNonce:
+      case EvpAutofillFlowResult::kUserPrefDisabled:
+      case EvpAutofillFlowResult::kStrikeDatabaseBlock:
+      case EvpAutofillFlowResult::kVerifierUnavailable:
+      case EvpAutofillFlowResult::kUserDeclinedPermissionPrompt:
+      case EvpAutofillFlowResult::kUserIgnoredPermissionPrompt:
+      case EvpAutofillFlowResult::kManagerDestroyed:
+      case EvpAutofillFlowResult::kDriverInactive:
+      case EvpAutofillFlowResult::kPageNavigatedDuringVerification:
+        // Reset to none in case we had a previous request and this new request
+        // was declined by the user or otherwise did not end in success.
+        state = mojom::EmailVerificationState::kNone;
+        should_update = true;
+        break;
+    }
+    if (should_update) {
+      manager->driver().UpdateEmailVerificationState(*field_id, state);
+    }
+  }
   for (Observer& observer : observers_) {
     observer.OnFlowCompleted(result);
   }
@@ -292,6 +349,7 @@ void EmailVerifierDelegate::DidFinishNavigation(
     if (!navigation_handle->IsSameDocument() && in_flight_verify_count_ > 0) {
       for (size_t i = 0; i < in_flight_verify_count_; ++i) {
         NotifyFlowCompleted(
+            nullptr, std::nullopt,
             EvpAutofillFlowResult::kPageNavigatedDuringVerification);
       }
       in_flight_verify_count_ = 0;
@@ -311,6 +369,7 @@ void EmailVerifierDelegate::OnFillOrPreviewForm(
     FieldGlobalId trigger_field_id,
     mojom::ActionPersistence action_persistence,
     const base::flat_set<FieldGlobalId>& filled_field_ids,
+    const base::flat_map<FieldGlobalId, DenseSet<FieldFillingSkipReason>>&,
     const FillingPayload& filling_payload) {
   if (!base::FeatureList::IsEnabled(::features::kEmailVerificationProtocol)) {
     return;
@@ -318,19 +377,13 @@ void EmailVerifierDelegate::OnFillOrPreviewForm(
 
   const AutofillProfile* const* profile =
       std::get_if<const AutofillProfile*>(&filling_payload);
-  const FormStructure* form = manager.FindCachedFormById(form_id);
-
-  if (action_persistence != mojom::ActionPersistence::kFill || !profile ||
-      !form) {
+  if (action_persistence != mojom::ActionPersistence::kFill || !profile) {
     return;
   }
 
-  // Only trigger verification if the email field itself was the trigger for the
-  // autofill action, rather than as a side-effect of autofilling another field
-  // (e.g. a name field).
-  const AutofillField* triggering_email_field =
-      form->GetFieldById(trigger_field_id);
-  if (!triggering_email_field ||
+  auto [form, triggering_email_field] =
+      manager.FindFormAndField(form_id, trigger_field_id);
+  if (!form || !triggering_email_field ||
       triggering_email_field->autofilled_type() != EMAIL_ADDRESS) {
     return;
   }
@@ -365,13 +418,9 @@ void EmailVerifierDelegate::OnFillOrPreviewField(
     return;
   }
 
-  const FormStructure* form = manager.FindCachedFormById(form_id);
-  if (!form) {
-    return;
-  }
-
-  const AutofillField* triggering_email_field = form->GetFieldById(field_id);
-  if (!triggering_email_field ||
+  auto [form, triggering_email_field] =
+      manager.FindFormAndField(form_id, field_id);
+  if (!form || !triggering_email_field ||
       (field_type_used != EMAIL_ADDRESS &&
        triggering_email_field->Type().GetAddressType() != EMAIL_ADDRESS)) {
     return;
@@ -392,7 +441,7 @@ void EmailVerifierDelegate::OnBeforeFormWithEmailVerificationTokenSubmitted(
     GURL issuer_url = it->second;
     issuers_.erase(it);
     manager.client().ShowEmailVerifiedToast(issuer_url);
-    NotifyFlowCompleted(EvpAutofillFlowResult::kSuccess);
+    NotifyFlowCompleted(&manager, field_id, EvpAutofillFlowResult::kSuccess);
   }
 }
 
@@ -485,13 +534,15 @@ void EmailVerifierDelegate::TriggerVerification(
   }
 
   if (token_field->nonce().empty()) {
-    NotifyFlowCompleted(EvpAutofillFlowResult::kTokenFieldHasNoNonce);
+    NotifyFlowCompleted(&manager, email_field.global_id(),
+                        EvpAutofillFlowResult::kTokenFieldHasNoNonce);
     return;
   }
 
   const PrefService* prefs = manager.client().GetPrefs();
   if (!prefs || !prefs->GetBoolean(prefs::kAutofillEmailVerificationEnabled)) {
-    NotifyFlowCompleted(EvpAutofillFlowResult::kUserPrefDisabled);
+    NotifyFlowCompleted(&manager, email_field.global_id(),
+                        EvpAutofillFlowResult::kUserPrefDisabled);
     return;
   }
 
@@ -501,7 +552,8 @@ void EmailVerifierDelegate::TriggerVerification(
   content::webid::EmailVerifier* verifier =
       GetOrCreateEmailVerifier(manager.client(), rfh);
   if (!verifier) {
-    NotifyFlowCompleted(EvpAutofillFlowResult::kVerifierUnavailable);
+    NotifyFlowCompleted(&manager, email_field.global_id(),
+                        EvpAutofillFlowResult::kVerifierUnavailable);
     return;
   }
 
@@ -520,7 +572,8 @@ void EmailVerifierDelegate::TriggerVerification(
         manager.client().GetStrikeDatabase());
     if (strike_db.ShouldBlockFeature(
             EmailVerificationStrikeDatabase::GetId(email_utf8))) {
-      NotifyFlowCompleted(EvpAutofillFlowResult::kStrikeDatabaseBlock);
+      NotifyFlowCompleted(&manager, email_field.global_id(),
+                          EvpAutofillFlowResult::kStrikeDatabaseBlock);
       return;
     }
   }

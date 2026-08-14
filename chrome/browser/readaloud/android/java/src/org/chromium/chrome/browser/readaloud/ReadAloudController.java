@@ -24,6 +24,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
 
+import org.jni_zero.CalledByNative;
+import org.jni_zero.JNINamespace;
+import org.jni_zero.JniType;
+import org.jni_zero.NativeMethods;
+
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationState;
 import org.chromium.base.ApplicationStatus;
@@ -71,6 +76,7 @@ import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.translate.TranslateBridge;
 import org.chromium.chrome.browser.translate.TranslationObserver;
+import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.chrome.modules.readaloud.Feedback.FeedbackType;
 import org.chromium.chrome.modules.readaloud.Feedback.NegativeFeedbackReason;
@@ -115,6 +121,7 @@ import java.util.function.Supplier;
  * The main entrypoint component for Read Aloud feature. It's responsible for checking its
  * availability and triggering playback. Only instantiate after native is initialized.
  */
+@JNINamespace("readaloud")
 @NullMarked
 public class ReadAloudController
         implements Player.Observer,
@@ -146,6 +153,7 @@ public class ReadAloudController
     @Nullable private Player mPlayerCoordinator;
     private final MonotonicObservableSupplier<LayoutManager> mLayoutManagerSupplier;
     private final UserEducationHelper mUserEducationHelper;
+    private final @Nullable OneshotSupplier<SideUiStateProvider> mSideUiStateProviderSupplier;
 
     @Nullable private TabModelTabObserver mTabObserver;
     @Nullable private TabModelTabObserver mIncognitoTabObserver;
@@ -606,11 +614,13 @@ public class ReadAloudController
             ActivityWindowAndroid activityWindowAndroid,
             ActivityLifecycleDispatcher activityLifecycleDispatcher,
             OneshotSupplier<LayoutStateProvider> layoutStateProviderSupplier,
-            FullscreenManager fullscreenManager) {
+            FullscreenManager fullscreenManager,
+            @Nullable OneshotSupplier<SideUiStateProvider> sideUiStateProviderSupplier) {
         sInstances.add(this);
         mCallbackController = new CallbackController();
         mActivity = activity;
         mProfileSupplier = profileSupplier;
+        mSideUiStateProviderSupplier = sideUiStateProviderSupplier;
         new OneShotCallback<>(mProfileSupplier, this::onProfileAvailable);
         mTabModel = tabModel;
         mIncognitoTabModel = incognitoTabModel;
@@ -1716,6 +1726,11 @@ public class ReadAloudController
     }
 
     @Override
+    public @Nullable OneshotSupplier<SideUiStateProvider> getSideUiStateProviderSupplier() {
+        return mSideUiStateProviderSupplier;
+    }
+
+    @Override
     public void onPositiveFeedback() {
       if (mPlayback == null) {
         return;
@@ -2249,5 +2264,169 @@ public class ReadAloudController
         this.mLanguage = language;
         this.mSupported = supported;
       }
+    }
+
+    // ============================================================================
+    // JNI Callbacks (Called by C++ -> Java)
+    // ============================================================================
+
+    // Called when the active article's metadata (title and publisher) is loaded.
+    @CalledByNative
+    private void onMetadataAvailable(
+            @JniType("std::string") String title, @JniType("std::string") String publisher) {
+        // TODO: Update property model with title and publisher.
+        Log.d(TAG, "onMetadataAvailable: title = %s, publisher = %s", title, publisher);
+    }
+
+    // Called periodically to report the current playback progress and total duration.
+    @CalledByNative
+    private void onPlaybackProgressUpdated(long elapsedNanos, long durationNanos) {
+        // TODO: Update property model with playback progress.
+        Log.d(
+                TAG,
+                "onPlaybackProgressUpdated: elapsedNanos = %d, durationNanos = %d",
+                elapsedNanos,
+                durationNanos);
+    }
+
+    // Called when the audio playback state transitions (e.g., playing, paused, stopped).
+    @CalledByNative
+    private void onPlaybackStateChanged(int playbackState) {
+        // TODO: Update property model with playback state.
+        Log.d(TAG, "onPlaybackStateChanged: playbackState = %d", playbackState);
+    }
+
+    // Called when the list of available synthesis voices is loaded or changed.
+    @CalledByNative
+    private void onVoicesAvailable(
+            @JniType("std::vector<std::string>") String[] voiceIds,
+            @JniType("std::vector<std::string>") String[] voiceDisplayNames,
+            @JniType("std::string") String selectedVoiceId) {
+        // TODO: Update property model with available voices.
+        Log.d(
+                TAG,
+                "onVoicesAvailable: voiceIds count = %d, voiceDisplayNames count = %d,"
+                        + " selectedVoiceId = %s",
+                voiceIds.length,
+                voiceDisplayNames.length,
+                selectedVoiceId);
+    }
+
+    // Called when the active word highlight boundary shifts in the text.
+    @CalledByNative
+    private void onWordHighlightUpdated(int absoluteStartIndex, int absoluteEndIndex) {
+        // TODO: Update property model with word highlight boundaries.
+        Log.d(
+                TAG,
+                "onWordHighlightUpdated: absoluteStartIndex = %d, absoluteEndIndex = %d",
+                absoluteStartIndex,
+                absoluteEndIndex);
+    }
+
+    // Called to notify if synchronized word highlighting is supported for the current content.
+    @CalledByNative
+    private void onHighlightingSupported(boolean supported) {
+        // TODO: Update property to toggle highlight visibility.
+        Log.d(TAG, "onHighlightingSupported: supported = %b", supported);
+    }
+
+    // Called when playback switches to the on-device system TTS engine.
+    @CalledByNative
+    private void onFallbackEngaged() {
+        // TODO: Update property to toggle fallback state.
+        Log.d(TAG, "onFallbackEngaged");
+    }
+
+    // Called when an unrecoverable playback error occurs.
+    @CalledByNative
+    private void onPlaybackError(@JniType("std::string") String errorMessage) {
+        // TODO: Handle playback error.
+        Log.d(TAG, "onPlaybackError: errorMessage = %s", errorMessage);
+    }
+
+    // Called when the playback state of a voice preview changes in settings.
+    @CalledByNative
+    private void onVoicePreviewPlaybackStateChanged(
+            @JniType("std::string") String voiceId, int playbackState) {
+        // TODO: Update property model with voice preview playback state.
+        Log.d(
+                TAG,
+                "onVoicePreviewPlaybackStateChanged: voiceId = %s, playbackState = %d",
+                voiceId,
+                playbackState);
+    }
+
+    // Called with the result of an asynchronous page readability check.
+    @CalledByNative
+    private void onReadabilityResult(@JniType("GURL") GURL url, boolean isReadable) {
+        // TODO: Update property model with readability result.
+        Log.d(TAG, "onReadabilityResult: url = %s, isReadable = %b", url.getSpec(), isReadable);
+    }
+
+    // Called immediately before the native service is destroyed.
+    @CalledByNative
+    private void onNativeDestroyed() {
+        // TODO: Clean up native controller bindings.
+        Log.d(TAG, "onNativeDestroyed");
+    }
+
+    // ============================================================================
+    // JNI Native Methods (Called by Java -> C++)
+    // ============================================================================
+
+    @NativeMethods
+    interface Natives {
+        // Retrieves the pointer to the native ReadAloudService for the profile.
+        long getReadAloudService(@JniType("Profile*") Profile profile);
+
+        // Registers the Java controller as the native service delegate.
+        void setController(long readAloudServicePtr, ReadAloudController caller);
+
+        // Unregisters the Java controller from the native service.
+        void clearController(long readAloudServicePtr);
+
+        // Starts or resumes audio playback.
+        void play(
+                long readAloudServicePtr,
+                @JniType("content::WebContents*") WebContents webContents);
+
+        // Pauses the current audio playback.
+        void pause(long readAloudServicePtr);
+
+        // Stops audio playback and releases playback resources.
+        void stop(long readAloudServicePtr);
+
+        // Seeks to the start of the word at the specified index in the text.
+        void seekToWordIndex(long readAloudServicePtr, int wordIndex);
+
+        // Seeks to a specific absolute time offset from the beginning of the audio.
+        void seek(long readAloudServicePtr, long absoluteTimeNanos);
+
+        // Seeks forward or backward relatively (e.g., for the +10s / -10s skip buttons).
+        void seekRelative(long readAloudServicePtr, long offsetNanos);
+
+        // Adjusts the audio playback speed (rate multiplier).
+        void setPlaybackRate(long readAloudServicePtr, float rate);
+
+        // Sets the voice to be used for text-to-speech synthesis.
+        void setVoice(long readAloudServicePtr, @JniType("std::string") String voiceId);
+
+        // Plays a short audio sample of the specified voice.
+        void previewVoice(long readAloudServicePtr, @JniType("std::string") String voiceId);
+
+        // Stops the active voice preview playback.
+        void stopVoicePreview(long readAloudServicePtr);
+
+        // Sets the playback mode (classic full read or summary overview).
+        void setPlaybackMode(long readAloudServicePtr, int mode);
+
+        // Toggles synchronized word highlighting in the UI.
+        void setHighlightingEnabled(long readAloudServicePtr, boolean enabled);
+
+        // Submits user feedback (e.g., thumbs up/down) for logging.
+        void sendFeedback(long readAloudServicePtr, int feedbackType);
+
+        // Initiates an asynchronous check to determine if the URL is readable.
+        void checkReadability(long readAloudServicePtr, @JniType("GURL") GURL url);
     }
 }

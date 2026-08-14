@@ -4,8 +4,12 @@
 
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_button.h"
 
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
+#import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/highlight_utils.h"
+#import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/elements/blue_dot_util.h"
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_button_constants.h"
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_buttons_utils.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
@@ -15,9 +19,6 @@
 namespace {
 
 constexpr CGFloat kDisabledOpacity = 0.4;
-constexpr CGFloat kBlueDotRadius = 3;
-constexpr CGFloat kBlueDotMargin = 1;
-constexpr CGFloat kBlueDotWhiteBorderThickness = 2;
 
 // Returns the tint color to be used in the normal mode.
 UIColor* NormalTintColor() {
@@ -95,14 +96,37 @@ UIColor* NormalTintColor() {
   [self updateMask];
 }
 
-- (void)setHidden:(BOOL)hidden {
-  [super setHidden:hidden];
-  if (self.forceHidden) {
-    return;
+#pragma mark - ContextMenuInteractionDelegate
+
+- (void)contextMenuInteraction:(UIContextMenuInteraction*)interaction
+    willDisplayMenuForConfiguration:(UIContextMenuConfiguration*)configuration
+                           animator:
+                               (id<UIContextMenuInteractionAnimating>)animator {
+  if (IsPageActionMenuEnabled()) {
+    [self.geminiHandler
+        hideFloatyIfInvokedAnimated:YES
+                         fromSource:gemini::FloatyUpdateSource::ContextMenu];
   }
-  self.alpha = hidden ? 0.0 : 1.0;
-  self.transform = hidden ? CGAffineTransformMakeScale(0.01, 0.01)
-                          : CGAffineTransformIdentity;
+  [super contextMenuInteraction:interaction
+      willDisplayMenuForConfiguration:configuration
+                             animator:animator];
+}
+
+- (void)contextMenuInteraction:(UIContextMenuInteraction*)interaction
+       willEndForConfiguration:(UIContextMenuConfiguration*)configuration
+                      animator:(id<UIContextMenuInteractionAnimating>)animator {
+  if (IsPageActionMenuEnabled()) {
+    __weak __typeof(self) weakSelf = self;
+    [animator addAnimations:^{
+      [weakSelf.geminiHandler
+          updateFloatyVisibilityIfEligibleAnimated:NO
+                                        fromSource:gemini::FloatyUpdateSource::
+                                                       ContextMenu];
+    }];
+  }
+  [super contextMenuInteraction:interaction
+        willEndForConfiguration:configuration
+                       animator:animator];
 }
 
 #pragma mark - UIControl
@@ -151,24 +175,9 @@ UIColor* NormalTintColor() {
   }
   _hasBlueDot = hasBlueDot;
   if (hasBlueDot && !_blueDotView) {
-    _blueDotView = [[UIView alloc] initWithFrame:CGRectZero];
-    _blueDotView.translatesAutoresizingMaskIntoConstraints = NO;
-    _blueDotView.isAccessibilityElement = NO;
-    _blueDotView.backgroundColor = [UIColor colorNamed:kBlueColor];
-    _blueDotView.layer.cornerRadius = kBlueDotRadius;
     // Do not add the blue dot to the background as the background will be
     // masked.
-    [self insertSubview:_blueDotView belowSubview:self.imageView];
-
-    [NSLayoutConstraint activateConstraints:@[
-      [_blueDotView.widthAnchor constraintEqualToConstant:2 * kBlueDotRadius],
-      [_blueDotView.heightAnchor
-          constraintEqualToAnchor:_blueDotView.widthAnchor],
-      [_blueDotView.topAnchor constraintEqualToAnchor:self.topAnchor
-                                             constant:kBlueDotMargin],
-      [_blueDotView.trailingAnchor constraintEqualToAnchor:self.trailingAnchor
-                                                  constant:-kBlueDotMargin],
-    ]];
+    _blueDotView = ConfigureAndAddBlueDotView(self);
   }
   _blueDotView.hidden = !hasBlueDot;
   if (hasBlueDot) {
@@ -206,28 +215,8 @@ UIColor* NormalTintColor() {
 
 // Updates the mask on the background for the blue dot.
 - (void)updateMask {
-  if (!_backgroundView) {
-    return;
-  }
-  if (_hasBlueDot) {
-    CAShapeLayer* maskLayer = [CAShapeLayer layer];
-    UIBezierPath* path =
-        [UIBezierPath bezierPathWithRect:_backgroundView.bounds];
-    CGFloat centerX =
-        _backgroundView.bounds.size.width - (kBlueDotMargin + kBlueDotRadius);
-    CGFloat centerY = kBlueDotMargin + kBlueDotRadius;
-    UIBezierPath* holePath = [UIBezierPath
-        bezierPathWithArcCenter:CGPointMake(centerX, centerY)
-                         radius:(kBlueDotWhiteBorderThickness + kBlueDotRadius)
-                     startAngle:0
-                       endAngle:2 * M_PI
-                      clockwise:YES];
-    [path appendPath:holePath];
-    maskLayer.path = path.CGPath;
-    maskLayer.fillRule = kCAFillRuleEvenOdd;
-    _backgroundView.layer.mask = maskLayer;
-  } else {
-    _backgroundView.layer.mask = nil;
+  if (_backgroundView) {
+    UpdateBlueDotMaskForView(_backgroundView, _hasBlueDot);
   }
 }
 
@@ -282,12 +271,11 @@ UIColor* NormalTintColor() {
 // current size class of the UI. In windows with compact width, the
 // ToolbarButton should be square. Otherwise, they should be circular.
 - (void)updateShape {
-  if (!_backgroundView) {
-    return;
+  if (_backgroundView) {
+    ConfigureCornerRadiusForToolbarButtonContainer(_backgroundView,
+                                                   self.traitCollection);
+    [self updateMask];
   }
-  ConfigureCornerRadiusForToolbarButtonContainer(_backgroundView,
-                                                 self.traitCollection);
-  [self updateMask];
 }
 
 @end

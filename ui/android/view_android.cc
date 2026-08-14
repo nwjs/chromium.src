@@ -253,7 +253,7 @@ void ViewAndroid::SetAnchorRect(const JavaRef<jobject>& anchor,
     return;
 
   float dip_scale = GetDipScale();
-  int left_margin = std::round(bounds_dip.x() * dip_scale);
+  int left_margin = std::round(content_offset_x() + bounds_dip.x() * dip_scale);
   // Note that content_offset() is in CSS scale and bounds_dip is in DIP scale
   // (i.e., CSS pixels * page scale factor), but the height of browser control
   // is not affected by page scale factor. Thus, content_offset() in CSS scale
@@ -356,6 +356,27 @@ void ViewAndroid::SetTooltip(const std::u16string& text) {
     return;
   }
   Java_ViewAndroidDelegate_setTooltipText(env, delegate, text);
+}
+
+void ViewAndroid::SetTooltipFromKeyboard(const std::u16string& text,
+                                         const gfx::Rect& bounds) {
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> delegate(GetViewAndroidDelegate(env));
+  if (delegate.is_null()) {
+    return;
+  }
+  Java_ViewAndroidDelegate_setTooltipFromKeyboard(
+      env, delegate, text, bounds.x(), bounds.y(), bounds.width(),
+      bounds.height());
+}
+
+void ViewAndroid::ClearTooltipFromKeyboard() {
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> delegate(GetViewAndroidDelegate(env));
+  if (delegate.is_null()) {
+    return;
+  }
+  Java_ViewAndroidDelegate_clearTooltipFromKeyboard(env, delegate);
 }
 
 void ViewAndroid::SetCopyOutputCallback(CopyViewCallback callback) {

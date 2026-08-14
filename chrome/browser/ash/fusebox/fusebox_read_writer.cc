@@ -308,7 +308,14 @@ void ReadWriter::Read(scoped_refptr<storage::FileSystemContext> fs_context,
   DCHECK(!is_in_flight_);
   is_in_flight_ = true;
 
-  if (closed_) {
+  if ((offset < 0) || (length < 0) || (offset > (INT64_MAX - length))) {
+    is_in_flight_ = false;
+    content::GetUIThreadTaskRunner({})->PostTask(
+        FROM_HERE,
+        base::BindOnce(&RunRead2CallbackFailure, std::move(callback),
+                       base::File::Error::FILE_ERROR_INVALID_OPERATION));
+    return;
+  } else if (closed_) {
     is_in_flight_ = false;
     content::GetUIThreadTaskRunner({})->PostTask(
         FROM_HERE, base::BindOnce(&RunRead2CallbackFailure, std::move(callback),
@@ -349,8 +356,9 @@ void ReadWriter::Read(scoped_refptr<storage::FileSystemContext> fs_context,
       &ReadWriter::OnRead, weak_ptr_factory_.GetWeakPtr(), std::move(callback),
       fs_context, std::move(fs_reader), buffer, offset));
 
-  int result =
-      saved_fs_reader->Read(buffer.get(), length, std::move(pair.first));
+  int result = saved_fs_reader->Read(buffer.get(),
+                                     std::min<int64_t>(length, buffer->size()),
+                                     std::move(pair.first));
   if (result != net::ERR_IO_PENDING) {  // The read was synchronous.
     std::move(pair.second).Run(result);
   }
@@ -401,7 +409,14 @@ void ReadWriter::Write(scoped_refptr<storage::FileSystemContext> fs_context,
   DCHECK(!is_in_flight_);
   is_in_flight_ = true;
 
-  if (closed_ || (write_posix_error_code_ != 0)) {
+  if ((offset < 0) || (length < 0) ||
+      (offset > (INT64_MAX - static_cast<int64_t>(length)))) {
+    is_in_flight_ = false;
+    content::GetUIThreadTaskRunner({})->PostTask(
+        FROM_HERE,
+        base::BindOnce(&RunWrite2CallbackFailure, std::move(callback), EINVAL));
+    return;
+  } else if (closed_ || (write_posix_error_code_ != 0)) {
     is_in_flight_ = false;
     content::GetUIThreadTaskRunner({})->PostTask(
         FROM_HERE,

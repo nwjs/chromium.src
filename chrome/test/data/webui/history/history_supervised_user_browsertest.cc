@@ -23,14 +23,14 @@ class HistorySupervisedUserTest : public WebUIMochaBrowserTest {
     WebUIMochaBrowserTest::SetUpOnMainThread();
 
     history_ = HistoryServiceFactory::GetForProfile(
-        browser()->profile(), ServiceAccessType::EXPLICIT_ACCESS);
+        browser()->GetProfile(), ServiceAccessType::EXPLICIT_ACCESS);
     ui_test_utils::WaitForHistoryToLoad(history_);
   }
 
  protected:
   // Sets the pref to allow or prohibit deleting history entries.
   void SetDeleteAllowed(bool allowed) {
-    browser()->profile()->GetPrefs()->SetBoolean(
+    browser()->GetProfile()->GetPrefs()->SetBoolean(
         prefs::kAllowDeletingBrowserHistory, allowed);
   }
 

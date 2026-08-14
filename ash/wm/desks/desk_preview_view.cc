@@ -41,7 +41,6 @@
 #include "ui/color/color_provider.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_tree_owner.h"
-#include "ui/compositor/layer_type.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/gfx/geometry/skia_conversions.h"
@@ -172,7 +171,23 @@ void MirrorLayerTree(
   if (layer_data.should_skip_layer)
     return;
 
-  auto* mirror = source_layer->Mirror().release();
+  ui::Layer::LayerMirrorSettings mirror_settings;
+  mirror_settings.sync_rounded_corners = false;
+  // Disables rounded corners sync on the mirroring layer. Changes on its source
+  // layer's rounded corners shouldn't affect the rounded corners of the
+  // mirroring layer.
+  // On entering overview, the rounded corners of the windows get updated after
+  // the starting animation completes. These rounded corners are added
+  // specifically for the visuals of the windows inside overview, whereas the
+  // desk previews reflect the windows visuals outside of overview. Hence, these
+  // changes of the rounded corners on the source layers should not show up on
+  // the mirror layers. See http://b/293946863.
+  mirror_settings.sync_bounds = true;
+  if (layer_data.should_force_mirror_visible) {
+    mirror_settings.sync_visibility = false;
+  }
+
+  auto* mirror = source_layer->Mirror(mirror_settings).release();
   parent->Add(mirror);
 
   // Calculate child layers.
@@ -272,21 +287,9 @@ void MirrorLayerTree(
                     desk_container);
   }
 
-  // Disables rounded corners sync on the mirroring layer. Changes on its source
-  // layer's rounded corners shouldn't affect the rounded corners of the
-  // mirroring layer.
-  // On entering overview, the rounded corners of the windows get updated after
-  // the starting animation completes. These rounded corners are added
-  // specifically for the visuals of the windows inside overview, whereas the
-  // desk previews reflect the windows visuals outside of overview. Hence, these
-  // changes of the rounded corners on the source layers should not show up on
-  // the mirror layers. See http://b/293946863.
-  mirror->set_sync_rounded_corners_with_source(false);
-  mirror->set_sync_bounds_with_source(true);
   if (layer_data.should_force_mirror_visible) {
     mirror->SetVisible(true);
     mirror->SetOpacity(1);
-    mirror->set_sync_visibility_with_source(false);
   }
 
   if (layer_data.should_clear_transform)
@@ -491,8 +494,7 @@ void DeskPreviewView::RecreateDeskContentsMirrorLayers() {
   }
 
   // Mirror the layer tree of the desk container.
-  auto mirrored_content_root_layer =
-      std::make_unique<ui::Layer>(ui::LAYER_NOT_DRAWN);
+  auto mirrored_content_root_layer = std::make_unique<ui::LayerNotDrawn>();
   mirrored_content_root_layer->SetName("mirrored contents root layer");
   base::flat_map<ui::Layer*, LayerData> layers_data;
   for (const auto& window : parent_windows_to_mirror) {
@@ -671,9 +673,10 @@ void DeskPreviewView::OnGestureEvent(ui::GestureEvent* event) {
 void DeskPreviewView::OnThemeChanged() {
   views::Button::OnThemeChanged();
 
-  highlight_overlay_->layer()->SetColor(SkColorSetA(
-      GetColorProvider()->GetColor(ui::kColorHighlightBorderHighlight1),
-      kHighlightTransparency));
+  highlight_overlay_->layer()->AsSolidColor()->SetColor(
+      SkColor4f::FromColor(SkColorSetA(
+          GetColorProvider()->GetColor(ui::kColorHighlightBorderHighlight1),
+          kHighlightTransparency)));
 }
 
 void DeskPreviewView::OnFocus() {

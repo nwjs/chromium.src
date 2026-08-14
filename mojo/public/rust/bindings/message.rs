@@ -13,7 +13,10 @@ chromium::import! {
 }
 
 use crate::message_header::*;
-use system::message::{BadMessageError, RawMojoMessage};
+use system::message::{
+    BadMessageError, ReadableBytesOnlyMessage, ReadableWithHandlesMessage, SendableMessage,
+    WritableMessage,
+};
 use system::mojo_types::UntypedHandle;
 
 /// Represents a Mojom message with a structured header and unstructured
@@ -25,18 +28,13 @@ use system::mojo_types::UntypedHandle;
 /// mojom value (obtained from mojom_value_parser::serialize), and that the
 /// header matches the value. See message_header.rs for more information on
 /// headers.
-// TODO(crbug.com/493265340): This is kind of a crummy type, we should come up
-// with a better API that leverages the RawMojoMessage type in the system
-// bindings. As part of the process, we should catalogue the possible errors
-// that each step might return.
 pub struct MojomMessage {
     pub header: MessageHeader,
     pub payload: Vec<u8>,
     pub handles: Vec<UntypedHandle>,
-    // This field should only be set for messages that came in across the wire;
     // we keep the raw handle around so we can report a bad message later if
     // necessary.
-    pub raw_message_handle: Option<RawMojoMessage>,
+    pub raw_message_handle: Option<ReadableBytesOnlyMessage>,
 }
 
 impl MojomMessage {
@@ -44,12 +42,14 @@ impl MojomMessage {
     ///
     /// If parsing fails, this will return `None` and report the original
     /// message as malformed.
-    pub fn parse_raw_or_report_bad_message(mut msg: RawMojoMessage) -> Option<Self> {
-        let (raw_bytes, handles) = msg.read_data().unwrap();
+    pub fn parse_raw_or_report_bad_message(msg: ReadableWithHandlesMessage) -> Option<Self> {
+        let (handles, mut msg_bytes_only) = msg.read_data().unwrap();
+
+        let raw_bytes = msg_bytes_only.read_bytes().unwrap();
         let (remaining_bytes, header) = match MessageHeader::deserialize(raw_bytes) {
             Ok(data) => data,
             Err(err) => {
-                let _ = msg.report_bad_message(&err.to_string());
+                let _ = msg_bytes_only.report_bad_message(&err.to_string());
                 return None;
             }
         };
@@ -57,7 +57,7 @@ impl MojomMessage {
         // We might be able to avoid allocating here if we had a better
         // MojomMessage type.
         let payload = remaining_bytes.to_vec();
-        Some(MojomMessage { header, payload, handles, raw_message_handle: Some(msg) })
+        Some(MojomMessage { header, payload, handles, raw_message_handle: Some(msg_bytes_only) })
     }
 
     /// Parse the given raw message into a structured representation.
@@ -79,10 +79,14 @@ impl MojomMessage {
     }
 }
 
-impl From<MojomMessage> for RawMojoMessage {
+impl From<MojomMessage> for SendableMessage {
     fn from(msg: MojomMessage) -> Self {
+        // This is more of a sanity check. There is nothing stopping us from re-sending
+        // a message given that the handle is there, but we should never end up in that
+        // situation, hence a technical bug somewhere.
+        assert!(msg.raw_message_handle.is_none(), "Cannot re-send an incoming message");
         let (payload, handles) = msg.into_data();
         // This can only fail if we're out of memory
-        RawMojoMessage::new_with_data(&payload, handles).unwrap()
+        WritableMessage::new_with_data(&payload, handles).unwrap().into()
     }
 }

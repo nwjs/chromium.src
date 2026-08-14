@@ -15,8 +15,6 @@
 #import "ios/chrome/browser/intelligence/actor/tools/model/web_actor_tool.h"
 #import "ios/chrome/browser/intelligence/actor/tools/public/actor_tool_types.h"
 
-class ProfileIOS;
-
 namespace web {
 class WebState;
 }  // namespace web
@@ -30,18 +28,19 @@ class ScrollTool : public WebActorTool {
  public:
   ~ScrollTool() override;
 
-  static base::expected<std::unique_ptr<ScrollTool>, ToolExecutionResult>
-  Create(const optimization_guide::proto::ScrollAction& action,
-         ProfileIOS* profile);
+  static std::unique_ptr<ScrollTool> Create(
+      base::WeakPtr<web::WebState> web_state,
+      const optimization_guide::proto::ScrollAction& action);
 
   // ActorTool:
+  void Validate(ToolExecutionCallback callback) override;
   void Execute(ToolExecutionCallback callback) override;
   base::WeakPtr<web::WebState> GetTargetWebState() const override;
   ToolType GetToolType() const override;
 
  private:
-  ScrollTool(const optimization_guide::proto::ScrollAction& action,
-             base::WeakPtr<web::WebState> web_state);
+  ScrollTool(base::WeakPtr<web::WebState> web_state,
+             const optimization_guide::proto::ScrollAction& action);
 
   void OnTargetFrameResolved(
       optimization_guide::proto::ScrollAction action,

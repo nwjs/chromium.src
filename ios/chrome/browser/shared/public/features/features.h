@@ -32,24 +32,6 @@ BASE_DECLARE_FEATURE(kSafetyCheckAutorunByManagerKillswitch);
 // Stack if no issues are found.
 BASE_DECLARE_FEATURE(kSafetyCheckModuleHiddenIfNoIssuesKillswitch);
 
-// Enum defining the available Tab Grid setup modes.
-enum class TabGridSetupMode {
-  // The Tab Grid is set up immediately at startup (legacy behavior).
-  kImmediate = 0,
-  // The Tab Grid is set up after startup, once the UI thread is idle.
-  kDeferred = 1,
-
-  // For simulating the race condition where the user navigates to
-  // the tab grid before deferred setup is complete.
-  kLazy_ForTesting = 2,
-};
-
-// Feature flag to control Tab Grid setup mode.
-BASE_DECLARE_FEATURE(kTabGridSetupMode);
-extern const base::FeatureParam<std::string> kTabGridSetupModeParam;
-extern const char kTabGridSetupModeParamName[];
-TabGridSetupMode GetTabGridSetupMode();
-
 // Feature to enable the refactored implementation of the `OmahaService`, using
 // new `OmahaServiceObserver`(s) for Omaha clients. Acts as a killswitch.
 BASE_DECLARE_FEATURE(kOmahaServiceRefactor);
@@ -114,10 +96,6 @@ BASE_DECLARE_FEATURE(kLensSearchHeadersCheckEnabled);
 // Variations of Composebox.
 extern const char kComposeboxParam[];
 extern const char kComposeboxParamAllOmniboxEntrypoints[];
-
-// Feature for the DRS prototype.
-BASE_DECLARE_FEATURE(kOmniboxDRSPrototype);
-
 // Feature flag to enable UITraitCollection workaround for fixing incorrect
 // trait propagation.
 BASE_DECLARE_FEATURE(kEnableTraitCollectionWorkAround);
@@ -127,9 +105,6 @@ BASE_DECLARE_FEATURE(kRemoveExcessNTPs);
 
 // Feature flag / Kill Switch for TCRex.
 BASE_DECLARE_FEATURE(kTCRexKillSwitch);
-
-// When enabled, an overflow menu will replace the edit menu on the GTS.
-BASE_DECLARE_FEATURE(kTabSwitcherOverflowMenu);
 
 // Feature to enable force showing the Contextual Panel entrypoint.
 BASE_DECLARE_FEATURE(kContextualPanelForceShowEntrypoint);
@@ -149,6 +124,9 @@ extern const base::FeatureParam<int>
 
 // Feature flag the "Hide Toolbar" button in the overflow menu.
 BASE_DECLARE_FEATURE(kHideToolbarsInOverflowMenu);
+
+// Returns true if the "Hide Toolbar" button is enabled.
+bool IsHideToolbarEnabled();
 
 // Flag to hide voice and lens actions in fusebox.
 BASE_DECLARE_FEATURE(kHideFuseboxVoiceLensActions);
@@ -172,9 +150,6 @@ BASE_DECLARE_FEATURE(kIOSChooseFromDriveSignedOut);
 // Feature flag enabling dates long press to enter the Create Calendar event
 // ExperienceKit for signed out users.
 BASE_DECLARE_FEATURE(kIOSDateToCalendarSignedOut);
-
-// Feature flag enabling a fix for the Download manager mediator.
-BASE_DECLARE_FEATURE(kIOSDownloadNoUIUpdateInBackground);
 
 // Feature flag enabling the save to drive feature for signed out users.
 BASE_DECLARE_FEATURE(kIOSSaveToDriveSignedOut);
@@ -463,25 +438,6 @@ extern const std::string_view kFRESignInHeaderTextUpdateParamArm1;
 // Returns whether 'kFRESignInHeaderTextUpdate' is enabled.
 bool FRESignInHeaderTextUpdate();
 
-// Feature to enable different text for the secondary action on FRE sign-in
-// promo.
-BASE_DECLARE_FEATURE(kFRESignInSecondaryActionLabelUpdate);
-extern const base::FeatureParam<std::string>
-    kFRESignInSecondaryActionLabelUpdateParam;
-extern const std::string_view
-    kFRESignInSecondaryActionLabelUpdateParamStaySignedOut;
-
-// Returns whether 'kFRESignInSecondaryActionLabelUpdate' is enabled.
-bool FRESignInSecondaryActionLabelUpdate();
-
-// Feature flag to change the button order in the confirmation alerts, placing
-// the primary CTA below the secondary button.
-BASE_DECLARE_FEATURE(kConfirmationButtonSwapOrder);
-
-// Checks if the button order in the confirmation alerts should be swapped
-// (primary button at the bottom), based on the `kConfirmationButtonSwapOrder`
-// flag.
-bool IsConfirmationButtonSwapOrderEnabled();
 
 // Enables Profile-specific push notification handling logic. When enabled, this
 // routes incoming notifications to the PushNotificationClientManager associated
@@ -743,9 +699,6 @@ BASE_DECLARE_FEATURE(kLocationBarBadgeMigration);
 // Returns true if the LocationBarBadgeMigration feature is enabled.
 bool IsLocationBarBadgeMigrationEnabled();
 
-// Enables the Composebox feature.
-BASE_DECLARE_FEATURE(kComposeboxIOS);
-
 // Returns true if the Composebox feature is enabled.
 bool IsComposeboxIOSEnabled();
 
@@ -788,6 +741,12 @@ BASE_DECLARE_FEATURE(kIOSWebContextMenuNewTitle);
 
 // Returns true if the IOSWebContextMenuNewTitle feature is enabled.
 bool IsIOSWebContextMenuNewTitleEnabled();
+
+// Enables the AtMemoryContextMenuEntryPoint feature.
+BASE_DECLARE_FEATURE(kAtMemoryContextMenuEntryPoint);
+
+// Returns true if the AtMemoryContextMenuEntryPoint feature is enabled.
+bool IsAtMemoryContextMenuEntryPointEnabled();
 
 // Feature flag to enable the Assistant Container.
 BASE_DECLARE_FEATURE(kAssistantContainer);
@@ -928,10 +887,16 @@ BASE_DECLARE_FEATURE(kDisableFeedbackForIneligibleUsers);
 // Returns true if the DisableFeedbackForIneligibleUsers feature is enabled.
 bool IsDisableFeedbackForIneligibleUsersEnabled();
 
+// Feature flag to include system log in user feedback reports.
+BASE_DECLARE_FEATURE(kIncludeSystemLogInFeedback);
+
+// Returns true if system log should be included in user feedback reports.
+bool IsIncludeSystemLogInFeedbackEnabled();
+
 // Enables the FullscreenRefactoring feature.
 BASE_DECLARE_FEATURE(kFullscreenRefactoring);
 
-// Returns true if the FullscreenRefactoring feature is enabled.
+// Returns true if the FullscreenRefactoring feature or ChromeNext is enabled.
 bool IsFullscreenRefactoringEnabled();
 
 // Enables the AskAboutThisPage feature.
@@ -994,12 +959,6 @@ BASE_DECLARE_FEATURE(kPlusButtonInFakebox);
 
 // Returns true if the plus button in NTP fakebox is enabled
 bool IsPlusButtonInFakeboxEnabled();
-
-// Enables the CobrowseAimHistory feature.
-BASE_DECLARE_FEATURE(kCobrowseAimHistory);
-
-// Returns true if the CobrowseAimHistory feature is enabled.
-bool IsCobrowseAimHistoryEnabled();
 
 // Enables the `AssistantAimMinimizedState` feature.
 BASE_DECLARE_FEATURE(kAssistantAimMinimizedState);
@@ -1083,17 +1042,17 @@ BASE_DECLARE_FEATURE(kAppBarHideInFullscreen);
 // Returns true if the App Bar should be completely hidden when in fullscreen.
 bool IsAppBarHiddenInFullscreen();
 
-// Enables the FixOmniboxInitialPositionStartup feature.
-BASE_DECLARE_FEATURE(kFixOmniboxInitialPositionStartup);
-
-// Returns true if the FixOmniboxInitialPositionStartup feature is enabled.
-bool IsFixOmniboxInitialPositionStartupEnabled();
-
 // Enables the DefaultBottomOmniboxOnIOS feature.
 BASE_DECLARE_FEATURE(kDefaultBottomOmniboxOnIOS);
 
 // Returns true if the DefaultBottomOmniboxOnIOS feature is enabled.
 bool IsDefaultBottomOmniboxOnIOSEnabled();
+
+// Enables the GlassToolbar feature.
+BASE_DECLARE_FEATURE(kGlassToolbar);
+
+// Returns true if the GlassToolbar feature is enabled.
+bool IsGlassToolbarEnabled();
 
 // Enables the NextOldDesign feature.
 BASE_DECLARE_FEATURE(kNextOldDesign);

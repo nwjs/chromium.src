@@ -14,6 +14,7 @@
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "components/payments/core/features.h"
+#include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/stored_payment_app.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_task_environment.h"
@@ -118,11 +119,13 @@ class ServiceWorkerPaymentAppTest : public testing::Test,
 
     icon_bitmap_ = app_info->icon.get();
     app_ = std::make_unique<ServiceWorkerPaymentApp>(
-        web_contents_, GURL("https://testmerchant.com"),
+        web_contents_, content::GlobalRenderFrameHostId(),
+        GURL("https://testmerchant.com"),
         GURL("https://testmerchant.com/bobpay"), spec_->AsWeakPtr(),
         std::move(app_info), /*enabled_method=*/"https://bobpay.test",
         /*is_incognito=*/false, /*prefs_can_make_payment=*/true,
-        /*show_processing_spinner=*/base::DoNothing());
+        /*show_processing_spinner=*/base::DoNothing(),
+        /*show_loading_view=*/base::DoNothing());
   }
 
   void CreateInstalledServiceWorkerPaymentApp(bool with_url_method) {
@@ -165,7 +168,8 @@ class ServiceWorkerPaymentAppTest : public testing::Test,
         GURL("https://testmerchant.com/bobpay"), spec_->AsWeakPtr(),
         std::move(stored_app), /*is_incognito=*/false,
         prefs_can_make_payment_enabled,
-        /*show_processing_spinner=*/base::DoNothing());
+        /*show_processing_spinner=*/base::DoNothing(),
+        /*show_loading_view=*/base::DoNothing());
   }
 
   ServiceWorkerPaymentApp* GetApp() { return app_.get(); }

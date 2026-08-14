@@ -57,6 +57,15 @@ class PinnedTabContainerView
   const TabCollectionNode* GetCollectionNodeFromView(
       const views::View& view) const override;
 
+  views::ProposedLayout CalculateHorizontalLayout(
+      const views::SizeBounds& size_bounds) const;
+  views::ProposedLayout CalculateVerticalLayout(
+      const views::SizeBounds& size_bounds) const;
+
+  // While in horizontal orientation, the x-coordinate of the single row is
+  // used to determine the drop index.
+  std::optional<BrowserRootView::DropIndex> GetLinkDropIndexForHorizontal(
+      const gfx::Point& loc_in_container);
   // While collapsed, only the y-coordinate is used to determine the drop
   // index, similar to the unpinned container.
   std::optional<BrowserRootView::DropIndex> GetLinkDropIndexForCollapsed(
@@ -68,11 +77,17 @@ class PinnedTabContainerView
       const gfx::Point& loc_in_container);
 
   void ResetCollectionNode();
+  void OnCollapseStateChanged(tabs::VerticalTabStripCollapseState state);
+
+  // Returns true if pinned tabs should be hidden (i.e. when focus is in a tab
+  // group and the feature flag is enabled).
+  bool ShouldHidePinnedTabs() const;
 
   raw_ptr<TabCollectionNode> collection_node_;
   const raw_ref<TabCollectionAnimatingLayoutManager> layout_manager_;
 
   base::CallbackListSubscription node_destroyed_subscription_;
+  base::CallbackListSubscription collapsed_state_changed_subscription_;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_TABS_COMMON_PINNED_TAB_CONTAINER_VIEW_H_

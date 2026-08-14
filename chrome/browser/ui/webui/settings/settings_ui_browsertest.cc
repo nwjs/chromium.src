@@ -69,7 +69,7 @@ IN_PROC_BROWSER_TEST_F(SettingsUITest, ToggleJavaScript) {
 IN_PROC_BROWSER_TEST_F(SettingsUITest, TriggerHappinessTrackingSurveys) {
   MockHatsService* mock_hats_service_ = static_cast<MockHatsService*>(
       HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
-          browser()->profile(), base::BindRepeating(&BuildMockHatsService)));
+          browser()->GetProfile(), base::BindRepeating(&BuildMockHatsService)));
   EXPECT_CALL(*mock_hats_service_,
               LaunchDelayedSurveyForWebContents(kHatsSurveyTriggerSettings, _,
                                                 _, _, _, _, _, _, _, _));
@@ -111,7 +111,8 @@ IN_PROC_BROWSER_TEST_F(
       NavigateToURL(browser(), GURL(base::StrCat({chrome::kChromeUISettingsURL,
                                                   chrome::kPeopleSubPage}))));
 
-  ASSERT_EQ(nullptr, SyncServiceFactory::GetForProfile(browser()->profile()));
+  ASSERT_EQ(nullptr,
+            SyncServiceFactory::GetForProfile(browser()->GetProfile()));
 
   // Wait for sync controls to load which would initialize the batch upload
   // service if the sync service was not null.
@@ -123,8 +124,29 @@ IN_PROC_BROWSER_TEST_F(
                          })())"));
 
   EXPECT_EQ(nullptr,
-            BatchUploadServiceFactory::GetForProfile(browser()->profile(),
+            BatchUploadServiceFactory::GetForProfile(browser()->GetProfile(),
                                                      /*create=*/false));
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsUITest, GoogleSearchAiModeWorkspaceUrl) {
+  ASSERT_TRUE(NavigateToURL(browser(), GURL(chrome::kChromeUISettingsURL)));
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  // Wait for settings UI to be loaded.
+  ASSERT_TRUE(content::ExecJs(web_contents,
+                              "customElements.whenDefined('settings-ui');"));
+
+  // Evaluate the loadTimeData string in settings page using dynamic import.
+  std::string url_val =
+      content::EvalJs(
+          web_contents,
+          "import('chrome://resources/js/load_time_data.js').then(m => "
+          "m.loadTimeData.getString('googleSearchAiModeWorkspaceUrl'))")
+          .ExtractString();
+
+  EXPECT_EQ(url_val, "https://myactivity.google.com/search-services/apps");
 }
 
 IN_PROC_BROWSER_TEST_F(SettingsUITest, GoogleSearchAiModeRestrictedUrl) {
@@ -163,7 +185,7 @@ class SettingsUITestGlicDisabledButAnchored : public SettingsUITest {
 
 IN_PROC_BROWSER_TEST_F(SettingsUITestGlicDisabledButAnchored, DoesNotCrash) {
   // Set Glic as completed onboarding.
-  browser()->profile()->GetPrefs()->SetInteger(
+  browser()->GetProfile()->GetPrefs()->SetInteger(
       glic::prefs::kGlicCompletedFre,
       static_cast<int>(glic::prefs::FreStatus::kCompleted));
 
@@ -187,25 +209,4 @@ IN_PROC_BROWSER_TEST_F(SettingsUITestGlicDisabledButAnchored, DoesNotCrash) {
           .ExtractBool();
 
   EXPECT_FALSE(show_glic_settings);
-}
-
-IN_PROC_BROWSER_TEST_F(SettingsUITest, GoogleSearchAiModeWorkspaceUrl) {
-  ASSERT_TRUE(NavigateToURL(browser(), GURL(chrome::kChromeUISettingsURL)));
-
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-
-  // Wait for settings UI to be loaded.
-  ASSERT_TRUE(content::ExecJs(web_contents,
-                              "customElements.whenDefined('settings-ui');"));
-
-  // Evaluate the loadTimeData string in settings page using dynamic import.
-  std::string url_val =
-      content::EvalJs(
-          web_contents,
-          "import('chrome://resources/js/load_time_data.js').then(m => "
-          "m.loadTimeData.getString('googleSearchAiModeWorkspaceUrl'))")
-          .ExtractString();
-
-  EXPECT_EQ(url_val, "https://myactivity.google.com/search-services/apps");
 }

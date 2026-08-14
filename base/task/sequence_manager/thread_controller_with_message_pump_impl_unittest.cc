@@ -8,9 +8,11 @@
 #include <optional>
 #include <queue>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
+#include "base/features.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
@@ -234,7 +236,6 @@ class ThreadControllerWithMessagePumpTestBase : public testing::Test {
       bool can_run_tasks_by_batches)
       : settings_(SequenceManager::Settings::Builder()
                       .SetTickClock(&clock_)
-                      .SetShouldReportLockMetrics(true)
                       .SetCanRunTasksByBatches(can_run_tasks_by_batches)
                       .Build()),
         thread_controller_(
@@ -257,7 +258,10 @@ class ThreadControllerWithMessagePumpTestBase : public testing::Test {
     ThreadControllerPowerMonitor::OverrideUsePowerMonitorForTesting(true);
   }
 
-  void TearDown() override { ThreadControllerPowerMonitor::ResetForTesting(); }
+  void TearDown() override {
+    ThreadControllerPowerMonitor::ResetForTesting();
+    LockMetricsRecorder::DisableRecordingOnCurrentThreadForTesting();
+  }
 
   TimeTicks FromNow(TimeDelta delta) { return clock_.NowTicks() + delta; }
 
@@ -2256,19 +2260,25 @@ TEST_F(ThreadControllerWithMessagePumpTest, WorkIdIncrementedDelegateRun) {
 }
 
 TEST_F(ThreadControllerWithMessagePumpTest, LockMetricsReportedOnIdle) {
-  PlatformThread::SetName("TestThread");
+  base::test::ScopedFeatureList scoped_feature_list_;
+  scoped_feature_list_.InitAndEnableFeature(
+      base::features::kRecordLockAcquisitionTime);
+
+  LockMetricsRecorder::SetAllowedThreadsForTesting(
+      {"LockMetricsReportedOnIdle"});
   constexpr TimeDelta test_sample1 = Microseconds(42);
   constexpr TimeDelta test_sample2 = Milliseconds(42);
-  const std::string base_lock_histogram_name =
-      StrCat({"Scheduling.ContendedLockAcquisitionTime.BaseLock.",
-              PlatformThread::GetName()});
-  const std::string pa_lock_histogram_name =
-      StrCat({"Scheduling.ContendedLockAcquisitionTime.PartitionAllocLock.",
-              PlatformThread::GetName()});
+  constexpr std::string_view kBaseLockHistogramName =
+      "Scheduling.ContendedLockAcquisitionTime.BaseLock."
+      "LockMetricsReportedOnIdle";
+  constexpr std::string_view kPartitionAllocLockHistogramName =
+      "Scheduling.ContendedLockAcquisitionTime.PartitionAllocLock."
+      "LockMetricsReportedOnIdle";
 
   SingleThreadTaskRunner::CurrentDefaultHandle handle(
       MakeRefCounted<FakeTaskRunner>());
-  LockMetricsRecorder::EnableRecordingOnCurrentThread();
+  LockMetricsRecorder::EnableRecordingOnCurrentThread(
+      "LockMetricsReportedOnIdle");
 
   HistogramTester histogram_tester;
 
@@ -2281,16 +2291,16 @@ TEST_F(ThreadControllerWithMessagePumpTest, LockMetricsReportedOnIdle) {
 
   EXPECT_CALL(*message_pump_, Run(_))
       .WillOnce([&](MessagePump::Delegate* delegate) {
-        histogram_tester.ExpectBucketCount(base_lock_histogram_name,
+        histogram_tester.ExpectBucketCount(kBaseLockHistogramName,
                                            test_sample1.InMicroseconds(), 0);
-        histogram_tester.ExpectBucketCount(pa_lock_histogram_name,
+        histogram_tester.ExpectBucketCount(kPartitionAllocLockHistogramName,
                                            test_sample2.InMicroseconds(), 0);
 
         thread_controller_.DoIdleWork();
 
-        histogram_tester.ExpectBucketCount(base_lock_histogram_name,
+        histogram_tester.ExpectBucketCount(kBaseLockHistogramName,
                                            test_sample1.InMicroseconds(), 1);
-        histogram_tester.ExpectBucketCount(pa_lock_histogram_name,
+        histogram_tester.ExpectBucketCount(kPartitionAllocLockHistogramName,
                                            test_sample2.InMicroseconds(), 2);
       });
 

@@ -18,6 +18,7 @@ import android.widget.ImageButton;
 import androidx.annotation.CallSuper;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.VisibleForTesting;
+import androidx.appcompat.widget.TooltipCompat;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.widget.ImageViewCompat;
 
@@ -48,7 +49,7 @@ public class LocationBarLayout extends ConstraintLayout {
     protected ImageButton mLensButton;
     protected ImageButton mZoomButton;
     protected ImageButton mInstallButton;
-    protected final @Nullable View mNavigateButton;
+    protected final View mNavigateButton;
     protected UrlBar mUrlBar;
     protected final View mLocationBarStatusView;
 
@@ -279,6 +280,12 @@ public class LocationBarLayout extends ConstraintLayout {
     /* package */ void setDeleteButtonVisibility(boolean shouldShow) {
         mShowDeleteButton = shouldShow;
         setButtonVisibility(mDeleteButton, shouldShow);
+    }
+
+    /** Sets the tooltip text of the delete URL content button. */
+    /* package */ void setDeleteButtonTooltip(@Nullable String tooltipText) {
+        if (mDeleteButton == null) return;
+        TooltipCompat.setTooltipText(mDeleteButton, tooltipText);
     }
 
     protected boolean isBackButtonVisible() {
@@ -527,6 +534,23 @@ public class LocationBarLayout extends ConstraintLayout {
     }
 
     /**
+     * Returns the target width (in px) that the dropdown embedder should use to align the
+     * suggestions window, defaulting to the alignment view's measured width. Subclasses (such as
+     * {@link LocationBarTablet}) may override this to publish an explicit popover alignment width.
+     */
+    /* package */ int getAlignmentViewTargetWidth() {
+        return getAlignmentView().getMeasuredWidth();
+    }
+
+    /**
+     * Returns the horizontal offset to apply to the alignment view's position when positioning the
+     * suggestions dropdown window.
+     */
+    /* package */ int getAlignmentViewLeftOffset() {
+        return 0;
+    }
+
+    /**
      * This should be called when the autocomplete request type for the active omnibox session
      * changes to/from specialized (e.g. aim)/conventional (e.g. plain old search). It is not
      * assumed that this will be called when the session ends.
@@ -565,9 +589,32 @@ public class LocationBarLayout extends ConstraintLayout {
      */
     void setFuseboxLayoutMode(@FuseboxLayoutMode int layoutMode) {}
 
+    /** Sets the visibility of the UrlBar and StatusView group. */
+    /* package */ void setUrlAndStatusGroupVisibility(boolean visible) {
+        int visibility = visible ? View.VISIBLE : View.INVISIBLE;
+        mUrlBar.setVisibility(visibility);
+        mLocationBarStatusView.setVisibility(visibility);
+    }
+
     /**
      * Informs the location bar whether the autocomplete system is in "standby" i.e. accepting input
      * but not showing suggestions until input is received.
      */
-    void setIsInStandby(boolean isInStandby) {}
+    void setShowStandbyRing(boolean showStandbyRing) {}
+
+    View getUrlBar() {
+        return mUrlBar;
+    }
+
+    View getMicButton() {
+        return mMicButton;
+    }
+
+    View getNavigateButton() {
+        return mNavigateButton;
+    }
+
+    View getDeleteButton() {
+        return mDeleteButton;
+    }
 }

@@ -21,12 +21,6 @@
 
 namespace base {
 
-namespace {
-
-TimeTicks g_shared_time_ticks_at_unix_epoch;
-
-}  // namespace
-
 namespace internal {
 
 std::atomic<TimeNowFunction> g_time_now_function{
@@ -174,16 +168,17 @@ bool Time::FromMillisecondsSinceUnixEpoch(int64_t unix_milliseconds,
   // microseconds since the Windows epoch (1601), avoiding overflows.
   CheckedNumeric<int64_t> checked_microseconds_win_epoch = unix_milliseconds;
   checked_microseconds_win_epoch *= kMicrosecondsPerMillisecond;
-  checked_microseconds_win_epoch += kTimeTToMicrosecondsOffset;
+  checked_microseconds_win_epoch += kMicrosecondsFromWindowsToUnixEpoch;
   *time = Time(checked_microseconds_win_epoch.ValueOrDefault(0));
   return checked_microseconds_win_epoch.IsValid();
 }
 
 int64_t Time::ToRoundedDownMillisecondsSinceUnixEpoch() const {
   constexpr int64_t kEpochOffsetMillis =
-      kTimeTToMicrosecondsOffset / kMicrosecondsPerMillisecond;
-  static_assert(kTimeTToMicrosecondsOffset % kMicrosecondsPerMillisecond == 0,
-                "assumption: no epoch offset sub-milliseconds");
+      kMicrosecondsFromWindowsToUnixEpoch / kMicrosecondsPerMillisecond;
+  static_assert(
+      kMicrosecondsFromWindowsToUnixEpoch % kMicrosecondsPerMillisecond == 0,
+      "assumption: no epoch offset sub-milliseconds");
 
   // Compute the milliseconds since UNIX epoch without the possibility of
   // under/overflow. Round the result towards -infinity.
@@ -224,35 +219,6 @@ TimeTicks TimeTicks::Now() {
 TimeTicks TimeTicks::LowResolutionNow() {
   return internal::g_time_ticks_low_resolution_now_function.load(
       std::memory_order_relaxed)();
-}
-
-// static
-// This method should be called once at process start and before
-// TimeTicks::UnixEpoch is accessed. It is intended to make the offset between
-// unix time and monotonic time consistent across processes.
-void TimeTicks::SetSharedUnixEpoch(TimeTicks ticks_at_epoch) {
-  DCHECK(g_shared_time_ticks_at_unix_epoch.is_null());
-  g_shared_time_ticks_at_unix_epoch = ticks_at_epoch;
-}
-
-// static
-TimeTicks TimeTicks::UnixEpoch() {
-  struct StaticUnixEpoch {
-    StaticUnixEpoch()
-        : epoch(
-              g_shared_time_ticks_at_unix_epoch.is_null()
-                  ? subtle::TimeTicksNowIgnoringOverride() -
-                        (subtle::TimeNowIgnoringOverride() - Time::UnixEpoch())
-                  : g_shared_time_ticks_at_unix_epoch) {
-      // Prevent future usage of `g_shared_time_ticks_at_unix_epoch`.
-      g_shared_time_ticks_at_unix_epoch = TimeTicks::Max();
-    }
-
-    const TimeTicks epoch;
-  };
-
-  static StaticUnixEpoch static_epoch;
-  return static_epoch.epoch;
 }
 
 std::ostream& operator<<(std::ostream& os, TimeTicks time_ticks) {

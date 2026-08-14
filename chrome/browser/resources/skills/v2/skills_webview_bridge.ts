@@ -5,7 +5,9 @@ import {assert} from '//resources/js/assert.js';
 import {EventTracker} from '//resources/js/event_tracker.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 
-import {HANDSHAKE_PING_INTERVAL_MS, HANDSHAKE_TIMEOUT_MS, PRIMARY_SKILLS_ORIGIN, SKILLS_API_ALLOWED_ORIGINS, SKILLS_HANDSHAKE_ACK, SKILLS_HANDSHAKE_TYPE} from './skills_webview_bridge_constants.js';
+import {ToastType} from '../skills.mojom-webui.js';
+
+import {getLoadingStageHistogramName, HANDSHAKE_PING_INTERVAL_MS, HANDSHAKE_TIMEOUT_MS, HISTOGRAM_HANDSHAKE_RESULT, LoadingStage, PRIMARY_SKILLS_ORIGIN, SKILLS_API_ALLOWED_ORIGINS, SKILLS_CLOSE_DIALOG, SKILLS_GEMINI_PROMPT_TYPE, SKILLS_HANDSHAKE_ACK, SKILLS_HANDSHAKE_TYPE, SKILLS_INVOKE_SKILL, SKILLS_LOG_METRIC, SKILLS_OPEN_URL, SKILLS_SHOW_TOAST} from './skills_webview_bridge_constants.js';
 
 /**
  * Returns a URLPattern given an origin pattern string that has the syntax:
@@ -53,6 +55,16 @@ export function urlMatchesApiAllowedOrigin(url: URL): boolean {
   });
 }
 
+// TODO(b/529400161): Consider moving to another file.
+export interface SkillsWebviewBridgeDelegate {
+  onError(): void;
+  onShowToast(toastType: ToastType): void;
+  onInvokeSkill(skillId: string): void;
+  onUrlChanged(url: URL): void;
+  onCloseDialog(): void;
+  onHandshakeComplete(): void;
+}
+
 /**
  * A bridge class that manages the postMessage handshake and communication
  * between the Chrome WebUI host and the guest Webview application.
@@ -64,12 +76,18 @@ export class SkillsWebviewBridge {
   private timeoutId_: number|null = null;
   private isConnected_: boolean = false;
   private eventTracker_: EventTracker = new EventTracker();
-  private onErrorCallback_: () => void;
+  private delegate_: SkillsWebviewBridgeDelegate;
+  private handshakeStartTime_: number|null = null;
+  private isInitialHandshake_: boolean = true;
+  private isInitialGuestFramework_: boolean = true;
+  private isInitialGuestWebClient_: boolean = true;
 
-  constructor(webview: chrome.webviewTag.WebView, onError: () => void) {
+  constructor(
+      webview: chrome.webviewTag.WebView,
+      delegate: SkillsWebviewBridgeDelegate) {
     assert(loadTimeData.getBoolean('isSkillsWebViewV2Enabled'));
     this.webview_ = webview;
-    this.onErrorCallback_ = onError;
+    this.delegate_ = delegate;
 
     this.eventTracker_.add(
         this.webview_, 'loadcommit',
@@ -89,9 +107,11 @@ export class SkillsWebviewBridge {
 
     // Disallowed Origin.
     if (!urlObj || !urlMatchesApiAllowedOrigin(urlObj)) {
-      this.onErrorCallback_();
+      this.delegate_.onError();
       return;
     }
+
+    this.delegate_.onUrlChanged(urlObj);
 
     // Start handshake if valid target url.
     if (this.urlRequiresHandshake(urlObj)) {
@@ -124,6 +144,7 @@ export class SkillsWebviewBridge {
     // Reset in case of successive handshakes.
     this.isConnected_ = false;
     this.stopHandshake();
+    this.handshakeStartTime_ = performance.now();
 
     // Send a handshake ping periodically.
     this.handshakeIntervalId_ = window.setInterval(() => {
@@ -132,8 +153,9 @@ export class SkillsWebviewBridge {
 
     // Set a timeout to abort handshake.
     this.timeoutId_ = window.setTimeout(() => {
+      this.recordHandshakeFailureMetric();
       this.stopHandshake();
-      this.onErrorCallback_();
+      this.delegate_.onError();
     }, HANDSHAKE_TIMEOUT_MS);
 
     this.sendPing();
@@ -161,10 +183,6 @@ export class SkillsWebviewBridge {
   }
 
   private onMessage(e: MessageEvent) {
-    if (this.webview_.contentWindow &&
-        e.source !== this.webview_.contentWindow) {
-      return;
-    }
     if (this.targetOrigin_ && e.origin !== this.targetOrigin_) {
       return;
     }
@@ -177,6 +195,91 @@ export class SkillsWebviewBridge {
       this.isConnected_ = true;
       this.webview_.removeAttribute('hidden');
       this.stopHandshake();
+      if (this.isInitialHandshake_) {
+        this.recordInitialHandshakeMetrics();
+        this.isInitialHandshake_ = false;
+        this.delegate_.onHandshakeComplete();
+      }
+    }
+
+    // Before we process non-handshake message, make sure we are connected.
+    if (!this.isConnected_) {
+      return;
+    }
+
+    if (e.data.type === SKILLS_SHOW_TOAST) {
+      this.handleShowToastMessage(e.data);
+    } else if (e.data.type === SKILLS_INVOKE_SKILL) {
+      this.handleInvokeSkillMessage(e.data);
+    } else if (e.data.type === SKILLS_CLOSE_DIALOG) {
+      this.delegate_.onCloseDialog();
+    } else if (e.data.type === SKILLS_LOG_METRIC) {
+      this.handleLogMetricMessage(e.data);
+    } else if (e.data.type === SKILLS_OPEN_URL) {
+      this.handleOpenUrlMessage(e.data);
+    }
+  }
+
+  private recordHandshakeFailureMetric() {
+    if (this.isInitialHandshake_) {
+      chrome.histograms.recordBoolean(HISTOGRAM_HANDSHAKE_RESULT, false);
+      this.isInitialHandshake_ = false;
+    }
+  }
+
+  private recordInitialHandshakeMetrics() {
+    if (this.handshakeStartTime_ !== null) {
+      const handshakeDuration = performance.now() - this.handshakeStartTime_;
+      chrome.histograms.recordMediumTime(
+          getLoadingStageHistogramName(LoadingStage.HANDSHAKE),
+          Math.floor(handshakeDuration));
+    }
+    chrome.histograms.recordBoolean(HISTOGRAM_HANDSHAKE_RESULT, true);
+  }
+
+  private handleShowToastMessage(data: {toastType: string}) {
+    // TODO(b/529405584): Refactor toastType to be an enum & consider how we
+    // want to surface errors to the user if skillId does not exist.
+    if (data.toastType === 'save') {
+      this.delegate_.onShowToast(ToastType.kSave);
+    } else if (data.toastType === 'delete') {
+      this.delegate_.onShowToast(ToastType.kDelete);
+    }
+  }
+
+  private handleInvokeSkillMessage(data: {skillId: string}) {
+    if (data.skillId) {
+      this.delegate_.onInvokeSkill(data.skillId);
+    }
+  }
+  private handleLogMetricMessage(data: {metricName: string, valueMs: number}) {
+    const valueMs = Math.floor(data.valueMs);
+    if (data.metricName === 'framework-load-time' &&
+        this.isInitialGuestFramework_) {
+      chrome.histograms.recordMediumTime(
+          getLoadingStageHistogramName(LoadingStage.GUEST_FRAMEWORK), valueMs);
+      this.isInitialGuestFramework_ = false;
+    } else if (
+        data.metricName === 'web-client-load-time' &&
+        this.isInitialGuestWebClient_) {
+      chrome.histograms.recordMediumTime(
+          getLoadingStageHistogramName(LoadingStage.GUEST_WEB_CLIENT), valueMs);
+      this.isInitialGuestWebClient_ = false;
+    }
+  }
+
+  private handleOpenUrlMessage(data: {url: string}) {
+    window.open(data.url, '_blank');
+  }
+
+  sendGeminiPrompt(prompt: string) {
+    if (this.webview_.contentWindow && this.targetOrigin_) {
+      this.webview_.contentWindow.postMessage(
+          {
+            type: SKILLS_GEMINI_PROMPT_TYPE,
+            prompt: prompt,
+          },
+          this.targetOrigin_);
     }
   }
 

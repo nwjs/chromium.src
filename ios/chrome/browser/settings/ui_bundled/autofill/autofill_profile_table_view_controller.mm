@@ -22,7 +22,7 @@
 #import "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #import "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #import "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
-#import "components/autofill/core/browser/data_quality/addresses/profile_requirement_utils.h"
+#import "components/autofill/core/browser/data_quality/addresses/address_import_requirement_utils.h"
 #import "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_labels.h"
 #import "components/autofill/core/browser/integrators/autofill_ai/management_utils.h"
 #import "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_metrics.h"
@@ -170,7 +170,7 @@ NSString* GetFallbackDetailTextForLocalProfile(
 // Returns true if the item type is user deletable.
 bool CanDeleteItemType(NSInteger itemType) {
   return itemType == ItemTypeAddress || itemType == ItemTypeIdentityDoc ||
-         itemType == ItemTypeTravel || itemType == ItemTypeShopping;
+         itemType == ItemTypeTravel;
 }
 
 ItemType ItemTypeForEntitySection(SectionIdentifier section_identifier) {
@@ -223,10 +223,10 @@ ItemType ItemTypeForEntitySectionHeader(SectionIdentifier section_identifier) {
     AutofillAIAddEntitiesMenuDelegate,
     AutofillAIEntityEditCoordinatorDelegate,
     AutofillProfileEditCoordinatorDelegate,
-    PersonalDataManagerObserver,
-    PrefObserverDelegate,
     IOSAutofillEntityDataManagerObserver,
-    PopoverLabelViewControllerDelegate> {
+    PersonalDataManagerObserver,
+    PopoverLabelViewControllerDelegate,
+    PrefObserverDelegate> {
   raw_ptr<autofill::PersonalDataManager> _personalDataManager;
   raw_ptr<autofill::EntityDataManager> _entityDataManager;
 
@@ -338,7 +338,7 @@ ItemType ItemTypeForEntitySectionHeader(SectionIdentifier section_identifier) {
 
     _prefChangeRegistrar.Init(_browser->GetProfile()->GetPrefs());
     _prefObserverBridge.emplace(self);
-    // Register to observe any changes on Perf backed values displayed by the
+    // Register to observe any changes on Pref-backed values displayed by the
     // screen.
     if (!IsYourSavedInfoSettingsPageIosEnabled()) {
       _prefObserverBridge->ObserveChangesForPreference(
@@ -515,7 +515,11 @@ ItemType ItemTypeForEntitySectionHeader(SectionIdentifier section_identifier) {
 }
 
 - (TableViewItem*)enhancedAutofillItem {
-  NSString* text = l10n_util::GetNSString(IDS_SETTINGS_AUTOFILL_AI_PAGE_TITLE);
+  NSString* text = l10n_util::GetNSString(
+      base::FeatureList::IsEnabled(
+          autofill::features::kAutofillAiOnlineModelToggleNewTitle)
+          ? IDS_SETTINGS_AUTOFILL_AI_PAGE_TITLE_V2
+          : IDS_SETTINGS_AUTOFILL_AI_PAGE_TITLE);
 
   _enhancedAutofillItem =
       [[TableViewDetailIconItem alloc] initWithType:ItemTypeEnhancedAutofill];
@@ -547,8 +551,11 @@ ItemType ItemTypeForEntitySectionHeader(SectionIdentifier section_identifier) {
   TableViewInfoButtonItem* managedEnhancedAutofillItem =
       [[TableViewInfoButtonItem alloc]
           initWithType:ItemTypeEnhancedAutofillManaged];
-  managedEnhancedAutofillItem.text =
-      l10n_util::GetNSString(IDS_SETTINGS_AUTOFILL_AI_PAGE_TITLE);
+  managedEnhancedAutofillItem.text = l10n_util::GetNSString(
+      base::FeatureList::IsEnabled(
+          autofill::features::kAutofillAiOnlineModelToggleNewTitle)
+          ? IDS_SETTINGS_AUTOFILL_AI_PAGE_TITLE_V2
+          : IDS_SETTINGS_AUTOFILL_AI_PAGE_TITLE);
   // The status could only be off when the pref is managed.
   managedEnhancedAutofillItem.statusText =
       l10n_util::GetNSString(IDS_IOS_SETTING_OFF);
@@ -629,8 +636,8 @@ ItemType ItemTypeForEntitySectionHeader(SectionIdentifier section_identifier) {
         if ([self shouldShowCloudOffIconForProfile:autofillProfile]) {
           item.showMigrateToAccountButton = YES;
           item.localProfileIconShown = YES;
-          item.image = CustomSymbolTemplateWithPointSize(
-              kCloudSlashSymbol, kCloudSlashSymbolPointSize);
+          item.image = SymbolTemplateWithPointSize(SymbolCloudSlash,
+                                                   kCloudSlashSymbolPointSize);
         }
       }
       break;
@@ -896,14 +903,14 @@ ItemType ItemTypeForEntitySectionHeader(SectionIdentifier section_identifier) {
 
 - (UITableViewCellEditingStyle)tableView:(UITableView*)tableView
            editingStyleForRowAtIndexPath:(NSIndexPath*)indexPath {
-  return [self isServerWalletItemAtIndexPath:indexPath]
+  return [self isServerWalletOrReadOnlyItemAtIndexPath:indexPath]
              ? UITableViewCellEditingStyleNone
              : UITableViewCellEditingStyleDelete;
 }
 
 - (BOOL)tableView:(UITableView*)tableView
     shouldIndentWhileEditingRowAtIndexPath:(NSIndexPath*)indexPath {
-  return ![self isServerWalletItemAtIndexPath:indexPath];
+  return ![self isServerWalletOrReadOnlyItemAtIndexPath:indexPath];
 }
 
 - (void)setEditing:(BOOL)editing animated:(BOOL)animated {
@@ -1032,7 +1039,8 @@ ItemType ItemTypeForEntitySectionHeader(SectionIdentifier section_identifier) {
 
 - (BOOL)tableView:(UITableView*)tableView
     canEditRowAtIndexPath:(NSIndexPath*)indexPath {
-  if (_settingsAreDismissed || [self isServerWalletItemAtIndexPath:indexPath]) {
+  if (_settingsAreDismissed ||
+      [self isServerWalletOrReadOnlyItemAtIndexPath:indexPath]) {
     return NO;
   }
 
@@ -1304,23 +1312,29 @@ ItemType ItemTypeForEntitySectionHeader(SectionIdentifier section_identifier) {
 #pragma mark - Private
 
 // Returns YES if the item at the given `indexPath` represents a server-side
-// Wallet entity.
-- (BOOL)isServerWalletItemAtIndexPath:(NSIndexPath*)indexPath {
+// Wallet entity or a read-only entity such as a shopping entity or a flight
+// entity.
+- (BOOL)isServerWalletOrReadOnlyItemAtIndexPath:(NSIndexPath*)indexPath {
   TableViewItem* item = [self.tableViewModel itemAtIndexPath:indexPath];
   if ([item isKindOfClass:[AutofillAIEntityItem class]]) {
     AutofillAIEntityItem* aiItem =
         base::apple::ObjCCastStrict<AutofillAIEntityItem>(item);
-    return aiItem.isServerWalletItem;
+    return aiItem.isServerWalletItem ||
+           aiItem.entityTypeName ==
+               autofill::EntityTypeName::kFlightReservation ||
+           kShopping.contains(aiItem.entityTypeName);
   }
   return NO;
 }
 
 // Updates the opacity and interaction state of the given `cell` based on
-// whether it represents a server wallet entity and the table's editing state.
+// whether it represents a server wallet entity or shopping entity, and the
+// table's editing state.
 - (void)updateOpacityAndInteractionForCell:(UITableViewCell*)cell
                                atIndexPath:(NSIndexPath*)indexPath {
   BOOL shouldDisable =
-      [self isServerWalletItemAtIndexPath:indexPath] && self.tableView.editing;
+      [self isServerWalletOrReadOnlyItemAtIndexPath:indexPath] &&
+      self.tableView.editing;
 
   cell.contentView.alpha = shouldDisable ? 0.5 : 1.0;
   cell.userInteractionEnabled = !shouldDisable;

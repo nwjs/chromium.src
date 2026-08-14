@@ -9,9 +9,13 @@
 #include <utility>
 #include <vector>
 
+#include "base/check_deref.h"
+#include "chrome/browser/actor/tools/actor_login_flow_verifier.h"
 #include "chrome/browser/actor/tools/attempt_otp_filling_tool.h"
 #include "chrome/browser/actor/tools/tool.h"
+#include "chrome/browser/actor/tools/tool_delegate.h"
 #include "chrome/browser/actor/tools/tool_request_visitor_functor.h"
+#include "chrome/browser/affiliations/affiliation_service_factory.h"
 #include "chrome/common/actor/action_result.h"
 #include "components/actor/core/shared_types.h"
 
@@ -20,10 +24,12 @@ namespace actor {
 AttemptOtpFillingToolRequest::AttemptOtpFillingToolRequest(
     tabs::TabHandle tab_handle,
     std::vector<PageTarget> trigger_fields,
-    bool for_signin)
+    bool for_signin,
+    OtpType predicted_otp_type)
     : TabToolRequest(tab_handle),
       trigger_fields_(std::move(trigger_fields)),
-      for_signin_(for_signin) {}
+      for_signin_(for_signin),
+      predicted_otp_type_(predicted_otp_type) {}
 
 AttemptOtpFillingToolRequest::AttemptOtpFillingToolRequest(
     const AttemptOtpFillingToolRequest&) = default;
@@ -36,10 +42,14 @@ AttemptOtpFillingToolRequest::~AttemptOtpFillingToolRequest() = default;
 ToolRequest::CreateToolResult AttemptOtpFillingToolRequest::CreateTool(
     TaskId task_id,
     ToolDelegate& tool_delegate) const {
-  return {
-      std::make_unique<AttemptOtpFillingTool>(
-          task_id, tool_delegate, GetTabHandle(), trigger_fields_, for_signin_),
-      MakeOkResult()};
+  auto* affiliation_service =
+      AffiliationServiceFactory::GetForProfile(&tool_delegate.GetProfile());
+  return {std::make_unique<AttemptOtpFillingTool>(
+              task_id, tool_delegate, GetTabHandle(), trigger_fields_,
+              for_signin_, predicted_otp_type_,
+              std::make_unique<ActorLoginFlowVerifier>(
+                  CHECK_DEREF(affiliation_service))),
+          MakeOkResult()};
 }
 
 std::string_view AttemptOtpFillingToolRequest::Name() const {

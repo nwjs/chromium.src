@@ -103,7 +103,7 @@ class SystemFeaturesPolicyTestBase : public MixinBasedInProcessBrowserTest {
   }
 
   void EnableExtensions(bool skip_session_components) {
-    auto* profile = browser()->profile();
+    auto* profile = browser()->GetProfile();
     extensions::ComponentLoader::EnableBackgroundExtensionsForTesting();
     extensions::ComponentLoader::Get(profile)->AddDefaultComponentExtensions(
         skip_session_components);
@@ -143,7 +143,7 @@ class SystemFeaturesPolicyTestBase : public MixinBasedInProcessBrowserTest {
                                apps::Readiness expected_readiness,
                                bool blocked_icon,
                                const VisibilityFlags& expected_visibility) {
-    auto* profile = browser()->profile();
+    auto* profile = browser()->GetProfile();
     extensions::ExtensionRegistry* registry =
         extensions::ExtensionRegistry::Get(profile);
     ASSERT_TRUE(registry->enabled_extensions().GetByID(app_id));
@@ -155,7 +155,7 @@ class SystemFeaturesPolicyTestBase : public MixinBasedInProcessBrowserTest {
                       apps::Readiness expected_readiness,
                       bool blocked_icon,
                       const VisibilityFlags& expected_visibility) {
-    auto* profile = browser()->profile();
+    auto* profile = browser()->GetProfile();
     auto* proxy = apps::AppServiceProxyFactory::GetForProfile(profile);
 
     bool exist = proxy->AppRegistryCache().ForOneApp(
@@ -178,7 +178,7 @@ class SystemFeaturesPolicyTestBase : public MixinBasedInProcessBrowserTest {
   }
 
   void InstallSWAs() {
-    ash::SystemWebAppManager::GetForTest(browser()->profile())
+    ash::SystemWebAppManager::GetForTest(browser()->GetProfile())
         ->InstallSystemAppsForTesting();
   }
 
@@ -187,7 +187,7 @@ class SystemFeaturesPolicyTestBase : public MixinBasedInProcessBrowserTest {
         web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(app_url);
     web_app_info->scope = app_url.GetWithoutFilename();
     webapps::AppId installed_app_id = web_app::test::InstallWebApp(
-        browser()->profile(), std::move(web_app_info));
+        browser()->GetProfile(), std::move(web_app_info));
     EXPECT_EQ(app_id, installed_app_id);
   }
 

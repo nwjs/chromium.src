@@ -16,6 +16,7 @@
 #include "chrome/browser/dictation/onboarding_manager.h"
 #include "chrome/browser/dictation/session_controller.h"
 #include "chrome/browser/dictation/session_controller_delegate.h"
+#include "chrome/browser/dictation/target.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "content/public/browser/global_dom_node_id.h"
@@ -62,22 +63,24 @@ class DictationKeyedService : public KeyedService,
   // progress.
   //
   // The new session will immediately start up a stream using the given
-  // target_id.
+  // target_details.
   //
-  // If `target_id` has a null DOMNodeId, the focused element in the specified
-  // Document is used.
-  // TODO(b/531049588): Update tests to always provide a valid target_id, remove
+  // If `target_details` has a null DOMNodeId, the focused element in the
+  // specified Document is used.
+  // TODO(b/531049588): Update tests to always provide a valid target, remove
   // the "focused element" semantic, and CHECK that the provided target is
   // always non-null.
   void StartSession(tabs::TabInterface& tab,
-                    const content::GlobalDOMNodeId& target_id,
+                    const TargetDetails& target_details,
                     DictationSessionEntryPoint entry_point);
 
-  // Returns true if there is no active session.
   bool ShouldShowContextMenuItem() const;
 
   // Handles the context menu item click.
-  void ContextMenuHandler(const content::GlobalDOMNodeId& target_id);
+  void ContextMenuHandler(const TargetDetails& target_details);
+
+  // Handles the dictation hotkey press.
+  virtual void OnDictationHotkeyPressed();
 
   // Returns null when no session is in progress.
   SessionController* session_controller() {
@@ -89,12 +92,15 @@ class DictationKeyedService : public KeyedService,
 
   DictationMultiplexer& multiplexer() { return multiplexer_; }
 
+  // Updates audio level in the current session.
+  void UpdateAudioLevel(float audio_level);
+
  private:
   void OnPrefChanged();
 
   // Returns true if dictation feature is enabled by all flags and policies and
   // the system is fully initialized and ready to use.
-  bool IsEnabled() const;
+  bool IsEnabledAndReady() const;
 
   raw_ptr<Profile> profile_;
 
@@ -107,12 +113,11 @@ class DictationKeyedService : public KeyedService,
   OnboardingManager onboarding_manager_;
 
   struct SessionState {
-    SessionState(SessionControllerDelegate& delegate,
-                 const content::GlobalDOMNodeId& target_id);
+    SessionState(SessionControllerDelegate& delegate, tabs::TabInterface& tab);
     ~SessionState();
 
     SessionController controller_;
-    content::GlobalDOMNodeId target_id_;
+    base::WeakPtr<tabs::TabInterface> tab_;
   };
   std::optional<SessionState> session_;
 };

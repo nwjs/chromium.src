@@ -37,7 +37,7 @@ void ExternalDisplayLinkMac::TryRecordDisplayLinkCreation(
   auto& globals = DisplayLinkGlobals::Get();
   base::AutoLock lock(globals.lock);
 
-  if (!VSyncProviderMac::GetInstance()->IsConnectedToBrowser()) {
+  if (!VSyncProviderMac::GetInstance()->IsConnectedToBrowserOnVizThread()) {
     return;
   }
 
@@ -131,6 +131,10 @@ void ExternalDisplayLinkMac::GetRefreshIntervalRange(
 
 base::TimeTicks ExternalDisplayLinkMac::GetCurrentTime() const {
   return base::TimeTicks::Now();
+}
+
+void ExternalDisplayLinkMac::OnSuspend() {
+  vsync_provider_->OnSuspend();
 }
 
 }  // namespace ui

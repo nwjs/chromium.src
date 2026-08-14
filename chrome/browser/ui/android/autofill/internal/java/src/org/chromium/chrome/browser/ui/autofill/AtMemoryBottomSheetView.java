@@ -7,19 +7,16 @@ package org.chromium.chrome.browser.ui.autofill;
 import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.ViewFlipper;
 
-import androidx.recyclerview.widget.RecyclerView.Adapter;
-
-import org.chromium.base.Callback;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.HomeProperties;
+import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.ScreenId;
 import org.chromium.chrome.browser.ui.autofill.internal.R;
-import org.chromium.components.autofill.AutofillSuggestion;
-
-import java.util.List;
 
 /** View wrapper for the @memory bottom sheet. */
 @NullMarked
-public class AtMemoryBottomSheetView {
+public class AtMemoryBottomSheetView implements HomeProperties.SearchDelegate {
     private final View mContentView;
     private final AtMemoryHomeView mHomeView;
     private final AtMemoryFlyoutView mFlyoutView;
@@ -31,12 +28,27 @@ public class AtMemoryBottomSheetView {
         mFlyoutView = mContentView.findViewById(R.id.at_memory_flyout_screen);
     }
 
+    public void setCurrentScreen(@ScreenId int screenId) {
+        ViewFlipper viewFlipper = mContentView.findViewById(R.id.at_memory_view_flipper);
+        viewFlipper.setDisplayedChild(getDisplayedChildForScreenId(screenId));
+    }
+
+    @ScreenId
+    public int getCurrentScreen() {
+        ViewFlipper viewFlipper = mContentView.findViewById(R.id.at_memory_view_flipper);
+        return getScreenIdForDisplayedChild(viewFlipper.getDisplayedChild());
+    }
+
     public View getContentView() {
         return mContentView;
     }
 
-    public void setRecyclerViewAdapter(Adapter adapter) {
-        mHomeView.setRecyclerViewAdapter(adapter);
+    public AtMemoryHomeView getHomeView() {
+        return mHomeView;
+    }
+
+    public AtMemoryFlyoutView getFlyoutView() {
+        return mFlyoutView;
     }
 
     public void focusSearchArea() {
@@ -47,35 +59,34 @@ public class AtMemoryBottomSheetView {
         mHomeView.clearSearchText();
     }
 
-    public void setOnQuerySubmittedCallback(Callback<String> callback) {
-        mHomeView.setOnQuerySubmittedCallback(callback);
-    }
-
-    public void setOnQueryTextChangedCallback(Callback<String> callback) {
-        mHomeView.setOnQueryTextChangedCallback(callback);
-    }
-
-    public void setIsLoading(boolean isLoading) {
-        mHomeView.setIsLoading(isLoading);
-    }
-
-    public void setShowSuggestionsBackground(boolean showBackground) {
-        mHomeView.setShowSuggestionsBackground(showBackground);
-    }
-
+    @Override
     public void hideKeyboardAndClearFocus() {
         mHomeView.hideKeyboardAndClearFocus();
     }
 
-    public void setFlyoutSuggestions(List<AutofillSuggestion> suggestions) {
-        mFlyoutView.setSuggestions(suggestions);
+    public boolean searchHasFocus() {
+        return mHomeView.searchHasFocus();
     }
 
-    public void setNoticeVisible(boolean visible) {
-        mHomeView.setNoticeVisible(visible);
+    private int getDisplayedChildForScreenId(@ScreenId int screenId) {
+        switch (screenId) {
+            case ScreenId.HOME_SCREEN:
+                return 0;
+            case ScreenId.FLYOUT_SCREEN:
+                return 1;
+        }
+        assert false : "Undefined ScreenId: " + screenId;
+        return 0;
     }
 
-    public void setNoticeOkButtonClickListener(Runnable onClick) {
-        mHomeView.setNoticeOkClickListener(onClick);
+    private @ScreenId int getScreenIdForDisplayedChild(int displayedChild) {
+        switch (displayedChild) {
+            case 0:
+                return ScreenId.HOME_SCREEN;
+            case 1:
+                return ScreenId.FLYOUT_SCREEN;
+        }
+        assert false : "Undefined displayedChild: " + displayedChild;
+        return ScreenId.HOME_SCREEN;
     }
 }

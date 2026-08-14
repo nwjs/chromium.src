@@ -481,6 +481,28 @@ def _speedometer3_turbolev_future_crossbench(estimated_runtime: int = 60,
       flags=flags,
   )
 
+
+@_register('speedometer_main.crossbench')
+def _speedometer_main_crossbench(estimated_runtime: int = 60,
+                                 flags: tuple[str, ...] = ()):
+  """The latest WIP speedometer version running all stories."""
+  return CrossbenchConfig('speedometer_main.crossbench',
+                          'speedometer_main',
+                          estimated_runtime=estimated_runtime,
+                          flags=('--detailed-metrics', *flags))
+
+
+@_register('speedometer_main.all.crossbench')
+def _speedometer_main_all_crossbench(estimated_runtime: int = 60,
+                                     flags: tuple[str, ...] = ()):
+  """The latest WIP speedometer version running all stories,
+  including experimental"""
+  return CrossbenchConfig('speedometer_main.all.crossbench',
+                          'speedometer_main',
+                          estimated_runtime=estimated_runtime,
+                          flags=('--stories=all', '--detailed-metrics', *flags))
+
+
 @_register('browser_startup.crossbench')
 def _browser_startup_crossbench(estimated_runtime: int = 60,
                                 flags: tuple[str, ...] = ()):
@@ -503,17 +525,9 @@ def _browser_startup_crossbench(estimated_runtime: int = 60,
                           'browser-startup',
                           estimated_runtime=estimated_runtime,
                           flags=(f'--enable-features={INITIAL_WEBUI_FEATURES}',
-                                 *flags))
+                                 *flags),
+                          repeat=10)
 
-
-@_register('speedometer_main.crossbench')
-def _speedometer_main_crossbench(estimated_runtime: int = 60,
-                                 flags: tuple[str, ...] = ()):
-  # The latest WIP speedometer version
-  return CrossbenchConfig('speedometer_main.crossbench',
-                          'speedometer_main',
-                          estimated_runtime=estimated_runtime,
-                          flags=('--detailed-metrics', *flags))
 
 
 @_register('speedometer3.a11y.crossbench')
@@ -937,9 +951,10 @@ PLATFORM_INFO = {
         'platform_os': 'win',
         'is_fyi': False
     },
+    # TODO(crbug.com/525430279): Use all 8 bots to test the Canary image.
     'android-brya-kano-i5-8gb-perf': {
         'description': 'Brya SKU kano_12th_Gen_IntelR_CoreTM_i5_1235U_8GB',
-        'num_shards': 2,
+        'num_shards': 8,
         'platform_os': 'android',
         'is_fyi': False
     },
@@ -1007,7 +1022,7 @@ PLATFORM_INFO = {
     },
     'android-go-wembley-perf': {
         'description': 'Android U',
-        'num_shards': 11,
+        'num_shards': 5,
         'platform_os': 'android',
         'is_fyi': False
     },
@@ -1042,6 +1057,12 @@ PLATFORM_INFO = {
         'is_fyi': False
     },
     'android-pixel10_webview-perf': {
+        'description': 'Android B',
+        'num_shards': 23,
+        'platform_os': 'android',
+        'is_fyi': False
+    },
+    'android-pixel10_webview-perf-pgo': {
         'description': 'Android B',
         'num_shards': 23,
         'platform_os': 'android',

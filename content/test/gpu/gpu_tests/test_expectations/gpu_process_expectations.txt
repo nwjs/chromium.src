@@ -6,6 +6,7 @@
 #         fuchsia
 #         linux ubuntu
 #         mac highsierra mojave catalina bigsur monterey ventura sonoma sequoia
+#             macos26
 #         win win8 win10 win11 ]
 # Devices
 # tags: [ android-pixel-2 android-pixel-4 android-pixel-6 android-pixel-10
@@ -141,6 +142,9 @@ crbug.com/500083376 [ fuchsia ] GpuProcess_vulkan_vma_race [ Skip ]
 crbug.com/513197846 [ android ] GpuProcess_webgl_y16_uploads [ Skip ]
 crbug.com/513197846 [ chromeos ] GpuProcess_webgl_y16_uploads [ Skip ]
 crbug.com/513197846 [ fuchsia ] GpuProcess_webgl_y16_uploads [ Skip ]
+
+# Fuchsia cannot launch a new tab.
+[ fuchsia ] GpuProcess_webgl_background_clear [ Skip ]
 
 ###############################
 # Temporary Skip Expectations #

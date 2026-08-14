@@ -10,6 +10,7 @@
 #include "base/test/gmock_callback_support.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/values.h"
+#include "build/build_config.h"
 #include "build/buildflag.h"
 #include "chrome/browser/background/glic/glic_launcher_configuration.h"
 #include "chrome/browser/browser_process.h"
@@ -38,6 +39,10 @@
 #include "ui/base/ozone_buildflags.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/keycodes/keyboard_codes.h"
+
+#if BUILDFLAG(IS_OZONE)
+#include "ui/ozone/public/ozone_platform.h"
+#endif
 
 using testing::_;
 using testing::Return;
@@ -133,8 +138,12 @@ class GlicHandlerExperimentalTriggeringBrowserTest
 
 // TODO(crbug.com/388101855): Remove buildflag when GlobalAcceleratorListener
 // supports Linux Wayland.
-#if !BUILDFLAG(SUPPORTS_OZONE_WAYLAND)
 IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, UpdateShortcutSuspension) {
+#if BUILDFLAG(IS_OZONE)
+  if (::ui::OzonePlatform::RunningOnWaylandForTest()) {
+    GTEST_SKIP() << "GlobalAcceleratorListener doesn't support Linux Wayland";
+  }
+#endif
   auto* const global_accelerator_listener =
       ui::GlobalAcceleratorListener::GetInstance();
   EXPECT_FALSE(global_accelerator_listener->IsShortcutHandlingSuspended());
@@ -147,7 +156,6 @@ IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, UpdateShortcutSuspension) {
       base::ListValue().Append(false));
   EXPECT_FALSE(global_accelerator_listener->IsShortcutHandlingSuspended());
 }
-#endif  //  !BUILDFLAG(SUPPORTS_OZONE_WAYLAND)
 
 IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, UpdateGlicShortcut) {
   const ui::Accelerator invalid_shortcut(ui::VKEY_A, ui::EF_NONE);
@@ -201,6 +209,20 @@ IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, GetActorLoginPermissions) {
   ASSERT_EQ(1u, result.size());
   const base::DictValue& permission_dict = result[0].GetDict();
   EXPECT_EQ("example.com", *permission_dict.FindString("signonRealm"));
+}
+
+IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest,
+                       ToggleActorLoginPermissionsObservation) {
+  glic_handler()->AllowJavascript();
+  EXPECT_FALSE(glic_handler()->observation_.IsObserving());
+
+  base::ListValue start_args;
+  glic_handler()->HandleStartObservingActorLoginPermissions(start_args);
+  EXPECT_TRUE(glic_handler()->observation_.IsObserving());
+
+  base::ListValue stop_args;
+  glic_handler()->HandleStopObservingActorLoginPermissions(stop_args);
+  EXPECT_FALSE(glic_handler()->observation_.IsObserving());
 }
 
 IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest,
@@ -270,7 +292,7 @@ IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest,
 IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, GetWebActuationEnabled) {
   glic_handler()->AllowJavascriptForTesting();
 
-  glic::GlicKeyedService::Get(browser()->profile())
+  glic::GlicKeyedService::Get(browser()->GetProfile())
       ->enabling()
       .SetUserEnabledActuationOnWeb(true);
 
@@ -288,7 +310,7 @@ IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, GetWebActuationEnabled) {
 IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, SetWebActuationEnabled) {
   glic_handler()->AllowJavascriptForTesting();
 
-  glic::GlicKeyedService::Get(browser()->profile())
+  glic::GlicKeyedService::Get(browser()->GetProfile())
       ->enabling()
       .SetExperimentalTriggeringEnabled(true);
 
@@ -296,10 +318,10 @@ IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, SetWebActuationEnabled) {
   args.Append(true);
   glic_handler()->HandleSetWebActuationEnabled(args);
 
-  EXPECT_TRUE(glic::GlicKeyedService::Get(browser()->profile())
+  EXPECT_TRUE(glic::GlicKeyedService::Get(browser()->GetProfile())
                   ->enabling()
                   .GetUserEnabledActuationOnWeb());
-  EXPECT_TRUE(glic::GlicKeyedService::Get(browser()->profile())
+  EXPECT_TRUE(glic::GlicKeyedService::Get(browser()->GetProfile())
                   ->enabling()
                   .GetExperimentalTriggeringEnabled());
 
@@ -307,17 +329,17 @@ IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, SetWebActuationEnabled) {
   args2.Append(false);
   glic_handler()->HandleSetWebActuationEnabled(args2);
 
-  EXPECT_FALSE(glic::GlicKeyedService::Get(browser()->profile())
+  EXPECT_FALSE(glic::GlicKeyedService::Get(browser()->GetProfile())
                    ->enabling()
                    .GetUserEnabledActuationOnWeb());
-  EXPECT_FALSE(glic::GlicKeyedService::Get(browser()->profile())
+  EXPECT_FALSE(glic::GlicKeyedService::Get(browser()->GetProfile())
                    ->enabling()
                    .GetExperimentalTriggeringEnabled());
 }
 
 IN_PROC_BROWSER_TEST_F(GlicHandlerConsentBrowserTest,
                        GetWebActuationToggleVisibility_ConsentAccepted) {
-  glic::GlicKeyedService::Get(browser()->profile())
+  glic::GlicKeyedService::Get(browser()->GetProfile())
       ->enabling()
       .SetUserEnabledActuationOnWeb(true);
 
@@ -344,7 +366,7 @@ IN_PROC_BROWSER_TEST_F(GlicHandlerConsentBrowserTest,
 IN_PROC_BROWSER_TEST_F(
     GlicHandlerSubscriptionTierBrowserTest,
     GetWebActuationToggleVisibility_SubscriptionTierIneligible) {
-  browser()->profile()->GetPrefs()->SetInteger(
+  browser()->GetProfile()->GetPrefs()->SetInteger(
       subscription_eligibility::prefs::kAiSubscriptionTier, 0);
 
   glic_handler()->HandleGetWebActuationToggleVisibility(
@@ -360,7 +382,7 @@ IN_PROC_BROWSER_TEST_F(
 IN_PROC_BROWSER_TEST_F(
     GlicHandlerSubscriptionTierBrowserTest,
     DISABLED_GetWebActuationToggleVisibility_SubscriptionTierEligible) {
-  browser()->profile()->GetPrefs()->SetInteger(
+  browser()->GetProfile()->GetPrefs()->SetInteger(
       subscription_eligibility::prefs::kAiSubscriptionTier, 1);
 
   glic_handler()->HandleGetWebActuationToggleVisibility(
@@ -376,11 +398,11 @@ IN_PROC_BROWSER_TEST_F(
 IN_PROC_BROWSER_TEST_F(
     GlicHandlerSubscriptionTierBrowserTest,
     DISABLED_FireWebActuationToggleVisibilityChanged_SubscriptionTierBecomesEligible) {
-  browser()->profile()->GetPrefs()->SetInteger(
+  browser()->GetProfile()->GetPrefs()->SetInteger(
       subscription_eligibility::prefs::kAiSubscriptionTier, 0);
   glic_handler()->AllowJavascript();
   web_ui()->ClearTrackedCalls();
-  browser()->profile()->GetPrefs()->SetInteger(
+  browser()->GetProfile()->GetPrefs()->SetInteger(
       subscription_eligibility::prefs::kAiSubscriptionTier, 1);
 
   glic_handler()->FireWebActuationToggleVisibilityChanged();
@@ -396,12 +418,12 @@ IN_PROC_BROWSER_TEST_F(
 IN_PROC_BROWSER_TEST_F(
     GlicHandlerConsentBrowserTest,
     FireWebActuationToggleVisibilityChanged_ConsentAccepted) {
-  glic::GlicKeyedService::Get(browser()->profile())
+  glic::GlicKeyedService::Get(browser()->GetProfile())
       ->enabling()
       .SetUserEnabledActuationOnWeb(false);
   glic_handler()->AllowJavascript();
   web_ui()->ClearTrackedCalls();
-  glic::GlicKeyedService::Get(browser()->profile())
+  glic::GlicKeyedService::Get(browser()->GetProfile())
       ->enabling()
       .SetUserEnabledActuationOnWeb(true);
 
@@ -421,29 +443,29 @@ IN_PROC_BROWSER_TEST_F(
   // 1. When kGlicExperimentalTriggering is disabled by default in
   // GlicHandlerBrowserTest, it should return false.
   EXPECT_FALSE(GlicHandler::ShouldShowExperimentalTriggeringToggle(
-      browser()->profile()));
+      browser()->GetProfile()));
 }
 
 IN_PROC_BROWSER_TEST_F(
     GlicHandlerExperimentalTriggeringBrowserTest,
     ShouldShowExperimentalTriggeringToggle_FeatureFlagEnabled) {
   // When both features are enabled and user has consented to Web Actuation:
-  glic::GlicKeyedService::Get(browser()->profile())
+  glic::GlicKeyedService::Get(browser()->GetProfile())
       ->enabling()
       .SetUserEnabledActuationOnWeb(true);
 
   // 1. If the experimental triggering preference is at its default value,
   // ShouldShowExperimentalTriggeringToggle should return false.
   EXPECT_FALSE(GlicHandler::ShouldShowExperimentalTriggeringToggle(
-      browser()->profile()));
+      browser()->GetProfile()));
 
   // 2. If the experimental triggering preference has been modified (not
   // default), ShouldShowExperimentalTriggeringToggle should return true.
-  glic::GlicKeyedService::Get(browser()->profile())
+  glic::GlicKeyedService::Get(browser()->GetProfile())
       ->enabling()
       .SetExperimentalTriggeringEnabled(true);
   EXPECT_TRUE(GlicHandler::ShouldShowExperimentalTriggeringToggle(
-      browser()->profile()));
+      browser()->GetProfile()));
 }
 
 }  // namespace settings

@@ -105,6 +105,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHReadLaterAppMenuBookmarkThisPageFeature,
     &kIPHReadLaterBottomSheetFeature,
     &kIPHReadLaterContextMenuFeature,
+    &kIPHRecentTabsFeature,
     &kIPHRequestDesktopSiteDefaultOnFeature,
     &kIPHRequestDesktopSiteExceptionsGenericFeature,
     &kIPHRequestDesktopSiteWindowSettingFeature,
@@ -354,7 +355,6 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHAutofillOmniboxPaymentChipFeature,
     &kIPHAutofillVirtualCardCVCSuggestionFeature,
     &kIPHAutofillVirtualCardSuggestionFeature,
-    &kIPHCookieControlsFeature,
 // keep-sorted end
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) ||
@@ -377,6 +377,10 @@ const base::Feature* const kAllFeatures[] = {
 // keep-sorted end
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
         // BUILDFLAG(IS_CHROMEOS)
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+    &kIPHExtensionsPinnedByDefaultFeature,
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
     // keep-sorted start case=no

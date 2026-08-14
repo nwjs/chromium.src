@@ -636,8 +636,15 @@ bool PaymentMethodAccessoryControllerImpl::FetchIfIban(
       ->GetIbanAccessManager()
       ->FetchValue(
           payload,
-          base::BindOnce(&PaymentMethodAccessoryControllerImpl::ApplyToField,
-                         weak_ptr_factory_.GetWeakPtr()));
+          base::BindOnce(
+              [](base::WeakPtr<PaymentMethodAccessoryControllerImpl> controller,
+                 base::expected<std::u16string,
+                                IbanAccessManager::FailureReason> result) {
+                if (controller && result.has_value()) {
+                  controller->ApplyToField(result.value());
+                }
+              },
+              weak_ptr_factory_.GetWeakPtr()));
   return true;
 }
 
@@ -651,6 +658,7 @@ void PaymentMethodAccessoryControllerImpl::OnFillOrPreviewForm(
     FieldGlobalId trigger_field_id,
     mojom::ActionPersistence action_persistence,
     const base::flat_set<FieldGlobalId>&,
+    const base::flat_map<FieldGlobalId, DenseSet<FieldFillingSkipReason>>&,
     const FillingPayload& filling_payload) {
   if (action_persistence == mojom::ActionPersistence::kFill &&
       std::holds_alternative<const CreditCard*>(filling_payload)) {

@@ -14,7 +14,8 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
-#include "base/i18n/time_formatting.h"
+#include "base/i18n/icubridge/date_time_formatter.h"
+#include "base/i18n/icubridge/icu_bridge.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
@@ -71,6 +72,8 @@
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
+#include "ui/base/clipboard/clipboard.h"
+#include "ui/base/clipboard/clipboard_sequence_number_token.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
@@ -86,6 +89,8 @@ using password_manager::CredentialFacet;
 using password_manager::CredentialUIEntry;
 using password_manager::FetchFamilyMembersRequestStatus;
 using password_manager::constants::kPasswordManagerAuthValidity;
+// Time to keep password in clipboard before clearing.
+constexpr base::TimeDelta kClipboardClearDelay = base::Seconds(120);
 
 // Map password_manager::ExportProgressStatus to
 // extensions::api::passwords_private::ExportProgressStatus.
@@ -302,7 +307,6 @@ PasswordsPrivateDelegateImpl::PasswordsPrivateDelegateImpl(
     password_manager::PasswordSenderService* password_sender_service,
     syncer::SyncService* sync_service,
     TrustSafetySentimentService* trust_safety_sentiment_service,
-    ChromePasswordChangeService* password_change_service,
     affiliations::AffiliationService* affiliation_service,
     scoped_refptr<password_manager::PasswordStoreInterface>
         profile_password_store,
@@ -321,7 +325,6 @@ PasswordsPrivateDelegateImpl::PasswordsPrivateDelegateImpl(
       password_sender_service_(password_sender_service),
       sync_service_(sync_service),
       trust_safety_sentiment_service_(trust_safety_sentiment_service),
-      password_change_service_(password_change_service),
       profile_password_store_(profile_password_store),
       account_password_store_(account_password_store),
       event_router_(event_router),
@@ -874,24 +877,14 @@ void PasswordsPrivateDelegateImpl::StartPasswordCheck(
   trust_safety_sentiment_service_->RanPasswordCheck();
 }
 
-void PasswordsPrivateDelegateImpl::StartPasswordChange(
-    int credential_id,
-    content::WebContents* web_contents) {
-  CHECK(base::FeatureList::IsEnabled(
-      password_manager::features::kPasswordCheckupPrototype));
-  CHECK(web_contents);
-  const CredentialUIEntry* credential =
+std::optional<password_manager::CredentialUIEntry>
+PasswordsPrivateDelegateImpl::GetCredentialFromId(int credential_id) {
+  const password_manager::CredentialUIEntry* credential =
       credential_id_generator_.TryGetKey(credential_id);
   if (!credential) {
-    // TODO(crbug.com/485620841): Show error, instead of returning.
-    // There should always be a credential, unless something went wrong.
-    return;
+    return std::nullopt;
   }
-
-  if (password_change_service_) {
-    password_change_service_->StartPasswordChangeFromCheckup(*credential,
-                                                             web_contents);
-  }
+  return *credential;
 }
 
 api::passwords_private::PasswordCheckStatus
@@ -1103,9 +1096,8 @@ void PasswordsPrivateDelegateImpl::OnRequestPlaintextPasswordAuthResult(
   }
 
   if (reason == api::passwords_private::PlaintextReason::kCopy) {
-    ui::ScopedClipboardWriter clipboard_writer(ui::ClipboardBuffer::kCopyPaste);
-    clipboard_writer.WriteText(entry->password);
-    clipboard_writer.MarkAsConfidential();
+    WriteToClipboardAndScheduleClear(entry->password);
+
     // In case of copy we don't need to give password back to UI. callback
     // will receive either empty string in case of success or null otherwise.
     // Copying occurs here so javascript doesn't need plaintext password.
@@ -1114,6 +1106,35 @@ void PasswordsPrivateDelegateImpl::OnRequestPlaintextPasswordAuthResult(
     std::move(callback).Run(entry->password);
   }
   EmitHistogramsForCredentialAccess(*entry, reason);
+}
+
+void PasswordsPrivateDelegateImpl::ClearClipboard(
+    ui::ClipboardSequenceNumberToken sequence_number) {
+  if (ui::Clipboard::GetForCurrentThread()->GetSequenceNumber(
+          ui::ClipboardBuffer::kCopyPaste) == sequence_number) {
+    ui::Clipboard::GetForCurrentThread()->Clear(
+        ui::ClipboardBuffer::kCopyPaste);
+  }
+}
+
+void PasswordsPrivateDelegateImpl::WriteToClipboardAndScheduleClear(
+    const std::u16string& password) {
+  {
+    // ScopedClipboardWriter commits to the clipboard on destruction.
+    // This block ensures the clipboard sequence number is updated before we
+    // capture it.
+    ui::ScopedClipboardWriter clipboard_writer(ui::ClipboardBuffer::kCopyPaste);
+    clipboard_writer.WriteText(password);
+    clipboard_writer.MarkAsConfidential();
+  }
+
+  // Start timer to clear clipboard.
+  clipboard_clear_timer_.Start(
+      FROM_HERE, kClipboardClearDelay,
+      base::BindOnce(&PasswordsPrivateDelegateImpl::ClearClipboard,
+                     weak_ptr_factory_.GetWeakPtr(),
+                     ui::Clipboard::GetForCurrentThread()->GetSequenceNumber(
+                         ui::ClipboardBuffer::kCopyPaste)));
 }
 
 void PasswordsPrivateDelegateImpl::OnCopyBackupPasswordAuthResult(
@@ -1131,9 +1152,8 @@ void PasswordsPrivateDelegateImpl::OnCopyBackupPasswordAuthResult(
     return;
   }
 
-  ui::ScopedClipboardWriter clipboard_writer(ui::ClipboardBuffer::kCopyPaste);
-  clipboard_writer.WriteText(entry->backup_password->value);
-  clipboard_writer.MarkAsConfidential();
+  WriteToClipboardAndScheduleClear(entry->backup_password->value);
+
   std::move(callback).Run(true);
 }
 
@@ -1375,10 +1395,10 @@ PasswordsPrivateDelegateImpl::CreatePasswordUiEntryFromCredentialUiEntry(
     api::passwords_private::BackupPasswordInfo backup_password_info;
     backup_password_info.value =
         base::UTF16ToUTF8(credential.backup_password->value);
-    backup_password_info.creation_date =
-        base::UTF16ToUTF8(base::LocalizedTimeFormatWithPattern(
+    backup_password_info.creation_date = base::UTF16ToUTF8(
+        base::i18n::IcuBridge::GetInstance().date_time_formatter().Format(
             credential.backup_password->creation_timestamp,
-            /*pattern=*/"MMM dd"));
+            base::i18n::datetime_options::MD::Medium()));
     entry.backup_password = std::move(backup_password_info);
   }
   entry.hidden = credential.hidden;

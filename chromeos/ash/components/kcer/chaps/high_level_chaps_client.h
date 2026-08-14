@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/sequence_checker.h"
@@ -35,7 +36,7 @@ template <typename T>
 COMPONENT_EXPORT(KCER)
 base::span<const uint8_t> MakeSpan(T* value) {
   static_assert(std::is_integral_v<T>);
-  return base::as_bytes(UNSAFE_TODO(base::span<T>(value, /*count=*/1u)));
+  return base::byte_span_from_ref(*value);
 }
 
 // The main class to communicate with Chaps. Further simplifies the D-Bus
@@ -70,6 +71,10 @@ class HighLevelChapsClient {
     kKeyPermissions = pkcs11_custom_attributes::kCkaChromeOsKeyPermissions,
     kCertProvisioningId =
         pkcs11_custom_attributes::kCkaChromeOsBuiltinProvisioningProfileId,
+    // Stored on the private key, indicates that the keys created  by the
+    // chrome/browser/enterprise/client_certificates component.
+    kBrowserEnterpriseClientCertKey =
+        pkcs11_custom_attributes::kCkaBrowserEnterpriseClientCertKey,
   };
 
   HighLevelChapsClient() = default;

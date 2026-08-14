@@ -13,7 +13,7 @@ namespace content {
 class WebContents;
 }  // namespace content
 
-class LocationBarView;
+class LocationBar;
 class OmniboxController;
 class OmniboxPopupAimHandler;
 class OmniboxPopupPresenterBase;
@@ -25,7 +25,7 @@ class OmniboxAimPopupWebUIContent : public OmniboxPopupWebUIBaseContent {
  public:
   OmniboxAimPopupWebUIContent() = delete;
   OmniboxAimPopupWebUIContent(OmniboxPopupPresenterBase* presenter,
-                              LocationBarView* location_bar_view,
+                              LocationBar* location_bar,
                               OmniboxController* controller);
   OmniboxAimPopupWebUIContent(const OmniboxAimPopupWebUIContent&) = delete;
   OmniboxAimPopupWebUIContent& operator=(const OmniboxAimPopupWebUIContent&) =
@@ -52,6 +52,9 @@ class OmniboxAimPopupWebUIContent : public OmniboxPopupWebUIBaseContent {
   // Called from the browser after popup has already closed. `input` is
   // the possibly empty input that should replace the omnibox text.
   void ApplyInputAndCleanup(const std::string& input);
+
+  // Focuses the input element inside the WebUI AIM popup via Mojo.
+  void FocusInput();
 
   // Refocuses the location bar if screen readers are enabled and the popup is
   // active.

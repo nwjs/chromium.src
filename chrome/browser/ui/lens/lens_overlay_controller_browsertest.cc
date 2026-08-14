@@ -20,6 +20,7 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
@@ -28,7 +29,6 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/with_feature_override.h"
 #include "base/threading/thread_restrictions.h"
-#include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/companion/text_finder/text_highlighter.h"
@@ -79,6 +79,7 @@
 #include "chrome/browser/ui/lens/test_lens_search_contextualization_controller.h"
 #include "chrome/browser/ui/lens/test_lens_search_controller.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
@@ -99,6 +100,7 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/api/pdf_viewer_private.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/branded_strings.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/base32/base32.h"
@@ -156,6 +158,7 @@
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/clipboard_format_type.h"
 #include "ui/base/clipboard/test/clipboard_test_util.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/unowned_user_data/user_data_factory.h"
 #include "ui/base/window_open_disposition.h"
@@ -706,13 +709,14 @@ class LensOverlayControllerBrowserTest : public InProcessBrowserTest {
     embedded_test_server()->StartAcceptingConnections();
 
     // Permits sharing the page screenshot by default.
-    PrefService* prefs = browser()->profile()->GetPrefs();
+    PrefService* prefs = browser()->GetProfile()->GetPrefs();
     prefs->SetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled, true);
     prefs->SetBoolean(lens::prefs::kLensSharingPageContentEnabled, true);
 
     mock_hats_service_ = static_cast<MockHatsService*>(
         HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
-            browser()->profile(), base::BindRepeating(&BuildMockHatsService)));
+            browser()->GetProfile(),
+            base::BindRepeating(&BuildMockHatsService)));
   }
 
   void TearDownOnMainThread() override {
@@ -720,7 +724,7 @@ class LensOverlayControllerBrowserTest : public InProcessBrowserTest {
     InProcessBrowserTest::TearDownOnMainThread();
 
     // Disallow sharing the page screenshot by default.
-    PrefService* prefs = browser()->profile()->GetPrefs();
+    PrefService* prefs = browser()->GetProfile()->GetPrefs();
     prefs->SetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled, false);
     prefs->SetBoolean(lens::prefs::kLensSharingPageContentEnabled, false);
 
@@ -748,6 +752,7 @@ class LensOverlayControllerBrowserTest : public InProcessBrowserTest {
          {lens::features::kLensOverlaySidePanelOpenInNewTab, {}}},
         /*disabled_features=*/{
             contextual_tasks::kContextualTasks,
+            contextual_tasks::kContextualTasksSidePanel,
             lens::features::kLensAimSuggestions,
             lens::features::kLensOverlaySuggestionsMigration,
             lens::features::kLensOverlayNonBlockingPrivacyNotice});
@@ -830,6 +835,20 @@ class LensOverlayControllerBrowserTest : public InProcessBrowserTest {
             ->header_open_in_new_tab_button();
     views::test::ButtonTestApi(open_in_new_tab_button)
         .NotifyClick(ui::test::TestEvent());
+  }
+
+  // Waits for the overlay WebUI to finish rendering the screenshot bitmap.
+  // createImageBitmap resolves in a task, so the screenshot
+  // delivery chain completes asynchronously after FlushForTesting().
+  void WaitForOverlayScreenshotRendered() {
+    ASSERT_TRUE(base::test::RunUntil([&]() {
+      auto result = content::EvalJs(
+          GetOverlayWebContents(),
+          "document.querySelector('lens-overlay-app')?.shadowRoot"
+          "?.querySelector('#selectionOverlay')"
+          "?.hasAttribute('is-screenshot-rendered') ?? false");
+      return result.is_bool() && result.ExtractBool();
+    }));
   }
 
   void SimulateLeftClickDrag(gfx::Point from, gfx::Point to) {
@@ -994,7 +1013,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Allow sharing the page screenshot but not other page content.
-  PrefService* prefs = browser()->profile()->GetPrefs();
+  PrefService* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled, false);
   prefs->SetBoolean(lens::prefs::kLensSharingPageContentEnabled, false);
   ASSERT_FALSE(lens::CanSharePageScreenshotWithLensOverlay(prefs));
@@ -1060,7 +1079,7 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Allow sharing the page screenshot but not other page content.
-  PrefService* prefs = browser()->profile()->GetPrefs();
+  PrefService* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled, true);
   prefs->SetBoolean(lens::prefs::kLensSharingPageContentEnabled, false);
   ASSERT_TRUE(lens::CanSharePageScreenshotWithLensOverlay(prefs));
@@ -1125,7 +1144,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Allow sharing the page screenshot but not other page content.
-  PrefService* prefs = browser()->profile()->GetPrefs();
+  PrefService* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled, true);
   prefs->SetBoolean(lens::prefs::kLensSharingPageContentEnabled, false);
   ASSERT_TRUE(lens::CanSharePageScreenshotWithLensOverlay(prefs));
@@ -1565,6 +1584,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_TRUE(fake_controller);
   fake_controller->FlushForTesting();
   ASSERT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
+  WaitForOverlayScreenshotRendered();
 
   // Simulate mouse events on the overlay for drawing a manual region.
   gfx::Point center =
@@ -1650,6 +1670,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_TRUE(fake_controller);
   fake_controller->FlushForTesting();
   ASSERT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
+  WaitForOverlayScreenshotRendered();
 
   // Simulate mouse events on the overlay for drawing a manual region.
   gfx::Point center =
@@ -4732,7 +4753,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerEntrypointsBrowserTest,
                        OverlayHidesEntrypoints) {
   // Lens is only shown if AIM is not.
   auto* aim_eligibility_service = static_cast<MockAimEligibilityService*>(
-      AimEligibilityServiceFactory::GetForProfile(browser()->profile()));
+      AimEligibilityServiceFactory::GetForProfile(browser()->GetProfile()));
   ON_CALL(*aim_eligibility_service, IsAimEligible())
       .WillByDefault(testing::Return(false));
 
@@ -5169,7 +5190,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Set up the test extension event observer to monitor is the extension event
   // is sent correctly.
   extensions::TestEventRouterObserver observer(
-      extensions::EventRouter::Get(browser()->profile()));
+      extensions::EventRouter::Get(browser()->GetProfile()));
 
   // Call OnScrollToMessage.
   std::vector<std::string> text_fragments = {"text1", "text2"};
@@ -5322,7 +5343,7 @@ class LensOverlayControllerBrowserPDFTest
 
     // Permits sharing the page screenshot by default. This disables the
     // permission dialog.
-    PrefService* prefs = browser()->profile()->GetPrefs();
+    PrefService* prefs = browser()->GetProfile()->GetPrefs();
     prefs->SetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled, true);
     prefs->SetBoolean(lens::prefs::kLensSharingPageContentEnabled, true);
   }
@@ -5519,7 +5540,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFTest,
   // Set up the test extension event observer to monitor is the extension event
   // is sent correctly.
   extensions::TestEventRouterObserver observer(
-      extensions::EventRouter::Get(browser()->profile()));
+      extensions::EventRouter::Get(browser()->GetProfile()));
 
   // Call OnScrollToMessage.
   std::vector<std::string> text_fragments = {"text1", "text2"};
@@ -5591,7 +5612,8 @@ class LensOverlayControllerBrowserPDFContextualizationTest
   }
 
   std::vector<base::test::FeatureRef> GetDisabledFeatures() const override {
-    return {contextual_tasks::kContextualTasks};
+    return {contextual_tasks::kContextualTasks,
+            contextual_tasks::kContextualTasksSidePanel};
   }
 
  protected:
@@ -6204,7 +6226,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
   // Set up the test extension event observer to monitor is the extension event
   // is sent correctly.
   extensions::TestEventRouterObserver observer(
-      extensions::EventRouter::Get(browser()->profile()));
+      extensions::EventRouter::Get(browser()->GetProfile()));
 
   // The results frame should be the only child frame of the side panel web
   // contents.
@@ -6246,7 +6268,8 @@ class LensOverlayControllerBrowserPDFUpdatedContentFieldsTest
   }
 
   std::vector<base::test::FeatureRef> GetDisabledFeatures() const override {
-    return {contextual_tasks::kContextualTasks};
+    return {contextual_tasks::kContextualTasks,
+            contextual_tasks::kContextualTasksSidePanel};
   }
 
  protected:
@@ -6301,7 +6324,8 @@ class LensOverlayControllerBrowserPDFIncreaseLimitTest
   }
 
   std::vector<base::test::FeatureRef> GetDisabledFeatures() const override {
-    return {contextual_tasks::kContextualTasks};
+    return {contextual_tasks::kContextualTasks,
+            contextual_tasks::kContextualTasksSidePanel};
   }
 
  protected:
@@ -6368,6 +6392,7 @@ class LensOverlayControllerBrowserWithPixelsTest
     feature_list_.InitWithFeatures(
         /*enabled_features=*/{}, /*disabled_features=*/{
             contextual_tasks::kContextualTasks,
+            contextual_tasks::kContextualTasksSidePanel,
             lens::features::kLensOverlayVisualSelectionUpdates});
   }
 
@@ -7755,7 +7780,8 @@ class LensOverlayControllerIframeBrowserTest
           {{"results-search-url", embedded_test_server()
                                       ->GetURL(kDocumentWithNamedElement)
                                       .spec()}}}},
-        /*disabled_features=*/{contextual_tasks::kContextualTasks});
+        /*disabled_features=*/{contextual_tasks::kContextualTasks,
+                               contextual_tasks::kContextualTasksSidePanel});
   }
 };
 
@@ -8113,7 +8139,8 @@ class LensOverlayControllerInnerTextAndApc
               {"use-updated-content-fields", "true"},
           }},
          {lens::features::kLensSearchProtectedPage, {}}},
-        {contextual_tasks::kContextualTasks});
+        {contextual_tasks::kContextualTasks,
+         contextual_tasks::kContextualTasksSidePanel});
   }
 };
 
@@ -8360,6 +8387,7 @@ class LensOverlayControllerContextualFeaturesDisabledTest
         /*enabled_features=*/{},
         /*disabled_features=*/{
             contextual_tasks::kContextualTasks,
+            contextual_tasks::kContextualTasksSidePanel,
             lens::features::kLensOverlayContextualSearchbox,
             lens::features::kLensOverlayNonBlockingPrivacyNotice});
   }
@@ -8406,6 +8434,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerContextualFeaturesDisabledTest,
   ASSERT_TRUE(fake_controller);
   fake_controller->FlushForTesting();
   ASSERT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
+  WaitForOverlayScreenshotRendered();
 
   // Preselection toast should be visible when the overlay is showing and is in
   // the kOverlay state.
@@ -8499,7 +8528,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerContextualFeaturesDisabledTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Disallow sharing the page screenshot.
-  PrefService* prefs = browser()->profile()->GetPrefs();
+  PrefService* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled, false);
   prefs->SetBoolean(lens::prefs::kLensSharingPageContentEnabled, false);
   ASSERT_FALSE(lens::CanSharePageScreenshotWithLensOverlay(prefs));
@@ -8564,7 +8593,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerContextualFeaturesDisabledTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Disallow sharing the page screenshot.
-  PrefService* prefs = browser()->profile()->GetPrefs();
+  PrefService* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled, false);
   ASSERT_FALSE(lens::CanSharePageScreenshotWithLensOverlay(prefs));
 
@@ -8613,7 +8642,8 @@ class LensOverlayControllerOverlaySearchbox
     feature_list_.InitWithFeatures(
         /*enabled_features=*/{lens::features::kLensOverlay,
                               lens::features::kLensOverlayContextualSearchbox},
-        /*disabled_features=*/{contextual_tasks::kContextualTasks});
+        /*disabled_features=*/{contextual_tasks::kContextualTasks,
+                               contextual_tasks::kContextualTasksSidePanel});
   }
 
   void VerifyContextualSearchQueryParameters(const GURL& url_to_process) {
@@ -8845,7 +8875,8 @@ class LensOverlayControllerSideBySideBrowserTest
   void SetupFeatureList() override {
     feature_list_.InitWithFeaturesAndParameters(
         {{lens::features::kLensOverlay, {{"use-blur", "true"}}}},
-        {contextual_tasks::kContextualTasks});
+        {contextual_tasks::kContextualTasks,
+         contextual_tasks::kContextualTasksSidePanel});
   }
 
   bool AreAnyRoundedCornersShowing() {
@@ -9069,7 +9100,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerSideBySideBrowserTest,
   EXPECT_TRUE(rounded_corners.upper_left() == 0);
 
   // Change side panel to be left aligned.
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       prefs::kSidePanelHorizontalAlignment, false);
 
   // Expect overlay view's top left corner to be rounded.
@@ -9300,7 +9331,8 @@ class LensOverlayControllerReinvocationBrowserTest
         {lens::features::kLensOverlay,
          lens::features::kLensOverlayContextualSearchbox,
          lens::features::kLensSearchReinvocationAffordance},
-        {contextual_tasks::kContextualTasks});
+        {contextual_tasks::kContextualTasks,
+         contextual_tasks::kContextualTasksSidePanel});
   }
 };
 
@@ -9808,14 +9840,15 @@ class LensOverlayControllerNonBlockingPrivacyNoticeForImageSearchBrowserTest
         /*enabled_features=*/
         {lens::features::kLensOverlayNonBlockingPrivacyNotice,
          lens::features::kLensOverlayNonBlockingPrivacyNoticeForImageSearch},
-        /*disabled_features=*/{contextual_tasks::kContextualTasks});
+        /*disabled_features=*/{contextual_tasks::kContextualTasks,
+                               contextual_tasks::kContextualTasksSidePanel});
   }
 
   void SetUpOnMainThread() override {
     LensOverlayControllerBrowserTest::SetUpOnMainThread();
-    browser()->profile()->GetPrefs()->SetBoolean(
+    browser()->GetProfile()->GetPrefs()->SetBoolean(
         lens::prefs::kLensSharingPageScreenshotEnabled, false);
-    browser()->profile()->GetPrefs()->SetBoolean(
+    browser()->GetProfile()->GetPrefs()->SetBoolean(
         lens::prefs::kLensSharingPageContentEnabled, false);
   }
 };
@@ -10012,4 +10045,55 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   auto* dialog = factory->GetLastDialog();
   ASSERT_TRUE(dialog);
   dialog->CallFileSelectionCanceled();
+}
+
+class LensOverlayControllerCoBrowsePreselectionTest
+    : public LensOverlayControllerBrowserTest {
+ public:
+  LensOverlayControllerCoBrowsePreselectionTest() = default;
+
+  void SetupFeatureList() override {
+    feature_list_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/
+        {{omnibox::kWebUIOmniboxAskGAboutThisPage,
+          {{"Omnibox_AskGCoBrowseWithVisualSelection", "true"}}},
+         {lens::features::kLensOverlay,
+          {{"results-search-url", kResultsSearchBaseUrl}}},
+         {lens::features::kLensOverlayContextualSearchbox, {}}},
+        /*disabled_features=*/{contextual_tasks::kContextualTasks,
+                               contextual_tasks::kContextualTasksSidePanel});
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerCoBrowsePreselectionTest,
+                       PreselectionToastShowsWithSidePanelOpen) {
+  WaitForPaint();
+
+  auto* controller = GetLensOverlayController();
+  ASSERT_EQ(controller->state(), State::kOff);
+
+  // Show UI via kOmniboxPageAction invocation source.
+  OpenLensOverlay(LensOverlayInvocationSource::kOmniboxPageAction);
+  ASSERT_EQ(controller->state(), State::kScreenshot);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  auto* fake_controller = static_cast<LensOverlayControllerFake*>(controller);
+  ASSERT_TRUE(fake_controller);
+
+  // Open the results side panel to simulate the panel being visible.
+  fake_controller->OpenSidePanelForTesting();
+  ASSERT_TRUE(IsLensResultsSidePanelShowing());
+
+  // Preselection toast should remain visible even though the results side panel
+  // is showing.
+  auto* preselection_widget = controller->get_preselection_widget_for_testing();
+  ASSERT_TRUE(preselection_widget);
+  EXPECT_TRUE(preselection_widget->IsVisible());
+
+  // Verify the bubble uses the IDS_LENS_OVERLAY_COBROWSE_INITIAL_TOAST_LABEL
+  // label.
+  EXPECT_EQ(
+      preselection_widget->widget_delegate()->GetAccessibleWindowTitle(),
+      l10n_util::GetStringUTF16(IDS_LENS_OVERLAY_COBROWSE_INITIAL_TOAST_LABEL));
 }

@@ -27,7 +27,6 @@
 #include "extensions/browser/permissions_manager.h"
 #include "extensions/common/error_utils.h"
 #include "extensions/common/extension.h"
-#include "extensions/common/extension_features.h"
 #include "extensions/common/manifest_handlers/permissions_parser.h"
 #include "extensions/common/permissions/permission_message_provider.h"
 #include "extensions/common/permissions/permissions_data.h"
@@ -472,13 +471,12 @@ ExtensionFunction::ResponseAction PermissionsRequestFunction::Run() {
   }
 
   install_ui_ = std::make_unique<ExtensionInstallPrompt>(
-      Profile::FromBrowserContext(browser_context()), native_window);
+      Profile::FromBrowserContext(browser_context()), native_window,
+      std::make_unique<InstallPromptData>(
+          InstallPromptData::PERMISSIONS_PROMPT));
   install_ui_->ShowDialog(
       base::BindOnce(&PermissionsRequestFunction::OnInstallPromptDone, this),
-      extension(), nullptr,
-      std::make_unique<ExtensionInstallPrompt::Prompt>(
-          ExtensionInstallPrompt::PERMISSIONS_PROMPT),
-      std::move(total_new_permissions),
+      extension(), nullptr, std::move(total_new_permissions),
       ExtensionInstallPrompt::GetDefaultShowDialogCallback());
 
   // ExtensionInstallPrompt::ShowDialog() can call the response synchronously.
@@ -548,8 +546,6 @@ PermissionsRequestFunction::TakePromptedPermissionsForTesting() {
 
 ExtensionFunction::ResponseAction
 PermissionsAddHostAccessRequestFunction::Run() {
-  CHECK(base::FeatureList::IsEnabled(
-      extensions_features::kApiPermissionsHostAccessRequests));
   std::optional<api::permissions::AddHostAccessRequest::Params> params =
       api::permissions::AddHostAccessRequest::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
@@ -646,8 +642,6 @@ PermissionsAddHostAccessRequestFunction::Run() {
 
 ExtensionFunction::ResponseAction
 PermissionsRemoveHostAccessRequestFunction::Run() {
-  CHECK(base::FeatureList::IsEnabled(
-      extensions_features::kApiPermissionsHostAccessRequests));
   std::optional<api::permissions::RemoveHostAccessRequest::Params> params =
       api::permissions::RemoveHostAccessRequest::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);

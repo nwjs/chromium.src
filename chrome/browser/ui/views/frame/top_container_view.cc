@@ -14,11 +14,7 @@
 #include "chrome/browser/ui/views/frame/themed_background.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
-#include "ui/color/color_id.h"
-#include "ui/color/color_variant.h"
-#include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
-#include "ui/gfx/scoped_canvas.h"
 #include "ui/views/paint_info.h"
 #include "ui/views/view_class_properties.h"
 
@@ -38,7 +34,7 @@ TopContainerView::~TopContainerView() = default;
 
 bool TopContainerView::IsPositionInWindowCaption(
     const gfx::Point& test_point) const {
-  const ToolbarView* const toolbar = browser_view_->toolbar();
+  ToolbarView* const toolbar = browser_view_->toolbar();
   for (auto& child : children()) {
     gfx::Point logical_test_point(GetMirroredXInView(test_point.x()),
                                   test_point.y());
@@ -46,7 +42,9 @@ bool TopContainerView::IsPositionInWindowCaption(
       if (child == toolbar) {
         const auto in_toolbar =
             views::View::ConvertPointToTarget(this, toolbar, test_point);
-        if (toolbar->IsPositionInWindowCaption(in_toolbar)) {
+        const bool is_caption = toolbar->IsPositionInWindowCaption(in_toolbar);
+        toolbar->RecordHitTestMetrics(is_caption);
+        if (is_caption) {
           return true;
         }
       }

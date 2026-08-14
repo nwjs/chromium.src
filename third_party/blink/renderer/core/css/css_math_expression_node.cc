@@ -2893,18 +2893,6 @@ CSSMathExpressionOperation::CSSMathExpressionOperation(
   }
 }
 
-CSSMathExpressionOperation::CSSMathExpressionOperation(
-    CalculationResultCategory category,
-    CSSMathOperator op,
-    CSSMathType type)
-    : CSSMathExpressionNode(category), operator_(op), type_(std::move(type)) {
-  DCHECK_NE(CSSMathOperator::kDivide, op);
-  if (IsComparison(operator_)) {
-    value_feature_flags_ = kHasComparisons;
-  }
-  has_nested_intermediate_result_ = type_.IsIntermediateResult();
-}
-
 std::optional<PixelsAndPercent> CSSMathExpressionOperation::ToPixelsAndPercent(
     const CSSLengthResolver& length_resolver) const {
   std::optional<PixelsAndPercent> result;
@@ -2942,11 +2930,7 @@ std::optional<PixelsAndPercent> CSSMathExpressionOperation::ToPixelsAndPercent(
       if (!result) {
         return std::nullopt;
       }
-      float number = number_side->DoubleValue();
-      if (operator_ == CSSMathOperator::kDivide) {
-        number = 1.0 / number;
-      }
-      result.value() *= number;
+      result.value() *= number_side->DoubleValue();
       break;
     }
     case CSSMathOperator::kInvert:
@@ -3137,6 +3121,7 @@ CSSMathExpressionOperation::ToCalculationExpression(
         }
         break;
       case kCalcLength:
+      case kCalcAngle:
         if (!HasPercentage()) {
           if (std::optional<double> value =
                   ComputeValueInCanonicalUnit(length_resolver)) {
@@ -3432,6 +3417,17 @@ String CSSMathExpressionOperation::CustomCSSText() const {
       for (wtf_size_t i = 1; i < terms.size(); ++i) {
         CSSMathOperator op = terms[i].op;
         const CSSMathExpressionNode* node = terms[i].node;
+
+        // In a product, an inverted operand (1 / x) is serialized as "/ x"
+        // rather than "* (1 / x)", per #serialize-a-calculation-tree.
+        if (op == CSSMathOperator::kMultiply) {
+          if (const auto* invert = DynamicTo<CSSMathExpressionOperation>(node);
+              invert && invert->IsInvert()) {
+            result.Append(" / ");
+            result.Append(invert->GetOperands().front()->CustomCSSText());
+            continue;
+          }
+        }
 
         // For negative literals in sums, we flip the operator instead of
         // outputting the sign (e.g., a + -b => a - b).
@@ -5497,7 +5493,7 @@ CSSMathExpressionNode* CSSMathExpressionNode::Create(
       CSSMathExpressionOperation::Operands operands;
       operands.push_back(Create(*children.front()));
       operands.push_back(Create(*children.back()));
-      return CSSMathExpressionOperation::CreateSignRelatedFunction(
+      return CSSMathExpressionOperation::CreateExponentialFunction(
           std::move(operands), CSSValueID::kPow);
     }
     case CalculationOperator::kSin:
@@ -5519,7 +5515,7 @@ CSSMathExpressionNode* CSSMathExpressionNode::Create(
       CSSMathExpressionOperation::Operands operands;
       operands.push_back(Create(*children.front()));
       operands.push_back(Create(*children.back()));
-      return CSSMathExpressionOperation::CreateSignRelatedFunction(
+      return CSSMathExpressionOperation::CreateTrigonometricFunction(
           std::move(operands), CSSValueID::kAtan2);
     }
     case CalculationOperator::kRandom: {
@@ -5583,7 +5579,7 @@ double CSSMathExpressionSiblingFunction::ComputeDouble(
   const Element* element = length_resolver.GetElement();
   if (const TreeScope* value_scope = function_->GetTreeScope()) {
     if (!element->GetTreeScope().IsInclusiveAncestorTreeScopeOf(*value_scope)) {
-      return 0;
+      return 1;
     }
   }
   NthIndexCache* nth_index_cache = element->ownerDocument()->GetNthIndexCache();

@@ -446,7 +446,7 @@ TEST_F(ZAuraSurfaceTest, OcclusionFractionDoesNotDoubleCountOutsideOfScreen) {
   auto window =
       std::make_unique<aura::Window>(nullptr, aura::client::WINDOW_TYPE_POPUP);
   window->Init(ui::LAYER_SOLID_COLOR);
-  window->layer()->SetColor(SK_ColorBLACK);
+  window->layer()->AsSolidColor()->SetColor(SkColors::kBlack);
   window->SetTransparent(false);
   window->SetBounds(gfx::Rect(-60, 75, 60, 150));
   window->Show();
@@ -736,6 +736,44 @@ TEST_F(ZAuraSurfaceCustomTest, ShowTooltipOnMenuFromKeyboard) {
                             base::TimeDelta(), base::TimeDelta());
 
   surface->RemoveSurfaceObserver(&observer);
+}
+
+TEST_F(ZAuraSurfaceCustomTest, TooltipEventsOnlyForTargetedSurface) {
+  std::unique_ptr<ShellSurface> shell_surface =
+      test::ShellSurfaceBuilder({10, 10}).BuildShellSurface();
+  std::unique_ptr<ShellSurface> other_shell_surface =
+      test::ShellSurfaceBuilder({10, 10}).BuildShellSurface();
+
+  Surface* surface = shell_surface->root_surface();
+  auto aura_surface = std::make_unique<TestAuraSurface>(surface);
+
+  Surface* other_surface = other_shell_surface->root_surface();
+  auto other_aura_surface = std::make_unique<TestAuraSurface>(other_surface);
+
+  shell_surface->GetWidget()->GetNativeWindow()->SetBounds(
+      gfx::Rect(0, 0, 10, 10));
+  shell_surface->GetWidget()->GetNativeWindow()->Show();
+  surface->window()->SetBounds(gfx::Rect(0, 0, 10, 10));
+  surface->window()->Show();
+
+  other_shell_surface->GetWidget()->GetNativeWindow()->SetBounds(
+      gfx::Rect(100, 100, 10, 10));
+  other_shell_surface->GetWidget()->GetNativeWindow()->Show();
+
+  static constexpr char16_t kText[] = u"my tooltip";
+  gfx::Point anchor_point = surface->window()->bounds().bottom_center();
+
+  // Tooltip events for `surface` must not be forwarded to `other_surface`.
+  EXPECT_CALL(*other_aura_surface, OnTooltipShown).Times(0);
+  EXPECT_CALL(*other_aura_surface, OnTooltipHidden).Times(0);
+  EXPECT_CALL(*aura_surface,
+              OnTooltipShown(surface, std::u16string_view(kText), testing::_));
+  EXPECT_CALL(*aura_surface, OnTooltipHidden(surface));
+
+  aura_surface->ShowTooltip(kText, anchor_point,
+                            ZAURA_SURFACE_TOOLTIP_TRIGGER_KEYBOARD,
+                            base::TimeDelta(), base::TimeDelta());
+  aura_surface->HideTooltip();
 }
 
 class MockAuraOutput : public AuraOutput {

@@ -216,7 +216,7 @@ std::u16string WindowMetadataController::GetWindowTitleFromWebContents(
       const std::string extension_id =
           web_app::GetAppIdFromApplicationName(browser_->app_name());
       const extensions::Extension* extension =
-          extensions::ExtensionRegistry::Get(browser_->profile())
+          extensions::ExtensionRegistry::Get(browser_->GetProfile())
               ->GetExtensionById(extension_id,
                                  extensions::ExtensionRegistry::EVERYTHING);
       if (extension)
@@ -302,7 +302,7 @@ void WindowMetadataController::SetWindowUserTitle(
   // See comment in Browser::OnTabGroupChanged
   DCHECK(!IsRelevantToAppSessionService(browser_->type()));
   SessionService* const session_service =
-      SessionServiceFactory::GetForProfile(browser_->profile());
+      SessionServiceFactory::GetForProfile(browser_->GetProfile());
   if (session_service) {
     session_service->SetWindowUserTitle(browser_->session_id(), user_title);
   }

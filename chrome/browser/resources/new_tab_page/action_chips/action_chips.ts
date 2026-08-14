@@ -4,6 +4,7 @@
 import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
 
+import {ToolMode} from '//resources/cr_components/composebox/composebox_query.mojom-webui.js';
 import type {TabUpload} from 'chrome://resources/cr_components/composebox/common.js';
 import {TabUploadOrigin} from 'chrome://resources/cr_components/composebox/common.js';
 import type {CrActionMenuElement} from 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
@@ -11,14 +12,20 @@ import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
-import {ToolMode} from '../action_chips.mojom-webui.js';
 import type {ActionChip, ActionChipsHandlerInterface, PageCallbackRouter} from '../action_chips.mojom-webui.js';
 import {IconType} from '../action_chips.mojom-webui.js';
+import type {FuseboxAction} from '../fusebox_action.mojom-webui.js';
 import {WindowProxy} from '../window_proxy.js';
 
 import {getCss} from './action_chips.css.js';
 import {getHtml} from './action_chips.html.js';
 import {ActionChipsApiProxyImpl} from './action_chips_proxy.js';
+
+export interface ActionChipClickDetail {
+  suggestion: string;
+  files: TabUpload[];
+  fuseboxAction?: FuseboxAction;
+}
 
 // Records a click metric for the given action chip icon type.
 function recordClick(iconType: IconType) {
@@ -84,6 +91,11 @@ export class ActionChipsElement extends CrLitElement {
         type: Boolean,
         reflect: true,
       },
+      smallChipsEnabled_: {
+        type: Boolean,
+        reflect: true,
+        attribute: 'small-chips-enabled',
+      },
     };
   }
 
@@ -94,6 +106,8 @@ export class ActionChipsElement extends CrLitElement {
       loadTimeData.getBoolean('ntpNextShowDismissalUIEnabled');
   protected accessor disablementContextMenuEnabled_: boolean =
       loadTimeData.getBoolean('ntpNextDisablementContextMenuEnabled');
+  protected accessor smallChipsEnabled_: boolean =
+      loadTimeData.getBoolean('ntpSmallActionChipsEnabled');
 
   private callbackRouter: PageCallbackRouter;
   private delayTabUploads_: boolean =
@@ -165,7 +179,7 @@ export class ActionChipsElement extends CrLitElement {
   protected onClick_(e: Event): void {
     const index = Number((e.currentTarget as HTMLElement).dataset['index']);
     const chip = this.actionChips_[index]!;
-    switch (chip.suggestTemplateInfo.preselectedTool) {
+    switch (chip.suggestTemplateInfo.fuseboxAction?.preselectedTool) {
       case ToolMode.kImageGen:
         this.handler.activateMetricsFunnel('CreateImageChip');
         break;
@@ -245,11 +259,10 @@ export class ActionChipsElement extends CrLitElement {
       };
       contextFiles.push(tabInfo);
     }
-    this.fire('action-chip-click', {
-      text: chip.suggestion,
+    this.fire<ActionChipClickDetail>('action-chip-click', {
+      suggestion: chip.suggestion,
       files: contextFiles,
-      mode: chip.suggestTemplateInfo.preselectedTool,
-      suggestInventory: chip.suggestTemplateInfo.preferredInventory,
+      fuseboxAction: chip.suggestTemplateInfo.fuseboxAction ?? undefined,
     });
   }
 

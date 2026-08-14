@@ -74,11 +74,11 @@ static bool HasNoAttributeOrOnlyStyleAttribute(
   if (attributes.IsEmpty())
     return true;
 
-  unsigned matched_attributes = 0;
+  wtf_size_t matched_attributes = 0;
   if (element->hasAttribute(html_names::kStyleAttr) &&
       (should_style_attribute_be_empty == kAllowNonEmptyStyleAttribute ||
        !element->InlineStyle() || element->InlineStyle()->IsEmpty()))
-    matched_attributes++;
+    ++matched_attributes;
 
   DCHECK_LE(matched_attributes, attributes.size());
   return matched_attributes == attributes.size();
@@ -1502,7 +1502,7 @@ void ApplyStyleCommand::RemoveInlineStyle(EditingStyle* style,
   // removing the style from this node. e.g. if pushDownStart was at
   // Position("hello", 5) in <b>hello<div>world</div></b>, we want
   // Position("world", 0) instead.
-  const unsigned push_down_start_offset =
+  const wtf_size_t push_down_start_offset =
       push_down_start.ComputeOffsetInContainerNode();
   auto* push_down_start_container =
       DynamicTo<Text>(push_down_start.ComputeContainerNode());
@@ -1754,7 +1754,7 @@ bool ApplyStyleCommand::IsValidCaretPositionInTextNode(
   Node* node = position.ComputeContainerNode();
   if (!position.IsOffsetInAnchor() || !node->IsTextNode())
     return false;
-  int offset_in_text = position.OffsetInContainerNode();
+  wtf_size_t offset_in_text = position.OffsetInContainerNode();
   return offset_in_text > CaretMinOffset(node) &&
          offset_in_text < CaretMaxOffset(node);
 }
@@ -2066,19 +2066,19 @@ void ApplyStyleCommand::ApplyInlineStyleChange(
   }
 
   if (style_change.ApplyBold()) {
-    SurroundNodeRangeWithElement(
-        start_node, end_node,
-        MakeGarbageCollected<HTMLElement>(html_names::kBTag, GetDocument()),
-        editing_state);
+    SurroundNodeRangeWithElement(start_node, end_node,
+                                 MakeGarbageCollected<HTMLElement>(
+                                     style_change.BoldTag(), GetDocument()),
+                                 editing_state);
     if (editing_state->IsAborted())
       return;
   }
 
   if (style_change.ApplyItalic()) {
-    SurroundNodeRangeWithElement(
-        start_node, end_node,
-        MakeGarbageCollected<HTMLElement>(html_names::kITag, GetDocument()),
-        editing_state);
+    SurroundNodeRangeWithElement(start_node, end_node,
+                                 MakeGarbageCollected<HTMLElement>(
+                                     style_change.ItalicTag(), GetDocument()),
+                                 editing_state);
     if (editing_state->IsAborted())
       return;
   }
@@ -2086,17 +2086,19 @@ void ApplyStyleCommand::ApplyInlineStyleChange(
   if (style_change.ApplyUnderline()) {
     SurroundNodeRangeWithElement(
         start_node, end_node,
-        MakeGarbageCollected<HTMLElement>(html_names::kUTag, GetDocument()),
+        MakeGarbageCollected<HTMLElement>(style_change.UnderlineTag(),
+                                          GetDocument()),
         editing_state);
     if (editing_state->IsAborted())
       return;
   }
 
   if (style_change.ApplyLineThrough()) {
-    SurroundNodeRangeWithElement(start_node, end_node,
-                                 MakeGarbageCollected<HTMLElement>(
-                                     html_names::kStrikeTag, GetDocument()),
-                                 editing_state);
+    SurroundNodeRangeWithElement(
+        start_node, end_node,
+        MakeGarbageCollected<HTMLElement>(style_change.LineThroughTag(),
+                                          GetDocument()),
+        editing_state);
     if (editing_state->IsAborted())
       return;
   }
@@ -2104,14 +2106,16 @@ void ApplyStyleCommand::ApplyInlineStyleChange(
   if (style_change.ApplySubscript()) {
     SurroundNodeRangeWithElement(
         start_node, end_node,
-        MakeGarbageCollected<HTMLElement>(html_names::kSubTag, GetDocument()),
+        MakeGarbageCollected<HTMLElement>(style_change.SubscriptTag(),
+                                          GetDocument()),
         editing_state);
     if (editing_state->IsAborted())
       return;
   } else if (style_change.ApplySuperscript()) {
     SurroundNodeRangeWithElement(
         start_node, end_node,
-        MakeGarbageCollected<HTMLElement>(html_names::kSupTag, GetDocument()),
+        MakeGarbageCollected<HTMLElement>(style_change.SuperscriptTag(),
+                                          GetDocument()),
         editing_state);
     if (editing_state->IsAborted())
       return;

@@ -9,7 +9,6 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_bubble_coordinator.h"
 #include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_bubble_view_controller.h"
 #include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_bubble_view_impl.h"
@@ -18,9 +17,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
-#include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/content_settings/core/common/cookie_controls_state.h"
-#include "components/content_settings/core/common/features.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
@@ -57,7 +54,7 @@ class CookieControlsBubbleViewBrowserTest : public InProcessBrowserTest {
 
     // Block 3PC and navigate to a page which accesses 3PC, to ensure entry
     // point is available.
-    browser()->profile()->GetPrefs()->SetInteger(
+    browser()->GetProfile()->GetPrefs()->SetInteger(
         prefs::kCookieControlsMode,
         static_cast<int>(
             content_settings::CookieControlsMode::kBlockThirdParty));
@@ -65,14 +62,14 @@ class CookieControlsBubbleViewBrowserTest : public InProcessBrowserTest {
         ui_test_utils::NavigateToURL(browser(), third_party_cookie_page_url()));
 
     controller_ = std::make_unique<content_settings::CookieControlsController>(
-        CookieSettingsFactory::GetForProfile(browser()->profile()), nullptr,
-        HostContentSettingsMapFactory::GetForProfile(browser()->profile()),
+        CookieSettingsFactory::GetForProfile(browser()->GetProfile()), nullptr,
+        HostContentSettingsMapFactory::GetForProfile(browser()->GetProfile()),
         /*is_incognito_profile=*/false);
 
     incognito_controller_ =
         std::make_unique<content_settings::CookieControlsController>(
             CookieSettingsFactory::GetForProfile(incognito_profile()),
-            CookieSettingsFactory::GetForProfile(browser()->profile()),
+            CookieSettingsFactory::GetForProfile(browser()->GetProfile()),
             HostContentSettingsMapFactory::GetForProfile(incognito_profile()),
             /*is_incognito_profile=*/true);
   }
@@ -147,14 +144,15 @@ class CookieControlsBubbleViewBrowserTest : public InProcessBrowserTest {
     return coordinator()->GetViewControllerForTesting();
   }
   HostContentSettingsMap* host_content_settings_map() {
-    return HostContentSettingsMapFactory::GetForProfile(browser()->profile());
+    return HostContentSettingsMapFactory::GetForProfile(
+        browser()->GetProfile());
   }
   content::WebContents* active_web_contents() {
     return browser()->tab_strip_model()->GetActiveWebContents();
   }
 
   Profile* incognito_profile() {
-    return browser()->profile()->GetPrimaryOTRProfile(true);
+    return browser()->GetProfile()->GetPrimaryOTRProfile(true);
   }
 
  private:

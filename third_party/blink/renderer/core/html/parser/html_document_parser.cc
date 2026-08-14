@@ -697,9 +697,9 @@ bool HTMLDocumentParser::PumpTokenizer() {
   unsigned starting_bytes;
   if (is_tracing) {
     starting_bytes = input_.length();
-    TRACE_EVENT_BEGIN2("blink", "HTMLDocumentParser::PumpTokenizer",
-                       "should_complete", should_run_until_completion,
-                       "bytes_queued", starting_bytes);
+    TRACE_EVENT_BEGIN("blink", "HTMLDocumentParser::PumpTokenizer",
+                      "should_complete", should_run_until_completion,
+                      "bytes_queued", starting_bytes);
   }
   base::ElapsedTimer pump_tokenizer_timer;
 
@@ -808,9 +808,8 @@ bool HTMLDocumentParser::PumpTokenizer() {
   }
 
   if (is_tracing) {
-    TRACE_EVENT_END2("blink", "HTMLDocumentParser::PumpTokenizer",
-                     "parsed_tokens", tokens_parsed, "parsed_bytes",
-                     starting_bytes - input_.length());
+    TRACE_EVENT_END("blink", "parsed_tokens", tokens_parsed, "parsed_bytes",
+                    starting_bytes - input_.length());
   }
 
   const bool is_stopped_or_parsing_fragment =
@@ -1634,6 +1633,12 @@ HTMLDocumentParser::TakeBackgroundScanCallback() {
 
 void HTMLDocumentParser::ScanInBackground(const String& source) {
   if (task_runner_state_->IsSynchronous() || !GetDocument()->Url().IsValid()) {
+    return;
+  }
+
+  // Text documents don't have any external resources, so they won't benefit
+  // from the background scanner.
+  if (GetDocument()->IsTextDocument()) {
     return;
   }
 

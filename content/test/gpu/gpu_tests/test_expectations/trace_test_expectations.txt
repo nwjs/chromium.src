@@ -6,6 +6,7 @@
 #         fuchsia
 #         linux ubuntu
 #         mac highsierra mojave catalina bigsur monterey ventura sonoma sequoia
+#             macos26
 #         win win8 win10 win11 ]
 # Devices
 # tags: [ android-pixel-2 android-pixel-4 android-pixel-6 android-pixel-10
@@ -301,9 +302,7 @@ crbug.com/515133241 [ win11 nvidia-0x2c02 ] OverlayModeTraceTest_DirectCompositi
 # Win11/Qualcomm Snapdragon X Elite
 crbug.com/453704683 [ win11 qualcomm-0x36334330 ] OverlayModeTraceTest_DirectComposition* [ Failure ]
 
-
-# Readback assertion on macOS
-crbug.com/474873836 [ angle-metal debug intel-0x3e9b no-asan no-clang-coverage sonoma ] WebGLCanvasCaptureTraceTest_VideoStreamFrom2DAlphaCanvas_DisableReadbackFromTexture [ Failure ]
+crbug.com/536977885 [ mac asan apple-angle-metal-renderer:-apple-m2 ] * [ RetryOnFailure ]
 
 ###############################
 # Permanent Slow Expectations #

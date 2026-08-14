@@ -318,6 +318,16 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Recovered"/>
 </enum>
 
+<!-- LINT.IfChange(AutoPictureInPictureSafeBrowsingCheckResult) -->
+
+<enum name="AutoPictureInPictureSafeBrowsingCheckResult">
+  <int value="0" label="Safe"/>
+  <int value="1" label="Unsafe"/>
+  <int value="2" label="Timeout"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/picture_in_picture/auto_picture_in_picture_safe_browsing_checker_client.h:AutoPictureInPictureSafeBrowsingCheckResult) -->
+
 <enum name="AutoplayPolicyStatus">
   <int value="0" label="AllowedByEnterprisePolicy"/>
   <int value="1" label="AllowedByDelegatedEnterprisePolicy"/>
@@ -1387,6 +1397,18 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Error: Failed to create a stream object"/>
 </enum>
 
+<!-- LINT.IfChange(MediaAutoPictureInPictureHappinessTrackingSurveyTriggerResult) -->
+
+<enum name="MediaAutoPictureInPictureHappinessTrackingSurveyTriggerResult">
+  <int value="0" label="Launched"/>
+  <int value="1" label="Finch segment mismatch"/>
+  <int value="2" label="Missing prompt result"/>
+  <int value="3" label="Browser initiated skipped"/>
+  <int value="4" label="HatsService null"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/picture_in_picture/hats/auto_picture_in_picture_hats_service.h:SurveyTriggerResult) -->
+
 <enum name="MediaAutoPictureInPicturePromptResult">
   <int value="0" label="Ignored"/>
   <int value="1" label="Block"/>
@@ -1658,6 +1680,7 @@ chromium-metrics-reviews@google.com.
   <int value="10" label="Close device list for casting"/>
   <int value="11" label="Enter picture in picture"/>
   <int value="12" label="Exit picture in picture"/>
+  <int value="13" label="Save video frame"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/global_media_controls/public/views/media_item_ui_updated_view.h:MediaItemUIUpdatedViewAction) -->
@@ -2202,6 +2225,7 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="System permissions error"/>
   <int value="4" label="Device in use error"/>
   <int value="5" label="Previous stream error"/>
+  <int value="6" label="Device removed error"/>
 </enum>
 
 <enum name="RemotingCompatibility">
@@ -2837,6 +2861,17 @@ chromium-metrics-reviews@google.com.
   <int value="41" label="1792x1008"/>
   <int value="42" label="2592x1944"/>
 </enum>
+
+<!-- LINT.IfChange(WASAPIInputDeviceInUseRetryOutcome) -->
+
+<enum name="WASAPIInputDeviceInUseRetryOutcome">
+  <int value="0" label="Failed without retry (feature disabled)"/>
+  <int value="1" label="Succeeded on first retry"/>
+  <int value="2" label="Succeeded on second retry"/>
+  <int value="3" label="Failed after all retries"/>
+</enum>
+
+<!-- LINT.ThenChange(//media/audio/win/audio_low_latency_input_win.h:WASAPIInputDeviceInUseRetryOutcome) -->
 
 </enums>
 

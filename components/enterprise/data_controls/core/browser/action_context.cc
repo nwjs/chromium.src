@@ -8,27 +8,30 @@ namespace data_controls {
 
 bool ActionSource::empty() const {
   // `ActionSource` should represent either:
-  // - A browser tab with the `url` field, and possible `incognito` and/or
-  //   `other_profile` set to true.
+  // - A browser tab with the `url`, `incognito` and/or `other_profile` fields.
+  //   The `url` field can be empty if the tab has no committed navigation.
   // - The OS clipboard with `os_clipboard` set to true.
   // - The integrated Gemini browser agent (Glic) with `gemini_in_chrome` set
   //   to true.
-  return url.is_empty() && !os_clipboard && !gemini_in_chrome;
+  // - A clipboard or file transfer action with `content_size` set to a non-negative value.
+  return url.is_empty() && !incognito && !other_profile && !os_clipboard &&
+         !gemini_in_chrome && !content_size.has_value();
 }
 
 bool ActionDestination::empty() const {
   // `ActionDestination` should represent either:
-  // - A browser tab with the `url` field, and possible `incognito` and/or
-  //   `other_profile` set to true.
+  // - A browser tab with the `url`, `incognito` and/or `other_profile` fields.
+  //   The `url` field can be empty if the tab has no committed navigation.
   // - The OS clipboard with `os_clipboard` set to true.
   // - The integrated Gemini browser agent (Glic) with `gemini_in_chrome` set
   //   to true.
   // - A separate application represented by `component` (CrOS-only).
 #if BUILDFLAG(IS_CHROMEOS)
-  return url.is_empty() && !os_clipboard && !gemini_in_chrome &&
-         component == Component::kUnknownComponent;
+  return url.is_empty() && !incognito && !other_profile && !os_clipboard &&
+         !gemini_in_chrome && component == Component::kUnknownComponent;
 #else
-  return url.is_empty() && !os_clipboard && !gemini_in_chrome;
+  return url.is_empty() && !incognito && !other_profile && !os_clipboard &&
+         !gemini_in_chrome;
 #endif  // BUILDFLAG(IS_CHROMEOS)
 }
 

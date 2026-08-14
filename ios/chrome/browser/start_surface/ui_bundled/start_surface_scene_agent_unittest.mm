@@ -16,6 +16,7 @@
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/app/profile/profile_state_test_utils.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_state_options.h"
 #import "ios/chrome/browser/shared/coordinator/scene/test/fake_scene_state.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_provider.h"
@@ -67,12 +68,10 @@ class StartSurfaceSceneAgentTest : public PlatformTest {
     SetProfileStateInitStage(profile_state_, ProfileInitStage::kFinal);
     profile_state_.profile = profile_.get();
 
-    scene_state_ = [[FakeSceneState alloc] initWithAppState:app_state_
-                                                    profile:profile_.get()];
-    scene_state_.scene = static_cast<UIWindowScene*>(
-        [[[UIApplication sharedApplication] connectedScenes] anyObject]);
+    scene_state_ = [[FakeSceneState alloc] initWithProfile:profile_.get()];
     scene_state_.activationLevel = SceneActivationLevelUnattached;
-    scene_state_.profileState = profile_state_;
+    [scene_state_ connectWithOptions:{.profile_state = profile_state_,
+                                      .identifier = "scene"}];
     scene_state_.UIEnabled = YES;
 
     agent_ = [[StartSurfaceSceneAgent alloc] init];
@@ -495,11 +494,10 @@ TEST_F(StartSurfaceSceneAgentTest,
       scene_state_, time_last_background);
 
   // Forcing the current BrowserProvider to be incognito.
-  scene_state_.browserProviderInterface.currentBrowserProvider =
-      scene_state_.browserProviderInterface.incognitoBrowserProvider;
+  auto interface = scene_state_.browserProviderInterface;
+  [scene_state_ setCurrentBrowserProvider:interface.incognitoBrowserProvider];
   CommandDispatcher* dispatcherIncognito =
-      scene_state_.browserProviderInterface.currentBrowserProvider.browser
-          ->GetCommandDispatcher();
+      interface.currentBrowserProvider.browser->GetCommandDispatcher();
 
   [dispatcherIncognito startDispatchingToTarget:application_handler_
                                     forProtocol:@protocol(SceneCommands)];

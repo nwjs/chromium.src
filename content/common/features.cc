@@ -37,6 +37,11 @@ BASE_FEATURE(kAccessibilityExposeNonAtomicTextFieldChildren,
 BASE_FEATURE(kAllowContentInitiatedDataUrlNavigations,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, AncestorThrottle evaluates redirect responses using the source
+// URL of the redirect rather than the target URL.
+BASE_FEATURE(kAncestorThrottleEvaluateRedirectSource,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Enables desktop-style scrollbars.
 BASE_FEATURE(kAndroidDesktopStyleScrollbars, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -195,6 +200,14 @@ BASE_FEATURE(kDocumentIsolationPolicyWithoutSiteIsolation,
 // Enable document policy negotiation mechanism.
 BASE_FEATURE(kDocumentPolicyNegotiation, base::FEATURE_DISABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_ANDROID)
+// When enabled, sandboxed renderer processes (except spare renderers) are
+// initially bound with a strong (BIND_IMPORTANT) binding right at creation
+// time, putting them immediately in the top-app cpuset group on Android.
+BASE_FEATURE(kEarlyTopAppForSandboxedRenderer,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 // When enabled `EditContext::updateSelection` calls from async selectionchange
 // handlers sync the selection to the browser.
 // See https://crbug.com/516839844
@@ -213,6 +226,12 @@ BASE_FEATURE(kEmbeddingRequiresOptIn, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kEnableDevToolsJsErrorReporting,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+
+// When enabled, the browser process will terminate a renderer process if it
+// attempts to bind gamepad Mojo interfaces (GamepadMonitor or
+// GamepadHapticsManager) when the "gamepad" Permissions Policy is blocked.
+BASE_FEATURE(kEnforceGamepadPermissionsPolicy,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, enforces that same-document navigations must not change
 // the committed origin, insecure request policy, or insecure navigations set.
@@ -256,35 +275,7 @@ BASE_FEATURE(kFilterInstalledAppsWebAppMatching,
 BASE_FEATURE(kFilterInstalledAppsWinMatching, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN)
 
-// If enabled, limits the number of FLEDGE auctions that can be run between page
-// load and unload -- any attempt to run more than this number of auctions will
-// fail (return null to JavaScript).
-BASE_FEATURE(kFledgeLimitNumAuctions,
-             "LimitNumFledgeAuctions",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-// The number of allowed auctions for each page load (load to unload).
-const base::FeatureParam<int> kFledgeLimitNumAuctionsParam{
-    &kFledgeLimitNumAuctions, "max_auctions_per_page", 8};
-
-// Enables a delay for the post-auction interest group update to avoid
-// immediately invalidating cached values.
-BASE_FEATURE(kFledgeDelayPostAuctionInterestGroupUpdate,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables multi-threaded seller worklet.
-BASE_FEATURE(kFledgeSellerWorkletThreadPool, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// The number of seller worklet threads.
-const base::FeatureParam<int> kFledgeSellerWorkletThreadPoolSize{
-    &kFledgeSellerWorkletThreadPool, "seller_worklet_thread_pool_size", 1};
-
-// Enables multi-threaded bidder worklet.
-BASE_FEATURE(kFledgeBidderWorkletThreadPool, base::FEATURE_ENABLED_BY_DEFAULT);
-
 #if BUILDFLAG(IS_ANDROID)
-// Makes FLEDGE worklets on Android not use the main thread for their mojo.
-BASE_FEATURE(kFledgeAndroidWorkletOffMainThread,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 // This is a kill switch for focusing the RenderWidgetHostViewAndroid on
 // MouseDown if not focused already, please see crbug.com/515000108. The root
 // view, RWHVA, is always focused for main tabs in Chrome, however this might
@@ -293,15 +284,6 @@ BASE_FEATURE(kFledgeAndroidWorkletOffMainThread,
 BASE_FEATURE(kFocusRenderWidgetHostViewAndroidOnMouseDown,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
-
-// The scaling factor for calculating the number of bidder worklet threads based
-// on the number of Interest Groups.
-// Formula: #threads = 1 + scaling_factor * log10(#IGs)
-const base::FeatureParam<double>
-    kFledgeBidderWorkletThreadPoolSizeLogarithmicScalingFactor{
-        &kFledgeBidderWorkletThreadPool,
-        "bidder_worklet_thread_pool_size_logarithmic_scaling_factor", 2};
-
 // This feature controls whether the renderer should use FontDataManager to
 // fetch fonts from the Browser's FontDataService. It is currently scoped to
 // Windows and Linux (via separate features and experiments). See
@@ -416,6 +398,11 @@ BASE_FEATURE(kInterestGroupUpdateIfOlderThan, base::FEATURE_ENABLED_BY_DEFAULT);
 #if BUILDFLAG(IS_MAC)
 BASE_FEATURE(kIOSurfaceCapturer, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
+
+// When enabled, holds back (disables) the early-return optimization in
+// SiteInstanceImpl::IsSuitableForUrlInfo.
+BASE_FEATURE(kIsSuitableForUrlInfoEarlyReturnHoldback,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, child process will not terminate itself when IPC is reset.
 BASE_FEATURE(kKeepChildProcessAfterIPCReset, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -570,8 +557,10 @@ BASE_FEATURE(kPermissionsPolicyVerificationInContent,
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 // When enabled, OnMouseEvent uses the event's actual pointer type for
-// last_pointer_type_ instead of unconditionally reporting kMouse.
-BASE_FEATURE(kMouseEventPenPointerType, base::FEATURE_ENABLED_BY_DEFAULT);
+// last_pointer_type_ instead of unconditionally reporting kMouse, and skips
+// updating last_pointer_type_ for synthesized mouse events so that a preceding
+// pen/touch pointer type is not clobbered.
+BASE_FEATURE(kMouseEventPreservePointerType, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, responses with an operative Cookie-Indices will not be used
 // if the relevant cookie values have changed.
@@ -634,6 +623,18 @@ BASE_FEATURE(kProcessReuseOnPrerenderCOOPSwap,
 BASE_FEATURE(kProgressiveAccessibilityPhase2,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Minimizes Mojo URLLoaderFactory cloning overhead during navigation and worker
+// startup.
+BASE_FEATURE(kReduceMojoURLLoaderFactoryCloning,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Controls whether lazy URLLoaderFactory cloning is used for service worker
+// fallback factory.
+BASE_FEATURE_PARAM(bool,
+                   kUseLazyURLLoaderFactoryForServiceWorkerFallback,
+                   &kReduceMojoURLLoaderFactoryCloning,
+                   false);
+
 // Causes hidden tabs with crashed subframes to be marked for reload, meaning
 // that if a user later switches to that tab, the current page will be
 // reloaded.  This will hide crashed subframes from the user at the cost of
@@ -665,7 +666,7 @@ BASE_FEATURE(kPreferWarmRendererProcess, base::FEATURE_DISABLED_BY_DEFAULT);
 // When enabled, try to reuse any same-site process that is hosting
 // only prerendered frames for main-frame navigations.
 BASE_FEATURE(kReusePrerenderingProcessForMainFrames,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Allows a reload to replace the initial navigation entry if it is
 // the first navigation to commit. This fixes the case where a browser-initiated
@@ -698,13 +699,13 @@ BASE_FEATURE(kScrollAfterOSKViewportShrinkFix,
 // to only include the origin when cross-origin to the final URL.
 // See https://crbug.com/495463654.
 BASE_FEATURE(kSanitizeLocationHeadersDuringNavigation,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether the `original_url` contains the full URL or just the
 // sanitized origin when sent to the renderer on commit.
 // See https://crbug.com/495463654.
 BASE_FEATURE(kSanitizeOriginalUrlDuringNavigation,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kServiceWorkerAvoidMainThreadForInitialization,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -780,6 +781,11 @@ BASE_FEATURE(kServiceWorkerVerifyMainScriptUrl,
 // functional events complete (spec step 8) and on worker start failure
 // (spec step 5), per the "Fire Functional Event" spec algorithm.
 BASE_FEATURE(kServiceWorkerSoftUpdateOnFunctionalEvent,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, stricter and aligned context validation is performed for
+// ServiceWorker start checks and message event dispatching.
+BASE_FEATURE(kServiceWorkerStrictContextValidation,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, the browser process will derive the secure context state of a

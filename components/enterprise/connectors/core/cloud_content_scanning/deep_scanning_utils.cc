@@ -10,6 +10,7 @@
 #include "build/build_config.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_request.h"
+#include "components/download/public/common/download_utils.h"
 #include "components/enterprise/connectors/core/common.h"
 #include "components/enterprise/connectors/core/features.h"
 #include "components/safe_browsing/core/common/features.h"
@@ -64,6 +65,7 @@ bool ContentAnalysisActionAllowsDataUse(TriggeredRule::Action action) {
     case TriggeredRule::WARN:
     case TriggeredRule::BLOCK:
     case TriggeredRule::FORCE_SAVE_TO_CLOUD:
+    case TriggeredRule::KEEP_IN_MANAGED_CHROME:
       return false;
   }
 }
@@ -271,10 +273,12 @@ bool IsResumableUpload(const BinaryUploadRequest& request) {
       !request.cloud_or_local_settings().is_cloud_analysis()) {
     return false;
   }
-  // Use the Resumable request protocol only for image pastes and
-  // non-paste requests.
-  return request.content_analysis_request().analysis_connector() !=
-             AnalysisConnector::BULK_DATA_ENTRY ||
+  // Use the Resumable request protocol only for image clipboard actions and
+  // non-clipboard requests (e.g. file attachments or printing).
+  return (request.content_analysis_request().analysis_connector() !=
+              AnalysisConnector::BULK_DATA_ENTRY &&
+          request.content_analysis_request().analysis_connector() !=
+              AnalysisConnector::DATA_COPIED) ||
          request.image_paste();
 }
 
@@ -322,7 +326,20 @@ void InitializeBinaryUploadRequest(BinaryUploadRequest* request,
     }
 
     if (base::FeatureList::IsEnabled(safe_browsing::kEnhancedFieldsForSecOps)) {
-      request->set_referrer_chain(info.referrer_chain());
+      // Only trim the referrer_chain for reporting.
+      auto referrer_chain_copy(info.referrer_chain());
+      GURL mutable_url;
+      for (auto& entry : referrer_chain_copy) {
+        mutable_url = GURL(entry.url());
+        download::TruncateDataUrlAtTheEndIfNeeded(mutable_url);
+        entry.set_url(mutable_url.spec());
+        for (auto& server_redirect : *entry.mutable_server_redirect_chain()) {
+          mutable_url = GURL(server_redirect.url());
+          download::TruncateDataUrlAtTheEndIfNeeded(mutable_url);
+          server_redirect.set_url(mutable_url.spec());
+        }
+      }
+      request->set_referrer_chain(referrer_chain_copy);
     }
 
     std::string email = info.GetContentAreaAccountEmail();
@@ -338,7 +355,9 @@ void InitializeBinaryUploadRequest(BinaryUploadRequest* request,
   request->set_user_action_requests_count(info.user_action_requests_count());
   request->set_user_action_id(info.user_action_id());
   request->set_email(info.email());
-  request->set_url(info.url());
+  GURL mutable_url(info.url());
+  download::TruncateDataUrlAtTheEndIfNeeded(mutable_url);
+  request->set_url(mutable_url);
   request->set_tab_url(info.tab_url());
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
@@ -455,6 +474,8 @@ RequestHandlerResult CalculateRequestHandlerResult(
     result.final_result = FinalContentAnalysisResult::WARNING;
   } else if (action == TriggeredRule::BLOCK) {
     result.final_result = FinalContentAnalysisResult::FAILURE;
+  } else if (action == TriggeredRule::KEEP_IN_MANAGED_CHROME) {
+    result.final_result = FinalContentAnalysisResult::KEPT_IN_MANAGED_CHROME;
   } else if (upload_result == ScanRequestUploadResult::kFileTooLarge) {
     result.final_result = FinalContentAnalysisResult::LARGE_FILES;
   } else if (upload_result == ScanRequestUploadResult::kFileEncrypted) {
@@ -534,7 +555,7 @@ void RecordDeepScanMetrics(bool is_cloud,
         prefix + access_point_string + ".BytesPerSeconds",
         (1000 * total_bytes) / duration.InMilliseconds(),
         /*min=*/kMinBytesPerSecond,
-        /*max=*/kMaxBytesPerSecond,
+        /*exclusive_max=*/kMaxBytesPerSecond,
         /*buckets=*/50);
   }
 
@@ -614,6 +635,8 @@ DeepScanAccessPoint AccessPointFromRequest(
       return DeepScanAccessPoint::PRINT;
     case FILE_TRANSFER:
       return DeepScanAccessPoint::FILE_TRANSFER;
+    case NETWORK_REQUEST:
+      return DeepScanAccessPoint::NETWORK_REQUEST;
     case ANALYSIS_CONNECTOR_UNSPECIFIED:
       return DeepScanAccessPoint::UPLOAD;
   }

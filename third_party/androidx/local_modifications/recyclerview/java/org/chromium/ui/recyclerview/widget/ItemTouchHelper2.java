@@ -43,6 +43,7 @@ import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewConfiguration;
+import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.animation.Interpolator;
 
@@ -489,6 +490,9 @@ public class ItemTouchHelper2 extends RecyclerView.ItemDecoration
             getSelectedDxDy(mTmpPosition);
             dx = mTmpPosition[0];
             dy = mTmpPosition[1];
+            if (mCallback.shouldAllowDragPastLayout() && mSelected.itemView.getParent() == null) {
+                parent.getOverlay().add(mSelected.itemView);
+            }
         }
         mCallback.onDrawOver(c, parent, mSelected, mRecoverAnimations, mActionState, dx, dy);
     }
@@ -629,6 +633,9 @@ public class ItemTouchHelper2 extends RecyclerView.ItemDecoration
                 removeChildDrawingOrderCallbackIfNecessary(prevSelected.itemView);
                 mCallback.clearView(mRecyclerView, prevSelected);
             }
+            if (mCallback.shouldAllowDragPastLayout()) {
+                mSelected.setIsRecyclable(true);
+            }
             mSelected = null;
         }
         if (selected != null) {
@@ -638,6 +645,9 @@ public class ItemTouchHelper2 extends RecyclerView.ItemDecoration
             mSelectedStartX = selected.itemView.getLeft();
             mSelectedStartY = selected.itemView.getTop();
             mSelected = selected;
+            if (mCallback.shouldAllowDragPastLayout()) {
+                mSelected.setIsRecyclable(false);
+            }
 
             if (actionState == ACTION_STATE_DRAG) {
                 mSelected.itemView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
@@ -858,6 +868,9 @@ public class ItemTouchHelper2 extends RecyclerView.ItemDecoration
         final float threshold = mCallback.getMoveThreshold(viewHolder);
         final int x = (int) (mSelectedStartX + mDx);
         final int y = (int) (mSelectedStartY + mDy);
+        if (mCallback.hasDragEscapedBounds(mRecyclerView, viewHolder, x, y, mDx, mDy)) {
+            return;
+        }
         if (Math.abs(y - viewHolder.itemView.getTop()) < viewHolder.itemView.getHeight() * threshold
                 && Math.abs(x - viewHolder.itemView.getLeft())
                         < viewHolder.itemView.getWidth() * threshold) {
@@ -893,7 +906,14 @@ public class ItemTouchHelper2 extends RecyclerView.ItemDecoration
             return;
         }
         if (mSelected != null && holder == mSelected) {
-            select(null, ACTION_STATE_IDLE);
+            if (mCallback.shouldAllowDragPastLayout()) {
+                // Do nothing here during layout detach phase to prevent crashing the Recycler
+                // (Scrapped or attached views may not be recycled).
+                // Rendering continuity is maintained by adding the view to the overlay inside
+                // onDrawOver instead.
+            } else {
+                select(null, ACTION_STATE_IDLE);
+            }
         } else {
             endRecoverAnimation(holder, false); // this may push it into pending cleanup list.
             if (mPendingCleanup.remove(holder.itemView)) {
@@ -1628,6 +1648,23 @@ public class ItemTouchHelper2 extends RecyclerView.ItemDecoration
                 @NonNull ViewHolder target);
 
         /**
+         * Called when the dragged view has moved past the drag threshold. The callback can use this
+         * to short-circuit swap logic if the item has escaped its logical boundaries (e.g. escaping
+         * a tab group).
+         *
+         * @return True if the callback handled the drag event and swapping should be skipped.
+         */
+        public boolean hasDragEscapedBounds(
+                @NonNull RecyclerView recyclerView,
+                @NonNull ViewHolder viewHolder,
+                int x,
+                int y,
+                float dx,
+                float dy) {
+            return false;
+        }
+
+        /**
          * Returns whether ItemTouchHelper should start a drag and drop operation if an item is long
          * pressed.
          *
@@ -1652,6 +1689,16 @@ public class ItemTouchHelper2 extends RecyclerView.ItemDecoration
          * @return True if drag sweeping should be used. Default is false.
          */
         public boolean isDragSweepingEnabled() {
+            return false;
+        }
+
+        /**
+         * @return whether this callback allows a drag to continue without cancellation when the
+         *     structural view is detached by the LayoutManager (for example, scrolling into an
+         *     offscreen state). Allowing this ensures layout continuity by rendering the detached
+         *     view via the RecyclerView Overlay. Default is false.
+         */
+        public boolean shouldAllowDragPastLayout() {
             return false;
         }
 
@@ -2058,6 +2105,9 @@ public class ItemTouchHelper2 extends RecyclerView.ItemDecoration
          * @param viewHolder The View that was interacted by the user.
          */
         public void clearView(@NonNull RecyclerView recyclerView, @NonNull ViewHolder viewHolder) {
+            if (shouldAllowDragPastLayout()) {
+                recyclerView.getOverlay().remove(viewHolder.itemView);
+            }
             ItemTouchUIUtilImpl2.INSTANCE.clearView(viewHolder.itemView);
         }
 
@@ -2533,7 +2583,12 @@ public class ItemTouchHelper2 extends RecyclerView.ItemDecoration
 
     /******************************************************************
      * BEGIN: External drag support
+     *
+     * Unit tests for this section are located in:
+     * //ui/android/junit/src/org/chromium/ui/recyclerview/widget/ItemTouchHelper2UnitTest.java
      ******************************************************************/
+
+    private static final long EXTERNAL_DROP_RESTORE_DELAY_MS = 1000L;
 
     /** Allows to handle long press events externally. */
     public interface LongPressHandler {
@@ -2543,7 +2598,25 @@ public class ItemTouchHelper2 extends RecyclerView.ItemDecoration
     private boolean mExternalDragInProgress;
     private RecyclerView.ViewHolder mExternalDragItem;
     private float mExternalDragItemInitialAlpha = 1f;
+    private boolean mIsExternalDragItemRecyclablePrevented;
     private LongPressHandler mExternalLongPressHandler;
+
+    @VisibleForTesting Runnable mDelayedExternalItemRestorationRunnable;
+
+    private final View.OnAttachStateChangeListener mDelayedExternalItemRestorationDetachListener =
+            new View.OnAttachStateChangeListener() {
+                @Override
+                public void onViewAttachedToWindow(View v) {}
+
+                @Override
+                public void onViewDetachedFromWindow(View v) {
+                    v.removeOnAttachStateChangeListener(this);
+                    if (mDelayedExternalItemRestorationRunnable != null) {
+                        v.removeCallbacks(mDelayedExternalItemRestorationRunnable);
+                        mDelayedExternalItemRestorationRunnable.run();
+                    }
+                }
+            };
 
     /**
      * Creates an ItemTouchHelper2 that will work with the given Callback. This is an extension of
@@ -2563,28 +2636,46 @@ public class ItemTouchHelper2 extends RecyclerView.ItemDecoration
     }
 
     /**
+     * Explicitly sets the external drag item. This is useful when the external drag starts while
+     * the cursor is already outside the RecyclerView bounds, preventing onLongPressInternal from
+     * finding the child view under the cursor.
+     */
+    public void setExternalDragItem(ViewHolder viewHolder) {
+        restoreExternalDragItemRecyclability();
+        mExternalDragItem = viewHolder;
+        if (mExternalDragItem != null) {
+            mExternalDragItem.setIsRecyclable(false);
+            mIsExternalDragItemRecyclablePrevented = true;
+        }
+    }
+
+    /**
      * Initiates an external drag.
      *
      * @param x current drag x pos
      * @param y current drag y pos
      */
     public void onExternalDragStart(float x, float y, boolean hideItemWhileDragging) {
-        if (!mExternalDragInProgress) {
-            mActivePointerId = 0;
+        if (mExternalDragInProgress) return;
+        mActivePointerId = 0;
+        if (mExternalDragItem == null) {
             MotionEvent tmpEvent = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, x, y, 0);
             mItemTouchHelperGestureListener.onLongPressInternal(tmpEvent);
             tmpEvent.recycle();
 
             if (mSelected != null) {
                 mExternalDragItem = mSelected;
-                mExternalDragItemInitialAlpha = mSelected.itemView.getAlpha();
-                if (hideItemWhileDragging) {
-                    // Do not use View.setVisibility as this can interfere with context menus that
-                    // can use the itemView as an anchor container.
-                    mSelected.itemView.setAlpha(0f);
-                }
-                mExternalDragInProgress = true;
             }
+        }
+
+        if (mExternalDragItem != null) {
+            mExternalDragItemInitialAlpha = mExternalDragItem.itemView.getAlpha();
+            if (hideItemWhileDragging) {
+                // Do not use View.setVisibility as this can interfere with context menus that
+                // can use the itemView as an anchor container.
+                mExternalDragItem.itemView.setAlpha(0f);
+            }
+            mExternalDragInProgress = true;
         }
     }
 
@@ -2606,6 +2697,111 @@ public class ItemTouchHelper2 extends RecyclerView.ItemDecoration
         }
     }
 
+    private static class CollapsedItemState {
+        final ViewHolder viewHolder;
+        final int width;
+        final int height;
+        final int topMargin;
+        final int bottomMargin;
+        final int leftMargin;
+        final int rightMargin;
+
+        CollapsedItemState(ViewHolder viewHolder, ViewGroup.MarginLayoutParams params) {
+            this.viewHolder = viewHolder;
+            this.width = params.width;
+            this.height = params.height;
+            this.topMargin = params.topMargin;
+            this.bottomMargin = params.bottomMargin;
+            this.leftMargin = params.leftMargin;
+            this.rightMargin = params.rightMargin;
+        }
+
+        void restore(ViewGroup.MarginLayoutParams params) {
+            params.width = width;
+            params.height = height;
+            params.topMargin = topMargin;
+            params.bottomMargin = bottomMargin;
+            params.leftMargin = leftMargin;
+            params.rightMargin = rightMargin;
+        }
+
+        void collapse(ViewGroup.MarginLayoutParams params) {
+            params.width = 0;
+            params.height = 0;
+            params.topMargin = 0;
+            params.bottomMargin = 0;
+            params.leftMargin = 0;
+            params.rightMargin = 0;
+        }
+    }
+
+    private CollapsedItemState mCollapsedItemState;
+
+    /**
+     * Completely hides the dragged item from the layout by shrinking it. This is required to close
+     * the gap left by the dragged item in vertical lists.
+     */
+    public void clearExternalDragItemVisibility() {
+        if (mExternalDragItem != null && mCollapsedItemState == null) {
+            mExternalDragItem.itemView.setVisibility(View.GONE);
+            ViewGroup.MarginLayoutParams params =
+                    (ViewGroup.MarginLayoutParams) mExternalDragItem.itemView.getLayoutParams();
+            mCollapsedItemState = new CollapsedItemState(mExternalDragItem, params);
+
+            // Set the dimensions to 0px to physically collapse the item in the RecyclerView.
+            mCollapsedItemState.collapse(params);
+            mExternalDragItem.itemView.setLayoutParams(params);
+        }
+    }
+
+    /**
+     * Restores the dragged item's layout dimensions and sets visibility back to VISIBLE.
+     *
+     * @param isOSNewWindowDrop If true, delays the restoration by {@link
+     *     #EXTERNAL_DROP_RESTORE_DELAY_MS}. Required when the drag ended externally and the item
+     *     might be removed asynchronously. If the item is detached before the delay completes, it
+     *     is restored instantly to protect the RecyclerView pool.
+     */
+    public void restoreExternalDragItemVisibility(boolean isOSNewWindowDrop) {
+        if (mExternalDragItem != null && mCollapsedItemState != null) {
+            // Assert that we are restoring the dimensions to the exact view we saved them from.
+            assert mCollapsedItemState.viewHolder == mExternalDragItem;
+
+            final ViewHolder viewHolder = mExternalDragItem;
+            final CollapsedItemState collapsedState = mCollapsedItemState;
+            mCollapsedItemState = null;
+
+            mDelayedExternalItemRestorationRunnable =
+                    () -> {
+                        viewHolder.itemView.removeOnAttachStateChangeListener(
+                                mDelayedExternalItemRestorationDetachListener);
+                        viewHolder.itemView.setVisibility(View.VISIBLE);
+                        ViewGroup.MarginLayoutParams params =
+                                (ViewGroup.MarginLayoutParams)
+                                        viewHolder.itemView.getLayoutParams();
+                        collapsedState.restore(params);
+                        viewHolder.itemView.setLayoutParams(params);
+                        mDelayedExternalItemRestorationRunnable = null;
+                    };
+
+            if (isOSNewWindowDrop) {
+                viewHolder.itemView.addOnAttachStateChangeListener(
+                        mDelayedExternalItemRestorationDetachListener);
+                viewHolder.itemView.postDelayed(
+                        mDelayedExternalItemRestorationRunnable, EXTERNAL_DROP_RESTORE_DELAY_MS);
+            } else {
+                mDelayedExternalItemRestorationRunnable.run();
+            }
+        }
+    }
+
+    private void restoreExternalDragItemRecyclability() {
+        if (mExternalDragItem != null && mIsExternalDragItemRecyclablePrevented) {
+            mExternalDragItem.setIsRecyclable(true);
+            mIsExternalDragItemRecyclablePrevented = false;
+        }
+    }
+
     /**
      * Run after external drag has been stopped.
      *
@@ -2617,6 +2813,7 @@ public class ItemTouchHelper2 extends RecyclerView.ItemDecoration
                 if (recoverItem) {
                     mExternalDragItem.itemView.setAlpha(mExternalDragItemInitialAlpha);
                 }
+                restoreExternalDragItemRecyclability();
             }
 
             mActivePointerId = ACTIVE_POINTER_ID_NONE;

@@ -13,7 +13,9 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/test/browser_test_utils.h"
 
 namespace dictation {
 
@@ -49,36 +51,77 @@ DictationInteractiveBrowserTestBase::CheckHasSession(
 }
 
 DictationInteractiveBrowserTestBase::MultiStep
+DictationInteractiveBrowserTestBase::StartSession(
+    std::unique_ptr<TargetDetails> target_details) {
+  return Steps(
+      Do([this, target_details = std::move(target_details)] {
+        TargetDetails target = target_details
+                                   ? *target_details
+                                   : DefaultInPageTarget(web_contents());
+        content::RenderFrameHost* rfh =
+            target.target_id.document.AsRenderFrameHostIfValid();
+        CHECK(rfh);
+        content::WebContents* web_contents =
+            content::WebContents::FromRenderFrameHost(rfh);
+        CHECK(web_contents);
+        tabs::TabInterface* tab =
+            tabs::TabInterface::GetFromContents(web_contents);
+        CHECK(tab);
+        dictation_service().StartSession(
+            *tab, target, DictationSessionEntryPoint::kContextMenu);
+        if (dictation_service().session_controller()) {
+          last_started_provider_ = static_cast<ListenerStreamProvider*>(
+                                       dictation_service()
+                                           .session_controller()
+                                           ->attached_stream_provider())
+                                       ->GetWeakPtr();
+
+          // Register callback to update last_started_provider_ on subsequent
+          // starts.
+          session_state_subscription_ =
+              dictation_service()
+                  .session_controller()
+                  ->AddSessionStateChangedCallback(
+                      base::BindRepeating(&DictationInteractiveBrowserTestBase::
+                                              OnSessionStateChanged,
+                                          base::Unretained(this)));
+        }
+      }),
+      ExtensionAPIWaitForStreamStart());
+}
+
+DictationInteractiveBrowserTestBase::MultiStep
 DictationInteractiveBrowserTestBase::StartSession() {
-  return Steps(Do([this] {
-    tabs::TabInterface* tab = chrome_test_utils::GetActiveTab(this);
-    CHECK(tab);
-    dictation_service().StartSession(*tab,
-                                     DefaultInPageTargetId(web_contents()),
-                                     DictationSessionEntryPoint::kContextMenu);
-    if (dictation_service().session_controller()) {
-      last_started_provider_ =
-          static_cast<ListenerStreamProvider*>(dictation_service()
-                                                   .session_controller()
-                                                   ->attached_stream_provider())
-              ->GetWeakPtr();
+  return StartSession(nullptr);
+}
 
-      // Register callback to update last_started_provider_ on subsequent
-      // starts.
-      session_state_subscription_ =
-          dictation_service()
-              .session_controller()
-              ->AddSessionStateChangedCallback(base::BindRepeating(
-                  &DictationInteractiveBrowserTestBase::OnSessionStateChanged,
-                  base::Unretained(this)));
+DictationInteractiveBrowserTestBase::MultiStep
+DictationInteractiveBrowserTestBase::StartSessionWithTarget(
+    ui::ElementIdentifier web_contents_id,
+    std::string_view query_selector) {
+  const DeepQuery where{std::string(query_selector)};
+  auto target_details = std::make_unique<TargetDetails>();
+  TargetDetails* raw_target_details = target_details.get();
+  return Steps(
+      ExecuteJsAt(web_contents_id, where, "el => el.focus()"),
+      WithElement(
+          web_contents_id,
+          [raw_target_details,
+           selector_str = std::string(query_selector)](ui::TrackedElement* el) {
+            content::WebContents* wc =
+                AsInstrumentedWebContents(el)->web_contents();
+            CHECK(wc);
+            // TODO(mcnee): Don't assume the element is in the main frame.
+            std::optional<int> dom_node_id =
+                content::GetDOMNodeId(*wc->GetPrimaryMainFrame(), selector_str);
+            CHECK(dom_node_id.has_value());
 
-      // A stream may not always be created (e.g. onboarding needs to be shown).
-      if (last_started_provider_) {
-        ExtensionWaitForStreamStart(
-            profile(), last_started_provider_->stream_id_for_testing());
-      }
-    }
-  }));
+            // TODO(mcnee): Set whether the target is richly editable.
+            *raw_target_details = TargetDetails(content::GlobalDOMNodeId{
+                wc->GetPrimaryMainFrame()->GetWeakDocumentPtr(),
+                blink::DOMNodeIdType(dom_node_id.value())});
+          }),
+      StartSession(std::move(target_details)));
 }
 
 DictationInteractiveBrowserTestBase::MultiStep
@@ -92,6 +135,15 @@ DictationInteractiveBrowserTestBase::ExtensionAPISetStreamState(
 }
 
 DictationInteractiveBrowserTestBase::MultiStep
+DictationInteractiveBrowserTestBase::ExtensionAPISetStreamState(
+    const StreamId& stream_id,
+    ExtensionStreamState state) {
+  return Steps(Do([this, &stream_id, state] {
+    ExtensionSendStreamStateUpdate(profile(), stream_id, state);
+  }));
+}
+
+DictationInteractiveBrowserTestBase::MultiStep
 DictationInteractiveBrowserTestBase::ExtensionAPIUpdateTranscription(
     ExtensionTranscriptionType type,
     std::string_view text) {
@@ -100,6 +152,27 @@ DictationInteractiveBrowserTestBase::ExtensionAPIUpdateTranscription(
     ExtensionSendTranscriptUpdate(
         profile(), last_started_provider_->stream_id_for_testing(), type,
         text_str);
+  }));
+}
+
+DictationInteractiveBrowserTestBase::MultiStep
+DictationInteractiveBrowserTestBase::ExtensionAPIUpdateTranscription(
+    const StreamId& stream_id,
+    ExtensionTranscriptionType type,
+    std::string_view text) {
+  return Steps(Do([this, &stream_id, type, text_str = std::string(text)] {
+    ExtensionSendTranscriptUpdate(profile(), stream_id, type, text_str);
+  }));
+}
+
+DictationInteractiveBrowserTestBase::MultiStep
+DictationInteractiveBrowserTestBase::ExtensionAPIWaitForStreamStart() {
+  return Steps(Do([this] {
+    // A stream may not always be created (e.g. onboarding needs to be shown).
+    if (last_started_provider_) {
+      ExtensionWaitForStreamStart(
+          profile(), last_started_provider_->stream_id_for_testing());
+    }
   }));
 }
 

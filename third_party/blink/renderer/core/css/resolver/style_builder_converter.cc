@@ -184,18 +184,6 @@ Color ResolveQuirkOrLinkOrFocusRingColor(
   }
 }
 
-ScopedCSSNameList* ConvertNoneOrCustomIdentList(StyleResolverState& state,
-                                                const CSSValue& value) {
-  DCHECK(value.IsScopedValue());
-  DCHECK(value.IsBaseValueList());
-  HeapVector<Member<const ScopedCSSName>> names;
-  for (const Member<const CSSValue>& item : To<CSSValueList>(value)) {
-    names.push_back(
-        StyleBuilderConverter::ConvertNoneOrCustomIdent(state, *item));
-  }
-  return MakeGarbageCollected<ScopedCSSNameList>(std::move(names));
-}
-
 Vector<AtomicString> ConvertNoneOrCustomIdentListUnscoped(
     StyleResolverState& state,
     const CSSValue& value) {
@@ -244,7 +232,7 @@ DynamicRangeLimit StyleBuilderConverter::ConvertDynamicRangeLimit(
     float standard_mix_sum = 0.f;
     float constrained_high_mix_sum = 0.f;
     float fraction_sum = 0.f;
-    for (size_t i = 0; i < mix_value->Limits().size(); ++i) {
+    for (wtf_size_t i = 0; i < mix_value->Limits().size(); ++i) {
       const DynamicRangeLimit limit =
           ConvertDynamicRangeLimit(state, *mix_value->Limits()[i]);
       const float fraction =
@@ -2036,8 +2024,21 @@ Superellipse StyleBuilderConverter::ConvertCornerShape(
   }
 
   const auto& superellipse = To<cssvalue::CSSSuperellipseValue>(value);
-  return Superellipse(
-      superellipse.Param().ComputeNumber(state.CssToLengthConversionData()));
+  const CSSPrimitiveValue& param = superellipse.Param();
+  double param_val;
+  if (const auto* numeric = DynamicTo<CSSNumericLiteralValue>(param)) {
+    param_val = numeric->DoubleValue();
+  } else if (const auto* math = DynamicTo<CSSMathFunctionValue>(param)) {
+    if (std::optional<double> unclamped =
+            math->ExpressionNode()->GetValueIfKnown()) {
+      param_val = *unclamped;
+    } else {
+      param_val = param.ComputeNumber(state.CssToLengthConversionData());
+    }
+  } else {
+    param_val = param.ComputeNumber(state.CssToLengthConversionData());
+  }
+  return Superellipse(param_val);
 }
 
 LayoutUnit StyleBuilderConverter::ConvertLayoutUnit(
@@ -2240,14 +2241,13 @@ float StyleBuilderConverter::ConvertNumberOrPercentage(
   return primitive_value.ConvertTo<float>(state.CssToLengthConversionData());
 }
 
-float StyleBuilderConverter::ConvertPathLength(StyleResolverState& state,
-                                               const CSSValue& value) {
+Length StyleBuilderConverter::ConvertPathLength(StyleResolverState& state,
+                                                const CSSValue& value) {
   if (auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
     DCHECK_EQ(identifier_value->GetValueID(), CSSValueID::kNone);
-    return -1.0;
+    return Length::None();
   }
-  return To<CSSPrimitiveValue>(value).ConvertTo<float>(
-      state.CssToLengthConversionData());
+  return ConvertLength(state, value);
 }
 
 int StyleBuilderConverter::ConvertInteger(StyleResolverState& state,
@@ -2764,23 +2764,24 @@ ShapeValue* StyleBuilderConverter::ConvertShapeValue(StyleResolverState& state,
   }
 
   const BasicShape* shape = nullptr;
-  ShapeBox css_box = ShapeBox::kMissing;
+  std::optional<ShapeBox> shape_box;
   const auto& value_list = To<CSSValueList>(value);
   for (unsigned i = 0; i < value_list.length(); ++i) {
     const CSSValue& item_value = value_list.Item(i);
     if (item_value.IsBasicShapeValue()) {
       shape = BasicShapeForValue(state, item_value);
     } else {
-      css_box = To<CSSIdentifierValue>(item_value).ConvertTo<ShapeBox>();
+      shape_box = To<CSSIdentifierValue>(item_value).ConvertTo<ShapeBox>();
     }
   }
 
   if (shape) {
-    return MakeGarbageCollected<ShapeValue>(*shape, css_box);
+    return MakeGarbageCollected<ShapeValue>(
+        *shape, shape_box.value_or(ShapeBox::kMarginBox));
   }
 
-  DCHECK_NE(css_box, ShapeBox::kMissing);
-  return MakeGarbageCollected<ShapeValue>(css_box);
+  CHECK(shape_box.has_value());
+  return MakeGarbageCollected<ShapeValue>(*shape_box);
 }
 
 Length StyleBuilderConverter::ConvertSpacing(StyleResolverState& state,
@@ -4313,12 +4314,6 @@ MaxLinesData StyleBuilderConverter::ConvertMaxLines(StyleResolverState& state,
       To<CSSPrimitiveValue>(num_lines_value)
           ->ConvertTo<uint16_t>(state.CssToLengthConversionData());
   return MaxLinesData(num_lines, has_auto);
-}
-
-ScopedCSSNameList* StyleBuilderConverter::ConvertTimelineTriggerName(
-    StyleResolverState& state,
-    const CSSValue& value) {
-  return ConvertNoneOrCustomIdentList(state, value);
 }
 
 StyleTriggerScope StyleBuilderConverter::ConvertTriggerScope(

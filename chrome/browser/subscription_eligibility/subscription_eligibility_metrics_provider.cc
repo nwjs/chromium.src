@@ -8,11 +8,15 @@
 #include <vector>
 
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/strcat.h"
+#include "base/strings/string_number_conversions.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/subscription_eligibility/subscription_eligibility_service_factory.h"
 #include "components/subscription_eligibility/subscription_eligibility_service.h"
+#include "components/variations/synthetic_trials.h"
 #include "third_party/metrics_proto/chrome_user_metrics_extension.pb.h"
 
 namespace subscription_eligibility {
@@ -46,39 +50,16 @@ void SubscriptionEligibilityMetricsProvider::ProvideCurrentSessionData(
         profile_subscription_tier >= 0 ? profile_subscription_tier : 0);
   }
 
-  AiSubscriptionTierStatus status = AiSubscriptionTierStatus::kValueNotSet;
-  bool nonzero_no_subscription =
-      subscription_tiers.find(0) != subscription_tiers.end();
-  if (subscription_tiers.size() == 1 && nonzero_no_subscription) {
-    // All profiles not enabled.
-    status = AiSubscriptionTierStatus::kNoProfilesSubscribed;
-  } else if (subscription_tiers.size() > 1 && nonzero_no_subscription) {
-    // Some profiles enabled and some not enabled.
-    status = AiSubscriptionTierStatus::kSomeProfilesSubscribed;
-  } else if (subscription_tiers.size() > 1 && !nonzero_no_subscription) {
-    // All profiles enabled but at different tiers.
-    status = AiSubscriptionTierStatus::kAllProfilesSubscribedButDifferentTiers;
-  } else {
-    CHECK(subscription_tiers.size() == 1);
-    CHECK(!nonzero_no_subscription);
-
-    if (subscription_tiers.contains(1)) {
-      // All profiles enabled but at tier = 1.
-      status = AiSubscriptionTierStatus::kAllProfilesAtTierEquals1;
-    } else if (subscription_tiers.contains(2)) {
-      // All profiles enabled but at tier = 2.
-      status = AiSubscriptionTierStatus::kAllProfilesAtTierEquals2;
-    } else if (subscription_tiers.contains(3)) {
-      status = AiSubscriptionTierStatus::kAllProfilesAtTierEquals3;
-    } else {
-      // All profiles enabled but at unknown tier.
-      status = AiSubscriptionTierStatus::kAllProfilesSubscribedForUnknownTier;
-    }
-  }
+  AiSubscriptionTierStatus status =
+      ComputeAiSubscriptionTierStatus(subscription_tiers);
 
   CHECK_NE(status, AiSubscriptionTierStatus::kValueNotSet);
-  base::UmaHistogramEnumeration(
-      "SubscriptionEligibility.AiSubscriptionTierStatus", status);
+  base::UmaHistogramEnumeration(kAiSubscriptionTierStatusHistogramName, status);
+
+  std::string group_name = GetSyntheticTrialGroupName(status);
+  ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
+      kAiSubscriptionTierSyntheticTrialName, group_name,
+      variations::SyntheticTrialAnnotationMode::kCurrentLog);
 }
 
 }  // namespace subscription_eligibility

@@ -157,7 +157,7 @@ Status ExecuteAddVirtualAuthenticator(WebView* web_view,
       *protocol = "ctap2";
       mapped_params.SetByDottedPath("options.ctap2Version", "ctap2_1");
     } else {
-      return Status(kUnsupportedOperation, *protocol + kUnrecognizedProtocol);
+      return Status(kInvalidArgument, *protocol + kUnrecognizedProtocol);
     }
   }
 
@@ -283,15 +283,19 @@ Status ExecuteSetUserVerified(WebView* web_view,
 Status ExecuteSetCredentialProperties(WebView* web_view,
                                       const base::DictValue& params,
                                       std::unique_ptr<base::Value>* value) {
-  return web_view->SendCommandAndGetResult(
-      "WebAuthn.setCredentialProperties",
-      MapParams(
-          {
-              {"authenticatorId", "authenticatorId"},
-              {"credentialId", "credentialId"},
-              {"backupEligibility", "backupEligibility"},
-              {"backupState", "backupState"},
-          },
-          params),
-      value);
+  base::DictValue mapped_params = MapParams(
+      {
+          {"authenticatorId", "authenticatorId"},
+          {"credentialId", "credentialId"},
+          {"backupEligibility", "backupEligibility"},
+          {"backupState", "backupState"},
+      },
+      params);
+  Status status = ConvertBase64UrlToBase64(mapped_params, {"credentialId"});
+  if (status.IsError()) {
+    return status;
+  }
+
+  return web_view->SendCommandAndGetResult("WebAuthn.setCredentialProperties",
+                                           mapped_params, value);
 }

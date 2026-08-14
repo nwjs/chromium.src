@@ -64,6 +64,7 @@ source_set("public") {
     "skills_features.h",
     "skills_prefs.cc",
     "skills_prefs.h",
+    "skills_provider.h",
     "skills_service.cc",
     "skills_service.h",
   ]
@@ -98,6 +99,8 @@ source_set("metrics") {
     "//components/skills/public:mojo_bindings",
     "//components/skills/public:mojo_bindings__generator",
   ]
+
+  deps = [ "//components/skills:features" ]
 }
 
 if (is_ios) {

@@ -5,7 +5,7 @@
 import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {AutocompleteMatch} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 
-import {PageCallbackRouter, PageHandlerFactory, PageHandlerRemote} from './composebox.mojom-webui.js';
+import {PageHandlerFactory, PageHandlerRemote} from './composebox.mojom-webui.js';
 
 export function createAutocompleteMatch(
     config: Partial<AutocompleteMatch> = {}): AutocompleteMatch {
@@ -38,16 +38,13 @@ export function createAutocompleteMatch(
     isWeatherAnswerSuggestion: null,
     answer: null,
     tailSuggestCommonPrefix: null,
-    hasInstantKeyword: false,
-    keywordChipHint: '',
-    keywordChipA11y: '',
+    keywordModel: null,
     ...config,
   };
 }
 
 export interface ComposeboxProxy {
   handler: PageHandlerRemote;
-  callbackRouter: PageCallbackRouter;
   searchboxHandler: SearchboxPageHandlerRemote;
   searchboxCallbackRouter: SearchboxPageCallbackRouter;
 
@@ -60,15 +57,12 @@ export interface ComposeboxProxy {
 
 export class ComposeboxProxyImpl implements ComposeboxProxy {
   handler: PageHandlerRemote;
-  callbackRouter: PageCallbackRouter;
   searchboxHandler: SearchboxPageHandlerRemote;
   searchboxCallbackRouter: SearchboxPageCallbackRouter;
   constructor(
-      handler: PageHandlerRemote, callbackRouter: PageCallbackRouter,
-      searchboxHandler: SearchboxPageHandlerRemote,
+      handler: PageHandlerRemote, searchboxHandler: SearchboxPageHandlerRemote,
       searchboxCallbackRouter: SearchboxPageCallbackRouter) {
     this.handler = handler;
-    this.callbackRouter = callbackRouter;
     this.searchboxHandler = searchboxHandler;
     this.searchboxCallbackRouter = searchboxCallbackRouter;
   }
@@ -94,19 +88,17 @@ export class ComposeboxProxyImpl implements ComposeboxProxy {
     }
 
     // Composebox connection variables.
-    const callbackRouter = new PageCallbackRouter();
     const handler = new PageHandlerRemote();
     const factory = PageHandlerFactory.getRemote();
     // Searchbox connection variables.
     const searchboxHandler = new SearchboxPageHandlerRemote();
     const searchboxCallbackRouter = new SearchboxPageCallbackRouter();
     factory.createPageHandler(
-        callbackRouter.$.bindNewPipeAndPassRemote(),
         handler.$.bindNewPipeAndPassReceiver(),
         searchboxCallbackRouter.$.bindNewPipeAndPassRemote(),
         searchboxHandler.$.bindNewPipeAndPassReceiver());
     instance = new ComposeboxProxyImpl(
-        handler, callbackRouter, searchboxHandler, searchboxCallbackRouter);
+        handler, searchboxHandler, searchboxCallbackRouter);
     return instance;
   }
 

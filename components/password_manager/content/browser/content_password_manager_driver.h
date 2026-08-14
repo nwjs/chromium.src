@@ -131,7 +131,7 @@ class ContentPasswordManagerDriver final
       const autofill::ParsingResult& parsing_result) override;
   void CheckViewAreaVisible(autofill::FieldRendererId field_id,
                             base::OnceCallback<void(bool)>) override;
-  bool HasValidURL(bool may_kill_renderer = true) override;
+  bool HasValidURL(bool may_kill_renderer) override;
   bool IsRenderFrameHostSupported() override;
   autofill::AutofillDriver* GetAutofillDriver() const override;
   base::WeakPtr<password_manager::PasswordManagerDriver> AsWeakPtr() override;

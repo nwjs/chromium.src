@@ -18,6 +18,7 @@ namespace apc = ::optimization_guide::proto;
 using apc::Actions;
 using apc::TypeAction;
 
+// TODO(crbug.com/537846361): Migrate this test suite to GlicBrowserTest.
 class GlicActorTypeToolUiTest : public GlicActorUiTest {
  public:
   GlicActorUiTest::MultiStep TypeAction(
@@ -181,6 +182,8 @@ IN_PROC_BROWSER_TEST_F(GlicActorTypeToolUiTest,
   RunTestSequence(
       InitializeWithOpenGlicWindow(),
       StartActorTaskInNewTab(task_url, kTypingTestTabId),
+      // Save APC before sending the fake target id.
+      GetPageContextForActorTab(),
       ExecuteAction(std::move(type_provider),
                     actor::mojom::ActionResultCode::kInvalidDomNodeId));
 }

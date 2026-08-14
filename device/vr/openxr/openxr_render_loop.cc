@@ -11,6 +11,7 @@
 #include "base/debug/dump_without_crashing.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/not_fatal_until.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
@@ -177,26 +178,26 @@ void OpenXrRenderLoop::GetFrameData(
     // Function should no-op if no change is needed.
     depth->SetDepthActive(options->depth_active);
   }
-  StartPendingFrame();
+  // Bail if the session ended while starting the frame. ExitPresent() has
+  // already reset `frame_data_receiver_`, so dropping `callback` during
+  // teardown is safe.
+  if (!StartPendingFrame()) {
+    return;
+  }
   webxr_has_pose_ = true;
   pending_frame_->sent_frame_data_time_ = base::TimeTicks::Now();
 
-  // TODO(crbug.com/40771470): The lack of frame_data_ here indicates
-  // that we probably should have deferred this call, but it matches the
-  // behavior from before the stage parameters were updated in this function and
-  // avoids a crash. Likely the deferral above should check if we're awaiting
-  // either the webxr or overlay submit.
-  if (pending_frame_->frame_data_) {
-    // If the stage parameters have been updated since the last frame that was
-    // sent, send the updated values.
-    pending_frame_->frame_data_->stage_parameters_id = stage_parameters_id_;
-    if (options->stage_parameters_id != stage_parameters_id_) {
-      pending_frame_->frame_data_->stage_parameters =
-          current_stage_parameters_.Clone();
-    }
-  } else {
-    TRACE_EVENT_INSTANT("xr",
-                        "OpenXrRenderLoop::GetFrameData Missing FrameData");
+  // frame_data_ is expected to be valid here. If it were null (indicating we
+  // already sent the pose to WebXR and are waiting for the overlay),
+  // ShouldDelayGetFrameData() would have deferred this call.
+  CHECK(pending_frame_->frame_data_, base::NotFatalUntil::M158);
+
+  // If the stage parameters have been updated since the last frame that was
+  // sent, send the updated values.
+  pending_frame_->frame_data_->stage_parameters_id = stage_parameters_id_;
+  if (options->stage_parameters_id != stage_parameters_id_) {
+    pending_frame_->frame_data_->stage_parameters =
+        current_stage_parameters_.Clone();
   }
 
   // Yield here to let the event queue process pending mojo messages,
@@ -312,17 +313,27 @@ void OpenXrRenderLoop::ClearPendingFrame() {
   }
 }
 
-void OpenXrRenderLoop::StartPendingFrame() {
+bool OpenXrRenderLoop::StartPendingFrame() {
   DVLOG(3) << __func__ << " pending_frame_=" << pending_frame_.has_value();
   if (!pending_frame_) {
     pending_frame_.emplace();
     pending_frame_->waiting_for_webxr_ = webxr_visible_;
     pending_frame_->waiting_for_overlay_ = overlay_visible_;
-    pending_frame_->frame_data_ = GetNextFrameData();
+    // GetNextFrameData() can synchronously end the session (e.g. no locatable
+    // views for kMaxInvalidViewFrames), which calls ExitPresent() and resets
+    // `pending_frame_`. Compute into a local and report failure if that
+    // happened, so callers stop instead of dereferencing a disengaged optional.
+    mojom::XRFrameDataPtr next_frame_data = GetNextFrameData();
+    if (!pending_frame_) {
+      DVLOG(1) << __func__ << ": session ended during GetNextFrameData()";
+      return false;
+    }
+    pending_frame_->frame_data_ = std::move(next_frame_data);
     // GetNextFrameData() should never return null:
     DCHECK(pending_frame_->frame_data_);
     pending_frame_->render_info_ = GetRenderInfo(*pending_frame_->frame_data_);
   }
+  return true;
 }
 
 void OpenXrRenderLoop::StartRuntimeFinish(
@@ -449,7 +460,7 @@ void OpenXrRenderLoop::MaybeCompositeAndSubmit(
   }
 
   // Dropping the "Maybe", because now we've passed that point.
-  TRACE_EVENT_BEGIN0("xr", "CompositeAndSubmit");
+  TRACE_EVENT_BEGIN("xr", "CompositeAndSubmit");
   bool copy_successful = false;
   bool has_webxr_content = pending_frame_->webxr_submitted_ && webxr_visible_;
   bool has_overlay_content =
@@ -473,8 +484,7 @@ void OpenXrRenderLoop::MaybeCompositeAndSubmit(
     submit_successful = SubmitCompositedFrame();
   }
 
-  TRACE_EVENT_END1("xr", "CompositeAndSubmit", "success",
-                   copy_successful && submit_successful);
+  TRACE_EVENT_END("xr", "success", copy_successful && submit_successful);
 
   if (copy_successful && !submit_successful) {
     ExitPresent(ExitXrPresentReason::kSubmitFrameFailed);
@@ -624,8 +634,12 @@ void OpenXrRenderLoop::RequestNextOverlayPose(
   DCHECK(overlay_visible_);
   TRACE_EVENT_INSTANT("xr", "OpenXrRenderLoop::RequestOverlayPose");
 
-  // Ensure we have a pending frame.
-  StartPendingFrame();
+  // Ensure we have a pending frame; bail if the session ended while starting
+  // it. ExitPresent() has already reset the overlay receiver, so dropping this
+  // callback during teardown is safe.
+  if (!StartPendingFrame()) {
+    return;
+  }
 
   std::move(callback).Run(pending_frame_->render_info_->Clone());
 }
@@ -905,7 +919,9 @@ void OpenXrRenderLoop::SubmitFrame(int16_t frame_index,
   DCHECK(BUILDFLAG(IS_ANDROID));
   // The sync token passed here is unused by OpenXR backend's implementation of
   // SubmitFrameMissing.
-  // TODO(crbug.com/40917172): Support non-shared buffer mode.
+  // TODO(crbug.com/476100354): Android OpenXR only supports Shared Buffer
+  // mode in production. This non-shared buffer path is only used in tests
+  // (SUBMIT_AS_TEST) and should be removed when that path is cleaned up.
   SubmitFrameMissing(frame_index,
                      gpu::SharedImageExportResult::CreateEmptyResult());
 }
@@ -952,7 +968,7 @@ void OpenXrRenderLoop::OnWebXrTokenSignaled(
   // openxr_ and context_provider can be nullptr if we receive
   // OnWebXrTokenSignaled after the session has ended. Ensure we don't crash in
   // that case.
-  if (!openxr_ || !context_provider_) {
+  if (!is_presenting_ || !openxr_ || !context_provider_) {
     return;
   }
 

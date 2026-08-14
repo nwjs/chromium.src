@@ -13,11 +13,8 @@
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
-#include "components/attribution_reporting/constants.h"
-#include "content/browser/attribution_reporting/attribution_data_host_manager_impl.h"
-#include "content/browser/attribution_reporting/test/mock_attribution_data_host_manager.h"
-#include "content/browser/attribution_reporting/test/mock_attribution_manager.h"
 #include "content/browser/storage_partition_impl.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/navigation_entry.h"
@@ -38,7 +35,6 @@
 #include "services/network/public/cpp/parsed_headers.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/wrapper_shared_url_loader_factory.h"
-#include "services/network/public/mojom/attribution.mojom.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "services/network/public/mojom/early_hints.mojom.h"
 #include "services/network/public/mojom/ip_address_space.mojom.h"
@@ -58,9 +54,6 @@
 
 namespace content {
 namespace {
-
-using attribution_reporting::kAttributionReportingRegisterSourceHeader;
-using attribution_reporting::kAttributionReportingRegisterTriggerHeader;
 
 using testing::_;
 using testing::ElementsAre;
@@ -405,8 +398,7 @@ class KeepAliveURLLoaderServiceTestBase : public RenderViewHostTestHarness {
     // navigation commit below will use the the loader & context that is
     // expected by the test. We no longer call OnDidCommitNavigation manually
     // since if we change RFHs we might not have a PolicyContainerHost or
-    // RFH origin yet here, causing problems with tests, attribution context
-    // etc.
+    // RFH origin yet here, causing problems with tests.
     GetNavigationRequest()->SetKeepAliveURLLoaderFactoryContextForTesting(
         context);
     pending_navigation_->Commit();
@@ -426,11 +418,12 @@ class KeepAliveURLLoaderServiceTestBase : public RenderViewHostTestHarness {
   void AddConnectSrcCSPToRFH(const std::string& allowed_url) {
     static_cast<RenderFrameHostImpl*>(main_rfh())
         ->policy_container_host()
-        ->AddContentSecurityPolicies(network::ParseContentSecurityPolicies(
-            "connect-src " + allowed_url,
-            network::mojom::ContentSecurityPolicyType::kEnforce,
-            network::mojom::ContentSecurityPolicySource::kMeta,
-            GURL(kTestRequestUrl)));
+        ->AddContentSecurityPoliciesForTesting(
+            network::ParseContentSecurityPolicies(
+                "connect-src " + allowed_url,
+                network::mojom::ContentSecurityPolicyType::kEnforce,
+                network::mojom::ContentSecurityPolicySource::kMeta,
+                GURL(kTestRequestUrl)));
   }
 
   network::TestURLLoaderFactory& network_url_loader_factory() {
@@ -650,124 +643,6 @@ TEST_F(KeepAliveURLLoaderServiceTest, ForwardOnReceiveResponse) {
       /*body=*/{}, std::nullopt);
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(loader_service().NumLoadersForTesting(), 1u);
-}
-
-TEST_F(KeepAliveURLLoaderServiceTest,
-       ForwardRedirectsAndResponseToAttributionRequestHelper) {
-  // The Attribution Manager uses the DataDecoder service, which, when an
-  // InProcessDataDecoer object exists, will route to an internal in-process
-  // instance.
-  data_decoder::test::InProcessDataDecoder in_process_data_decoder;
-
-  // Set up the Attribution Manager.
-  auto mock_manager = std::make_unique<MockAttributionManager>();
-  mock_manager->SetDataHostManager(
-      std::make_unique<AttributionDataHostManagerImpl>(mock_manager.get()));
-  MockAttributionManager* mock_attribution_manager = mock_manager.get();
-  static_cast<StoragePartitionImpl*>(
-      browser_context()->GetDefaultStoragePartition())
-      ->OverrideAttributionManagerForTesting(std::move(mock_manager));
-
-  // Loads keepalive request.
-  FakeRemoteURLLoaderFactory renderer_loader_factory;
-  MockReceiverURLLoaderClient renderer_loader_client;
-  BindKeepAliveURLLoaderFactory(renderer_loader_factory);
-  network::ResourceRequest request =
-      CreateResourceRequest(GURL(kTestRequestUrl));
-  request.attribution_reporting_eligibility =
-      network::mojom::AttributionReportingEligibility::kEventSourceOrTrigger;
-  renderer_loader_factory.CreateLoaderAndStart(
-      std::move(request), renderer_loader_client.BindNewPipeAndPassRemote());
-
-  // Simluates receiving a redirect in the network service.
-  EXPECT_CALL(*mock_attribution_manager, HandleTrigger).Times(1);
-  constexpr char kRegisterTriggerJson[] = R"json({ })json";
-  GetLastPendingRequest()->client->OnReceiveRedirect(
-      CreateRedirectInfo(GURL(kTestRedirectRequestUrl)),
-      CreateResponseHead({{kAttributionReportingRegisterTriggerHeader,
-                           kRegisterTriggerJson}}));
-
-  // Simluates receiving response in the network service.
-  EXPECT_CALL(*mock_attribution_manager, HandleSource).Times(1);
-  constexpr char kRegisterSourceJson[] =
-      R"json({"destination":"https://destination.example"})json";
-  GetLastPendingRequest()->client->OnReceiveResponse(
-      CreateResponseHead({{kAttributionReportingRegisterSourceHeader,
-                           kRegisterSourceJson}}),
-      /*body=*/{}, /*cached_metadata=*/std::nullopt);
-
-  base::RunLoop().RunUntilIdle();
-}
-
-TEST_F(KeepAliveURLLoaderServiceTest, ForwardErrorToAttributionRequestHelper) {
-  // Set up the Attribution Manager.
-  auto mock_manager = std::make_unique<MockAttributionManager>();
-  auto mock_data_host_manager =
-      std::make_unique<MockAttributionDataHostManager>();
-  MockAttributionDataHostManager* mock_data_host_manager_ptr =
-      mock_data_host_manager.get();
-  mock_manager->SetDataHostManager(std::move(mock_data_host_manager));
-  static_cast<StoragePartitionImpl*>(
-      browser_context()->GetDefaultStoragePartition())
-      ->OverrideAttributionManagerForTesting(std::move(mock_manager));
-
-  // Loads keepalive request.
-  FakeRemoteURLLoaderFactory renderer_loader_factory;
-  MockReceiverURLLoaderClient renderer_loader_client;
-  BindKeepAliveURLLoaderFactory(renderer_loader_factory);
-  network::ResourceRequest request =
-      CreateResourceRequest(GURL(kTestRequestUrl));
-  request.attribution_reporting_eligibility =
-      network::mojom::AttributionReportingEligibility::kEventSourceOrTrigger;
-  renderer_loader_factory.CreateLoaderAndStart(
-      std::move(request), renderer_loader_client.BindNewPipeAndPassRemote());
-
-  // Simluates receiving error in the network service.
-  EXPECT_CALL(*mock_data_host_manager_ptr,
-              NotifyBackgroundRegistrationCompleted)
-      .Times(1);
-  GetLastPendingRequest()->client->OnComplete(
-      network::URLLoaderCompletionStatus(-1));
-  base::RunLoop().RunUntilIdle();
-}
-
-TEST_F(
-    KeepAliveURLLoaderServiceTest,
-    OnReceiveRedirectWithErrorRedirectMode_NotForwardedToAttributionRequestHelper) {
-  // Set up the Attribution Manager.
-  auto mock_manager = std::make_unique<MockAttributionManager>();
-  auto mock_data_host_manager =
-      std::make_unique<MockAttributionDataHostManager>();
-  MockAttributionDataHostManager* mock_data_host_manager_ptr =
-      mock_data_host_manager.get();
-  mock_manager->SetDataHostManager(std::move(mock_data_host_manager));
-  static_cast<StoragePartitionImpl*>(
-      browser_context()->GetDefaultStoragePartition())
-      ->OverrideAttributionManagerForTesting(std::move(mock_manager));
-
-  // Loads keepalive request that redirects first, with error redirect_mode:
-  FakeRemoteURLLoaderFactory renderer_loader_factory;
-  MockReceiverURLLoaderClient renderer_loader_client;
-  BindKeepAliveURLLoaderFactory(renderer_loader_factory);
-  network::ResourceRequest request = CreateResourceRequest(
-      GURL(kTestRequestUrl), /*keepalive=*/true,
-      /*is_trusted=*/false, network::mojom::RedirectMode::kError);
-  request.attribution_reporting_eligibility =
-      network::mojom::AttributionReportingEligibility::kEventSourceOrTrigger;
-  renderer_loader_factory.CreateLoaderAndStart(
-      std::move(request), renderer_loader_client.BindNewPipeAndPassRemote());
-
-  // Simluates receiving redirect in the network service.
-  EXPECT_CALL(*mock_data_host_manager_ptr, NotifyBackgroundRegistrationData)
-      .Times(0);
-  EXPECT_CALL(*mock_data_host_manager_ptr,
-              NotifyBackgroundRegistrationCompleted)
-      .Times(1);
-  GetLastPendingRequest()->client->OnReceiveRedirect(
-      CreateRedirectInfo(GURL(kTestRedirectRequestUrl)),
-      CreateResponseHead(
-          {{kTestResponseHeaderName, kTestResponseHeaderValue}}));
-  base::RunLoop().RunUntilIdle();
 }
 
 TEST_F(KeepAliveURLLoaderServiceTest,
@@ -1503,71 +1378,6 @@ TEST_F(FetchLaterKeepAliveURLLoaderServiceTest, Shutdown) {
   EXPECT_EQ(network_url_loader_factory().NumPending(), 1);
 }
 
-TEST_F(FetchLaterKeepAliveURLLoaderServiceTest,
-       ForwardRedirectsAndResponseToAttributionRequestHelper) {
-  // The Attribution Manager uses the DataDecoder service, which, when an
-  // InProcessDataDecoer object exists, will route to an internal in-process
-  // instance.
-  data_decoder::test::InProcessDataDecoder in_process_data_decoder;
-
-  // Set up the Attribution Manager.
-  auto mock_manager = std::make_unique<MockAttributionManager>();
-  mock_manager->SetDataHostManager(
-      std::make_unique<AttributionDataHostManagerImpl>(mock_manager.get()));
-  MockAttributionManager* mock_attribution_manager = mock_manager.get();
-  static_cast<StoragePartitionImpl*>(
-      browser_context()->GetDefaultStoragePartition())
-      ->OverrideAttributionManagerForTesting(std::move(mock_manager));
-
-  // Loads FetchLater request (which is also keepalive request):
-  FakeRemoteFetchLaterLoaderFactory renderer_loader_factory;
-  BindFetchLaterLoaderFactory(renderer_loader_factory);
-  network::ResourceRequest request =
-      CreateFetchLaterResourceRequest(GURL(kTestRequestUrl));
-  request.attribution_reporting_eligibility =
-      network::mojom::AttributionReportingEligibility::kEventSourceOrTrigger;
-  renderer_loader_factory.CreateLoader(std::move(request));
-  EXPECT_EQ(loader_service().NumLoadersForTesting(), 1u);
-  // As the request is deferred, the pending URLoader in network is 0.
-  EXPECT_EQ(network_url_loader_factory().NumPending(), 0);
-  // Simulate a shutdown to start the pending request.
-  loader_service().Shutdown();
-  // The pending loader should still exist.
-  EXPECT_EQ(loader_service().NumLoadersForTesting(), 1u);
-  // There should be no disconnected loader.
-  EXPECT_EQ(loader_service().NumDisconnectedLoadersForTesting(), 0u);
-  // The network should now have created pending URLLoader.
-  EXPECT_EQ(network_url_loader_factory().NumPending(), 1);
-
-  base::RunLoop run_loop_1;
-
-  // Simluates receiving a redirect in the network service.
-  EXPECT_CALL(*mock_attribution_manager, HandleTrigger)
-      .WillOnce([&](AttributionTrigger, GlobalRenderFrameHostId) {
-        run_loop_1.Quit();
-      });
-  constexpr char kRegisterTriggerJson[] = R"json({ })json";
-  GetLastPendingRequest()->client->OnReceiveRedirect(
-      CreateRedirectInfo(GURL(kTestRedirectRequestUrl)),
-      CreateResponseHead({{kAttributionReportingRegisterTriggerHeader,
-                           kRegisterTriggerJson}}));
-  run_loop_1.Run();
-
-  base::RunLoop run_loop_2;
-
-  // Simluates receiving response in the network service.
-  EXPECT_CALL(*mock_attribution_manager, HandleSource)
-      .WillOnce(
-          [&](StorableSource, GlobalRenderFrameHostId) { run_loop_2.Quit(); });
-  constexpr char kRegisterSourceJson[] =
-      R"json({"destination":"https://destination.example"})json";
-  GetLastPendingRequest()->client->OnReceiveResponse(
-      CreateResponseHead(
-          {{kAttributionReportingRegisterSourceHeader, kRegisterSourceJson}}),
-      /*body=*/{}, /*cached_metadata=*/std::nullopt);
-  run_loop_2.Run();
-}
-
 class KeepAliveURLLoaderServiceRetryTest
     : public KeepAliveURLLoaderServiceTestBase {
  protected:
@@ -1575,10 +1385,15 @@ class KeepAliveURLLoaderServiceRetryTest
   static constexpr base::TimeDelta kMinRetryDeltaForTesting = base::Seconds(10);
   static constexpr double kMinRetryBackoffFactorForTesting = 10.0;
   static constexpr base::TimeDelta kMaxRetryAgeForTesting = base::Days(1);
+  static constexpr base::TimeDelta kDisconnectedLoaderTimeoutForTesting =
+      base::Seconds(30);
 
   void SetUp() override {
     feature_list().InitWithFeaturesAndParameters(
-        {{blink::features::kKeepAliveInBrowserMigration, {}},
+        {{blink::features::kKeepAliveInBrowserMigration,
+          {{"disconnected_loader_timeout_seconds",
+            base::NumberToString(
+                kDisconnectedLoaderTimeoutForTesting.InSeconds())}}},
          {blink::features::kFetchRetry,
           {
               {"max_retry_count",
@@ -2067,6 +1882,64 @@ TEST_F(KeepAliveURLLoaderServiceRetryTest, ReceivedResponseWillNotBeRetried) {
   EXPECT_TRUE(loader->IsForwardURLLoadStarted());
 }
 
+// Regression test for crbug.com/511819962: Test that retrying a request after a
+// redirect resets the per-attempt request state, so that the retried response
+// is forwarded with only the redirects from the retried attempt.
+TEST_F(KeepAliveURLLoaderServiceRetryTest,
+       RetryAfterRedirectResetsPerAttemptState) {
+  FakeRemoteURLLoaderFactory renderer_loader_factory;
+  MockReceiverURLLoaderClient renderer_loader_client;
+  BindKeepAliveURLLoaderFactory(renderer_loader_factory);
+
+  auto resource_request = CreateResourceRequest(GURL(kTestRequestUrl));
+  network::FetchRetryOptions options;
+  options.max_attempts = 1;
+  resource_request.fetch_retry_options = options;
+
+  // Loads keepalive request:
+  renderer_loader_factory.CreateLoaderAndStart(
+      resource_request, renderer_loader_client.BindNewPipeAndPassRemote());
+  ASSERT_EQ(network_url_loader_factory().NumPending(), 1);
+  ASSERT_EQ(loader_service().NumLoadersForTesting(), 1u);
+
+  base::WeakPtr<KeepAliveURLLoader> loader =
+      loader_service().GetLoaderWithRequestIdForTesting(
+          FakeRemoteURLLoaderFactory::kRequestId);
+
+  // Simulate the first attempt receiving a redirect, then failing with a
+  // retriable error before the redirected request completes.
+  loader->EndReceiveRedirect(CreateRedirectInfo(GURL(kTestRedirectRequestUrl)),
+                             CreateResponseHead({{kTestResponseHeaderName,
+                                                  kTestResponseHeaderValue}}));
+  loader->OnComplete(
+      network::URLLoaderCompletionStatus(net::ERR_NAME_NOT_RESOLVED));
+  ASSERT_TRUE(loader->IsAttemptingRetry(/*include_failed_retry=*/false));
+  ASSERT_FALSE(loader->IsForwardURLLoadStarted());
+
+  // Fast-forward so the scheduled retry runs and starts a new request from the
+  // original URL. The first attempt's loader has been reset, so only the
+  // retried request remains pending.
+  task_environment()->FastForwardBy(kMinRetryDeltaForTesting);
+  ASSERT_TRUE(loader.get());
+  ASSERT_EQ(network_url_loader_factory().NumPending(), 1);
+  EXPECT_EQ(GetLastPendingRequest()->request.url, GURL(kTestRequestUrl));
+
+  // Simulate the retried request receiving a response without redirecting.
+  // The renderer should only see the response from the retried attempt and not
+  // the redirect from the failed first attempt.
+  EXPECT_CALL(renderer_loader_client, OnReceiveRedirect(_, _)).Times(0);
+  EXPECT_CALL(renderer_loader_client,
+              OnReceiveResponse(ResponseHasHeader(kTestResponseHeaderName,
+                                                  kTestResponseHeaderValue),
+                                _, Eq(std::nullopt)))
+      .Times(1);
+  loader->OnReceiveResponse(
+      CreateResponseHead({{kTestResponseHeaderName, kTestResponseHeaderValue}}),
+      /*body=*/{}, std::nullopt);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return loader && loader->IsForwardURLLoadStarted(); }));
+}
+
 // Test that hitting the redirect limit won't trigger a retry.
 TEST_F(KeepAliveURLLoaderServiceRetryTest,
        ExceededRedirectLimitWillNotBeRetried) {
@@ -2164,6 +2037,107 @@ TEST_F(KeepAliveURLLoaderServiceRetryTest, SelfDeletionOnMaxAge) {
   // The loader should be deleted after hitting max age.
   EXPECT_EQ(loader_service().NumLoadersForTesting(), 0u);
   EXPECT_FALSE(loader.get());
+}
+
+// Test that when a request completes with an error ineligible for retry, and
+// the renderer subsequently disconnects, the loader will not attempt to retry.
+TEST_F(KeepAliveURLLoaderServiceRetryTest,
+       IneligibleErrorWillNotBeRetriedOnDisconnect) {
+  FakeRemoteURLLoaderFactory renderer_loader_factory;
+  MockReceiverURLLoaderClient renderer_loader_client;
+  BindKeepAliveURLLoaderFactory(renderer_loader_factory);
+
+  auto resource_request = CreateResourceRequest(GURL(kTestRequestUrl));
+  network::FetchRetryOptions options;
+  options.max_attempts = 10;
+  options.max_age = base::Days(1);
+  options.retry_after_unload = true;
+  resource_request.fetch_retry_options = options;
+
+  // Loads keepalive request:
+  renderer_loader_factory.CreateLoaderAndStart(
+      resource_request, renderer_loader_client.BindNewPipeAndPassRemote());
+  EXPECT_EQ(network_url_loader_factory().NumPending(), 1);
+  EXPECT_EQ(loader_service().NumLoadersForTesting(), 1u);
+
+  base::WeakPtr<KeepAliveURLLoader> loader =
+      loader_service().GetLoaderWithRequestIdForTesting(
+          FakeRemoteURLLoaderFactory::kRequestId);
+
+  // Complete with an ineligible error.
+  loader->OnComplete(
+      network::URLLoaderCompletionStatus(net::ERR_NETWORK_ACCESS_REVOKED));
+
+  // The request is not eligible for retry, but the loader is kept alive to
+  // delay sending the error until max_age is reached.
+  EXPECT_FALSE(loader->IsAttemptingRetry(/*include_failed_retry=*/false));
+  EXPECT_EQ(loader_service().NumLoadersForTesting(), 1u);
+
+  // Disconnects and unbinds the receiver client & remote loader.
+  renderer_loader_client.ResetReceiver();
+  renderer_loader_factory.reset_remote_url_loader();
+  {
+    base::RunLoop run_loop;
+    run_loop.QuitWhenIdle();
+    run_loop.Run();
+  }
+
+  // Fast forward by the disconnect timeout so OnDisconnectedLoaderTimerFired
+  // runs.
+  task_environment()->FastForwardBy(kDisconnectedLoaderTimeoutForTesting);
+
+  // Because the previous completion status was an ineligible error,
+  // OnDisconnectedLoaderTimerFired should not schedule a retry and should
+  // delete the loader.
+  EXPECT_EQ(loader_service().NumLoadersForTesting(), 0u);
+  EXPECT_FALSE(loader.get());
+}
+
+// Test that when no completion result is received before renderer
+// disconnection, the loader will attempt a retry upon disconnect timer firing
+// if configured.
+TEST_F(KeepAliveURLLoaderServiceRetryTest, NoResultWillBeRetriedOnDisconnect) {
+  FakeRemoteURLLoaderFactory renderer_loader_factory;
+  MockReceiverURLLoaderClient renderer_loader_client;
+  BindKeepAliveURLLoaderFactory(renderer_loader_factory);
+
+  auto resource_request = CreateResourceRequest(GURL(kTestRequestUrl));
+  network::FetchRetryOptions options;
+  options.max_attempts = 10;
+  options.max_age = base::Days(1);
+  options.retry_after_unload = true;
+  resource_request.fetch_retry_options = options;
+
+  // Loads keepalive request:
+  renderer_loader_factory.CreateLoaderAndStart(
+      resource_request, renderer_loader_client.BindNewPipeAndPassRemote());
+  EXPECT_EQ(network_url_loader_factory().NumPending(), 1);
+  EXPECT_EQ(loader_service().NumLoadersForTesting(), 1u);
+
+  base::WeakPtr<KeepAliveURLLoader> loader =
+      loader_service().GetLoaderWithRequestIdForTesting(
+          FakeRemoteURLLoaderFactory::kRequestId);
+
+  // Disconnect without completing the request.
+  renderer_loader_client.ResetReceiver();
+  renderer_loader_factory.reset_remote_url_loader();
+  {
+    base::RunLoop run_loop;
+    run_loop.QuitWhenIdle();
+    run_loop.Run();
+  }
+
+  // Fast forward by the disconnect timeout so OnDisconnectedLoaderTimerFired
+  // runs.
+  task_environment()->FastForwardBy(kDisconnectedLoaderTimeoutForTesting);
+
+  // Because there was no completion status yet, OnDisconnectedLoaderTimerFired
+  // should schedule a retry and keep the loader alive.
+  EXPECT_EQ(loader_service().NumLoadersForTesting(), 1u);
+  EXPECT_TRUE(loader.get());
+  if (loader) {
+    EXPECT_TRUE(loader->IsAttemptingRetry(/*include_failed_retry=*/false));
+  }
 }
 
 }  // namespace content

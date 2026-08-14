@@ -11,6 +11,7 @@
 #include "chrome/browser/glic/common/local_hotkey_manager.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/host/glic.mojom-shared.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/service/glic_instance_coordinator_impl.h"
 #include "chrome/browser/glic/service/glic_instance_impl.h"
@@ -20,6 +21,7 @@
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
@@ -28,6 +30,7 @@
 #include "components/sync/base/features.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/base_window.h"
+#include "ui/base/interaction/element_identifier.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/side_panel/android/android_side_panel_enabled_fn.h"
@@ -271,8 +274,8 @@ ScopedGlicCapability::ScopedGlicCapability(Profile* profile, bool enabled)
         signin::Tribool::kTrue;
   } else {
     original_enabled_ =
-        primary_account.GetAccountCapabilities()
-            .can_use_model_execution_features() == signin::Tribool::kTrue;
+        glic::GlicEnabling::CanUseAdultFeatures(
+            primary_account.GetAccountCapabilities());
   }
 
   SetGlicCapability(profile_, enabled);
@@ -381,5 +384,18 @@ bool IsSidePanelEnabled() {
   return false;
 #endif
 }
+
+BrowserWindowInterface* CreateBrowserWindow(Profile* profile) {
+  base::test::TestFuture<BrowserWindowInterface*> future;
+  CreateBrowserWindow(
+      BrowserWindowCreateParams(*profile, /*from_user_gesture=*/false),
+      future.GetCallback());
+  BrowserWindowInterface* window = future.Get();
+  CHECK(window);
+  return window;
+}
+
+DEFINE_ELEMENT_IDENTIFIER_VALUE(kGlicHostElementId);
+DEFINE_ELEMENT_IDENTIFIER_VALUE(kGlicContentsElementId);
 
 }  // namespace glic

@@ -129,6 +129,10 @@ class ReportScheduler {
   // during startup.
   void OnReportEnabledPrefChanged();
 
+  // Returns the security signals mode for the given report type and trigger.
+  SecuritySignalsMode GetSecurityMode(ReportType report_type,
+                                      ReportTrigger trigger) const;
+
   // Stops the periodic timer and the update observer.
   void Stop();
 
@@ -145,6 +149,25 @@ class ReportScheduler {
 
   // Starts report generation in response to |trigger|.
   void GenerateAndUploadReport(ReportTrigger trigger);
+
+  // Returns true if we need to fetch a challenge before generating the report.
+  bool NeedChallenge(ReportTrigger trigger,
+                     SecuritySignalsMode signals_mode) const;
+
+  // Callback for GenerateChromeProfileChallenge.
+  void OnChallengeGenerated(
+      ReportTrigger trigger,
+      SecuritySignalsMode signals_mode,
+      policy::DeviceManagementStatus status,
+      const enterprise_management::GenerateChromeProfileChallengeResponse&
+          response);
+
+  // Continues report generation after challenge fetch (or if no challenge is
+  // needed).
+  void ContinueGenerateAndUploadReport(
+      ReportTrigger trigger,
+      SecuritySignalsMode signals_mode,
+      const std::optional<std::string>& challenge);
 
   // Continues processing a report (contained in the |result| collection) by
   // sending it to the uploader.
@@ -163,6 +186,7 @@ class ReportScheduler {
   void RecordUploadTrigger();
 
   ReportType TriggerToReportType(ReportTrigger trigger);
+  bool IsTriggerEnabled(ReportTrigger trigger) const;
 
   policy::DMToken GetDMToken();
 

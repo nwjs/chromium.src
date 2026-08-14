@@ -49,6 +49,7 @@
 #include "ash/wm/splitview/split_view_constants.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_util.h"
+#include "base/check_deref.h"
 #include "base/json/json_writer.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_base.h"
@@ -72,6 +73,7 @@
 #include "chrome/browser/ash/app_restore/app_restore_arc_test_helper.h"
 #include "chrome/browser/ash/app_restore/app_restore_test_util.h"
 #include "chrome/browser/ash/browser_delegate/browser_controller.h"
+#include "chrome/browser/ash/browser_delegate/browser_delegate.h"
 #include "chrome/browser/ash/login/login_manager_test.h"
 #include "chrome/browser/ash/login/test/login_manager_mixin.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
@@ -765,7 +767,7 @@ IN_PROC_BROWSER_TEST_F(DesksClientTest, CaptureActiveDeskAsTemplateTest) {
 
   // Create the settings app, which is a system web app.
   webapps::AppId settings_app_id =
-      CreateSettingsSystemWebApp(browser()->profile());
+      CreateSettingsSystemWebApp(browser()->GetProfile());
 
   // Change the Settings app's bounds too.
   const gfx::Rect settings_app_bounds = gfx::Rect(100, 100, 800, 300);
@@ -877,7 +879,7 @@ IN_PROC_BROWSER_TEST_F(DesksClientTest, LaunchTemplateWithSystemApp) {
   ASSERT_TRUE(DesksClient::Get());
 
   // Create the settings app, which is a system web app.
-  CreateSettingsSystemWebApp(browser()->profile());
+  CreateSettingsSystemWebApp(browser()->GetProfile());
 
   aura::Window* settings_window = FindBrowserWindow(kSettingsWindowId);
   ASSERT_TRUE(settings_window);
@@ -903,8 +905,10 @@ IN_PROC_BROWSER_TEST_F(DesksClientTest, LaunchTemplateWithSystemApp) {
   BrowserWindowInterface* settings_browser = nullptr;
   ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
       [&](BrowserWindowInterface* browser) {
-        if (ash::IsBrowserForSystemWebApp(browser,
-                                          ash::SystemWebAppType::SETTINGS)) {
+        if (ash::IsBrowserForSystemWebApp(
+                CHECK_DEREF(ash::BrowserController::GetInstance()->GetDelegate(
+                    browser)),
+                ash::SystemWebAppType::SETTINGS)) {
           settings_browser = browser;
         }
         return !settings_browser;
@@ -921,7 +925,7 @@ IN_PROC_BROWSER_TEST_F(DesksClientTest, LaunchTemplateWithSystemApp) {
 // existing instance of the system web app to the current desk.
 IN_PROC_BROWSER_TEST_F(DesksClientTest, LaunchTemplateWithSystemAppExisting) {
   ASSERT_TRUE(DesksClient::Get());
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
 
   // Create the settings app, which is a system web app.
   CreateSettingsSystemWebApp(profile);
@@ -1209,11 +1213,11 @@ IN_PROC_BROWSER_TEST_F(DesksClientTest, PreventBrowserSessionRestoreTest) {
   ScopedKeepAlive keep_alive(KeepAliveOrigin::BROWSER,
                              KeepAliveRestartOption::DISABLED);
   ScopedProfileKeepAlive profile_keep_alive(
-      browser()->profile(), ProfileKeepAliveOrigin::kBrowserWindow);
+      browser()->GetProfile(), ProfileKeepAliveOrigin::kBrowserWindow);
 
   // Enable session service.
   SessionStartupPref pref(SessionStartupPref::LAST);
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
   SessionStartupPref::SetStartupPref(profile, pref);
 
   const int expected_tab_count = 2;
@@ -1476,7 +1480,7 @@ IN_PROC_BROWSER_TEST_F(DesksClientTest, GetDeskTemplateJson) {
 
   // Create the settings app, which is a system web app.
   webapps::AppId settings_app_id =
-      CreateSettingsSystemWebApp(browser()->profile());
+      CreateSettingsSystemWebApp(browser()->GetProfile());
 
   // Change the Settings app's bounds too.
   const gfx::Rect settings_app_bounds = gfx::Rect(100, 100, 800, 300);
@@ -1488,7 +1492,7 @@ IN_PROC_BROWSER_TEST_F(DesksClientTest, GetDeskTemplateJson) {
       CaptureActiveDeskAndSaveTemplate(ash::DeskTemplateType::kTemplate);
 
   std::string template_json =
-      GetTemplateJson(desk_template->uuid(), browser()->profile());
+      GetTemplateJson(desk_template->uuid(), browser()->GetProfile());
 
   // content of the conversion is tested in:
   // components/desks_storage/core/desk_template_conversion_unittest.cc in this
@@ -1790,8 +1794,8 @@ IN_PROC_BROWSER_TEST_F(DesksClientTest, SystemUICaptureIncognitoBrowserTest) {
 IN_PROC_BROWSER_TEST_F(DesksClientTest,
                        SystemUILaunchTemplateWithSystemWebApp) {
   // Create the settings and help apps, which are system web apps.
-  CreateSettingsSystemWebApp(browser()->profile());
-  CreateHelpSystemWebApp(browser()->profile());
+  CreateSettingsSystemWebApp(browser()->GetProfile());
+  CreateHelpSystemWebApp(browser()->GetProfile());
 
   aura::Window* settings_window = FindBrowserWindow(kSettingsWindowId);
   aura::Window* help_window = FindBrowserWindow(kHelpWindowId);
@@ -1859,7 +1863,7 @@ IN_PROC_BROWSER_TEST_F(DesksClientTest,
 // Tests that launching a template that contains a system web app will move the
 // existing instance of the system web app to the current desk.
 IN_PROC_BROWSER_TEST_F(DesksClientTest, SystemUILaunchTemplateWithSWAExisting) {
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
 
   // Create the settings and help apps, which are system web apps.
   CreateSettingsSystemWebApp(profile);
@@ -2121,7 +2125,7 @@ IN_PROC_BROWSER_TEST_F(DesksClientTest,
 
   // Create the settings app, which is a system web app.
   webapps::AppId settings_app_id =
-      CreateSettingsSystemWebApp(browser()->profile());
+      CreateSettingsSystemWebApp(browser()->GetProfile());
 
   // Change the Settings app's bounds too.
   const gfx::Rect settings_app_bounds(100, 100, 800, 300);
@@ -2249,8 +2253,8 @@ IN_PROC_BROWSER_TEST_F(DesksClientTest,
   base::HistogramTester histogram_tester;
 
   // Create the two file manager (system web app) windows.
-  CreateFilesSystemWebApp(browser()->profile());
-  CreateFilesSystemWebApp(browser()->profile());
+  CreateFilesSystemWebApp(browser()->GetProfile());
+  CreateFilesSystemWebApp(browser()->GetProfile());
 
   ash::test::CreateAndShowBrowser(profile(),
                                   {GURL(kExampleUrl1), GURL(kExampleUrl2)});
@@ -2349,7 +2353,7 @@ IN_PROC_BROWSER_TEST_F(DesksClientTest,
   // Do not exit from test or delete the Profile* when last browser is closed.
   ScopedKeepAlive keep_alive(KeepAliveOrigin::BROWSER,
                              KeepAliveRestartOption::DISABLED);
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
   ScopedProfileKeepAlive profile_keep_alive(
       profile, ProfileKeepAliveOrigin::kBrowserWindow);
 
@@ -2483,7 +2487,7 @@ IN_PROC_BROWSER_TEST_F(DesksClientTest, LaunchTemplateRecordsLoadTimeMetric) {
   base::HistogramTester histogram_tester;
 
   // Create the settings app, which is a system web app.
-  CreateSettingsSystemWebApp(browser()->profile());
+  CreateSettingsSystemWebApp(browser()->GetProfile());
 
   ash::test::CreateAndShowBrowser(profile(),
                                   {GURL(kExampleUrl1), GURL(kExampleUrl2)});
@@ -2996,7 +3000,7 @@ IN_PROC_BROWSER_TEST_F(DesksClientTest,
   std::vector<apps::AppPtr> deltas;
   deltas.push_back(
       std::make_unique<apps::App>(apps::AppType::kArc, kUnknownTestAppId));
-  apps::AppServiceProxyFactory::GetForProfile(browser()->profile())
+  apps::AppServiceProxyFactory::GetForProfile(browser()->GetProfile())
       ->OnApps(std::move(deltas), apps::AppType::kArc,
                /*should_notify_initialized=*/false);
 
@@ -3190,7 +3194,7 @@ class DesksTemplatesClientArcTest : public InProcessBrowserTest {
   }
 
   void SetUpOnMainThread() override {
-    arc_helper_.SetUpOnMainThread(browser()->profile());
+    arc_helper_.SetUpOnMainThread(browser()->GetProfile());
     InProcessBrowserTest::SetUpOnMainThread();
   }
 
@@ -3218,7 +3222,7 @@ IN_PROC_BROWSER_TEST_F(DesksTemplatesClientArcTest,
   views::Widget* widget = ash::CreateExoWindow("org.chromium.arc.100");
   widget->SetBounds(gfx::Rect(500, 500));
   full_restore::SaveAppLaunchInfo(
-      browser()->profile()->GetPath(),
+      browser()->GetProfile()->GetPath(),
       std::make_unique<app_restore::AppLaunchInfo>(
           app_id, ui::EF_NONE, session_id1, display::kDefaultDisplayId));
 

@@ -27,6 +27,7 @@ namespace glic {
 // TODO(b/445924847): This test does not work with multi-instance, which is now
 // launched. It needs updated if we want to pursue launching the GlicWarming
 // feature.
+// TODO(crbug.com/537847083): Migrate this test suite to GlicBrowserTest.
 class DISABLED_GlicProfileManagerUiTest : public test::InteractiveGlicTest {
  public:
   DISABLED_GlicProfileManagerUiTest() {
@@ -72,7 +73,7 @@ class DISABLED_GlicProfileManagerUiTest : public test::InteractiveGlicTest {
 
   GlicKeyedService* GetService(bool primary) {
     return GlicKeyedServiceFactory::GetGlicKeyedService(
-        primary ? browser()->profile() : GetSecondProfile());
+        primary ? browser()->GetProfile() : GetSecondProfile());
   }
 
   auto CreateAndWarmGlic(bool primary_profile) {
@@ -164,7 +165,7 @@ IN_PROC_BROWSER_TEST_F(DISABLED_GlicProfileManagerUiTest, ConsistentPreload) {
       CheckWarmedAndSized(false, false),
       // Enable preloading again.
       ResetPreloading(), Do([this]() {
-        SetFRECompletion(browser()->profile(), prefs::FreStatus::kCompleted);
+        SetFRECompletion(browser()->GetProfile(), prefs::FreStatus::kCompleted);
       }),
       // Attempt to preload for the primary profile.
       CreateAndWarmGlic(/*primary_profile=*/true),
@@ -188,7 +189,7 @@ IN_PROC_BROWSER_TEST_F(DISABLED_GlicProfileManagerUiTest, PreloadMutex) {
       CheckWarmedAndSized(false, false),
       // Re-enable preloading.
       ResetPreloading(), Do([this]() {
-        SetFRECompletion(browser()->profile(), prefs::FreStatus::kCompleted);
+        SetFRECompletion(browser()->GetProfile(), prefs::FreStatus::kCompleted);
       }),
       // Attempt to preload for the primary profile.
       CreateAndWarmGlic(/*primary_profile=*/true),
@@ -218,7 +219,7 @@ IN_PROC_BROWSER_TEST_F(DISABLED_GlicProfileManagerUiTest, ShowMutex) {
       CheckWarmedAndSized(false, true),
       // Set primary profile to completed so it can be warmed.
       Do([this]() {
-        SetFRECompletion(browser()->profile(), prefs::FreStatus::kCompleted);
+        SetFRECompletion(browser()->GetProfile(), prefs::FreStatus::kCompleted);
       }),
       DeprecatedOpenGlicWindow(GlicWindowMode::kAttached),
       // The first service should remain warmed.
@@ -240,7 +241,7 @@ IN_PROC_BROWSER_TEST_F(DISABLED_GlicProfileManagerUiTest, FreMutex) {
       CheckWarmedAndSized(false, true),
       // Set primary profile to completed so it can be warmed.
       Do([this]() {
-        SetFRECompletion(browser()->profile(), prefs::FreStatus::kCompleted);
+        SetFRECompletion(browser()->GetProfile(), prefs::FreStatus::kCompleted);
       }),
       ToggleGlicWindow(GlicWindowMode::kAttached),
       // The first service should remain warmed.
@@ -257,7 +258,7 @@ IN_PROC_BROWSER_TEST_F(DISABLED_GlicProfileManagerUiTest,
       ResetPreloading(),
       // Set primary profile to completed so it can be warmed.
       Do([this]() {
-        SetFRECompletion(browser()->profile(), prefs::FreStatus::kCompleted);
+        SetFRECompletion(browser()->GetProfile(), prefs::FreStatus::kCompleted);
       }),
       DeprecatedOpenGlicWindow(GlicWindowMode::kAttached),
       CheckWarmedAndSized(true, false),
@@ -276,7 +277,7 @@ IN_PROC_BROWSER_TEST_F(DISABLED_GlicProfileManagerUiTest,
       CheckWarmedAndSized(false, false),
       // Re-enable preloading.
       ResetPreloading(), Do([this]() {
-        SetFRECompletion(browser()->profile(), prefs::FreStatus::kCompleted);
+        SetFRECompletion(browser()->GetProfile(), prefs::FreStatus::kCompleted);
       }),
       // Attempt to preload for the primary profile.
       CreateAndWarmGlic(/*primary_profile=*/true),
@@ -295,7 +296,7 @@ IN_PROC_BROWSER_TEST_F(DISABLED_GlicProfileManagerUiTest,
       CheckWarmedAndSized(false, false),
       // Re-enable preloading.
       ResetPreloading(), Do([this]() {
-        SetFRECompletion(browser()->profile(), prefs::FreStatus::kCompleted);
+        SetFRECompletion(browser()->GetProfile(), prefs::FreStatus::kCompleted);
       }),
       DeprecatedOpenGlicWindow(GlicWindowMode::kAttached),
       CheckWarmedAndSized(true, false), SendMemoryPressureSignal(),

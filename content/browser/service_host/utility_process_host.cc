@@ -77,6 +77,7 @@
 #include "media/capture/capture_switches.h"
 #include "services/audio/public/mojom/audio_service.mojom.h"
 #include "services/network/public/mojom/network_service.mojom.h"
+#include "services/webnn/public/mojom/webnn_compiler_service.mojom.h"
 #include "services/webnn/webnn_switches.h"
 #endif
 
@@ -218,6 +219,13 @@ UtilityProcessHost::Options&
 UtilityProcessHost::Options::WithExtraCommandLineSwitches(
     std::vector<std::string> switches) {
   extra_switches_ = std::move(switches);
+  return *this;
+}
+
+UtilityProcessHost::Options&
+UtilityProcessHost::Options::WithExtraCommandLineSwitchKeyValues(
+    std::vector<std::pair<std::string, std::string>> switch_key_values) {
+  extra_switch_key_values_ = std::move(switch_key_values);
   return *this;
 }
 
@@ -460,6 +468,7 @@ bool UtilityProcessHost::StartProcess() {
 #endif
 #if BUILDFLAG(ENABLE_VR)
       device::switches::kWebXrHandAnonymizationStrategy,
+      device::switches::kWebXrMaxFramebufferScale,
 #endif
 #if BUILDFLAG(IS_CHROMEOS)
       switches::kSchedulerBoostUrgent,
@@ -477,8 +486,10 @@ bool UtilityProcessHost::StartProcess() {
   };
   cmd_line->CopySwitchesFrom(browser_command_line, kSwitchNames);
 #if BUILDFLAG(IS_WIN)
-  if (options_.sandbox_type_ ==
-      sandbox::mojom::Sandbox::kWebNNModelCompilation) {
+  // Propagate WebNN-specific switches to the compiler process regardless of
+  // sandbox type, since sandbox may be overridden by
+  // --disable-webnn-compiler-sandbox.
+  if (options_.metrics_name_ == webnn::mojom::WebNNCompilerService::Name_) {
     cmd_line->CopySwitchesFrom(
         browser_command_line,
         switches::GetWebNNSwitchesCopiedFromGpuProcessHost());
@@ -509,6 +520,10 @@ bool UtilityProcessHost::StartProcess() {
 
   for (const auto& extra_switch : options_.extra_switches_) {
     cmd_line->AppendSwitch(extra_switch);
+  }
+
+  for (const auto& [key, value] : options_.extra_switch_key_values_) {
+    cmd_line->AppendSwitchASCII(key, value);
   }
 
 #if BUILDFLAG(IS_WIN)

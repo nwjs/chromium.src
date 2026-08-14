@@ -44,6 +44,14 @@
 // permitted by the Feature Engagement Tracker.
 - (void)displayPopupMenuTabRemindersIPH;
 
+// Displays an IPH bubble on the tools menu button for Level Up Password Checkup
+// walkthrough.
+- (void)showLevelUpPasswordCheckupWalkthroughIPH;
+
+// Displays an IPH bubble on the tools menu button for Level Up Quick Delete
+// walkthrough.
+- (void)showLevelUpQuickDeleteWalkthroughIPH;
+
 @end
 
 #endif  // IOS_CHROME_BROWSER_POPUP_MENU_COORDINATOR_POPUP_MENU_HELP_COORDINATOR_H_

@@ -168,6 +168,8 @@ WebAppToolbarButtonContainer::WebAppToolbarButtonContainer(
     button->SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_RIGHT);
     button->SetTooltipText(
         l10n_util::GetStringUTF16(IDS_WEB_APP_UNINSTALL_BUTTON_FRAME_TOOLTIP));
+    button->SetProperty(views::kElementIdentifierKey,
+                        kWebAppUninstallButtonElementId);
     uninstall_button_ = button;
     views::SetHitTestComponent(uninstall_button_, static_cast<int>(HTCLIENT));
   }
@@ -348,6 +350,15 @@ void WebAppToolbarButtonContainer::UpdateStatusIconsVisibility() {
       controller = active_tab->GetTabFeatures()->page_action_controller();
     }
     page_action_container_->SetController(controller);
+  }
+}
+
+// When Window Controls Overlay is enabled dynamically by the user clicking the
+// expand arrow toggle button, we clean up and remove the ephemeral uninstall
+// button if it exists.
+void WebAppToolbarButtonContainer::WindowControlsOverlayEnabledChanged() {
+  if (uninstall_button_ && browser_view_->IsWindowControlsOverlayEnabled()) {
+    RemoveChildViewT(std::exchange(uninstall_button_, nullptr));
   }
 }
 

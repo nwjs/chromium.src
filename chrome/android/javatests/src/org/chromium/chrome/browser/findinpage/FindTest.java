@@ -4,6 +4,10 @@
 
 package org.chromium.chrome.browser.findinpage;
 
+import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.matcher.ViewMatchers.withId;
+
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -42,6 +46,7 @@ import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.KeyUtils;
+import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tab.Tab;
@@ -50,11 +55,13 @@ import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.page.WebPageStation;
+import org.chromium.chrome.test.util.BottomBarTestUtils;
 import org.chromium.chrome.test.util.FullscreenTestUtils;
 import org.chromium.chrome.test.util.MenuUtils;
 import org.chromium.content_public.browser.test.util.TouchCommon;
 import org.chromium.content_public.browser.test.util.UiUtils;
 import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.ui.base.DeviceInput;
 
 /** Find in page tests. */
 @RunWith(ChromeJUnit4ClassRunner.class)
@@ -71,6 +78,8 @@ public class FindTest {
 
     @Before
     public void setUp() throws Exception {
+        DeviceInput.setSupportsKeyboardForTesting(false);
+        DeviceInput.setSupportsPrecisionPointerForTesting(false);
         mActivityTestRule.waitForActivityNativeInitializationComplete();
         mPage = mActivityTestRule.startOnBlankPage();
 
@@ -106,7 +115,16 @@ public class FindTest {
     /** Find in page by invoking the 'find in page' menu item. */
     private void findInPageFromMenu() {
         CriteriaHelper.pollUiThread(
-                mActivityTestRule.getActivity().findViewById(R.id.menu_button_wrapper)::isShown);
+                () -> {
+                    View menuButtonWrapper =
+                            BottomBarTestUtils.findViewById(
+                                    mActivityTestRule.getActivity(), R.id.menu_button_wrapper);
+                    View menuButton =
+                            BottomBarTestUtils.findViewById(
+                                    mActivityTestRule.getActivity(), R.id.menu_button);
+                    return (menuButtonWrapper != null && menuButtonWrapper.isShown())
+                            || (menuButton != null && menuButton.isShown());
+                });
 
         MenuUtils.invokeCustomMenuActionSync(
                 InstrumentationRegistry.getInstrumentation(),
@@ -225,18 +243,14 @@ public class FindTest {
     /** Verify Find In Page Next button. */
     @Test
     @MediumTest
-    @DisabledTest(message = "https://crbug.com/515428606")
     @Feature({"FindInPage"})
     public void testFindNext() {
         String query = "pitts";
         loadTestAndVerifyFindInPage(query, "1/7");
-        // TODO(jaydeepmehta): Verify number of results and match against boxes drawn.
-        TouchCommon.singleClickView(
-                mActivityTestRule.getActivity().findViewById(R.id.find_next_button));
+        onView(withId(R.id.find_next_button)).perform(click());
         waitForFindResults("2/7");
         for (int i = 2; i <= 7; i++) {
-            TouchCommon.singleClickView(
-                    mActivityTestRule.getActivity().findViewById(R.id.find_next_button));
+            onView(withId(R.id.find_next_button)).perform(click());
         }
         waitForFindResults("1/7");
     }
@@ -244,17 +258,13 @@ public class FindTest {
     /** Verify Find In Page Next/Previous button. */
     @Test
     @MediumTest
-    @DisabledTest(message = "https://crbug.com/515428606")
     @Feature({"FindInPage"})
     public void testFindNextPrevious() {
         String query = "pitts";
         loadTestAndVerifyFindInPage(query, "1/7");
-        // TODO(jaydeepmehta): Verify number of results and match against boxes drawn.
-        TouchCommon.singleClickView(
-                mActivityTestRule.getActivity().findViewById(R.id.find_next_button));
+        onView(withId(R.id.find_next_button)).perform(click());
         waitForFindResults("2/7");
-        TouchCommon.singleClickView(
-                mActivityTestRule.getActivity().findViewById(R.id.find_prev_button));
+        onView(withId(R.id.find_prev_button)).perform(click());
         waitForFindResults("1/7");
     }
 
@@ -290,6 +300,7 @@ public class FindTest {
     @Test
     @MediumTest
     @Feature({"FindInPage"})
+    @RequiresRestart("crbug.com/539532908")
     public void testResultsBarVisibleAfterTypingText() {
         mActivityTestRule.loadUrl(mActivityTestRule.getTestServer().getURL(FILEPATH));
         findInPageFromMenu();
@@ -441,6 +452,27 @@ public class FindTest {
 
         Assert.assertEquals(View.GONE, findToolbar.getVisibility());
         Assert.assertFalse(findQueryText.hasFocus());
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"FindInPage"})
+    public void testFindQueryRetainsFocusOnEnter() {
+        mActivityTestRule.loadUrl(mActivityTestRule.getTestServer().getURL(FILEPATH));
+        findInPageFromMenu();
+
+        final EditText findQueryText = getFindQueryText();
+        Assert.assertTrue("FindQuery should have focus initially", findQueryText.hasFocus());
+
+        KeyUtils.singleKeyEventView(
+                InstrumentationRegistry.getInstrumentation(), findQueryText, KeyEvent.KEYCODE_T);
+
+        KeyUtils.singleKeyEventView(
+                InstrumentationRegistry.getInstrumentation(),
+                findQueryText,
+                KeyEvent.KEYCODE_ENTER);
+
+        Assert.assertTrue("FindQuery should retain focus after Enter", findQueryText.hasFocus());
     }
 
     /** Verify "Find in page" isn't dismissed when ESCAPE is pressed w/ modifiers. */

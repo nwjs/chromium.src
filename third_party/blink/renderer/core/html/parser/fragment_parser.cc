@@ -7,6 +7,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/timer/elapsed_timer.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_parse_html_unsafe_options.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_union_sanitizer_sanitizerconfig_sanitizerpresets.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_sethtmlunsafeoptions_trustedparseroptions.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/document_fragment.h"
@@ -17,6 +18,7 @@
 #include "third_party/blink/renderer/core/editing/serializers/serialization.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element_registry.h"
+#include "third_party/blink/renderer/core/html/custom/custom_element_registry_assignment.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/html/html_document.h"
 #include "third_party/blink/renderer/core/html/html_head_element.h"
@@ -105,7 +107,10 @@ DocumentFragment* ParseHTMLFragmentInternal(
       if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() &&
           registry != context_element->GetTreeScope().customElementRegistry()) {
         for (Element& element : ElementTraversal::DescendantsOf(*fragment)) {
-          element.SetCustomElementRegistry(registry);
+          element.SetCustomElementRegistry(
+              CustomElementRegistryAssignment::ResolveNullableRegistry(
+                  registry,
+                  CustomElementRegistryAssignment::NullRegistryFallback::kWait));
         }
       }
       LogFastPathParserTotalTime(parse_timer.Elapsed());
@@ -166,7 +171,12 @@ FragmentParserOptions::FragmentParserOptions(TrustedParserOptions* options)
                     RuntimeEnabledFeatures::SetHTMLCanRunScriptsEnabled())
                        ? RunScripts::kRunScripts
                        : RunScripts::kDontRunScripts),
-      sanitizer_init_(options->sanitizer()) {}
+      sanitizer_init_(
+          options->EffectiveSanitizer()
+              ? MakeGarbageCollected<
+                    V8UnionSanitizerOrSanitizerConfigOrSanitizerPresets>(
+                    options->EffectiveSanitizer())
+              : nullptr) {}
 
 FragmentParserOptions::FragmentParserOptions(SetHTMLUnsafeOptions* options)
     : run_scripts_((options->runScripts() &&

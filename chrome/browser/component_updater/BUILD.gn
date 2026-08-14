@@ -13,6 +13,7 @@ import("//third_party/widevine/cdm/widevine.gni")
 # Header-only target. Only .h files; no sources.
 source_set("component_updater") {
   public = [
+    "ai_embeddings_component_installer.h",
     "captcha_provider_component_installer.h",
     "chrome_component_updater_configurator.h",
     "chrome_origin_trials_component_installer.h",
@@ -108,6 +109,7 @@ source_set("component_updater") {
 # Implementation target. Only .cc/.mm files.
 source_set("impl") {
   sources = [
+    "ai_embeddings_component_installer.cc",
     "captcha_provider_component_installer.cc",
     "chrome_component_updater_configurator.cc",
     "chrome_origin_trials_component_installer.cc",
@@ -139,6 +141,7 @@ source_set("impl") {
     "//chrome/browser:browser_process",
     "//chrome/browser/accessibility",
     "//chrome/browser/actor:impl",
+    "//chrome/browser/ai",
     "//chrome/browser/history_embeddings",
     "//chrome/browser/media",
     "//chrome/browser/net",
@@ -152,6 +155,9 @@ source_set("impl") {
     "//components/commerce/core:commerce_heuristics_data",
     "//components/commerce/core:feature_list",
     "//components/embedder_support/origin_trials",
+    "//components/optimization_guide/core",
+    "//components/optimization_guide/proto:optimization_guide_proto",
+    "//components/passage_embeddings/core",
     "//components/permissions",
     "//components/privacy_sandbox:features",
     "//components/privacy_sandbox/privacy_sandbox_attestations",
@@ -198,10 +204,10 @@ source_set("impl") {
       "//chrome/browser/dictation",
       "//chrome/browser/new_tab_page",
       "//chrome/browser/ui/read_anything",
-      "//chrome/browser/web_applications/isolated_web_apps/key_distribution",
       "//components/live_caption:constants",
       "//components/live_caption:utils",
       "//components/soda:constants",
+      "//components/webapps/isolated_web_apps/key_distribution",
       "//third_party/zxcvbn-cpp",
     ]
   }
@@ -307,6 +313,7 @@ source_set("unit_tests") {
   testonly = true
 
   sources = [
+    "ai_embeddings_component_installer_unittest.cc",
     "chrome_component_updater_configurator_unittest.cc",
     "crl_set_component_installer_unittest.cc",
     "indigo_component_installer_unittest.cc",
@@ -324,6 +331,7 @@ source_set("unit_tests") {
     ":test_support",
     "//base",
     "//base/test:test_support",
+    "//chrome/browser/ai",
     "//chrome/test:test_support",
     "//components/certificate_transparency",
     "//components/certificate_transparency:proto_gen",
@@ -360,6 +368,36 @@ source_set("unit_tests") {
       "//chrome/browser:browser_process_platform_part",
       "//chromeos/ash/components/dbus/image_loader",
     ]
+  }
+
+  if (is_win || is_mac) {
+    sources += [ "updater_state_unittest.cc" ]
+    deps += [ "//chrome/updater:public_sources" ]
+    if (is_mac) {
+      deps += [ "//chrome/updater:browser_sources" ]
+    }
+  }
+
+  if (safe_browsing_mode == 2 && is_android) {
+    sources +=
+        [ "real_time_url_checks_allowlist_component_installer_unittest.cc" ]
+    deps += [
+      "//components/safe_browsing/android:real_time_url_checks_allowlist",
+      "//components/update_client",
+    ]
+  }
+
+  if (is_chrome_branded) {
+    sources += [ "recovery_improved_component_unittest.cc" ]
+    deps += [
+      "//components/crx_file",
+      "//components/services/unzip:in_process",
+      "//components/services/unzip/content",
+      "//components/update_client",
+      "//components/update_client:test_support",
+    ]
+    data_deps =
+        [ "//components/update_client:recovery_component_tests_bundle_data" ]
   }
 }
 

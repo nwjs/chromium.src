@@ -22,6 +22,16 @@ public interface SidePanelCoordinatorAndroid extends ChromeAndroidTaskFeature {
     boolean hasContentToShow();
 
     /**
+     * Called when the "SideUi" framework completes a UI update for the side panel container.
+     *
+     * @see org.chromium.chrome.browser.ui.side_ui.SideUiContainer#onUiUpdateCompleted
+     */
+    void onPanelContainerUpdated(int oldWidth, int newWidth);
+
+    /** Called when the side panel content has been replaced. */
+    void onPanelContentReplaced();
+
+    /**
      * Called when the side panel <i>will</i> be auto-closed due to space constraints.
      *
      * @see org.chromium.chrome.browser.ui.side_ui.SideUiContainer#onWillAutoClose()
@@ -34,4 +44,7 @@ public interface SidePanelCoordinatorAndroid extends ChromeAndroidTaskFeature {
      * @see org.chromium.chrome.browser.ui.side_ui.SideUiContainer#onWillAutoRestore()
      */
     void onWillAutoRestore();
+
+    /** Requests to close the side panel. */
+    void close();
 }

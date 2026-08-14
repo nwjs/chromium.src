@@ -19,18 +19,23 @@ namespace actor {
 HistoryTool::~HistoryTool() = default;
 
 // static
-base::expected<std::unique_ptr<HistoryTool>, ToolExecutionResult>
-HistoryTool::Create(const optimization_guide::proto::HistoryBackAction& action,
-                    ProfileIOS* profile) {
-  return CreateInternal(action, profile);
+std::unique_ptr<HistoryTool> HistoryTool::Create(
+    base::WeakPtr<web::WebState> web_state,
+    const optimization_guide::proto::HistoryBackAction& action) {
+  return std::unique_ptr<HistoryTool>(
+      new HistoryTool(web_state, /*is_back_action=*/true));
 }
 
 // static
-base::expected<std::unique_ptr<HistoryTool>, ToolExecutionResult>
-HistoryTool::Create(
-    const optimization_guide::proto::HistoryForwardAction& action,
-    ProfileIOS* profile) {
-  return CreateInternal(action, profile);
+std::unique_ptr<HistoryTool> HistoryTool::Create(
+    base::WeakPtr<web::WebState> web_state,
+    const optimization_guide::proto::HistoryForwardAction& action) {
+  return std::unique_ptr<HistoryTool>(
+      new HistoryTool(web_state, /*is_back_action=*/false));
+}
+
+void HistoryTool::Validate(ToolExecutionCallback callback) {
+  std::move(callback).Run(ToolExecutionResult::Ok());
 }
 
 void HistoryTool::Execute(ToolExecutionCallback callback) {
@@ -70,28 +75,8 @@ ToolType HistoryTool::GetToolType() const {
   return is_back_action_ ? ToolType::kBack : ToolType::kForward;
 }
 
-// static
-template <typename HistoryAction>
-base::expected<std::unique_ptr<HistoryTool>, ToolExecutionResult>
-HistoryTool::CreateInternal(const HistoryAction& action, ProfileIOS* profile) {
-  if (!action.has_tab_id()) {
-    return base::unexpected(ToolExecutionResult(
-        InternalToolErrorCode::kCreationMissingRequiredFields));
-  }
-  base::expected<TabResolutionResult, ToolExecutionResult> resolution_result =
-      ResolveTab(action.tab_id(), profile);
-  if (!resolution_result.has_value()) {
-    return base::unexpected(resolution_result.error());
-  }
-  constexpr bool is_back_action =
-      std::is_same_v<HistoryAction,
-                     optimization_guide::proto::HistoryBackAction>;
-  return std::unique_ptr<HistoryTool>(
-      new HistoryTool(is_back_action, resolution_result.value().web_state));
-}
-
-HistoryTool::HistoryTool(bool is_back_action,
-                         base::WeakPtr<web::WebState> web_state)
+HistoryTool::HistoryTool(base::WeakPtr<web::WebState> web_state,
+                         bool is_back_action)
     : is_back_action_(is_back_action), web_state_(web_state) {}
 
 }  // namespace actor

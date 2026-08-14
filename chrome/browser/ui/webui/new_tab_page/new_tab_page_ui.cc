@@ -41,7 +41,7 @@
 #include "chrome/browser/new_tab_page/modules/v2/most_relevant_tab_resumption/most_relevant_tab_resumption_page_handler.h"
 #include "chrome/browser/new_tab_page/modules/v2/tab_groups/tab_groups_page_handler.h"
 #include "chrome/browser/new_tab_page/new_tab_page_util.h"
-#include "chrome/browser/new_tab_page/ntp_pref_names.h"
+#include "chrome/browser/new_tab_page/prefs/ntp_pref_names.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/page_image_service/image_service_factory.h"
@@ -258,16 +258,21 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
 
   source->AddBoolean("energyEffectEnabled",
                      base::FeatureList::IsEnabled(ntp_features::kEnergyEffect));
+  source->AddString("energyEffectVariant",
+                    base::FeatureList::IsEnabled(ntp_features::kEnergyEffect)
+                        ? ntp_features::kEnergyEffectVariantParam.GetName(
+                              ntp_features::kEnergyEffectVariantParam.Get())
+                        : std::string());
   source->AddBoolean(
       "energyEffectAnimationEnabled",
       base::FeatureList::IsEnabled(ntp_features::kEnergyEffectAnimation));
   source->AddBoolean(
       "contextMenuAnimationLimitingEnabled",
       base::FeatureList::IsEnabled(omnibox::kContextMenuAnimationLimiting));
-  source->AddBoolean(
-      "ntpNextFeaturesEnabled",
+  bool ntp_next_features_enabled =
       ntp_realbox::IsNtpRealboxNextEnabled(profile) &&
-          base::FeatureList::IsEnabled(ntp_features::kNtpNextFeatures));
+      base::FeatureList::IsEnabled(ntp_features::kNtpNextFeatures);
+  source->AddBoolean("ntpNextFeaturesEnabled", ntp_next_features_enabled);
   source->AddBoolean("ntpNextShowDismissalUIEnabled",
                      ntp_features::kNtpNextShowDismissalUIParam.Get());
   source->AddBoolean("ntpNextDisablementContextMenuEnabled",
@@ -322,9 +327,17 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
           ntp_features::kNtpMostRelevantTabResumptionModuleFallbackToHost));
   source->AddBoolean("footerEnabled",
                      base::FeatureList::IsEnabled(ntp_features::kNtpFooter));
-  source->AddBoolean("isAndroid", BUILDFLAG(IS_ANDROID));
+  source->AddBoolean(
+      "showCustomizeButton",
+      base::FeatureList::IsEnabled(ntp_features::kNtpCustomizeWebUiAndroid) ||
+          !BUILDFLAG(IS_ANDROID));
 
   source->AddBoolean("ntpRealboxNextEnabled",
+                     ntp_realbox::IsNtpRealboxNextEnabled(profile));
+  // Fusebox being enabled on the NTP is the same as realbox next being
+  // enabled. Add this param for reusable components that shouldn't rely on NTP
+  // specific booleans.
+  source->AddBoolean("isFuseboxEnabled",
                      ntp_realbox::IsNtpRealboxNextEnabled(profile));
   source->AddBoolean("searchboxCyclingPlaceholders",
                      ntp_realbox::IsNtpRealboxNextEnabled(profile) &&
@@ -493,6 +506,8 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
       {"modulesDriveTitle", IDS_NTP_MODULES_DRIVE_NAME},
       {"modulesDriveTitleV2", IDS_NTP_MODULES_DRIVE_NAME},
       {"modulesDriveInfo", IDS_NTP_MODULES_DRIVE_INFO},
+      {"modulesDriveSeeMore", IDS_NTP_MODULES_DRIVE_SEE_MORE},
+      {"modulesDriveSeeMoreAcc", IDS_NTP_MODULES_DRIVE_SEE_MORE_ACCNAME},
       {"modulesMicrosoftFilesInfo", IDS_NTP_MODULES_MICROSOFT_FILES_INFO},
       {"modulesMicrosoftFilesName", IDS_NTP_MODULES_MICROSOFT_FILES_NAME},
       {"modulesMicrosoftFilesDisableButtonText",
@@ -580,6 +595,8 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
        IDS_NTP_MODULES_MOST_RELEVANT_TAB_RESUMPTION_TITLE},
       {"modulesMostRelevantTabResumptionSeeMore",
        IDS_NTP_MODULES_MOST_RELEVANT_TAB_RESUMPTION_SEE_MORE},
+      {"modulesMostRelevantTabResumptionSeeMoreAcc",
+       IDS_NTP_MODULES_MOST_RELEVANT_TAB_RESUMPTION_SEE_MORE_ACCNAME},
       {"modulesMostRelevantTabResumptionMostRecent",
        IDS_TAB_RESUME_DECORATORS_MOST_RECENT},
       {"modulesMostRelevantTabResumptionFrequentlyVisited",
@@ -630,6 +647,9 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
       "hideDismissModules",
       base::FeatureList::IsEnabled(
           ntp_features::kNtpFeatureOptimizationDismissModulesRemoval));
+  source->AddBoolean(
+      "showDriveModuleSeeMoreLink",
+      base::FeatureList::IsEnabled(ntp_features::kNtpDriveModuleLink));
 
   source->AddString(
       "calendarModuleDismissHours",
@@ -718,6 +738,9 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
   source->AddBoolean("composeboxContextMenuEnableMultiTabSelection",
                      ntp_composebox::kContextMenuEnableMultiTabSelection.Get());
   source->AddBoolean(
+      "composeboxSkillsEnabled",
+      base::FeatureList::IsEnabled(omnibox::kComposeboxSkillsNtp));
+  source->AddBoolean(
       "contextManagementInComposeboxEnabled",
       base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox));
   source->AddBoolean(
@@ -736,15 +759,8 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
   source->AddBoolean("composeboxSmartComposeEnabled",
                      ntp_composebox::kShowSmartCompose.Get());
 
-  source->AddBoolean("enableThreadsRail",
-                     ntp_composebox::kEnableThreadsRail.Get());
-
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  source->AddBoolean("enableThreadsRailLogo",
-                     ntp_composebox::kEnableThreadsRailLogo.Get());
-#else
-  source->AddBoolean("enableThreadsRailLogo", false);
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  source->AddBoolean("enableThreadsRail", base::FeatureList::IsEnabled(
+                                              ntp_features::kNtpThreadsRail));
 
   source->AddBoolean("useNtpComposeboxFork",
                      ntp_composebox::kUseNtpComposeboxFork.Get());
@@ -768,9 +784,12 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
       num_tools_eligible++;
     }
   }
-  bool action_chips_eligible = aim_eligibility_service &&
-                               aim_eligibility_service->IsAimEligible() &&
-                               num_tools_eligible >= 2;
+  bool action_chips_eligible =
+      base::FeatureList::IsEnabled(ntp_features::kNtpScaledActionChips)
+          ? ntp_next_features_enabled
+          : (aim_eligibility_service &&
+             aim_eligibility_service->IsAimEligible() &&
+             num_tools_eligible >= 2);
   bool show_action_chips =
       action_chips_eligible &&
       (!ntp_features::kNtpNextDisablementParam.Get() ||
@@ -783,6 +802,9 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
   source->AddBoolean("addTabUploadDelayOnActionChipClick",
                      add_tab_upload_delay_on_action_chip_click);
   source->AddBoolean("actionChipsEnabled", show_action_chips);
+  source->AddBoolean(
+      "ntpSmallActionChipsEnabled",
+      base::FeatureList::IsEnabled(ntp_features::kNtpScaledActionChipsSmall));
 
   // User education browser promos.
   int browser_promo_limit = 0;
@@ -831,6 +853,9 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
                          google_util::CommandLineGoogleBaseURL().spec().c_str(),
                          chrome::kChromeUIUntrustedNewTabPageUrl,
                          chrome::kChromeUIUntrustedNtpMicrosoftAuthURL));
+  source->OverrideContentSecurityPolicy(
+      network::mojom::CSPDirectiveName::MediaSrc,
+      "media-src blob: data: 'self';");
 
   return source;
 }
@@ -882,10 +907,10 @@ NewTabPageUI::NewTabPageUI(content::WebUI* web_ui)
       // for the unlikely case where the NewTabPageHandler is created before we
       // received the DidStartNavigation event.
       navigation_start_time_(base::Time::Now()),
+      navigation_start_time_ticks_(base::TimeTicks::Now()),
       module_id_details_(
           ntp::MakeModuleIdDetails(NewTabPageUI::IsManagedProfile(profile_),
-                                   profile_))
-{
+                                   profile_)) {
 
   instance_count_++;
   base::UmaHistogramCounts100("NewTabPage.Count", instance_count_);
@@ -1009,6 +1034,10 @@ NewTabPageUI::NewTabPageUI(content::WebUI* web_ui)
   ui::TrackedElementHandlerDocumentSingleton::Register(
       this, std::vector<ui::ElementIdentifier>{
                 CustomizeButtonsHandler::kCustomizeChromeButtonElementId,
+                NewTabPageUI::kRealboxContextualEntrypointElementId});
+#else
+  ui::TrackedElementHandlerDocumentSingleton::Register(
+      this, std::vector<ui::ElementIdentifier>{
                 NewTabPageUI::kRealboxContextualEntrypointElementId});
 #endif
 }
@@ -1321,7 +1350,8 @@ void NewTabPageUI::CreatePageHandler(
       SyncServiceFactory::GetForProfile(profile_),
       segmentation_platform::SegmentationPlatformServiceFactory::GetForProfile(
           profile_),
-      web_contents(), navigation_start_time_, &module_id_details_);
+      web_contents(), navigation_start_time_, navigation_start_time_ticks_,
+      &module_id_details_);
 }
 
 void NewTabPageUI::ConnectToParentDocument(
@@ -1369,7 +1399,7 @@ void NewTabPageUI::CreatePageHandler(
   most_visited_page_handler_ = std::make_unique<MostVisitedHandler>(
       std::move(pending_page_handler), std::move(pending_page), profile_,
       web_contents(), chrome::ChromeUINewTabPageURLAsGURL(),
-      navigation_start_time_);
+      navigation_start_time_, navigation_start_time_ticks_);
   UpdateMostVisitedTileTypes();
   most_visited_page_handler_->SetShortcutsVisible(IsShortcutsVisible());
 }
@@ -1385,17 +1415,13 @@ void NewTabPageUI::CreatePageHandler(
 }
 
 void NewTabPageUI::CreatePageHandler(
-    mojo::PendingRemote<composebox::mojom::Page> pending_page,
     mojo::PendingReceiver<composebox::mojom::PageHandler> pending_page_handler,
     mojo::PendingRemote<searchbox::mojom::Page> pending_searchbox_page,
     mojo::PendingReceiver<searchbox::mojom::PageHandler>
         pending_searchbox_handler) {
-  DCHECK(pending_page.is_valid());
-
   composebox_handler_ = std::make_unique<ComposeboxHandler>(
-      std::move(pending_page_handler), std::move(pending_page),
-      std::move(pending_searchbox_handler), std::move(pending_searchbox_page),
-      profile_, web_contents(),
+      std::move(pending_page_handler), std::move(pending_searchbox_handler),
+      std::move(pending_searchbox_page), profile_, web_contents(),
       base::BindRepeating(&NewTabPageUI::GetOrCreateContextualSessionHandle,
                           base::Unretained(this)),
       base::BindRepeating(&NewTabPageUI::ClearContextualSessionHandle,
@@ -1429,7 +1455,9 @@ void NewTabPageUI::CreateActionChipsHandler(
     mojo::PendingRemote<action_chips::mojom::Page> page) {
   action_chips_handler_ = std::make_unique<ActionChipsHandler>(
       std::move(handler), std::move(page), profile_, web_ui(),
-      std::make_unique<ActionChipsGeneratorImpl>(profile_));
+      std::make_unique<ActionChipsGeneratorImpl>(profile_),
+      base::BindRepeating(&NewTabPageUI::GetOrCreateContextualSessionHandle,
+                          base::Unretained(this)));
 }
 
 // OnColorProviderChanged can be called during the destruction process and
@@ -1495,6 +1523,7 @@ void NewTabPageUI::DidStartNavigation(
   if (navigation_handle->IsInPrimaryMainFrame() &&
       navigation_handle->GetURL() == chrome::ChromeUINewTabPageURLAsGURL()) {
     navigation_start_time_ = base::Time::Now();
+    navigation_start_time_ticks_ = base::TimeTicks::Now();
 
     OnLoad();
 

@@ -179,21 +179,29 @@ assert(!(current_os == "ios" && is_component_build),
        "Can't use component build on iOS")
 assert(!(current_os == "watchos" && is_component_build),
        "Can't use component build on watchOS")
+assert(!(current_os == "android" && is_component_build),
+       "Can't use component build on Android")
 
 declare_args() {
   # Unsafe buffers. Location of file used by plugins to track portions of
   # the codebase which have been made manifestly safe.
   clang_unsafe_buffers_paths = ""
   clang_warning_suppression_file = ""
+  rust_clippy_conf_file = ""
 }
 
 declare_args() {
   # Whether to enable strict deps checks. This ensures that your dependencies
   # are correctly declared (no missing deps and no accessing transitive deps).
   enable_strict_deps = false
+
+  # The default mode for modulemaps.
+  # Accepts any value that GN takes for "generate_modulemap".
+  default_modulemap_mode = "none"
 }
+
 if (enable_strict_deps) {
-  generate_modulemap = "textual"
+  assert(default_modulemap_mode == "textual", "Strict deps requires modulemaps")
 }
 
 # ==============================================================================
@@ -618,14 +626,13 @@ foreach(_target_type,
         not_needed([ "strict_deps" ])
       }
 
+      if (!defined(generate_modulemap)) {
+        generate_modulemap = default_modulemap_mode
+      }
+
       if (use_libcxx_modules) {
         # Add a dependency needed for Clang modules builds.
         deps += [ "//buildtools/third_party/libc++:all_modules" ]
-
-        if (!defined(invoker.generate_modulemap) &&
-            defined(generate_modulemap)) {
-          generate_modulemap = generate_modulemap
-        }
       }
 
       # Consumed by the unsafe-buffers plugin during compile.
@@ -749,14 +756,13 @@ foreach(_target_type,
         not_needed([ "strict_deps" ])
       }
 
+      if (!defined(generate_modulemap)) {
+        generate_modulemap = default_modulemap_mode
+      }
+
       if (use_libcxx_modules) {
         # Add a dependency needed for Clang modules builds.
         deps += [ "//buildtools/third_party/libc++:all_modules" ]
-
-        if (!defined(invoker.generate_modulemap) &&
-            defined(generate_modulemap)) {
-          generate_modulemap = generate_modulemap
-        }
       }
 
       # On Android, write shared library output file to metadata. We will use

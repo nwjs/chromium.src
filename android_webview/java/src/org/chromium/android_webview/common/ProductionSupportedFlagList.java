@@ -179,13 +179,6 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 GpuFeatures.USE_STRONG_REF_TO_SHARED_IMAGE_INTERFACE,
                 "Allows ClientSharedImage to store a strong reference to SharedImageInterface."),
-        Flag.baseFeature(
-                VizFeatures.WEBVIEW_NEW_INVALIDATE_HEURISTIC,
-                "More robust heuristic for calling Invalidate. Isn't supported for TV, see"
-                        + " WebViewNewInvalidateHeuristicForTV."),
-        Flag.baseFeature(
-                VizFeatures.WEBVIEW_NEW_INVALIDATE_HEURISTIC_FOR_TV,
-                "More robust heuristic for calling Invalidate"),
         Flag.baseFeature(VizFeatures.WEBVIEW_VULKAN_INTERMEDIATE_BUFFER, "For debugging vulkan"),
         Flag.baseFeature(
                 VizFeatures.WEBVIEW_ENABLE_ADPF, "Pass WebView threads to HWUI ADPF session"),
@@ -263,13 +256,6 @@ public final class ProductionSupportedFlagList {
                 "Allows autofill to offer filling again on fields that were autofilled and now hold"
                         + " autocomplete=unrecognized value."),
         Flag.baseFeature(
-                AutofillFeatures.AUTOFILL_FIX_FORM_EQUALITY,
-                "Fixes the semantics of Form[Field]Data::DeepEqual()"),
-        Flag.baseFeature(
-                AutofillFeatures.AUTOFILL_FIX_CIVIL_STATE_MISCLASSIFICATION_FOR_ESPT,
-                "When enabled, improves heuristic regexes for state classification to avoid"
-                        + " misclassification as civil state."),
-        Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_FIX_STATE_COUNTRY_MISCLASSIFICATION,
                 "When enabled, the rationalization engine will fix misclassifications where"
                         + " a field is detected as a COUNTRY when it should be a STATE or vice"
@@ -286,13 +272,6 @@ public final class ProductionSupportedFlagList {
                 AutofillFeatures.AUTOFILL_MOVE_SMALL_FORM_LOGIC_TO_CLIENT,
                 "Moves the small form handling from Autofill server to client."),
         Flag.baseFeature(
-                AutofillFeatures.AUTOFILL_NEW_AUGMENTED_PHONE_COUNTRY_CODE_REGEX,
-                "When enabled, a new regex for matching phone country code select options is"
-                        + " used."),
-        Flag.baseFeature(
-                AutofillFeatures.AUTOFILL_NEW_REGEX_FOR_PHONE_COUNTRY_CODE,
-                "If enabled, more patterns are added to the PHONE_COUNTRY_CODE regex."),
-        Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_POLICY_CONTROLLED_FEATURE_AUTOFILL,
                 "Enables the policy-controlled feature \"autofill\"."),
         Flag.baseFeature(
@@ -301,9 +280,6 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_PAGE_LANGUAGE_DETECTION,
                 "Enables Autofill to retrieve the page language for form parsing."),
-        Flag.baseFeature(
-                AutofillFeatures.AUTOFILL_PREFER_PHONE_COUNTRY_CODE_TYPE_OVER_COUNTRY_HTML_TYPE,
-                "Prioritizes PHONE_HOME_COUNTRY_CODE heuristic type over kCountryName html type"),
         Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_USE_IN_ADDRESS_MODEL,
                 "When enabled, Autofill uses a custom address model for India."),
@@ -337,16 +313,6 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_GREEK_REGEXES,
                 "When enabled, Greek regexes are used for parsing in branded builds."),
-        Flag.baseFeature(
-                AutofillFeatures.AUTOFILL_IMPROVE_PHONE_FIELD_PARSER,
-                "Enables some improvements to autofill::PhoneFieldParser."),
-        Flag.baseFeature(
-                AutofillFeatures.AUTOFILL_IMPROVE_PHONE_NUMBER_RATIONALIZATION,
-                "Fix PHONE_HOME_WHOLE_NUMBER appearing right after PHONE_HOME_COUNTRY_CODE."),
-        Flag.baseFeature(
-                AutofillFeatures.AUTOFILL_ENABLE_CACHE_FOR_REGEX_MATCHING,
-                "When enabled, autofill uses an extra cache for matching regular expressions "
-                        + "while executing local heuristics."),
         Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_STRUCTURED_FIELDS_DISABLE_ADDRESS_LINES,
                 "When enabled, Autofill disable address lines on forms with structured address"
@@ -528,8 +494,18 @@ public final class ProductionSupportedFlagList {
                 NetFeatures.SPDY_HEADERS_TO_HTTP_RESPONSE_USE_BUILDER,
                 "Enables new optimized implementation of SpdyHeadersToHttpResponse. No behavior"
                         + " change."),
+        Flag.baseFeature(
+                NetFeatures.ENABLE_INTERMEDIATE_DNS_RESULTS,
+                "Enables intermediate DNS results to ServiceEndpointRequest delegates"),
         Flag.baseFeature(NetFeatures.HAPPY_EYEBALLS_V2, "Enables Happy Eyeballs V2"),
         Flag.baseFeature(NetFeatures.HAPPY_EYEBALLS_V3, "Enables Happy Eyeballs V3"),
+        Flag.baseFeature(NetFeatures.OPTIMISTIC_DNS_FOR_TCP, "Enables optimistic DNS for TCP"),
+        Flag.baseFeature(
+                NetFeatures.ADJUST_I_PV6_FALLBACK_TIME,
+                "Enables controlling the Happy Eyeballs slow timer (IPv6 fallback time)"),
+        Flag.baseFeature(
+                NetFeatures.I_PV6_FALLBACK_BASED_ON_RTT,
+                "Enables the Happy Eyeballs slow timer to be based on the network RTT"),
         Flag.baseFeature(NetFeatures.ENABLE_TLS13_EARLY_DATA, "Enables TLS 1.3 Early Data"),
         Flag.baseFeature(
                 NetFeatures.HTTP_CACHE_NO_VARY_SEARCH,
@@ -537,6 +513,9 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 NetFeatures.DISK_CACHE_BACKEND_EXPERIMENT,
                 "Enables the experimental disk cache backend for HTTP Cache"),
+        Flag.baseFeature(
+                NetFeatures.CACHE_CERT_VERIFICATION,
+                "Enables caching of certificate verification results"),
         Flag.baseFeature("MojoIpcz"),
         Flag.baseFeature("MojoFixGeometricBufferGrowth"),
         Flag.baseFeature(
@@ -713,6 +692,9 @@ public final class ProductionSupportedFlagList {
                 "Controls if back/forward cache is enabled. Note that it's also possible"
                         + " to enable BFCache through AwSettings as well. If either of"
                         + " the flag / setting is enabled, BFCache will be enabled"),
+        Flag.baseFeature(
+                AwFeatures.WEBVIEW_PURGE_MEMORY_IN_BACKGROUND,
+                "Aggressively purge memory when WebView apps go to the background."),
         Flag.baseFeature(
                 AwSwitches.WEBVIEW_STATIC_METHODS_NOT_TRIGGER_STARTUP,
                 "When enabled, static methods in SharedStatics do not trigger startup."),
@@ -1123,6 +1105,10 @@ public final class ProductionSupportedFlagList {
                 AwFeatures.WEBVIEW_REMOVE_INSTANT_APP_SUPPORT,
                 "When enabled, WebView support for Instant Apps is removed."),
         Flag.baseFeature(
+                AwFeatures.WEBVIEW_MULTI_PROFILE_SKIP_DEFAULT_PROFILE,
+                "When enabled, accessing multi-profile APIs skips automatic initialization of the"
+                        + " Default profile during startup."),
+        Flag.baseFeature(
                 AwFeatures.WEBVIEW_BYPASS_PROVISIONAL_COOKIE_MANAGER,
                 "When enabled, the temporary cookie manager used before WebView startup is"
                         + " bypassed. If WebView isn't already started up, calling"
@@ -1132,6 +1118,13 @@ public final class ProductionSupportedFlagList {
                 AwFeatures.WEBVIEW_FASTER_GET_DEFAULT_USER_AGENT,
                 "When enabled, the default user agent string is fetched more quickly without"
                         + " waiting for chromium startup to complete."),
+        Flag.baseFeature(
+                AwFeatures.WEBVIEW_PROFILE_STORE_NOT_TRIGGER_STARTUP,
+                "When enabled, accessing the ProfileStore does not trigger WebView startup."),
+        Flag.baseFeature(
+                AwFeatures.WEBVIEW_WARMUP_NETWORK_SERVICE,
+                "When enabled, eagerly warms up the Network Service during early native browser"
+                        + " process startup in WebView."),
         Flag.baseFeature(
                 NetworkServiceFeatures.COMPRESSION_DICTIONARY_LIMIT_EARLY_MATCHING,
                 "When enabled, limits the early loading of compression dictionaries to document"
@@ -1363,9 +1356,6 @@ public final class ProductionSupportedFlagList {
                         + " the main thread. Only takes effect if PREFETCH_OFF_THE_MAIN_THREAD is"
                         + " enabled as well."),
         Flag.baseFeature(
-                "PreventSvgFilterPaint",
-                "Disables SVG filter painting for remote frames and web plugins."),
-        Flag.baseFeature(
                 ContentFeatures.PREFETCH_REQUEST_STATUS_LISTENER_ASYNC,
                 "Make PrefetchRequestStatusListener notifications async."),
         Flag.baseFeature(AwFeatures.WEBVIEW_NAVIGATE, "Enables the WebView navigate method"),
@@ -1413,8 +1403,35 @@ public final class ProductionSupportedFlagList {
                 "When enabled, text-size-adjust CSS property only affects WebViews with"
                         + " TEXT_AUTOSIZING layout algorithm."),
         Flag.baseFeature(
+                "IndexedDBConnectionDeduplication",
+                "Enables connection deduplication for IndexedDB."),
+        Flag.baseFeature(
+                CcFeatures.SCROLL_JANK_V4_METRIC_FAST_SCROLL_CONTINUITY_REQUIRES_SAME_DIRECTION,
+                "When enabled, the fast scroll continuity rule of the V4 scroll jank metric only"
+                    + " applies if the previous and current frames' total raw scroll deltas have"
+                    + " the same sign."),
+        Flag.baseFeature(
+                AwFeatures.WEBVIEW_AW_CLASS_PRELOADER,
+                "When enabled, WebView will preload a certain list of classes for performance."),
+        Flag.baseFeature(
                 "SimpleCachePrefetchExperiment2",
                 "Enables fixed-size prefetching of simple cache entry data during open."),
+        Flag.baseFeature(
+                "QuicUseReadMultiple", "Utilizes recvmmsg over recvmsg for Quic UDP sockets."),
+        Flag.baseFeature(
+                AwFeatures.WEBVIEW_MIGRATE_VISITED_LINKS,
+                "Migrate WebView's visited links database to the new partitioned database structure"
+                        + " without performing actual partitioning."),
+        Flag.baseFeature(
+                BlinkFeatures.INPUT_CURSOR_ANCHOR_INFO_MIGRATION,
+                "Enable Android IME CursorAnchorInfo updates via compositor frame metadata."),
+        Flag.baseFeature(
+                "ConversionMeasurement",
+                "Controls whether the Attribution Reporting API stub is enabled."),
+        Flag.baseFeature(
+                PaymentFeatureList.PAYMENT_HANDLER_DIALOG_USE_INITIATOR_IN_URL_LOAD,
+                "When enabled, the merchant site is set as the initiator for the web payment"
+                        + " handler modal dialog popup."),
         // Add new commandline switches and features above. The final entry should have a
         // trailing comma for cleaner diffs.
     };

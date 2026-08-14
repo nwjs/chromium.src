@@ -50,11 +50,12 @@ source_set("impl") {
     "//chrome/browser/search",
     "//chrome/browser/ui:browser_actions",
     "//chrome/browser/ui/browser_window",
-    "//chrome/browser/ui/side_panel:side_panel_views_dependent",
+    "//chrome/browser/ui/side_panel",
     "//chrome/browser/ui/views/side_panel",
     "//chrome/browser/ui/webui:webui_util",
     "//chrome/browser/ui/webui/customize_buttons",
     "//chrome/browser/ui/webui/new_tab_page_third_party",
+    "//chrome/browser/ui/webui/side_panel/customize_chrome:customize_chrome_ui",
     "//chrome/browser/ui/webui/util",
     "//chrome/common",
     "//components/search",
@@ -100,6 +101,7 @@ source_set("unit_tests") {
   deps = [
     ":test_support",
     "//chrome/browser/enterprise/browser_management:management_identity",
+    "//chrome/browser/ui/webui:webui_util",
     "//components/themes",
   ]
 }

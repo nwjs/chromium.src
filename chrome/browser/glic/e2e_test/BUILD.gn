@@ -17,6 +17,7 @@ source_set("e2e_test_support") {
   sources = [
     "glic_e2e_test.cc",
     "glic_e2e_test.h",
+    "glic_e2e_test_symbol_reference.cc",
   ]
   if (checkout_glic_e2e_tests) {
     defines += [ "ENABLE_GLIC_INTERNAL_TESTS=1" ]
@@ -67,9 +68,9 @@ test("glic_internal_e2e_interactive_ui_tests") {
   deps = [
     ":e2e_test_support",
     "//chrome/browser/ui/views/translate:test_support",
-    "//chrome/test:chrome_test_launcher",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",
+    "//chrome/test/base:chrome_test_launcher",
   ]
 
   if (checkout_glic_e2e_tests) {

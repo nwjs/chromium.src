@@ -27,6 +27,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_EDITING_POSITION_ITERATOR_H_
 
 #include "third_party/blink/renderer/core/core_export.h"
+#include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/editing/editing_strategy.h"
 #include "third_party/blink/renderer/core/editing/forward.h"
@@ -83,12 +84,12 @@ class SlowPositionIteratorAlgorithm {
   // anchor_node_;
   Node* node_after_position_in_anchor_ = nullptr;
   // In `Decrement()` `offset_in_anchor_` may not be valid.
-  int offset_in_anchor_ = 0;
+  wtf_size_t offset_in_anchor_ = 0;
   wtf_size_t depth_to_anchor_node_ = 0;
   // If |node_after_position_in_anchor_| is not null,
   // offsets_in_anchor_node_[depth_to_anchor_node_] ==
   //    Strategy::Index(node_after_position_in_anchor_).
-  Vector<int> offsets_in_anchor_node_;
+  Vector<wtf_size_t> offsets_in_anchor_node_;
   uint64_t dom_tree_version_ = 0;
 };
 

@@ -4,14 +4,11 @@
 
 #include "chrome/browser/ui/views/renderer_context_menu/render_view_context_menu_views.h"
 
-#include <string>
 #include <utility>
 
 #include "base/command_line.h"
-#include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
-#include "base/observer_list.h"
 #include "base/scoped_observation.h"
 #include "base/task/current_thread.h"
 #include "build/build_config.h"
@@ -20,7 +17,6 @@
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/common/chrome_switches.h"
 #include "components/lens/buildflags.h"
-#include "components/lens/lens_features.h"
 #include "components/renderer_context_menu/views/toolkit_delegate_views.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
@@ -279,7 +275,7 @@ bool RenderViewContextMenuViews::GetAcceleratorForCommandId(
 void RenderViewContextMenuViews::ExecuteCommand(int command_id,
                                                 int event_flags) {
   switch (command_id) {
-    case IDC_WRITING_DIRECTION_DEFAULT:
+    case kWritingDirectionDefaultId:
       // WebKit's current behavior is for this menu item to always be disabled.
       NOTREACHED();
 
@@ -311,7 +307,7 @@ void RenderViewContextMenuViews::ExecuteCommand(int command_id,
 
 bool RenderViewContextMenuViews::IsCommandIdChecked(int command_id) const {
   switch (command_id) {
-    case IDC_WRITING_DIRECTION_DEFAULT:
+    case kWritingDirectionDefaultId:
       return (params_.writing_direction_default &
               blink::ContextMenuData::kCheckableMenuItemChecked) != 0;
     case IDC_WRITING_DIRECTION_RTL:
@@ -328,9 +324,9 @@ bool RenderViewContextMenuViews::IsCommandIdChecked(int command_id) const {
 
 bool RenderViewContextMenuViews::IsCommandIdEnabled(int command_id) const {
   switch (command_id) {
-    case IDC_WRITING_DIRECTION_MENU:
+    case kWritingDirectionMenuId:
       return true;
-    case IDC_WRITING_DIRECTION_DEFAULT:  // Provided to match OS defaults.
+    case kWritingDirectionDefaultId:  // Provided to match OS defaults.
       return params_.writing_direction_default &
              blink::ContextMenuData::kCheckableMenuItemEnabled;
     case IDC_WRITING_DIRECTION_RTL:
@@ -358,7 +354,7 @@ RenderViewContextMenuViews::GetBrowserAcceleratorProvider() const {
 
 void RenderViewContextMenuViews::AppendPlatformEditableItems() {
   bidi_submenu_model_.AddCheckItem(
-      IDC_WRITING_DIRECTION_DEFAULT,
+      kWritingDirectionDefaultId,
       l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_WRITING_DIRECTION_DEFAULT));
   bidi_submenu_model_.AddCheckItem(
       IDC_WRITING_DIRECTION_LTR,
@@ -368,7 +364,7 @@ void RenderViewContextMenuViews::AppendPlatformEditableItems() {
       l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_WRITING_DIRECTION_RTL));
 
   menu_model_.AddSubMenu(
-      IDC_WRITING_DIRECTION_MENU,
+      kWritingDirectionMenuId,
       l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_WRITING_DIRECTION_MENU),
       &bidi_submenu_model_);
 }

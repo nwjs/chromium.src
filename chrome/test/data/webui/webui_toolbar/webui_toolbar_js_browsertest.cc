@@ -41,8 +41,16 @@ IN_PROC_BROWSER_TEST_F(WebUiToolbarJsTest, ContentSettingIcon) {
   RunTest("webui_toolbar/content_setting_icon_test.js", "mocha.run();");
 }
 
+IN_PROC_BROWSER_TEST_F(WebUiToolbarJsTest, PageActionIcon) {
+  RunTest("webui_toolbar/page_action_icon_test.js", "mocha.run();");
+}
+
 IN_PROC_BROWSER_TEST_F(WebUiToolbarJsTest, PinnedToolbarAction) {
   RunTest("webui_toolbar/pinned_toolbar_action_test.js", "mocha.run();");
+}
+
+IN_PROC_BROWSER_TEST_F(WebUiToolbarJsTest, PinnedToolbarActions) {
+  RunTest("webui_toolbar/pinned_toolbar_actions_test.js", "mocha.run();");
 }
 
 IN_PROC_BROWSER_TEST_F(WebUiToolbarJsTest, LocationBar) {
@@ -89,4 +97,8 @@ IN_PROC_BROWSER_TEST_F(WebUiToolbarJsTest, IPH) {
 
 IN_PROC_BROWSER_TEST_F(WebUiToolbarJsTest, BatterySaverButton) {
   RunTest("webui_toolbar/battery_saver_button_test.js", "mocha.run();");
+}
+
+IN_PROC_BROWSER_TEST_F(WebUiToolbarJsTest, CrLazyIconset) {
+  RunTest("webui_toolbar/cr_lazy_iconset_test.js", "mocha.run();");
 }

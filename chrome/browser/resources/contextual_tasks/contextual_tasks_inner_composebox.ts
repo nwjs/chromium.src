@@ -6,11 +6,16 @@ import '//resources/cr_components/composebox/composebox_dropdown.js';
 import '//resources/cr_components/composebox/composebox_file_inputs.js';
 import '//resources/cr_components/composebox/composebox_input.js';
 import '//resources/cr_components/composebox/composebox_submit.js';
+import '//resources/cr_components/composebox/composebox_tool_chip.js';
+import '//resources/cr_components/composebox/composebox_voice_search.js';
+import '//resources/cr_components/composebox/contextual_entrypoint_and_menu.js';
 import '//resources/cr_components/composebox/error_scrim.js';
 import '//resources/cr_components/composebox/file_carousel.js';
+import '//resources/cr_components/search/animated_glow.js';
+import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 
-import {GlifAnimationState} from '//resources/cr_components/composebox/common.js';
-import type {ComposeboxFile} from '//resources/cr_components/composebox/common.js';
+import {ComposeboxFile, GlifAnimationState, recordBoolean, recordUserAction, TabUploadOrigin} from '//resources/cr_components/composebox/common.js';
+import type {TabUpload} from '//resources/cr_components/composebox/common.js';
 import type {PageHandlerRemote} from '//resources/cr_components/composebox/composebox.mojom-webui.js';
 import type {ComposeboxDropdownElement} from '//resources/cr_components/composebox/composebox_dropdown.js';
 import type {ComposeboxFileInputsElement} from '//resources/cr_components/composebox/composebox_file_inputs.js';
@@ -22,13 +27,12 @@ import type {ContextualEntrypointAndMenuElement} from '//resources/cr_components
 import type {ErrorScrimElement} from '//resources/cr_components/composebox/error_scrim.js';
 import type {ComposeboxFileCarouselElement} from '//resources/cr_components/composebox/file_carousel.js';
 import type {GlowAnimationState} from '//resources/cr_components/search/constants.js';
-import {DragAndDropHandler} from '//resources/cr_components/search/drag_drop_handler.js';
-import type {DragAndDropHost} from '//resources/cr_components/search/drag_drop_host.js';
 import {EventTracker} from '//resources/js/event_tracker.js';
+import {loadTimeData} from '//resources/js/load_time_data.js';
 import {debounceEnd} from '//resources/js/util.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
-import type {AutocompleteResult, PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {AutocompleteResult, PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote, TabInfo} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {UnguessableToken} from '//resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 
 import {getCss} from './contextual_tasks_inner_composebox.css.js';
@@ -100,8 +104,7 @@ export interface ContextualTasksInnerComposeboxElement {
 
 export class
     ContextualTasksInnerComposeboxElement extends ComposeboxEmbedderMixin
-(CrLitElement) implements DragAndDropHost,
-                          ContextualTasksInnerComposeboxInterface {
+(CrLitElement) implements ContextualTasksInnerComposeboxInterface {
   static get is() {
     return 'contextual-tasks-inner-composebox';
   }
@@ -116,6 +119,8 @@ export class
 
   static override get properties() {
     return {
+      entrypointName: {type: String, reflect: true},
+      carouselOnTop_: {type: Boolean},
       disableFallbackGlifAnimation: {type: Boolean},
       enableCarouselScrolling: {type: Boolean},
       enableFileHint: {type: Boolean},
@@ -124,14 +129,21 @@ export class
       isFollowupQuery: {type: Boolean},
       isSidePanel: {type: Boolean},
       isZeroState: {type: Boolean},
-      lensButtonDisabled: {type: Boolean},
+      lensButtonDisabled: {
+        reflect: true,
+        type: Boolean,
+      },
       lensButtonTriggersOverlay: {type: Boolean},
       showLensButton: {type: Boolean},
+      expanding_: {
+        reflect: true,
+        type: Boolean,
+      },
     };
   }
 
-  // Wrapper-bound properties, declared no-op for compile/smoke.
-  // TODO (in the following CL): Migrate behavior.
+  // Wrapper-bound properties.
+  accessor entrypointName: string = 'ContextualTasks';
   accessor disableFallbackGlifAnimation: boolean = false;
   accessor enableCarouselScrolling: boolean = true;
   accessor enableFileHint: boolean = false;
@@ -145,12 +157,29 @@ export class
   accessor lensButtonTriggersOverlay: boolean = false;
   accessor showLensButton: boolean = true;
 
+  protected accessor carouselOnTop_: boolean = false;
+  // Reflected: the wrapper CSS and imported shared composebox.css key
+  // [expanding_] rules on it. Contextual Tasks is never collapsible.
+  protected accessor expanding_: boolean = true;
+
   private searchboxCallbackRouter_: SearchboxPageCallbackRouter;
   private pageHandler_: PageHandlerRemote;
   private searchboxHandler_: SearchboxPageHandlerRemote;
   private eventTracker_: EventTracker = new EventTracker();
   private resizeObservers_: ResizeObserver[] = [];
-  protected dragAndDropHandler_: DragAndDropHandler;
+  private automaticActiveTab_: ComposeboxFile|null = null;
+
+  // Synchronous immediate guard used to deduplicate processing
+  // autochips being added, not fully processed chips.
+  private pendingAutomaticActiveTabUrl_: string = '';
+
+  // Retains the latest version of the pending automatic active tab's title.
+  private pendingAutomaticActiveTabTitle_: string = '';
+
+  private get webUIOmniboxAskGAboutThisPageEnabled_(): boolean {
+    return loadTimeData.valueExists('webUIOmniboxAskGAboutThisPageEnabled') &&
+        loadTimeData.getBoolean('webUIOmniboxAskGAboutThisPageEnabled');
+  }
 
   override getPageHandler(): PageHandlerRemote {
     return this.pageHandler_;
@@ -189,17 +218,26 @@ export class
     this.searchboxCallbackRouter_ =
         ComposeboxProxyImpl.getInstance().searchboxCallbackRouter;
     this.searchboxHandler_ = ComposeboxProxyImpl.getInstance().searchboxHandler;
-    this.dragAndDropHandler_ =
-        new DragAndDropHandler(this, this.dragAndDropEnabled);
   }
 
-  override connectedCallback() {
+  override async connectedCallback() {
     super.connectedCallback();
+    this.searchboxListenerIds.push(
+        this.getSearchboxCallbackRouter()
+            .updateAutoSuggestedTabContext.addListener(
+                this.updateAutoSuggestedTabContext_.bind(this)));
     this.focusInput();
     // firstUpdated() runs only once, so restore the observers on reconnect (
     // the shadow DOM persists); the initial setup happens in firstUpdated().
     if (this.hasUpdated) {
       this.syncResizeObservers_();
+    }
+    if (this.smartTabSharingVisible) {
+      const {active} = await this.pageHandler_.getSmartTabSharingActive();
+      this.smartTabSharingActive = active;
+      if (active) {
+        this.clearContextForSmartTabSharingActive_();
+      }
     }
   }
 
@@ -211,8 +249,22 @@ export class
 
   override willUpdate(changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties);
-    if (changedProperties.has('inputPlaceholderOverride')) {
+    // The mixin also sets `smartTabSharingActive` directly (browser callback,
+    // visible-change fetch), so clear on any transition to active here.
+    if (changedProperties.has('smartTabSharingActive') &&
+        this.smartTabSharingActive) {
+      this.clearContextForSmartTabSharingActive_();
+    }
+    if (changedProperties.has('inputPlaceholderOverride') ||
+        changedProperties.has('enableFileHint')) {
       this.updateInputPlaceholder();
+    }
+
+    if (!this.hasUpdated) {
+      // The mixin default reads the all-surfaces coherence key; Contextual
+      // Tasks must use the cobrowsing-specific key.
+      this.voiceSearchCoherenceEnabled = loadTimeData.getBoolean(
+          'voiceSearchCoherenceCobrowsingComposeboxEnabled');
     }
   }
 
@@ -230,6 +282,11 @@ export class
       // Fires `show-suggestion-activity-link`; the wrapper owns the link UI.
       this.shouldShowSuggestionActivityLink();
     }
+  }
+
+  override computeVoiceSearchCoherenceEnabled(): boolean {
+    return loadTimeData.getBoolean(
+        'voiceSearchCoherenceCobrowsingComposeboxEnabled');
   }
 
   private setupResizeObservers_() {
@@ -268,7 +325,7 @@ export class
     // Reuse the mixin's dropdown/selection logic, but notify the wrapper via
     // `result-changed` only for accepted results (mirrors cr-composebox).
     const isValidResult =
-        !this.submitting && this.lastQueriedInput.trimStart() === result.input;
+        !this.submitting && result.queryId === this.activeQueryId;
     if (isValidResult && this.composeboxNoFlickerSuggestionsFix &&
         this.showTypedSuggest &&
         !this.haveReceivedSynchronousAutocompleteResponse) {
@@ -287,10 +344,204 @@ export class
     }
   }
 
-  /* Used by drag/drop host interface so the
-  drag and drop handler can access addDroppedFiles(). */
-  getDropTarget() {
-    return this;
+  override onSmartTabSharingActiveChanged(e: CustomEvent<{active: boolean}>) {
+    super.onSmartTabSharingActiveChanged(e);
+    if (e.detail.active) {
+      this.clearContextForSmartTabSharingActive_();
+    }
+  }
+
+  private clearContextForSmartTabSharingActive_() {
+    this.clearManualTabs_();
+    if (this.automaticActiveTab_) {
+      const uuid = this.automaticActiveTab_.uuid;
+      this.automaticActiveTab_ = null;
+      this.deleteFile(uuid, /*fromUserAction=*/ false);
+    }
+  }
+
+  private clearManualTabs_() {
+    const fileMap = new Map(this.files);
+    for (const [uuid, file] of fileMap.entries()) {
+      if (file.type === 'tab' &&
+          (!this.automaticActiveTab_ ||
+           file.uuid !== this.automaticActiveTab_.uuid)) {
+        this.deleteFile(uuid, /*fromUserAction=*/ false);
+      }
+    }
+  }
+
+  private async updateAutoSuggestedTabContext_(
+      tab: TabInfo|null, invocationSource: string|null) {
+    if (this.smartTabSharingActive) {
+      if (this.automaticActiveTab_) {
+        this.deleteFile(this.automaticActiveTab_.uuid);
+        this.automaticActiveTab_ = null;
+      }
+      return;
+    }
+    // AutoSuggestedTabContext is routed differently for Omnibox Page Action.
+    // when it opens a side panel to cobrowse.
+    const askGAndPageAction = this.webUIOmniboxAskGAboutThisPageEnabled_ &&
+        invocationSource === 'OmniboxPageAction' && this.isSidePanel;
+
+    // We should delete the automatic active tab if it is different from the
+    // current tab when webUIOmniboxAskGAboutThisPageEnabled_ is true. Make sure
+    // to keep the existing tab if we are returning from another tab.
+    const hasTabMismatch = !!this.automaticActiveTab_ && !!tab &&
+        this.automaticActiveTab_.url !== tab.url;
+    const shouldDeleteAutomaticActiveTab = askGAndPageAction ?
+        hasTabMismatch :
+        this.automaticActiveTab_ && (!tab || hasTabMismatch);
+
+    if (shouldDeleteAutomaticActiveTab) {
+      this.deleteFile(this.automaticActiveTab_!.uuid);
+      this.automaticActiveTab_ = null;
+
+      // TODO(crbug.com/482150500): Correctly query for url based suggestions
+      // when delayed tab is present. Right now, while url-based suggestions are
+      // not set-up, clear the autocomplete matches.
+      if (!askGAndPageAction && !tab) {
+        this.queryAutocomplete(/* clearMatches= */ true);
+      }
+      return;
+    }
+
+    if (tab) {
+      // Ignore the `TabInfo` update if there is a matching
+      // `automaticActiveTab_`, unless the title has changed.
+      if (this.automaticActiveTab_ &&
+          tab.url === this.automaticActiveTab_.url &&
+          tab.tabId === this.automaticActiveTab_.tabId) {
+        if (this.automaticActiveTab_.name !== tab.title) {
+          const updatedFile = new ComposeboxFile(
+              this.automaticActiveTab_.uuid, tab.title,
+              this.automaticActiveTab_.type, this.automaticActiveTab_.inputType,
+              this.automaticActiveTab_);
+          this.automaticActiveTab_ = updatedFile;
+          const fileMap = new Map(this.files);
+          fileMap.set(updatedFile.uuid, updatedFile);
+          this.files = fileMap;
+        }
+        return;
+      }
+
+      // If an autochip is currently being uploaded but carousel attachment has
+      // not been created yet, allow updates to its title. Absence of this
+      // url means that there is no currently no auto active tab uploading.
+      // If the url is the same, this is an update for the same tab so just
+      // allow updates to the uploading tab's title from this update,
+      // but do not upload it again.
+      if (this.pendingAutomaticActiveTabUrl_ === tab.url) {
+        this.pendingAutomaticActiveTabTitle_ = tab.title;
+        return;
+      }
+      // Otherwise, prepare to replace the auto chip:
+      this.pendingAutomaticActiveTabUrl_ = tab.url;
+      this.pendingAutomaticActiveTabTitle_ = tab.title;
+
+      // Do not reset above pending states in this async callback since
+      // later requests make any older async callback updates irrelevant.
+      // Add the `TabInfo` as `ComposeboxFile` in carousel.
+      const attachment = await this.addTabContextHandleCallback(
+          {
+            tabId: tab.tabId,
+            title: tab.title,
+            url: tab.url,
+            delayUpload: !askGAndPageAction,
+            origin: TabUploadOrigin.AUTO_ACTIVE,
+          } as TabUpload,
+          /*replaceAutoActiveTabToken=*/ true);
+
+      if (!askGAndPageAction || !attachment) {
+        this.clearAutocompleteMatches();
+      }
+    }
+  }
+
+  override async addTabContextHandleCallback(
+      tabUpload: TabUpload, replaceAutoActiveTabToken: boolean = false):
+      Promise<ComposeboxFile|null> {
+    const attachment = await super.addTabContextHandleCallback(
+        tabUpload, replaceAutoActiveTabToken, (attachment) => {
+          // Do not reset pending active tab to avoid overwriting
+          // synchronous "pending statuses" that are queued (since this
+          // function is asynchronous and can run much later).
+          if (replaceAutoActiveTabToken) {
+            this.automaticActiveTab_ =
+                Object.assign(attachment, {uuid: attachment.uuid});
+          }
+        });
+
+    if (!attachment) {
+      return null;
+    }
+    // Adding a tab is asynchronous. For auto active tabs, a title update
+    // might be received after the upload process has been started. In order
+    // to prevent adding duplicate chips from this update, simply update the
+    // title of the initial upload instead based on whatever the latest
+    // title update received is.
+    if (replaceAutoActiveTabToken && this.automaticActiveTab_) {
+      if (this.automaticActiveTab_.name !==
+          this.pendingAutomaticActiveTabTitle_) {
+        const updatedFile = new ComposeboxFile(
+            this.automaticActiveTab_.uuid,
+            this.pendingAutomaticActiveTabTitle_,
+            this.automaticActiveTab_.type,
+            this.automaticActiveTab_.inputType,
+            this.automaticActiveTab_);
+        this.automaticActiveTab_ = updatedFile;
+        const fileMap = new Map(this.files);
+        fileMap.set(updatedFile.uuid, updatedFile);
+        this.files = fileMap;
+      }
+    }
+    return attachment;
+  }
+
+  override deleteFile(uuidToDelete: UnguessableToken, fromUserAction?: boolean):
+      ComposeboxFile|null {
+    const fromAutoSuggestedChip =
+        uuidToDelete === this.automaticActiveTab_?.uuid &&
+        (fromUserAction === true);
+    const file =
+        super.deleteFile(uuidToDelete, fromUserAction, fromAutoSuggestedChip);
+
+    if (!file) {
+      return null;
+    }
+
+    if (fromAutoSuggestedChip) {
+      // TODO(crbug.com/492797638): Consider folding this into the
+      // `InputStateDeletion` metric.
+      const metricName = 'ContextualSearch.UserAction.DeleteAutoSuggestedTab.' +
+          this.composeboxSource;
+      recordUserAction(metricName);
+      recordBoolean(metricName, true);
+      this.automaticActiveTab_ = null;
+    }
+    // We should not be querying autocomplete in the presence of a tab
+    // with delayed upload until URL suggestions are implemented.
+    // `deleteContext_` gets called before the active tab chip token is cleared,
+    // therefore, check if we're removing this chip to see if the delayed tab
+    // is getting removed.
+    if (fromAutoSuggestedChip || !this.getHasAutomaticActiveTabChipToken()) {
+      this.queryAutocomplete(/* clearMatches= */ true);
+    } else {
+      // TODO(crbug.com/482150500): Have URL-suggestions for tabs with delayed
+      // uploads.
+      this.clearAutocompleteMatches();
+    }
+    return file;
+  }
+
+  override clearAllInputs(
+      querySubmitted: boolean, shouldBlockAutoSuggestedTabs: boolean) {
+    // Reset side-panel specific suggested tab context URL/Title pointers
+    this.automaticActiveTab_ = null;
+    this.pendingAutomaticActiveTabUrl_ = '';
+    this.pendingAutomaticActiveTabTitle_ = '';
+    super.clearAllInputs(querySubmitted, shouldBlockAutoSuggestedTabs);
   }
 
   protected onComposeboxFocusin_(e: FocusEvent) {
@@ -311,11 +562,50 @@ export class
     this.fire('composebox-focus-out');
   }
 
+  protected onLensClick_() {
+    if (this.lensButtonTriggersOverlay) {
+      this.pageHandler_.handleLensButtonClick();
+    } else {
+      this.pageHandler_.handleFileUpload(/*is_image=*/ true);
+    }
+  }
+
+  protected onLensIconMousedown_(e: MouseEvent) {
+    // Capture the mousedown so clicking the Lens icon does not focus (and
+    // expand) the composebox.
+    e.preventDefault();
+  }
+
   override updateInputPlaceholder() {
     if (this.inputPlaceholderOverride) {
       this.inputPlaceholder = this.inputPlaceholderOverride;
       return;
     }
+
+    // The file hint should only be shown when there is context that was
+    // deliberately added by the user (i.e. not the automatic active tab).
+    const isOnlyAutoTab = this.files.size === 1 && !!this.automaticActiveTab_;
+    const shouldUseFileHint = this.enableFileHint && this.hasFiles() &&
+        !isOnlyAutoTab && this.inputState?.activeTool === ToolMode.kUnspecified;
+    if (shouldUseFileHint) {
+      if (this.files.size > 1) {
+        this.inputPlaceholder = this.i18n('composeboxHintTextAskAboutThese');
+        return;
+      }
+      const file = this.files.values().next().value!;
+      if (file.type === 'tab') {
+        this.inputPlaceholder = this.i18n('composeboxHintTextAskAboutThisTab');
+        return;
+      } else if (file.type.includes('image')) {
+        this.inputPlaceholder =
+            this.i18n('composeboxHintTextAskAboutThisImage');
+        return;
+      } else if (file.type === 'pdf' || file.type === 'application/pdf') {
+        this.inputPlaceholder = this.i18n('composeboxHintTextAskAboutThisDoc');
+        return;
+      }
+    }
+
     super.updateInputPlaceholder();
   }
 
@@ -329,25 +619,71 @@ export class
          this.isFollowupQuery);
   }
 
+  override shouldShowDivider(): boolean {
+    // Retain the divider when only tab favicons are present.
+    const hasNonTabFiles = Array.from(this.files.values()).some(f => !f.url);
+    if (this.hasTabs() && !hasNonTabFiles) {
+      return this.showDropdown;
+    }
+    return super.shouldShowDivider();
+  }
+
+  override shouldDisableFileInputs(): boolean {
+    // Contextual Tasks never uploads through the hidden file inputs; uploads
+    // go through the browser handler (Lens, drag/drop, paste).
+    return true;
+  }
+
   getAutomaticActiveTabChipElement(): HTMLElement|null {
-    // TODO: Migrate automatic active tab behavior.
-    return null;
+    if (!this.automaticActiveTab_) {
+      return null;
+    }
+    const carousel =
+        this.shadowRoot?.querySelector<ComposeboxFileCarouselElement>(
+            '#carousel');
+    if (!carousel) {
+      return null;
+    }
+
+    return carousel.getThumbnailElementByUuid(this.automaticActiveTab_.uuid);
   }
 
   getHasAutomaticActiveTabChipToken(): boolean {
-    // TODO: Migrate automatic active tab behavior.
-    return false;
+    return this.automaticActiveTab_ !== null;
   }
 
   injectInput(
-      _title: string, _thumbnail: string, _fileToken: UnguessableToken,
-      _supportsUnimodal: boolean, _iconName?: string): void {
-    // TODO: Migrate inject-input behavior.
+      title: string, thumbnail: string, fileToken: UnguessableToken,
+      supportsUnimodal: boolean, iconName?: string): void {
+    const attachment = ComposeboxFile.createFromInjectedInput(
+        fileToken, thumbnail, title, iconName ?? null);
+    attachment.supportsUnimodal = supportsUnimodal;
+
+    this.onFileContextAdded(attachment);
   }
 
   setInputProgrammatically(
-      _queryText: string, _willSubmitAfterInjection: boolean): void {
-    // TODO: Migrate set-input-programmatically behavior.
+      queryText: string, willSubmitAfterInjection: boolean): void {
+    this.input = queryText;
+
+    if (!willSubmitAfterInjection) {
+      // If not submitting immediately, suggestions for the new input might be
+      // desired.
+      this.queryAutocomplete(/*clearMatches=*/ true);
+      return;
+    }
+
+    // Stop any in-flight autocomplete queries to prevent unnecessary backend
+    // work for a query that is about to be submitted.
+    this.getSearchboxHandler().stopAutocomplete(/*clearResult=*/ true);
+
+    this.lastQueriedInput = '';
+
+    // Hide the dropdown and drop any stale matches. This also resets
+    // `activeQueryId` to -1, so autocomplete results that still arrive for
+    // earlier queries are rejected by the query-ID guard in
+    // `onAutocompleteResultChanged`.
+    this.clearAutocompleteMatches();
   }
 }
 

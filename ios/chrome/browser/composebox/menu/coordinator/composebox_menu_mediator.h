@@ -59,6 +59,10 @@ class WebStateList;
 - (void)composeboxMenuMediatorDidRequestDriveFileSelection:
     (ComposeboxMenuMediator*)mediator;
 
+// Called when the shared tabs selection is requested.
+- (void)composeboxMenuMediatorDidRequestSharedTabs:
+    (ComposeboxMenuMediator*)mediator;
+
 @end
 
 // Mediator for the composebox menu.
@@ -82,6 +86,9 @@ class WebStateList;
 /// Disconnects the mediator, clearing references.
 - (void)disconnect;
 
+/// Updates the UI input state.
+- (void)updateUIInputState:(ComposeboxUIInputState*)inputState;
+
 /// Processes the given `imageItems`.
 - (void)processImageItems:(NSArray<ComposeboxPickerImageResult*>*)imageItems;
 
@@ -101,6 +108,9 @@ class WebStateList;
 /// Returns the maximum number of images allowed based on the current
 /// composebox mode and current number of attachments.
 - (NSUInteger)remainingNumberOfImagesAllowed;
+
+/// Returns the asset IDs of all currently attached image items.
+- (NSArray<NSString*>*)attachedImageAssetIDs;
 
 /// Returns the associated IDs for all currently attached tabs.
 - (std::set<web::WebStateID>)allAttachedWebStateIDs;

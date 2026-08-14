@@ -23,6 +23,7 @@ import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.LayerTitleCache;
+import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelper.LeadingButtonDelegate;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager.TabModelStartupInfo;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
@@ -49,11 +50,12 @@ import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
 import org.chromium.ui.base.ActivityResultTracker;
-import org.chromium.ui.base.WindowAndroid;
+import org.chromium.ui.base.ActivityWindowAndroid;
 import org.chromium.ui.dragdrop.DragAndDropDelegate;
 import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
 import org.chromium.ui.xr.scenecore.XrSceneCoreSessionManager;
 
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /** LayoutManagerChromeTablet is the specialization of LayoutManagerChrome for the tablet. */
@@ -85,6 +87,7 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
      * @param browserControlsStateProvider The BrowserControlsStateProvider for top controls.
      * @param tabContentManagerSupplier Supplier of the TabContentManager instance.
      * @param toolbarThemeColorProvider ThemeColorProvider for the toolbar.
+     * @param tabModelStartupInfoSupplier Supplier for the {@link TabModelStartupInfo} on startup.
      * @param lifecycleDispatcher ActivityLifecycleDispatcher to be passed to TabStrip helper.
      * @param hubLayoutDependencyHolder The dependency holder for creating HubLayout.
      * @param multiInstanceManager MultiInstanceManager passed to StripLayoutHelper to support tab
@@ -107,6 +110,12 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
      * @param snackbarManager The {@link SnackbarManager} used to show snackbar UI.
      * @param activityResultTracker The {@link ActivityResultTracker}.
      * @param glicClickHandler The {@link GlicButtonDelegate} for the tab strip Glic button.
+     * @param leadingButtonDelegate The {@link LeadingButtonDelegate} for the tab strip's leading
+     *     button.
+     * @param sideUiStateProviderSupplier Supplier of the {@link SideUiStateProvider}.
+     * @param tabObscuringHandler The {@link TabObscuringHandler} to manage tab obscuring.
+     * @param canActivateTabLayoutToggleMenuSupplier Supplier indicating if tab layout toggle can be
+     *     activated.
      */
     public LayoutManagerChromeTablet(
             LayoutManagerHost host,
@@ -123,7 +132,7 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
             DragAndDropDelegate dragAndDropDelegate,
             View controlContainerView,
             ViewStub tabHoverCardViewStub,
-            WindowAndroid windowAndroid,
+            ActivityWindowAndroid windowAndroid,
             ToolbarManager toolbarManager,
             @Nullable DesktopWindowStateManager desktopWindowStateManager,
             ActionConfirmationManager actionConfirmationManager,
@@ -136,8 +145,10 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
             SnackbarManager snackbarManager,
             ActivityResultTracker activityResultTracker,
             GlicButtonDelegate glicClickHandler,
+            LeadingButtonDelegate leadingButtonDelegate,
             OneshotSupplier<SideUiStateProvider> sideUiStateProviderSupplier,
-            TabObscuringHandler tabObscuringHandler) {
+            TabObscuringHandler tabObscuringHandler,
+            @Nullable BooleanSupplier canActivateTabLayoutToggleMenuSupplier) {
         super(
                 host,
                 contentContainer,
@@ -181,8 +192,10 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
                         snackbarManager,
                         activityResultTracker,
                         glicClickHandler,
+                        leadingButtonDelegate,
                         sideUiStateProviderSupplier,
-                        tabObscuringHandler);
+                        tabObscuringHandler,
+                        canActivateTabLayoutToggleMenuSupplier);
         addSceneOverlay(mTabStripLayoutHelperManager);
         addObserver(mTabStripLayoutHelperManager.getTabSwitcherObserver());
         mDesktopWindowStateManager = desktopWindowStateManager;

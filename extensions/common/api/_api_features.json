@@ -186,6 +186,10 @@
     "dependencies": ["permission:dns"],
     "contexts": ["privileged_extension"]
   },
+  "dom": {
+    "channel": "stable",
+    "contexts": ["privileged_extension", "content_script"]
+  },
   // This is not a real API, only here for documentation purposes.
   // See http://crbug.com/275944 for background.
   "extensionTypes": {
@@ -581,6 +585,10 @@
     "dependencies": ["permission:printerProvider"],
     "contexts": ["privileged_extension"]
   },
+  "proxy": {
+    "dependencies": ["permission:proxy"],
+    "contexts": ["privileged_extension"]
+  },
   "runtime": {
     "channel": "stable",
     "extension_types": [
@@ -893,21 +901,6 @@
     "contexts": [ "privileged_extension" ],
     "requires_delegated_availability_check": true
   },
-  "userScripts.getWorldConfigurations": {
-    "dependencies": [ "permission:userScripts" ],
-    "contexts": [ "privileged_extension" ],
-    "feature_flag": "ApiUserScriptsMultipleWorlds"
-  },
-  "userScripts.resetWorldConfiguration": {
-    "dependencies": [ "permission:userScripts" ],
-    "contexts": [ "privileged_extension" ],
-    "feature_flag": "ApiUserScriptsMultipleWorlds"
-  },
-  "userScripts.execute": {
-    "dependencies": [ "permission:userScripts" ],
-    "contexts": [ "privileged_extension" ],
-    "feature_flag": "ApiUserScriptsExecute"
-  },
   "virtualKeyboard": {
     "dependencies": ["permission:virtualKeyboard"],
     "contexts": ["privileged_extension"]
@@ -968,6 +961,18 @@
     // This feature is only enabled if the embedder's delegated check returns
     // true.
     "requires_delegated_availability_check": true
+  }],
+  "webstorePrivate": [{
+    "channel": "stable",
+    "contexts": ["web_page"],
+    "matches": ["https://chromewebstore.google.com/*"]
+  }, {
+    // Used for webstore testing. See comment in
+    // chrome/common/extensions/webstore_override.cc
+    "channel": "stable",
+    "contexts": ["web_page"],
+    "requires_delegated_availability_check": true,
+    "matches": ["<all_urls>"]
   }],
   "webViewInternal": [{
     "internal": true,

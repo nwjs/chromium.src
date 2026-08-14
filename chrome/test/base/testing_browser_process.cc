@@ -40,7 +40,6 @@
 #include "components/application_locale_storage/application_locale_storage.h"
 #include "components/embedder_support/origin_trials/origin_trials_settings_storage.h"
 #include "components/metrics/metrics_service.h"
-#include "components/metrics_services_manager/metrics_services_manager.h"
 #include "components/network_time/network_time_tracker.h"
 #include "components/os_crypt/async/browser/test_utils.h"
 #include "components/permissions/permissions_client.h"
@@ -61,9 +60,9 @@
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
-#include "services/device/public/cpp/device_features.h"
-#include "services/device/public/cpp/geolocation/geolocation_system_permission_manager.h"
-#include "services/device/public/cpp/test/fake_geolocation_system_permission_manager.h"
+#include "services/device/public/cpp/device_features.h"  // nogncheck
+#include "services/device/public/cpp/geolocation/geolocation_system_permission_manager.h"  // nogncheck
+#include "services/device/public/cpp/test/fake_geolocation_system_permission_manager.h"  // nogncheck
 #endif
 
 #if BUILDFLAG(ENABLE_BACKGROUND_MODE)
@@ -327,7 +326,7 @@ void TestingBrowserProcess::EndSession() {}
 
 metrics_services_manager::MetricsServicesManager*
 TestingBrowserProcess::GetMetricsServicesManager() {
-  return metrics_services_manager_;
+  return nullptr;
 }
 
 metrics::MetricsService* TestingBrowserProcess::metrics_service() {
@@ -364,12 +363,6 @@ TestingBrowserProcess::network_quality_tracker() {
 
 ProfileManager* TestingBrowserProcess::profile_manager() {
   return profile_manager_.get();
-}
-
-void TestingBrowserProcess::SetMetricsServicesManager(
-    metrics_services_manager::MetricsServicesManager*
-        metrics_services_manager) {
-  metrics_services_manager_ = metrics_services_manager;
 }
 
 void TestingBrowserProcess::SetMetricsService(

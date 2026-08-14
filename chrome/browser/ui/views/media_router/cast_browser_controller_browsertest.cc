@@ -4,7 +4,6 @@
 
 #include "chrome/browser/ui/views/media_router/cast_browser_controller.h"
 
-#include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/media/router/discovery/access_code/access_code_cast_feature.h"
 #include "chrome/browser/media/router/mojo/media_router_desktop.h"
@@ -24,13 +23,10 @@
 #include "components/media_router/browser/mirroring_media_controller_host_impl.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/test/browser_test.h"
-#include "mojo/public/cpp/bindings/remote.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/ui_base_features.h"
-#include "ui/color/color_id.h"
 #include "ui/color/color_provider.h"
-#include "ui/gfx/color_palette.h"
 #include "ui/gfx/image/image_unittest_util.h"
 #include "ui/gfx/paint_vector_icon.h"
 
@@ -65,7 +61,7 @@ class CastBrowserControllerTest : public InProcessBrowserTest {
   void SetUpOnMainThread() override {
     InProcessBrowserTest::SetUpOnMainThread();
 
-    PinnedToolbarActionsModel::Get(browser()->profile())
+    PinnedToolbarActionsModel::Get(browser()->GetProfile())
         ->UpdatePinnedState(kActionRouteMedia, true);
     CHECK(!features::IsWebUIPinnedToolbarActionsEnabled())
         << "Test needs modification to support WebUIPinnedToolbarActions";
@@ -77,7 +73,7 @@ class CastBrowserControllerTest : public InProcessBrowserTest {
     controller_ =
         browser()->browser_window_features()->cast_browser_controller();
     media_router_ =
-        MediaRouterFactory::GetApiForBrowserContext(browser()->profile());
+        MediaRouterFactory::GetApiForBrowserContext(browser()->GetProfile());
 
     const ui::ColorProvider* color_provider = button_->GetColorProvider();
     const int icon_size =
@@ -161,15 +157,15 @@ IN_PROC_BROWSER_TEST_F(CastBrowserControllerTest, UpdateIssues) {
 
 IN_PROC_BROWSER_TEST_F(CastBrowserControllerTest, PausedIcon) {
   // Enable the proper prefs.
-  browser()->profile()->GetPrefs()->SetBoolean(prefs::kAccessCodeCastEnabled,
-                                               true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kAccessCodeCastEnabled,
+                                                  true);
 
   controller_->UpdateIcon();
   EXPECT_TRUE(IsIdleIcon());
 
   static_cast<MediaRouterDesktop*>(
       media_router::MediaRouterFactory::GetApiForBrowserContext(
-          browser()->profile()))
+          browser()->GetProfile()))
       ->OnRoutesUpdated(mojom::MediaRouteProviderId::CAST,
                         local_display_route_list_);
 
@@ -177,7 +173,7 @@ IN_PROC_BROWSER_TEST_F(CastBrowserControllerTest, PausedIcon) {
   status->can_play_pause = true;
   status->play_state = mojom::MediaStatus::PlayState::PAUSED;
   media_router::MediaRouterFactory::GetApiForBrowserContext(
-      browser()->profile())
+      browser()->GetProfile())
       ->GetMirroringMediaControllerHost("routeId1")
       ->OnMediaStatusUpdated(std::move(status));
 

@@ -91,10 +91,15 @@ POLICY_EXPORT BASE_DECLARE_FEATURE(kPolicyPageMojoMigration);
 // If enabled, device signals collection disclaimer will be shown during signin
 // for profiles created before the profile flow with disclaimer was released.
 POLICY_EXPORT BASE_DECLARE_FEATURE(kDeviceSignalsBackfillDisclaimer);
+POLICY_EXPORT extern const base::FeatureParam<bool>
+    kClearDeviceSignalsPermissionOnStartup;
 
 // When enabled, URLs in the general blocklist are still blocked in incognito
 // even if they are in the incognito allowlist.
 POLICY_EXPORT BASE_DECLARE_FEATURE(kURLBlocklistOverridesIncognitoAllowlist);
+
+// Enables the export of platform policies as JSON on the chrome://policy page.
+POLICY_EXPORT BASE_DECLARE_FEATURE(kExportPlatformPoliciesJson);
 
 }  // namespace policy::features
 

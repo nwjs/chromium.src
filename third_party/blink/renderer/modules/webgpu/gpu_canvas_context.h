@@ -6,7 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_WEBGPU_GPU_CANVAS_CONTEXT_H_
 
 #include "base/containers/heap_array.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_canvas_tone_mapping_mode.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_canvas_tone_mapping_mode.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_canvas_alpha_mode.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context_factory.h"
@@ -20,6 +20,7 @@
 
 namespace blink {
 
+class CanvasNon2DResourceProvider;
 class ExceptionState;
 class ExecutionContext;
 class GPUDevice;
@@ -119,7 +120,7 @@ class GPUCanvasContext : public ScriptWrappable,
   bool IsGPUDeviceDestroyed() override;
 
  private:
-  CanvasNon2DResourceProviderSharedImage* GetOrCreateCanvasResourceProvider();
+  CanvasNon2DResourceProvider* GetOrCreateCanvasNon2DResourceProvider();
   scoped_refptr<WebGPUMailboxTexture> GetFrontBufferMailboxTexture();
   void DetachSwapBuffers();
   void ReplaceDrawingBuffer(bool destroy_swap_buffers);
@@ -132,7 +133,7 @@ class GPUCanvasContext : public ScriptWrappable,
 
   bool CopyTextureToResourceProvider(
       const wgpu::Texture& texture,
-      CanvasNon2DResourceProviderSharedImage* resource_provider) const;
+      CanvasNon2DResourceProvider* resource_provider) const;
 
   void CopyToSwapTexture();
 
@@ -148,7 +149,7 @@ class GPUCanvasContext : public ScriptWrappable,
 
   Member<GPUDevice> device_;
 
-  std::unique_ptr<CanvasNon2DResourceProviderSharedImage> resource_provider_;
+  std::unique_ptr<CanvasNon2DResourceProvider> resource_provider_;
 
   // `did_fail_to_create_resource_provider_` prevents repeated attempts in
   // allocating resources after the first attempt failed.

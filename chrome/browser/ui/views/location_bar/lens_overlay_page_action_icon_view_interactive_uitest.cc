@@ -6,7 +6,6 @@
 // `LensOverlayEntryPointController` once the page actions migration is
 // complete.
 
-#include <memory>
 
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
@@ -15,7 +14,6 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/page_action/page_action_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
@@ -25,9 +23,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/lens/lens_features.h"
-#include "components/omnibox/browser/aim_eligibility_service_features.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
-#include "components/omnibox/common/omnibox_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "ui/events/test/test_event.h"
@@ -187,8 +183,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayPageActionIconViewTest,
 IN_PROC_BROWSER_TEST_F(LensOverlayPageActionIconViewTest,
                        DoesNotShowWhenSettingDisabled) {
   // Disable the setting.
-  browser()->profile()->GetPrefs()->SetBoolean(omnibox::kShowGoogleLensShortcut,
-                                               false);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
+      omnibox::kShowGoogleLensShortcut, false);
 
   // Navigate to a non-NTP page.
   ASSERT_TRUE(
@@ -239,8 +235,8 @@ IN_PROC_BROWSER_TEST_F(
 IN_PROC_BROWSER_TEST_F(LensOverlayPageActionIconViewTest,
                        RespectsShowShortcutPreference) {
   // Ensure the shortcut pref starts enabled.
-  browser()->profile()->GetPrefs()->SetBoolean(omnibox::kShowGoogleLensShortcut,
-                                               true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
+      omnibox::kShowGoogleLensShortcut, true);
 
   // Navigate to a non-NTP page.
   ASSERT_TRUE(
@@ -256,14 +252,14 @@ IN_PROC_BROWSER_TEST_F(LensOverlayPageActionIconViewTest,
   FocusLocationBarAndWaitForUpdate();
 
   // Disable the preference, the entrypoint should immediately disappear.
-  browser()->profile()->GetPrefs()->SetBoolean(omnibox::kShowGoogleLensShortcut,
-                                               false);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
+      omnibox::kShowGoogleLensShortcut, false);
   EXPECT_FALSE(page_action_view->GetVisible());
 
   // Re-enable the preference, the entrypoint should immediately become
   // visible.
-  browser()->profile()->GetPrefs()->SetBoolean(omnibox::kShowGoogleLensShortcut,
-                                               true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
+      omnibox::kShowGoogleLensShortcut, true);
   EXPECT_TRUE(page_action_view->GetVisible());
 }
 

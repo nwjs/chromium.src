@@ -99,6 +99,7 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   bool IsShowing() override;
   void WasOccluded() override;
   gfx::Rect GetViewBounds() override;
+  gfx::Rect GetViewBoundsWithoutTransform() override;
   gfx::Size GetVisibleViewportSize() override;
   gfx::Size GetVisibleViewportSizeDevicePx() override;
   void SetInsets(const gfx::Insets& insets) override;
@@ -151,7 +152,8 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   void OnUnconfirmedTapConvertedToTap() override;
 
   void TransformPointToRootSurface(gfx::PointF* point) override;
-  gfx::Rect GetBoundsInRootWindow() override;
+  gfx::Rect GetBoundsInScreen() override;
+  gfx::Rect GetBoundsInScreenWithoutTransform() override;
   void DidStopFlinging() override;
   blink::mojom::PointerLockResult LockPointer(
       bool request_unadjusted_movement) override;
@@ -332,6 +334,8 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
 
   void DetachFromTouchSelectionClientManagerIfNecessary();
 
+  gfx::Rect GetViewBoundsHelper(bool without_transform);
+
   // Returns false if the view cannot be shown. This is the case where the frame
   // associated with this view or a cross process ancestor frame has been hidden
   // using CSS.
@@ -370,6 +374,11 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
 
   std::unique_ptr<TouchSelectionControllerClientChildFrame>
       selection_controller_client_;
+
+  // Weak pointer to the view which owns the
+  // TouchSelectionControllerClientManager that this object is registered with.
+  base::WeakPtr<RenderWidgetHostViewBase>
+      view_for_touch_selection_client_manager_;
 
   // If a new RWHVCF is created for a cross-origin navigation, the parent
   // will typically not notice and will not transmit a full complement of

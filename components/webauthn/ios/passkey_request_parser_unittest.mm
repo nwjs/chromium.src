@@ -22,8 +22,9 @@ namespace {
 // An empty string for testing purposes.
 constexpr std::string kEmpty = "";
 
-// A base 64 encoded URL string.
+// A base 64 encoded URL string and its decoded string representation.
 constexpr std::string kBase64url = "TGVlcm95IEplbmtpbnM=";
+constexpr std::string kDecodedBase64url = "Leeroy Jenkins";
 constexpr std::string kBase64url_2 = "U2FsdCBCYWU=";
 
 // A malformed base 64 url encoded string.
@@ -101,6 +102,16 @@ std::string Base64UrlEncode(base::span<const uint8_t> input) {
   base::Base64UrlEncode(input, base::Base64UrlEncodePolicy::OMIT_PADDING,
                         &output);
   return output;
+}
+
+// Decodes a base 64 URL encoded string to byte vector.
+std::vector<uint8_t> Base64UrlDecode(std::string_view input) {
+  std::string output;
+  if (!base::Base64UrlDecode(input, base::Base64UrlDecodePolicy::IGNORE_PADDING,
+                             &output)) {
+    return {};
+  }
+  return std::vector<uint8_t>(output.begin(), output.end());
 }
 
 base::DictValue BuildRequestInfoDict(
@@ -781,16 +792,16 @@ TEST_F(PasskeyRequestParserTest, ParseLogGetResolvedEvent) {
                    .has_value());
 
   dict.Set(kRpId, kExampleRpId);
-  dict.Set(kCredentialId, kExampleCredId);
+  dict.Set(kCredentialId, kBase64url);
 
   // Test case 2: Lambda returns TRUE (Credential found in GPM).
-  auto result_gpm =
-      ParsePasskeyScriptEvent(dict, GetDefaultOrigin(),
-                              [](const std::string& rp, const std::string& id) {
-                                EXPECT_EQ(rp, kExampleRpId);
-                                EXPECT_EQ(id, kExampleCredId);
-                                return true;
-                              });
+  auto result_gpm = ParsePasskeyScriptEvent(
+      dict, GetDefaultOrigin(),
+      [](const std::string& rp, const std::string& id) {
+        EXPECT_EQ(rp, kExampleRpId);
+        EXPECT_EQ(id, kDecodedBase64url);
+        return true;
+      });
   ASSERT_TRUE(result_gpm.has_value());
   EXPECT_EQ(*result_gpm, PasskeyScriptEvent::kLogGetResolvedGpm);
 
@@ -800,6 +811,11 @@ TEST_F(PasskeyRequestParserTest, ParseLogGetResolvedEvent) {
       [](const std::string&, const std::string&) { return false; });
   ASSERT_TRUE(result_non_gpm.has_value());
   EXPECT_EQ(*result_non_gpm, PasskeyScriptEvent::kLogGetResolvedNonGpm);
+
+  // Test case 4: Malformed Base64URL credential ID.
+  dict.Set(kCredentialId, kNotBase64url);
+  EXPECT_FALSE(ParsePasskeyScriptEvent(dict, GetDefaultOrigin(), &IsGpmPasskey)
+                   .has_value());
 }
 
 // Tests ParsePasskeyScriptEvent logic for "logCreateResolved" based on the
@@ -849,6 +865,75 @@ TEST_F(PasskeyRequestParserTest, ParseEventOriginMismatch) {
   // GetDefaultOrigin() (example.com).
   EXPECT_FALSE(ParsePasskeyScriptEvent(dict, GetDefaultOrigin(), &IsGpmPasskey)
                    .has_value());
+}
+
+TEST_F(PasskeyRequestParserTest, BuildSignalUnknownCredentialParamsSuccess) {
+  base::DictValue dict;
+  dict.Set(kRpId, kExampleRpId);
+  dict.Set(kCredentialId, kBase64url);
+
+  auto result = BuildSignalUnknownCredentialParams(dict);
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result->rp_id, kExampleRpId);
+  EXPECT_EQ(result->credential_id, Base64UrlDecode(kBase64url));
+}
+
+TEST_F(PasskeyRequestParserTest, BuildSignalUnknownCredentialParamsInvalid) {
+  base::DictValue dict;
+  dict.Set(kRpId, kExampleRpId);
+  // Missing credentialId.
+  EXPECT_FALSE(BuildSignalUnknownCredentialParams(dict).has_value());
+}
+
+TEST_F(PasskeyRequestParserTest, BuildSignalCurrentUserDetailsParamsSuccess) {
+  base::DictValue dict;
+  dict.Set(kRpId, kExampleRpId);
+  dict.Set("userId", kBase64url);
+  dict.Set("name", "user@example.com");
+  dict.Set("displayName", "User Name");
+
+  auto result = BuildSignalCurrentUserDetailsParams(dict);
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result->rp_id, kExampleRpId);
+  EXPECT_EQ(result->user_id, Base64UrlDecode(kBase64url));
+  EXPECT_EQ(result->name, "user@example.com");
+  EXPECT_EQ(result->display_name, "User Name");
+}
+
+TEST_F(PasskeyRequestParserTest, BuildSignalCurrentUserDetailsParamsInvalid) {
+  base::DictValue dict;
+  dict.Set(kRpId, kExampleRpId);
+  dict.Set("userId", kBase64url);
+  dict.Set("name", "user@example.com");
+  // Missing displayName.
+  EXPECT_FALSE(BuildSignalCurrentUserDetailsParams(dict).has_value());
+}
+
+TEST_F(PasskeyRequestParserTest,
+       BuildSignalAllAcceptedCredentialsParamsSuccess) {
+  base::DictValue dict;
+  dict.Set(kRpId, kExampleRpId);
+  dict.Set("userId", kBase64url);
+  base::ListValue cred_ids;
+  cred_ids.Append(kBase64url_2);
+  dict.Set("allAcceptedCredentialIds", std::move(cred_ids));
+
+  auto result = BuildSignalAllAcceptedCredentialsParams(dict);
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result->rp_id, kExampleRpId);
+  EXPECT_EQ(result->user_id, Base64UrlDecode(kBase64url));
+  ASSERT_EQ(result->all_accepted_credential_ids.size(), 1u);
+  EXPECT_EQ(result->all_accepted_credential_ids[0],
+            Base64UrlDecode(kBase64url_2));
+}
+
+TEST_F(PasskeyRequestParserTest,
+       BuildSignalAllAcceptedCredentialsParamsInvalid) {
+  base::DictValue dict;
+  dict.Set(kRpId, kExampleRpId);
+  dict.Set("userId", kBase64url);
+  // Missing allAcceptedCredentialIds list.
+  EXPECT_FALSE(BuildSignalAllAcceptedCredentialsParams(dict).has_value());
 }
 
 }  // namespace webauthn

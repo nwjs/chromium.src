@@ -23,6 +23,7 @@ domains = [
   "domains/DOMStorage.pdl",
   "domains/DeviceAccess.pdl",
   "domains/DeviceOrientation.pdl",
+  "domains/DigitalCredentials.pdl",
   "domains/Emulation.pdl",
   "domains/EventBreakpoints.pdl",
   "domains/Extensions.pdl",
@@ -82,6 +83,7 @@ action("protocol_version") {
   script = _inspector_protocol_dir + "/concatenate_protocols.py"
 
   inputs = [
+             "$_inspector_protocol_dir/pdl.py",
              "browser_protocol.pdl",
              v8_inspector_js_protocol,
            ] + domains

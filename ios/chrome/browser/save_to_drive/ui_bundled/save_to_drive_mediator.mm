@@ -41,9 +41,9 @@
 // TODO(crbug.com/40286505): Depend on account_picker_consumer.h directly.
 
 @interface SaveToDriveMediator () <AuthenticationServiceObserving,
-                                   CRWWebStateObserver,
                                    CRWDownloadTaskObserver,
-                                   IdentityManagerObserverBridgeDelegate>
+                                   CRWWebStateObserver,
+                                   IdentityManagerObserving>
 
 // Called when the storage quota has been fetched, with or without any error.
 - (void)didReceiveStorageQuotaResult:(const DriveStorageQuotaResult&)result;
@@ -385,9 +385,9 @@ void StorageQuotaCompletionHelper(__weak SaveToDriveMediator* mediator,
       _numberOfAttempts);
 }
 
-#pragma mark - IdentityManagerObserverBridgeDelegate
+#pragma mark - IdentityManagerObserving
 
-- (void)onPrimaryAccountChanged:
+- (void)primaryAccountDidChange:
     (const signin::PrimaryAccountChangeEvent&)event {
   if (event.GetEventTypeFor(signin::ConsentLevel::kSignin) ==
       signin::PrimaryAccountChangeEvent::Type::kCleared) {

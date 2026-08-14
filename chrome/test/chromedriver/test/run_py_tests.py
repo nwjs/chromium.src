@@ -3363,7 +3363,8 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
     # <selectlist> shouldn't fail.
     self._driver.Load('about:blank')
     self._driver.ExecuteScript(
-        "document.body.innerHTML = '<selectlist tabindex=0><option>1</option></selectlist>';")
+        "document.body.innerHTML ="
+        " '<selectlist tabindex=0><option>1</option></selectlist>';")
     selectlist = self._driver.FindElement('tag name', 'selectlist')
     selectlist.SendKeys('\uE00C')  # ESC
 
@@ -3372,7 +3373,8 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
     # <selectlist> should fail.
     self._driver.Load('about:blank')
     self._driver.ExecuteScript(
-        "document.body.innerHTML = '<selectlist><option>1</option></selectlist>';")
+        "document.body.innerHTML ="
+        " '<selectlist><option>1</option></selectlist>';")
     selectlist = self._driver.FindElement('tag name', 'selectlist')
     with self.assertRaises(chromedriver.ElementNotInteractable):
       selectlist.SendKeys('\uE00C')  # ESC
@@ -4637,7 +4639,7 @@ class ChromeDriverSecureContextTest(ChromeDriverBaseTestWithWebServer):
       self.assertTrue(len(authenticator_id) > 0)
 
     self.assertRaisesRegex(
-        chromedriver.UnsupportedOperation,
+        chromedriver.InvalidArgument,
         'INVALID is not a recognized protocol version',
         self._driver.AddVirtualAuthenticator,
             protocol = 'INVALID',
@@ -5070,7 +5072,7 @@ class ChromeDriverSecureContextTest(ChromeDriverBaseTestWithWebServer):
       let done = arguments[0];
       getCredential({
         type: "public-key",
-        id: new TextEncoder().encode("cred-1"),
+        id: new Uint8Array([0xfb, 0xff, 0xff]),
         transports: ["usb"],
       }).then(done);
     """
@@ -5084,7 +5086,8 @@ class ChromeDriverSecureContextTest(ChromeDriverBaseTestWithWebServer):
         hasUserVerification = True,
         isUserVerified = True,
     )
-    credentialId = self.URLSafeBase64Encode("cred-1")
+    raw_credential_id = bytes([0xfb, 0xff, 0xff])
+    credentialId = self.URLSafeBase64Encode(raw_credential_id)
 
     # Create a credential with default backup flags.
     self._driver.AddCredential(
@@ -5999,7 +6002,7 @@ class ChromeDriverFencedFrame(ChromeDriverBaseTestWithWebServer):
         chrome_switches=['--site-per-process',
           '--enable-features=FencedFrames,PrivacySandboxAdsAPIsOverride,'
           'FencedFramesAPIChanges,FencedFramesDefaultMode,'
-          'FencedFramesEnforceFocus'])
+          'FencedFramesEnforceFocus,SharedStorageAPI'])
 
   @staticmethod
   def GetHttpsUrlForFile(file_path):
@@ -9992,152 +9995,6 @@ class IncognitoTest(ChromeDriverBaseTestWithWebServer):
     self._driver.NewWindow(window_type='tab')
     new_window = self.WaitForNewWindow(self._driver, old_handles)
     self.assertIsNotNone(new_window)
-
-class ProtectedAudienceSpecificTest(ChromeDriverBaseTestWithWebServer):
-  def setUp(self):
-    super().setUp()
-
-    port = self._https_server._server.server_port
-
-    self._received_report = threading.Event()
-    self._kanon_status = None
-    def handleReport(request):
-      self._kanon_status = request.GetPath().split('/')[-1]
-      self._received_report.set()
-      return {}, bytes()
-
-    self._https_server.SetCallbackForPath('/reportWin/passedNotEnforced',
-                                          handleReport)
-    self._https_server.SetCallbackForPath('/reportWin/belowThreshold',
-                                          handleReport)
-    self._https_server.SetCallbackForPath('/reportWin/notCalculated',
-                                          handleReport)
-    self._https_server.SetCallbackForPath('/reportWin/passedAndEnforced',
-                                          handleReport)
-
-    def respondWithBiddingScript(request):
-      bidding_script = bytes("""
-        function generateBid(interestGroup, auctionSignals, perBuyerSignals,
-                            trustedBiddingSignals, browserSignals,
-                            directFromSellerSignals,
-                            crossOriginTrustedSignals) {
-          return {
-            'ad': {},
-            'bid': 1,
-            'bidCurrency': 'USD',
-            'render': interestGroup.ads[0].renderURL,
-          };
-        }
-
-        function reportWin(auctionSignals, perBuyerSignals, sellerSignals,
-                          browserSignals, directFromSellerSignals) {
-          console.log('reportWin');
-          sendReportTo('https://owner.test/reportWin/' +
-                       browserSignals.kAnonStatus);
-        }
-      """, 'utf-8')
-      return {'Ad-Auction-Allowed': 'true',
-              'Content-Type': 'application/javascript'}, bidding_script
-    self._https_server.SetCallbackForPath('/generateBid.js',
-                                          respondWithBiddingScript)
-
-    def respondWithScoringScript(request):
-      scoring_script = bytes("""
-        function scoreAd(adMetadata, bid, auctionConfig, trustedScoringSignals,
-                        browserSignals, directFromSellerSignals,
-                        crossOriginTrustedSignals) {
-          return {
-            desirability: bid,
-          };
-        }
-
-        function reportResult() {}
-      """, 'utf-8')
-      return {'Ad-Auction-Allowed': 'true',
-              'Content-Type': 'application/javascript'}, scoring_script
-    self._https_server.SetCallbackForPath('/scoreAd.js',
-                                          respondWithScoringScript)
-
-    self._https_server.SetDataForPath('/ad.html', bytes())
-    self._https_server.SetDataForPath('/join.html', bytes("""
-      <html>
-      <body>
-      <script>
-        async function doJoin() {
-          return navigator.joinAdInterestGroup({
-            'owner': 'https://owner.test/',
-            'name': 'testing',
-            'biddingLogicURL': 'https://owner.test/generateBid.js',
-            'ads': [{renderURL: 'https://ad.example.com/ad.html'}],
-            }, 3600000);
-        }
-      </script>
-      </body>
-      </html>
-    """, 'utf-8'))
-    self._https_server.SetDataForPath('/auction.html', bytes("""
-      <html>
-      <body>
-      <script>
-        async function runAuction() {
-          const config = await navigator.runAdAuction({
-            'decisionLogicURL': 'https://owner.test/scoreAd.js',
-            'seller': 'https://owner.test/',
-            'interestGroupBuyers': ['https://owner.test/'],
-            'resolveToConfig': false,
-          });
-          const fencedFrame = document.createElement("iframe");
-          fencedFrame.src = config;
-          document.body.appendChild(fencedFrame);
-        }
-      </script>
-      </body>
-      </html>
-    """, 'utf-8'))
-
-    self.chrome_switches = ['host-resolver-rules=MAP *:443 127.0.0.1:%s' % port,
-            'privacy-sandbox-enrollment-overrides=https://owner.test/',
-            'force-reporting-destination-attested',  # needed for headless shell
-            'disable-features=PrivacySandboxAdPrivacyUxDeprecation']
-    self._driver = self.CreateDriver(
-        accept_insecure_certs=True,
-        chrome_switches=self.chrome_switches,
-        logging_prefs={'browser': 'ALL'},
-        experimental_options={'prefs': {
-            'privacy_sandbox.m1.fledge_enabled': True,
-            'privacy_sandbox.m1.topics_enabled': True,
-            'privacy_sandbox.m1.ad_measurement_enabled': True,
-            'privacy_sandbox.m1.consent_decision_made': True,
-            'privacy_sandbox.m1.eea_notice_acknowledged': True,
-            'privacy_sandbox.m1.row_notice_acknowledged': True,
-            'privacy_sandbox.m1.restricted_notice_acknowledged': True,
-        }})
-
-  def testSetProtectedAudienceKAnonymity(self):
-    self._driver.Load('https://owner.test/join.html')
-    self._driver.ExecuteScript('return doJoin()')
-
-    bid_key = ('AdBid\nhttps://owner.test/\nhttps://owner.test/generateBid.js'
-               '\nhttps://ad.example.com/ad.html')
-    bid_hash = hashlib.sha256(bytes(bid_key, 'utf-8')).digest()
-
-    self.assertTrue(self._kanon_status is None)
-
-    self._driver.Load('https://owner.test/auction.html')
-    self._driver.ExecuteScript('runAuction()')
-
-    self._received_report.wait(10)
-    self.assertEqual(self._kanon_status, 'belowThreshold')
-    self._received_report.clear()
-
-    self._driver.SetProtectedAudienceKAnonymity(
-      'https://owner.test/', 'testing', [base64.b64encode(bid_hash).decode()])
-
-    self._kanon_status = None
-    self._driver.ExecuteScript('runAuction()')
-
-    self._received_report.wait(10)
-    self.assertEqual(self._kanon_status, 'passedNotEnforced')
 
 # 'Z' in the beginning is to make test executed in the end of suite.
 class ZChromeStartRetryCountTest(unittest.TestCase):

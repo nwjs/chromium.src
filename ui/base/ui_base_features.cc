@@ -73,6 +73,8 @@ const char kApplyNativeOcclusionToCompositorTypeThrottle[] = "throttle";
 // Release when hidden, throttle when occluded.
 const char kApplyNativeOcclusionToCompositorTypeThrottleAndRelease[] =
     "throttle_and_release";
+
+BASE_FEATURE(kHideCursorWhileTyping, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_MAC)
@@ -206,9 +208,14 @@ BASE_FEATURE(kExperimentalFlingAnimation,
 );
 
 #if BUILDFLAG(IS_ANDROID)
-// Whether to use the desktop scrolling behavion on Android. This is intended
+// Whether to use the desktop scrolling behavior on Android. This is intended
 // for desktop Android, though it's available everywhere.
 BASE_FEATURE(kDesktopFlingCurveOnAndroid, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Whether to suppress legacy overscroll edge glow (OverscrollGlow) on Android.
+// This is intended for desktop Android, where neither elastic stretch nor
+// legacy shade should be shown.
+BASE_FEATURE(kSuppressOverscrollGlow, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 #if !BUILDFLAG(IS_APPLE)
@@ -266,7 +273,8 @@ bool IsTouchTextEditingRedesignEnabled() {
 
 // This feature enables drag and drop using touch input devices.
 BASE_FEATURE(kTouchDragAndDrop,
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN) || \
+    BUILDFLAG(IS_LINUX)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -503,8 +511,15 @@ BASE_FEATURE_PARAM(int,
 BASE_FEATURE(kSplitViewLinkOpen, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDesktopGlowUp, base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kGlassFrame, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(double, kGlassTintOpacityForLightMode, &kGlassFrame, -1.0);
+BASE_FEATURE_PARAM(double, kGlassTintOpacityForDarkMode, &kGlassFrame, -1.0);
+BASE_FEATURE_PARAM(double, kGlassExpandOnHoverOpacity, &kGlassFrame, 0.95);
+BASE_FEATURE_PARAM(double, kGlassExpandOnHoverBlurRadius, &kGlassFrame, 5.0);
+
 BASE_FEATURE(kRoundedIcons, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWebUIRoundedIcons, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Updates the default dark neutrals for the theme palette.
 BASE_FEATURE(kChromeDarkNeutrals26, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -521,6 +536,10 @@ bool IsGlassFrameEnabled() {
 bool IsRoundedIconsEnabled() {
   return base::FeatureList::IsEnabled(kDesktopGlowUp) ||
          base::FeatureList::IsEnabled(kRoundedIcons);
+}
+
+bool IsWebUIRoundedIconsEnabled() {
+  return base::FeatureList::IsEnabled(kWebUIRoundedIcons);
 }
 
 }  // namespace features

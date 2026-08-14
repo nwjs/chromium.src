@@ -178,6 +178,7 @@ source_set("impl") {
     "//media",
     "//media:media_buildflags",
     "//sandbox/policy",
+    "//services/device/public/cpp/hid",
     "//services/network/public/cpp:flags_and_switches",
     "//services/webnn:webnn_switches",
     "//services/webnn/public/mojom:features",
@@ -234,6 +235,8 @@ source_set("impl") {
       "//chrome/browser/profiles/keep_alive",
       "//chrome/browser/search",
       "//chrome/browser/search_engines",
+      "//chrome/browser/ui:chrome_pages",
+      "//chrome/browser/ui:session_crashed_bubble",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/extensions",
@@ -245,6 +248,8 @@ source_set("impl") {
       "//chrome/browser/ui/toasts",
       "//chrome/browser/ui/toasts/api:toasts",
       "//chrome/browser/ui/waap:manager",
+      "//chrome/browser/ui/waap:window_metrics_manager",
+      "//chrome/browser/ui/webui/settings",
       "//chrome/browser/ui/webui/whats_new",
       "//chrome/browser/web_applications",
       "//chrome/common",
@@ -264,7 +269,6 @@ source_set("impl") {
       "//extensions/browser",
       "//net",
       "//printing/buildflags",
-      "//services/device/public/cpp/hid",
     ]
     if (is_chromeos) {
       deps += [
@@ -356,6 +360,7 @@ source_set("impl") {
     ]
     deps += [
       "//chrome/browser/signin:signin_promo",
+      "//chrome/browser/ui/webui:chrome_web_contents_handler",
       "//chrome/credential_provider/common:common_constants",
     ]
   }
@@ -537,6 +542,7 @@ if (!is_android) {
       deps += [
         ":credential_provider_test_utils",
         "//chrome/browser/profile_resetter",
+        "//chrome/browser/ui:chrome_pages",
         "//chrome/credential_provider/common:common_constants",
       ]
     }

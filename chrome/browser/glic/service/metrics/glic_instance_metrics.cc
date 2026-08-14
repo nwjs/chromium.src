@@ -24,7 +24,9 @@
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/public/context/glic_sharing_manager.h"
 #include "chrome/browser/glic/public/features.h"
+#include "chrome/browser/glic/public/glic_cui_tracker.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/glic/public/glic_submit_query_cui_tracker.h"
 #include "chrome/browser/glic/service/glic_instance_helper.h"
 #include "chrome/browser/glic/service/glic_state_tracker.h"
 #include "chrome/browser/glic/service/metrics/glic_instance_helper_metrics.h"
@@ -53,13 +55,17 @@ namespace glic {
 namespace {
 
 SafeEmbedderKey ToSafeKey(const EmbedderKey& key) {
-  return std::visit(absl::Overload{[](tabs::TabInterface* tab) {
-                                     return SafeEmbedderKey(tab->GetHandle());
-                                   },
-                                   [](const FloatingEmbedderKey& fkey) {
-                                     return SafeEmbedderKey(fkey);
-                                   }},
-                    key);
+  return std::visit(
+      absl::Overload{[](const TabEmbedderKey& key) -> SafeEmbedderKey {
+                       return SafeEmbedderKey(key);
+                     },
+                     [](const SidePanelEmbedderKey& key) -> SafeEmbedderKey {
+                       return SafeEmbedderKey(key.tab->GetHandle());
+                     },
+                     [](const FloatingEmbedderKey& key) -> SafeEmbedderKey {
+                       return SafeEmbedderKey(key);
+                     }},
+      key);
 }
 
 std::string_view GetInputModeString(mojom::WebClientMode input_mode) {
@@ -82,7 +88,9 @@ enum class GlicTurnSource {
   kSidePanelAudio = 2,
   kFloatyText = 3,
   kFloatyAudio = 4,
-  kMaxValue = kFloatyAudio,
+  kTabText = 5,
+  kTabAudio = 6,
+  kMaxValue = kTabAudio,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicTurnSource)
 
@@ -365,7 +373,7 @@ void GlicInstanceMetrics::OnInstanceCreatedWithoutWarming() {
 
 void GlicInstanceMetrics::OnSwitchFromConversation(
     const ShowOptions& show_options,
-    const std::optional<EmbedderKey>& key) {
+    std::optional<EmbedderKey> active_key) {
   if (std::holds_alternative<FloatingShowOptions>(
           show_options.embedder_options)) {
     base::RecordAction(
@@ -378,9 +386,10 @@ void GlicInstanceMetrics::OnSwitchFromConversation(
   }
 
   // If there's an active side panel, record the switch action on its helper.
-  if (key.has_value()) {
-    if (const auto* tab_ptr = std::get_if<tabs::TabInterface*>(&key.value())) {
-      if (auto* helper = GlicInstanceHelper::From(*tab_ptr)) {
+  if (active_key) {
+    if (auto* sp_key = std::get_if<SidePanelEmbedderKey>(&*active_key)) {
+      tabs::TabInterface& tab = sp_key->tab.get();
+      if (auto* helper = GlicInstanceHelper::From(&tab)) {
         helper->OnDaisyChainAction(
             DaisyChainFirstAction::kSwitchedConversation);
       }
@@ -445,6 +454,13 @@ void GlicInstanceMetrics::OnShowInSidePanel(tabs::TabInterface* tab) {
           tab->GetContents()->GetPrimaryMainFrame()->GetPageUkmSourceId();
     }
     auto_open_pdf_start_time_ = base::TimeTicks::Now();
+  }
+}
+
+void GlicInstanceMetrics::OnShowInactiveSidePanel(
+    mojom::InvocationSource invocation_source) {
+  if (!initial_invocation_source_.has_value()) {
+    initial_invocation_source_ = invocation_source;
   }
 }
 
@@ -552,17 +568,13 @@ void GlicInstanceMetrics::OnDetach() {
 void GlicInstanceMetrics::OnUnbindEmbedder(EmbedderKey key) {
   base::RecordAction(base::UserMetricsAction("Glic.Instance.UnBind"));
   LogEvent(GlicInstanceEvent::kUnbindEmbedder);
-  if (std::holds_alternative<tabs::TabInterface*>(key)) {
-    if (auto* helper =
-            GlicInstanceHelper::From(*std::get_if<tabs::TabInterface*>(&key))) {
+  if (auto* sp_key = std::get_if<SidePanelEmbedderKey>(&key)) {
+    tabs::TabInterface& tab = sp_key->tab.get();
+    if (auto* helper = GlicInstanceHelper::From(&tab)) {
       // Log NoAction if instance is unbound before any other actions occur.
       helper->OnDaisyChainAction(DaisyChainFirstAction::kNoAction);
     }
-  }
-  tabs::TabInterface** tab_ptr = std::get_if<tabs::TabInterface*>(&key);
-  if (tab_ptr) {
-    tabs::TabInterface* tab = *tab_ptr;
-    tabs::TabHandle tab_handle = tab->GetHandle();
+    tabs::TabHandle tab_handle = tab.GetHandle();
     auto it = side_panel_open_times_.find(tab_handle);
     if (it != side_panel_open_times_.end()) {
       base::TimeDelta duration = base::TimeTicks::Now() - it->second;
@@ -580,7 +592,6 @@ void GlicInstanceMetrics::OnUnbindEmbedder(EmbedderKey key) {
             duration, base::Milliseconds(1), base::Hours(1), 50);
       }
       side_panel_open_times_.erase(it);
-
     } else {
       base::UmaHistogramEnumeration(
           "Glic.Instance.Metrics.Error",
@@ -697,10 +708,15 @@ void GlicInstanceMetrics::OnOpen(glic::mojom::InvocationSource source,
   LogEvent(GlicInstanceEvent::kOpen);
 
   // 2. Log Initial Invocation Source
-  if (!initial_invocation_source_.has_value()) {
-    initial_invocation_source_ = source;
+  if (!did_open_) {
+    did_open_ = true;
+    // Don't overwrite initial invocation source if it was set due to being
+    // invoked in the background.
+    if (!initial_invocation_source_.has_value()) {
+      initial_invocation_source_ = source;
+    }
     base::UmaHistogramEnumeration("Glic.Instance.InitialInvocationSource",
-                                  source);
+                                  *initial_invocation_source_);
   }
 
   // 3. Record Actions
@@ -727,9 +743,14 @@ void GlicInstanceMetrics::OnOpen(glic::mojom::InvocationSource source,
   }
 }
 
-void GlicInstanceMetrics::OnToggle(glic::mojom::InvocationSource source,
-                                   const ShowOptions& options,
-                                   bool is_showing) {
+void GlicInstanceMetrics::OnToggle(
+    glic::mojom::InvocationSource source,
+    const ShowOptions& options,
+    bool is_showing,
+    std::unique_ptr<GlicWindowInvocationTracker> invocation_tracker) {
+  if (invocation_tracker) {
+    cui_trackers_.push_back(std::move(invocation_tracker));
+  }
   base::RecordAction(base::UserMetricsAction("Glic.Instance.Toggle"));
   if (std::holds_alternative<FloatingShowOptions>(options.embedder_options)) {
     base::UmaHistogramEnumeration("Glic.Instance.Floaty.ToggleSource", source);
@@ -910,6 +931,7 @@ void GlicInstanceMetrics::OnWebUiStateChanged(mojom::WebUiState state) {
 void GlicInstanceMetrics::OnClientReady(EmbedderType type) {
   is_client_ready_ = true;
   MaybeRecordOptInImpression();
+  LogEvent(GlicInstanceEvent::kClientReady);
 
   if (invocation_start_time_.is_null()) {
     return;
@@ -925,6 +947,13 @@ void GlicInstanceMetrics::OnClientReady(EmbedderType type) {
 }
 
 void GlicInstanceMetrics::LogEvent(GlicInstanceEvent event) {
+  for (auto it = cui_trackers_.begin(); it != cui_trackers_.end();) {
+    if ((*it)->OnEvent(event)) {
+      it = cui_trackers_.erase(it);
+    } else {
+      ++it;
+    }
+  }
   base::UmaHistogramEnumeration("Glic.Instance.EventCounts", event);
   if (initial_invocation_source_.has_value()) {
     base::UmaHistogramEnumeration(
@@ -982,6 +1011,8 @@ void GlicInstanceMetrics::OnUserInputSubmitted(mojom::WebClientMode mode) {
   }
   session_manager_.OnUserInputSubmitted(mode);
   LogEvent(GlicInstanceEvent::kUserInputSubmitted);
+  cui_trackers_.push_back(std::make_unique<GlicSubmitQueryCuiTracker>());
+
   base::RecordAction(base::UserMetricsAction("GlicResponseInputSubmit"));
 
   if (sharing_manager_) {
@@ -1150,6 +1181,19 @@ void GlicInstanceMetrics::OnResponseStopped(mojom::ResponseStopCause cause) {
           break;
         case mojom::WebClientMode::kAudio:
           turn_source = GlicTurnSource::kFloatyAudio;
+          break;
+        case mojom::WebClientMode::kUnknown:
+          turn_source = GlicTurnSource::kUnknown;
+          break;
+      }
+      break;
+    case EmbedderType::kTab:
+      switch (turn_.input_mode_) {
+        case mojom::WebClientMode::kText:
+          turn_source = GlicTurnSource::kTabText;
+          break;
+        case mojom::WebClientMode::kAudio:
+          turn_source = GlicTurnSource::kTabAudio;
           break;
         case mojom::WebClientMode::kUnknown:
           turn_source = GlicTurnSource::kUnknown;

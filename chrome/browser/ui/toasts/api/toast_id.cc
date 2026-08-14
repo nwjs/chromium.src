@@ -59,8 +59,8 @@ std::string_view GetToastName(ToastId toast_id) {
       return "CopiedToClipboard";
     case ToastId::kEnhancedBundledSecuritySettings:
       return "EnhancedBundledSecuritySettings";
-    case ToastId::kAutofillAiFetchFromWalletErrorMessage:
-      return "AutofillAiFetchFromWalletErrorMessage";
+    case ToastId::kAutofillAiFetchEntityErrorMessage:
+      return "AutofillAiFetchEntityErrorMessage";
     case ToastId::kTranslate:
       return "Translate";
     case ToastId::kAutofillAiSaveToWalletErrorMessage:
@@ -99,10 +99,24 @@ std::string_view GetToastName(ToastId toast_id) {
       return "TabStripSwitchDelayedVertical";
     case ToastId::kAutofillAiPreFetchErrorMessage:
       return "AutofillAiPreFetchErrorMessage";
+    case ToastId::kEnterpriseCopyAudit:
+      return "EnterpriseCopyAudit";
+    case ToastId::kEnterpriseCopyKeptInManagedChrome:
+      return "EnterpriseCopyKeptInManagedChrome";
     case ToastId::kDictationError:
       return "DictationError";
     case ToastId::kDictationStopped:
       return "DictationStopped";
+    case ToastId::kGlicSelectionHiddenForSite:
+      return "GlicSelectionHiddenForSite";
+    case ToastId::kEnterpriseCopyWarning:
+      return "EnterpriseCopyWarning";
+    case ToastId::kEnterpriseCopyBlocked:
+      return "EnterpriseCopyBlocked";
+    case ToastId::kIndigoDeleteError:
+      return "IndigoDeleteError";
+    case ToastId::kIndigoDeleteSuccess:
+      return "IndigoDeleteSuccess";
   }
 
   NOTREACHED();

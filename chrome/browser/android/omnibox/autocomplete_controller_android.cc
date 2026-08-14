@@ -35,6 +35,7 @@
 #include "chrome/browser/autocomplete/shortcuts_backend_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/omnibox/autocomplete_controller_emitter_factory.h"
+#include "chrome/browser/page_load_metrics/chrome_initiator_location.h"
 #include "chrome/browser/predictors/autocomplete_action_predictor.h"
 #include "chrome/browser/predictors/autocomplete_action_predictor_factory.h"
 #include "chrome/browser/preloading/prefetch/search_prefetch/search_prefetch_service.h"
@@ -468,11 +469,7 @@ void AutocompleteControllerAndroid::OnSuggestionSelected(
     predictors::AutocompleteActionPredictorFactory::GetForProfile(profile_)
         ->OnOmniboxOpenedUrl(log);
   }
-  if (auto* geolocation_header_service =
-          autocomplete_controller_->autocomplete_provider_client()
-              ->GetGeolocationHeaderService()) {
-    geolocation_header_service->RecordInlineLocationSuggestionClicked(match);
-  }
+  autocomplete_controller_->MaybeProcessInlineLocationSuggestionMatch(match);
 }
 
 bool AutocompleteControllerAndroid::OnSuggestionTouchDown(
@@ -482,21 +479,22 @@ bool AutocompleteControllerAndroid::OnSuggestionTouchDown(
     int match_index) {
   const auto& match = *reinterpret_cast<AutocompleteMatch*>(match_ptr);
 
+  bool started = false;
   if (SearchPrefetchService* search_prefetch_service =
           SearchPrefetchServiceFactory::GetForProfile(profile_)) {
-    return search_prefetch_service->OnNavigationLikely(
+    started = search_prefetch_service->OnNavigationLikely(
+        match_index, match, omnibox::mojom::NavigationPredictor::kTouchDown,
+        web_contents);
+  } else if (SearchPreloadService* search_preload_service =
+                 SearchPreloadServiceFactory::GetForProfile(profile_)) {
+    started = search_preload_service->OnNavigationLikely(
         match_index, match, omnibox::mojom::NavigationPredictor::kTouchDown,
         web_contents);
   }
 
-  if (SearchPreloadService* search_preload_service =
-          SearchPreloadServiceFactory::GetForProfile(profile_)) {
-    return search_preload_service->OnNavigationLikely(
-        match_index, match, omnibox::mojom::NavigationPredictor::kTouchDown,
-        web_contents);
-  }
-
-  return false;
+  TRACE_EVENT("omnibox", "AutocompleteControllerAndroid::OnNavigationLikely",
+              "url", match.destination_url, "started", started);
+  return started;
 }
 
 void AutocompleteControllerAndroid::DeleteMatch(JNIEnv* env,
@@ -600,7 +598,23 @@ void AutocompleteControllerAndroid::CreateNavigationObserver(
     uintptr_t match_ptr) {
   auto* navigation_handle =
       reinterpret_cast<content::NavigationHandle*>(navigation_handle_ptr);
+  if (!navigation_handle) {
+    return;
+  }
+
   const auto& match = *reinterpret_cast<AutocompleteMatch*>(match_ptr);
+
+  // TODO(https://crbug.com/517725655): Revisit this part if the metrics show
+  // unidentified navigations are too many; it could be that omnibox
+  // navigations are not fully covered.
+  if (ui::PageTransitionCoreTypeIs(match.transition,
+                                   ui::PAGE_TRANSITION_TYPED)) {
+    AttachOmniboxDirectUrlInputNavigationHandleUserData(*navigation_handle);
+  } else if (ui::PageTransitionCoreTypeIs(match.transition,
+                                          ui::PAGE_TRANSITION_GENERATED)) {
+    AttachOmniboxDefaultSearchEngineNavigationHandleUserData(
+        *navigation_handle);
+  }
 
   ChromeOmniboxNavigationObserverAndroid::Create(navigation_handle, profile_,
                                                  input_.text(), match);

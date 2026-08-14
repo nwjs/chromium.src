@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/byte_size.h"
 #include "base/containers/id_map.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
@@ -147,6 +148,10 @@ class WebURL;
 struct FramePolicy;
 struct JavaScriptFrameworkDetectionResult;
 }  // namespace blink
+
+namespace network {
+class PendingSharedURLLoaderFactory;
+}  // namespace network
 
 namespace gfx {
 class Point;
@@ -401,8 +406,9 @@ class CONTENT_EXPORT RenderFrameImpl
       network::mojom::URLResponseHeadPtr head,
       network::mojom::RequestDestination request_destination,
       bool is_ad_resource) override;
-  void NotifyResourceTransferSizeUpdated(int64_t request_id,
-                                         int32_t transfer_size_diff) override;
+  void NotifyResourceTransferSizeUpdated(
+      int64_t request_id,
+      base::ByteSize transfer_size_diff) override;
   void NotifyResourceLoadCompleted(
       blink::mojom::ResourceLoadInfoPtr resource_load_info,
       const ::network::URLLoaderCompletionStatus& status) override;
@@ -640,7 +646,6 @@ class CONTENT_EXPORT RenderFrameImpl
       network::mojom::WebSandboxFlags sandbox_flags,
       const blink::SessionStorageNamespaceId& session_storage_namespace_id,
       bool& consumed_user_gesture,
-      const std::optional<blink::Impression>& impression,
       const std::optional<blink::WebPictureInPictureWindowOptions>& pip_options,
       const blink::WebURL& base_url,
       blink::WebString* manifest) override;
@@ -671,8 +676,6 @@ class CONTENT_EXPORT RenderFrameImpl
   void DidMeaningfulLayout(blink::WebMeaningfulLayout layout_type) override;
   void WasHidden() override;
   void WasShown() override;
-  void OnFrameVisibilityChanged(
-      blink::mojom::FrameVisibility render_status) override;
 
   blink::WebURL LastCommittedUrlForUKM() override;
   void ScriptedPrint() override;
@@ -760,7 +763,8 @@ class CONTENT_EXPORT RenderFrameImpl
   void DidCompleteResponse(int request_id,
                            const network::URLLoaderCompletionStatus& status);
   void DidCancelResponse(int request_id);
-  void DidReceiveTransferSizeUpdate(int request_id, int received_data_length);
+  void DidReceiveTransferSizeUpdate(int request_id,
+                                    base::ByteSize received_data_length);
 
   // Used in tests to install a fake URLLoaderFactory via
   // RenderViewTest::CreateFakeURLLoaderFactory().
@@ -769,6 +773,11 @@ class CONTENT_EXPORT RenderFrameImpl
 
   // Clones and returns `this` frame's blink::ChildURLLoaderFactoryBundle.
   scoped_refptr<blink::ChildURLLoaderFactoryBundle> CloneLoaderFactories();
+
+  // Clones and returns `this` frame's underlying
+  // network::PendingSharedURLLoaderFactory.
+  std::unique_ptr<network::PendingSharedURLLoaderFactory>
+  CloneLoaderFactoryBundle();
 
   url::Origin GetSecurityOriginOfTopFrame();
 

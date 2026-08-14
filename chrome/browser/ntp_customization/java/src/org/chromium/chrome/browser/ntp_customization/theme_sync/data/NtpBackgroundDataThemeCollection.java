@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.ntp_customization.theme_sync.data;
 
+import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NTP_THEME_COLLECTION_IMAGES_DIR;
+
 import android.graphics.Bitmap;
 
 import androidx.annotation.ColorInt;
@@ -23,7 +25,7 @@ import java.util.Objects;
 
 /** Data class for NTP theme collection background image. */
 @NullMarked
-public class NtpBackgroundDataThemeCollection extends NtpBackgroundDataBase {
+public class NtpBackgroundDataThemeCollection extends NtpBackgroundDataImageBase {
     @VisibleForTesting static final String CUSTOM_BACKGROUND_INFO_KEY = "customBackgroundInfo";
     @VisibleForTesting static final String BACKGROUND_URL_KEY = "backgroundUrl";
     @VisibleForTesting static final String COLLECTION_ID_KEY = "collectionId";
@@ -31,9 +33,8 @@ public class NtpBackgroundDataThemeCollection extends NtpBackgroundDataBase {
     @VisibleForTesting static final String IS_DAILY_REFRESH_ENABLED_KEY = "isDailyRefreshEnabled";
 
     private final CustomBackgroundInfo mCustomBackgroundInfo;
-    private final @Nullable @ColorInt Integer mPrimaryColor;
-    private final @Nullable BackgroundImageInfo mBackgroundImageInfo;
-    private final @Nullable Bitmap mBitmap;
+
+    private @Nullable Bitmap mPreviewBitmap;
 
     /**
      * Constructor.
@@ -43,18 +44,38 @@ public class NtpBackgroundDataThemeCollection extends NtpBackgroundDataBase {
      * @param backgroundImageInfo The background image info containing matrices and window sizes.
      * @param bitmap The local bitmap, not synced.
      * @param primaryColor The primary color of the background image.
+     * @param fileIdHash The hash of the background image file ID.
      */
     public NtpBackgroundDataThemeCollection(
             @PlatformType int platformType,
             CustomBackgroundInfo customBackgroundInfo,
             @Nullable BackgroundImageInfo backgroundImageInfo,
             @Nullable Bitmap bitmap,
-            @Nullable @ColorInt Integer primaryColor) {
-        super(platformType);
+            @Nullable @ColorInt Integer primaryColor,
+            @Nullable String fileIdHash) {
+        super(platformType, backgroundImageInfo, bitmap, primaryColor, fileIdHash);
         mCustomBackgroundInfo = customBackgroundInfo;
-        mBackgroundImageInfo = backgroundImageInfo;
-        mBitmap = bitmap;
-        mPrimaryColor = primaryColor;
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param platformType The platform type of the device.
+     * @param customBackgroundInfo The custom background info.
+     * @param previewBitmap The bitmap for preview, not synced.
+     */
+    public NtpBackgroundDataThemeCollection(
+            @PlatformType int platformType,
+            CustomBackgroundInfo customBackgroundInfo,
+            @Nullable Bitmap previewBitmap) {
+        this(
+                platformType,
+                customBackgroundInfo,
+                /* backgroundImageInfo= */ null,
+                /* bitmap= */ null,
+                /* primaryColor= */ null,
+                /* fileIdHash= */ null);
+        mPreviewBitmap = previewBitmap;
     }
 
     /** Returns the {@link CustomBackgroundInfo}. */
@@ -62,19 +83,15 @@ public class NtpBackgroundDataThemeCollection extends NtpBackgroundDataBase {
         return mCustomBackgroundInfo;
     }
 
-    /** Returns the primary color of the background image. */
-    public @Nullable @ColorInt Integer getPrimaryColor() {
-        return mPrimaryColor;
+    @Override
+    public @Nullable Bitmap getPreviewBitmap() {
+        return mPreviewBitmap;
     }
 
-    /** Returns the background image info containing matrices and window sizes. */
-    public @Nullable BackgroundImageInfo getBackgroundImageInfo() {
-        return mBackgroundImageInfo;
-    }
-
-    /** Returns the local bitmap, which is not synced. */
-    public @Nullable Bitmap getBitmap() {
-        return mBitmap;
+    // NtpBackgroundDataImageBase implementations.
+    @Override
+    public String getImageDirName() {
+        return NTP_THEME_COLLECTION_IMAGES_DIR;
     }
 
     // NtpBackgroundDataBase implementations.
@@ -87,12 +104,6 @@ public class NtpBackgroundDataThemeCollection extends NtpBackgroundDataBase {
     public JSONObject toJson() throws JSONException {
         JSONObject json = super.toJson();
         json.put(CUSTOM_BACKGROUND_INFO_KEY, customBackgroundInfoToJson());
-        if (mPrimaryColor != null) {
-            json.put(PRIMARY_COLOR_KEY, mPrimaryColor);
-        }
-        if (mBackgroundImageInfo != null) {
-            json.put(BACKGROUND_IMAGE_INFO_KEY, mBackgroundImageInfo.toJson());
-        }
         return json;
     }
 
@@ -100,15 +111,14 @@ public class NtpBackgroundDataThemeCollection extends NtpBackgroundDataBase {
     public boolean equals(Object obj) {
         if (obj instanceof NtpBackgroundDataThemeCollection other) {
             return super.equals(obj)
-                    && Objects.equals(mCustomBackgroundInfo, other.mCustomBackgroundInfo)
-                    && Objects.equals(mPrimaryColor, other.mPrimaryColor);
+                    && Objects.equals(mCustomBackgroundInfo, other.mCustomBackgroundInfo);
         }
         return false;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), mCustomBackgroundInfo, mPrimaryColor);
+        return Objects.hash(super.hashCode(), mCustomBackgroundInfo);
     }
 
     /** Returns the NtpBackgroundDataThemeCollection object from the given JSON. */
@@ -118,13 +128,14 @@ public class NtpBackgroundDataThemeCollection extends NtpBackgroundDataBase {
             backgroundImageInfo =
                     BackgroundImageInfo.fromJson(json.getJSONObject(BACKGROUND_IMAGE_INFO_KEY));
         }
-        Integer primaryColor = json.has(PRIMARY_COLOR_KEY) ? json.getInt(PRIMARY_COLOR_KEY) : null;
+
         return new NtpBackgroundDataThemeCollection(
                 json.getInt(PLATFORM_TYPE_KEY),
                 jsonObjectToCustomBackgroundInfo(json.getJSONObject(CUSTOM_BACKGROUND_INFO_KEY)),
                 backgroundImageInfo,
                 /* bitmap= */ null,
-                primaryColor);
+                json.has(PRIMARY_COLOR_KEY) ? json.getInt(PRIMARY_COLOR_KEY) : null,
+                json.has(FILE_ID_HASH_KEY) ? json.getString(FILE_ID_HASH_KEY) : null);
     }
 
     private static CustomBackgroundInfo jsonObjectToCustomBackgroundInfo(JSONObject json)

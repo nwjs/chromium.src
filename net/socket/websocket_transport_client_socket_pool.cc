@@ -32,11 +32,9 @@ namespace net {
 
 WebSocketTransportClientSocketPool::WebSocketTransportClientSocketPool(
     size_t socket_soft_cap,
-    SocketPoolAdditionalCapacity additional_capacity,
     const ProxyChain& proxy_chain,
     const CommonConnectJobParams* common_connect_job_params)
     : ClientSocketPool(socket_soft_cap,
-                       additional_capacity,
                        proxy_chain,
                        /*is_for_websockets=*/true,
                        common_connect_job_params,
@@ -60,8 +58,13 @@ void WebSocketTransportClientSocketPool::UnlockEndpoint(
   DCHECK(handle->is_initialized());
   DCHECK(handle->socket());
   IPEndPoint address;
-  if (handle->socket()->GetPeerAddress(&address) == OK)
-    websocket_endpoint_lock_manager->UnlockEndpoint(address);
+  if (handle->socket()->GetPeerAddress(&address) == OK) {
+    // WebSocketTransportClientSocketPool only operates on ClientSocketHandle
+    // objects, so `handle` is guaranteed to be a ClientSocketHandle.
+    auto* client_socket_handle = static_cast<ClientSocketHandle*>(handle);
+    websocket_endpoint_lock_manager->UnlockEndpoint(
+        address, client_socket_handle->group_id().network_anonymization_key());
+  }
 }
 
 int WebSocketTransportClientSocketPool::RequestSocket(
@@ -82,9 +85,9 @@ int WebSocketTransportClientSocketPool::RequestSocket(
 
   NetLogTcpClientSocketPoolRequestedSocket(request_net_log, group_id);
   request_net_log.BeginEvent(NetLogEventType::SOCKET_POOL);
-  UpdateStateBeforeAllocation();
+  UpdateExpandabilityBeforeAllocation();
 
-  if (State() == SocketPoolState::kCapped &&
+  if (Expandability() == SocketPoolExpandability::kCapped &&
       respect_limits == ClientSocketPool::RespectLimits::ENABLED) {
     request_net_log.AddEvent(NetLogEventType::SOCKET_POOL_STALLED_MAX_SOCKETS);
     stalled_request_queue_.emplace_back(group_id, params, proxy_annotation_tag,
@@ -165,7 +168,7 @@ void WebSocketTransportClientSocketPool::CancelRequest(
     ReleaseSocket(handle->group_id(), std::move(socket),
                   handle->group_generation());
   if (DeleteJob(handle)) {
-    UpdateStateAfterRelease();
+    UpdateExpandabilityAfterRelease();
     CHECK(!pending_callbacks_.contains(
         reinterpret_cast<ClientSocketHandleID>(handle)));
   } else {
@@ -181,7 +184,7 @@ void WebSocketTransportClientSocketPool::ReleaseSocket(
     int64_t generation) {
   CHECK_GT(handed_out_socket_count_, 0u);
   --handed_out_socket_count_;
-  UpdateStateAfterRelease();
+  UpdateExpandabilityAfterRelease();
 
   ActivateStalledRequest();
 }
@@ -213,7 +216,7 @@ void WebSocketTransportClientSocketPool::FlushWithError(
   stalled_request_map_.clear();
   stalled_request_queue_.clear();
   flushing_ = false;
-  ResetState();
+  ResetExpandability();
 }
 
 void WebSocketTransportClientSocketPool::CloseIdleSockets(
@@ -352,7 +355,7 @@ void WebSocketTransportClientSocketPool::OnConnectJobComplete(
   connect_job_delegate = nullptr;
 
   if (!handed_out_socket) {
-    UpdateStateAfterRelease();
+    UpdateExpandabilityAfterRelease();
     ActivateStalledRequest();
   }
 
@@ -438,7 +441,7 @@ void WebSocketTransportClientSocketPool::ActivateStalledRequest() {
   // however if all the connects fail synchronously for some reason, we may be
   // able to clear the whole queue at once.
   while (!stalled_request_queue_.empty() &&
-         State() == SocketPoolState::kUncapped) {
+         Expandability() == SocketPoolExpandability::kUncapped) {
     StalledRequest request = std::move(stalled_request_queue_.front());
     stalled_request_queue_.pop_front();
     stalled_request_map_.erase(request.handle);

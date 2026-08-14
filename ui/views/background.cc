@@ -126,7 +126,7 @@ class LayerBasedSolidBackground : public Background {
       view->SetPaintToLayer(ui::LAYER_SOLID_COLOR);
     }
 
-    auto* layer = view->layer();
+    auto* layer = view->layer()->AsSolidColor();
     const auto radii = GetRoundedCornerRadii();
     if (radii && radii != layer->rounded_corner_radii()) {
       layer->SetRoundedCornerRadius(*radii);
@@ -137,8 +137,8 @@ class LayerBasedSolidBackground : public Background {
       layer->SetName(*internal_name_);
     }
 
-    const SkColor resolved_color =
-        color().ResolveToSkColor(view->GetColorProvider());
+    const SkColor4f resolved_color = SkColor4f::FromColor(
+        color().ResolveToSkColor(view->GetColorProvider()));
     if (resolved_color != layer->background_color()) {
       layer->SetColor(resolved_color);
     }

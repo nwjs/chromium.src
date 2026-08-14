@@ -22,10 +22,11 @@
 #include "base/strings/utf_ostream_operators.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/buildflag.h"
-#include "components/accessibility_annotator/core/annotation_reducer/memory_data_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/field_types.h"
+#include "components/autofill/core/browser/integrators/at_memory/memory_data_type.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
+#include "components/autofill/core/common/dense_set.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_ANDROID)
@@ -67,8 +68,31 @@ std::string_view ConvertAcceptabilityToPrintableString(
 
 std::string_view ConvertIconToPrintableString(Suggestion::Icon icon) {
   switch (icon) {
+    // kNoIcon is kept at the top of the list.
+    case Suggestion::Icon::kNoIcon:
+      return "kNoIcon";
+
+    // 1P Google services start
+    case Suggestion::Icon::kGmail:
+      return "kGmail";
+    case Suggestion::Icon::kGoogleCalendar:
+      return "kGoogleCalendar";
+    case Suggestion::Icon::kGooglePhotos:
+      return "kGooglePhotos";
+    // 1P Google services end
+
+    // Address profile icons start
+    case Suggestion::Icon::kHome:
+      return "kHome";
+    case Suggestion::Icon::kWork:
+      return "kWork";
+    // Address profile icons end
+
+    // Generic icons start
     case Suggestion::Icon::kAccount:
       return "kAccount";
+    case Suggestion::Icon::kAndroidMessages:
+      return "kAndroidMessages";
     case Suggestion::Icon::kClear:
       return "kClear";
     case Suggestion::Icon::kCode:
@@ -101,8 +125,6 @@ std::string_view ConvertIconToPrintableString(Suggestion::Icon icon) {
       return "kGoogleWallet";
     case Suggestion::Icon::kGoogleWalletMonochrome:
       return "kGoogleWalletMonochrome";
-    case Suggestion::Icon::kHome:
-      return "kHome";
     case Suggestion::Icon::kIdCard:
       return "kIdCard";
     case Suggestion::Icon::kIdCard2:
@@ -115,6 +137,8 @@ std::string_view ConvertIconToPrintableString(Suggestion::Icon icon) {
       return "kKey";
     case Suggestion::Icon::kLocation:
       return "kLocation";
+    case Suggestion::Icon::kLocationSpark:
+      return "kLocationSpark";
     case Suggestion::Icon::kLoyalty:
       return "kLoyalty";
     case Suggestion::Icon::kMagic:
@@ -137,6 +161,8 @@ std::string_view ConvertIconToPrintableString(Suggestion::Icon icon) {
       return "kQuestionMark";
     case Suggestion::Icon::kRecoveryPassword:
       return "kRecoveryPassword";
+    case Suggestion::Icon::kSadTab:
+      return "kSadTab";
     case Suggestion::Icon::kScanCreditCard:
       return "kScanCreditCard";
     case Suggestion::Icon::kSettings:
@@ -147,22 +173,23 @@ std::string_view ConvertIconToPrintableString(Suggestion::Icon icon) {
       return "kShipmentSpark";
     case Suggestion::Icon::kSpark:
       return "kSpark";
+    case Suggestion::Icon::kTextSpark:
+      return "kTextSpark";
     case Suggestion::Icon::kUndo:
       return "kUndo";
     case Suggestion::Icon::kVehicle:
       return "kVehicle";
     case Suggestion::Icon::kVehicleSpark:
       return "kVehicleSpark";
-    case Suggestion::Icon::kWork:
-      return "kWork";
-    case Suggestion::Icon::kGmail:
-      return "kGmail";
-    case Suggestion::Icon::kGooglePhotos:
-      return "kGooglePhotos";
-    case Suggestion::Icon::kGoogleCalendar:
-      return "kGoogleCalendar";
+    // Generic icons end
+
+    // Payment method icons start
     case Suggestion::Icon::kCardGeneric:
       return "kCardGeneric";
+    case Suggestion::Icon::kCardGenericSpark:
+      return "kCardGenericSpark";
+    case Suggestion::Icon::kCardGenericVector:
+      return "kCardGenericVector";
     case Suggestion::Icon::kCardAmericanExpress:
       return "kCardAmericanExpress";
     case Suggestion::Icon::kCardDiners:
@@ -187,8 +214,6 @@ std::string_view ConvertIconToPrintableString(Suggestion::Icon icon) {
       return "kCardVisa";
     case Suggestion::Icon::kIban:
       return "kIban";
-    case Suggestion::Icon::kNoIcon:
-      return "kNoIcon";
     case Suggestion::Icon::kBnplGeneric:
       return "kBnplGeneric";
     case Suggestion::Icon::kBnplAffirm:
@@ -201,10 +226,7 @@ std::string_view ConvertIconToPrintableString(Suggestion::Icon icon) {
       return "kBnplZip";
     case Suggestion::Icon::kSaveAndFill:
       return "kSaveAndFill";
-    case Suggestion::Icon::kAndroidMessages:
-      return "kAndroidMessages";
-    case Suggestion::Icon::kSadTab:
-      return "kSadTab";
+      // Payment method icons end
   }
   NOTREACHED();
 }
@@ -331,9 +353,8 @@ Suggestion::IdentityCredentialPayload::~IdentityCredentialPayload() = default;
 
 Suggestion::AtMemoryPayload::AtMemoryPayload() = default;
 
-Suggestion::AtMemoryPayload::AtMemoryPayload(
-    std::u16string value,
-    accessibility_annotator::MemoryDataType memory_data_type)
+Suggestion::AtMemoryPayload::AtMemoryPayload(std::u16string value,
+                                             MemoryDataType memory_data_type)
     : value(std::move(value)), memory_data_type(memory_data_type) {}
 
 Suggestion::AtMemoryPayload::AtMemoryPayload(const AtMemoryPayload&) = default;
@@ -477,6 +498,13 @@ Suggestion& Suggestion::operator=(Suggestion&& other) = default;
 Suggestion::~Suggestion() = default;
 
 bool Suggestion::IsAcceptable() const {
+  using enum SuggestionType;
+  static constexpr auto kUnacceptableItemIds =
+      DenseSet({kSeparator, kInsecureContextPaymentDisabledMessage,
+                kMixedFormMessage, kTitle, kAtMemorySourceAttribution});
+  if (kUnacceptableItemIds.contains(type)) {
+    return false;
+  }
   switch (acceptability) {
     case Acceptability::kAcceptable:
       return true;

@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
+
 #include <memory>
 
 #include "base/path_service.h"
@@ -16,9 +18,9 @@
 #include "chrome/browser/glic/glic_profile_manager.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/host/glic_web_contents_warming_pool.h"
+#include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
-#include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
 #include "chrome/browser/glic/service/glic_instance_coordinator_impl.h"
 #include "chrome/browser/glic/test_support/glic_histogram_tester.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
@@ -47,10 +49,6 @@
 #include "content/public/test/browser_test_utils.h"
 #include "extensions/browser/background_script_executor.h"
 #include "ui/base/test/ui_controls.h"
-#if BUILDFLAG(IS_OZONE)
-#include "ui/ozone/public/ozone_platform.h"
-#endif
-
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/display/test/virtual_display_util.h"
@@ -61,6 +59,10 @@
 #include "ui/views/interaction/interaction_test_util_views.h"
 #include "ui/views/interaction/widget_focus_observer.h"
 #include "ui/views/test/button_test_api.h"
+
+#if BUILDFLAG(IS_OZONE)
+#include "ui/ozone/public/ozone_platform.h"
+#endif
 
 namespace glic {
 
@@ -211,9 +213,8 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
       OpenGlicFloatingWindow(),
       SetOnIncompatibleAction(OnIncompatibleAction::kIgnoreAndContinue,
                               kActivateSurfaceIncompatibilityNotice),
-      InAnyContext(ActivateSurface(test::kGlicHostElementId)),
-      SimulateGlicHotkey(), WaitForGlicClose(),
-      CheckControllerHasWidget(false));
+      InAnyContext(ActivateSurface(kGlicHostElementId)), SimulateGlicHotkey(),
+      WaitForGlicClose(), CheckControllerHasWidget(false));
 }
 
 // TODO(393203136): Once tests can observe window controller state rather than
@@ -271,7 +272,7 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
       OpenGlicFloatingWindow(),
       SetOnIncompatibleAction(OnIncompatibleAction::kIgnoreAndContinue,
                               kActivateSurfaceIncompatibilityNotice),
-      InAnyContext(ActivateSurface(test::kGlicHostElementId)),
+      InAnyContext(ActivateSurface(kGlicHostElementId)),
       SimulateAcceleratorPress(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE)),
       WaitForGlicClose());
 }
@@ -282,7 +283,7 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
       OpenGlicFloatingWindow(),
       SetOnIncompatibleAction(OnIncompatibleAction::kIgnoreAndContinue,
                               kActivateSurfaceIncompatibilityNotice),
-      InAnyContext(ActivateSurface(test::kGlicHostElementId)),
+      InAnyContext(ActivateSurface(kGlicHostElementId)),
       SimulateAcceleratorPress(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE)),
       WaitForGlicClose());
 }
@@ -319,7 +320,7 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest, OsButtonToggles) {
   RunTestSequence(SimulateOsButton(),
                   WaitForAndInstrumentGlic(kHostAndContents),
                   CheckControllerWidgetMode(GlicWindowMode::kDetached),
-                  SimulateOsButton(), WaitForHide(test::kGlicHostElementId));
+                  SimulateOsButton(), WaitForHide(kGlicHostElementId));
 }
 #endif  // BUILDFLAG(IS_WIN)
 
@@ -346,8 +347,8 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
       OpenGlicFloatingWindow(),
       SetOnIncompatibleAction(OnIncompatibleAction::kIgnoreAndContinue,
                               kActivateSurfaceIncompatibilityNotice),
-      InAnyContext(ActivateSurface(test::kGlicHostElementId)),
-      SimulateOpenMenuItem(), CheckControllerShowing(true));
+      InAnyContext(ActivateSurface(kGlicHostElementId)), SimulateOpenMenuItem(),
+      CheckControllerShowing(true));
 }
 
 IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
@@ -472,10 +473,10 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
       SimulateGlicHotkey(), ForceInvalidateAccount(),
       WaitForAndInstrumentGlic(kHostOnly),
       WaitForWebUIState(mojom::WebUiState::kSignIn),
-      InAnyContext(ClickElement(test::kGlicHostElementId, {"#signInButton"},
+      InAnyContext(ClickElement(kGlicHostElementId, {"#signInButton"},
                                 ui_controls::LEFT, ui_controls::kNoAccelerator,
                                 ExecuteJsMode::kFireAndForget)),
-      WaitForHide(test::kGlicHostElementId),
+      WaitForHide(kGlicHostElementId),
       // Without a pause here, we will 'sign-in' before the callback is
       // registered to listen for it. This isn't a bug because it takes real
       // users finite time to actually sign-in.
@@ -631,7 +632,7 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorLocationMetricsUiTest,
     RunTestSequence(ActivateSurface(kBrowserViewElementId),
                     SimulateGlicHotkey(), WaitForAndInstrumentGlic(kNone),
                     CheckControllerWidgetMode(GlicWindowMode::kDetached),
-                    SimulateOsButton(), WaitForHide(test::kGlicHostElementId),
+                    SimulateOsButton(), WaitForHide(kGlicHostElementId),
                     CheckControllerHasWidget(false));
 
     tester.ExpectBucketCount("Glic.PositionOnChrome.OnOpen", expected_position,
@@ -696,8 +697,9 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
       profile_manager, profile_manager->GenerateNextProfileDirectoryPath());
   Browser* const browser1 = CreateBrowser(&profile1);
   GlicKeyedService* const service1 =
-      GlicKeyedServiceFactory::GetGlicKeyedService(browser1->profile());
-  ::glic::SetFRECompletion(browser1->profile(), prefs::FreStatus::kCompleted);
+      GlicKeyedServiceFactory::GetGlicKeyedService(browser1->GetProfile());
+  ::glic::SetFRECompletion(browser1->GetProfile(),
+                           prefs::FreStatus::kCompleted);
   EXPECT_TRUE(service1->enabling().HasConsented());
 
   // Open glic
@@ -709,7 +711,7 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
   // Delete the second profile
   ui_test_utils::BrowserDestroyedObserver observer(browser1);
   profile_manager->GetDeleteProfileHelper().MaybeScheduleProfileForDeletion(
-      browser1->profile()->GetPath(), base::DoNothing(),
+      browser1->GetProfile()->GetPath(), base::DoNothing(),
       ProfileMetrics::DELETE_PROFILE_USER_MANAGER);
   observer.Wait();
 
@@ -830,7 +832,7 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorWithDelayedPreloadingUiTest,
 
 #if !BUILDFLAG(IS_ANDROID)
 IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
-                       ActivateTabWithConversation) {
+                       ActivateTabWithConversation_DifferentWindow) {
 #if BUILDFLAG(IS_OZONE)
   // Programmatic window activation does not work on the Weston reference
   // implementation of Wayland used on Linux/ChromeOS testbots, and is
@@ -850,10 +852,17 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
   ASSERT_TRUE(tab_a);
 
   glic::GlicKeyedService* service = glic_service();
-  service->instance_coordinator().CreateNewConversationForTabs({tab_a});
+  GlicInstanceCoordinator* coordinator = &service->instance_coordinator();
 
-  glic::GlicInstance* instance =
-      service->instance_coordinator().GetInstanceForTab(tab_a);
+  {
+    GlicInvokeOptions options(mojom::InvocationSource::kTabContextMenu);
+    options.target = Target(*tab_a, NewConversation());
+    options.tab_sharing =
+        TabSharingOptions({tab_a->GetHandle()}, GlicPinTrigger::kContextMenu);
+    coordinator->Invoke(std::move(options));
+  }
+
+  glic::GlicInstance* instance = coordinator->GetInstanceForTab(tab_a);
   ASSERT_TRUE(instance);
 
   {
@@ -873,8 +882,7 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
   ui_test_utils::BrowserActivationWaiter waiter_a(window_a);
 
   glic::GlicInstanceCoordinator::ActivateTabResult cxx_result =
-      service->instance_coordinator().ActivateTabWithConversation(
-          "test_conversation_id");
+      coordinator->ActivateTabWithConversation("test_conversation_id");
   EXPECT_EQ(cxx_result,
             glic::GlicInstanceCoordinator::ActivateTabResult::kSuccess);
 
@@ -905,11 +913,31 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
   ASSERT_NE(tab_2, tab_3);
 
   glic::GlicKeyedService* service = glic_service();
-  service->instance_coordinator().CreateNewConversationForTabs({tab_1, tab_2});
+  GlicInstanceCoordinator* coordinator = &service->instance_coordinator();
 
-  glic::GlicInstance* instance =
-      service->instance_coordinator().GetInstanceForTab(tab_1);
+  // Create an instance with tab 1
+  {
+    GlicInvokeOptions options(mojom::InvocationSource::kTabContextMenu);
+    options.target = Target(*tab_1, NewConversation());
+    options.tab_sharing =
+        TabSharingOptions({tab_1->GetHandle()}, GlicPinTrigger::kContextMenu);
+    coordinator->Invoke(std::move(options));
+  }
+  glic::GlicInstance* instance = coordinator->GetInstanceForTab(tab_1);
   ASSERT_TRUE(instance);
+
+  // Pin tab 2 to the instance
+  {
+    GlicInvokeOptions options(mojom::InvocationSource::kTabContextMenu);
+    options.target = Target(*tab_2, instance->id());
+    options.tab_sharing =
+        TabSharingOptions({tab_2->GetHandle()}, GlicPinTrigger::kContextMenu);
+    options.supersede_if_in_progress = true;
+    coordinator->Invoke(std::move(options));
+  }
+
+  ASSERT_EQ(coordinator->GetInstanceForTab(tab_1),
+            coordinator->GetInstanceForTab(tab_2));
 
   {
     auto conversation_info = glic::mojom::ConversationInfo::New();
@@ -925,8 +953,7 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
   EXPECT_EQ(tab_list_a->GetActiveTab(), tab_3);
 
   glic::GlicInstanceCoordinator::ActivateTabResult cxx_result =
-      service->instance_coordinator().ActivateTabWithConversation(
-          "test_conversation_id");
+      coordinator->ActivateTabWithConversation("test_conversation_id");
   EXPECT_EQ(cxx_result,
             glic::GlicInstanceCoordinator::ActivateTabResult::kSuccess);
 

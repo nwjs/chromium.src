@@ -31,9 +31,10 @@ import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarButtonVariant
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarFeatures;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarStatePredictor;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
+import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
-import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.transit.page.WebPageStation;
+import org.chromium.chrome.test.util.BottomBarTestUtils;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.ui.modaldialog.DialogDismissalCause;
@@ -46,8 +47,8 @@ import org.chromium.ui.modelutil.PropertyModel;
 @Batch(Batch.PER_CLASS)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 public final class ShareButtonControllerTest {
-    private final FreshCtaTransitTestRule mActivityTestRule =
-            ChromeTransitTestRules.freshChromeTabbedActivityRule();
+    private final AutoResetCtaTransitTestRule mActivityTestRule =
+            ChromeTransitTestRules.autoResetCtaActivityRule();
 
     private final SigninTestRule mSigninTestRule = new SigninTestRule();
 
@@ -63,6 +64,19 @@ public final class ShareButtonControllerTest {
     @Before
     public void setUp() {
         AdaptiveToolbarStatePredictor.setToolbarStateForTesting(AdaptiveToolbarButtonVariant.SHARE);
+
+        if (mActivityTestRule.getActivity() != null) {
+            ThreadUtils.runOnUiThreadBlocking(
+                    () -> {
+                        mActivityTestRule
+                                .getActivity()
+                                .getRootUiCoordinatorForTesting()
+                                .getAdaptiveToolbarUiCoordinatorForTesting()
+                                .getAdaptiveToolbarButtonControllerForTesting()
+                                .recomputeUiState();
+                    });
+        }
+
         mInitialPage = mActivityTestRule.startOnBlankPage();
 
         int deviceWidth =
@@ -80,11 +94,7 @@ public final class ShareButtonControllerTest {
                 mActivityTestRule.getActivityTab(), getOriginalNativeNtpUrl());
 
         View experimentalButton =
-                mActivityTestRule
-                        .getActivity()
-                        .getToolbarManager()
-                        .getToolbarLayoutForTesting()
-                        .getOptionalButtonViewForTesting();
+                BottomBarTestUtils.findOptionalButton(mActivityTestRule.getActivity());
         if (experimentalButton != null) {
             String shareString =
                     mActivityTestRule.getActivity().getResources().getString(R.string.share);
@@ -99,11 +109,7 @@ public final class ShareButtonControllerTest {
     @MediumTest
     public void testShareButtonInToolbarIsEnabledOnBlankPage() {
         View experimentalButton =
-                mActivityTestRule
-                        .getActivity()
-                        .getToolbarManager()
-                        .getToolbarLayoutForTesting()
-                        .getOptionalButtonViewForTesting();
+                BottomBarTestUtils.findOptionalButton(mActivityTestRule.getActivity());
 
         if (!mButtonExpected) {
             assertTrue(
@@ -123,11 +129,7 @@ public final class ShareButtonControllerTest {
     @DisabledTest(message = "crbug.com/40876865")
     public void testShareButtonInToolbarIsDisabledOnUpdate() {
         View experimentalButton =
-                mActivityTestRule
-                        .getActivity()
-                        .getToolbarManager()
-                        .getToolbarLayoutForTesting()
-                        .getOptionalButtonViewForTesting();
+                BottomBarTestUtils.findOptionalButton(mActivityTestRule.getActivity());
 
         ModalDialogProperties.Controller controller =
                 new ModalDialogProperties.Controller() {

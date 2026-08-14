@@ -40,7 +40,7 @@
           </span>
         </div>
       </div>
-      <cr-icon-button iron-icon="modules:done"
+      <cr-icon-button iron-icon="${this.getCheckSmallIcon_()}"
           @click="${this.onDismissButtonClick_}"
           title="$i18n{modulesHistoryDoneButton}">
       </cr-icon-button>
@@ -48,7 +48,8 @@
   `)}
   <div id="seeMoreButtonContainer">
     <a href="chrome://history/syncedTabs"
-        @click="${this.onSeeMoreButtonClick_}">
+        @click="${this.onSeeMoreButtonClick_}"
+        aria-label="$i18n{modulesMostRelevantTabResumptionSeeMoreAcc}">
       $i18n{modulesMostRelevantTabResumptionSeeMore}
       <div id="hoverContainer"></div>
     </a>

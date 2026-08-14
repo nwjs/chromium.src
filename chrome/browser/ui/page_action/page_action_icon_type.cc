@@ -7,41 +7,6 @@
 #include "base/feature_list.h"
 #include "chrome/browser/ui/ui_features.h"
 
-namespace {
-
-const base::FeatureParam<bool>* GetPageActionsMigrationParam(
-    PageActionIconType page_action) {
-  switch (page_action) {
-    case PageActionIconType::kIntentPicker:
-      return &features::kPageActionsMigrationIntentPicker;
-    case PageActionIconType::kZoom:
-      return &features::kPageActionsMigrationZoom;
-    case PageActionIconType::kCookieControls:
-      return &features::kPageActionsMigrationCookieControls;
-    case PageActionIconType::kMandatoryReauth:
-      return &features::kPageActionsMigrationAutofillMandatoryReauth;
-    case PageActionIconType::kAiMode:
-      return &features::kPageActionsMigrationAiMode;
-    case PageActionIconType::kVirtualCardEnroll:
-      return &features::kPageActionsMigrationVirtualCard;
-    case PageActionIconType::kFilledCardInformation:
-      return &features::kPageActionsMigrationFilledCardInformation;
-    case PageActionIconType::kReadingMode:
-      return &features::kPageActionsMigrationReadingMode;
-    case PageActionIconType::kSaveIban:
-    case PageActionIconType::kSaveCard:
-      return &features::kPageActionsMigrationSavePayments;
-    case PageActionIconType::kLensOverlayHomework:
-      return &features::kPageActionsMigrationLensOverlayHomework;
-    case PageActionIconType::kBookmarkStar:
-      return &features::kPageActionsMigrationBookmarkStar;
-    default:
-      return nullptr;
-  }
-}
-
-}  // namespace
-
 bool IsPageActionMigrated(PageActionIconType page_action) {
   if (!base::FeatureList::IsEnabled(features::kPageActionsMigration)) {
     return false;
@@ -68,25 +33,29 @@ bool IsPageActionMigrated(PageActionIconType page_action) {
     case PageActionIconType::kPriceInsights:
     case PageActionIconType::kDiscounts:
     case PageActionIconType::kFederation:
+    case PageActionIconType::kCookieControls:
     case PageActionIconType::kManagePasswords:
+    case PageActionIconType::kZoom:
     case PageActionIconType::kWebAuthnAmbientSignin:
     case PageActionIconType::kFileSystemAccess:
+    case PageActionIconType::kBookmarkStar:
+    case PageActionIconType::kAiMode:
+    case PageActionIconType::kSaveIban:
+    case PageActionIconType::kSaveCard:
+    case PageActionIconType::kReadingMode:
     case PageActionIconType::kAutofillPayment:
+    case PageActionIconType::kMandatoryReauth:
+    case PageActionIconType::kPaymentsChurnedUsers:
+    case PageActionIconType::kLensOverlayHomework:
+    case PageActionIconType::kFakePageActionForDebug:
+    case PageActionIconType::kFilledCardInformation:
+    case PageActionIconType::kVirtualCardEnroll:
+    case PageActionIconType::kIntentPicker:
+    case PageActionIconType::kOptimizationGuide:
       return true;
     default:
       break;
   }
 
-  const auto* feature_param = GetPageActionsMigrationParam(page_action);
-  if (feature_param == nullptr) {
-    return false;
-  }
-
-  // For developer manual testing only, allow all migrated page actions to be
-  // enabled through a single switch.
-  if (features::kPageActionsMigrationEnableAll.Get()) {
-    return true;
-  }
-
-  return feature_param->Get();
+  return false;
 }

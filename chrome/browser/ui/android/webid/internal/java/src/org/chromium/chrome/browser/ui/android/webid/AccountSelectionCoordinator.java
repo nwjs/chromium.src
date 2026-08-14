@@ -10,19 +10,24 @@ import static androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_LIGHT;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.provider.Browser;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.TextView;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.chromium.base.Callback;
 import org.chromium.base.IntentUtils;
+import org.chromium.base.Log;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.blink.mojom.RpContext;
 import org.chromium.blink.mojom.RpMode;
@@ -36,10 +41,14 @@ import org.chromium.chrome.browser.ui.android.webid.data.IdentityProviderData;
 import org.chromium.chrome.browser.ui.android.webid.data.IdentityProviderMetadata;
 import org.chromium.chrome.browser.ui.android.webid.data.RelyingPartyData;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerItemDecoration;
+import org.chromium.chrome.browser.webid.DigitalAssetLinksVerifier;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.embedder_support.util.Origin;
 import org.chromium.content.webid.IdentityRequestDialogDismissReason;
 import org.chromium.content.webid.IdentityRequestDialogLinkType;
+import org.chromium.content_public.browser.ContentFeatureMap;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.content_public.common.ContentFeatures;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.base.WindowAndroid.ActivityStateObserver;
 import org.chromium.ui.modelutil.LayoutViewBuilder;
@@ -51,6 +60,8 @@ import org.chromium.ui.util.ColorUtils;
 import org.chromium.url.GURL;
 
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +72,7 @@ import java.util.Map;
  */
 public class AccountSelectionCoordinator
         implements AccountSelectionComponent, ActivityStateObserver {
+    private static final String TAG = "AccountSelection";
     private static final Map<Integer, WeakReference<AccountSelectionComponent.Delegate>>
             sFedCMDelegateMap = new HashMap<>();
 
@@ -183,7 +195,7 @@ public class AccountSelectionCoordinator
         adapter.registerType(
                 AccountSelectionProperties.ITEM_TYPE_SEPARATOR,
                 new LayoutViewBuilder<>(R.layout.account_selection_login_buttons_start_separator),
-                (unusedModel, unusedView, unusedKey) -> {});
+                (_, _, _) -> {});
         sheetItemListView.setAdapter(adapter);
 
         return contentView;
@@ -274,7 +286,30 @@ public class AccountSelectionCoordinator
 
     @Override
     public WebContents showModalDialog(GURL url) {
+        if (ContentFeatureMap.isEnabled(ContentFeatures.FED_CM_NATIVE_ID_PS)) {
+            findVerifiedApp(
+                    url,
+                    appPackage -> {
+                        if (appPackage == null) {
+                            launchCct(url);
+                            return;
+                        }
+                        launchNativeApp(appPackage, url);
+                    });
+            return null;
+        }
+
+        launchCct(url);
+        // CCT is opened asynchronously, and we do not have the WebContents for it yet.
+        return null;
+    }
+
+    private void launchCct(GURL url) {
         Context context = mWindowAndroid.getContext().get();
+        if (context == null) {
+            return;
+        }
+
         CustomTabsIntent customTabIntent =
                 new CustomTabsIntent.Builder()
                         .setShowTitle(true)
@@ -301,8 +336,21 @@ public class AccountSelectionCoordinator
         mWindowAndroid.addActivityStateObserver(this);
         context.startActivity(intent);
         mMediator.onModalDialogOpened();
-        // CCT is opened asynchronously, and we do not have the WebContents for it yet.
-        return null;
+    }
+
+    private void findVerifiedApp(GURL url, Callback<String> callback) {
+        List<String> packages = getNativeAppPackages(url);
+        Origin origin = Origin.create(url.getSpec());
+        DigitalAssetLinksVerifier.checkPackages(
+                packages,
+                origin,
+                index -> {
+                    if (index != -1) {
+                        callback.onResult(packages.get(index));
+                    } else {
+                        callback.onResult(null);
+                    }
+                });
     }
 
     @Override
@@ -366,6 +414,55 @@ public class AccountSelectionCoordinator
     @VisibleForTesting
     AccountSelectionMediator getMediator() {
         return mMediator;
+    }
+
+    private List<String> getNativeAppPackages(GURL url) {
+        Log.i(TAG, "getNativeAppPackages url=" + url.getSpec());
+        Context context = mWindowAndroid.getContext().get();
+        if (context == null) {
+            Log.i(TAG, "Context is null");
+            return Collections.emptyList();
+        }
+
+        PackageManager pm = context.getPackageManager();
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.addCategory(Intent.CATEGORY_BROWSABLE);
+
+        // Query with MIME type
+        intent.setDataAndType(Uri.parse(url.getSpec()), "application/web-identity+json");
+        List<ResolveInfo> resolveInfos = pm.queryIntentActivities(intent, 0);
+        if (resolveInfos == null || resolveInfos.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<String> targetPackages = new ArrayList<>();
+        for (ResolveInfo info : resolveInfos) {
+            targetPackages.add(info.activityInfo.packageName);
+        }
+
+        return targetPackages;
+    }
+
+    private void launchNativeApp(String packageName, GURL url) {
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.addCategory(Intent.CATEGORY_BROWSABLE);
+        intent.setDataAndType(Uri.parse(url.getSpec()), "application/web-identity+json");
+        intent.setPackage(packageName);
+        boolean launched = mWindowAndroid.showIntent(intent, new NativeAppIntentCallback(), null);
+        if (launched) {
+            mMediator.onModalDialogOpened();
+        }
+    }
+
+    private class NativeAppIntentCallback implements WindowAndroid.IntentCallback {
+        public NativeAppIntentCallback() {}
+
+        @Override
+        public void onIntentCompleted(int resultCode, @Nullable Intent data) {
+            // TODO(crbug.com/521864267): return the result to the RP.
+            mDelegate.onDismissed(IdentityRequestDialogDismissReason.OTHER);
+            mMediator.onModalDialogClosed();
+        }
     }
 
     private int getFedCmId() {

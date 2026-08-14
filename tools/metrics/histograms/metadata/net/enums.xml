@@ -143,20 +143,6 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Client Cert"/>
 </enum>
 
-<!-- LINT.IfChange(CertManagerPageEnum) -->
-
-<enum name="CertificateManagerPage">
-  <int value="0" label="Local Certs"/>
-  <int value="1" label="Client Certs"/>
-  <int value="2" label="Chrome Root Store Certs"/>
-  <int value="3" label="Admin Certs subpage"/>
-  <int value="4" label="Platform Client Certs subpage"/>
-  <int value="5" label="Platform Certs subpage"/>
-  <int value="6" label="User Certs subpage"/>
-</enum>
-
-<!-- LINT.ThenChange(/chrome/browser/resources/certificate_manager/navigation_v2.ts:PageHistogramEnum) -->
-
 <enum name="ConnectionInfo">
   <summary>
     Application protocol used for HTTP response as defined in
@@ -604,6 +590,21 @@ historical analysis. -->
   <int value="4" label="CT_REQUIREMENT_OVERRIDDEN_APPLIES_ACROSS_NAMES"/>
 </enum>
 
+<!-- LINT.IfChange(DeviceBoundSessionAttestationKeySaveOutcome) -->
+
+<enum name="DeviceBoundSessionAttestationKeySaveOutcome">
+  <int value="0" label="No Attestation Key"/>
+  <int value="1" label="Key Not Ready: Copied Old Key"/>
+  <int value="2" label="Key Not Ready: No Site in DB"/>
+  <int value="3" label="Key Not Ready: No Session in DB"/>
+  <int value="4" label="Key Not Ready: No Old Key to Copy"/>
+  <int value="5" label="Save Session Key Success"/>
+  <int value="6" label="Get Wrapped Key Failure"/>
+  <int value="7" label="Unexpected Error"/>
+</enum>
+
+<!-- LINT.ThenChange(//net/device_bound_sessions/session_store_impl.h:AttestationKeySaveOutcome) -->
+
 <!-- LINT.IfChange(DeviceBoundSessionDeletionReason) -->
 
 <enum name="DeviceBoundSessionDeletionReason">
@@ -628,7 +629,7 @@ historical analysis. -->
   <int value="2" label="Session key not restored"/>
   <int value="3" label="Attempted"/>
   <int value="4" label="Previous failed proactive refresh"/>
-  <int value="5" label="Signing quota exceeded"/>
+  <int value="5" label="(Obsolete) Signing quota exceeded"/>
   <int value="6" label="Session in backoff"/>
 </enum>
 
@@ -641,7 +642,7 @@ historical analysis. -->
   <int value="1" label="Service initialized"/>
   <int value="2" label="Endpoint unreachable"/>
   <int value="3" label="Endpoint transient error"/>
-  <int value="4" label="Refresh quota exceeded"/>
+  <int value="4" label="(Obsolete) Refresh quota exceeded"/>
   <int value="5" label="Fatal error"/>
   <int value="6" label="Signing exceeded"/>
   <int value="7" label="Refreshed as waiter"/>
@@ -671,6 +672,7 @@ historical analysis. -->
   <int value="1" label="DnsTCPAttempt due to low UDP entropy"/>
   <int value="2" label="DnsTCPAttempt due to retry due to UDP trucation"/>
   <int value="3" label="DnsHTTPAttempt"/>
+  <int value="4" label="DnsPlatformAttempt"/>
 </enum>
 
 <!-- LINT.IfChange(DnsClientCapability) -->
@@ -1055,6 +1057,16 @@ historical analysis. -->
   <int value="5" label="CryptoConnectFailedAsync"/>
 </enum>
 
+<!-- LINT.IfChange(LogicalInvalidationStoreLoadResult) -->
+
+<enum name="LogicalInvalidationStoreLoadResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="File Not Found"/>
+  <int value="2" label="Corrupt"/>
+</enum>
+
+<!-- LINT.ThenChange(//services/network/logical_invalidation_store.h:LoadResult) -->
+
 <!-- LINT.IfChange(LookupOutcome) -->
 
 <enum name="LookupOutcome">
@@ -1321,10 +1333,23 @@ historical analysis. -->
   </int>
 </enum>
 
+<!-- LINT.IfChange(NetHttpCacheLogicalInvalidationClearContext) -->
+
 <enum name="NetHttpCacheLogicalInvalidationClearContext">
   <int value="0" label="kSameSession"/>
   <int value="1" label="kRecoveredAfterCrash"/>
 </enum>
+
+<!-- LINT.ThenChange(//net/http/http_cache.h:InvalidationFilterClearContext) -->
+
+<!-- LINT.IfChange(NetHttpCacheLogicalInvalidationMatchResult) -->
+
+<enum name="NetHttpCacheLogicalInvalidationMatchResult">
+  <int value="0" label="kMatchedStale"/>
+  <int value="1" label="kUnmatched"/>
+</enum>
+
+<!-- LINT.ThenChange(//net/http/http_cache.cc:LogicalInvalidationMatchResult) -->
 
 <enum name="NetNetworkErrorLoggingRequestOutcome">
   <int value="0" label="Discarded: no NetworkErrorLoggingService"/>
@@ -3300,6 +3325,17 @@ Called by update_net_trust_anchors.py.-->
 
 <!-- LINT.ThenChange(//chrome/browser/net/stub_resolver_config_reader.h:SecureDnsModeDetailsForHistogram) -->
 
+<!-- LINT.IfChange(SetSocketOptionGroResult) -->
+
+<enum name="SetSocketOptionGroResult">
+  <int value="0" label="Success"/>
+  <int value="1"
+      label="Unsupported Kernel Fallback (ENOPROTOOPT, EOPNOTSUPP, or ENOPKG)"/>
+  <int value="2" label="Other Error"/>
+</enum>
+
+<!-- LINT.ThenChange(//net/socket/udp_socket_posix.h:SetSocketOptionGroResult) -->
+
 <!-- LINT.IfChange(SharedDictionaryStorageEvictionReason) -->
 
 <enum name="SharedDictionaryStorageEvictionReason">
@@ -3547,6 +3583,9 @@ Called by update_net_trust_anchors.py.-->
   <int value="21" label="AbortedDueToBrowserActivity"/>
   <int value="22" label="FailedToSetAutoVacuum"/>
   <int value="23" label="IncrementalVacuumDisabled"/>
+  <int value="24" label="FailedToInitializeSharedCacheIndexDatabase"/>
+  <int value="25" label="FailedToSetSharedCacheEnabledMetadata"/>
+  <int value="26" label="SharedCacheEnabledMismatch"/>
 </enum>
 
 <!-- LINT.ThenChange(//net/disk_cache/sql/sql_persistent_store.h:SqlDiskCacheStoreError) -->

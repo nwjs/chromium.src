@@ -1,288 +1,73 @@
 #!/usr/bin/env vpython3
-# Copyright 2025 The Chromium Authors
+# Copyright 2026 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-'''
-Reads glic.mojom and outputs generated code to glic_api.ts.
+"""
+Entry point for generating glic_api_generated.ts and updating glic_api.ts.
+Runs the mojo parser and then the TypeScript generator.
 
-Translates enums with a "// @generate glic_api" comment above them
-and copies them into glic_api.ts. Comments from mojom files are
-ignored if they have a '///' prefix, allowing for internal
-documentation to be filtered out.
+### Special Mojom Comment Annotations
 
-Ideally, we would output generated code to a new file, but this way is
-less likely to break downstream users of glic_api.
+The generator parses special annotations in Mojom comments to customize the
+TypeScript generation. These annotations should be placed in comments
+immediately preceding the struct, enum, field, or interface definition.
 
-Also generates chrome/browser/resources/glic/glic_api_impl/enum_conversions.ts.
-'''
+#### `@generate glic_api`
+Marks a struct, enum, or interface for generation.
+*   **For structs/enums**: Generates intermediate `Base` transport types.
+*   **For interfaces**: Generates postMessage bridges. Must be combined with
+    `bridge=<BridgeName>` parameter (e.g., `@generate glic_api bridge=PocHost`).
 
-import argparse
-import codecs
-import io
+#### `@glic_type <TypeScriptType>`
+Overrides the generated TypeScript type for a field.
+Useful when a Mojom type maps to a custom type or a public API type rather than
+the default generated base type.
+Example:
+```mojom
+// @glic_type glicApi.Point
+gfx.mojom.Point point;
+```
+If the type ends with `?` (e.g., `@glic_type MyType?`), it also implies
+`@glic_optional`.
+
+#### `@glic_optional`
+Marks a field as optional in the generated TS interface (appending `?`
+to the field name), even if the field is not nullable in Mojom.
+
+#### `@glic_ignore`
+Ignores the field in the generated TS base interface.
+"""
+
 import os
-import re
 import sys
+import subprocess
+import tempfile
 
-GENERATE_GLIC_API_RE = re.compile(r'.*@generate glic_api')
+# Add the directory containing the 'generate_impl' package to sys.path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-IGNORE_LINE_RES = [
-    re.compile(r'.*([L]INT\.IfChange|[L]INT\.ThenChange)'),
-    re.compile(r'\s*// Next version:'),
-    re.compile(r'\s*///'),
-    GENERATE_GLIC_API_RE,
-]
+from generate_impl import parse
 
 
-def _GetDirAbove(dirname: str):
-    """Returns the directory "above" this file containing |dirname| (which must
-  also be "above" this file)."""
-    path = os.path.abspath(__file__)
-    while True:
-        path, tail = os.path.split(path)
-        if not tail:
-            return None
-        if tail == dirname:
-            return path
-
-
-SOURCE_DIR = _GetDirAbove('chrome')
-
-# WARNING!
-# Using mojo internal parser here, which is subject to change.
-# mojo owners are NOT responsible for ensuring this script keeps working.
-
-sys.path.append(
-    os.path.abspath(os.path.join(SOURCE_DIR, 'mojo/public/tools/mojom')), )
-
-from mojom.parse import parser
-from mojom.parse import ast
-from mojom.generate import generator
-
-
-def _ParseAst(mojom_abspath):
-    with codecs.open(mojom_abspath, encoding='utf-8') as f:
-        tree = parser.Parse(f.read(), mojom_abspath, with_comments=True)
-        tree.filename = mojom_abspath
-        return tree
-
-
-def _FunctionSignatureString(function_name, param_type, return_type):
-    return (f'export function {function_name}(\n' +
-            f'  val: {param_type}):\n' + f'    {return_type};')
-
-class Converter:
-
-    def __init__(self):
-        self.out = io.StringIO()
-        mojom_files = [
-            'chrome/browser/glic/host/glic.mojom',
-            'chrome/common/actor_webui.mojom',
-            'chrome/common/glic_enums.mojom',
-        ]
-        self.mojom_trees = [
-            _ParseAst(os.path.join(SOURCE_DIR, f)) for f in mojom_files
-        ]
-
-    def PrintComments(self, node, indent=0):
-        if not node.comments_before:
-            return
-        for c in node.comments_before:
-            for line in c.value.splitlines():
-                line = line.strip()
-                if any([r.match(line) for r in IGNORE_LINE_RES]):
-                    continue
-                self.Print(' ' * indent + line)
-
-    def LookupName(self, name, remap):
-        if name not in remap:
-            return generator.ToUpperSnakeCase(name)
-        new_name = remap[name]
-        del remap[name]
-        return new_name
-
-    def ConvertEnums(self, remappings):
-        self.converted_enums = []
-        for tree in self.mojom_trees:
-            if 'actor_webui.mojom' in tree.filename:
-                source = 'actor'
-            elif 'glic_enums.mojom' in tree.filename:
-                source = 'glic_enums'
-            else:
-                source = 'glic'
-            for v in tree.definition_list:
-                if not isinstance(v, ast.Enum):
-                    continue
-                if v.comments_before and any(
-                    (GENERATE_GLIC_API_RE.match(comment.value)
-                     for comment in v.comments_before)):
-                    self.ConvertEnum(v, remappings.get(v.mojom_name.name, {}))
-                    self.converted_enums.append((v.mojom_name.name, source))
-
-    def ConvertEnum(self, enum, remap={}):
-        enum_name = enum.mojom_name.name
-        remap = dict(remap)
-        self.Print('///////////////////////////////////////////////')
-        self.Print('// WARNING - GENERATED FROM MOJOM, DO NOT EDIT.')
-        self.PrintComments(enum)
-        self.Print(f'export enum {enum_name} {{')
-        value = 0
-        for v in enum.enum_value_list:
-            value_name = self.LookupName(v.mojom_name.name, remap)
-            if value_name:
-                self.PrintComments(v, 2)
-                if v.value is not None:
-                    value = int(v.value.value)
-                self.Print(f'  {value_name} = {value},')
-            value += 1
-        self.Print(f'}}')
-        self.Print('')
-        if remap:
-            raise AssertionError('Unused remap for {enum_name}: {remap}')
-
-    def Print(self, *args, **kwargs):
-        print(*args, file=self.out, **kwargs)
-
-    def GenerateConversions(self):
-        out = io.StringIO()
-        out.write("""// Copyright 2026 The Chromium Authors
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
-
-// THIS IS A GENERATED FILE. DO NOT MODIFY BELOW
-// This file is generated by
-// chrome/browser/resources/glic/glic_api_impl/generate.py
-// clang-format off
-
-import type * as mojomGlic from '../glic.mojom-webui.js';
-import type * as mojomActor from '../actor_webui.mojom-webui.js';
-import type * as mojomGlicEnums from '../glic_enums.mojom-webui.js';
-import type * as glicApi from '../glic_api/glic_api.js';
-
-""")
-
-        sorted_enums = sorted(self.converted_enums)
-        for enum_name, source in sorted_enums:
-            if source == 'glic':
-                mojom_ns = 'mojomGlic'
-            elif source == 'actor':
-                mojom_ns = 'mojomActor'
-            else:
-                mojom_ns = 'mojomGlicEnums'
-            print(_FunctionSignatureString('enumToClient',
-                                           f'{mojom_ns}.{enum_name}',
-                                           f'glicApi.{enum_name}'),
-                  file=out)
-            print(_FunctionSignatureString('enumToClient',
-                                           f'{mojom_ns}.{enum_name} | null',
-                                           f'glicApi.{enum_name} | undefined'),
-                  file=out)
-        print('export function enumToClient(val: unknown): unknown {',
-              file=out)
-        print('  return val ?? undefined;', file=out)
-        print('}', file=out)
-        print('', file=out)
-
-        for enum_name, source in sorted_enums:
-            if source == 'glic':
-                mojom_ns = 'mojomGlic'
-            elif source == 'actor':
-                mojom_ns = 'mojomActor'
-            else:
-                mojom_ns = 'mojomGlicEnums'
-            print(_FunctionSignatureString('enumFromClient',
-                                           f'glicApi.{enum_name}',
-                                           f'{mojom_ns}.{enum_name}'),
-                  file=out)
-            print(_FunctionSignatureString('enumFromClient',
-                                           f'glicApi.{enum_name} | undefined',
-                                           f'{mojom_ns}.{enum_name} | null'),
-                  file=out)
-        print('export function enumFromClient(val: unknown): unknown {',
-              file=out)
-        print('  return val ?? null;', file=out)
-        print('}', file=out)
-        return out.getvalue()
-
-
-def _WriteFile(target_path, text, check_only):
-    if os.path.exists(target_path):
-        with open(target_path, 'r') as f:
-            original_text = f.read()
-        if original_text == text:
-            return
-
-    if check_only:
-        print(f'{os.path.abspath(target_path)} is out of date,',
-              ' run chrome/browser/resources/glic/glic_api_impl/generate.py',
-              file=sys.stderr)
+def Main():
+    source_dir = parse.SOURCE_DIR
+    if not source_dir:
+        print("Error: Could not find source directory.", file=sys.stderr)
         sys.exit(1)
 
-    with open(target_path, 'w', newline='') as f:
-        f.write(text)
+    # Script paths
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    gen_sources_ts = os.path.join(this_dir, 'generate_impl', 'gen_sources.ts')
+    node_py = os.path.join(source_dir, 'third_party', 'node', 'node.py')
 
+    # Run gen_sources.ts using node.py
+    node_cmd = [sys.executable, node_py, gen_sources_ts]
+    # Pass through --check-only or other args
+    node_cmd += sys.argv[1:]
 
-def _ApplyChange(target_path, text, check_only):
-    with open(target_path, 'r') as f:
-        original_text = f.read()
-    START = '\n/// BEGIN_GENERATED - DO NOT MODIFY BELOW\n'
-    END = '\n/// END_GENERATED - DO NOT MODIFY ABOVE\n'
-    start_pos = original_text.find(START)
-    end_pos = original_text.find(END)
-    if start_pos < 0:
-        raise AssertionError(f'No BEGIN_GENERATED block in {target_path}')
-    if end_pos < 0:
-        raise AssertionError(f'No END_GENERATED block in {target_path}')
-    full_text = original_text[:start_pos] + START + text + original_text[
-        end_pos:]
-    if full_text == original_text:
-        return
-    if check_only:
-        print(f'{os.path.abspath(target_path)} is out of date,',
-              ' run chrome/browser/resources/glic/glic_api_impl/generate.py',
-              file=sys.stderr)
-        sys.exit(1)
-    with open(target_path, 'w', newline='') as f:
-        f.write(full_text)
-
-
-def _Main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--check-only',
-                        action='store_true',
-                        help='Check if the output file is up to date.')
-    args = parser.parse_args()
-
-    c = Converter()
-    c.Print('''
-// This block is generated by
-// chrome/browser/resources/glic/glic_api_impl/generate.py
-
-''')
-    c.ConvertEnums({
-        'WebClientMode': {
-            'kUnknown': None
-        },
-        'SettingsPageField': {
-            'kNone': None
-        },
-        'PerformActionsErrorReason': {
-            'kMissingTaskId': None,
-            'kInvalidProto': 'INVALID_ACTION_PROTO'
-        },
-    })
-
-    target_path = os.path.join(
-        SOURCE_DIR, 'chrome/browser/resources/glic/glic_api/glic_api.ts')
-    generated_text = c.out.getvalue()
-
-    _ApplyChange(target_path, generated_text, args.check_only)
-
-    conversions_path = os.path.join(
-        SOURCE_DIR,
-        'chrome/browser/resources/glic/glic_api_impl/enum_conversions.ts')
-    conversions_text = c.GenerateConversions()
-    _WriteFile(conversions_path, conversions_text, args.check_only)
+    result = subprocess.run(node_cmd)
+    sys.exit(result.returncode)
 
 
 if __name__ == '__main__':
-    _Main()
+    Main()

@@ -599,16 +599,17 @@ public class DownloadUtils {
             delegate.launchNewTab(params, TabLaunchType.FROM_CHROME_UI, /* parent= */ null);
             return;
         }
+        Context context = activity != null ? activity : ContextUtils.getApplicationContext();
         DownloadOpenRequest req =
-            DownloadOpenRequest.builder(ContextUtils.getApplicationContext(), filePath)
-                .mimeType(newMimeType)
-                .downloadGuid(downloadGuid)
-                .otrProfileId(otrProfileId)
-                .originalUrl(originalUrl)
-                .referrer(referer)
-                .source(source)
-                .fileName(fileName)
-                .build();
+                DownloadOpenRequest.builder(context, filePath)
+                        .mimeType(newMimeType)
+                        .downloadGuid(downloadGuid)
+                        .otrProfileId(otrProfileId)
+                        .originalUrl(originalUrl)
+                        .referrer(referer)
+                        .source(source)
+                        .fileName(fileName)
+                        .build();
         boolean canOpen = DownloadUtils.openFile(req);
         if (!canOpen) {
             if (openDownloadInFilesAppIfNoHandlerFound() && showDownloadInFilesApp(filePath)) {
@@ -636,15 +637,14 @@ public class DownloadUtils {
         } catch (ActivityNotFoundException ex) {
             Log.d(
                     TAG,
-                    "Activity not found for "
-                            + intent.getType()
-                            + " over "
-                            + assumeNonNull(intent.getData()).getScheme(),
+                    "Activity not found for %s over %s",
+                    intent.getType(),
+                    assumeNonNull(intent.getData()).getScheme(),
                     ex);
         } catch (SecurityException ex) {
-            Log.d(TAG, "cannot open intent: " + intent, ex);
+            Log.d(TAG, "cannot open intent: %s", intent, ex);
         } catch (Exception ex) {
-            Log.d(TAG, "cannot open intent: " + intent, ex);
+            Log.d(TAG, "cannot open intent: %s", intent, ex);
         }
 
         return false;
@@ -749,8 +749,8 @@ public class DownloadUtils {
         String template =
                 context.getString(
                         duplicateRequestExists
-                                ? R.string.duplicate_download_request_infobar_text
-                                : R.string.duplicate_download_infobar_text);
+                                ? R.string.duplicate_download_request_prompt_text
+                                : R.string.duplicate_download_prompt_text);
         return getMessageText(
                 template,
                 filePath,

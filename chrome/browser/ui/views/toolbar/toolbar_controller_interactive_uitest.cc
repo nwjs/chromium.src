@@ -17,6 +17,8 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/side_panel/side_panel_action_callback.h"
+#include "chrome/browser/ui/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_prefs.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/toolbar_controller_util.h"
@@ -24,6 +26,7 @@
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_desktop.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout.h"
+#include "chrome/browser/ui/views/location_bar/webui_location_bar.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_controller.h"
@@ -90,7 +93,7 @@ class ToolbarControllerUiTest : public InteractiveFeaturePromoTest,
     InteractiveFeaturePromoTest::SetUpOnMainThread();
     browser_view_ = BrowserView::GetBrowserViewForBrowser(browser());
     PinnedToolbarActionsModel* const actions_model =
-        PinnedToolbarActionsModel::Get(browser()->profile());
+        PinnedToolbarActionsModel::Get(browser()->GetProfile());
     actions_model->UpdatePinnedState(kActionShowChromeLabs, false);
     CHECK(!features::IsWebUIPinnedToolbarActionsEnabled())
         << "Test needs modification to support WebUIPinnedToolbarActions";
@@ -134,18 +137,26 @@ class ToolbarControllerUiTest : public InteractiveFeaturePromoTest,
   bool WebUIButtonsEnabled() const { return GetParam(); }
 
   // Returns the minimum width the toolbar view can be without any ToolbarButton
-  // dropped out in ToolbarContainer. This function calculates the
-  // browser width where elements with flex order > kOrderOffset defined in
-  // ToolbarView should have minimum size. Since elements with flex order <=
-  // kOrderOffset happens to have minimum width == preferred width it has no
-  // effect on diff_sum.
+  // dropped out in ToolbarContainer.
   int GetOverflowThresholdWidthInToolbarContainer() {
-    int diff_sum = 0;
-    for (views::View* element : toolbar_container_view_->children()) {
-      diff_sum += element->GetPreferredSize().width() -
-                  element->GetMinimumSize().width();
+    const gfx::Size preferred_size =
+        toolbar_container_view_->GetPreferredSize();
+    int min_width = 0;
+    int max_width = preferred_size.width();
+    int threshold_width = min_width;
+
+    while (min_width <= max_width) {
+      const int mid_width = min_width + (max_width - min_width) / 2;
+      const gfx::Size target_size(mid_width, preferred_size.height());
+      if (toolbar_controller_->ShouldShowOverflowButton(target_size)) {
+        threshold_width = mid_width;
+        min_width = mid_width + 1;
+      } else {
+        max_width = mid_width - 1;
+      }
     }
-    return toolbar_container_view_->GetPreferredSize().width() - diff_sum;
+    // Adds 1 to get the smallest non-overflowing width.
+    return threshold_width + 1;
   }
 
   // Returns the minimum width the toolbar view can be without any elements
@@ -167,7 +178,7 @@ class ToolbarControllerUiTest : public InteractiveFeaturePromoTest,
   // overflow so stuff toolbar with some fixed dummy buttons till it's
   // guaranteed we can observe overflow with browser resized to its minimum
   // width.
-  void MaybeAddDummyButtonsToToolbarView() {
+  virtual void MaybeAddDummyButtonsToToolbarView() {
     while (GetOverflowThresholdWidthInToolbarContainer() <=
            kBrowserContentAllowedMinimumWidth) {
       toolbar_container_view_->AddChildView(CreateADummyButton());
@@ -239,26 +250,29 @@ class ToolbarControllerUiTest : public InteractiveFeaturePromoTest,
 
   auto SetBooleanPref(const std::string& path, bool value) {
     return Do([this, path, value]() {
-      browser()->profile()->GetPrefs()->SetBoolean(path, value);
+      browser()->GetProfile()->GetPrefs()->SetBoolean(path, value);
     });
   }
 
   // Waits until an overflowable element is visible.
   MultiStep WaitForElementVisibility(ui::ElementIdentifier id,
                                      bool visibility) {
-    if (WebUIButtonsEnabled()) {
-      std::optional<WebContentsInteractionTestUtil::DeepQuery> query;
-      if (id == kToolbarForwardButtonElementId) {
-        query = WebContentsInteractionTestUtil::DeepQuery{
-            "toolbar-app", "back-forward-button#forward"};
-      } else if (id == kToolbarHomeButtonElementId) {
-        query = WebContentsInteractionTestUtil::DeepQuery{"toolbar-app",
-                                                          "home-button"};
-      }
-      if (query) {
-        return WaitForJsResultAt(kWebUIToolbarId, *query,
-                                 R"(el => (!el.hidden))", visibility);
-      }
+    // Check if `id` element is being handled by the WebUI toolbar, and if so,
+    // construct a query to select it, and call into Javascript to wait for it
+    // to be initialized and its underlying HTML element to be made visible.
+    std::optional<WebContentsInteractionTestUtil::DeepQuery> query;
+    if (id == kToolbarForwardButtonElementId &&
+        features::IsWebUIBackForwardButtonEnabled()) {
+      query = WebContentsInteractionTestUtil::DeepQuery{
+          "toolbar-app", "back-forward-button#forward"};
+    } else if (id == kToolbarHomeButtonElementId &&
+               features::IsWebUIHomeButtonEnabled()) {
+      query = WebContentsInteractionTestUtil::DeepQuery{"toolbar-app",
+                                                        "home-button"};
+    }
+    if (query) {
+      return WaitForJsResultAt(kWebUIToolbarId, *query, R"(el => (!el.hidden))",
+                               visibility);
     }
 
     if (visibility) {
@@ -382,25 +396,68 @@ class ToolbarControllerUiTest : public InteractiveFeaturePromoTest,
   }
 
   auto PinBookmarkToToolbar() {
-    return Steps(Do([=, this]() {
-                   chrome::ExecuteCommand(browser(),
-                                          IDC_SHOW_BOOKMARK_SIDE_PANEL);
-                 }),
-                 WaitForShow(kSidePanelElementId),
-                 PressButton(kSidePanelPinButtonElementId),
-                 PressButton(kSidePanelCloseButtonElementId),
-                 WaitForHide(kSidePanelElementId));
+    return Steps(
+        Do([=, this]() {
+          chrome::ExecuteCommandWithContext(
+              browser(), IDC_SHOW_BOOKMARK_SIDE_PANEL,
+              actions::ActionInvocationContext::Builder()
+                  .SetProperty(
+                      kSidePanelOpenTriggerKey,
+                      static_cast<std::underlying_type_t<SidePanelOpenTrigger>>(
+                          SidePanelOpenTrigger::kToolbarButton))
+                  .Build());
+        }),
+        WaitForShow(kSidePanelElementId),
+        PressButton(kSidePanelPinButtonElementId),
+        PressButton(kSidePanelCloseButtonElementId),
+        WaitForHide(kSidePanelElementId));
   }
 
   auto PinReadingModeToToolbar() {
-    return Steps(Do([=, this]() {
-                   chrome::ExecuteCommand(browser(),
-                                          IDC_SHOW_READING_MODE_SIDE_PANEL);
-                 }),
-                 WaitForShow(kSidePanelElementId),
-                 PressButton(kSidePanelPinButtonElementId),
-                 PressButton(kSidePanelCloseButtonElementId),
-                 WaitForHide(kSidePanelElementId));
+    return Steps(
+        Do([=, this]() {
+          chrome::ExecuteCommandWithContext(
+              browser(), IDC_SHOW_READING_MODE_SIDE_PANEL,
+              actions::ActionInvocationContext::Builder()
+                  .SetProperty(
+                      kSidePanelOpenTriggerKey,
+                      static_cast<std::underlying_type_t<SidePanelOpenTrigger>>(
+                          SidePanelOpenTrigger::kToolbarButton))
+                  .Build());
+        }),
+        WaitForShow(kSidePanelElementId),
+        PressButton(kSidePanelPinButtonElementId),
+        PressButton(kSidePanelCloseButtonElementId),
+        WaitForHide(kSidePanelElementId));
+  }
+
+  auto PinActionsAndVerifyDisplayed(std::vector<actions::ActionId> ids) {
+    return Steps(
+        Do([this, ids]() {
+          auto* actions_model =
+              PinnedToolbarActionsModel::Get(browser()->GetProfile());
+          for (actions::ActionId id : ids) {
+            actions_model->UpdatePinnedState(id, true);
+          }
+        }),
+        PollUntil(
+            [this, ids]() {
+              auto* container = static_cast<PinnedToolbarActionsContainer*>(
+                  browser_view_->toolbar_button_provider()
+                      ->GetPinnedToolbarActions());
+              if (!container ||
+                  container->GetAnimatingLayoutManager()->is_animating()) {
+                return false;
+              }
+              for (actions::ActionId id : ids) {
+                auto* btn = container->GetButtonFor(id);
+                if (!btn || !btn->GetVisible()) {
+                  return false;
+                }
+              }
+              return true;
+            },
+            "VerifyPinnedButtonsDisplayedAndNotAnimating"));
   }
 
   auto RestoreBrowserWidth() {
@@ -420,12 +477,12 @@ class ToolbarControllerUiTest : public InteractiveFeaturePromoTest,
         ]
       })";
       extension_directory.WriteManifest(kManifest);
-      extensions::ChromeTestExtensionLoader loader(browser()->profile());
+      extensions::ChromeTestExtensionLoader loader(browser()->GetProfile());
       scoped_refptr<const extensions::Extension> extension =
           loader.LoadExtension(extension_directory.UnpackedPath());
 
       // Pin extension.
-      auto* toolbar_model = ToolbarActionsModel::Get(browser()->profile());
+      auto* toolbar_model = ToolbarActionsModel::Get(browser()->GetProfile());
       ASSERT_TRUE(toolbar_model);
       toolbar_model->SetActionVisibility(extension->id(), true);
       views::test::RunScheduledLayout(browser_view_);
@@ -484,6 +541,53 @@ class ToolbarControllerUiTest : public InteractiveFeaturePromoTest,
   }
   BrowserView* browser_view() { return browser_view_.get(); }
 
+  // Returns true if location bar is less than preferred width.
+  bool IsLocationBarShrunk() const {
+    if (WebUIButtonsEnabled() &&
+        base::FeatureList::IsEnabled(features::kWebUILocationBar)) {
+      auto* webui_toolbar =
+          browser_view_->toolbar()->GetWebUIToolbarViewForTesting();
+      return webui_toolbar->GetLocationBarWidthForTesting() <
+             webui_toolbar->GetLocationBar()->PreferredSize().width();
+    } else {
+      auto* location_bar = browser_view_->GetLocationBarView();
+      return location_bar->bounds().width() <
+             location_bar->GetPreferredSize().width();
+    }
+  }
+
+  auto CheckIsLocationBarShrunk(bool expected) {
+    return CheckResult([this]() { return IsLocationBarShrunk(); }, expected,
+                       base::StringPrintf("CheckIsLocationBarShrunk(%s)",
+                                          base::ToString(expected)));
+  }
+
+  auto AddDummyButtonsTillActionOverflows(actions::ActionId id) {
+    return Steps(
+        CheckIsManagedByController(id),
+        Do([this, id]() {
+          while (!delegate()->IsOverflowed(id)) {
+            toolbar_container_view_->AddChildView(CreateADummyButton());
+            views::test::RunScheduledLayout(browser_view_);
+          }
+        }).SetDescription("ForceOverflowAction"),
+        WaitForShow(kToolbarOverflowButtonElementId),
+        CheckActionItemOverflowed(id, true));
+  }
+
+  // Adds buttons until the location bar's width is less than its preferred
+  // width (not until it's less than the size it was initially when this method
+  // was called).
+  auto AddDummyButtonsTillLocationBarShrinks() {
+    return Steps(Do([this]() {
+                   while (!IsLocationBarShrunk()) {
+                     toolbar_container_view_->AddChildView(
+                         CreateADummyButton());
+                     views::test::RunScheduledLayout(browser_view_);
+                   }
+                 }).SetDescription("AddDummyButtonsTillLocationBarShrinks"));
+  }
+
  protected:
   base::test::ScopedFeatureList feature_list_;
 
@@ -503,6 +607,79 @@ class ToolbarControllerUiTest : public InteractiveFeaturePromoTest,
 INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     ToolbarControllerUiTest,
+    ::testing::Bool());
+
+// Test fixture to test the relative FlexLayout ordering of various controls on
+// the toolbar.
+class ToolbarControllerOrderingUiTest : public ToolbarControllerUiTest {
+ public:
+  ToolbarControllerOrderingUiTest() {
+    if (WebUIButtonsEnabled()) {
+      // Disable the WebUI home button. This is so that it's not on the WebUI
+      // toolbar. It has a priority between that of the location bar and the
+      // WebUI forward button, so having it handled by FlexLayout lets us
+      // check the case where there's a View with a priority between that of a
+      // navigation button being handled by the WebUI toolbar, and the location
+      // bar when it's also being handled by the WebUI toolbar. Can't enable and
+      // use the media button for this, which would be ideal, since it's not
+      // built on ChromeOS.
+      ordering_feature_list_.InitWithFeatures(
+          {features::kWebUILocationBar},
+          {features::kWebUIHomeButton,
+           features::kOmniboxResizingPrioritization});
+    } else {
+      ordering_feature_list_.InitWithFeatures(
+          {}, {features::kWebUILocationBar,
+               features::kOmniboxResizingPrioritization});
+    }
+  }
+
+  // The test using this test fixture starts by enabling some additional
+  // buttons, which we want to be visible. Don't add a bunch of dummy buttons
+  // that would result in them being hidden
+  void MaybeAddDummyButtonsToToolbarView() override {}
+
+ private:
+  base::test::ScopedFeatureList ordering_feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(/* no prefix */,
+                         ToolbarControllerOrderingUiTest,
+                         ::testing::Bool());
+
+// Test fixture to test the relative FlexLayout ordering of various controls on
+// the toolbar when features::kOmniboxResizingPrioritization is enabled.
+class ToolbarControllerOrderingOmniboxResizingPrioritizationUiTest
+    : public ToolbarControllerUiTest {
+ public:
+  ToolbarControllerOrderingOmniboxResizingPrioritizationUiTest() {
+    if (WebUIButtonsEnabled()) {
+      // Disable `kWebUIHomeButton` to be consistent with
+      // ToolbarControllerOrderingUiTest. It's not that important for this test
+      // variant specifically.
+      ordering_feature_list_.InitWithFeatures(
+          {features::kWebUILocationBar,
+           features::kOmniboxResizingPrioritization},
+          {features::kWebUIHomeButton});
+    } else {
+      ordering_feature_list_.InitWithFeatures(
+          {features::kOmniboxResizingPrioritization},
+          {features::kWebUILocationBar});
+    }
+  }
+
+  // The test using this test fixture starts by enabling some additional
+  // buttons, which we want to be visible. Don't add a bunch of dummy buttons
+  // that would result in them being hidden
+  void MaybeAddDummyButtonsToToolbarView() override {}
+
+ private:
+  base::test::ScopedFeatureList ordering_feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    /* no prefix */,
+    ToolbarControllerOrderingOmniboxResizingPrioritizationUiTest,
     ::testing::Bool());
 
 // TODO(crbug.com/41495158): Flaky on Windows.
@@ -631,7 +808,7 @@ IN_PROC_BROWSER_TEST_P(ToolbarControllerUiTest, MenuMatchesOverflowedElements) {
 // Tests that the home and overflow buttons are always hidden together, when
 // they're the two lowest priority hideable buttons.
 IN_PROC_BROWSER_TEST_P(ToolbarControllerUiTest, HomeForwardOverflowTogether) {
-  browser()->profile()->GetPrefs()->SetBoolean(prefs::kShowHomeButton, true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kShowHomeButton, true);
 
   RunTestSequence(
       InstrumentToolbarWebUiIfNeeded(),
@@ -677,7 +854,7 @@ IN_PROC_BROWSER_TEST_P(ToolbarControllerUiTest, HomeForwardOverflowTogether) {
 }
 
 IN_PROC_BROWSER_TEST_P(ToolbarControllerUiTest, HomeForwardOverflowSeparately) {
-  browser()->profile()->GetPrefs()->SetBoolean(prefs::kShowHomeButton, true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kShowHomeButton, true);
 
   RunTestSequence(
       InstrumentToolbarWebUiIfNeeded(), PinBookmarkToToolbar(),
@@ -720,7 +897,7 @@ IN_PROC_BROWSER_TEST_P(ToolbarControllerUiTest, HomeForwardOverflowSeparately) {
 // Tests that unpinning and pinning the home button while it's overflowed
 // correctly shows/hides the forward and overflow buttons.
 IN_PROC_BROWSER_TEST_P(ToolbarControllerUiTest, HomePinUnpinWhileOverflowed) {
-  browser()->profile()->GetPrefs()->SetBoolean(prefs::kShowHomeButton, true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kShowHomeButton, true);
 
   RunTestSequence(
       InstrumentToolbarWebUiIfNeeded(),
@@ -755,8 +932,9 @@ IN_PROC_BROWSER_TEST_P(ToolbarControllerUiTest, HomePinUnpinWhileOverflowed) {
 // correctly shows/hides the home and overflow buttons.
 IN_PROC_BROWSER_TEST_P(ToolbarControllerUiTest,
                        ForwardPinUnpinWhileOverflowed) {
-  browser()->profile()->GetPrefs()->SetBoolean(prefs::kShowHomeButton, true);
-  browser()->profile()->GetPrefs()->SetBoolean(prefs::kShowForwardButton, true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kShowHomeButton, true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kShowForwardButton,
+                                                  true);
 
   RunTestSequence(
       InstrumentToolbarWebUiIfNeeded(),
@@ -907,7 +1085,14 @@ IN_PROC_BROWSER_TEST_P(ToolbarControllerUiTest,
 
       // Open bookmark side panel.
       Do([=, this]() {
-        chrome::ExecuteCommand(browser(), IDC_SHOW_BOOKMARK_SIDE_PANEL);
+        chrome::ExecuteCommandWithContext(
+            browser(), IDC_SHOW_BOOKMARK_SIDE_PANEL,
+            actions::ActionInvocationContext::Builder()
+                .SetProperty(
+                    kSidePanelOpenTriggerKey,
+                    static_cast<std::underlying_type_t<SidePanelOpenTrigger>>(
+                        SidePanelOpenTrigger::kToolbarButton))
+                .Build());
       }),
       WaitForShow(kSidePanelElementId), ForceForwardButtonOverflow(),
 
@@ -1012,4 +1197,110 @@ IN_PROC_BROWSER_TEST_P(ToolbarControllerUiTest,
       ResizeRelativeToOverflow(+1),
       MaybeShowPromo(feature_engagement::kIPHMemorySaverModeFeature),
       PressClosePromoButton());
+}
+
+// Check that, in the case of a low priority location bar, the priority order
+// is: Action Buttons -> Location Bar -> Media -> Home.
+//
+// This test keeps on adding dummy buttons and then notices when the next
+// element in the order is overflowed or starts shrinking. It only tests when
+// elements start to shrink (are overflowed / location bar is below preferred
+// size), and what other elements have not yet shrunk, ignoring elements that
+// have already been observed to be shrunk, just in case shrinking a higher
+// priority button causes a lower priority one to no longer be shrunk.
+IN_PROC_BROWSER_TEST_P(ToolbarControllerOrderingUiTest, PriorityOrder) {
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kShowHomeButton, true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kShowForwardButton,
+                                                  true);
+
+  RunTestSequence(
+      InstrumentToolbarWebUiIfNeeded(),
+      // Need to pin two action buttons. Once enough other dummy buttons are
+      // added, adding another single dummy button will additionally
+      // result in hiding one action button due to overflow, and at the same
+      // time adding an overflow button, causing another button to overflow or
+      // shrinking the location bar. Adding a second action bar button ensures
+      // that when this happen, only the other action button will be overflowed,
+      // instead of potentially affecting another element of higher priority.
+      PinActionsAndVerifyDisplayed(
+          {ChromeActionIds::kActionSidePanelShowBookmarks,
+           ChromeActionIds::kActionSidePanelShowReadingList}),
+      WaitForElementVisibility(kToolbarHomeButtonElementId, true),
+      WaitForElementVisibility(kToolbarForwardButtonElementId, true),
+      CheckActionItemOverflowed(ChromeActionIds::kActionSidePanelShowBookmarks,
+                                false),
+      CheckIsLocationBarShrunk(false),
+      CheckIfOverflowed(kToolbarHomeButtonElementId, false),
+      CheckIfOverflowed(kToolbarForwardButtonElementId, false),
+
+      AddDummyButtonsTillActionOverflows(
+          ChromeActionIds::kActionSidePanelShowBookmarks),
+      CheckIsLocationBarShrunk(false),
+      CheckIfOverflowed(kToolbarHomeButtonElementId, false),
+      CheckIfOverflowed(kToolbarForwardButtonElementId, false),
+
+      AddDummyButtonsTillLocationBarShrinks(),
+      CheckIfOverflowed(kToolbarHomeButtonElementId, false),
+      CheckIfOverflowed(kToolbarForwardButtonElementId, false),
+
+      AddDummyButtonsToToolbarTillElementOverflowsWithoutResizing(
+          kToolbarHomeButtonElementId),
+      CheckIfOverflowed(kToolbarForwardButtonElementId, false),
+
+      AddDummyButtonsToToolbarTillElementOverflowsWithoutResizing(
+          kToolbarForwardButtonElementId));
+}
+
+// Check that, in the case of a high priority location bar, the priority order
+// is: Action Buttons -> Media -> Home -> Location Bar
+//
+// This test keeps on adding dummy buttons and then notices when the next
+// element in the order is overflowed or starts shrinking. It only tests when
+// elements start to shrink (are overflowed / location bar is below preferred
+// size), and what other elements have not yet shrunk, ignoring elements that
+// have already been observed to be shrunk, just in case shrinking a higher
+// priority button causes a lower priority one to no longer be shrunk.
+IN_PROC_BROWSER_TEST_P(
+    ToolbarControllerOrderingOmniboxResizingPrioritizationUiTest,
+    PriorityOrder) {
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kShowHomeButton, true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kShowForwardButton,
+                                                  true);
+
+  RunTestSequence(
+      InstrumentToolbarWebUiIfNeeded(),
+      // Need to pin two action buttons. Once enough other dummy buttons are
+      // added, adding another single dummy button will additionally
+      // result in hiding one action button due to overflow, and at the same
+      // time adding an overflow button, causing another button to overflow or
+      // shrinking the location bar. Adding a second action bar button ensures
+      // that when this happen, only the other action button will be overflowed,
+      // instead of potentially affecting another element of higher priority.
+      PinActionsAndVerifyDisplayed(
+          {ChromeActionIds::kActionSidePanelShowBookmarks,
+           ChromeActionIds::kActionSidePanelShowReadingList}),
+      WaitForElementVisibility(kToolbarHomeButtonElementId, true),
+      WaitForElementVisibility(kToolbarForwardButtonElementId, true),
+      CheckActionItemOverflowed(ChromeActionIds::kActionSidePanelShowBookmarks,
+                                false),
+      CheckIsLocationBarShrunk(false),
+      CheckIfOverflowed(kToolbarHomeButtonElementId, false),
+      CheckIfOverflowed(kToolbarForwardButtonElementId, false),
+
+      AddDummyButtonsTillActionOverflows(
+          ChromeActionIds::kActionSidePanelShowBookmarks),
+      CheckIfOverflowed(kToolbarHomeButtonElementId, false),
+      CheckIfOverflowed(kToolbarForwardButtonElementId, false),
+      CheckIsLocationBarShrunk(false),
+
+      AddDummyButtonsToToolbarTillElementOverflowsWithoutResizing(
+          kToolbarHomeButtonElementId),
+      CheckIfOverflowed(kToolbarForwardButtonElementId, false),
+      CheckIsLocationBarShrunk(false),
+
+      AddDummyButtonsToToolbarTillElementOverflowsWithoutResizing(
+          kToolbarForwardButtonElementId),
+      CheckIsLocationBarShrunk(false),
+
+      AddDummyButtonsTillLocationBarShrinks());
 }

@@ -55,6 +55,10 @@ android_library("java") {
   sources = [
     "java/src/org/chromium/chrome/browser/tab_bottom_sheet/CoBrowseViewFactory.java",
     "java/src/org/chromium/chrome/browser/tab_bottom_sheet/CoBrowseViews.java",
+    "java/src/org/chromium/chrome/browser/tab_bottom_sheet/DefaultResizingStrategy.java",
+    "java/src/org/chromium/chrome/browser/tab_bottom_sheet/DragDirectionResizingStrategy.java",
+    "java/src/org/chromium/chrome/browser/tab_bottom_sheet/ResizingStrategy.java",
+    "java/src/org/chromium/chrome/browser/tab_bottom_sheet/ResizingStrategyFactory.java",
     "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetCoordinator.java",
     "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetManagerImpl.java",
     "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetMediator.java",
@@ -63,10 +67,12 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetPeekView.java",
     "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetPeekViewBinder.java",
     "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetProperties.java",
+    "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetSuppressionController.java",
     "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetUtils.java",
     "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetViewBinder.java",
     "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetWebUi.java",
     "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetWebUiContainer.java",
+    "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetWebUiLinkOpener.java",
     "java/src/org/chromium/chrome/browser/tab_bottom_sheet/WebViewResizingHelper.java",
   ]
   resources_package = "org.chromium.chrome.browser.context_sharing"
@@ -78,7 +84,9 @@ android_library("java") {
     "//chrome/browser/android/intents:java",
     "//chrome/browser/android/lifecycle:java",
     "//chrome/browser/back_press/android:java",
+    "//chrome/browser/bookmarks/android:java",
     "//chrome/browser/browser_controls/android:java",
+    "//chrome/browser/commerce/price_tracking/android:java",
     "//chrome/browser/context_sharing/tab_bottom_sheet/public/android:java",
     "//chrome/browser/contextual_tasks/fusebox/android:java",
     "//chrome/browser/flags:java",
@@ -97,6 +105,7 @@ android_library("java") {
     "//chrome/browser/ui/android/strings:ui_strings_grd",
     "//chrome/browser/ui/messages/android:java",
     "//chrome/browser/ui/side_panel_container/public:java",
+    "//components/bookmarks/common/android:bookmarks_java",
     "//components/browser_ui/accessibility/android:lib_java",
     "//components/browser_ui/bottomsheet/android:java",
     "//components/browser_ui/styles/android:java",
@@ -123,11 +132,13 @@ android_library("java") {
 
 robolectric_library("junit") {
   sources = [
-    "java/src/org/chromium/chrome/browser/tab_bottom_sheet/CoBrowseViewsTest.java",
-    "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetCoordinatorTest.java",
-    "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetMediatorTest.java",
+    "java/src/org/chromium/chrome/browser/tab_bottom_sheet/CoBrowseViewsUnitTest.java",
+    "java/src/org/chromium/chrome/browser/tab_bottom_sheet/DefaultResizingStrategyUnitTest.java",
+    "java/src/org/chromium/chrome/browser/tab_bottom_sheet/DragDirectionResizingStrategyUnitTest.java",
+    "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetCoordinatorUnitTest.java",
+    "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetMediatorUnitTest.java",
     "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetPeekViewBinderTest.java",
-    "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetWebUiTest.java",
+    "java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetWebUiUnitTest.java",
     "java/src/org/chromium/chrome/browser/tab_bottom_sheet/WebViewResizingHelperUnitTest.java",
   ]
   deps = [
@@ -207,6 +218,7 @@ source_set("browser_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
   sources = [
+    "co_browse_views_bridge_browsertest.cc",
     "tab_bottom_sheet_browsertest.cc",
     "tab_bottom_sheet_test_feature.cc",
     "tab_bottom_sheet_test_feature.h",
@@ -217,6 +229,7 @@ source_set("browser_tests") {
     "//base",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/tab_list",
+    "//chrome/browser/ui/browser_window:create_browser_window",
     "//chrome/test:test_support",
     "//content/test:test_support",
     "//testing/gtest",

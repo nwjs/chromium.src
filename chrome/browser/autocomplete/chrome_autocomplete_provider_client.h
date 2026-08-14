@@ -75,6 +75,7 @@ class ChromeAutocompleteProviderClient : public AutocompleteProviderClient {
   TemplateURLService* GetTemplateURLService() override;
   const TemplateURLService* GetTemplateURLService() const override;
   GeolocationHeaderService* GetGeolocationHeaderService() const override;
+  void ResetGeolocationPermissionToAsk(const GURL& url) const override;
   DocumentSuggestionsService* GetDocumentSuggestionsService() const override;
   RemoteSuggestionsService* GetRemoteSuggestionsService(
       bool create_if_necessary) const override;
@@ -143,6 +144,7 @@ class ChromeAutocompleteProviderClient : public AutocompleteProviderClient {
   base::CallbackListSubscription GetLensSuggestInputsWhenReady(
       LensOverlaySuggestInputsCallback callback) const override;
   base::WeakPtr<AutocompleteProviderClient> GetWeakPtr() override;
+  bool IsWebUiNtpEnabledForDesktopAndroid() const override;
 
   // OmniboxAction::Client:
   void OpenSharingHub() override;
@@ -154,6 +156,8 @@ class ChromeAutocompleteProviderClient : public AutocompleteProviderClient {
   void OpenLensOverlay(bool show) override;
   bool ShouldOpenCoBrowsePanel() const override;
   void OpenCoBrowsePanel() override;
+  bool ShouldOpenComposeboxForAskG() const override;
+  void OpenComposeboxForAskG() override;
   void IssueContextualSearchRequest(const GURL& destination_url,
                                     AutocompleteMatchType::Type match_type,
                                     bool is_zero_prefix_suggestion) override;

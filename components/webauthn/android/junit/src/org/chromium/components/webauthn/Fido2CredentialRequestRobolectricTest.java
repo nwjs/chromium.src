@@ -1223,14 +1223,13 @@ public class Fido2CredentialRequestRobolectricTest {
 
     private void setUpReportCallback() {
         WebauthnRequestCallback callback =
-                WebauthnRequestCallback.forReport(
-                        (status, unused) -> mCallback.onReportOutcome(status));
+                WebauthnRequestCallback.forReport((status, _) -> mCallback.onReportOutcome(status));
         mRequestCallbackForTesting = callback;
         Mockito.when(mAuthenticationContextProviderMock.getRequestCallback()).thenReturn(callback);
     }
 
     private void verifyGetCredentialsAndTriggerSuccess(
-            GmsCoreGetCredentialsHelper.Reason reason,
+            @GmsCoreGetCredentialsHelper.Reason int reason,
             List<WebauthnCredentialDetails> credentials) {
         ArgumentCaptor<GmsCoreGetCredentialsHelper.GetCredentialsCallback> successCallbackCaptor =
                 ArgumentCaptor.forClass(GmsCoreGetCredentialsHelper.GetCredentialsCallback.class);
@@ -1245,7 +1244,7 @@ public class Fido2CredentialRequestRobolectricTest {
     }
 
     private void verifyGetCredentialsAndTriggerFailure(
-            GmsCoreGetCredentialsHelper.Reason reason, Exception exception) {
+            @GmsCoreGetCredentialsHelper.Reason int reason, Exception exception) {
         ArgumentCaptor<OnFailureListener> failureCallbackCaptor =
                 ArgumentCaptor.forClass(OnFailureListener.class);
         verify(mGmsCoreGetCredentialsHelperMock)

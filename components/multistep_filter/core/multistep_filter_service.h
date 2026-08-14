@@ -13,16 +13,18 @@
 
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/uuid.h"
 #include "components/history/core/browser/history_service_observer.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "components/multistep_filter/core/data_models/filter_annotation.h"
 #include "components/multistep_filter/core/data_models/suggestion_user_decision.h"
 #include "components/multistep_filter/core/data_models/url_filter_suggestion.h"
+#include "components/multistep_filter/core/prefs/retention_state_snapshot.h"
 #include "components/sync/service/sync_service.h"
 
-class GURL;
 class PrefService;
 
 namespace signin {
@@ -38,7 +40,6 @@ namespace multistep_filter {
 class AnnotationIndexClient;
 class MultistepFilterLogRouter;
 class MultistepFilterServiceTestApi;
-class FilterExtractor;
 class FilterStore;
 class FilterSuggestionGenerator;
 
@@ -48,18 +49,12 @@ class FilterSuggestionGenerator;
 // suggestions for filters to the user. It acts as the central
 // coordinator for the Multistep Filter feature, managing the lifecycle of
 // related components like the FilterSuggestionGenerator.
+//
+// One instance of `MultistepFilterService` is created per `BrowserContext`
+// (i.e. per profile) and owned by the `BrowserContext`.
 class MultistepFilterService : public KeyedService,
                                public history::HistoryServiceObserver {
  public:
-  class ObserverForTest {
-   public:
-    virtual ~ObserverForTest() = default;
-    virtual void OnExtractionFinished(
-        std::optional<base::Uuid> annotation_id) = 0;
-    virtual void OnSuggestionGenerated(
-        std::optional<UrlFilterSuggestion> suggestion) = 0;
-  };
-
   struct Params {
     std::unique_ptr<AnnotationIndexClient> annotation_index_client;
     std::unique_ptr<FilterStore> filter_store;
@@ -82,17 +77,15 @@ class MultistepFilterService : public KeyedService,
   // KeyedService:
   void Shutdown() override;
 
-  // Parses the given url to extract a `FilterAnnotation`. A filter annotation
-  // is a set of normalized filter attributes.
-  virtual void ExtractAnnotation(int64_t navigation_id, const GURL& url);
+  // Checks if the user has provided consent (signed in, URL-keyed data
+  // collection enabled, and history sync enabled), and logs the eligibility
+  // check.
+  virtual bool HasUserProvidedConsent(int64_t navigation_id,
+                                      std::string_view host);
 
-  // Generates a filter suggestion for `url`. Based on URL analysis, the
-  // suggestion may be stored for later use. Results are returned via the
-  // `callback`.
-  virtual void GenerateFilterSuggestions(
-      int64_t navigation_id,
-      const GURL& url,
-      base::OnceCallback<void(std::optional<UrlFilterSuggestion>)> callback);
+  // Returns true if the user's account capabilities allow using model execution
+  // features.
+  virtual bool CanUseModelExecutionFeatures() const;
 
   // Records a suggestion impression in Profile retention preferences.
   virtual void RecordSuggestionImpression();
@@ -102,10 +95,21 @@ class MultistepFilterService : public KeyedService,
   virtual void RecordUserInteractionWithSuggestion(
       SuggestionUserDecision decision);
 
+  // Returns the current snapshot of user retention metrics.
+  virtual RetentionStateSnapshot GetRetentionState() const;
+
   // Deletes all annotations for the given `task_type`.
   virtual void DeleteAnnotationsForTask(std::string_view task_type,
                                         int64_t navigation_id,
                                         std::string_view host);
+
+  // Returns the FilterStore owned by this service.
+  FilterStore* GetFilterStore() const { return filter_store_.get(); }
+
+  // Returns the AnnotationIndexClient owned by this service.
+  AnnotationIndexClient* GetAnnotationIndexClient() const {
+    return annotation_index_client_.get();
+  }
 
   // history::HistoryServiceObserver:
   void OnHistoryDeletions(history::HistoryService* history_service,
@@ -113,39 +117,6 @@ class MultistepFilterService : public KeyedService,
 
  private:
   friend class MultistepFilterServiceTestApi;
-
-  // Callback for when an annotation is extracted.
-  void OnExtractionFinished(std::optional<base::Uuid> annotation_id);
-
-  // Callback for when a suggestion is generated.
-  void OnSuggestionGenerated(
-      base::OnceCallback<void(std::optional<UrlFilterSuggestion>)> callback,
-      std::optional<UrlFilterSuggestion> suggestion);
-
-  // Callback for when `GetSupportedTaskForUrl` finishes for extraction.
-  void OnUrlAllowedForExtraction(const GURL& url,
-                                 std::vector<std::string> supported_task_types,
-                                 int64_t navigation_id);
-
-  // Callback for when `GetSupportedTaskForUrl` finishes for suggestion
-  // generation.
-  void OnUrlAllowedForSuggestion(
-      const GURL& url,
-      base::OnceCallback<void(std::optional<UrlFilterSuggestion>)> callback,
-      std::vector<std::string> supported_task_types,
-      int64_t navigation_id);
-
-  // Checks if the user has provided consent (signed in, URL-keyed data
-  // collection enabled, and history sync enabled), and logs the eligibility
-  // check.
-  bool HasUserProvidedConsent(int64_t navigation_id, std::string_view host);
-
-  // Asynchronously retrieves the supported task types for `url` via the
-  // annotation index client and returns them via `callback`.
-  void GetSupportedTaskForUrl(
-      const GURL& url,
-      base::OnceCallback<void(std::vector<std::string>)> callback,
-      int64_t navigation_id);
 
   // Returns true if the user is currently signed in. The Multistep Filter
   // feature is only available for signed-in users.
@@ -157,8 +128,6 @@ class MultistepFilterService : public KeyedService,
   // Returns true if history sync is enabled.
   bool IsHistorySyncEnabled() const;
 
-  raw_ptr<ObserverForTest> observer_for_test_ = nullptr;
-
   // Client used to interact with the `SiteAutomationIndexServer` on the server
   // side.
   std::unique_ptr<AnnotationIndexClient> annotation_index_client_;
@@ -167,15 +136,9 @@ class MultistepFilterService : public KeyedService,
   // filter suggestions.
   std::unique_ptr<FilterStore> filter_store_;
 
-  // Extracts filter annotations from URLs and stores them. Never null.
-  std::unique_ptr<FilterExtractor> filter_extractor_;
-
-  // Responsible for generating filter suggestions.
-  std::unique_ptr<FilterSuggestionGenerator> filter_suggestion_generator_;
-
   // Used to check if the user is signed in, as the feature is only available
   // for signed-in users.
-  raw_ptr<signin::IdentityManager> identity_manager_;
+  const raw_ref<signin::IdentityManager> identity_manager_;
 
   // Used to check for URL-keyed data collection consent.
   std::unique_ptr<unified_consent::UrlKeyedDataCollectionConsentHelper>
@@ -185,7 +148,7 @@ class MultistepFilterService : public KeyedService,
   raw_ptr<MultistepFilterLogRouter> log_router_;
 
   // Pref service to record retention statistics.
-  raw_ptr<PrefService> pref_service_;
+  const raw_ref<PrefService> pref_service_;
 
   // Sync service to check for history sync state.
   raw_ptr<syncer::SyncService> sync_service_;

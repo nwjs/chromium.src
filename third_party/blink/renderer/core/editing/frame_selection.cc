@@ -31,6 +31,7 @@
 
 #include "base/auto_reset.h"
 #include "base/trace_event/trace_event.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/accessibility/blink_ax_event_intent.h"
@@ -101,11 +102,35 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/text_direction.h"
 #include "third_party/blink/renderer/platform/text/unicode_utilities.h"
+#include "third_party/blink/renderer/platform/widget/frame_widget.h"
 #include "ui/gfx/geometry/quad_f.h"
 
 #define EDIT_DEBUG 0
 
 namespace blink {
+
+namespace {
+
+class ScopedHandlingInputEvent {
+ public:
+  explicit ScopedHandlingInputEvent(FrameWidget* widget) : widget_(widget) {
+    if (widget_) {
+      was_handling_input_event_ = widget_->HandlingInputEvent();
+      widget_->SetHandlingInputEvent(true);
+    }
+  }
+  ~ScopedHandlingInputEvent() {
+    if (widget_) {
+      widget_->SetHandlingInputEvent(was_handling_input_event_);
+    }
+  }
+
+ private:
+  FrameWidget* widget_ = nullptr;
+  bool was_handling_input_event_ = false;
+};
+
+}  // namespace
 
 static inline bool ShouldAlwaysUseDirectionalSelection(LocalFrame* frame) {
   return frame->GetEditor().Behavior().ShouldConsiderSelectionAsDirectional();
@@ -335,7 +360,6 @@ bool FrameSelection::SetSelectionDeprecated(
   is_handle_visible_ = should_show_handle;
   ScheduleVisualUpdateForVisualOverflowIfNeeded();
 
-  frame_->GetEditor().RespondToChangedSelection();
   DCHECK_EQ(current_document, GetDocument());
   return true;
 }
@@ -438,12 +462,20 @@ void FrameSelection::DidSetSelectionDeprecated(
         *Event::Create(event_type_names::kSelectionchange),
         TaskType::kMiscPlatformAPI);
   }
+  frame_->GetEditor().RespondToChangedSelection();
 }
 
 void FrameSelection::SetSelectionForAccessibility(
     const SelectionInDomTree& selection,
     const SetSelectionOptions& options) {
   ClearDocumentCachedRange();
+
+  FrameWidget* widget = nullptr;
+  if (base::FeatureList::IsEnabled(
+          features::kSetSelectionForAccessibilityHandlingInputEvent)) {
+    widget = frame_->GetWidgetForLocalRoot();
+  }
+  ScopedHandlingInputEvent scoped_handling_input_event(widget);
 
   const bool did_set = SetSelectionDeprecated(selection, options);
   CacheRangeOfDocument(CreateRange(selection.ComputeRange()));
@@ -522,6 +554,31 @@ void FrameSelection::NodeWillBeRemoved(Node& node) {
 
 void FrameSelection::DidChangeFocus() {
   UpdateAppearance();
+}
+
+void FrameSelection::UpdateTextOverflowOfSelectionFocus(const Element& element,
+                                                        bool focused) {
+  DCHECK(RuntimeEnabledFeatures::TextOverflowClipWithSelectionEnabled());
+  Node* focus_node = GetSelectionInDomTree().Focus().AnchorNode();
+  if (!focus_node || !focus_node->GetLayoutObject() ||
+      !IsEditable(*focus_node)) {
+    return;
+  }
+  LayoutObject* style_owner =
+      focus_node->GetLayoutObject()->ContainingBlockForTextOverflow();
+  if (!style_owner || style_owner->ContainsSelectionFocus() == focused) {
+    return;
+  }
+  // Ignore focus changes on elements unrelated to the truncation style owner.
+  // Anchor to |element| because Document::FocusedElement() is not updated yet
+  // while a blur is being processed.
+  Node* style_node = style_owner->GetNode();
+  if (!style_node ||
+      (!style_node->IsDescendantOf(&element) && style_node != &element &&
+       !element.IsDescendantOf(style_node))) {
+    return;
+  }
+  SelectionEditor::SetContainsSelectionFocusFlag(style_owner, focused);
 }
 
 static DispatchEventResult DispatchSelectStart(

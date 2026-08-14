@@ -130,7 +130,7 @@ class CapturedSitesPasswordManagerBrowserTest
                      const std::string& username,
                      const std::string& password) override {
     scoped_refptr<password_manager::TestPasswordStore> password_store =
-        GetDefaultPasswordStore(browser()->profile());
+        GetDefaultPasswordStore(browser()->GetProfile());
     password_manager::PasswordForm signin_form;
     signin_form.url = GURL(origin);
     signin_form.signon_realm = origin;
@@ -197,7 +197,7 @@ class CapturedSitesPasswordManagerBrowserTest
                                  const std::string& username,
                                  const std::string& password) override {
     scoped_refptr<password_manager::TestPasswordStore> password_store =
-        GetDefaultPasswordStore(browser()->profile());
+        GetDefaultPasswordStore(browser()->GetProfile());
     auto passwords_map = GetAllLoginsSync(password_store.get());
     auto found = passwords_map.find(origin);
     if (passwords_map.end() == found) {
@@ -264,8 +264,8 @@ class CapturedSitesPasswordManagerBrowserTest
         ChromePasswordManagerClient::FromWebContents(WebContents());
     client->SetTestObserver(&observer_);
 
-    browser()->profile()->GetPrefs()->SetBoolean(::prefs::kSafeBrowsingEnabled,
-                                                 false);
+    browser()->GetProfile()->GetPrefs()->SetBoolean(
+        ::prefs::kSafeBrowsingEnabled, false);
 
     // Disable the caret blinking to not generate any compositor frames from
     // just a blinking cursor.
@@ -364,7 +364,7 @@ class CapturedSitesAutomatedPasswordChangeBrowserTest
                                     url.spec());
 
     auto* password_change_service =
-        PasswordChangeServiceFactory::GetForProfile(browser()->profile());
+        PasswordChangeServiceFactory::GetForProfile(browser()->GetProfile());
     password_change_service->OfferPasswordChangeUi(
         CreatePasswordForm(WebContents()->GetLastCommittedURL(), u"test",
                            u"pa$$word"),
@@ -378,7 +378,7 @@ class CapturedSitesAutomatedPasswordChangeBrowserTest
 
   bool WaitForPasswordChangeState(int state) override {
     ChromePasswordChangeService* password_change_service =
-        PasswordChangeServiceFactory::GetForProfile(browser()->profile());
+        PasswordChangeServiceFactory::GetForProfile(browser()->GetProfile());
     PasswordChangeDelegate* delegate =
         password_change_service->GetPasswordChangeDelegate(WebContents());
 

@@ -50,6 +50,7 @@
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/supervised_user/core/common/features.h"
 #include "components/supervised_user/test_support/supervised_user_signin_test_utils.h"
+#include "components/vector_icons/vector_icons.h"
 #include "components/webapps/browser/banners/app_banner_manager.h"
 #include "components/webapps/browser/banners/installable_web_app_check_result.h"
 #include "components/webapps/browser/banners/web_app_banner_data.h"
@@ -197,7 +198,7 @@ IN_PROC_BROWSER_TEST_F(AppMenuModelInteractiveTest,
   }
 #endif  // BUILDFLAG(IS_MAC)
 
-  if (!media_router::MediaRouterEnabled(browser()->profile())) {
+  if (!media_router::MediaRouterEnabled(browser()->GetProfile())) {
     GTEST_SKIP() << "The cast item only exists if cast is enabled.";
   }
   RunTestSequence(
@@ -279,10 +280,10 @@ class AppMenuModelExtensionsInteractiveTest
       const auto id = crx_file::id_util::GenerateIdForPath(
           base::MakeAbsoluteFilePath(dir.UnpackedPath()));
       auto* const registry =
-          extensions::ExtensionRegistry::Get(browser()->profile());
+          extensions::ExtensionRegistry::Get(browser()->GetProfile());
       CHECK(registry);
       extensions::TestExtensionRegistryObserver observer(registry, id);
-      extensions::UnpackedInstaller::Create(browser()->profile())
+      extensions::UnpackedInstaller::Create(browser()->GetProfile())
           ->Load(dir.UnpackedPath());
       observer.WaitForExtensionLoaded();
     }
@@ -384,43 +385,6 @@ IN_PROC_BROWSER_TEST_P(AppMenuModelExtensionsInteractiveTest,
                                 MENU_ACTION_FIND_EXTENSIONS, collapse ? 1 : 0);
   histograms_.ExpectBucketCount("WrenchMenu.MenuAction",
                                 MENU_ACTION_MANAGE_EXTENSIONS, 0);
-}
-
-class AppMenuModelCreateNewTabGroupTest : public AppMenuModelInteractiveTest {
- public:
-  AppMenuModelCreateNewTabGroupTest() {
-    scoped_feature_list_.InitWithFeatures(
-        {features::kCreateNewTabGroupAppMenuTopLevel}, {});
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(AppMenuModelCreateNewTabGroupTest,
-                       CheckCreateNewTabGroupAppMenuTopLevel) {
-  RunTestSequence(InstrumentTab(kPrimaryTabPageElementId),
-                  PressButton(kToolbarAppMenuButtonElementId),
-                  EnsurePresent(AppMenuModel::kCreateNewTabGroupTopLevel));
-}
-
-class AppMenuModelCreateNewTabGroupDisabled
-    : public AppMenuModelInteractiveTest {
- public:
-  AppMenuModelCreateNewTabGroupDisabled() {
-    scoped_feature_list_.InitWithFeatures(
-        {}, {features::kCreateNewTabGroupAppMenuTopLevel});
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(AppMenuModelCreateNewTabGroupDisabled,
-                       CheckCreateNewTabGroupAppMenuTopLevelNotPresent) {
-  RunTestSequence(InstrumentTab(kPrimaryTabPageElementId),
-                  PressButton(kToolbarAppMenuButtonElementId),
-                  EnsureNotPresent(AppMenuModel::kCreateNewTabGroupTopLevel));
 }
 
 class PasswordManagerMenuItemInteractiveTest
@@ -525,7 +489,7 @@ class UniversalInstallAppMenuModelInteractiveTest
   // install icon next to them.
   auto VerifyDiyAppMenuItemViews() {
     const ui::ImageModel icon_image = ui::ImageModel::FromVectorIcon(
-        features::IsRoundedIconsEnabled() ? kInstallDesktopIcon
+        features::IsRoundedIconsEnabled() ? vector_icons::kInstallDesktopIcon
                                           : kInstallDesktopChromeRefreshOldIcon,
         ui::kColorMenuIcon, ui::SimpleMenuModel::kDefaultIconSize);
     return Steps(
@@ -571,7 +535,8 @@ class UniversalInstallAppMenuModelInteractiveTest
     params.add_to_search = false;
     base::test::TestFuture<const webapps::AppId&, webapps::InstallResultCode>
         result;
-    auto* provider = web_app::WebAppProvider::GetForTest(browser()->profile());
+    auto* provider =
+        web_app::WebAppProvider::GetForTest(browser()->GetProfile());
     provider->scheduler().InstallFromInfoWithParams(
         std::move(install_info), /*overwrite_existing_manifest_fields=*/true,
         webapps::WebappInstallSource::SYNC, result.GetCallback(), params);
@@ -783,7 +748,7 @@ class SupervisedUserAppMenuModelInteractiveTest
     InteractiveBrowserTest::SetUpOnMainThread();
     identity_test_environment_adaptor_ =
         std::make_unique<IdentityTestEnvironmentProfileAdaptor>(
-            browser()->profile());
+            browser()->GetProfile());
   }
 
   void SignIn(bool is_supervised_user) {

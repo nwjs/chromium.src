@@ -26,8 +26,17 @@ export enum LineFocusMovement {
   CURSOR = 1,
 }
 
+// Used to notify of the type of line focus movement that occurred.
+// Some movements should trigger a visual update only, while others should
+// also trigger a content update, and others should trigger no visual or
+// content update.
+export enum LineFocusNotificationType {
+  NONE = 0,
+  VISUAL = 1,
+  CONTENT = 2,
+}
+
 export class LineFocusStyle {
-  static readonly OFF = new LineFocusStyle(LineFocusType.NONE, 0);
   static readonly SMALL_WINDOW = new LineFocusStyle(LineFocusType.WINDOW, 1);
   static readonly MEDIUM_WINDOW = new LineFocusStyle(LineFocusType.WINDOW, 3);
   static readonly LARGE_WINDOW = new LineFocusStyle(LineFocusType.WINDOW, 5);
@@ -53,58 +62,49 @@ interface LineFocusValue {
   movement: LineFocusMovement;
 }
 
-let lineFocusValues: Record<number, LineFocusValue>;
 export const getLineFocusValues = (): Record<number, LineFocusValue> => {
-  if (!lineFocusValues || !lineFocusValues[chrome.readingMode.lineFocusOff]) {
-    lineFocusValues = {
-      [chrome.readingMode.lineFocusOff]: {
-        value: chrome.readingMode.lineFocusOff,
-        style: LineFocusStyle.OFF,
-        movement: LineFocusMovement.STATIC,
-      },
-      [chrome.readingMode.lineFocusSmallCursorWindow]: {
-        value: chrome.readingMode.lineFocusSmallCursorWindow,
-        style: LineFocusStyle.SMALL_WINDOW,
-        movement: LineFocusMovement.CURSOR,
-      },
-      [chrome.readingMode.lineFocusSmallStaticWindow]: {
-        value: chrome.readingMode.lineFocusSmallStaticWindow,
-        style: LineFocusStyle.SMALL_WINDOW,
-        movement: LineFocusMovement.STATIC,
-      },
-      [chrome.readingMode.lineFocusMediumCursorWindow]: {
-        value: chrome.readingMode.lineFocusMediumCursorWindow,
-        style: LineFocusStyle.MEDIUM_WINDOW,
-        movement: LineFocusMovement.CURSOR,
-      },
-      [chrome.readingMode.lineFocusMediumStaticWindow]: {
-        value: chrome.readingMode.lineFocusMediumStaticWindow,
-        style: LineFocusStyle.MEDIUM_WINDOW,
-        movement: LineFocusMovement.STATIC,
-      },
-      [chrome.readingMode.lineFocusLargeCursorWindow]: {
-        value: chrome.readingMode.lineFocusLargeCursorWindow,
-        style: LineFocusStyle.LARGE_WINDOW,
-        movement: LineFocusMovement.CURSOR,
-      },
-      [chrome.readingMode.lineFocusLargeStaticWindow]: {
-        value: chrome.readingMode.lineFocusLargeStaticWindow,
-        style: LineFocusStyle.LARGE_WINDOW,
-        movement: LineFocusMovement.STATIC,
-      },
-      [chrome.readingMode.lineFocusCursorLine]: {
-        value: chrome.readingMode.lineFocusCursorLine,
-        style: LineFocusStyle.UNDERLINE,
-        movement: LineFocusMovement.CURSOR,
-      },
-      [chrome.readingMode.lineFocusStaticLine]: {
-        value: chrome.readingMode.lineFocusStaticLine,
-        style: LineFocusStyle.UNDERLINE,
-        movement: LineFocusMovement.STATIC,
-      },
-    };
-  }
-  return lineFocusValues;
+  return {
+    [chrome.readingMode.lineFocusSmallCursorWindow]: {
+      value: chrome.readingMode.lineFocusSmallCursorWindow,
+      style: LineFocusStyle.SMALL_WINDOW,
+      movement: LineFocusMovement.CURSOR,
+    },
+    [chrome.readingMode.lineFocusSmallStaticWindow]: {
+      value: chrome.readingMode.lineFocusSmallStaticWindow,
+      style: LineFocusStyle.SMALL_WINDOW,
+      movement: LineFocusMovement.STATIC,
+    },
+    [chrome.readingMode.lineFocusMediumCursorWindow]: {
+      value: chrome.readingMode.lineFocusMediumCursorWindow,
+      style: LineFocusStyle.MEDIUM_WINDOW,
+      movement: LineFocusMovement.CURSOR,
+    },
+    [chrome.readingMode.lineFocusMediumStaticWindow]: {
+      value: chrome.readingMode.lineFocusMediumStaticWindow,
+      style: LineFocusStyle.MEDIUM_WINDOW,
+      movement: LineFocusMovement.STATIC,
+    },
+    [chrome.readingMode.lineFocusLargeCursorWindow]: {
+      value: chrome.readingMode.lineFocusLargeCursorWindow,
+      style: LineFocusStyle.LARGE_WINDOW,
+      movement: LineFocusMovement.CURSOR,
+    },
+    [chrome.readingMode.lineFocusLargeStaticWindow]: {
+      value: chrome.readingMode.lineFocusLargeStaticWindow,
+      style: LineFocusStyle.LARGE_WINDOW,
+      movement: LineFocusMovement.STATIC,
+    },
+    [chrome.readingMode.lineFocusCursorLine]: {
+      value: chrome.readingMode.lineFocusCursorLine,
+      style: LineFocusStyle.UNDERLINE,
+      movement: LineFocusMovement.CURSOR,
+    },
+    [chrome.readingMode.lineFocusStaticLine]: {
+      value: chrome.readingMode.lineFocusStaticLine,
+      style: LineFocusStyle.UNDERLINE,
+      movement: LineFocusMovement.STATIC,
+    },
+  };
 };
 
 // Events emitted from the toolbar to the app
@@ -130,26 +130,33 @@ export enum ToolbarEvent {
   VOICE_MENU_CLOSE = 'voice-menu-close',
   LINE_FOCUS_STYLE = 'line-focus-style-change',
   LINE_FOCUS_MOVEMENT = 'line-focus-movement-change',
+  LINE_FOCUS_TOGGLE = 'line-focus-toggle-change',
   CLOSE_ALL_MENUS = 'close-all-menus',
   OPEN_SETTINGS_SUBMENU = 'open-settings-submenu',
   PRESENTATION_CHANGE = 'presentation-change',
   CLOSE_SUBMENU_REQUESTED = 'close-submenu-requested',
   SETTINGS_OPENED = 'settings-opened',
   SETTINGS_CLOSED = 'settings-closed',
+  TRANSLATION_REQUESTED = 'translation-requested',
+  EXPAND_FONTS_SENTINEL = 'expand-fonts-sentinel',
 }
 
 // The available menu items in Reading mode
 export enum SettingsOption {
+  APPEARANCE = 'appearance',
   COLOR = 'color',
   FONT = 'font',
+  TEXT = 'text',
   FONT_SIZE = 'font-size',
   IMAGES = 'images',
   LETTER_SPACING = 'letter-spacing',
   LINE_FOCUS = 'line-focus',
   LINE_SPACING = 'line-spacing',
   LINKS = 'links',
+  MEDIA = 'media',
   PINNED_TO_TOOLBAR = 'pinned-to-toolbar',
   PRESENTATION = 'presentation',
+  TRANSLATION_REQUESTED = 'translation-requested',
   VOICE_HIGHLIGHT = 'voice-highlight',
   VOICE_SELECTION = 'voice-selection',
 }

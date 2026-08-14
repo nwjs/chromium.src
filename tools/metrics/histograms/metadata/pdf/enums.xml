@@ -179,7 +179,7 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Error">The settings UI failed to open.</int>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/ui/pdf/infobar/pdf_infobar_delegate.cc:PdfInfoBarSettingsResult) -->
+<!-- LINT.ThenChange(//chrome/browser/ui/pdf/infobar/pdf_infobar_controller.h:PdfInfoBarSettingsResult) -->
 
 <!-- LINT.IfChange(PDFInfoBarUserInteraction) -->
 
@@ -193,7 +193,7 @@ chromium-metrics-reviews@google.com.
   </int>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/ui/pdf/infobar/pdf_infobar_delegate.h:PdfInfoBarUserInteraction) -->
+<!-- LINT.ThenChange(//chrome/browser/ui/pdf/infobar/pdf_infobar_controller.h:PdfInfoBarUserInteraction) -->
 
 <!-- LINT.IfChange(PDFInk2StrokeBrushSize) -->
 
@@ -318,6 +318,16 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//pdf/pdf_ink_text.h:TextTypeface) -->
+
+<!-- LINT.IfChange(PDFLoadedWithInkTextAnnotations) -->
+
+<enum name="PDFLoadedWithInkTextAnnotations">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="True"/>
+  <int value="2" label="False"/>
+</enum>
+
+<!-- LINT.ThenChange(//pdf/pdf_ink_metrics_handler.h:PDFLoadedWithInkTextAnnotations) -->
 
 <!-- LINT.IfChange(PDFLoadedWithV2InkAnnotations) -->
 

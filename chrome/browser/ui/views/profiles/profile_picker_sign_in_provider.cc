@@ -7,10 +7,8 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
-#include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_util.h"
-#include "base/strings/to_string.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/delete_profile_helper.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
@@ -26,9 +24,8 @@
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/trusted_vault/trusted_vault_encryption_keys_tab_helper.h"
-#include "chrome/browser/ui/navigator/browser_navigator.h"
-#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/views/profiles/profile_management_types.h"
+#include "chrome/browser/ui/views/profiles/profile_picker_utils.h"
 #include "chrome/browser/ui/views/profiles/profile_picker_view.h"
 #include "chrome/browser/ui/views/profiles/profile_picker_web_contents_host.h"
 #include "chrome/browser/ui/webui/signin/signin_ui_error.h"
@@ -37,7 +34,6 @@
 #include "components/safe_browsing/buildflags.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_metrics.h"
-#include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/sync/base/features.h"
@@ -206,12 +202,9 @@ content::WebContents* ProfilePickerSignInProvider::AddNewContents(
     return nullptr;
   }
 
-  NavigateParams params(profile_, target_url, ui::PAGE_TRANSITION_LINK);
-  // Open all links as new popups.
-  params.disposition = WindowOpenDisposition::NEW_POPUP;
-  params.contents_to_insert = std::move(new_contents);
-  params.window_features = window_features;
-  Navigate(&params);
+  OpenLearnMorePopup(profile_, std::move(new_contents), target_url,
+                     window_features);
+
   return nullptr;
 }
 

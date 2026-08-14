@@ -144,6 +144,10 @@ class TabStatsTracker :
     // tab strip.
     static const char kPinnedTabCountHistogramName[];
 
+    // The name of the histogram that records if the tab search button is pinned
+    // in the tab strip.
+    static const char kTabSearchIsPinnedHistogramName[];
+
     // The names of the histograms that record daily discard/reload counts
     // caused for each discard reason.
     static const char kDailyDiscardsExternalHistogramName[];
@@ -406,7 +410,8 @@ class TabStatsTracker::TabStripInterface {
   content::WebContents* GetWebContentsAt(size_t index) const;
 
   // Returns the profile this tab strip is attached to.
-  Profile* GetProfile() const;
+  Profile* GetProfile();
+  const Profile* GetProfile() const;
 
   // Returns true if this tab strip is attached to a TYPE_NORMAL Browser.
   // Always returns true on Android.

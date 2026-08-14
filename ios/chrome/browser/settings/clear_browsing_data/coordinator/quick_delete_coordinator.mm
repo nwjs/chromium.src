@@ -133,29 +133,6 @@ using browsing_data::DeleteBrowsingDataDialogAction;
   [quickDeleteHandler stopQuickDelete];
 }
 
-- (void)openMyActivityURL:(const GURL&)URL {
-  if (URL == GURL(kClearBrowsingDataDSESearchUrlInFooterURL)) {
-    base::UmaHistogramEnumeration("Settings.ClearBrowsingData.OpenMyActivity",
-                                  MyActivityNavigation::kSearchHistory);
-    base::UmaHistogramEnumeration(
-        browsing_data::kDeleteBrowsingDataDialogHistogram,
-        DeleteBrowsingDataDialogAction::kSearchHistoryLinkOpened);
-  } else if (URL == GURL(kClearBrowsingDataDSEMyActivityUrlInFooterURL)) {
-    base::UmaHistogramEnumeration("Settings.ClearBrowsingData.OpenMyActivity",
-                                  MyActivityNavigation::kTopLevel);
-    base::UmaHistogramEnumeration(
-        browsing_data::kDeleteBrowsingDataDialogHistogram,
-        DeleteBrowsingDataDialogAction::kMyActivityLinkedOpened);
-  } else {
-    NOTREACHED();
-  }
-
-  id<SceneCommands> handler =
-      HandlerForProtocol(self.browser->GetCommandDispatcher(), SceneCommands);
-  OpenNewTabCommand* command = [OpenNewTabCommand commandWithURLFromChrome:URL];
-  [handler closePresentedViewsAndOpenURL:command];
-}
-
 - (void)showBrowsingDataPageWithTimeRange:(browsing_data::TimePeriod)timeRange {
   [_browsingDataCoordinator stop];
 
@@ -263,7 +240,7 @@ using browsing_data::DeleteBrowsingDataDialogAction;
     // simultaneous taps. See crbug.com/368310663.
     return NO;
   }
-  _windowUIBlocker = std::make_unique<ScopedUIBlocker>(sceneState);
+  _windowUIBlocker = ScopedUIBlocker::ProfileScoped(sceneState);
   return YES;
 }
 

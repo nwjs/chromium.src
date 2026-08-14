@@ -5,7 +5,9 @@
 #include "chrome/browser/glic/host/glic_internals_page_handler.h"
 
 #include <cstdio>
+#include <sstream>
 
+#include "base/base64.h"
 #include "base/command_line.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/strcat.h"
@@ -16,6 +18,7 @@
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/actor/glic_actor_policy_checker.h"
+#include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_manager.h"
 #include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/glic_hotkey.h"
 #include "chrome/browser/glic/glic_pref_names.h"
@@ -24,6 +27,7 @@
 #include "chrome/browser/glic/host/guest_util.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/glic/public/glic_instance.h"
 #include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
@@ -33,6 +37,8 @@
 #include "chrome/browser/metrics/chrome_feature_list_creator.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/startup_data.h"
+#include "chrome/browser/subscription_eligibility/subscription_eligibility_service_factory.h"
+#include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
@@ -40,10 +46,14 @@
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/prefs/pref_service.h"
 #include "components/skills/features.h"
+#include "components/subscription_eligibility/subscription_eligibility_service.h"
+#include "components/sync/service/sync_service.h"
+#include "components/sync_device_info/device_info.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/variations/service/variations_service.h"
 #include "components/variations/service/variations_service_utils.h"
 #include "content/public/browser/web_contents.h"
+#include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "third_party/blink/public/common/features.h"
 #include "ui/base/device_form_factor.h"
 
@@ -51,13 +61,21 @@
 #include "chrome/browser/glic/experimental_opt_in/glic_experimental_opt_in_controller.h"
 #endif
 
-#include <sstream>
-
-#include "third_party/abseil-cpp/absl/functional/overload.h"
-
 namespace glic {
 
 namespace {
+
+mojom::GlicExperimentalTriggeringState ConvertGlicExperimentalTriggeringState(
+    syncer::DeviceInfo::GlicExperimentalTriggeringState state) {
+  switch (state) {
+    case syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable:
+      return mojom::GlicExperimentalTriggeringState::kUnavailable;
+    case syncer::DeviceInfo::GlicExperimentalTriggeringState::kNeedsOptIn:
+      return mojom::GlicExperimentalTriggeringState::kNeedsOptIn;
+    case syncer::DeviceInfo::GlicExperimentalTriggeringState::kReady:
+      return mojom::GlicExperimentalTriggeringState::kReady;
+  }
+}
 
 mojom::ProfileEnablementPtr BuildProfileEnablement(
     content::BrowserContext* browser_context,
@@ -91,6 +109,15 @@ mojom::ProfileEnablementPtr BuildProfileEnablement(
   auto* service = GlicKeyedService::Get(profile);
   result->actuation_is_consented =
       (service && service->enabling().GetUserEnabledActuationOnWeb());
+
+  if (service) {
+    result->glic_experimental_triggering_state =
+        ConvertGlicExperimentalTriggeringState(
+            service->enabling().GetExperimentalTriggeringState());
+  } else {
+    result->glic_experimental_triggering_state =
+        mojom::GlicExperimentalTriggeringState::kUnavailable;
+  }
 
   using CannotActReason = ::glic::CannotActReason;
   if (actor_policy_checker) {
@@ -241,6 +268,8 @@ std::string InvocationSourceToString(glic::mojom::InvocationSource source) {
       return "kTabRestore";
     case glic::mojom::InvocationSource::kReshowInactive:
       return "kReshowInactive";
+    case glic::mojom::InvocationSource::kTabContextMenu:
+      return "kTabContextMenu";
   }
   LOG(ERROR) << "Unexpected value for InvocationSource: "
              << static_cast<int>(source);
@@ -360,6 +389,10 @@ void LogGlicInvokeOptions(const GlicInvokeOptions& options,
     ss << "  timeout: " << options.timeout->InMilliseconds() << "ms\n";
   }
 
+  if (options.supersede_if_in_progress) {
+    ss << "  supersede_if_in_progress: true\n";
+  }
+
   if (options.wait_for_panel_open) {
     ss << "  wait_for_panel_open: true\n";
   }
@@ -391,6 +424,16 @@ void LogGlicInvokeOptions(const GlicInvokeOptions& options,
                  },
                  [&target_pieces](const Floating& floating) {
                    target_pieces.push_back("    surface: Floating {}");
+                 },
+                 [&target_pieces](const LastActiveOrNew& last_active_or_new) {
+                   target_pieces.push_back(base::StrCat(
+                       {"    surface: LastActiveOrNew { window: ",
+                        base::StringPrintf("%p",
+                                           last_active_or_new.window.get()),
+                        ", open_in_foreground: ",
+                        last_active_or_new.open_in_foreground ? "true"
+                                                              : "false",
+                        " }"}));
                  }},
              options.target.surface);
 
@@ -586,7 +629,69 @@ void GlicInternalsPageHandler::GetInternalsDataPayload(
   debug_info->primary_account_needs_signed_in =
       enablement.primary_account_needs_signed_in;
 
+  std::string dogfood_status = "No";
+  auto* variations_service = g_browser_process->variations_service();
+  if (variations_service && variations_service->IsLikelyDogfoodClient()) {
+    if (base::FeatureList::IsEnabled(features::kGlicIgnoreDogfoodClient)) {
+      dogfood_status = "Yes (Ignored via kGlicIgnoreDogfoodClient)";
+    } else {
+      dogfood_status = "Yes";
+    }
+  }
+  debug_info->dogfood_status = dogfood_status;
+
   payload->debug_info = std::move(debug_info);
+
+  auto tiered_rollout_info = mojom::TieredRolloutInfo::New();
+  subscription_eligibility::SubscriptionEligibilityService*
+      subscription_eligibility_service = subscription_eligibility::
+          SubscriptionEligibilityServiceFactory::GetForProfile(profile);
+  if (subscription_eligibility_service) {
+    tiered_rollout_info->ai_subscription_tier =
+        subscription_eligibility_service->GetAiSubscriptionTier();
+  }
+  tiered_rollout_info->is_eligible_for_tiered_rollout_v1 =
+      base::FeatureList::IsEnabled(features::kGlicTieredRollout) &&
+      profile->GetPrefs()->GetBoolean(prefs::kGlicRolloutEligibility);
+  tiered_rollout_info->is_eligible_for_tiered_rollout_v2 =
+      base::FeatureList::IsEnabled(features::kGlicTieredRolloutV2) &&
+      subscription_eligibility_service &&
+      features::GetGlicTieredRolloutV2EligibleTiers().contains(
+          subscription_eligibility_service->GetAiSubscriptionTier());
+  tiered_rollout_info->is_eligible_overall =
+      GlicEnabling::IsEligibleForGlicTieredRollout(profile);
+  tiered_rollout_info->glic_rollout_eligibility_pref =
+      profile->GetPrefs()->GetBoolean(prefs::kGlicRolloutEligibility);
+  tiered_rollout_info->tiered_rollout_v2_eligible_tiers =
+      features::kGlicTieredRolloutV2EligibleTiers.Get();
+
+  std::string sync_status = "Sync Service Not Found";
+  if (syncer::SyncService* sync_service =
+          SyncServiceFactory::GetForProfile(profile)) {
+    if (!sync_service->IsEngineInitialized()) {
+      sync_status = "Sync Engine Not Initialized";
+    } else {
+      switch (
+          sync_service->GetDownloadStatusFor(syncer::DataType::PREFERENCES)) {
+        case syncer::SyncService::DataTypeDownloadStatus::kWaitingForUpdates:
+          sync_status = "Waiting for Updates / Syncing";
+          break;
+        case syncer::SyncService::DataTypeDownloadStatus::kUpToDate:
+          sync_status = "Up to Date (Successfully Synced)";
+          break;
+        case syncer::SyncService::DataTypeDownloadStatus::kError:
+          sync_status = "Error (Sync Failed)";
+          break;
+      }
+    }
+    if (sync_service->GetAuthError().IsPersistentError()) {
+      sync_status +=
+          " (Auth Error: " + sync_service->GetAuthError().ToString() + ")";
+    }
+  }
+  tiered_rollout_info->preference_sync_status = sync_status;
+
+  payload->tiered_rollout_info = std::move(tiered_rollout_info);
 
   std::move(callback).Run(std::move(payload));
 }
@@ -603,6 +708,26 @@ void GlicInternalsPageHandler::SetGuestUrlPresets(const GURL& autopush_url,
                                               preprod_url.spec());
   g_browser_process->local_state()->SetString(prefs::kGlicGuestUrlPresetProd,
                                               prod_url.spec());
+}
+void GlicInternalsPageHandler::GetOpenTabs(GetOpenTabsCallback callback) {
+  std::vector<std::string> tab_titles;
+  tabs::TabInterface* tab =
+      tabs::TabInterface::MaybeGetFromContents(webui_contents_);
+  if (tab) {
+    BrowserWindowInterface* current_browser = tab->GetBrowserWindowInterface();
+    if (current_browser) {
+      TabListInterface* tab_list = TabListInterface::From(current_browser);
+      if (tab_list) {
+        for (int i = 0; i < tab_list->GetTabCount(); ++i) {
+          tabs::TabInterface* t = tab_list->GetTab(i);
+          if (t) {
+            tab_titles.push_back(base::UTF16ToUTF8(t->GetTitle()));
+          }
+        }
+      }
+    }
+  }
+  std::move(callback).Run(std::move(tab_titles));
 }
 
 void GlicInternalsPageHandler::TriggerInvokeFromInternalsAction(
@@ -653,6 +778,9 @@ void GlicInternalsPageHandler::TriggerInvokeFromInternalsAction(
   options.timeout = mojo_options->timeout;
   options.fre_override = mojo_options->fre_override;
   options.wait_for_panel_open = mojo_options->wait_for_panel_open;
+  if (mojo_options->focus_on_show.has_value()) {
+    options.focus_on_show = mojo_options->focus_on_show.value();
+  }
   switch (mojo_options->fre_completion_wait_mode) {
     case mojom::FreCompletionWaitMode::kDefault:
       options.fre_completion_wait_mode = FreCompletionWaitMode::kDefault;
@@ -666,10 +794,9 @@ void GlicInternalsPageHandler::TriggerInvokeFromInternalsAction(
   auto split_callback = base::SplitOnceCallback(std::move(callback));
 
   options.on_success = base::BindOnce(
-      [](TriggerInvokeFromInternalsActionCallback cb) {
-        std::move(cb).Run(true, "");
-      },
-      std::move(split_callback.first));
+      &GlicInternalsPageHandler::OnInvokeSuccess,
+      weak_ptr_factory_.GetWeakPtr(), std::move(split_callback.first),
+      mojo_options->take_screenshot, std::move(mojo_options->key_config));
 
   options.on_error = base::BindOnce(
       [](TriggerInvokeFromInternalsActionCallback cb, GlicInvokeError error) {
@@ -721,8 +848,14 @@ void GlicInternalsPageHandler::TriggerInvokeFromInternalsAction(
           case GlicInvokeError::kProfileNotEnabled:
             error_msg = "Profile Not Enabled";
             break;
+          case GlicInvokeError::kSuperseded:
+            error_msg = "Superseded By Another Invocation";
+            break;
           case GlicInvokeError::kUnknown:
             error_msg = "Unknown Error";
+            break;
+          case GlicInvokeError::kCancelled:
+            error_msg = "Cancelled";
             break;
           default:
             error_msg = "Unknown Error";
@@ -743,6 +876,17 @@ void GlicInternalsPageHandler::TriggerInvokeFromInternalsAction(
     options.target.surface = new_tab;
   }
 
+  if (mojo_options->specific_tab_index.has_value()) {
+    int32_t index = mojo_options->specific_tab_index.value();
+    TabListInterface* tab_list = TabListInterface::From(current_browser);
+    if (tab_list && index >= 0 && index < tab_list->GetTabCount()) {
+      tabs::TabInterface* target_tab = tab_list->GetTab(index);
+      if (target_tab) {
+        options.target.surface = target_tab->GetHandle();
+      }
+    }
+  }
+
   LogGlicInvokeOptions(options, mojo_options->auto_submit,
                        mojo_options->show_panel);
 
@@ -751,13 +895,55 @@ void GlicInternalsPageHandler::TriggerInvokeFromInternalsAction(
     if (mojo_options->show_panel.has_value()) {
       auto_submit_options.show_panel = mojo_options->show_panel.value();
     }
-    service->InvokeWithAutoSubmit(
+    active_test_instance_ = service->InvokeWithAutoSubmit(
         InvokeWithAutoSubmitPasskeyProvider::GetPassKey(), std::move(options),
         std::move(auto_submit_options));
   } else {
-    static_cast<GlicInstanceCoordinatorImpl&>(service->instance_coordinator())
-        .Invoke(std::move(options));
+    active_test_instance_ = service->Invoke(std::move(options));
   }
+}
+
+void GlicInternalsPageHandler::OnInvokeSuccess(
+    TriggerInvokeFromInternalsActionCallback callback,
+    bool take_screenshot,
+    mojom::ScreenshotTestKeyConfigurationPtr key_config) {
+  if (take_screenshot && active_test_instance_) {
+    if (GlicExperimentalTriggeringManager* triggering_manager =
+            active_test_instance_->GetExperimentalTriggeringManager()) {
+      if (!key_config || key_config->public_key.empty() ||
+          key_config->auth_secret.empty()) {
+        VLOG(5) << "Failed to take screenshot: key_config is empty or missing "
+                   "fields.";
+        std::move(callback).Run(false,
+                                "key_config is empty or missing fields.");
+        return;
+      }
+      std::string decoded_public_key;
+      if (!base::Base64Decode(key_config->public_key, &decoded_public_key)) {
+        VLOG(5) << "Failed to Base64 decode public key.";
+        std::move(callback).Run(false, "Failed to Base64 decode public key.");
+        return;
+      }
+
+      std::vector<uint8_t> public_key(decoded_public_key.begin(),
+                                      decoded_public_key.end());
+      std::vector<uint8_t> auth_secret(key_config->auth_secret.begin(),
+                                       key_config->auth_secret.end());
+
+      triggering_manager->CaptureAndUploadEncryptedScreenshot(
+          public_key, auth_secret,
+          base::BindOnce([](const std::optional<std::string>& file_token) {
+            if (file_token) {
+              VLOG(5) << "CaptureAndUploadEncryptedScreenshot "
+                         "success, token: "
+                      << *file_token;
+            } else {
+              VLOG(5) << "CaptureAndUploadEncryptedScreenshot failed";
+            }
+          }));
+    }
+  }
+  std::move(callback).Run(true, "");
 }
 
 void GlicInternalsPageHandler::SetWebContinuityOriginatingHostUrlPreset(

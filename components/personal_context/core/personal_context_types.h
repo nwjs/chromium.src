@@ -15,15 +15,34 @@
 
 namespace personal_context {
 
-// Tracks the global enablement state of the feature for the current profile.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(PersonalContextNonEligibilityReason)
+enum class PersonalContextNonEligibilityReason {
+  kNotSignedIn = 0,
+  kNotConsumerAccount = 1,
+  kNotAgeEligible = 2,
+  kNotLocaleEnUS = 3,
+  kNotGeoIpUS = 4,
+  kNotOptedInToContext = 5,
+  kNotPhotosAndWorkspaceAvailable = 6,
+  kPersonalIntelligencePrefDisabled = 7,
+  kNotGlicFirstRun = 8,
+  kFindAndFillWithGeminiSettingsDisabled = 9,
+  kNotG1SubscriberOrAndroidPremiumDevice = 10,
+  kEligible = 11,
+  kMaxValue = kEligible
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/autofill/enums.xml:PersonalContextNonEligibilityReason)
+
+// Tracks the global eligibility state of the feature for the current profile.
 // Used by consuming features to determine both feature execution and UI
 // entrypoint visibility.
-enum class PersonalContextEnablementState {
-  kDisabledNotEligible = 0,  // Feature disabled, user not eligible.
-  kDisabledNeedsOptIn = 1,   // Feature disabled pending OptIn.
-  kDisabledViaPersonalIntelligenceInAutofillToggle = 2,  // User toggled it off.
-  kEnabledShouldShowNotice = 3,  // Feature enabled but notice should be shown.
-  kEnabled = 4                   // Feature enabled, first run completed.
+enum class PersonalContextEligibilityState {
+  kDisabledNotEligible = 0,  // Not eligible.
+  // TODO(crbug.com/494149753): Set to 1 once
+  // `kPersonalContextForceEnablementStateParam` is removed.
+  kEligible = 2  // Eligible.
 };
 
 // Defines the result of a PersonalContextService::FetchContext operation.
@@ -31,7 +50,8 @@ struct FetchContextResult {
   FetchContextResult();
   explicit FetchContextResult(
       base::expected<const proto::Any /*response_metadata*/, ContextMemoryError>
-          response);
+          response,
+      std::string server_request_id = "");
   FetchContextResult(FetchContextResult&& other);
   ~FetchContextResult();
 
@@ -39,6 +59,9 @@ struct FetchContextResult {
   // (originally packed in an Any proto) or a ContextMemoryError.
   base::expected<const proto::Any /*response_metadata*/, ContextMemoryError>
       response;
+
+  // The server request ID, used to identify the request in the logs.
+  std::string server_request_id;
 };
 
 // Callback for receiving the result of a FetchContext call.

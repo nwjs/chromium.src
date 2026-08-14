@@ -13,6 +13,10 @@
 #include "components/autofill/core/browser/ui/autofill_suggestion_delegate.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 
+namespace actions {
+class ActionItem;
+}
+
 namespace content {
 class WebContents;
 }
@@ -26,6 +30,7 @@ namespace autofill {
 class AutofillBubbleBase;
 class PaymentsDataManager;
 enum class PaymentsUiClosedReason;
+enum class SuggestionHidingReason;
 
 // Controller class that exposes functionality to omnibox autofill bubbles.
 // Owned by TabFeatures.
@@ -54,7 +59,10 @@ class OmniboxAutofillBubbleController : public AutofillBubbleControllerBase {
       std::vector<Suggestion> suggestions,
       base::RepeatingCallback<void(base::span<const Suggestion>)>
           on_suggestions_shown,
+      base::RepeatingCallback<void(SuggestionHidingReason)>
+          on_suggestions_hidden,
       base::RepeatingCallback<void(const Suggestion&)> did_select_suggestion,
+      base::RepeatingClosure did_deselect_suggestion,
       base::RepeatingCallback<
           void(const Suggestion&,
                const AutofillSuggestionDelegate::SuggestionMetadata&)>
@@ -65,7 +73,11 @@ class OmniboxAutofillBubbleController : public AutofillBubbleControllerBase {
   const std::vector<Suggestion>& GetSuggestions() const;
   base::WeakPtr<OmniboxAutofillBubbleController> GetWeakPtr();
 
+  void OnSuggestionsShown();
+  void OnSuggestionDeselected();
   void OnBubbleClosed(PaymentsUiClosedReason reason);
+  void OnSuggestionSelected(const Suggestion& suggestion);
+  void OnSuggestionAccepted(const Suggestion& suggestion, size_t row);
 
   bool ShouldShowGooglePayLogo() const;
 
@@ -73,6 +85,10 @@ class OmniboxAutofillBubbleController : public AutofillBubbleControllerBase {
   void DoShowBubble() override;
 
  private:
+  actions::ActionItem* GetActionItem();
+
+  const raw_ref<tabs::TabInterface> tab_interface_;
+
   ui::ScopedUnownedUserData<OmniboxAutofillBubbleController>
       scoped_unowned_user_data_;
 
@@ -81,12 +97,21 @@ class OmniboxAutofillBubbleController : public AutofillBubbleControllerBase {
   std::vector<Suggestion> suggestions_;
   base::RepeatingCallback<void(base::span<const Suggestion>)>
       on_suggestions_shown_callback_;
+  base::RepeatingCallback<void(SuggestionHidingReason)>
+      on_suggestions_hidden_callback_;
   base::RepeatingCallback<void(const Suggestion&)>
       did_select_suggestion_callback_;
+  base::RepeatingClosure did_deselect_suggestion_callback_;
   base::RepeatingCallback<void(
       const Suggestion&,
       const AutofillSuggestionDelegate::SuggestionMetadata&)>
       did_accept_suggestion_callback_;
+
+  // Whether the Google Pay logo should be shown in the omnibox autofill bubble.
+  // Saved as a state variable and determined upon initial bubble initialization
+  // because GUIDs can potentially change during the flow and cause
+  // discrepancies.
+  bool should_show_google_pay_logo_ = false;
 
   base::WeakPtrFactory<OmniboxAutofillBubbleController> weak_ptr_factory_{this};
 };

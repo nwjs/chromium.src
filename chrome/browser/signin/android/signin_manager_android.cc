@@ -13,6 +13,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "chrome/browser/bookmarks/android/bookmark_bridge.h"
@@ -42,7 +43,12 @@
 #include "content/public/browser/browsing_data_filter_builder.h"
 #include "content/public/browser/browsing_data_remover.h"
 #include "content/public/browser/storage_partition.h"
+#include "extensions/buildflags/buildflags.h"
 #include "google_apis/gaia/gaia_auth_util.h"
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "chrome/browser/extensions/sync/account_extension_tracker.h"
+#endif
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/browser/signin/services/android/jni_headers/SigninManagerImpl_jni.h"
@@ -181,6 +187,19 @@ void SigninManagerAndroid::RegisterPolicyWithAccount(
     return;
   }
 
+  bool user_accepted_account_management =
+      enterprise_util::UserAcceptedAccountManagement(profile_);
+  base::UmaHistogramBoolean(
+      "Signin.Android.AccountManagementAcceptedBeforeUserPolicyFetch",
+      user_accepted_account_management);
+
+  if (!user_accepted_account_management &&
+      base::FeatureList::IsEnabled(
+          switches::kUserPolicyFetchRequiresAcceptance)) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+
   user_policy_signin_service_->RegisterForPolicyWithAccountId(
       account.email, account.account_id,
       /*is_registration_for_management_consistency_check=*/false,
@@ -246,6 +265,28 @@ void SigninManagerAndroid::WipeGoogleServiceWorkerCaches(
     JNIEnv* env,
     const base::RepeatingClosure& callback) {
   WipeData(profile_, ClearedTypes::kGoogleServiceWorkerCaches, callback);
+}
+
+void SigninManagerAndroid::SetUninstallAccountExtensionsOnSignout(
+    JNIEnv* env,
+    bool uninstall) {
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  extensions::AccountExtensionTracker* tracker =
+      extensions::AccountExtensionTracker::Get(profile_);
+  if (tracker) {
+    tracker->set_uninstall_account_extensions_on_signout(uninstall);
+  }
+#endif
+}
+
+bool SigninManagerAndroid::HasSignedInAccountExtensions(JNIEnv* env) {
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  extensions::AccountExtensionTracker* tracker =
+      extensions::AccountExtensionTracker::Get(profile_);
+  return tracker && !tracker->GetSignedInAccountExtensions().empty();
+#else
+  return false;
+#endif
 }
 
 // static

@@ -35,7 +35,6 @@ import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 
 import org.chromium.base.Log;
-import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -44,6 +43,7 @@ import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.content.common.ContentInternalFeatures;
 import org.chromium.content_public.browser.ContentFeatureList;
+import org.chromium.content_public.browser.test.ContentJUnit4ClassRunner;
 import org.chromium.ui.accessibility.testservice.EventMatcher;
 import org.chromium.ui.accessibility.testservice.IAccessibilityTestHelperService;
 import org.chromium.ui.accessibility.testservice.NodeMatcher;
@@ -59,7 +59,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /** Tests for Accessibility end-to-end. */
 @Batch(Batch.PER_CLASS)
-@RunWith(BaseJUnit4ClassRunner.class)
+@RunWith(ContentJUnit4ClassRunner.class)
 public class WebContentsAccessibilityE2ETest {
     private static final String ACCESSIBILITY_TEST_SERVICE_PACKAGE =
             "org.chromium.ui.accessibility.testservice";
@@ -75,7 +75,6 @@ public class WebContentsAccessibilityE2ETest {
     private static final String ACCESSIBILITY_TEST_SERVICE_NAME =
             ACCESSIBILITY_TEST_SERVICE_COMPONENT_NAME.flattenToString();
     private static final long BIND_TIMEOUT_MS = 5000;
-    private static final long EVENT_TIMEOUT_MS = 5000;
     private static final String TAG = "WebContentsAXTest";
 
     private static final String EXTRA_SELECTION_START_OFFSET_TYPE =
@@ -269,7 +268,6 @@ public class WebContentsAccessibilityE2ETest {
 
     @Test
     @SmallTest
-    @DisabledTest(message = "crbug.com/529689125")
     @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO) // crbug.com/529881530
     public void testAccessibilityServiceReceivesInitialEvent() throws Throwable {
         // Load a page.
@@ -451,7 +449,7 @@ WebView focusable focused actions:[CLEAR_FOCUS, AX_FOCUS] bundle:[chromeRole="ro
         String expectedDump =
 """
 WebView focusable focused actions:[CLEAR_FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"] isInputFocusedViaFindFocus
-  TextView text:"Some selected text" viewIdResName:"p1" actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="paragraph"] extendedSelectionStart:5 (text) extendedSelectionEnd:13 (text)
+  TextView text:"Some selected text" viewIdResName:"p1" actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="paragraph"] extendedSelectionStart:{5, text} extendedSelectionEnd:{13, text}
 """;
         Assert.assertEquals("Tree dump does not match expected value", expectedDump, treeDump);
     }
@@ -461,8 +459,8 @@ WebView focusable focused actions:[CLEAR_FOCUS, AX_FOCUS] bundle:[chromeRole="ro
     @MinAndroidSdkLevel(Build.VERSION_CODES.BAKLAVA)
     @DisabledTest(message = "https://crbug.com/517964367")
     public void testFindFocus() throws Throwable {
-        // Load a page with 56 arbitrary buttons and two focusable elements and a tall div.
-        // The idea behind 56 buttons comes from the flakyness of the test: we do a scroll to clear
+        // Load a page with 100 arbitrary buttons and two focusable elements and a tall div.
+        // The idea behind 100 buttons comes from the flakiness of the test: we do a scroll to clear
         // cache focus but somehow there is a race condition where the cache gets refilled just
         // after the scroll event is fired. The most probable responsible is the logic in
         // ({frameworks/base/core/java/android/view/AccessibilityInteractionController.java.AccessibilityNodePrefetcher})
@@ -475,7 +473,7 @@ WebView focusable focused actions:[CLEAR_FOCUS, AX_FOCUS] bundle:[chromeRole="ro
         String html =
                 """
                 <script>
-                  for (let i = 0; i < 56; i++) {
+                  for (let i = 0; i < 100; i++) {
                     document.body.appendChild(document.createElement('button'));
                   }
                 </script>
@@ -562,10 +560,6 @@ WebView focusable focused actions:[CLEAR_FOCUS, AX_FOCUS] bundle:[chromeRole="ro
                 waitForEvent(
                         new EventMatcherBuilder()
                                 .setEventType(AccessibilityEvent.TYPE_VIEW_SCROLLED)
-                                .setSourceMatcher(
-                                        new NodeMatcherBuilder()
-                                                .setClassName("android.webkit.WebView")
-                                                .build())
                                 .build());
         Assert.assertTrue("Service did not receive scroll event", scrollEventReceived);
 
@@ -664,11 +658,11 @@ WebView focusable focused actions:[CLEAR_FOCUS, AX_FOCUS] bundle:[chromeRole="ro
         String expectedDump =
 """
 WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
-  EditText text:"Line one\\nLink text node" clickable editable focusable focused multiLine textSelectionStart:9 textSelectionEnd:10 actions:[CLEAR_FOCUS, CLICK, AX_FOCUS, NEXT, PREVIOUS, COPY, PASTE, CUT, SET_SELECTION, SET_TEXT, IME_ENTER] bundle:[chromeRole="genericContainer", clickableScore="200"] isInputFocusedViaFindFocus extendedSelectionStart:9 extendedSelectionEnd:10
+  EditText text:"Line one\\nLink text node" clickable editable focusable focused multiLine textSelectionStart:9 textSelectionEnd:10 actions:[CLEAR_FOCUS, CLICK, AX_FOCUS, NEXT, PREVIOUS, COPY, PASTE, CUT, SET_SELECTION, SET_TEXT, IME_ENTER] bundle:[chromeRole="genericContainer", clickableScore="200"] isInputFocusedViaFindFocus
     TextView text:"Line one" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"]
     View text:"\\n" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="lineBreak", clickableScore="100"]
-    View text:"null" contentDescription:"Link text" viewIdResName:"link" clickable editable actions:[CLICK, AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="link", clickableScore="300", roleDescription="link", targetUrl="data:text/html;utf-8,%3Chtml%3E%3Cbody%3E%3Cdiv%20contenteditable%3E%0ALine%20one%3Cbr%3E%0A%3Ca%20id%3D%27link%27%20href%3D%27%23%27%3ELink%20text%3C%2Fa%3E%20node%0A%3C%2Fdiv%3E%3C%2Fbody%3E%3C%2Fhtml%3E%0A#"] extendedSelectionEnd:1 (child)
-      TextView text:"Link text" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"] extendedSelectionStart:0 (text)
+    View text:"null" contentDescription:"Link text" viewIdResName:"link" clickable editable actions:[CLICK, AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="link", clickableScore="300", roleDescription="link", targetUrl="data:text/html;utf-8,%3Chtml%3E%3Cbody%3E%3Cdiv%20contenteditable%3E%0ALine%20one%3Cbr%3E%0A%3Ca%20id%3D%27link%27%20href%3D%27%23%27%3ELink%20text%3C%2Fa%3E%20node%0A%3C%2Fdiv%3E%3C%2Fbody%3E%3C%2Fhtml%3E%0A#"] extendedSelectionEnd:{1, child}
+      TextView text:"Link text" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"] extendedSelectionStart:{0, text}
     TextView text:" node" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"]
 """;
         Assert.assertEquals("Tree dump does not match expected value", expectedDump, treeDump);
@@ -715,7 +709,6 @@ WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
     @Test
     @SmallTest
     @MinAndroidSdkLevel(Build.VERSION_CODES.UPSIDE_DOWN_CAKE) // API Level 34
-    @DisabledTest(message = "https://crbug.com/508702929")
     public void fireGeneratedEvent_ariaInvalidChangesToFalse_firesContentInvalid()
             throws Throwable {
         // Create an HTML document where there is an input element and an element containing
@@ -751,6 +744,74 @@ WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
         Assert.assertFalse(
                 "Tree dump should not contain 'contentInvalid'",
                 treeDump.contains("contentInvalid"));
+    }
+
+    @Test
+    @SmallTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.KITKAT) // API Level 19
+    public void fireGeneratedEvent_ariaLabelChange_firesTextChangeType() throws Throwable {
+        // Create an HTML document where there is a div tag with aria-label attribute set.
+        String html =
+                """
+                <html><body>
+                <div id="target" aria-label="old_name"></div>
+                </body></html>
+                """;
+        setupTest(html, new NodeMatcherBuilder().setClassName("android.webkit.WebView").build());
+
+        // Set aria-label="new_name" on the div element.
+        mActivityTestRule.executeJSAndGetResult(
+                "document.getElementById('target').setAttribute('aria-label', 'new_name');");
+
+        // Wait for TWCC event with ContentChangeType TEXT to be fired as a result of
+        // aria-label changing.
+        boolean eventReceived =
+                waitForEvent(
+                        new EventMatcherBuilder()
+                                .setEventType(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)
+                                .setContentChangeTypes(AccessibilityEvent.CONTENT_CHANGE_TYPE_TEXT)
+                                .setSourceMatcher(
+                                        new NodeMatcherBuilder()
+                                                .setClassName("android.widget.TextView")
+                                                .build())
+                                .build());
+        Assert.assertTrue("Service did not receive TEXT event", eventReceived);
+    }
+
+    @Test
+    @SmallTest
+    @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO) // flaky crbug.com/534257179
+    @MinAndroidSdkLevel(Build.VERSION_CODES.KITKAT) // API Level 19
+    public void fireGeneratedEvent_alertDisplayStyleChange_firesSubtreeChangeType()
+            throws Throwable {
+        // Create an HTML document where there is an alert node with display style set to none
+        String html =
+                """
+                <html><body>
+                <div id="target" role="alert" style="display:none">This is an alert</div>
+                </body></html>
+                """;
+
+        setupTest(html, new NodeMatcherBuilder().setClassName("android.webkit.WebView").build());
+
+        // Set display style to 'block' on the div element
+        mActivityTestRule.executeJSAndGetResult(
+                "document.getElementById('target').style.display = 'block';");
+
+        // Wait for TWCC event with ContentChangeType SUBTREE to be fired as a result of
+        // changing alert display style.
+        boolean eventReceived =
+                waitForEvent(
+                        new EventMatcherBuilder()
+                                .setEventType(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)
+                                .setContentChangeTypes(
+                                        AccessibilityEvent.CONTENT_CHANGE_TYPE_SUBTREE)
+                                .setSourceMatcher(
+                                        new NodeMatcherBuilder()
+                                                .setClassName("android.view.View")
+                                                .build())
+                                .build());
+        Assert.assertTrue("Service did not receive SUBTREE event", eventReceived);
     }
 
     @Test
@@ -841,8 +902,47 @@ WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
         Assert.assertEquals("Paragraph2", endNode.getText().toString());
     }
 
+    @Test
+    @SmallTest
+    public void fireGeneratedEvent_defaultActionVerbChanged_firesContentChanged() throws Throwable {
+        // Create an HTML document with a disabled button (default action verb of NONE).
+        String html =
+                """
+                <html><body>
+                <button id="button" disabled>Click Me</button>
+                </body></html>
+                """;
+        setupTest(html, new NodeMatcherBuilder().setText("Click Me").build());
+
+        // Enable the button by removing the disabled attribute. This will change the default action
+        // verb of the button, as it is now clickable.
+        mActivityTestRule.executeJSAndGetResult(
+                "document.getElementById('button').removeAttribute('disabled');");
+
+        // Wait for TWCC event with ContentChangeType UNDEFINED to be fired as a result of the
+        // default action verb changing.
+        boolean eventReceived =
+                waitForEvent(
+                        new EventMatcherBuilder()
+                                .setEventType(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)
+                                .setContentChangeTypes(
+                                        AccessibilityEvent.CONTENT_CHANGE_TYPE_UNDEFINED)
+                                .setSourceMatcher(
+                                        new NodeMatcherBuilder()
+                                                .setClassName("android.widget.Button")
+                                                .setText("Click Me")
+                                                .build())
+                                .build());
+        Assert.assertTrue("Service did not receive WINDOW_CONTENT_CHANGED event", eventReceived);
+
+        // Dump the accessibility tree, and verify that the button's AccessibilityNodeInfo now has
+        // actions including CLICK.
+        String treeDump = getAccessibilityHelperService().dumpWebContentsAccessibilityTree();
+        Assert.assertTrue("Tree dump should contain CLICK action", treeDump.contains("CLICK"));
+    }
+
     private static class WaitForParamsBuilder {
-        private static final long DEFAULT_TIMEOUT_MS = 5000;
+        private static final long DEFAULT_TIMEOUT_MS = 10000;
 
         @Nullable private EventMatcher mEventMatcher;
         @Nullable private NodeMatcher mNodeMatcher;
@@ -869,8 +969,6 @@ WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
 
     @SuppressWarnings("unused")
     private static class EventMatcherBuilder {
-        private static final long DEFAULT_TIMEOUT_MS = 5000;
-
         private int mEventType;
         private int mContentChangeTypes;
         @Nullable private NodeMatcher mSourceMatcher;
@@ -901,8 +999,6 @@ WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
 
     @SuppressWarnings("unused")
     private static class NodeMatcherBuilder {
-        private static final long DEFAULT_TIMEOUT_MS = 5000;
-
         private String mClassName = "";
         private String mText = "";
         private Boolean mInputFocused;

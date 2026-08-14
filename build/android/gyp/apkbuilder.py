@@ -17,6 +17,7 @@ import zipfile
 from util import build_utils
 from util import diff_utils
 import action_helpers  # build_utils adds //build to sys.path.
+import dex
 import zip_helpers
 
 
@@ -26,6 +27,20 @@ _NO_COMPRESS_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.gif', '.wav', '.mp2',
                            '.midi', '.smf', '.jet', '.rtttl', '.imy', '.xmf',
                            '.mp4', '.m4a', '.m4v', '.3gp', '.3gpp', '.3g2',
                            '.3gpp2', '.amr', '.awb', '.wma', '.wmv', '.webm')
+
+# Taken from https://developer.android.com/tools/zipalign.
+_DEFAULT_ZIP_ALIGNMENT = 4
+_64_BIT_PAGE_ALIGNMENT = 0x4000
+
+
+def _Requires64BitAlignment(android_abi: str | None) -> bool:
+  """Returns whether the given Android ABI needs 64-bit page aligned libs."""
+  return android_abi and '64' in android_abi
+
+
+def _ContainsWrapSh(native_libs: list[str]) -> bool:
+  """Returns whether the given list of native libs contains the wrap.sh script."""
+  return any(lib.endswith('wrap.sh') for lib in native_libs)
 
 
 def _ParseArgs(args):
@@ -52,8 +67,11 @@ def _ParseArgs(args):
   parser.add_argument('--format', choices=['apk', 'bundle-module'],
                       default='apk', help='Specify output format.')
   parser.add_argument('--dex-file',
-                      help='Path to the classes.dex to use')
-  parser.add_argument('--uncompress-dex', action='store_true',
+                      action='append',
+                      dest='dex_files',
+                      help='Path to classes.dex or dex.jar files to use')
+  parser.add_argument('--uncompress-dex',
+                      action='store_true',
                       help='Store .dex files uncompressed in the APK')
   parser.add_argument('--native-libs',
                       action='append',
@@ -144,7 +162,9 @@ def _AlignAndSign(apksigner_path,
                   key_passwd,
                   key_name,
                   min_sdk_version,
-                  warnings_as_errors=False):
+                  warnings_as_errors=False,
+                  should_preserve_alignment = False):
+
   sign_cmd = build_utils.JavaCmd() + [
       '-jar',
       apksigner_path,
@@ -177,8 +197,13 @@ def _AlignAndSign(apksigner_path,
   # v4 signatures (.idsig files) require a v2 or v3 signature at the same time.
   # These are enabled by default.
 
-  if android_abi and '64' in android_abi:
-    sign_cmd += ['--lib-page-alignment', str(0x4000)]
+  if _Requires64BitAlignment(android_abi):
+    sign_cmd += ['--lib-page-alignment', str(_64_BIT_PAGE_ALIGNMENT)]
+
+  if should_preserve_alignment:
+    # Required so that the 'wrap.sh' script is not relocated in memory, which
+    # would cause the APK to fail to run.
+    sign_cmd += ['--alignment-preserved', 'true']
 
   build_utils.CheckOutput(sign_cmd,
                           print_stdout=True,
@@ -227,7 +252,7 @@ def _GetAssetsToAdd(path_tuples,
     path_tuples: List of src_path, dest_path tuples to add.
     disable_compression: Whether to disable compression.
 
-  Returns: A list of (src_path, apk_path, compress) tuple
+  Returns: A list of (src_path, apk_path, compress, alignment) tuple
   representing what and how assets are added.
   """
   assets_to_add = []
@@ -245,12 +270,15 @@ def _GetAssetsToAdd(path_tuples,
           apk_path = posixpath.join(apk_root_dir, dest_path[3:])
         else:
           apk_path = 'assets/' + dest_path
-        assets_to_add.append((apk_path, src_path, compress))
+        # Assets are default-aligned in the APK, so `alignment` here is
+        # always None. Setting it this way allows us to feed
+        # this function's return value directly to `_AddFiles()`.
+        assets_to_add.append((apk_path, src_path, compress, None))
   return assets_to_add
 
 
 def _AddFiles(apk, details, compress_level):
-  for apk_path, src_path, compress in details:
+  for apk_path, src_path, compress, alignment in details:
     # This check is only relevant for assets, but it should not matter if it is
     # checked for the whole list of files.
     try:
@@ -263,17 +291,21 @@ def _AddFiles(apk, details, compress_level):
                                       apk_path,
                                       src_path=src_path,
                                       compress=compress,
-                                      compress_level=compress_level)
+                                      compress_level=compress_level,
+                                      alignment=alignment)
 
 
 def _GetNativeLibrariesToAdd(native_libs, android_abi, lib_always_compress):
   """Returns the list of file_detail tuples for native libraries in the apk.
 
-  Returns: A list of (src_path, apk_path, compress) tuple representing what and
+  Returns: A list of (src_path, apk_path, compress, alignment) tuple representing what and
       how native libraries are added.
   """
   libraries_to_add = []
 
+  alignment = _DEFAULT_ZIP_ALIGNMENT
+  if _Requires64BitAlignment(android_abi):
+    alignment = _64_BIT_PAGE_ALIGNMENT
 
   for path in native_libs:
     basename = os.path.basename(path)
@@ -283,7 +315,7 @@ def _GetNativeLibrariesToAdd(native_libs, android_abi, lib_always_compress):
       lib_android_abi = 'arm64-v8a-hwasan'
 
     apk_path = 'lib/%s/%s' % (lib_android_abi, basename)
-    libraries_to_add.append((apk_path, path, compress))
+    libraries_to_add.append((apk_path, path, compress, alignment))
 
   return libraries_to_add
 
@@ -294,7 +326,7 @@ def _CreateExpectationsData(native_libs, assets):
   assets = sorted(assets)
 
   ret = []
-  for apk_path, _, compress in native_libs + assets:
+  for apk_path, _, compress, _ in native_libs + assets:
     ret.append(f'apk_path={apk_path}, compress={compress}\n')
   return ''.join(ret)
 
@@ -315,8 +347,8 @@ def main(args):
   # For targets that depend on static library APKs, dex paths are created by
   # the static library's dexsplitter target and GN doesn't know about these
   # paths.
-  if options.dex_file:
-    depfile_deps.append(options.dex_file)
+  if options.dex_files:
+    depfile_deps.extend(options.dex_files)
 
   secondary_native_libs = []
   if options.secondary_native_libs:
@@ -402,11 +434,13 @@ def main(args):
          zipfile.ZipFile(f, 'w') as out_apk:
 
       def add_to_zip(zip_path, data, compress=True):
+        alignment = None if compress else _DEFAULT_ZIP_ALIGNMENT
         zip_helpers.add_to_zip_hermetic(out_apk,
                                         zip_path,
                                         data=data,
                                         compress=compress,
-                                        compress_level=compress_level)
+                                        compress_level=compress_level,
+                                        alignment=alignment)
 
       def copy_resource(zipinfo, out_dir=''):
         add_to_zip(
@@ -429,34 +463,22 @@ def main(args):
 
       # 3. DEX and META-INF/services/
       logging.debug('Adding classes.dex')
-      if options.dex_file:
-        with open(options.dex_file, 'rb') as dex_file_obj:
-          if options.dex_file.endswith('.dex'):
-            # This is the case for incremental_install=true.
-            add_to_zip(
-                apk_dex_dir + 'classes.dex',
-                dex_file_obj.read(),
-                compress=not options.uncompress_dex)
-          else:
-            with zipfile.ZipFile(dex_file_obj) as dex_zip:
-              # Add META-INF/services.
-              for name in sorted(dex_zip.namelist()):
-                if name.startswith('META-INF/services/'):
-                  # proguard.py does not bundle these files (dex.py does)
-                  # because R8 optimizes all ServiceLoader calls.
-                  if options.dex_file.endswith('.r8dex.jar'):
-                    raise Exception(
-                        f'Expected no META-INF/services, but found: {name}' +
-                        f'in {options.dex_file}')
-                  add_to_zip(apk_root_dir + name,
-                             dex_zip.read(name),
-                             compress=False)
-              # Add classes.dex.
-              for name in dex_zip.namelist():
-                if name.endswith('.dex'):
-                  add_to_zip(apk_dex_dir + name,
-                             dex_zip.read(name),
-                             compress=not options.uncompress_dex)
+      if options.dex_files:
+        if options.dex_files[0].endswith('.dex'):
+          # This is the case for incremental_install=true.
+          if len(options.dex_files) != 1:
+            raise Exception('Expected exactly 1 .dex file.')
+          with open(options.dex_files[0], 'rb') as dex_file_obj:
+            add_to_zip(apk_dex_dir + 'classes.dex',
+                       dex_file_obj.read(),
+                       compress=not options.uncompress_dex)
+        else:
+          dex.MergeDexAndServices(options.dex_files,
+                                  out_apk,
+                                  apk_root_dir=apk_root_dir,
+                                  apk_dex_dir=apk_dex_dir,
+                                  uncompress_dex=options.uncompress_dex,
+                                  compress_level=compress_level)
 
       # 4. Native libraries.
       logging.debug('Adding lib/')
@@ -517,6 +539,7 @@ def main(args):
                        java_resource_jar.read(apk_path))
 
     if options.format == 'apk' and options.key_path:
+      should_preserve_alignment = _ContainsWrapSh(native_libs)
       _AlignAndSign(options.apksigner_jar,
                     options.android_abi,
                     f.name,
@@ -524,7 +547,8 @@ def main(args):
                     options.key_passwd,
                     options.key_name,
                     options.min_sdk_version,
-                    warnings_as_errors=options.warnings_as_errors)
+                    warnings_as_errors=options.warnings_as_errors,
+                    should_preserve_alignment=should_preserve_alignment)
       shutil.move(f'{f.name}.idsig', f'{options.output_apk}.idsig')
     logging.debug('Moving file into place')
 

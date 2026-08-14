@@ -249,6 +249,9 @@ void PrintTo(const RequestHandlerResult& request_handler_result,
     case FinalContentAnalysisResult::FORCE_SAVE_TO_CLOUD:
       *os << "FORCE_SAVE_TO_CLOUD";
       break;
+    case FinalContentAnalysisResult::KEPT_IN_MANAGED_CHROME:
+      *os << "KEPT_IN_MANAGED_CHROME";
+      break;
     case FinalContentAnalysisResult::CANCELLED:
       *os << "CANCELLED";
       break;
@@ -705,7 +708,13 @@ TEST_F(FilesRequestHandlerTest, FileIsLarge_LocalAnalysis) {
 }
 #endif  // BUILDFLAG(ENTERPRISE_LOCAL_CONTENT_ANALYSIS)
 
-TEST_F(FilesRequestHandlerTest, FileIsLarge_PolicyAllows) {
+// TODO(crbug.com/538549149): Flaky on Linux TSan.
+#if defined(THREAD_SANITIZER) && BUILDFLAG(IS_LINUX)
+#define MAYBE_FileIsLarge_PolicyAllows DISABLED_FileIsLarge_PolicyAllows
+#else
+#define MAYBE_FileIsLarge_PolicyAllows FileIsLarge_PolicyAllows
+#endif
+TEST_F(FilesRequestHandlerTest, MAYBE_FileIsLarge_PolicyAllows) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeatureWithParameters(
       enterprise_connectors::kEnableNewUploadSizeLimit,

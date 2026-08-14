@@ -10,7 +10,6 @@
 #include "base/callback_list.h"
 #include "base/containers/flat_set.h"
 #include "base/memory/raw_ptr.h"
-#include "base/scoped_observation.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/ui/animation/browser_animation_types.h"
@@ -54,8 +53,7 @@ class VerticalTabStripRegionView final
     : public BaseTabStripRegionView,
       public views::ResizeAreaDelegate,
       public OmniboxTabHelper::Observer,
-      public tabs::VerticalTabStripStateController::Delegate,
-      public views::WidgetObserver {
+      public tabs::VerticalTabStripStateController::Delegate {
   METADATA_HEADER(VerticalTabStripRegionView, BaseTabStripRegionView)
 
  public:
@@ -89,7 +87,7 @@ class VerticalTabStripRegionView final
     return bottom_button_container_;
   }
 
-  bool IsPositionInWindowCaption(const gfx::Point& point);
+  bool IsPositionInWindowCaption(const gfx::Point& point) override;
 
   // These methods provide the toolbar height and exclusion width, before the
   // layout of this view, for use in calculating positioning of child views. If
@@ -138,11 +136,8 @@ class VerticalTabStripRegionView final
   bool IsCollapsing() override;
   void RequestCollapse(bool collapse) override;
 
-  // views::WidgetObserver:
-  void OnWidgetVisibilityChanged(views::Widget* widget, bool visible) override;
-
   views::Separator* tabs_separator_for_testing() {
-    return tab_strip_view_->GetTabsSeparator();
+    return tab_strip_view() ? tab_strip_view()->GetTabsSeparator() : nullptr;
   }
 
   bool is_expanded_on_hover() const { return is_expanded_on_hover_; }
@@ -200,8 +195,8 @@ class VerticalTabStripRegionView final
 
   void HandleMouseExited();
 
-  views::View* SetTabStripView(std::unique_ptr<views::View> view) override;
-  void ClearTabStripView(views::View* view) override;
+  void OnTabStripViewSet() override;
+  void OnTabStripViewWillClear() override;
 
   void OnCollapseStateChanged(
       tabs::VerticalTabStripCollapseState collapse_state);
@@ -238,7 +233,7 @@ class VerticalTabStripRegionView final
                              OmniboxFocusChangeReason reason) override {}
   void OnOmniboxPopupVisibilityChanged(bool is_open) override;
 
-  void OnActiveTabChanged(const tabs::TabInterface* active_tab);
+  void OnActiveTabChanged(const tabs::TabInterface* active_tab) override;
 
   raw_ptr<VerticalTabStripTopContainer> top_button_container_ = nullptr;
   raw_ptr<views::Separator> top_button_separator_ = nullptr;
@@ -300,9 +295,7 @@ class VerticalTabStripRegionView final
   // The mouse exit event debounce timer.
   base::OneShotTimer mouse_exit_timer_;
 
-  bool is_first_window_presentation_ = true;
-  base::ScopedObservation<views::Widget, views::WidgetObserver>
-      widget_observation_{this};
+  base::CallbackListSubscription paint_as_active_subscription_;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_FRAME_VERTICAL_TAB_STRIP_REGION_VIEW_H_

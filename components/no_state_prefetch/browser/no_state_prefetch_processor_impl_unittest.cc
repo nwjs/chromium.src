@@ -18,8 +18,8 @@
 #include "mojo/public/cpp/system/functions.h"
 #include "net/http/http_response_headers.h"
 #include "services/network/public/cpp/features.h"
+#include "services/network/public/mojom/referrer_policy.mojom.h"
 #include "third_party/blink/public/common/features.h"
-#include "third_party/blink/public/common/origin_trials/scoped_test_origin_trial_policy.h"
 
 namespace prerender {
 
@@ -81,11 +81,6 @@ class MockNoStatePrefetchProcessorImplDelegate final
 
 class NoStatePrefetchProcessorImplTest
     : public content::RenderViewHostTestHarness {
- private:
-  // Allows committing a Connection-Allowlist via response headers without a
-  // real origin trial token (paired with
-  // blink::features::kOverrideConnectionAllowlistOriginTrial in tests).
-  blink::ScopedTestOriginTrialPolicy scoped_test_origin_trial_policy_;
 };
 
 TEST_F(NoStatePrefetchProcessorImplTest, StartCancelAbandon) {
@@ -189,6 +184,67 @@ TEST_F(NoStatePrefetchProcessorImplTest, StartTwice) {
   mojo::SetDefaultProcessErrorHandler(base::NullCallback());
 }
 
+TEST_F(NoStatePrefetchProcessorImplTest, StartWithSameOriginReferrer) {
+  NavigateAndCommit(GURL("https://initiator.test/"));
+
+  auto link_manager = std::make_unique<MockNoStatePrefetchLinkManager>();
+
+  mojo::Remote<blink::mojom::NoStatePrefetchProcessor> remote;
+  NoStatePrefetchProcessorImpl::Create(
+      main_rfh(), remote.BindNewPipeAndPassReceiver(),
+      std::make_unique<MockNoStatePrefetchProcessorImplDelegate>(
+          link_manager.get()));
+
+  auto attributes = blink::mojom::PrerenderAttributes::New();
+  attributes->url = GURL("https://example.com/prefetch");
+  attributes->referrer =
+      blink::mojom::Referrer::New(GURL("https://initiator.test/page.html"),
+                                  network::mojom::ReferrerPolicy::kAlways);
+
+  // Start() call should be propagated to the link manager.
+  EXPECT_FALSE(link_manager->is_start_called());
+  remote->Start(std::move(attributes));
+  remote.FlushForTesting();
+  EXPECT_TRUE(link_manager->is_start_called());
+}
+
+TEST_F(NoStatePrefetchProcessorImplTest, StartWithCrossOriginReferrer) {
+  NavigateAndCommit(GURL("https://initiator.test/"));
+
+  auto link_manager = std::make_unique<MockNoStatePrefetchLinkManager>();
+
+  mojo::Remote<blink::mojom::NoStatePrefetchProcessor> remote;
+  NoStatePrefetchProcessorImpl::Create(
+      main_rfh(), remote.BindNewPipeAndPassReceiver(),
+      std::make_unique<MockNoStatePrefetchProcessorImplDelegate>(
+          link_manager.get()));
+
+  // Set up the error handler for bad mojo messages.
+  std::string bad_message_error;
+  mojo::SetDefaultProcessErrorHandler(
+      base::BindLambdaForTesting([&](const std::string& error) {
+        EXPECT_TRUE(bad_message_error.empty());
+        bad_message_error = error;
+      }));
+
+  auto attributes = blink::mojom::PrerenderAttributes::New();
+  attributes->url = GURL("https://example.com/prefetch");
+  attributes->referrer =
+      blink::mojom::Referrer::New(GURL("https://other.test/page.html"),
+                                  network::mojom::ReferrerPolicy::kAlways);
+
+  // Start() with a referrer that does not match the initiator origin should be
+  // reported as a bad mojo message.
+  ASSERT_TRUE(bad_message_error.empty());
+  remote->Start(std::move(attributes));
+  remote.FlushForTesting();
+  EXPECT_EQ(bad_message_error, "NSPPI_INVALID_REFERRER_ORIGIN");
+  EXPECT_FALSE(link_manager->is_start_called());
+  // Clean up error handler, to avoid causing other tests run in the same
+  // process from crashing.
+  mojo::SetDefaultProcessErrorHandler(base::NullCallback());
+}
+
 TEST_F(NoStatePrefetchProcessorImplTest, Cancel) {
   auto link_manager = std::make_unique<MockNoStatePrefetchLinkManager>();
 
@@ -231,9 +287,7 @@ TEST_F(NoStatePrefetchProcessorImplTest,
        StartBlockedByEnforcedConnectionAllowlist) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      /*enabled_features=*/{network::features::kConnectionAllowlists,
-                            blink::features::
-                                kOverrideConnectionAllowlistOriginTrial},
+      /*enabled_features=*/{network::features::kConnectionAllowlists},
       /*disabled_features=*/{});
 
   // Commit a navigation whose response enforces a Connection-Allowlist.
@@ -271,9 +325,7 @@ TEST_F(NoStatePrefetchProcessorImplTest,
        StartNotBlockedByReportOnlyConnectionAllowlist) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      /*enabled_features=*/{network::features::kConnectionAllowlists,
-                            blink::features::
-                                kOverrideConnectionAllowlistOriginTrial},
+      /*enabled_features=*/{network::features::kConnectionAllowlists},
       /*disabled_features=*/{});
 
   // Commit a navigation whose response sets only a report-only allowlist.

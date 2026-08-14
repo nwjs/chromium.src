@@ -50,12 +50,14 @@
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_availability.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intents/model/intents_donation_helper.h"
-#import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_availability.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_tab_helper.h"
-#import "ios/chrome/browser/ntp/model/ntp_background_image_cache_service.h"
+#import "ios/chrome/browser/lens_overlay/public/lens_overlay_availability.h"
+#import "ios/chrome/browser/lens_overlay/public/lens_overlay_availability_utils.h"
+#import "ios/chrome/browser/lens_overlay/public/lens_overlay_entrypoint.h"
 #import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_recorder.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_color_palette.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_color_palette_util.h"
@@ -106,7 +108,6 @@
 #import "ios/chrome/browser/shared/public/commands/reminder_notifications_commands.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
-#import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/shared/public/commands/text_zoom_commands.h"
 #import "ios/chrome/browser/shared/public/commands/whats_new_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -242,17 +243,17 @@ void GetPresetNTPBackgroundPreview(
 
 }  // namespace
 
-@interface OverflowMenuMediator () <BookmarkModelBridgeObserver,
+@interface OverflowMenuMediator () <AuthenticationServiceObserving,
+                                    BookmarkModelBridgeObserver,
                                     CRWWebStateObserver,
+                                    IdentityManagerObserving,
                                     IOSLanguageDetectionTabHelperObserving,
                                     OverflowMenuDestinationProvider,
                                     OverlayPresenterObserving,
                                     PrefObserverDelegate,
                                     ReadingListModelBridgeObserver,
                                     SearchEngineObserving,
-                                    WebStateListObserving,
-                                    AuthenticationServiceObserving,
-                                    IdentityManagerObserverBridgeDelegate> {
+                                    WebStateListObserving> {
   std::unique_ptr<web::WebStateObserverBridge> _webStateObserver;
   std::unique_ptr<WebStateListObserverBridge> _webStateListObserver;
 
@@ -325,7 +326,6 @@ void GetPresetNTPBackgroundPreview(
 @property(nonatomic, strong) OverflowMenuActionGroup* helpActionsGroup;
 @property(nonatomic, strong) OverflowMenuActionGroup* editActionsGroup;
 
-@property(nonatomic, strong) OverflowMenuAction* signinAction;
 @property(nonatomic, strong) OverflowMenuAction* identityAction;
 
 @property(nonatomic, strong) OverflowMenuAction* reloadAction;
@@ -758,7 +758,6 @@ void GetPresetNTPBackgroundPreview(
   [self logTranslateAvailability];
 
   if (IsIdentityAwarenessEnabled()) {
-    self.signinAction = [self newSigninAction];
     self.identityAction = [self newIdentityAction];
     [self updateIdentityAction];
   }
@@ -905,7 +904,7 @@ void GetPresetNTPBackgroundPreview(
                                    [weakSelf showShareSheetForChromeApp];
                                  }];
 
-  if ([self isLensOverlayEnabled]) {
+  if ([self isLensOverlayAvailable]) {
     self.lensOverlayAction = [self openLensOverlayAction];
   }
 
@@ -913,7 +912,7 @@ void GetPresetNTPBackgroundPreview(
     self.AIPrototypeAction = [self openAIPrototypeAction];
   }
 
-  if (base::FeatureList::IsEnabled(kHideToolbarsInOverflowMenu)) {
+  if (IsHideToolbarEnabled()) {
     self.hideToolbarsAction = [self collapseToolbars];
   }
 
@@ -992,7 +991,7 @@ void GetPresetNTPBackgroundPreview(
   OverflowMenuAction* action = [self
       createOverflowMenuActionWithNameID:nameID
                               actionType:overflow_menu::ActionType::ReaderMode
-                              symbolName:GetReaderModeSymbolName()
+                              symbolName:kReaderModeSymbol
                             systemSymbol:YES
                         monochromeSymbol:NO
                          accessibilityID:kToolsMenuReaderMode
@@ -1191,24 +1190,6 @@ void GetPresetNTPBackgroundPreview(
                                  handler:^{
                                    [weakSelf openClearBrowsingData];
                                  }];
-}
-
-- (OverflowMenuAction*)newSigninAction {
-  __weak __typeof(self) weakSelf = self;
-  OverflowMenuAction* action =
-      [self createOverflowMenuActionWithNameID:IDS_IOS_SIGNIN_BUTTON_TEXT
-                                    actionType:overflow_menu::ActionType::Signin
-                                    symbolName:kPersonCropCircleSymbol
-                                  systemSymbol:YES
-                              monochromeSymbol:NO
-                               accessibilityID:kToolsMenuSigninId
-                                  hideItemText:nil
-                                       handler:^{
-                                         [weakSelf showSignin];
-                                       }];
-  action.subtitle =
-      l10n_util::GetNSString(IDS_IOS_IDENTITY_DISC_SIGN_IN_PROMO_LABEL);
-  return action;
 }
 
 - (OverflowMenuAction*)newIdentityAction {
@@ -1807,8 +1788,8 @@ void GetPresetNTPBackgroundPreview(
       NOTREACHED();
     case overflow_menu::ActionType::ShareThisPage:
       return self.shareAction;
-    case overflow_menu::ActionType::Signin:
-      return self.signinAction;
+    case overflow_menu::ActionType::SigninDeprecated:
+      NOTREACHED();
     case overflow_menu::ActionType::Identity:
       return self.identityAction;
     case overflow_menu::ActionType::CustomizeHomePage:
@@ -1912,7 +1893,7 @@ void GetPresetNTPBackgroundPreview(
       IsIncognitoModeDisabled(self.profilePrefs);
 
   if (IsLensOverlayAllowedByPolicy(_profilePrefs)) {
-    self.lensOverlayAction.enabled = ![self isLensOverlayVisible];
+    self.lensOverlayAction.enabled = [self isLensOverlayEnabled];
   }
 
   if (IsReaderModeAvailable()) {
@@ -1921,7 +1902,7 @@ void GetPresetNTPBackgroundPreview(
 
   self.askBWGAction.enabled = [self isGeminiAvailable];
 
-  if (base::FeatureList::IsEnabled(kHideToolbarsInOverflowMenu)) {
+  if (IsHideToolbarEnabled()) {
     self.hideToolbarsAction.enabled = ![self isCurrentWebPageNTP];
   }
 }
@@ -1946,10 +1927,16 @@ void GetPresetNTPBackgroundPreview(
     [appActions addObject:self.shareAction];
   }
 
-  // The reload/stop action is only shown when the reload button is not in the
-  // toolbar. The reload button is shown in the toolbar when the toolbar is not
-  // split.
-  if (IsSplitToolbarMode(self.baseViewController)) {
+  BOOL showReloadStopAction;
+  if (IsChromeNextIaEnabled()) {
+    showReloadStopAction = !CanShowTabStrip(self.baseViewController);
+  } else {
+    // The reload/stop action is only shown when the reload button is not in the
+    // toolbar. The reload button is shown in the toolbar when the toolbar is
+    // not split.
+    showReloadStopAction = IsSplitToolbarMode(self.baseViewController);
+  }
+  if (showReloadStopAction) {
     OverflowMenuAction* reloadStopAction =
         ([self isPageLoading]) ? self.stopLoadAction : self.reloadAction;
     [appActions addObject:reloadStopAction];
@@ -1981,26 +1968,13 @@ void GetPresetNTPBackgroundPreview(
   NSMutableArray<OverflowMenuActionGroup*>* actionGroups =
       [[NSMutableArray alloc] init];
 
-  if (IsIdentityAwarenessEnabled() && self.authenticationService) {
+  if (IsIdentityAwarenessEnabled() && self.authenticationService &&
+      !self.incognito) {
     NSMutableArray<OverflowMenuAction*>* identityActions =
         [NSMutableArray array];
     if (self.authenticationService->GetPrimaryIdentity()) {
       [self updateIdentityAction];
       [identityActions addObject:self.identityAction];
-    } else {
-      // Hide identity action if sign-in is not allowed.
-      AuthenticationService::ServiceStatus status =
-          self.authenticationService->GetServiceStatus();
-      switch (status) {
-        case AuthenticationService::ServiceStatus::SigninForcedByPolicy:
-        case AuthenticationService::ServiceStatus::SigninAllowed:
-          [identityActions addObject:self.signinAction];
-          break;
-        case AuthenticationService::ServiceStatus::SigninDisabledByUser:
-        case AuthenticationService::ServiceStatus::SigninDisabledByPolicy:
-        case AuthenticationService::ServiceStatus::SigninDisabledByInternal:
-          break;
-      }
     }
     self.identityActionsGroup.actions = identityActions;
 
@@ -2107,7 +2081,7 @@ void GetPresetNTPBackgroundPreview(
 }
 
 - (void)updateIdentityAction {
-  if (!self.identityAction || !self.authenticationService ||
+  if (self.incognito || !self.identityAction || !self.authenticationService ||
       !self.authenticationService->HasPrimaryIdentity()) {
     return;
   }
@@ -2150,29 +2124,21 @@ void GetPresetNTPBackgroundPreview(
 }
 
 // Returns whether lens overlay is enabled on the current page.
+- (BOOL)isLensOverlayAvailable {
+  return IsLensOverlayEntrypointAvailable(
+      LensOverlayEntrypoint::kOverflowMenu, _profilePrefs,
+      self.templateURLService, self.webState,
+      self.baseViewController.traitCollection);
+}
+
+// Returns whether lens overlay is enabled on the current page.
 - (BOOL)isLensOverlayEnabled {
-  if (IsOverflowMenuNTPRefactorEnabled() && [self isCurrentWebPageNTP]) {
-    return NO;
-  }
-  BOOL isPortrait = !IsCompactHeight(self.baseViewController.traitCollection);
-  BOOL isSupported =
-      search_engines::SupportsSearchImageWithLens(self.templateURLService);
-  BOOL portraitOverride =
-      IsLensOverlayLandscapeOrientationEnabled(_profilePrefs);
-  BOOL isAvailable = IsLensOverlayAllowedByPolicy(_profilePrefs);
-  return isAvailable && isSupported && (isPortrait || portraitOverride) &&
-         ![self isLensOverlayVisible];
+  return !IsLensOverlayVisible(self.webState);
 }
 
 // Returns whether Lens Overlay is currently being displayed.
 - (BOOL)isLensOverlayVisible {
-  if (!self.webState) {
-    return NO;
-  }
-  LensOverlayTabHelper* lensOverlayTabHelper =
-      LensOverlayTabHelper::FromWebState(self.webState);
-  return lensOverlayTabHelper &&
-         lensOverlayTabHelper->IsLensOverlayUIAttachedAndAlive();
+  return IsLensOverlayVisible(self.webState);
 }
 
 // Determines whether or not translate is available on the page and logs the
@@ -2349,10 +2315,6 @@ void GetPresetNTPBackgroundPreview(
 // Returns whether the Ask Gemini feature is currently available for the web
 // state.
 - (BOOL)isGeminiAvailable {
-  if (!IsPageActionMenuEnabled()) {
-    return NO;
-  }
-
   if (!_webState) {
     return NO;
   }
@@ -2363,10 +2325,9 @@ void GetPresetNTPBackgroundPreview(
 
   ProfileIOS* profile =
       ProfileIOS::FromBrowserState(_webState->GetBrowserState());
-  GeminiService* geminiService = GeminiServiceFactory::GetForProfile(profile);
-  GeminiTabHelper* tabHelper = GeminiTabHelper::FromWebState(_webState);
-  return tabHelper && tabHelper->IsGeminiAvailableForWebState() &&
-         geminiService && geminiService->IsProfileEligibleForGemini();
+  return gemini::IsGeminiAvailable(gemini::EntryPoint::OverflowMenu, profile,
+                                   _webState)
+      .enabled;
 }
 
 #pragma mark - CRWWebStateObserver
@@ -2673,7 +2634,7 @@ void GetPresetNTPBackgroundPreview(
   actions.push_back(overflow_menu::ActionType::FindInPage);
   actions.push_back(overflow_menu::ActionType::TextZoom);
 
-  if ([self isLensOverlayEnabled]) {
+  if ([self isLensOverlayAvailable]) {
     actions.push_back(overflow_menu::ActionType::LensOverlay);
   }
 
@@ -2688,7 +2649,7 @@ void GetPresetNTPBackgroundPreview(
   if (IsReaderModeAvailable()) {
     actions.push_back(overflow_menu::ActionType::ReaderMode);
   }
-  if (base::FeatureList::IsEnabled(kHideToolbarsInOverflowMenu)) {
+  if (IsHideToolbarEnabled()) {
     actions.push_back(overflow_menu::ActionType::HideToolbars);
   }
 
@@ -2724,7 +2685,7 @@ void GetPresetNTPBackgroundPreview(
     case overflow_menu::ActionType::ShareChrome:
     case overflow_menu::ActionType::EditActions:
     case overflow_menu::ActionType::ShareThisPage:
-    case overflow_menu::ActionType::Signin:
+    case overflow_menu::ActionType::SigninDeprecated:
     case overflow_menu::ActionType::Identity:
     case overflow_menu::ActionType::CustomizeHomePage:
       NOTREACHED();
@@ -2909,17 +2870,6 @@ void GetPresetNTPBackgroundPreview(
   RecordAction(UserMetricsAction("MobileMenuFindInPage"));
   [self dismissMenu];
   [self.findInPageHandler openFindInPage];
-}
-
-// Dismisses the menu and opens the sign-in bottom sheet.
-- (void)showSignin {
-  RecordAction(UserMetricsAction("MobileMenuSignin"));
-  [self dismissMenu];
-  ShowSigninCommand* command = [[ShowSigninCommand alloc]
-      initWithOperation:AuthenticationOperation::kSheetSigninAndHistorySync
-            accessPoint:signin_metrics::AccessPoint::kOverflowMenu];
-  [self.sceneHandler showSignin:command
-             baseViewController:self.baseViewController];
 }
 
 // Dismisses the menu and opens the account menu.
@@ -3247,9 +3197,9 @@ void GetPresetNTPBackgroundPreview(
                                      actionSubtitle:subtitle];
 }
 
-#pragma mark - IdentityManagerObserverBridgeDelegate
+#pragma mark - IdentityManagerObserving
 
-- (void)onPrimaryAccountChanged:
+- (void)primaryAccountDidChange:
     (const signin::PrimaryAccountChangeEvent&)event {
   switch (event.GetEventTypeFor(signin::ConsentLevel::kSignin)) {
     case signin::PrimaryAccountChangeEvent::Type::kNone:
@@ -3261,7 +3211,7 @@ void GetPresetNTPBackgroundPreview(
   }
 }
 
-- (void)onExtendedAccountInfoUpdated:(const AccountInfo&)info {
+- (void)extendedAccountInfoDidUpdate:(const AccountInfo&)info {
   [self updateModel];
 }
 

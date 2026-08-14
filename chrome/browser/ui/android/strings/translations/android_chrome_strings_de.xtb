@@ -12,7 +12,6 @@
 <translation id="1035113036584565771">Werbeangebot zu Benachrichtigungen mit Tipps geschlossen</translation>
 <translation id="1036348656032585052">Deaktivieren</translation>
 <translation id="1045899828449635435">Auch Daten dieser Websites löschen?</translation>
-<translation id="1049461303780085993">Probiere Gemini in Chrome aus – für schnelle Antworten, nützliche Informationen und mehr</translation>
 <translation id="1049743911850919806">Inkognito</translation>
 <translation id="1052842760770519282">Auf einige deiner Passwörter kann nicht zugegriffen werden</translation>
 <translation id="1057623954802068161">Zum Seitenanfang scrollen</translation>
@@ -41,6 +40,7 @@
 <translation id="1140317858355046628">Wenn du die Tabgruppe „<ph name="GROUP_NAME" />“ löschst, verlieren alle Mitglieder sofort den Zugriff darauf und sie wird von allen Geräten gelöscht.</translation>
 <translation id="1142732900304639782">Übersetzen dieser Websites nicht anbieten</translation>
 <translation id="1143193470214071120">Ein Fenster schließen oder Fenster verwalten</translation>
+<translation id="1143486892058798649">Link speichern unter…</translation>
 <translation id="1149725087019908252"><ph name="FILE_NAME" /> wird gescannt</translation>
 <translation id="1150263420752757504"><ph name="APP_NAME" /> wird in Chrome geöffnet. Wenn du fortfährst, stimmst du den <ph name="BEGIN_LINK1" />Google-Nutzungsbedingungen<ph name="END_LINK1" /> und den <ph name="BEGIN_LINK2" />Zusatzbedingungen für Google Chrome und Chrome OS<ph name="END_LINK2" /> zu.</translation>
 <translation id="1154555449933432029">Im Google Passwortmanager sind keine Passwörter gespeichert.</translation>
@@ -71,6 +71,7 @@
 <translation id="1239792311949352652">Diese Seite schnell teilen. Wenn du diese Verknüpfung bearbeiten möchtest, rufe die Einstellungen auf.</translation>
 <translation id="1240288207750131269"><ph name="LANG" /> wird geladen</translation>
 <translation id="124116460088058876">Weitere Sprachen</translation>
+<translation id="1241381048229838873">Alle Lesezeichen anzeigen</translation>
 <translation id="124678866338384709">Aktuellen Tab schließen</translation>
 <translation id="1246905108078336582">Vorschlag aus Zwischenablage entfernen?</translation>
 <translation id="1258753120186372309">Google-Doodle: <ph name="DOODLE_DESCRIPTION" /></translation>
@@ -141,11 +142,13 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="1544826120773021464">Wenn du dein Google-Konto verwalten möchtest, tippe auf den Button „Konto verwalten“</translation>
 <translation id="1549000191223877751">In anderes Fenster schieben</translation>
 <translation id="1553358976309200471">Chrome aktualisieren</translation>
+<translation id="1554352084785952638"><ph name="SEARCH_ENGINE" /> nach „<ph name="SEARCH_TERMS" />“</translation>
 <translation id="1554532453982918912">Hilf dabei, Chrome für andere Nutzer wie dich zu verbessern</translation>
 <translation id="1568636008098739136">Diese Seite anhören. Zum Ändern Button gedrückt halten.</translation>
 <translation id="1571041387761170095">Keine schwachen oder wiederverwendeten Passwörter</translation>
 <translation id="1578591621182011812">{NUM_PASSWORDS,plural, =1{1 kompromittiertes Passwort auf diesem Gerät}other{# kompromittierte Passwörter auf diesem Gerät}}</translation>
 <translation id="1594635596540195766"><ph name="SUGGESTIONS_COUNT" /> vorgeschlagene Elemente in der folgenden Liste.</translation>
+<translation id="159689249463841786">Ordner auswählen, aktuell „<ph name="FOLDER_NAME" />“</translation>
 <translation id="1598163867407640634"><ph name="SITE_ETLD_PLUS_ONE" /> mit <ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" /> verwenden</translation>
 <translation id="1598770407402123677"><ph name="TAB_TITLE" />, angepinnter Tab zum Aufzeichnen</translation>
 <translation id="1600756129506222718"><ph name="TAB_TITLE" />, Tab für die Freigabe</translation>
@@ -189,6 +192,7 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="1807709131360304325">Neues Fenster öffnen</translation>
 <translation id="1812027881030482584"><ph name="SITE_ETLD_PLUS_ONE" /> kann <ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" /> nicht mehr verwenden</translation>
 <translation id="1815975907734103433"><ph name="TAB_TITLE" />, Tab zum Aufzeichnen</translation>
+<translation id="1819443852740954262">Alle in Inkognitofenster öffnen</translation>
 <translation id="1820408774134375111">Ansicht zum Anmelden am unteren Rand</translation>
 <translation id="1823492026305965829">Als <ph name="USER_FULL_NAME" /> anmelden</translation>
 <translation id="1824902652744048041">Tippe auf „Browserdaten löschen“</translation>
@@ -232,7 +236,7 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="200114059308480249">Umgebenden Text in Google-Suchanfragen einschließen?</translation>
 <translation id="2004096469149679223"><ph name="TAB_TITLE" />, angepinnter, stummgeschalteter Inkognitotab</translation>
 <translation id="2021896219286479412">Vollbild-Steuerelemente</translation>
-<translation id="2022953316617983419">QR-Code</translation>
+<translation id="2022369817198611683">Das Beste von Gemini direkt über die Chrome-Symbolleiste. Zum Anpassen lange drücken.</translation>
 <translation id="2024195579772565064">Suchmaschine löschen</translation>
 <translation id="2029669011553795746">Opt-in für Benachrichtigungen mit Tipps halb geöffnet</translation>
 <translation id="2038563949887743358">"Desktopversion ansehen" aktivieren</translation>
@@ -243,6 +247,7 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="2056878612599315956">Website pausiert</translation>
 <translation id="2063047797624276601">Deine Organisation hat das erweiterte Safe Browsing aktiviert</translation>
 <translation id="2065944887543506430">{FILE_COUNT,plural, =1{Fehler bei 1 Download}other{Fehler bei # Downloads}}</translation>
+<translation id="2066690553719545730">KI-Modus immer anzeigen</translation>
 <translation id="2067805253194386918">Text</translation>
 <translation id="2079545284768500474">Rückgängig</translation>
 <translation id="2082238445998314030">Ergebnis <ph name="RESULT_NUMBER" /> von <ph name="TOTAL_RESULTS" /></translation>
@@ -262,6 +267,7 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="2145315049852051678">Chrome prüft regelmäßig, ob dein Browser möglichst sichere Einstellungen hat. Solltest du etwas überprüfen müssen, informieren wir dich.</translation>
 <translation id="2149968176347646218">Verbindung ist nicht sicher</translation>
 <translation id="2149973817440762519">Lesezeichen bearbeiten</translation>
+<translation id="2158475082070321257">Link zum markierten Text kopieren</translation>
 <translation id="2163089732491971196">Gib deine Passphrase ein, um Chrome-Daten in deinem Google-Konto verwenden und speichern zu können</translation>
 <translation id="2164015935042801524">Hier mit der rechten Maustaste klicken, um Tabs vertikal anzuzeigen</translation>
 <translation id="2166228530126694506">Version <ph name="VERSION_NUMBER" /></translation>
@@ -275,6 +281,7 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="2190355936436201913">(leer)</translation>
 <translation id="219283042927675668">Tabs in Gruppe</translation>
 <translation id="2194856509914051091">Wichtige Punkte</translation>
+<translation id="2196695604589508993">Verlauf öffnen</translation>
 <translation id="2205701497928406883"><ph name="TAB_TITLE" />, angepinnter Tab für die Freigabe</translation>
 <translation id="22091350895006575">Nutzername hinzufügen</translation>
 <translation id="221494669172414749">Wenn du Chrome ohne Profilsperre öffnest, werden deine gespeicherten Passwörter und Zahlungsmethoden aus dem Auto entfernt. Durch das Verwenden einer Profilsperre werden diese Daten geschützt.</translation>
@@ -301,15 +308,16 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="2297822946037605517">Seite teilen</translation>
 <translation id="230115972905494466">Keine kompatiblen Geräte gefunden</translation>
 <translation id="2316129865977710310">Nein, danke</translation>
-<translation id="2318045970523081853">Zum Anrufen tippen</translation>
 <translation id="232137538351753795">Vom linken Rand aus wischen, um zurück­zugehen</translation>
 <translation id="2323763861024343754">Websitespeicher</translation>
 <translation id="2327445548174191329">Von <ph name="DEVICE_NAME" /></translation>
 <translation id="2328474416100889417">Alle Mitglieder verlieren dann sofort den Zugriff auf die Tabgruppe „<ph name="GROUP_NAME" />“ und alle Einladungslinks werden deaktiviert</translation>
 <translation id="2329500425421091035">Jetzt neu: KI-Modus in Chrome</translation>
 <translation id="2330186936255788117">Weitere Lesezeichen</translation>
+<translation id="2330243730505117832">„Gerät auswählen“ ist geschlossen.</translation>
 <translation id="2332515770639153015">Erweitertes Safe Browsing ist aktiviert</translation>
 <translation id="233375395665273385">Löschen und abmelden</translation>
+<translation id="2334275697832662087">Mit den KI-Sicherheitsfunktionen von Chrome bist du effektiv vor Bedrohungen sowie beim Surfen im Web geschützt</translation>
 <translation id="2341410551640223969"><ph name="WEBAPK_NAME" /> konnte nicht installiert werden.</translation>
 <translation id="2349710944427398404">Gesamtdaten, die von Chrome verwendet werden, wie Konten, Lesezeichen und gespeicherte Einstellungen</translation>
 <translation id="2354001756790975382">Weitere Lesezeichen</translation>
@@ -435,7 +443,6 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="2841216154655874070">{NUM_DAYS,plural, =1{Zuletzt geprüft: vor 1 Tag}other{Zuletzt geprüft: vor # Tagen}}</translation>
 <translation id="2842985007712546952">Übergeordneter Ordner</translation>
 <translation id="2854916915045135148">Gedrückt halten, um in den Inkognitomodus zu wechseln</translation>
-<translation id="2860954141821109167">Prüfe, ob auf diesem Gerät eine Telefon-App aktiviert ist</translation>
 <translation id="286473047976978798">Einstellungen für die Darstellung übernehmen?</translation>
 <translation id="2869416538780777323">{OTHER_TAB_COUNT,plural, =1{<ph name="URL" /> und 1 weiterer Tab}other{<ph name="URL" /> und <ph name="TAB_COUNT_MANY" /> weitere Tabs}}</translation>
 <translation id="2869430948265924908">Wenn du deine vertraulichen Inhalte bzw. Daten in deinem Auto schützen möchtest, musst du eine Autoprofilsperre erstellen.  Dazu kannst du eine PIN, einen Code oder ein Passwort verwenden.</translation>
@@ -454,7 +461,6 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="2900528713135656174">Termin erstellen</translation>
 <translation id="2901411048554510387">Vorschläge für <ph name="WEBSITE_TITLE" /> werden angezeigt</translation>
 <translation id="2904300462646366554">Heruntergeladene PDFs werden automatisch mit einem der PDF-Viewer auf deinem Gerät geöffnet</translation>
-<translation id="2904414404539560095">Die Liste von Geräten, mit denen ein Tab geteilt werden kann, ist ganz geöffnet.</translation>
 <translation id="2909615210195135082">Google-Benachrichtigungsplattform</translation>
 <translation id="2912247081180973411">Fenster schließen</translation>
 <translation id="2912345083818861431">Displaysperre verwenden, um geöffnete Inkognitotabs zu sehen</translation>
@@ -498,6 +504,7 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="3037177537145227281">Preis wird beobachtet</translation>
 <translation id="3037517125981011456">Aufforderungen für die Anmeldung in Chrome werden angezeigt</translation>
 <translation id="3038272154009688107">Alle Websites anzeigen</translation>
+<translation id="3044436568790455247">„Gerät auswählen“ ist vollständig geöffnet.</translation>
 <translation id="3057938290530993634">Halte deine am häufigsten besuchten Websites gedrückt, um sie anzupinnen und so beim nächsten Mal leichter darauf zugreifen zu können</translation>
 <translation id="3060635849835183725">{BOOKMARKS_COUNT,plural, =1{<ph name="BOOKMARKS_COUNT_ONE" /> Lesezeichen}other{<ph name="BOOKMARKS_COUNT_MANY" /> Lesezeichen}}</translation>
 <translation id="3062802207422175757">Artikel zu deinen Interessen in Chrome</translation>
@@ -506,6 +513,7 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="3067505415088964188">Der Preis ist niedrig</translation>
 <translation id="3070005020161560471">Automatisch übersetzen</translation>
 <translation id="3072980200212375806"><ph name="APP_NAME" /> wird in Chrome geöffnet. Wenn du fortfährst, stimmst du den <ph name="BEGIN_LINK1" />Google-Nutzungsbedingungen<ph name="END_LINK1" /> und den <ph name="BEGIN_LINK2" />Zusatzbedingungen für Google Chrome und Chrome OS<ph name="END_LINK2" /> zu. Außerdem gilt die <ph name="BEGIN_LINK3" />Datenschutzerklärung<ph name="END_LINK3" />.</translation>
+<translation id="3075397426753215787">Wähle ein Gerät aus.</translation>
 <translation id="3080375898390966733">Tab mit Google Lens durchsuchen</translation>
 <translation id="3080525922482950719">Du kannst Seiten speichern, um sie später oder offline zu lesen</translation>
 <translation id="3087734570205094154">Unten</translation>
@@ -545,12 +553,12 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="3282801380074962248">Abschnitt maximieren</translation>
 <translation id="3285065882678541460">{TAB_COUNT,plural, =1{<ph name="TAB_GROUPS_PART" />, <ph name="TAB_COUNT_ONE" /> Tab}other{<ph name="TAB_GROUPS_PART" />, <ph name="TAB_COUNT_MANY" /> Tabs}}</translation>
 <translation id="3286508210927575634">{PASSWORDS_COUNT,plural, =1{1 Passwort ist nur auf diesem Gerät gespeichert. Wenn du es auf deinen anderen Geräten verwenden möchtest, speichere es in deinem Google-Konto.}other{# Passwörter sind nur auf diesem Gerät gespeichert. Wenn du sie auf deinen anderen Geräten verwenden möchtest, speichere sie in deinem Google-Konto.}}</translation>
+<translation id="3287664192482809715">„Gerät auswählen“ ist halb geöffnet.</translation>
 <translation id="3293181007446299124">Dein Browserverlauf wird sicher auf deinem Gerät gespeichert und Berichte werden mit einer Verzögerung gesendet, um deine Identität zu schützen</translation>
 <translation id="3301639354590628973">Konto wechseln?</translation>
 <translation id="3301936297336370235">Bestätigung des Passwortvorschlags</translation>
 <translation id="3302615849591357577">Tabgruppe <ph name="TITLE_OF_GROUP" /> mit der Farbe <ph name="COLOR_NAME" /> als neue Tabgruppe im Hintergrund wiederherstellen.</translation>
 <translation id="3303855915957856445">Keine Suchergebnisse gefunden</translation>
-<translation id="3305130791745726624">An Geräte senden</translation>
 <translation id="3305795716056605962">Seiten über den Button „Weitere Optionen“ übersetzen lassen</translation>
 <translation id="3307355280394823921">Verlauf öffnen</translation>
 <translation id="3309978850836730073">Der Lesemodus ist immer hier verfügbar</translation>
@@ -559,6 +567,7 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="3331974543021145906">App-Info</translation>
 <translation id="3334729583274622784">Dateiendung ändern?</translation>
 <translation id="333863344734218290">Warnt dich vor unsicheren öffentlichen und privaten Websites</translation>
+<translation id="3339788961947270565">Herunterfahren wird abgeschlossen</translation>
 <translation id="3340978935015468852">Einstellungen</translation>
 <translation id="3351959803838327376">Drücke lange auf die Website und öffne das Menü</translation>
 <translation id="3359667936385849800">Aktuellen Anbieter verwenden</translation>
@@ -612,6 +621,7 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="3577473026931028326">Ein Fehler ist aufgetreten. Versuche es noch einmal.</translation>
 <translation id="3577558748185201054">Verwalte deine Interessen und Einstellungen</translation>
 <translation id="3587482841069643663">Alle</translation>
+<translation id="3598421953808879451">Video speichern unter…</translation>
 <translation id="3602290021589620013">Vorschau</translation>
 <translation id="3614126103057878858">Preisinformationen</translation>
 <translation id="3616113530831147358">Audio</translation>
@@ -722,6 +732,8 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="4044708993631234325">Tabellenblatt am unteren Rand</translation>
 <translation id="4045441967987592849">Noch einmal öffnen</translation>
 <translation id="4049920046559074950">Weitere Optionen für „<ph name="INSTANCE_TITLE" />“</translation>
+<translation id="4051548576872472315">Hier findest du deine kürzlich geschlossenen Tabs und Fenster</translation>
+<translation id="4051569243832293689">{NUM_BOOKMARKS,plural, =1{In Inkognitofenster öffnen}other{Alle (#) in Inkognitofenster öffnen}}</translation>
 <translation id="4052419222954753986">{NUMBER_OF_TABS,plural, =1{<ph name="TABS_COUNT_ONE" /> Standard-Tab mit neuer Aktivität in freigegebenen Tabgruppen}other{<ph name="TABS_COUNT_MANY" /> Standard-Tabs mit neuer Aktivität in freigegebenen Tabgruppen}}</translation>
 <translation id="405365679581583349">Google Play-Dienste aktualisieren</translation>
 <translation id="405399507749852140">Du wirst bei einem Preisnachlass benachrichtigt</translation>
@@ -739,7 +751,6 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="4116038641877404294">Seiten zur Offline-Ansicht herunterladen</translation>
 <translation id="4121654769234887259">Du musst dir dieses Passwort nicht merken. Es wird im Google Passwortmanager für <ph name="USERNAME" /> gespeichert.</translation>
 <translation id="4132137475637520539">Alle Nutzer mit dem Link beitreten lassen</translation>
-<translation id="4135200667068010335">Die Liste von Geräten, mit denen ein Tab geteilt werden kann, ist geschlossen.</translation>
 <translation id="4136632885151622181"><ph name="TAB_TITLE" />, mehrfach ausgewählter, angepinnter Tab zum Aufzeichnen</translation>
 <translation id="4137746084635924146">Aktuelle Gerätesprache</translation>
 <translation id="414128724510021958">Desktopwebsites werden standardmäßig angefordert</translation>
@@ -772,7 +783,6 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="4256782883801055595">Open Source-Lizenzen</translation>
 <translation id="426652736638196239">Diese IBAN wird nur auf diesem Gerät gespeichert</translation>
 <translation id="4269820728363426813">URL kopieren</translation>
-<translation id="4270730597186910506">Ein Produkt beobachten oder die Beobachtung beenden.</translation>
 <translation id="4277529130885813215">Anderes Gerät verwenden</translation>
 <translation id="427987768447457592">Neue Tabgruppe</translation>
 <translation id="4282440837784183472">Deine Organisation, <ph name="MANAGED_DOMAIN" />, verwaltet dieses Konto und die Nutzung von Chrome. Dein Administrator kann einzelne Funktionen einrichten oder einschränken.</translation>
@@ -825,6 +835,7 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="442518031075347249">Du kannst deine virtuelle Karte dann nicht mehr mit Google Pay verwenden. <ph name="BEGIN_LINK1" />Weitere Informationen zu virtuellen Karten<ph name="END_LINK1" /></translation>
 <translation id="442577985493096785">{TAB_COUNT,plural, =1{<ph name="TAB_TITLE" /> und <ph name="TAB_COUNT_ONE" /> weiterer Tab werden geschlossen}other{<ph name="TAB_TITLE" /> und <ph name="TAB_COUNT_MANY" /> weitere Tabs werden geschlossen}}</translation>
 <translation id="4430277756566635951">Aktuell ausgewählt: <ph name="EMAIL" />. Wähle ein Konto aus.</translation>
+<translation id="4430369329743628066">Lesezeichen hinzugefügt</translation>
 <translation id="4452411734226507615">Tab "<ph name="TAB_TITLE" />" schließen</translation>
 <translation id="4452548195519783679">Als Lesezeichen in "<ph name="FOLDER_NAME" />" gespeichert</translation>
 <translation id="4460822871039013969"><ph name="TAB_TITLE" />, ausgewählter, angepinnter Tab zum Aufzeichnen</translation>
@@ -1060,7 +1071,6 @@ Eventuell findest du unter <ph name="BEGIN_LINK" />history.google.com<ph name="E
 <translation id="5436928407363358055">Damit du einfach dort weitermachen kannst, wo du aufgehört hast, synchronisiere deinen Verlauf und deine Tabs</translation>
 <translation id="5438292632479953702">Noch einmal herunterladen</translation>
 <translation id="5439191312780166229">Warnt dich vor schädlichen Websites, auch solchen, die Google vorher nicht bekannt waren, indem mehr Daten von Websites analysiert werden als beim Standardschutz. Du kannst Warnungen von Chrome überspringen.</translation>
-<translation id="5441137934526263133">Website funktioniert nicht? Drittanbieter-Cookies werden blockiert.</translation>
 <translation id="5441466871879044658">In diese Sprache übersetzen</translation>
 <translation id="5444999712122199445">Zurück zur Website</translation>
 <translation id="544776284582297024">Auf den Button „Tabs öffnen“ tippen, um Tabs zu öffnen und mehrere Seiten gleichzeitig zu besuchen</translation>
@@ -1076,6 +1086,7 @@ Eventuell findest du unter <ph name="BEGIN_LINK" />history.google.com<ph name="E
 <translation id="5517326820028369152">Ansicht mit den letzten Aktivitäten am unteren Rand</translation>
 <translation id="5526281268548144413">Kann nicht in mehreren Fenstern geschlossen werden</translation>
 <translation id="5532536403031755365">Mit dem erweiterten Schutz kannst du dich durch zusätzliche Schutzmaßnahmen besser vor Onlinebedrohungen schützen lassen</translation>
+<translation id="5540127996007641535">{NUM_BOOKMARKS,plural, =1{Lesezeichen öffnen}other{Alle öffnen (#)}}</translation>
 <translation id="5548606607480005320">Sicherheitscheck</translation>
 <translation id="5554520618550346933">Wenn du ein Passwort verwendest, wirst du von Chrome gewarnt, falls es online veröffentlicht wurde. Dabei werden deine Passwörter und Nutzernamen verschlüsselt, damit sie von niemandem gelesen werden können, auch nicht von Google.</translation>
 <translation id="5555525474779371165">Safe Browsing-Schutz auswählen</translation>
@@ -1131,7 +1142,6 @@ Eventuell findest du unter <ph name="BEGIN_LINK" />history.google.com<ph name="E
 <translation id="5763514718066511291">Tippen, um die URL für diese App zu kopieren</translation>
 <translation id="5765517223145864268">Sage uns deine Meinung zum dunklen Design. Oder <ph name="BEGIN_LINK" />ändere deine Einstellungen<ph name="END_LINK" />.</translation>
 <translation id="5776970333778123608">Unwichtige Daten</translation>
-<translation id="5788665823391532892">Problem melden…</translation>
 <translation id="5793665092639000975"><ph name="SPACE_USED" /> von <ph name="SPACE_AVAILABLE" /> werden verwendet</translation>
 <translation id="5797949256525811424">Blockiertes Thema</translation>
 <translation id="580893287573699959">Hier kannst du Themen und Websites verwalten, die dich interessieren</translation>
@@ -1140,7 +1150,7 @@ Eventuell findest du unter <ph name="BEGIN_LINK" />history.google.com<ph name="E
 <translation id="581030587084991751">{NUM_SUSPICIOUS_NOTIFICATIONS,plural, =1{Benachrichtigung anzeigen}other{Benachrichtigungen anzeigen}}</translation>
 <translation id="5811144606237321538"><ph name="TAB_TITLE" />, mehrfach ausgewählter, angepinnter, stummgeschalteter Tab</translation>
 <translation id="5823093032261493462">Möchtest du „<ph name="FILE_NAME" />“ trotzdem von <ph name="DOWNLOAD_DOMAIN" /> herunterladen?</translation>
-<translation id="5825135637446025843">Nach dem Neustart von Chrome werden die von deinem neuen Anbieter gespeicherten Informationen verwendet, um Passwörter, Passkeys, Adressen, Zahlungsmethoden und andere Informationen automatisch auszufüllen.</translation>
+<translation id="5825135637446025843">Nach dem Neustart von Chrome werden die von deinem neuen Anbieter gespeicherten Informationen verwendet, um Passwörter, Passkeys, Adressen, Zahlungsmethoden und andere Informationen automatisch einzufügen.</translation>
 <translation id="5828921839638612740">Du kannst die Daten in den Chrome-Einstellungen löschen</translation>
 <translation id="5829586821381540080">In „<ph name="FOLDER_NAME" />“ gespeichert</translation>
 <translation id="583281660410589416">Unbekannt</translation>
@@ -1183,6 +1193,7 @@ Eventuell findest du unter <ph name="BEGIN_LINK" />history.google.com<ph name="E
 <translation id="5995726099713306770">Seite noch einmal herunterladen?</translation>
 <translation id="5998675059699164418">Deine Organisation verlangt, dass du dich für die Verwendung von Chrome anmeldest.</translation>
 <translation id="6000066717592683814">Google beibehalten</translation>
+<translation id="6002122790816966947">Meine Geräte</translation>
 <translation id="6011308810877101166">Suchvorschläge verbessern</translation>
 <translation id="6013305291643746595">Älteste zuerst</translation>
 <translation id="6022659036123304283">Chrome personalisieren</translation>
@@ -1249,6 +1260,7 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="6246073558347462570">Pop-up-Fenster „Kontext hinzufügen“</translation>
 <translation id="6247557882553405851">Google Passwortmanager</translation>
 <translation id="6248988683584659830">In den Einstellungen suchen</translation>
+<translation id="6250486830372700930">Du kannst auch Erweiterungen von diesem Gerät entfernen</translation>
 <translation id="6250847299079540062">„<ph name="TAB_TITLE" />“, mehrfach ausgewählter angepinnter Inkognitotab</translation>
 <translation id="6251449557817521191">Hier kannst du dir den Chrome-Verlauf ansehen</translation>
 <translation id="6254139308321626268">Du siehst gerade eine PDF‑Datei</translation>
@@ -1273,8 +1285,10 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="6315386555979018699">Löschen und fortfahren</translation>
 <translation id="6316139424528454185">Android-Version nicht unterstützt</translation>
 <translation id="631839948975905034">Beim Verlassen von Chrome Inkognitofenster sperren</translation>
+<translation id="6321592572353357376">Die Erweiterung „<ph name="EXTENSION_NAME" />“ fordert dich auf, dich in Chrome anzumelden</translation>
 <translation id="6324916366299863871">Verknüpfung bearbeiten</translation>
 <translation id="6324977638108296054">Link zum markierten Text kann nicht erstellt werden</translation>
+<translation id="6331836477476466332">Ein sicherer und leistungsstarker Browser für dich</translation>
 <translation id="6333140779060797560">Über <ph name="APPLICATION" /> teilen</translation>
 <translation id="6335454563754888572">URL bearbeiten, die auf die Seite unter <ph name="PAGE_URL" /> verweist</translation>
 <translation id="6337234675334993532">Verschlüsselung</translation>
@@ -1395,7 +1409,6 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="6762511428368667596"><ph name="NAME" />, <ph name="EMAIL" />.</translation>
 <translation id="676305334223455055">Melde dich an, um Inhalte zu erhalten, die deinen Interessen entsprechen</translation>
 <translation id="6764137532716892442"><ph name="GROUP_TITLE" />, geteilte Tabgruppe mit neuer Aktivität</translation>
-<translation id="6767294960381293877">Die Liste von Geräten, mit denen ein Tab geteilt werden kann, ist halb geöffnet.</translation>
 <translation id="6783664456110886353">{TAB_COUNT,plural, =1{<ph name="INCOGNITO_TAB_COUNT" /> Inkognito- und <ph name="TAB_COUNT_ONE" /> weiterer Tab werden geschlossen}other{<ph name="INCOGNITO_TAB_COUNT" /> Inkognito- und <ph name="TAB_COUNT_MANY" /> weitere Tabs werden geschlossen}}</translation>
 <translation id="6785476624617658922">Zusatzbedingungen für Google Chrome und Chrome OS</translation>
 <translation id="6786747875388722282">Erweiterungen</translation>
@@ -1420,27 +1433,29 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="6831043979455480757">Übersetzen</translation>
 <translation id="6835182496791325827">Du wirst benachrichtigt, wenn Chrome die besten Ergebnisse für deine Suchanfragen findet, während du nicht da bist.</translation>
 <translation id="6846298663435243399">Wird geladen…</translation>
-<translation id="6850409657436465440">Download noch in Bearbeitung</translation>
 <translation id="6850830437481525139"><ph name="TAB_COUNT" /> Tabs geschlossen</translation>
 <translation id="6852437757508328589">{NUM_RESULTS,plural, =1{1 Ergebnis gefunden}other{# Ergebnisse gefunden}}</translation>
 <translation id="685340923442249391">{FILE_COUNT,plural, =1{Audiodateien, 1 Audiodatei in der Liste}other{Audiodateien, # Audiodateien in der Liste}}</translation>
+<translation id="6857043990326114901">Ordner hinzufügen…</translation>
 <translation id="685850645784703949">Discover von Google – aus</translation>
+<translation id="6858893072923394368">Seite hinzufügen…</translation>
 <translation id="6864459304226931083">Bild herunterladen</translation>
 <translation id="686490460830618322">App-Filtertabelle</translation>
 <translation id="6865313869410766144">Autofill-Formulardaten</translation>
 <translation id="6867400383614725881">Neuer Inkognitotab</translation>
 <translation id="686899695320434745">Adressen werden nicht mit deiner Passphrase verschlüsselt. So kannst du sie in anderen Google-Diensten verwenden.</translation>
 <translation id="6870625088374152862">Angemeldet als <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="6871397658902960384">Suche starten</translation>
 <translation id="687838958001010630">Jeder Nutzer mit dem Link kann alle Tabs bearbeiten</translation>
 <translation id="6880903702195291049">Berechtigungen sehen sicher aus</translation>
 <translation id="6883204995689174413">Teilen</translation>
 <translation id="6883264411109586397">{ITEMS_COUNT,plural, =1{1 Element ist nur auf diesem Gerät gespeichert. Wenn du es auf deinen anderen Geräten verwenden möchtest, speichere es in deinem Google-Konto.}other{# Elemente sind nur auf diesem Gerät gespeichert. Wenn du sie auf deinen anderen Geräten verwenden möchtest, speichere sie in deinem Google-Konto.}}</translation>
-<translation id="6883606786470492001">Du kannst deine Werbethemen und andere Einstellungen verwalten, um einzuschränken, welche Informationen Websites über dich erfahren dürfen, um dir personalisierte Werbung zu zeigen</translation>
 <translation id="6883906387682976294">Keine Benachrichtigungen von dieser Website mehr erhalten</translation>
 <translation id="688398477366397178">Gib für Websites an, welche Sprachen du sprichst. Inhalte werden dann nach Möglichkeit in diesen Sprachen angezeigt.</translation>
 <translation id="6885933993535178919">{NUM_SITES,plural, =1{Von einer Website abgemeldet}other{Von # Websites abgemeldet}}</translation>
 <translation id="6886500155621657325">{ITEMS_COUNT,plural, =1{1 Passwort}other{# Passwörter}}</translation>
 <translation id="688730033107341407">Nach der Abmeldung werden Lesezeichen, Passwörter und weitere Daten in deinem Google-Konto von diesem Gerät entfernt.</translation>
+<translation id="6892009074348518725">Melde dich in Chrome an, um diese Erweiterung zu verwenden. Du kannst auch deine Passwörter und weitere Daten aus deinem Google-Konto verwenden und speichern.</translation>
 <translation id="6896758677409633944">Kopieren</translation>
 <translation id="6898797562238201317">Eigene Passphrase für die Verschlüsselung aller Chrome-Daten in meinem Google-Konto verwenden</translation>
 <translation id="6900532703269623216">Erweitertes Safe Browsing</translation>
@@ -1452,6 +1467,7 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="6910211073230771657">Gelöscht</translation>
 <translation id="6916590542764765824">Erweiterungen verwalten</translation>
 <translation id="6918398787259831832">Wenn das Problem weiterhin auftritt, <ph name="BEGIN_LINK" />findest du hier weitere Informationen<ph name="END_LINK" /> von <ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" />.</translation>
+<translation id="6920262510368602827">QR-Code für diese Seite erstellen</translation>
 <translation id="6922812712751566567"><ph name="PERMISSION" /> <ph name="SEPARATOR" /> Chrome hat diese Berechtigungen entfernt, weil du die Website in letzter Zeit nicht besucht hast</translation>
 <translation id="6927821422725196292">{TABS_COUNT,plural, =1{1 Tab}other{<ph name="NUMBER_OF_TABS" /> Tabs}}</translation>
 <translation id="6929224077895306814">Alle auf deinem Gerät und in deinem Google-Konto gespeicherten Sicherheitscodes werden gelöscht</translation>
@@ -1477,6 +1493,7 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="6983306615164277634">Alternativ kannst du auch die Adressleiste gedrückt halten, um die Position zu ändern.</translation>
 <translation id="6987047470128880212">Der Inkognitomodus ist auf diesem Gerät nicht verfügbar</translation>
 <translation id="6996145122199359148">Diese Seite herunterladen</translation>
+<translation id="7007648447224463482">Alle in neuem Fenster öffnen</translation>
 <translation id="7013762323294215682">Dieser Passkey wird in deinem Passwortmanager gespeichert. Jeder, der Zugriff darauf hat, kann diesen Passkey verwenden.</translation>
 <translation id="7020741890149022655">Zur Leseliste hinzufügen <ph name="BEGIN_NEW" />Neu<ph name="END_NEW" /></translation>
 <translation id="7022756207310403729">Im Browser öffnen</translation>
@@ -1497,7 +1514,6 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="7088681679121566888">Chrome ist auf dem neuesten Stand</translation>
 <translation id="7098100324909062850"><ph name="TAB_TITLE" />, mehrfach ausgewählter, stummgeschalteter Inkognitotab</translation>
 <translation id="7106762743910369165">Dein Browser wird von deiner Organisation verwaltet</translation>
-<translation id="7111394291981742152">Mit Chrome hast du mehr Kontrolle darüber, welche Werbung du siehst – außerdem kannst du einschränken, was Websites über dich erfahren können, wenn sie dir personalisierte Werbung zeigen.</translation>
 <translation id="7111822978084196600">Fenster benennen</translation>
 <translation id="7115358764509798967">System-Standard­einstellung</translation>
 <translation id="7117485132243600300">Inhalte, denen du folgst, sowie vorgeschlagene Themen und Suchanfragen verwalten</translation>
@@ -1513,6 +1529,7 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="71503698506017927">Die Passphrasenverschlüsselung enthält keine Zahlungsmethoden oder Adressen von Google Pay.
 
 Wenn du diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die Chrome-Daten in deinem Konto<ph name="END_LINK" />.</translation>
+<translation id="7159399361248977424">Bild speichern unter…</translation>
 <translation id="7165972437814027679">Weitere Informationen dazu, warum einige Dateien von Chrome blockiert werden</translation>
 <translation id="7168323970702333693">Angemeldet als <ph name="USER_NAME" />. Die Einstellungen werden geöffnet.</translation>
 <translation id="7170930892977483182">Alle auf deinem Gerät und in Google Wallet gespeicherten Sicherheitscodes werden gelöscht</translation>
@@ -1543,6 +1560,7 @@ Wenn du diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die
 <translation id="7248671827512403053">App</translation>
 <translation id="7253951228444156601">Passwörter werden geprüft…</translation>
 <translation id="7260367682327802201">Dein Android-Gerät verfügt möglicherweise über eine ähnliche Einstellung. Wenn die Erfolgsmessung bei Anzeigen in Chrome und auf deinem Android-Gerät aktiviert ist, können Unternehmen möglicherweise die Effektivität von Werbung auf den von dir besuchten Websites und in den von dir verwendeten Apps analysieren.</translation>
+<translation id="7265857422443387781">Tab mit Google Lens durchsuchen <ph name="BEGIN_NEW" />Neu<ph name="END_NEW" /></translation>
 <translation id="727288900855680735"><ph name="ONE_TIME_CODE" /> an <ph name="ORIGIN" /> senden?</translation>
 <translation id="7274013316676448362">Blockierte Website</translation>
 <translation id="7276868533747677875">Wenn du zuvor Passwörter exportiert hast, suche auf deinem Gerät nach einer CSV-Datei und importiere die Passwörter in deinen bevorzugten Passwortmanager.</translation>
@@ -1567,6 +1585,7 @@ Wenn du diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die
 <translation id="7359002509206457351">Auf Zahlungsmethoden zugreifen</translation>
 <translation id="7363349185727752629">Übersicht über deine Datenschutzeinstellungen</translation>
 <translation id="7364103838544876661">Weitere Optionen zum Löschen von Browserdaten</translation>
+<translation id="736435710397109878">Karten-Spitzname, maximal 25 Zeichen</translation>
 <translation id="7365073365123878797">Wenn du Passwörter mit dem Google Passwortmanager speichern und verwenden möchtest, musst du die Google Play-Dienste aktualisieren</translation>
 <translation id="7368009310682364976">Zuletzt geöffnete Tabs ansehen</translation>
 <translation id="7368927539449986686">Website-Suchmaschine bearbeiten</translation>
@@ -1597,6 +1616,7 @@ Wenn du diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die
 <translation id="7475688122056506577">SD-Karte nicht gefunden. Einige deiner Dateien fehlen möglicherweise.</translation>
 <translation id="7479104141328977413">Tab-Verwaltung</translation>
 <translation id="7481312909269577407">Vorwärts</translation>
+<translation id="7481588001304663390">{NUM_BOOKMARKS,plural, =1{In neuer Tabgruppe öffnen}other{Alle (#) in neuer Tabgruppe öffnen}}</translation>
 <translation id="7482656565088326534">Vorschau-Tab</translation>
 <translation id="7484997419527351112">Discover – aus</translation>
 <translation id="7485033510383818941">Zum Aktualisieren des Feeds Seite nach unten ziehen</translation>
@@ -1684,6 +1704,7 @@ Wenn du diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die
 <translation id="7824665136384946951">Deine Organisation hat Safe Browsing deaktiviert</translation>
 <translation id="7825973332242257878">Tabgruppen</translation>
 <translation id="7826342993930002256">Dein persönlicher Chrome-Browser – auf allen Geräten</translation>
+<translation id="7845155831233417403">Du kannst bis zu <ph name="MAX_INSTANCE_COUNT" /> Fenster nutzen. Schließe ein Fenster, um fortzufahren.</translation>
 <translation id="7846161022626028328">Ein Fehler ist aufgetreten. Versuche es noch einmal.</translation>
 <translation id="7846296061357476882">Google-Dienste</translation>
 <translation id="784652447248278262">Aktuelles Fenster</translation>
@@ -1750,9 +1771,9 @@ Wenn du diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die
 <translation id="8088176524274673045">Um diesen Inhalt mit Personen in deiner Nähe zu teilen, bitte sie, den QR-Code zu scannen</translation>
 <translation id="8090732854597034573">Wenn du Hilfe brauchst, sprich mit deinen Eltern</translation>
 <translation id="8101414242770404289">Keine Tabs aus <ph name="TIME_PERIOD" /></translation>
-<translation id="8103578431304235997">Inkognitotab</translation>
 <translation id="810433609302852">Werbeangebot zur Benachrichtigungsfunktion für Tipps sowie Anleitung zur Verwendung in der Ansicht am unteren Rand</translation>
 <translation id="8105893657415066307"><ph name="DESCRIPTION" /> <ph name="SEPARATOR" /> <ph name="FILE_SIZE" /></translation>
+<translation id="8109802255973641442">Erweiterungen und die darüber auf diesem Gerät gespeicherten Daten entfernen</translation>
 <translation id="8110024788458304985">Hilf uns, die Funktionen und die Leistung von Chrome zu verbessern</translation>
 <translation id="8110087112193408731">Deine Chrome-Aktivitäten in Digital Wellbeing anzeigen?</translation>
 <translation id="8118117428362942925">Wenn du Hilfe brauchst, sprich mit deinen Eltern (<ph name="PARENT_NAME" />)</translation>
@@ -1807,10 +1828,12 @@ Wenn du diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die
 <translation id="8282297628636750033">Dunkles Design auf Websites anwenden</translation>
 <translation id="8282950411412455249">Zu den Sicherheitseinstellungen</translation>
 <translation id="8288688997999490824">{NUM_WINDOWS,plural, =1{1 Inkognitofenster schließen}other{# Inkognitofenster schließen}}</translation>
+<translation id="8289602658021943461">Videoframe speichern unter…</translation>
 <translation id="8313599942510782709">Deine Aufgabe wird noch ausgeführt</translation>
 <translation id="8317318757008452355">Druckeroptionen öffnen</translation>
 <translation id="8320212361750431956">Letzte Aktivität</translation>
 <translation id="832514020744584629"><ph name="PREF_TITLE" />  <ph name="BEGIN_NEW" />Neu<ph name="END_NEW" /></translation>
+<translation id="8333026248928723981">Lesezeichen und Listen</translation>
 <translation id="8342727528718219152">Chrome informiert dich über Websites, die möglicherweise zu viele Benachrichtigungen senden</translation>
 <translation id="834313815369870491">Websites nie übersetzen</translation>
 <translation id="8348215005712416247"><ph name="TAB_TITLE" />, mehrfach ausgewählter, angepinnter Inkognitotab zum Aufzeichnen</translation>
@@ -1842,6 +1865,7 @@ Wenn du diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die
 <translation id="8445448999790540984">Passwörter können nicht exportiert werden</translation>
 <translation id="8446884382197647889">Weitere Informationen</translation>
 <translation id="8449781591250785734">{NUM_SITES,plural, =1{Berechtigungen von 1 Website entfernt}other{Berechtigungen von # Websites entfernt}}</translation>
+<translation id="8449836157089738489">Alle in neuer Tabgruppe öffnen</translation>
 <translation id="8453310803815879010">Dino-Spiel starten</translation>
 <translation id="8455675988389029454">Lesezeichen, Passwörter und andere Daten auf allen deinen Geräten aufrufen</translation>
 <translation id="8458341576712814616">Kürzel</translation>
@@ -1851,6 +1875,7 @@ Wenn du diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die
 <translation id="8460448946170646641">Die wichtigsten Datenschutz- und Sicherheitseinstellungen überprüfen</translation>
 <translation id="8460932807646981183">Suchmaschinen und die Websitesuche verwalten</translation>
 <translation id="8465252176946159372">Ungültig</translation>
+<translation id="8472353072135865937">{NUM_BOOKMARKS,plural, =1{In neuem Fenster öffnen}other{Alle (#) in neuem Fenster öffnen}}</translation>
 <translation id="8473863474539038330">Adressen und andere Daten</translation>
 <translation id="847433688444405067">Geräteübergreifend surfen</translation>
 <translation id="8477178913400731244">Daten löschen</translation>
@@ -1863,6 +1888,7 @@ Wenn du diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die
 <translation id="8506357771923193001">Hier findest du deine Downloads</translation>
 <translation id="8512053371384421952">Du erhältst keine Benachrichtigungen mehr von <ph name="DOMAIN" />.</translation>
 <translation id="8516012719330875537">Bildeditor</translation>
+<translation id="8517759303731677493">Bearbeiten…</translation>
 <translation id="8533670235862049797">Safe Browsing ist aktiviert</translation>
 <translation id="8538291624121505885"><ph name="TAB_TITLE" />, mehrfach ausgewählter angepinnter Tab im Bild-im-Bild-Modus</translation>
 <translation id="8540136935098276800">Bitte gib eine korrekt formatierte URL ein</translation>
@@ -1885,6 +1911,7 @@ Wenn du diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die
 <translation id="860282621117673749">Benachrichtigungen bei Preisnachlässen</translation>
 <translation id="8611922158252451755">Alle Nutzer mit dem Link können alle Tabs bearbeiten. Überlege dir also gut, wem du den Link sendest. Der Link läuft in 48 Stunden ab.</translation>
 <translation id="8616006591992756292">Unter <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> sind möglicherweise weitere Arten von Browserverlaufsdaten für dein Google-Konto gespeichert.</translation>
+<translation id="8626572875733549102">Zielsprache: <ph name="LANGUAGE" /></translation>
 <translation id="8629093325209491835">Öffne das Chrome-Menü &gt; Einstellungen</translation>
 <translation id="8634050254805484913">Auf schmalen Displays ausgeblendet</translation>
 <translation id="8635399646025169806">Tabgruppe beibehalten?</translation>
@@ -1911,6 +1938,7 @@ Wenn du diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die
 <translation id="8738163682604285902">Lesemodus öffnen?</translation>
 <translation id="8746155870861185046">Markierung teilen</translation>
 <translation id="8748850008226585750">Inhalte ausgeblendet</translation>
+<translation id="874918643257405732">Lesezeichen für diesen Tab erstellen</translation>
 <translation id="8754448020583829686">Ohne Link kopieren</translation>
 <translation id="8756969031206844760">Passwort aktualisieren?</translation>
 <translation id="8765470054473112089">Wenn du etwas in die Adressleiste oder das Suchfeld eingibst, sendet Chrome deine Eingabe an deine Standardsuchmaschine, damit du bessere Vorschläge erhältst. Im Inkognitomodus ist diese Funktion deaktiviert.</translation>
@@ -2006,7 +2034,6 @@ Wenn du diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die
 <translation id="9101137867221042551">Verwaltung</translation>
 <translation id="9102803872260866941">Vorschau-Tab ist geöffnet</translation>
 <translation id="9102864637938129124">Websites und Werbetreibende können die Leistung ihrer Werbung analysieren. Diese Einstellung ist aktiviert.</translation>
-<translation id="9104217018994036254">Die Liste von Geräten, mit denen ein Tab geteilt werden kann.</translation>
 <translation id="9106148373857059373">Ablauf zum Speichern von Lesezeichen beendet</translation>
 <translation id="9108808586816295166">Sicheres DNS ist möglicherweise nicht immer verfügbar</translation>
 <translation id="9112483451228487295">Browserdaten schnell löschen</translation>
@@ -2033,10 +2060,10 @@ Wenn du diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die
 <translation id="9204836675896933765">Noch 1 Datei</translation>
 <translation id="9205933215779845960">Diese Seite konnte nicht gefunden werden. Prüfe die Schreibweise oder versuche es mit einer Suchanfrage bei <ph name="SEARCH_ENGINE" />.</translation>
 <translation id="9206873250291191720">A</translation>
-<translation id="9209888181064652401">Anrufe nicht möglich</translation>
 <translation id="9212845824145208577">Screenshot kann nicht nach unten erweitert werden. Beginne weiter unten auf der Seite.</translation>
 <translation id="9218430445555521422">Als Standard festlegen</translation>
 <translation id="9219103736887031265">Bilder</translation>
+<translation id="922152298093051471">Chrome anpassen</translation>
 <translation id="9222198206152536936">Wenn du auf allen deinen Geräten auf deine Tabs und mehr zugreifen möchtest, melde dich als <ph name="EMAIL" /> an</translation>
 <translation id="924447568950697217">Chrome als Standardbrowser festlegen</translation>
 <translation id="926205370408745186">Chrome-Aktivitäten aus Digital Wellbeing entfernen</translation>
@@ -2047,6 +2074,7 @@ Wenn du diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die
 <translation id="939598580284253335">Passphrase eingeben</translation>
 <translation id="94161319503679839"><ph name="TAB_TITLE" />, angepinnter Inkognitotab im Bild-im-Bild-Modus</translation>
 <translation id="945522503751344254">Feedback geben</translation>
+<translation id="948276827484905248">QR-Code erstellen</translation>
 <translation id="95817756606698420">Chrome kann in China <ph name="BEGIN_BOLD" />Sogou<ph name="END_BOLD" /> für die Suche verwenden. Du kannst dies unter <ph name="BEGIN_LINK" />Einstellungen<ph name="END_LINK" /> ändern.</translation>
 <translation id="961856697154696964">Browserdaten löschen</translation>
 <translation id="963246339335003378">Task-Manager öffnen</translation>

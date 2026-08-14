@@ -4,7 +4,6 @@
 
 #include "chrome/browser/ui/views/payments/payment_request_browsertest_base.h"
 
-#include <algorithm>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -13,10 +12,8 @@
 
 #include "base/command_line.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_helpers.h"
 #include "base/notimplemented.h"
 #include "base/run_loop.h"
-#include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/payments/payment_request_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -24,6 +21,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/payments/editor_view_controller.h"
 #include "chrome/browser/ui/views/payments/payment_request_dialog_view_ids.h"
+#include "chrome/browser/ui/views/payments/payment_request_dialog_view_test_api.h"
 #include "chrome/browser/ui/views/payments/validating_combobox.h"
 #include "chrome/browser/ui/views/payments/validating_textfield.h"
 #include "chrome/browser/ui/views/payments/view_stack.h"
@@ -40,7 +38,6 @@
 #include "components/network_session_configurator/common/network_switches.h"
 #include "components/payments/content/payment_request.h"
 #include "components/payments/core/payment_prefs.h"
-#include "components/prefs/pref_service.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
@@ -48,7 +45,6 @@
 #include "content/public/test/browser_test_utils.h"
 #include "net/dns/mock_host_resolver.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/base/test/ui_controls.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event.h"
 #include "ui/gfx/animation/test_animation_delegate.h"
@@ -63,6 +59,8 @@
 namespace payments {
 
 namespace {
+
+using IconInstall = test::PaymentAppInstallUtil::IconInstall;
 
 // This is preferred to SelectValue, since only SetSelectedRow fires the events
 // as if done by a user.
@@ -301,6 +299,18 @@ void PaymentRequestBrowserTestBase::OnProcessingSpinnerHidden() {
   }
 }
 
+void PaymentRequestBrowserTestBase::OnLoadingViewShown() {
+  if (event_waiter_) {
+    event_waiter_->OnEvent(DialogEvent::LOADING_VIEW_SHOWN);
+  }
+}
+
+void PaymentRequestBrowserTestBase::OnLoadingViewHidden() {
+  if (event_waiter_) {
+    event_waiter_->OnEvent(DialogEvent::LOADING_VIEW_HIDDEN);
+  }
+}
+
 void PaymentRequestBrowserTestBase::OnPaymentHandlerWindowOpened() {
   if (event_waiter_) {
     event_waiter_->OnEvent(DialogEvent::PAYMENT_HANDLER_WINDOW_OPENED);
@@ -313,6 +323,12 @@ void PaymentRequestBrowserTestBase::OnPaymentHandlerTitleSet() {
   }
 }
 
+void PaymentRequestBrowserTestBase::OnDialogSizeCheckAfterBrowserResize() {
+  if (event_waiter_) {
+    event_waiter_->OnEvent(DialogEvent::DIALOG_SIZE_CHECK_AFTER_BROWSER_RESIZE);
+  }
+}
+
 // Install the payment app specified by `hostname`, e.g., "a.com". Specify the
 // filename of the service worker with `service_worker_filename`. Note that
 // the origin has to be initialized first to be supported here. The payment
@@ -322,9 +338,9 @@ void PaymentRequestBrowserTestBase::InstallPaymentApp(
     const std::string& hostname,
     const std::string& service_worker_filename,
     std::string* url_method_output) {
-  *url_method_output = PaymentAppInstallUtil::InstallPaymentApp(
-      *GetActiveWebContents(), *https_server(), hostname,
-      service_worker_filename, PaymentAppInstallUtil::IconInstall::kWithIcon);
+  *url_method_output = test::PaymentAppInstallUtil::InstallPaymentApp(
+      *GetActiveWebContents()->GetPrimaryMainFrame(), *https_server(), hostname,
+      service_worker_filename, IconInstall::kWithIcon);
   ASSERT_FALSE(url_method_output->empty()) << "Failed to install payment app";
 }
 
@@ -332,10 +348,9 @@ void PaymentRequestBrowserTestBase::InstallPaymentAppWithoutIcon(
     const std::string& hostname,
     const std::string& service_worker_filename,
     std::string* url_method_output) {
-  *url_method_output = PaymentAppInstallUtil::InstallPaymentApp(
-      *GetActiveWebContents(), *https_server(), hostname,
-      service_worker_filename,
-      PaymentAppInstallUtil::IconInstall::kWithoutIcon);
+  *url_method_output = test::PaymentAppInstallUtil::InstallPaymentApp(
+      *GetActiveWebContents()->GetPrimaryMainFrame(), *https_server(), hostname,
+      service_worker_filename, IconInstall::kWithoutIcon);
   ASSERT_FALSE(url_method_output->empty()) << "Failed to install payment app";
 }
 
@@ -686,7 +701,7 @@ void PaymentRequestBrowserTestBase::PayWithCreditCard(
 void PaymentRequestBrowserTestBase::RetryPaymentRequest(
     const std::string& validation_errors,
     PaymentRequestDialogView* dialog_view) {
-  EXPECT_EQ(2U, dialog_view->view_stack_for_testing()->GetSize());
+  EXPECT_EQ(2U, test_api(dialog_view).view_stack()->GetSize());
   ResetEventWaiterForSequence({DialogEvent::PROCESSING_SPINNER_HIDDEN,
                                DialogEvent::SPEC_DONE_UPDATING,
                                DialogEvent::PROCESSING_SPINNER_HIDDEN,
@@ -702,7 +717,7 @@ void PaymentRequestBrowserTestBase::RetryPaymentRequest(
     const std::string& validation_errors,
     const DialogEvent& dialog_event,
     PaymentRequestDialogView* dialog_view) {
-  EXPECT_EQ(2U, dialog_view->view_stack_for_testing()->GetSize());
+  EXPECT_EQ(2U, test_api(dialog_view).view_stack()->GetSize());
   ResetEventWaiterForSequence(
       {DialogEvent::PROCESSING_SPINNER_HIDDEN, DialogEvent::SPEC_DONE_UPDATING,
        DialogEvent::PROCESSING_SPINNER_HIDDEN,
@@ -812,7 +827,7 @@ void PaymentRequestBrowserTestBase::WaitForAnimation() {
 void PaymentRequestBrowserTestBase::WaitForAnimation(
     PaymentRequestDialogView* dialog_view) {
   base::RunLoop loop;
-  ViewStack* view_stack = dialog_view->view_stack_for_testing();
+  ViewStack* view_stack = test_api(dialog_view).view_stack();
   if (view_stack->slide_in_animator_->IsAnimating()) {
     view_stack->slide_in_animator_->SetAnimationDuration(base::Milliseconds(1));
     view_stack->slide_in_animator_->SetAnimationDelegate(
@@ -983,11 +998,20 @@ std::ostream& operator<<(
     case DialogEvent::PROCESSING_SPINNER_HIDDEN:
       out << "PROCESSING_SPINNER_HIDDEN";
       break;
+    case DialogEvent::LOADING_VIEW_SHOWN:
+      out << "LOADING_VIEW_SHOWN";
+      break;
+    case DialogEvent::LOADING_VIEW_HIDDEN:
+      out << "LOADING_VIEW_HIDDEN";
+      break;
     case DialogEvent::PAYMENT_HANDLER_WINDOW_OPENED:
       out << "PAYMENT_HANDLER_WINDOW_OPENED";
       break;
     case DialogEvent::PAYMENT_HANDLER_TITLE_SET:
       out << "PAYMENT_HANDLER_TITLE_SET";
+      break;
+    case DialogEvent::DIALOG_SIZE_CHECK_AFTER_BROWSER_RESIZE:
+      out << "DIALOG_SIZE_CHECK_AFTER_BROWSER_RESIZE";
       break;
   }
   return out;

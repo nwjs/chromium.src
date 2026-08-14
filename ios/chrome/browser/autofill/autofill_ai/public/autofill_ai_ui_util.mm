@@ -27,56 +27,41 @@ UIImage* DefaultIconForAutofillAiEntityType(EntityTypeName entity_type_name,
                                             bool is_personal_context,
                                             CGFloat symbol_point_size,
                                             UIColor* tint_color) {
-  // TODO(crbug.com/523320919): Return different icons when is_personal_context
-  // is true.
-  NSString* symbol_name = nil;
+  Symbol symbol;
   UIColor* color = tint_color ?: [UIColor colorNamed:kTextPrimaryColor];
 
   switch (entity_type_name) {
     case EntityTypeName::kPassport:
-      return SymbolWithPalette(
-          CustomSymbolWithPointSize(kPassportSymbol, symbol_point_size),
-          @[ color ]);
+      symbol = is_personal_context ? SymbolPassportSpark : SymbolPassport;
+      break;
     case EntityTypeName::kDriversLicense:
     case EntityTypeName::kNationalIdCard:
-      symbol_name = kPersonTextRectangleSymbol;
+      symbol = is_personal_context ? SymbolPersonTextRectangleSpark
+                                   : SymbolPersonTextRectangle;
       break;
     case EntityTypeName::kVehicle:
-      symbol_name = kCarSymbol;
+      symbol = is_personal_context ? SymbolCarSpark : SymbolCar;
       break;
     case EntityTypeName::kKnownTravelerNumber:
     case EntityTypeName::kRedressNumber:
-      symbol_name = kPersonFillCheckmarkSymbol;
+      symbol = is_personal_context ? SymbolPersonTextRectangle2Spark
+                                   : SymbolPersonTextRectangle2;
       break;
     case EntityTypeName::kFlightReservation:
-      if (@available(iOS 26, *)) {
-        symbol_name = kAirplaneUpRightSymbol;
-      } else {
-        symbol_name = kAirplaneSymbol;
-      }
+      symbol = is_personal_context ? SymbolAirplaneUpSpark : SymbolAirplaneUp;
       break;
     case EntityTypeName::kShipment:
-      if (is_personal_context) {
-        return SymbolWithPalette(
-            CustomSymbolWithPointSize(kTruckBoxSparkSymbol, symbol_point_size),
-            @[ color ]);
-      }
-      symbol_name = kTruckBoxSymbol;
+      symbol = is_personal_context ? SymbolTruckBoxSpark : SymbolTruckBox;
       break;
     case EntityTypeName::kOrder:
-      if (is_personal_context) {
-        return SymbolWithPalette(
-            CustomSymbolWithPointSize(kBagSparkSymbol, symbol_point_size),
-            @[ color ]);
-      }
-      symbol_name = kBagSymbol;
+      symbol = is_personal_context ? SymbolBagSpark : SymbolBag;
       break;
     default:
       return nil;
   }
 
-  return SymbolWithPalette(
-      DefaultSymbolWithPointSize(symbol_name, symbol_point_size), @[ color ]);
+  return SymbolWithPalette(SymbolWithPointSize(symbol, symbol_point_size),
+                           @[ color ]);
 }
 
 NSString* DisplayNameForAutofillAiAttributeType(AttributeType attribute_type) {
@@ -223,14 +208,14 @@ GURL GetGoogleWalletPassesURL() {
 
 UIImage* GetWalletLogo(CGFloat point_size, UIColor* tint_color) {
 #if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
-  NSString* symbol =
+  Symbol symbol =
       base::FeatureList::IsEnabled(features::kAutofillEnableGradientGoogleLogos)
-          ? kGoogleWalletIconV2Symbol
-          : kGoogleWalletIconSymbol;
-  return MakeSymbolMulticolor(CustomSymbolWithPointSize(symbol, point_size));
+          ? SymbolGoogleWalletIconV2
+          : SymbolGoogleWalletIcon;
+  return MakeSymbolMulticolor(SymbolWithPointSize(symbol, point_size));
 #else
   return SymbolWithPalette(
-      DefaultSymbolWithPointSize(kSparklesSymbol, point_size),
+      SymbolWithPointSize(SymbolSparkles, point_size),
       @[ tint_color ?: [UIColor colorNamed:kBlue600Color] ]);
 #endif
 }

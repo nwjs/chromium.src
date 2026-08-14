@@ -8,21 +8,27 @@
 #include <optional>
 
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "chromeos/ash/components/geolocation/geoposition.h"
 #include "components/policy/core/common/remote_commands/remote_command_job.h"
 
 class PrefRegistrySimple;
+class PrefService;
 
 namespace policy {
 
-class DeviceCloudPolicyManagerAsh;
+class CloudPolicyStore;
 
 class DeviceCommandQueryGeolocationJob : public RemoteCommandJob {
  public:
-  explicit DeviceCommandQueryGeolocationJob(
-      const DeviceCloudPolicyManagerAsh* policy_manager);
+  // `local_state` must be non-null and must outlive `this`.
+  // `device_cloud_policy_store` may be null. If non-null, it must outlive
+  // `this`.
+  DeviceCommandQueryGeolocationJob(
+      PrefService* local_state,
+      const CloudPolicyStore* device_cloud_policy_store);
   ~DeviceCommandQueryGeolocationJob() override;
 
   DeviceCommandQueryGeolocationJob(const DeviceCommandQueryGeolocationJob&) =
@@ -31,7 +37,10 @@ class DeviceCommandQueryGeolocationJob : public RemoteCommandJob {
       const DeviceCommandQueryGeolocationJob&) = delete;
 
   static void RegisterPrefs(PrefRegistrySimple* registry);
-  static void ShowLocationReportedNotificationIfNeeded();
+
+  // `local_state` must be non-null and must outlive the created notification.
+  static void ShowLocationReportedNotificationIfNeeded(
+      PrefService* local_state);
 
   // RemoteCommandJob:
   enterprise_management::RemoteCommand::Type GetType() const override;
@@ -51,7 +60,8 @@ class DeviceCommandQueryGeolocationJob : public RemoteCommandJob {
                           bool server_error,
                           const base::TimeDelta elapsed);
 
-  const raw_ptr<const DeviceCloudPolicyManagerAsh> policy_manager_;
+  const raw_ref<PrefService> local_state_;
+  const raw_ptr<const CloudPolicyStore> policy_store_;
   base::WeakPtrFactory<DeviceCommandQueryGeolocationJob> weak_factory_{this};
 };
 

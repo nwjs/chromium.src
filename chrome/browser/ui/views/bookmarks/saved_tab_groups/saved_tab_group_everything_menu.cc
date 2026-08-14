@@ -11,14 +11,11 @@
 #include "base/uuid.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/vector_icons/vector_icons.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
-#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_metrics.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
-#include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_group_theme.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/bookmarks/saved_tab_groups/saved_tab_group_tabs_menu_model.h"
@@ -27,7 +24,6 @@
 #include "chrome/browser/ui/views/toolbar/app_menu.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
-#include "components/saved_tab_groups/public/types.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/favicon_size.h"
@@ -263,7 +259,7 @@ void STGEverythingMenu::PopulateMenu(views::MenuItemView* parent) {
   if (!groups_model_) {
     TabGroupSyncService* tab_group_service =
         tab_groups::TabGroupSyncServiceFactory::GetForProfile(
-            browser_->profile());
+            browser_->GetProfile());
 
     // Only recreate the model if we have to.
     groups_model_ = CreateMenuModel(tab_group_service);
@@ -374,7 +370,7 @@ void STGEverythingMenu::ExecuteCommand(int command_id, int event_flags) {
             : TabGroupMenuContext::SAVED_TAB_GROUP_EVERYTHING_MENU,
         browser_,
         tab_groups::TabGroupSyncServiceFactory::GetForProfile(
-            browser_->profile()));
+            browser_->GetProfile()));
   }
 }
 

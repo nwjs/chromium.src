@@ -8,9 +8,20 @@
 //     {{module.path}}
 //
 
-private enum MojoStrings {
-    static let mojoPrefix = "{{module.namespace}}."
-}
+private static let mojoPrefix = "{{module.namespace}}."
+
+///
+/// Interfaces
+///
+{% include "interfaces.tmpl" %}
+
+{%- if arrays %}
+
+///
+/// Arrays
+///
+{% include "arrays.tmpl" %}
+{%- endif %}
 
 ///
 /// Generators

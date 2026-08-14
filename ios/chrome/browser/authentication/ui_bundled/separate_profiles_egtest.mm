@@ -50,7 +50,7 @@ id<GREYMatcher> ManagedProfileCreationSubtitleMergeByDefaultMatcher() {
 
 id<GREYMatcher> ManagedProfileCreationSubtitleMatcher() {
   return grey_accessibilityLabel(
-          l10n_util::GetNSString(IDS_IOS_ENTERPRISE_PROFILE_CREATION_SUBTITLE));
+      l10n_util::GetNSString(IDS_IOS_ENTERPRISE_PROFILE_CREATION_SUBTITLE));
 }
 
 id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
@@ -201,8 +201,7 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
       performAction:grey_tap()];
 
   // Wait for the profile to finish loading again.
-  // TODO(crbug.com/399033938): Find a better way to wait for this.
-  GREYWaitForAppToIdle(@"App failed to idle");
+  [ChromeEarlGrey waitForCurrentProfileName:newProfileName];
 
   // The user should be signed in without having to see the managed profile
   // onboarding a second time.
@@ -300,8 +299,7 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
       performAction:grey_tap()];
 
   // Wait for the profile to finish loading again.
-  // TODO(crbug.com/399033938): Find a better way to wait for this.
-  GREYWaitForAppToIdle(@"App failed to idle");
+  [ChromeEarlGrey waitForCurrentProfileName:newProfileName];
 
   // The user should be signed in without having to see the managed profile
   // onboarding a second time.
@@ -467,7 +465,8 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
   WaitForEnterpriseOnboardingScreen();
 
   // Verifies that the subtitle is the right one.
-  [[EarlGrey selectElementWithMatcher:ManagedProfileCreationSubtitleMergeByDefaultMatcher()]
+  [[EarlGrey selectElementWithMatcher:
+                 ManagedProfileCreationSubtitleMergeByDefaultMatcher()]
       assertWithMatcher:grey_sufficientlyVisible()];
 
   // Open the browsing data management screen.
@@ -664,8 +663,7 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
       performAction:grey_tap()];
 
   // Wait for the profile to finish loading again.
-  // TODO(crbug.com/399033938): Find a better way to wait for this.
-  GREYWaitForAppToIdle(@"App failed to idle");
+  [ChromeEarlGrey waitForCurrentProfileName:personalProfileName];
 
   [SigninEarlGrey verifySignedInWithFakeIdentity:personalIdentity];
 
@@ -868,8 +866,7 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
                      IDS_IOS_REMOVE_ACCOUNT_LABEL)] performAction:grey_tap()];
 
   // Wait for the profile switch to complete.
-  // TODO(crbug.com/399033938): Find a better way to wait for this.
-  GREYWaitForAppToIdle(@"App failed to idle");
+  [ChromeEarlGrey waitForCurrentProfileName:personalProfileName];
 
   // Verify that the profile was actually switched back to personal.
   GREYAssert(
@@ -1082,6 +1079,37 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
       performAction:grey_tap()];
 
   [SigninEarlGrey verifySignedInWithFakeIdentity:managedIdentity];
+}
+
+// Tests that the Managed Profile Creation screen does not show the "More"
+// button on iPad because the content fits the screen.
+- (void)testManagedProfileCreationScrollNotNeededOnIPad {
+  if (![ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Skipped for iPhone.");
+  }
+  // Setup: There's 1 managed account. No account is signed in.
+  FakeSystemIdentity* const managedIdentity =
+      [FakeSystemIdentity fakeManagedIdentity];
+  [SigninEarlGrey addFakeIdentity:managedIdentity];
+
+  // Switch to the managed account, and sign in.
+  TapIdentityDisc();
+  [[EarlGrey selectElementWithMatcher:ContinueButtonWithIdentityMatcher(
+                                          managedIdentity)]
+      performAction:grey_tap()];
+
+  // Wait for enterprise onboarding screen.
+  WaitForEnterpriseOnboardingScreen();
+
+  // On iPad, content fits without scrolling so the button shows "Continue".
+  NSString* continueString =
+      l10n_util::GetNSString(IDS_IOS_ENTERPRISE_PROFILE_CREATION_CONTINUE);
+  [[EarlGrey
+      selectElementWithMatcher:grey_allOf(
+                                   chrome_test_util::ButtonStackPrimaryButton(),
+                                   grey_accessibilityLabel(continueString),
+                                   nil)]
+      assertWithMatcher:grey_sufficientlyVisible()];
 }
 
 @end

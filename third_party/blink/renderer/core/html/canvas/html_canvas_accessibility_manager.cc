@@ -25,20 +25,6 @@ namespace blink {
 
 namespace {
 
-// Two rectangles are considered to be sufficiently overlapping if the
-// intersection area is greater than 80% of the area of either rectangle. The
-// value is chosen arbitrarily and can be tuned.
-constexpr float kSufficientlyOverlappingThreshold = 0.8f;
-
-// Two texts are considered to be on the same line if the vertical distance
-// between them is less than 10% of the size of the smaller font. The value is
-// chosen arbitrarily and can be tuned.
-constexpr float kSameLineFontRatioThreshold = 0.1f;
-
-// Delay to ensure the canvas element has had a chance to update its
-// accessibility related information.
-constexpr base::TimeDelta kUMATimerDelay = base::Seconds(5);
-
 bool SufficientlyOverlapping(const gfx::RectF& a, const gfx::RectF& b) {
   gfx::RectF intersection = gfx::IntersectRects(a, b);
   if (intersection.IsEmpty()) {
@@ -49,8 +35,10 @@ bool SufficientlyOverlapping(const gfx::RectF& a, const gfx::RectF& b) {
   float b_area = b.size().GetArea();
   CHECK_GT(a_area, 0);
   CHECK_GT(b_area, 0);
-  return (intersection_area / a_area > kSufficientlyOverlappingThreshold) ||
-         (intersection_area / b_area > kSufficientlyOverlappingThreshold);
+  return (intersection_area / a_area >
+          HTMLCanvasAccessibilityManager::kSufficientlyOverlappingThreshold) ||
+         (intersection_area / b_area >
+          HTMLCanvasAccessibilityManager::kSufficientlyOverlappingThreshold);
 }
 
 }  // namespace
@@ -62,9 +50,10 @@ HTMLCanvasAccessibilityManager::HTMLCanvasAccessibilityManager(
     Options options)
     : options_(options),
       is_ignored_(is_ignored),
-      uma_timer_(std::move(task_runner),
+      uma_timer_(task_runner, this, &HTMLCanvasAccessibilityManager::RecordUma),
+      ocr_timer_(std::move(task_runner),
                  this,
-                 &HTMLCanvasAccessibilityManager::RecordUma),
+                 &HTMLCanvasAccessibilityManager::TriggerOCR),
       canvas_element_(canvas_element) {
   UpdateHasFallbackElementContent();
 
@@ -213,12 +202,21 @@ void HTMLCanvasAccessibilityManager::SetHeuristicResult(
   }
 
   if (!is_uma_recorded_) {
-    uma_timer_.StartOneShot(kUMATimerDelay, FROM_HERE);
+    uma_timer_.StartOneShot(HTMLCanvasAccessibilityManager::kUMATimerDelay,
+                            FROM_HERE);
+  }
+
+  if (heuristic_result_ != HeuristicResult::kNeedsA11ySupport) {
+    ocr_timer_.Stop();
+    ClearOCRDeadline();
   }
 
   if (heuristic_result_ == HeuristicResult::kNeedsA11ySupport &&
       base::FeatureList::IsEnabled(::features::kAccessibilityCanvas)) {
     options_ |= kCollectTextRuns;
+    // Schedule OCR to ensure static canvases are annotated if conditions
+    // change later.
+    ScheduleOCRIfNeeded();
   } else if (options_ & kCollectTextRuns) {
     ClearRenderedText();
     options_ &= ~kCollectTextRuns;
@@ -282,7 +280,7 @@ void HTMLCanvasAccessibilityManager::ClearRenderedText(const gfx::RectF& rect) {
       return true;
     }
     return (intersection.size().GetArea() / run_area) >
-           kSufficientlyOverlappingThreshold;
+           HTMLCanvasAccessibilityManager::kSufficientlyOverlappingThreshold;
   });
 }
 
@@ -303,7 +301,7 @@ void HTMLCanvasAccessibilityManager::UpdateAnnotation() {
                 float y_diff = a.bounds.y() - b.bounds.y();
                 float same_line_threshold =
                     std::min(a.font_height, b.font_height) *
-                    kSameLineFontRatioThreshold;
+                    HTMLCanvasAccessibilityManager::kSameLineFontRatioThreshold;
                 if (std::abs(y_diff) < same_line_threshold) {
                   return a.bounds.x() < b.bounds.x();
                 }
@@ -328,10 +326,75 @@ void HTMLCanvasAccessibilityManager::UpdateAnnotation() {
           canvas_element_->GetDocument().ExistingAXObjectCache()) {
     cache->MarkElementDirty(canvas_element_);
   }
+
+  ScheduleOCRIfNeeded();
+}
+
+void HTMLCanvasAccessibilityManager::ClearOCRDeadline() {
+  // Reset the deadline to null.
+  ocr_deadline_ = base::TimeTicks();
+}
+
+void HTMLCanvasAccessibilityManager::SetOCRDeadline() {
+  // Set the deadline to `kMaxOCRDelay` after now to ensure that OCR is not
+  // rescheduled beyond the deadline.
+  ocr_deadline_ =
+      base::TimeTicks::Now() + HTMLCanvasAccessibilityManager::kMaxOCRDelay;
+}
+
+bool HTMLCanvasAccessibilityManager::ShouldRunOCR() const {
+  if (features::GetCanvasAccessibilityMode() !=
+      features::CanvasAccessibilityMode::kAdvanced) {
+    return false;
+  }
+  if (!NeedsA11ySupport()) {
+    return false;
+  }
+  // OCR is needed if no text is extracted, or too much text is extracted.
+  // TODO(crbug.com/498093320): Add histogram metrics on OCR results to help
+  // planning for threshold updates, including:
+  //  - How much text gets extracted from canvases with zero text runs?
+  //  - For various ranges of text run size, how different is the OCR'ed text
+  //    from the canvas annotation?
+  //  - What percentage of canvases that need OCR never get OCR'ed? (e.g. due to
+  //    the timer getting reset constantly.)
+  return text_runs_.empty() ||
+         text_runs_.size() > HTMLCanvasAccessibilityManager::kMaxTextRuns;
+}
+
+void HTMLCanvasAccessibilityManager::TriggerOCR(TimerBase*) {
+  ClearOCRDeadline();
+  has_requested_ocr_ = true;
+  if (AXObjectCache* cache =
+          canvas_element_->GetDocument().ExistingAXObjectCache()) {
+    // Marking the element dirty forces an accessibility tree serialization
+    // update, during which AXCanvasAnnotator will see the dirty state and
+    // invoke the Screen AI OCR service.
+    cache->MarkElementDirty(canvas_element_);
+  }
+}
+
+void HTMLCanvasAccessibilityManager::ScheduleOCRIfNeeded() {
+  if (ShouldRunOCR()) {
+    if (!ocr_timer_.IsActive()) {
+      SetOCRDeadline();
+      ocr_timer_.StartOneShot(HTMLCanvasAccessibilityManager::kOCRDelay,
+                              FROM_HERE);
+    } else {
+      if (base::TimeTicks::Now() < ocr_deadline_) {
+        ocr_timer_.StartOneShot(HTMLCanvasAccessibilityManager::kOCRDelay,
+                                FROM_HERE);
+      }
+    }
+  } else {
+    ocr_timer_.Stop();
+    ClearOCRDeadline();
+  }
 }
 
 void HTMLCanvasAccessibilityManager::Trace(Visitor* visitor) const {
   visitor->Trace(uma_timer_);
+  visitor->Trace(ocr_timer_);
   visitor->Trace(canvas_element_);
 }
 

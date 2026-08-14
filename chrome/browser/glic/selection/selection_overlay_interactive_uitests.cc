@@ -6,6 +6,7 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/branding_buildflags.h"
+#include "build/build_config.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/actor_test_util.h"
@@ -41,6 +42,10 @@
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/interaction/element_tracker_views.h"
+
+#if BUILDFLAG(IS_OZONE)
+#include "ui/ozone/public/ozone_platform.h"
+#endif
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/shell.h"
@@ -480,12 +485,12 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
       // glic-selection-overlay is expected to be displayed.
       WaitForElementVisible(kOverlayWebContentsId, {"selection-overlay-app",
                                                     "glic-selection-overlay"}),
-      FocusElement(test::kGlicContentsElementId),
-      SendKeyPress(test::kGlicContentsElementId, ui::VKEY_ESCAPE),
+      FocusElement(kGlicContentsElementId),
+      SendKeyPress(kGlicContentsElementId, ui::VKEY_ESCAPE),
       WaitForHide(OverlayBaseController::kOverlayId),
-      EnsurePresent(test::kGlicHostElementId),
-      SendKeyPress(test::kGlicContentsElementId, ui::VKEY_ESCAPE),
-      WaitForHide(test::kGlicContentsElementId));
+      EnsurePresent(kGlicHostElementId),
+      SendKeyPress(kGlicContentsElementId, ui::VKEY_ESCAPE),
+      WaitForHide(kGlicContentsElementId));
 }
 
 // When glic is in floating mode and when only the first tab has context shared,
@@ -493,8 +498,8 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
 // therefore the selection overlay in the first tab.
 //
 // Fails on Wayland platforms and flaky on Mac.
-#if BUILDFLAG(SUPPORTS_OZONE_WAYLAND) || BUILDFLAG(IS_MAC) || \
-    BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || \
+    BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_EscDismissesFloatyOnSecondTab \
   DISABLED_EscDismissesFloatyOnSecondTab
 #else
@@ -523,9 +528,9 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
       AddInstrumentedTab(kEmptyTab,
                          embedded_test_server()->GetURL("/empty.html")),
       FocusElement(kEmptyTab),
-      InAnyContext(ActivateSurface(test::kGlicHostElementId)),
-      InAnyContext(SendKeyPress(test::kGlicHostElementId, ui::VKEY_ESCAPE)),
-      InAnyContext(WaitForHide(test::kGlicHostElementId)),
+      InAnyContext(ActivateSurface(kGlicHostElementId)),
+      InAnyContext(SendKeyPress(kGlicHostElementId, ui::VKEY_ESCAPE)),
+      InAnyContext(WaitForHide(kGlicHostElementId)),
       WaitForHide(OverlayBaseController::kOverlayId));
 }
 
@@ -772,7 +777,7 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
       // Start a task on the current tab.
       Do([this, &add_tab_result]() {
         auto* actor_service =
-            actor::ActorKeyedService::Get(browser()->profile());
+            actor::ActorKeyedService::Get(browser()->GetProfile());
         ASSERT_TRUE(actor_service);
         actor::TaskId task_id = actor_service->CreateTask(
             actor::TestTaskSourceInfo(), actor::NoEnterprisePolicyChecker());
@@ -864,7 +869,7 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayHotkeyInteractiveTest,
         tabs::TabInterface* tab =
             tabs::TabInterface::GetFromContents(web_contents);
         GlicKeyedService* glic_keyed_service =
-            GlicKeyedService::Get(browser()->profile());
+            GlicKeyedService::Get(browser()->GetProfile());
         GlicInvokeOptions options(
             glic::mojom::InvocationSource::kCaptureRegionHotkey);
         options.wait_for_panel_open = true;
@@ -906,7 +911,7 @@ IN_PROC_BROWSER_TEST_F(
         tabs::TabInterface* tab =
             tabs::TabInterface::GetFromContents(web_contents);
         GlicKeyedService* glic_keyed_service =
-            GlicKeyedService::Get(browser()->profile());
+            GlicKeyedService::Get(browser()->GetProfile());
         GlicInvokeOptions options(
             glic::mojom::InvocationSource::kCaptureRegionHotkey);
         options.wait_for_panel_open = true;

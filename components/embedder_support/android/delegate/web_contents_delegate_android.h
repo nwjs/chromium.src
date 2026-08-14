@@ -86,6 +86,9 @@ class WebContentsDelegateAndroid : public content::WebContentsDelegate {
       const GURL& opener_url,
       const std::string& frame_name,
       const GURL& target_url) override;
+  void CanDownload(const GURL& url,
+                   const std::string& request_method,
+                   base::OnceCallback<void(bool)> callback) override;
   void CloseContents(content::WebContents* source) override;
   bool DidAddMessageToConsole(content::WebContents* source,
                               blink::mojom::ConsoleMessageLevel log_level,
@@ -93,6 +96,9 @@ class WebContentsDelegateAndroid : public content::WebContentsDelegate {
                               int32_t line_no,
                               const std::u16string& source_id) override;
   void UpdateTargetURL(content::WebContents* source, const GURL& url) override;
+  content::KeyboardEventProcessingResult PreHandleKeyboardEvent(
+      content::WebContents* source,
+      const input::NativeWebKeyboardEvent& event) override;
   bool HandleKeyboardEvent(content::WebContents* source,
                            const input::NativeWebKeyboardEvent& event) override;
   bool TakeFocus(content::WebContents* source, bool reverse) override;

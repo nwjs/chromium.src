@@ -85,9 +85,10 @@ namespace blink {
 namespace {
 class FakeChromeClientForAutofill : public EmptyChromeClient {
  public:
-  void JavaScriptChangedValue(HTMLFormControlElement& element,
-                              const String& old_value,
-                              bool was_autofilled) override {
+  void JavaScriptSetValue(HTMLFormControlElement& element,
+                          const String& old_value,
+                          bool was_autofilled,
+                          bool value_changed) override {
     last_notification_ = {element.GetIdAttribute().Utf8(), old_value.Utf8()};
   }
   std::vector<std::string> GetAndResetLastEvent() {
@@ -110,7 +111,6 @@ class ViewCreatingClient : public frame_test_helpers::TestWebFrameClient {
       network::mojom::blink::WebSandboxFlags,
       const SessionStorageNamespaceId&,
       bool& consumed_user_gesture,
-      const std::optional<Impression>&,
       const std::optional<WebPictureInPictureWindowOptions>&,
       const WebURL& creator_base_url) override {
     return web_view_helper_.InitializeWithOpener(Frame());
@@ -222,6 +222,7 @@ class FakeColorChooserClient : public GarbageCollected<FakeColorChooserClient>,
     return gfx::Rect();
   }
   Color CurrentColor() override { return Color(); }
+  bool ShouldShowAlpha() const override { return false; }
   bool ShouldShowSuggestions() const override { return false; }
   Vector<mojom::blink::ColorSuggestionPtr> Suggestions() const override {
     return Vector<mojom::blink::ColorSuggestionPtr>();

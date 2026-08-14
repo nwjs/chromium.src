@@ -34,7 +34,7 @@ class BackgroundSyncContentSettingBrowserTest : public InProcessBrowserTest {
 
   void SetBackgroundSyncContentSetting(const GURL& url,
                                        ContentSetting setting) {
-    auto* profile = browser()->profile();
+    auto* profile = browser()->GetProfile();
     auto* host_content_settings_map =
         HostContentSettingsMapFactory::GetForProfile(profile);
     ASSERT_TRUE(host_content_settings_map);
@@ -47,7 +47,7 @@ class BackgroundSyncContentSettingBrowserTest : public InProcessBrowserTest {
 IN_PROC_BROWSER_TEST_F(BackgroundSyncContentSettingBrowserTest,
                        BlockingContentSettingUnregistersPeriodicSync) {
   auto* controller = static_cast<BackgroundSyncControllerImpl*>(
-      browser()->profile()->GetBackgroundSyncController());
+      browser()->GetProfile()->GetBackgroundSyncController());
   DCHECK(controller);
 
   url::Origin origin = url::Origin::Create(GURL(kExampleUrl));

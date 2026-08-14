@@ -47,9 +47,11 @@ class WebState;
 
 namespace autofill {
 
+class AtMemoryQueryService;
 class AutofillAiSaveEntityInfoBarDelegateIOS;
 class AutofillSuggestionDelegate;
 class LogRouter;
+class AutofillAiPersonalContextAccessManager;
 
 enum class SuggestionType;
 
@@ -101,8 +103,11 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   GetPasswordManagerFieldClassificationModelHandler() override;
   SingleFieldFillRouter& GetSingleFieldFillRouter() override;
   AutocompleteHistoryManager* GetAutocompleteHistoryManager() override;
+  AtMemoryQueryService* GetAtMemoryQueryService() override;
   void GetAiPageContent(GetAiPageContentCallback callback) override;
   AutofillAiManager* GetAutofillAiManager() override;
+  AutofillAiPersonalContextAccessManager*
+  GetAutofillAiPersonalContextAccessManager() override;
   AutofillAiModelCache* GetAutofillAiModelCache() override;
   AutofillAiModelExecutor* GetAutofillAiModelExecutor() override;
   optimization_guide::RemoteModelExecutor* GetRemoteModelExecutor() override;
@@ -141,9 +146,13 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
                        std::optional<FillingProduct> product) override;
   bool IsAutofillEnabled() const override;
   bool IsAutofillProfileEnabled() const override;
+  bool IsAutofillTypeBlockedByPolicy(
+      const GURL& url,
+      AutofillPolicyDataCategory category) const override;
   bool IsWalletPublicPassStorageEnabled() const override;
   bool IsAutocompleteEnabled() const override;
   bool IsPasswordManagerEnabled() const override;
+  bool UsesPlatformAutofill() const override;
   bool IsContextSecure() const override;
   LogManager* GetCurrentLogManager() override;
   autofill_metrics::FormInteractionsUkmLogger& GetFormInteractionsUkmLogger()
@@ -167,7 +176,11 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   void CloseEntityImportBubble() override;
   void ShowAutofillAiLocalSaveNotification() override;
   void ShowAutofillAiSaveToWalletFailureNotification() override;
-  void ShowAutofillAiFetchFromWalletFailureNotification() override;
+  void ShowAutofillAiFetchEntityFailureNotification() override;
+  void ShowAutofillAiPreFetchFailureNotification() override;
+  void ShowAutofillAiPrivateInferenceNotice() override;
+  bool ShouldShowPersonalContextAmbientAutofillNotice() const override;
+  void MarkPersonalContextAmbientAutofillNoticeAsAcknowledged() override;
 
   // Searches infobars managed by the infobar_manager_ for infobar of the type
   // AutofillSaveCardInfoBarDelegateIOS and returns it if found else returns a

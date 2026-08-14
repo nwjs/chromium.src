@@ -17,6 +17,7 @@
 #include "chrome/browser/actor/ui/test_support/mock_actor_ui_state_manager.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
+#include "chrome/browser/password_manager/factories/account_password_store_factory.h"
 #include "chrome/browser/password_manager/factories/profile_password_store_factory.h"
 #include "chrome/browser/password_manager/password_manager_test_base.h"
 #include "chrome/browser/profiles/profile.h"
@@ -103,6 +104,14 @@ void ManagePasswordsTest::SetUpInProcessBrowserTestFixture() {
                                         content::BrowserContext,
                                         password_manager::TestPasswordStore>));
 
+                AccountPasswordStoreFactory::GetInstance()->SetTestingFactory(
+                    context, base::BindRepeating(
+                                 &password_manager::BuildPasswordStoreWithArgs<
+                                     content::BrowserContext,
+                                     password_manager::TestPasswordStore,
+                                     password_manager::IsAccountStore>,
+                                 password_manager::IsAccountStore(true)));
+
                 SyncServiceFactory::GetInstance()->SetTestingFactory(
                     context,
                     base::BindRepeating([](content::BrowserContext*)
@@ -181,13 +190,13 @@ void ManagePasswordsTest::SetupAutoSignin(
 }
 
 void ManagePasswordsTest::SetupSafeState() {
-  browser()->profile()->GetPrefs()->SetDouble(
+  browser()->GetProfile()->GetPrefs()->SetDouble(
       password_manager::prefs::kLastTimePasswordCheckCompleted,
       (base::Time::Now() - base::Minutes(1)).InSecondsFSinceUnixEpoch());
   SetupPendingPassword();
   scoped_refptr<password_manager::PasswordStoreInterface> password_store =
       ProfilePasswordStoreFactory::GetForProfile(
-          browser()->profile(), ServiceAccessType::IMPLICIT_ACCESS);
+          browser()->GetProfile(), ServiceAccessType::IMPLICIT_ACCESS);
   password_store->AddLogin(password_manager::FromPasswordForm(password_form_));
   GetController()->SavePassword(password_form_.username_value,
                                 password_form_.password_value);
@@ -199,12 +208,12 @@ void ManagePasswordsTest::SetupSafeState() {
 }
 
 void ManagePasswordsTest::SetupMoreToFixState() {
-  browser()->profile()->GetPrefs()->SetDouble(
+  browser()->GetProfile()->GetPrefs()->SetDouble(
       password_manager::prefs::kLastTimePasswordCheckCompleted,
       (base::Time::Now() - base::Minutes(1)).InSecondsFSinceUnixEpoch());
   scoped_refptr<password_manager::PasswordStoreInterface> password_store =
       ProfilePasswordStoreFactory::GetForProfile(
-          browser()->profile(), ServiceAccessType::IMPLICIT_ACCESS);
+          browser()->GetProfile(), ServiceAccessType::IMPLICIT_ACCESS);
   // This is an unrelated insecure credential that should still be fixed.
   password_manager::PasswordForm to_be_fixed = password_form_;
   to_be_fixed.signon_realm = "https://somesite.com/";
@@ -247,9 +256,9 @@ void ManagePasswordsTest::SetupMovingPasswords() {
 void ManagePasswordsTest::ConfigurePasswordSync(
     SyncConfiguration configuration) {
   signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(browser()->profile());
+      IdentityManagerFactory::GetForProfile(browser()->GetProfile());
   syncer::TestSyncService* sync_service = static_cast<syncer::TestSyncService*>(
-      SyncServiceFactory::GetForProfile(browser()->profile()));
+      SyncServiceFactory::GetForProfile(browser()->GetProfile()));
   switch (configuration) {
     case SyncConfiguration::kNotSyncing: {
       sync_service->SetSignedOut();
@@ -278,6 +287,14 @@ std::unique_ptr<base::HistogramSamples> ManagePasswordsTest::GetSamples(
 ManagePasswordsUIController* ManagePasswordsTest::GetController() {
   return ManagePasswordsUIController::FromWebContents(
       browser()->tab_strip_model()->GetActiveWebContents());
+}
+
+password_manager::TestPasswordStore*
+ManagePasswordsTest::GetAccountPasswordStore() {
+  return static_cast<password_manager::TestPasswordStore*>(
+      AccountPasswordStoreFactory::GetForProfile(
+          browser()->GetProfile(), ServiceAccessType::EXPLICIT_ACCESS)
+          .get());
 }
 
 std::unique_ptr<PasswordFormManager> ManagePasswordsTest::CreateFormManager(

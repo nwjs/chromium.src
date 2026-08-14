@@ -17,7 +17,6 @@
 #include "chrome/browser/ui/passwords/ui_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/controls/hover_button.h"
-#include "chrome/browser/ui/views/extensions/security_dialog_tracker.h"
 #include "chrome/browser/ui/views/webid/account_selection_view_base.h"
 #include "chrome/browser/ui/views/webid/fedcm_account_selection_view_desktop.h"
 #include "chrome/browser/ui/views/webid/webid_utils.h"
@@ -29,7 +28,7 @@
 #include "content/public/common/content_features.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "skia/ext/image_operations.h"
-#include "third_party/blink/public/mojom/webid/federated_auth_request.mojom.h"
+#include "third_party/blink/public/mojom/webid/federated_request.mojom.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "ui/accessibility/platform/ax_platform.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -523,7 +522,7 @@ std::unique_ptr<views::View> AccountSelectionBubbleView::CreateHeaderView() {
       header->AddChildView(views::CreateVectorImageButtonWithNativeTheme(
           base::BindRepeating(&FedCmAccountSelectionView::OnBackButtonClicked,
                               base::Unretained(owner_)),
-          features::IsRoundedIconsEnabled() ? kArrowBackIcon
+          features::IsRoundedIconsEnabled() ? vector_icons::kArrowBackIcon
           : features::IsRoundedIconsEnabled()
               ? vector_icons::kArrowBackIcon
               : vector_icons::kArrowBackOldIcon));

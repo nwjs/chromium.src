@@ -2050,10 +2050,6 @@ if (!is_robolectric && enable_java_templates) {
         defines += [ "_IS_DESKTOP_ANDROID" ]
       }
 
-      if (enable_javaless_renderers) {
-        defines += [ "_JAVALESS_RENDERERS_AVAILABLE" ]
-      }
-
       if (defined(invoker.write_clang_profiling_data) &&
           invoker.write_clang_profiling_data) {
         defines += [ "_WRITE_CLANG_PROFILING_DATA" ]
@@ -2148,11 +2144,10 @@ if (!is_robolectric && enable_java_templates) {
   #   resource_values_filter_rules: List of "source_path:name_regex" used to
   #     filter out unwanted values/ resources.
 
-  #   app_as_shared_lib: This is now obsolete. True if this is a regular
-  #     application apk that can also serve as a runtime shared library, like
-  #     the (obsolete) monochrome_public_apk target. Ensures that the resources
-  #     are usable both by the APK running as an application, or by another
-  #     process that loads it at runtime.
+  #   app_as_shared_lib: True if this is a regular application apk that can also
+  #     serve as a runtime shared library. Ensures that the resources are usable
+  #     both by the APK running as an application, or by another process that
+  #     loads it at runtime.
 
   #   uncompress_dex: Store final .dex files uncompressed in the apk.
   #   omit_dex: If true, do not build or include classes.dex.
@@ -2558,6 +2553,11 @@ if (!is_robolectric && enable_java_templates) {
         resource_ids_provider_dep = invoker.apk_under_test
 
         _link_against = invoker.apk_under_test
+
+        apk_under_test_rtxt =
+            get_label_info(invoker.apk_under_test, "target_gen_dir") + "/" +
+            get_label_info(invoker.apk_under_test, "name") +
+            "__compile_resources_R.txt"
       }
 
       if (_is_bundle_module || _optimize_resources) {
@@ -2863,25 +2863,25 @@ if (!is_robolectric && enable_java_templates) {
         _shrunk_proto_resources_path =
             "$target_out_dir/${_template_name}.shrunk.proto.ap_"
       }
-      if (tiered_dex_assembly && !_proguard_enabled &&
-          _min_sdk_version >= default_min_sdk_version) {
+      _use_tiered_dex = tiered_dex_assembly && !_proguard_enabled &&
+                        _min_sdk_version >= default_min_sdk_version
+      if (_use_tiered_dex) {
         tiered_dex_assembly(_final_dex_target_name) {
           apk_template_name = _template_name
           build_config = _build_config
           build_config_target = ":$_build_config_target"
           min_sdk_version = _min_sdk_version
           java_target_name = ":$_java_target_name"
-          final_dex_target_name = _final_dex_target_name
-          final_dex_path = _final_dex_path
           if (defined(testonly)) {
             testonly = testonly
           }
-          forward_variables_from(invoker,
-                                 [
-                                   "custom_assertion_handler",
-                                   "proguard_enable_obfuscation",
-                                   "repackage_classes",
-                                 ])
+          forward_variables_from(invoker, [ "custom_assertion_handler" ])
+        }
+        _final_dex_paths = []
+        foreach(_partition, tiered_dex_partitions) {
+          _final_dex_paths += [
+            "$target_out_dir/${_template_name}__${_partition.name}.dex.jar",
+          ]
         }
       } else {
         dex(_final_dex_target_name) {
@@ -2951,6 +2951,7 @@ if (!is_robolectric && enable_java_templates) {
             ignore_desugar_missing_deps = true
           }
         }
+        _final_dex_paths = [ _final_dex_path ]
       }
 
       _final_dex_target_dep = ":$_final_dex_target_name"
@@ -3095,8 +3096,8 @@ if (!is_robolectric && enable_java_templates) {
                     ":$_merge_manifest_target",
                   ]
 
-          if (defined(_final_dex_path)) {
-            dex_path = _final_dex_path
+          if (defined(_final_dex_paths)) {
+            dex_paths = _final_dex_paths
             deps += [ _final_dex_target_dep ]
           }
 
@@ -3684,6 +3685,7 @@ if (!is_robolectric && enable_java_templates) {
                                "data",
                                "data_deps",
                                "deps",
+                               "device_data_filters",
                                "extra_args",
                                "fake_modules",
                                "ignore_all_data_deps",
@@ -3830,8 +3832,12 @@ if (!is_robolectric && enable_java_templates) {
     assert(defined(invoker.apk_name))
     _apk_target_name = "${target_name}__test_apk"
     forward_variables_from(invoker, TESTONLY_AND_VISIBILITY)
+
     android_test_apk(_apk_target_name) {
-      forward_variables_from(invoker, "*", TESTONLY_AND_VISIBILITY)
+      forward_variables_from(
+          invoker,
+          "*",
+          TESTONLY_AND_VISIBILITY + [ "device_data_filters" ])
     }
     instrumentation_test_runner(target_name) {
       forward_variables_from(invoker,
@@ -3841,6 +3847,7 @@ if (!is_robolectric && enable_java_templates) {
                                "data",
                                "data_deps",
                                "deps",
+                               "device_data_filters",
                                "extra_args",
                                "ignore_all_data_deps",
                                "is_unit_test",

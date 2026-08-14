@@ -101,7 +101,7 @@ void ChromePaymentRequestDelegate::ShowDialog(
 
   switch (dialog_type_) {
     case DialogType::PAYMENT_REQUEST:
-      shown_dialog_ = PaymentRequestDialogView::Create(request, nullptr);
+      shown_dialog_ = PaymentRequestDialogView::Create(request);
       break;
     case DialogType::SECURE_PAYMENT_CONFIRMATION:
       spc_dialog_ =
@@ -137,6 +137,12 @@ void ChromePaymentRequestDelegate::ShowErrorMessage() {
 void ChromePaymentRequestDelegate::ShowProcessingSpinner() {
   if (shown_dialog_)
     shown_dialog_->ShowProcessingSpinner();
+}
+
+void ChromePaymentRequestDelegate::ShowLoadingView() {
+  if (shown_dialog_) {
+    shown_dialog_->ShowLoadingView();
+  }
 }
 
 autofill::PersonalDataManager*

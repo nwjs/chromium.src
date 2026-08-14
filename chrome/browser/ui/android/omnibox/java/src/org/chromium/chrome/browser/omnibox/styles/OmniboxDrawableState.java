@@ -17,6 +17,7 @@ import org.chromium.build.annotations.NullMarked;
 /** Represents graphical decoration for the suggestion components. */
 @NullMarked
 public class OmniboxDrawableState {
+
     /** Embedded drawable object. */
     public final Drawable drawable;
 
@@ -105,8 +106,7 @@ public class OmniboxDrawableState {
     /**
      * Create OmniboxDrawableState representing a site favicon.
      *
-     * @param context current context
-     * @param bitmap bitmap with decoded site favicon
+     * @param drawable Drawable of the favicon
      * @return newly created OmniboxDrawableState
      */
     public static OmniboxDrawableState forFavIcon(Drawable drawable) {

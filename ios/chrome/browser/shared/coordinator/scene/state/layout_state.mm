@@ -139,6 +139,15 @@ UIInterfaceOrientation GetTargetInterfaceOrientation(
   [_observers layoutState:self didChangeAssistantContainerCutoutRadius:radius];
 }
 
+- (void)setAppBarLockedInFullscreen:(BOOL)locked
+                            passKey:(LayoutStateAssistantPassKey)passKey {
+  if (_appBarLockedInFullscreen == locked) {
+    return;
+  }
+  _appBarLockedInFullscreen = locked;
+  [_observers layoutState:self didChangeAppBarLockedInFullscreen:locked];
+}
+
 - (void)setGeminiFloatyInvoked:(BOOL)invoked
                        passKey:(LayoutStateAssistantPassKey)passKey {
   if (_geminiFloatyInvoked == invoked) {

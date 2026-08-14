@@ -99,7 +99,11 @@ bool BrokerSimpleMessage::SendMsgMultipleFds(int fd,
   RAW_CHECK(send_fds.size() <= base::UnixDomainSocket::kMaxFileDescriptors);
 
   struct msghdr msg = {};
-  const void* buf = reinterpret_cast<const void*>(message_.data());
+  // SAFETY: message_ is a statically allocated buffer and length_ represents
+  // the size of the message. We obtain the raw pointer to pass to POSIX writev
+  // system call via iovec.
+  const void* buf =
+      UNSAFE_BUFFERS(reinterpret_cast<const void*>(message_.data()));
   struct iovec iov = {const_cast<void*>(buf), length_};
   msg.msg_iov = &iov;
   msg.msg_iovlen = 1;
@@ -379,7 +383,7 @@ bool BrokerSimpleMessage::ValidateType(EntryType expected_type) {
 }
 
 void BrokerSimpleMessage::WriteBytes(base::span<const uint8_t> bytes) {
-  DCHECK_LT(write_next_offset_ + bytes.size(), message_.size());
+  DCHECK_LE(write_next_offset_ + bytes.size(), message_.size());
   base::span(message_)
       .subspan(write_next_offset_, bytes.size())
       .copy_from_nonoverlapping(bytes);

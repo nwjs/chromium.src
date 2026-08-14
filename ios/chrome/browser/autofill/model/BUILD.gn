@@ -8,6 +8,8 @@ source_set("model") {
     "address_normalizer_factory.mm",
     "autocomplete_history_manager_factory.h",
     "autocomplete_history_manager_factory.mm",
+    "autofill_ai_prefetch_failure_infobar_delegate_ios.h",
+    "autofill_ai_prefetch_failure_infobar_delegate_ios.mm",
     "autofill_ai_save_entity_infobar_delegate_ios.h",
     "autofill_ai_save_entity_infobar_delegate_ios.mm",
     "autofill_ai_util.h",
@@ -18,15 +20,21 @@ source_set("model") {
     "autofill_image_fetcher_impl.mm",
     "autofill_log_router_factory.cc",
     "autofill_log_router_factory.h",
+    "autofill_policy_service_factory.h",
+    "autofill_policy_service_factory.mm",
     "form_input_suggestions_provider.h",
     "form_suggestion_controller.h",
     "form_suggestion_controller.mm",
     "form_suggestion_tab_helper.h",
     "form_suggestion_tab_helper.mm",
+    "forms_ai_private_inference_infobar_delegate_ios.h",
+    "forms_ai_private_inference_infobar_delegate_ios.mm",
     "ios_autofill_ai_model_cache_factory.h",
     "ios_autofill_ai_model_cache_factory.mm",
     "ios_autofill_ai_model_executor_factory.h",
     "ios_autofill_ai_model_executor_factory.mm",
+    "ios_autofill_ai_personal_context_access_manager_factory.h",
+    "ios_autofill_ai_personal_context_access_manager_factory.mm",
     "ios_autofill_entity_data_manager_factory.h",
     "ios_autofill_entity_data_manager_factory.mm",
     "ios_autofill_entity_data_manager_observer_bridge.h",
@@ -68,11 +76,13 @@ source_set("model") {
     "//components/wallet/core/browser",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/account_settings/model",
+    "//ios/chrome/browser/autofill/atmemory/public",
     "//ios/chrome/browser/autofill/autofill_ai/public",
     "//ios/chrome/browser/autofill/resources",
     "//ios/chrome/browser/history/model",
     "//ios/chrome/browser/metrics/model:google_groups_updater",
     "//ios/chrome/browser/optimization_guide/model",
+    "//ios/chrome/browser/personal_context/model",
     "//ios/chrome/browser/shared/model/application_context",
     "//ios/chrome/browser/shared/model/paths",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
@@ -97,7 +107,10 @@ source_set("model") {
     "//ui/base",
     "//url",
   ]
-  public_deps = [ ":constants" ]
+  public_deps = [
+    ":constants",
+    "//components/keyed_service/ios",
+  ]
   frameworks = [ "QuartzCore.framework" ]
 }
 
@@ -109,6 +122,7 @@ source_set("autofill_agent_delegate") {
   deps = [
     "//base",
     "//components/autofill/ios/browser",
+    "//ios/chrome/browser/autofill/atmemory/public",
     "//ios/chrome/browser/shared/public/commands",
   ]
 }
@@ -205,6 +219,7 @@ source_set("unit_tests") {
     "form_input_accessory_view_handler_unittest.mm",
     "form_structure_browsertest.mm",
     "form_suggestion_controller_unittest.mm",
+    "ios_autofill_ai_personal_context_access_manager_factory_unittest.mm",
     "manual_fill_virtual_card_cache_unittest.mm",
     "suggestion_controller_java_script_feature_unittest.mm",
   ]
@@ -237,6 +252,7 @@ source_set("unit_tests") {
     "//components/infobars/core",
     "//components/password_manager/core/browser:test_support",
     "//components/password_manager/ios",
+    "//components/personal_context/core:features",
     "//components/security_state/ios",
     "//components/strings:components_strings__strings_grit",
     "//components/sync_user_events:test_support",

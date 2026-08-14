@@ -18,12 +18,14 @@ message AtMemoryQueryRequest {
   // The list of Autofill data types supported by this client build.
   repeated MemoryDataType supported_local_data_types = 2;
 
-  // The site URL, improving the quality of results by giving more context where
-  // the popup has been triggered.
+  // The URL of the page where the popup has been triggered.
   string url = 3;
 
   // locale of a user's Chrome client: "en-us"
   string locale = 4;
+
+  // The title of the page where the popup has been triggered.
+  string title = 5;
 }
 
 // The response payload returned to answer the query.
@@ -37,6 +39,8 @@ message AtMemoryQueryResponse {
     QUERY_CLASSIFICATION_UNSUPPORTED = 2;
     // Blocked by safety filters (CSAM, adult)
     QUERY_CLASSIFICATION_SENSITIVE = 3;
+    // Blocked by recitation check
+    QUERY_CLASSIFICATION_RECITATION = 4;
   }
   QueryClassification query_classification = 1;
 
@@ -77,6 +81,32 @@ message AtMemorySearchResult {
   float relevance_score = 4;
 }
 
+message StringList {
+  repeated string values = 1;
+}
+
+// Strongly-typed representation of an attribute value.
+message TypedValue {
+  oneof value {
+    // ISO 3166-1 alpha-2 country code (2-letter code, e.g. "US", "DE", "JP").
+    string country_code = 1;
+
+    // Calendar date (year, month, day). Used, e.g., for issue or expiry dates
+    // of identity documents. Uses Date from
+    // components/personal_context/proto/features/common_data.proto
+    Date date = 2;
+
+    // Date and time. Used, e.g., for flight departure times.
+    // Uses DateTime from
+    // components/personal_context/proto/features/common_data.proto
+    DateTime date_time = 3;
+
+    // A list of strings. Used, e.g., for listing product names contained in an
+    // order.
+    StringList string_list = 4;
+  }
+}
+
 message Attribute {
   // The key can either be a known Chrome EntryType enum, or a free-form string
   // label.
@@ -87,6 +117,13 @@ message Attribute {
     // insurance number".
     string schemaless_key = 3;
   }
-  // The value to fill or display (e.g. "CX123" or "42").
+  // `value` should always be set. If `typed_value` is set, `value` should be a
+  // readable string representation of `typed_value` (e.g., a formatted date
+  // time string). Older clients that do not support (the newest version of)
+  // `typed_value` can fall back to using `value`.
   string value = 4;
+
+  // Strongly-typed value to fill or display. Unset if the value does not have
+  // a strongly-typed representation.
+  TypedValue typed_value = 5;
 }

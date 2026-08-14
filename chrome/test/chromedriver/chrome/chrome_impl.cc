@@ -577,6 +577,8 @@ Status ChromeImpl::SetWindowBounds(
     if (status.IsError())
       return status;
 
+    std::unique_ptr<WebViewHolder> holder = web_view->GetHolder();
+
     base::DictValue fullscreen_params;
     fullscreen_params.Set("expression",
                           "document.documentElement.requestFullscreen()");

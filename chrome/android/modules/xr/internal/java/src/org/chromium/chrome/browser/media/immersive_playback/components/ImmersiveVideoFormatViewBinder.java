@@ -5,17 +5,18 @@
 package org.chromium.chrome.browser.media.immersive_playback.components;
 
 import org.chromium.build.annotations.NullMarked;
-import org.chromium.content_public.browser.ImmersiveProjectionType;
-import org.chromium.content_public.browser.ImmersiveStereoMode;
+import org.chromium.chrome.browser.media.immersive_playback.ImmersiveVideoFormatRadioGroup;
+import org.chromium.chrome.browser.media.immersive_playback.ImmersiveVideoFormatRadioGroup.FormatOption;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.xr.scenecore.XrPanelEntityHolder;
+import org.chromium.ui.xr.scenecore.XrPose;
 import org.chromium.ui.xr.scenecore.XrSpace;
+import org.chromium.ui.xr.scenecore.XrVector3;
 
 /** View binder for the immersive playback format selection panel. */
 @NullMarked
 public class ImmersiveVideoFormatViewBinder {
-    private static final float[] IDENTITY_ROTATION = new float[] {0f, 0f, 0f, 1f};
 
     /**
      * Binds the model to the view for a specific property key.
@@ -28,12 +29,19 @@ public class ImmersiveVideoFormatViewBinder {
             PropertyModel model, ImmersiveVideoFormatSpatialView view, PropertyKey propertyKey) {
         if (propertyKey == ImmersiveVideoFormatProperties.SELECTED_STEREO_MODE
                 || propertyKey == ImmersiveVideoFormatProperties.SELECTED_PROJECTION_TYPE) {
-            @ImmersiveStereoMode
-            int stereoMode = model.get(ImmersiveVideoFormatProperties.SELECTED_STEREO_MODE);
-            @ImmersiveProjectionType
-            int projectionType = model.get(ImmersiveVideoFormatProperties.SELECTED_PROJECTION_TYPE);
+            Integer stereoMode = model.get(ImmersiveVideoFormatProperties.SELECTED_STEREO_MODE);
+            Integer projectionType =
+                    model.get(ImmersiveVideoFormatProperties.SELECTED_PROJECTION_TYPE);
 
-            view.androidView.getRadioGroup().checkFormatOption(stereoMode, projectionType);
+            if (stereoMode != null && projectionType != null) {
+                ImmersiveVideoFormatRadioGroup radioGroup = view.androidView.getRadioGroup();
+                FormatOption selected = radioGroup.getSelectedOption();
+                if (selected == null
+                        || selected.stereoMode != stereoMode
+                        || selected.projectionType != projectionType) {
+                    radioGroup.checkOption(stereoMode, projectionType);
+                }
+            }
         } else if (propertyKey == ImmersiveVideoFormatProperties.DEFAULT_SPATIAL_WIDTH
                 || propertyKey == ImmersiveVideoFormatProperties.SPATIAL_HEIGHT) {
             Float width = model.get(ImmersiveVideoFormatProperties.DEFAULT_SPATIAL_WIDTH);
@@ -56,7 +64,9 @@ public class ImmersiveVideoFormatViewBinder {
             Integer projectionType =
                     model.get(ImmersiveVideoFormatProperties.RECOMMENDED_PROJECTION_TYPE);
             if (stereoMode != null && projectionType != null) {
-                view.androidView.getRadioGroup().setRecommendedOption(stereoMode, projectionType);
+                ImmersiveVideoFormatRadioGroup radioGroup = view.androidView.getRadioGroup();
+                radioGroup.setRecommendedOption(stereoMode, projectionType);
+                radioGroup.checkOption(stereoMode, projectionType);
             }
         }
     }
@@ -75,9 +85,13 @@ public class ImmersiveVideoFormatViewBinder {
                 && height > 0f
                 && parentWidth > 0f
                 && parentHeight > 0f) {
-            float[] translation =
-                    new float[] {parentWidth / 2 - width / 2, parentHeight / 2 + height / 2, 0f};
-            holder.setEntityPose(translation, IDENTITY_ROTATION, XrSpace.PARENT);
+            XrPose pose =
+                    XrPose.create(
+                            XrVector3.create(
+                                    parentWidth / 2 - width / 2,
+                                    parentHeight / 2 + height / 2,
+                                    0f));
+            holder.setEntityPose(pose, XrSpace.PARENT);
         }
     }
 }

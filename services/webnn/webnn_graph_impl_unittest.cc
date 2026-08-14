@@ -49,26 +49,22 @@ namespace webnn {
 
 namespace {
 
-// A fake WebNNGraph Mojo interface implementation that binds a pipe for
-// computing graph message.
+// A fake WebNNGraph implementation for testing.
 class FakeWebNNGraphImpl final : public WebNNGraphImpl {
  public:
-  FakeWebNNGraphImpl(mojo::PendingReceiver<mojom::WebNNGraph> receiver,
-                     WebNNContextImpl& context,
+  FakeWebNNGraphImpl(WebNNContextImpl& context,
                      ComputeResourceInfo compute_resource_info)
-      : WebNNGraphImpl(std::move(receiver),
-                       context,
+      : WebNNGraphImpl(context,
                        std::move(compute_resource_info),
                        /*devices=*/{}) {}
 
   static void CreateAndBuild(
-      mojo::PendingReceiver<mojom::WebNNGraph> receiver,
       base::WeakPtr<WebNNContextImpl> context,
       const mojom::GraphInfo& graph_info,
       ComputeResourceInfo compute_resource_info,
       WebNNContextImpl::CreateGraphImplCallback callback) {
     std::move(callback).Run(base::MakeRefCounted<FakeWebNNGraphImpl>(
-        std::move(receiver), *context, std::move(compute_resource_info)));
+        *context, std::move(compute_resource_info)));
   }
 
  private:
@@ -140,19 +136,15 @@ class FakeWebNNContextImpl final : public WebNNContextImpl {
   ~FakeWebNNContextImpl() override = default;
 
   void CreateGraphImpl(
-      mojo::PendingReceiver<mojom::WebNNGraph> receiver,
       mojom::GraphInfoPtr graph_info,
       WebNNGraphImpl::ComputeResourceInfo compute_resource_info,
       base::flat_map<
           OperandId,
           std::unique_ptr<WebNNConstantOperand>> /*constant_operands*/,
-      base::flat_map<
-          OperandId,
-          scoped_refptr<WebNNTensorImpl>> /*constant_tensor_operands*/,
       CreateGraphImplCallback callback) override {
-    FakeWebNNGraphImpl::CreateAndBuild(
-        std::move(receiver), AsWeakPtr(), *graph_info,
-        std::move(compute_resource_info), std::move(callback));
+    FakeWebNNGraphImpl::CreateAndBuild(AsWeakPtr(), *graph_info,
+                                       std::move(compute_resource_info),
+                                       std::move(callback));
   }
 
   base::expected<scoped_refptr<WebNNTensorImpl>, mojom::ErrorPtr>
@@ -231,7 +223,7 @@ CreateTensorSuccess CreateWebNNTensor(
       mojom::TensorInfo::New(
           OperandDescriptor::UnsafeCreateForTesting(data_type, shape),
           MLTensorUsage()),
-      mojo_base::BigBuffer(0), create_tensor_future.GetCallback());
+      create_tensor_future.GetCallback());
   mojom::CreateTensorResultPtr create_tensor_result =
       create_tensor_future.Take();
   mojo::AssociatedRemote<mojom::WebNNTensor> webnn_tensor;
@@ -274,8 +266,6 @@ bool ValidateDispatch(
                                     create_graph_future.GetCallback());
   base::expected<mojom::CreateGraphSuccessPtr, mojom::ErrorPtr>
       create_graph_result = create_graph_future.Take();
-  mojo::Remote<mojom::WebNNGraph> webnn_graph;
-  webnn_graph.Bind(std::move(create_graph_result.value()->graph_remote));
   blink::WebNNGraphToken graph_token = create_graph_result.value()->graph_token;
 
   // Validate the inputs in the `Dispatch` function.

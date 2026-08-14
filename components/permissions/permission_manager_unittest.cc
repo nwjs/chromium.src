@@ -41,6 +41,7 @@
 #include "services/network/public/cpp/permissions_policy/origin_with_possible_wildcards.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/permissions/permission_utils.h"
 #include "url/origin.h"
@@ -253,6 +254,23 @@ class PermissionManagerTest : public content::RenderViewHostTestHarness {
                        const GURL& embedding_origin) {
     GetPermissionManager()->ResetPermission(permission, requesting_origin,
                                             embedding_origin);
+  }
+
+  content::PermissionController::SubscriptionId
+  SubscribeToContentSettingsTypeChange(
+      ContentSettingsType content_settings_type,
+      const GURL& requesting_origin,
+      const GURL& embedding_origin,
+      base::RepeatingCallback<void(const PermissionSetting&)> callback) {
+    return GetPermissionManager()->SubscribeToContentSettingsTypeChange(
+        content_settings_type, requesting_origin, embedding_origin,
+        std::move(callback));
+  }
+
+  void UnsubscribeFromContentSettingsTypeChange(
+      content::PermissionController::SubscriptionId subscription_id) {
+    GetPermissionManager()->UnsubscribeFromContentSettingsTypeChange(
+        subscription_id);
   }
 
   const GURL& url() const { return url_; }
@@ -837,16 +855,16 @@ class WildcardPermissionObserver : public permissions::Observer {
 // TODO(crbug.com/377264243): Enable when device permission is supported on
 // Android.
 #if BUILDFLAG(IS_ANDROID)
-#define MAYBE_DeviceStatusRefreshIsAsyncForNonGranted \
-  DISABLED_DeviceStatusRefreshIsAsyncForNonGranted
+#define MAYBE_DeviceStatusRefreshNotifiesObservers \
+  DISABLED_DeviceStatusRefreshNotifiesObservers
 #else
-#define MAYBE_DeviceStatusRefreshIsAsyncForNonGranted \
-  DeviceStatusRefreshIsAsyncForNonGranted
+#define MAYBE_DeviceStatusRefreshNotifiesObservers \
+  DeviceStatusRefreshNotifiesObservers
 #endif
-// On the non-GRANTED hot path, MaybeUpdateCachedHasDevicePermission is
-// posted asynchronously. Verifies the wildcard notification does not fire
-// inline and does fire after the posted task runs.
-TEST_F(PermissionManagerTest, MAYBE_DeviceStatusRefreshIsAsyncForNonGranted) {
+// Verifies that when the device-level permission is revoked, the site-level
+// permission status is updated and a wildcard observer notification is
+// dispatched.
+TEST_F(PermissionManagerTest, MAYBE_DeviceStatusRefreshNotifiesObservers) {
   PermissionContextBase* context =
       GetPermissionManager()->GetPermissionContextForTesting(
           ContentSettingsType::NOTIFICATIONS);
@@ -863,51 +881,15 @@ TEST_F(PermissionManagerTest, MAYBE_DeviceStatusRefreshIsAsyncForNonGranted) {
   WildcardPermissionObserver observer;
   context->AddObserver(&observer);
 
-  // Switch to the non-GRANTED hot path and revoke the OS-level permission.
-  SetPermission(PermissionType::NOTIFICATIONS, PermissionStatus::ASK);
+  // Revoking the OS permission must downgrade the status to ASK and trigger the
+  // wildcard notification.
   permissions_client().SetHasDevicePermission(false);
-
   CheckPermissionStatus(PermissionType::NOTIFICATIONS, PermissionStatus::ASK,
                         /*should_include_device_status=*/true);
 
-  // Not fired inline.
-  EXPECT_EQ(0, observer.wildcard_count());
-
-  // Fired after the posted task runs.
-  ASSERT_TRUE(
-      base::test::RunUntil([&]() { return observer.wildcard_count() >= 1; }));
+  EXPECT_EQ(1, observer.wildcard_count());
 
   context->RemoveObserver(&observer);
-}
-
-#if BUILDFLAG(IS_ANDROID)
-#define MAYBE_DeviceStatusRefreshIsSyncForGranted \
-  DISABLED_DeviceStatusRefreshIsSyncForGranted
-#else
-#define MAYBE_DeviceStatusRefreshIsSyncForGranted \
-  DeviceStatusRefreshIsSyncForGranted
-#endif
-// Counterpart to the test above: on the GRANTED path, the cache refresh
-// must be synchronous, otherwise a revoked OS permission would return a
-// stale GRANTED.
-TEST_F(PermissionManagerTest, MAYBE_DeviceStatusRefreshIsSyncForGranted) {
-  // Prime the cache so the subsequent flip is a real change.
-  SetPermission(PermissionType::NOTIFICATIONS, PermissionStatus::GRANTED);
-  permissions_client().SetHasDevicePermission(true);
-  permissions_client().SetCanRequestDevicePermission(true);
-  CheckPermissionStatus(PermissionType::NOTIFICATIONS,
-                        PermissionStatus::GRANTED,
-                        /*should_include_device_status=*/true);
-
-  // Revoking the OS permission must synchronously downgrade to ASK.
-  permissions_client().SetHasDevicePermission(false);
-  CheckPermissionStatus(PermissionType::NOTIFICATIONS, PermissionStatus::ASK,
-                        /*should_include_device_status=*/true);
-
-  // And to DENIED when can_request is also false.
-  permissions_client().SetCanRequestDevicePermission(false);
-  CheckPermissionStatus(PermissionType::NOTIFICATIONS, PermissionStatus::DENIED,
-                        /*should_include_device_status=*/true);
 }
 
 TEST_F(PermissionManagerTest,
@@ -918,6 +900,34 @@ TEST_F(PermissionManagerTest,
 
   // Context is null because it is not added to PermissionContextMap.
   EXPECT_TRUE(!context);
+}
+
+TEST_F(PermissionManagerTest, StorageAccessPermissionStatusMasksDenied) {
+  SetPermission(PermissionType::STORAGE_ACCESS_GRANT,
+                PermissionStatus::GRANTED);
+  CheckPermissionStatus(PermissionType::STORAGE_ACCESS_GRANT,
+                        PermissionStatus::GRANTED);
+
+  SetPermission(PermissionType::STORAGE_ACCESS_GRANT, PermissionStatus::ASK);
+  CheckPermissionStatus(PermissionType::STORAGE_ACCESS_GRANT,
+                        PermissionStatus::ASK);
+
+  SetPermission(PermissionType::STORAGE_ACCESS_GRANT, PermissionStatus::DENIED);
+  CheckPermissionStatus(PermissionType::STORAGE_ACCESS_GRANT,
+                        PermissionStatus::ASK);
+  CheckPermissionResult(PermissionType::STORAGE_ACCESS_GRANT,
+                        PermissionStatus::ASK,
+                        content::PermissionStatusSource::UNSPECIFIED);
+}
+
+TEST_F(PermissionManagerTest, StorageAccessPermissionRequestMasksDenied) {
+  NavigateAndCommit(url());
+  SetPermission(PermissionType::STORAGE_ACCESS_GRANT, PermissionStatus::DENIED);
+
+  RequestPermissionFromCurrentDocument(PermissionType::STORAGE_ACCESS_GRANT,
+                                       main_rfh());
+  EXPECT_TRUE(callback_called());
+  EXPECT_EQ(PermissionStatus::ASK, callback_result());
 }
 
 class PermissionManagerWithGeolocationTest : public PermissionManagerTest {
@@ -966,6 +976,77 @@ TEST_F(PermissionManagerWithGeolocationTest, GetGeolocationPermissionStatus) {
       url(), url(), content_settings_type,
       GeolocationSetting{PermissionOption::kDenied, PermissionOption::kDenied});
   CheckPermissionStatus(permission_type, PermissionStatus::DENIED);
+}
+
+TEST_F(PermissionManagerTest, SubscribeToContentSettingsTypeChange) {
+  ContentSettingsType type = ContentSettingsType::NOTIFICATIONS;
+
+  class Mocker {
+   public:
+    MOCK_METHOD(void, Callback, (const PermissionSetting&), ());
+  };
+
+  Mocker mocker;
+  content::PermissionController::SubscriptionId subscription_id =
+      SubscribeToContentSettingsTypeChange(
+          type, url(), url(),
+          base::BindRepeating(&Mocker::Callback, base::Unretained(&mocker)));
+
+  EXPECT_TRUE(subscription_id);
+
+  // Now change the setting. Expect the callback to be called.
+  EXPECT_CALL(mocker, Callback(PermissionSetting(CONTENT_SETTING_ALLOW)));
+  SetPermission(PermissionType::NOTIFICATIONS, PermissionStatus::GRANTED);
+
+  // Change it back to ASK.
+  EXPECT_CALL(mocker, Callback(PermissionSetting(CONTENT_SETTING_ASK)));
+  SetPermission(PermissionType::NOTIFICATIONS, PermissionStatus::ASK);
+
+  // Unsubscribe.
+  UnsubscribeFromContentSettingsTypeChange(subscription_id);
+
+  // Change it again, callback should not be called.
+  EXPECT_CALL(mocker, Callback(testing::_)).Times(0);
+  SetPermission(PermissionType::NOTIFICATIONS, PermissionStatus::GRANTED);
+}
+
+TEST_F(PermissionManagerWithGeolocationTest,
+       SubscribeToContentSettingsTypeChangeGeolocation) {
+  ContentSettingsType type = ContentSettingsType::GEOLOCATION_WITH_OPTIONS;
+
+  class Mocker {
+   public:
+    MOCK_METHOD(void, Callback, (const PermissionSetting&), ());
+  };
+
+  Mocker mocker;
+  content::PermissionController::SubscriptionId subscription_id =
+      SubscribeToContentSettingsTypeChange(
+          type, url(), url(),
+          base::BindRepeating(&Mocker::Callback, base::Unretained(&mocker)));
+
+  EXPECT_TRUE(subscription_id);
+
+  // Change Geolocation setting.
+  EXPECT_CALL(mocker,
+              Callback(PermissionSetting(GeolocationSetting{
+                  PermissionOption::kAllowed, PermissionOption::kDenied})));
+  GetHostContentSettingsMap()->SetPermissionSettingDefaultScope(
+      url(), url(), type,
+      GeolocationSetting{PermissionOption::kAllowed,
+                         PermissionOption::kDenied});
+
+  // Change it again.
+  EXPECT_CALL(mocker,
+              Callback(PermissionSetting(GeolocationSetting{
+                  PermissionOption::kAllowed, PermissionOption::kAllowed})));
+  GetHostContentSettingsMap()->SetPermissionSettingDefaultScope(
+      url(), url(), type,
+      GeolocationSetting{PermissionOption::kAllowed,
+                         PermissionOption::kAllowed});
+
+  // Unsubscribe.
+  UnsubscribeFromContentSettingsTypeChange(subscription_id);
 }
 
 }  // namespace permissions

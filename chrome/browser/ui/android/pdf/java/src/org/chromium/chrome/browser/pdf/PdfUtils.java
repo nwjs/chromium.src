@@ -13,6 +13,7 @@ import android.text.TextUtils;
 import android.view.View;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.VisibleForTesting;
 import androidx.fragment.app.FragmentActivity;
 
 import org.jni_zero.CalledByNative;
@@ -72,6 +73,79 @@ public class PdfUtils {
 
         int NUM_ENTRIES = 3;
     }
+
+    // LINT.IfChange(PdfToolbarAction)
+    // These values are persisted to logs. Entries should not be renumbered and
+    // numeric values should never be reused.
+    @IntDef({
+        PdfToolbarAction.OTHER,
+        PdfToolbarAction.ZOOM_IN,
+        PdfToolbarAction.ZOOM_OUT,
+        PdfToolbarAction.FIT_TO_PAGE_VERTICAL,
+        PdfToolbarAction.FIT_TO_PAGE_HORIZONTAL,
+        PdfToolbarAction.PAGE_NAVIGATION,
+        PdfToolbarAction.PRINT,
+        PdfToolbarAction.TWO_PAGE_VIEW,
+        PdfToolbarAction.SINGLE_PAGE_VIEW,
+        PdfToolbarAction.DOCUMENT_PROPERTIES,
+        PdfToolbarAction.NUM_ENTRIES
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface PdfToolbarAction {
+        int OTHER = 0;
+        int ZOOM_IN = 1;
+        int ZOOM_OUT = 2;
+        int FIT_TO_PAGE_VERTICAL = 3;
+        int FIT_TO_PAGE_HORIZONTAL = 4;
+        int PAGE_NAVIGATION = 5;
+        int PRINT = 6;
+        int TWO_PAGE_VIEW = 7;
+        int SINGLE_PAGE_VIEW = 8;
+        int DOCUMENT_PROPERTIES = 9;
+
+        int NUM_ENTRIES = 10;
+    }
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:AndroidPdfToolbarAction)
+
+    // LINT.IfChange(PdfSelectionMenuItem)
+    // These values are persisted to logs. Entries should not be renumbered and
+    // numeric values should never be reused.
+    @IntDef({
+        PdfSelectionMenuItem.OTHER,
+        PdfSelectionMenuItem.SHARE,
+        PdfSelectionMenuItem.WEB_SEARCH,
+        PdfSelectionMenuItem.TRANSLATE,
+        PdfSelectionMenuItem.NUM_ENTRIES
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface PdfSelectionMenuItem {
+        int OTHER = 0;
+        int SHARE = 1;
+        int WEB_SEARCH = 2;
+        int TRANSLATE = 3;
+
+        int NUM_ENTRIES = 4;
+    }
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:AndroidPdfSelectionMenuItem)
+
+    // LINT.IfChange(PdfHyperlinkClickResult)
+    // These values are persisted to logs. Entries should not be renumbered and
+    // numeric values should never be reused.
+    @IntDef({
+        PdfHyperlinkClickResult.SUCCESS_LOAD_INITIATED,
+        PdfHyperlinkClickResult.BLOCKED_INVALID_SCHEME,
+        PdfHyperlinkClickResult.IGNORED_V2_DISABLED,
+        PdfHyperlinkClickResult.NUM_ENTRIES
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface PdfHyperlinkClickResult {
+        int SUCCESS_LOAD_INITIATED = 0;
+        int BLOCKED_INVALID_SCHEME = 1;
+        int IGNORED_V2_DISABLED = 2;
+
+        int NUM_ENTRIES = 3;
+    }
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:AndroidPdfHyperlinkClickResult)
 
     private static final String TAG = "PdfUtils";
     private static final Set<String> TRANSIENT_PDF_SCHEMES =
@@ -140,7 +214,7 @@ public class PdfUtils {
     public static boolean shouldOpenPdfInline(boolean isIncognito) {
         if (sShouldOpenPdfInlineForTesting) return true;
         if (isIncognito) {
-            return false;
+            return ChromeFeatureList.sInlinePdfV2Incognito.isEnabled();
         }
         return isPlatformSupported();
     }
@@ -239,7 +313,35 @@ public class PdfUtils {
         sShouldOpenPdfInlineForTesting = shouldOpenPdfInlineForTesting;
     }
 
-    public static @Nullable Uri getUriFromFilePath(String pdfFilePath) {
+    /**
+     * Generates a content URI for accessing the PDF. For Incognito mode, it creates a secure,
+     * thread-safe in-memory stream URI.
+     *
+     * @param pdfFilePath Path to the PDF file (might be a /proc/ path in Incognito).
+     * @param pdfFileName Name of the PDF file.
+     * @param tabId Unique identifier for the tab.
+     * @param isIncognito Whether the request is in Incognito mode.
+     * @return A Uri to access the PDF.
+     */
+    public static @Nullable Uri getContentUri(
+            String pdfFilePath, String pdfFileName, String tabId, boolean isIncognito) {
+        if (isIncognito) {
+            Uri uri = Uri.parse(pdfFilePath);
+            String scheme = uri.getScheme();
+            if (UrlConstants.CONTENT_SCHEME.equals(scheme)
+                    || UrlConstants.FILE_SCHEME.equals(scheme)) {
+                // PDF androidx library accepts file or content URI for local PDF opened in
+                // incognito.
+                return uri;
+            }
+            return PdfContentProvider.registerStream(tabId, pdfFilePath, pdfFileName);
+        } else {
+            return getUriFromFilePath(pdfFilePath);
+        }
+    }
+
+    @VisibleForTesting
+    static @Nullable Uri getUriFromFilePath(String pdfFilePath) {
         Uri uri = Uri.parse(pdfFilePath);
         String scheme = uri.getScheme();
         try {
@@ -302,7 +404,7 @@ public class PdfUtils {
      * @param originalUrl The url to be decoded.
      * @return the decoded download url; or null if the original url is not a pdf page url.
      */
-    public static @Nullable String decodePdfPageUrl(String originalUrl) {
+    public static @Nullable String decodePdfPageUrl(@Nullable String originalUrl) {
         if (originalUrl == null || !originalUrl.startsWith(UrlConstants.PDF_URL)) {
             return null;
         }
@@ -392,11 +494,26 @@ public class PdfUtils {
 
     /** Returns {@code true} if {@link PdfViewFragment} is reused on activity restart. */
     public static boolean isReuseFragmentEnabled() {
-        return ChromeFeatureList.isEnabled(ChromeFeatureList.PDF_REUSE_FRAGMENT);
+        return ChromeFeatureList.sPdfReuseFragment.isEnabled();
     }
 
     public static void recordPdfLoad() {
         RecordHistogram.recordBooleanHistogram("Android.Pdf.DocumentLoad", true);
+    }
+
+    public static void recordToolbarAction(@PdfToolbarAction int action) {
+        RecordHistogram.recordEnumeratedHistogram(
+                "Android.Pdf.ToolbarAction", action, PdfToolbarAction.NUM_ENTRIES);
+    }
+
+    public static void recordSelectionMenuItem(@PdfSelectionMenuItem int menuItem) {
+        RecordHistogram.recordEnumeratedHistogram(
+                "Android.Pdf.SelectionMenuItem", menuItem, PdfSelectionMenuItem.NUM_ENTRIES);
+    }
+
+    public static void recordHyperlinkClickResult(@PdfHyperlinkClickResult int result) {
+        RecordHistogram.recordEnumeratedHistogram(
+                "Android.Pdf.Hyperlink.ClickResult", result, PdfHyperlinkClickResult.NUM_ENTRIES);
     }
 
     public static void recordPdfLoadResultDetail(@PdfLoadResult int loadResult) {

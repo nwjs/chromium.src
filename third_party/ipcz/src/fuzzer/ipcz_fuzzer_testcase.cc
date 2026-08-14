@@ -21,12 +21,7 @@ namespace ipcz::fuzzer {
 namespace {
 
 const IpczAPI& GetIpcz() {
-  static IpczAPI api = [] {
-    IpczAPI ipcz = {sizeof(ipcz)};
-    IpczGetAPI(&ipcz);
-    return ipcz;
-  }();
-  return api;
+  return GetIpczAPI();
 }
 
 class ScopedIpczHandle {
@@ -277,12 +272,12 @@ void IpczFuzzerTestcase::Run() {
     nodes[second].peers[first] = nodes[second].peers[from_node].ReceivePortal();
   };
 
-  ipcz.CreateNode(&kDriver, IPCZ_CREATE_NODE_AS_BROKER, nullptr,
+  ipcz.CreateNode(&GetFuzzerDriver(), IPCZ_CREATE_NODE_AS_BROKER, nullptr,
                   nodes[0].handle.receive());
-  ipcz.CreateNode(&kDriver, IPCZ_CREATE_NODE_AS_BROKER, nullptr,
+  ipcz.CreateNode(&GetFuzzerDriver(), IPCZ_CREATE_NODE_AS_BROKER, nullptr,
                   nodes[1].handle.receive());
   for (size_t i = 2; i < nodes.size(); ++i) {
-    ipcz.CreateNode(&kDriver, IPCZ_NO_FLAGS, nullptr,
+    ipcz.CreateNode(&GetFuzzerDriver(), IPCZ_NO_FLAGS, nullptr,
                     nodes[i].handle.receive());
   }
   connect_nodes(2, IPCZ_CONNECT_NODE_SHARE_BROKER, 4,

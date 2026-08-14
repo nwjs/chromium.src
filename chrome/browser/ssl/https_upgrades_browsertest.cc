@@ -442,7 +442,7 @@ class HttpsUpgradesBrowserTest
     if (https_upgrades_test_type() ==
         HttpsUpgradesTestType::kHttpsFirstModeAdvancedProtection) {
       safe_browsing::AdvancedProtectionStatusManagerFactory::GetForProfile(
-          browser()->profile())
+          browser()->GetProfile())
           ->SetAdvancedProtectionStatusForTesting(true);
     }
 
@@ -462,13 +462,16 @@ class HttpsUpgradesBrowserTest
   }
 
   void TearDownOnMainThread() override {
-    browser()->profile()->GetPrefs()->ClearPref(prefs::kHttpsOnlyModeEnabled);
-    browser()->profile()->GetPrefs()->ClearPref(
+    browser()->GetProfile()->GetPrefs()->ClearPref(
+        prefs::kHttpsOnlyModeEnabled);
+    browser()->GetProfile()->GetPrefs()->ClearPref(
         prefs::kHttpsOnlyModeAutoEnabled);
-    browser()->profile()->GetPrefs()->ClearPref(prefs::kHttpsUpgradeFallbacks);
-    browser()->profile()->GetPrefs()->ClearPref(
+    browser()->GetProfile()->GetPrefs()->ClearPref(
+        prefs::kHttpsUpgradeFallbacks);
+    browser()->GetProfile()->GetPrefs()->ClearPref(
         prefs::kHttpsUpgradeNavigations);
-    browser()->profile()->GetPrefs()->ClearPref(prefs::kHttpsFirstBalancedMode);
+    browser()->GetProfile()->GetPrefs()->ClearPref(
+        prefs::kHttpsFirstBalancedMode);
 
     HttpsUpgradesInterceptor::SetHttpsPortForTesting(0);
     HttpsUpgradesInterceptor::SetHttpPortForTesting(0);
@@ -516,22 +519,22 @@ class HttpsUpgradesBrowserTest
   HttpsUpgradesTestType https_upgrades_test_type() const { return GetParam(); }
 
   void SetPref(bool enabled) {
-    auto* prefs = browser()->profile()->GetPrefs();
+    auto* prefs = browser()->GetProfile()->GetPrefs();
     prefs->SetBoolean(prefs::kHttpsOnlyModeEnabled, enabled);
   }
 
   bool GetPref() const {
-    auto* prefs = browser()->profile()->GetPrefs();
+    auto* prefs = browser()->GetProfile()->GetPrefs();
     return prefs->GetBoolean(prefs::kHttpsOnlyModeEnabled);
   }
 
   void SetBalancedPref(bool enabled) {
-    auto* prefs = browser()->profile()->GetPrefs();
+    auto* prefs = browser()->GetProfile()->GetPrefs();
     prefs->SetBoolean(prefs::kHttpsFirstBalancedMode, enabled);
   }
 
   bool GetBalancedPref() const {
-    auto* prefs = browser()->profile()->GetPrefs();
+    auto* prefs = browser()->GetProfile()->GetPrefs();
     return prefs->GetBoolean(prefs::kHttpsFirstBalancedMode);
   }
 
@@ -552,7 +555,7 @@ class HttpsUpgradesBrowserTest
   bool IsStrictInterstitialEnabledForTest() const {
     return IsHttpsFirstModePrefEnabled() ||
            safe_browsing::AdvancedProtectionStatusManagerFactory::GetForProfile(
-               browser()->profile())
+               browser()->GetProfile())
                ->IsUnderAdvancedProtection();
   }
 
@@ -562,7 +565,7 @@ class HttpsUpgradesBrowserTest
   bool IsHttpsFirstModeInterstitialEnabledAcrossSites() const {
     return IsHttpsFirstModePrefEnabled() || InBalancedMode() || IsIncognito() ||
            safe_browsing::AdvancedProtectionStatusManagerFactory::GetForProfile(
-               browser()->profile())
+               browser()->GetProfile())
                ->IsUnderAdvancedProtection();
   }
 
@@ -594,7 +597,7 @@ class HttpsUpgradesBrowserTest
 
   void SetSiteEngagementScore(const GURL& url, double score) {
     site_engagement::SiteEngagementService* service =
-        site_engagement::SiteEngagementService::Get(browser()->profile());
+        site_engagement::SiteEngagementService::Get(browser()->GetProfile());
     service->ResetBaseScoreForURL(url, score);
     ASSERT_EQ(score, service->GetScore(url));
   }
@@ -672,8 +675,8 @@ class HttpsUpgradesBrowserTest
     SetSiteEngagementScore(GURL("https://google.com:12345"), 90);
 
     // Profile must be old enough.
-    browser()->profile()->SetCreationTimeForTesting(clock->Now() -
-                                                    base::Days(30));
+    browser()->GetProfile()->SetCreationTimeForTesting(clock->Now() -
+                                                       base::Days(30));
     hfm_service()->SetClockForTesting(clock);
 
     // There must be a lot of recorded navigations.
@@ -702,7 +705,7 @@ class HttpsUpgradesBrowserTest
   base::test::ScopedFeatureList* feature_list() { return &feature_list_; }
 
   HttpsFirstModeService* hfm_service() const {
-    return HttpsFirstModeServiceFactory::GetForProfile(browser()->profile());
+    return HttpsFirstModeServiceFactory::GetForProfile(browser()->GetProfile());
   }
 
   // Checks that the interstitial UKM has an entry for `url` and `result`.
@@ -1207,7 +1210,7 @@ IN_PROC_BROWSER_TEST_P(
 
   content::WebContents* contents =
       GetBrowser()->tab_strip_model()->GetActiveWebContents();
-  Profile* profile = GetBrowser()->profile();
+  Profile* profile = GetBrowser()->GetProfile();
   content::SSLHostStateDelegate* state = profile->GetSSLHostStateDelegate();
 
   // Set test clock.
@@ -1435,7 +1438,7 @@ IN_PROC_BROWSER_TEST_P(
 
   content::WebContents* contents =
       GetBrowser()->tab_strip_model()->GetActiveWebContents();
-  Profile* profile = GetBrowser()->profile();
+  Profile* profile = GetBrowser()->GetProfile();
   content::SSLHostStateDelegate* state = profile->GetSSLHostStateDelegate();
 
   // Set test clock.
@@ -1582,7 +1585,7 @@ IN_PROC_BROWSER_TEST_P(
     ExpectInterstitial(contents);
     expected_reasons.balanced++;
   } else if (safe_browsing::AdvancedProtectionStatusManagerFactory::
-                 GetForProfile(browser()->profile())
+                 GetForProfile(browser()->GetProfile())
                      ->IsUnderAdvancedProtection()) {
     ExpectInterstitial(contents);
     expected_reasons.advanced_protection++;
@@ -1605,7 +1608,7 @@ IN_PROC_BROWSER_TEST_P(
     ExpectInterstitial(contents);
     expected_reasons.balanced++;
   } else if (safe_browsing::AdvancedProtectionStatusManagerFactory::
-                 GetForProfile(browser()->profile())
+                 GetForProfile(browser()->GetProfile())
                      ->IsUnderAdvancedProtection()) {
     ExpectInterstitial(contents);
     expected_reasons.advanced_protection++;
@@ -1696,7 +1699,7 @@ IN_PROC_BROWSER_TEST_P(
     } else if (InBalancedMode()) {
       expected_reasons.balanced++;
     } else if (safe_browsing::AdvancedProtectionStatusManagerFactory::
-                   GetForProfile(browser()->profile())
+                   GetForProfile(browser()->GetProfile())
                        ->IsUnderAdvancedProtection()) {
       expected_reasons.advanced_protection++;
     } else {
@@ -1728,7 +1731,7 @@ IN_PROC_BROWSER_TEST_P(
     } else if (InBalancedMode()) {
       expected_reasons.balanced++;
     } else if (safe_browsing::AdvancedProtectionStatusManagerFactory::
-                   GetForProfile(browser()->profile())
+                   GetForProfile(browser()->GetProfile())
                        ->IsUnderAdvancedProtection()) {
       expected_reasons.advanced_protection++;
     } else {
@@ -3266,7 +3269,7 @@ IN_PROC_BROWSER_TEST_P(
 IN_PROC_BROWSER_TEST_P(HttpsUpgradesBrowserTest,
                        EnterprisePolicyDisablesUpgrades) {
   // Disable HTTPS-Upgrades via enterprise policy.
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetBoolean(prefs::kHttpsUpgradesEnabled, false);
 
   content::WebContents* contents =
@@ -3654,6 +3657,56 @@ IN_PROC_BROWSER_TEST_P(HttpsUpgradesBrowserTest,
   EXPECT_TRUE(state->IsHttpAllowedForHost(
       http_url.GetHost(),
       contents->GetPrimaryMainFrame()->GetStoragePartition()));
+}
+
+// Tests that when a URL typed with an explicit http:// scheme is redirected by
+// the server to other hosts, only the host of the originally typed URL is
+// added to the allowlist. The exemption applies to the navigation as a whole,
+// but server-chosen redirect targets must not be persistently allowlisted.
+IN_PROC_BROWSER_TEST_P(HttpsUpgradesBrowserTest,
+                       URLsTypedWithHttpSchemeAllowlistOnlyInitialHost) {
+  if (IsHttpsFirstModeInterstitialEnabledAcrossSites()) {
+    return;
+  }
+  GURL final_url = http_server()->GetURL("baz.com", "/simple.html");
+  GURL hop_url = http_server()->GetURL(
+      "bar.com", "/server-redirect?" + final_url.spec());
+  GURL initial_url = http_server()->GetURL(
+      "foo.com", "/server-redirect?" + hop_url.spec());
+  auto* contents = GetBrowser()->tab_strip_model()->GetActiveWebContents();
+  OmniboxClient* omnibox_client = BrowserWindow::FromBrowser(GetBrowser())
+                                      ->GetLocationBar()
+                                      ->GetOmniboxController()
+                                      ->client();
+
+  Profile* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
+  content::SSLHostStateDelegate* state = profile->GetSSLHostStateDelegate();
+  auto* storage_partition =
+      contents->GetPrimaryMainFrame()->GetStoragePartition();
+
+  // None of the hosts should be in the allowlist yet.
+  EXPECT_FALSE(state->IsHttpAllowedForHost("foo.com", storage_partition));
+  EXPECT_FALSE(state->IsHttpAllowedForHost("bar.com", storage_partition));
+  EXPECT_FALSE(state->IsHttpAllowedForHost("baz.com", storage_partition));
+
+  // Simulate the full URL was typed with an http scheme. The server redirects
+  // through bar.com and baz.com.
+  content::TestNavigationObserver nav_observer(contents, 1);
+  omnibox_client->OnAutocompleteAccept(
+      initial_url, nullptr, WindowOpenDisposition::CURRENT_TAB,
+      ui::PAGE_TRANSITION_TYPED, AutocompleteMatchType::URL_WHAT_YOU_TYPED,
+      base::TimeTicks(), false, true, std::u16string(), AutocompleteMatch(),
+      AutocompleteMatch());
+  nav_observer.Wait();
+
+  // None of the hops should have been upgraded.
+  EXPECT_EQ(final_url, contents->GetLastCommittedURL());
+
+  // The host the user typed should be in the allowlist, but the
+  // server-selected redirect targets should not.
+  EXPECT_TRUE(state->IsHttpAllowedForHost("foo.com", storage_partition));
+  EXPECT_FALSE(state->IsHttpAllowedForHost("bar.com", storage_partition));
+  EXPECT_FALSE(state->IsHttpAllowedForHost("baz.com", storage_partition));
 }
 
 // Returns a URL loader interceptor that responds to HTTPS URLs with a timeout
@@ -4045,12 +4098,13 @@ class HttpsUpgradesTypedSchemelessNavigationBalancedModeBrowserTest
 
   void SetUpOnMainThread() override {
     HttpsUpgradesTypedSchemelessNavigationTestBase::SetUpOnMainThread();
-    browser()->profile()->GetPrefs()->SetBoolean(prefs::kHttpsFirstBalancedMode,
-                                                 true);
+    browser()->GetProfile()->GetPrefs()->SetBoolean(
+        prefs::kHttpsFirstBalancedMode, true);
   }
 
   void TearDownOnMainThread() override {
-    browser()->profile()->GetPrefs()->ClearPref(prefs::kHttpsFirstBalancedMode);
+    browser()->GetProfile()->GetPrefs()->ClearPref(
+        prefs::kHttpsFirstBalancedMode);
     HttpsUpgradesTypedSchemelessNavigationTestBase::TearDownOnMainThread();
   }
 };
@@ -4209,12 +4263,12 @@ std::unique_ptr<content::URLLoaderInterceptor> MakeCaptivePortalInterceptor(
 
 void HttpsUpgradesBrowserTest::EnableCaptivePortalDetection(Browser* browser) {
   captive_portal::CaptivePortalService* captive_portal_service =
-      CaptivePortalServiceFactory::GetForProfile(browser->profile());
+      CaptivePortalServiceFactory::GetForProfile(browser->GetProfile());
   captive_portal_service->set_test_url(GURL(kCaptivePortalPingUrl));
 
   captive_portal::CaptivePortalService::set_state_for_testing(
       captive_portal::CaptivePortalService::NOT_TESTING);
-  browser->profile()->GetPrefs()->SetBoolean(
+  browser->GetProfile()->GetPrefs()->SetBoolean(
       embedder_support::kAlternateErrorPagesEnabled, true);
 }
 
@@ -4442,14 +4496,14 @@ class HttpsUpgradesPrefsBrowserTest : public InProcessBrowserTest {
 
  protected:
   void SetUISetting(HttpsFirstModeSetting setting) {
-    extensions::settings_private::GeneratedPrefs prefs(browser()->profile());
+    extensions::settings_private::GeneratedPrefs prefs(browser()->GetProfile());
     prefs.SetPref(
         kGeneratedHttpsFirstModePref,
         std::make_unique<base::Value>(static_cast<int>(setting)).get());
   }
 
   bool GetPref() const {
-    auto* prefs = browser()->profile()->GetPrefs();
+    auto* prefs = browser()->GetProfile()->GetPrefs();
     return prefs->GetBoolean(prefs::kHttpsOnlyModeEnabled);
   }
 
@@ -4534,14 +4588,14 @@ class HttpsUpgradesBalancedModePrefsBrowserTest
   }
 
   void SetUISetting(HttpsFirstModeSetting setting) {
-    extensions::settings_private::GeneratedPrefs prefs(browser()->profile());
+    extensions::settings_private::GeneratedPrefs prefs(browser()->GetProfile());
     prefs.SetPref(
         kGeneratedHttpsFirstModePref,
         std::make_unique<base::Value>(static_cast<int>(setting)).get());
   }
 
   bool GetPref() const {
-    auto* prefs = browser()->profile()->GetPrefs();
+    auto* prefs = browser()->GetProfile()->GetPrefs();
     return prefs->GetBoolean(prefs::kHttpsFirstBalancedMode);
   }
 
@@ -4628,14 +4682,14 @@ using TypicallySecureUserBrowserTest = InProcessBrowserTest;
 IN_PROC_BROWSER_TEST_F(TypicallySecureUserBrowserTest,
                        PRE_RestoreCountsOnStartup_OneNavigation) {
   HttpsFirstModeService* hfm_service =
-      HttpsFirstModeServiceFactory::GetForProfile(browser()->profile());
+      HttpsFirstModeServiceFactory::GetForProfile(browser()->GetProfile());
   hfm_service->IncrementRecentNavigationCount();
 }
 
 IN_PROC_BROWSER_TEST_F(TypicallySecureUserBrowserTest,
                        RestoreCountsOnStartup_OneNavigation) {
   HttpsFirstModeService* hfm_service =
-      HttpsFirstModeServiceFactory::GetForProfile(browser()->profile());
+      HttpsFirstModeServiceFactory::GetForProfile(browser()->GetProfile());
   // A single navigation will not be persisted to the pref and won't be
   // restored on startup because navigations are persisted in batches of 10.
   EXPECT_EQ(0u, hfm_service->GetRecentNavigationCount());
@@ -4644,7 +4698,7 @@ IN_PROC_BROWSER_TEST_F(TypicallySecureUserBrowserTest,
 IN_PROC_BROWSER_TEST_F(TypicallySecureUserBrowserTest,
                        PRE_RestoreCountsOnStartup_TenNavigations) {
   HttpsFirstModeService* hfm_service =
-      HttpsFirstModeServiceFactory::GetForProfile(browser()->profile());
+      HttpsFirstModeServiceFactory::GetForProfile(browser()->GetProfile());
   // Increment repeatedly to force the counts to be persisted to the pref.
   for (size_t i = 0; i < 10; i++) {
     hfm_service->IncrementRecentNavigationCount();
@@ -4654,7 +4708,7 @@ IN_PROC_BROWSER_TEST_F(TypicallySecureUserBrowserTest,
 IN_PROC_BROWSER_TEST_F(TypicallySecureUserBrowserTest,
                        RestoreCountsOnStartup_TenNavigations) {
   HttpsFirstModeService* hfm_service =
-      HttpsFirstModeServiceFactory::GetForProfile(browser()->profile());
+      HttpsFirstModeServiceFactory::GetForProfile(browser()->GetProfile());
   EXPECT_EQ(10u, hfm_service->GetRecentNavigationCount());
 }
 
@@ -4685,7 +4739,7 @@ IN_PROC_BROWSER_TEST_P(
 
   content::WebContents* contents =
       GetBrowser()->tab_strip_model()->GetActiveWebContents();
-  Profile* profile = GetBrowser()->profile();
+  Profile* profile = GetBrowser()->GetProfile();
   content::SSLHostStateDelegate* state = profile->GetSSLHostStateDelegate();
 
   // Set test clock.
@@ -4810,7 +4864,7 @@ class HttpsUpgradesAdvancedProtectionBrowserTest : public InProcessBrowserTest {
   void SetUpOnMainThread() override {
     // Enable Advanced Protection for the profile via the testing API
     safe_browsing::AdvancedProtectionStatusManagerFactory::GetForProfile(
-        browser()->profile())
+        browser()->GetProfile())
         ->SetAdvancedProtectionStatusForTesting(true);
 
     host_resolver()->AddRule("*", "127.0.0.1");
@@ -4874,7 +4928,7 @@ class HttpsUpgradesAskBeforeHttpDelayTest : public InProcessBrowserTest {
     HttpsUpgradesInterceptor::SetHttpPortForTesting(http_server_.port());
 
     // Enable HFM pref.
-    auto* prefs = browser()->profile()->GetPrefs();
+    auto* prefs = browser()->GetProfile()->GetPrefs();
     prefs->SetBoolean(prefs::kHttpsOnlyModeEnabled, true);
   }
 
@@ -4962,7 +5016,7 @@ class HttpsUpgradesSilentFallbackDelayTest : public InProcessBrowserTest {
     HttpsUpgradesInterceptor::SetHttpPortForTesting(http_server_.port());
 
     // Disable HFM pref.
-    auto* prefs = browser()->profile()->GetPrefs();
+    auto* prefs = browser()->GetProfile()->GetPrefs();
     prefs->SetBoolean(prefs::kHttpsOnlyModeEnabled, false);
     prefs->SetBoolean(prefs::kHttpsFirstBalancedMode, false);
   }
@@ -5055,8 +5109,8 @@ class HttpsUpgradesSafeBrowsingTest : public InProcessBrowserTest {
     HttpsUpgradesInterceptor::SetHttpPortForTesting(http_server_.port());
 
     // Enable the HFM pref.
-    browser()->profile()->GetPrefs()->SetBoolean(prefs::kHttpsOnlyModeEnabled,
-                                                 true);
+    browser()->GetProfile()->GetPrefs()->SetBoolean(
+        prefs::kHttpsOnlyModeEnabled, true);
   }
 
   void SetUpCommandLine(base::CommandLine* command_line) override {

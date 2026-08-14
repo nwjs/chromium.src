@@ -28,19 +28,19 @@
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/strings/grit/privacy_sandbox_strings.h"
 #include "content/public/browser/navigation_controller.h"
-#include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "cookie_controls_bubble_view_controller.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/views/accessibility/view_accessibility.h"
-#include "ui/views/controls/button/md_text_button_with_spinner.h"
 #include "ui/views/vector_icons.h"
 #include "ui/views/view_class_properties.h"
 
 namespace {
 
 constexpr int kProgressBarHeight = 3;
+
+constexpr base::TimeDelta kUserBypassUIReloadBubbleTimeout = base::Seconds(5);
 
 // Unique identifier within the CookieControlsBubbleView hierarchy.
 constexpr int kFaviconID = 1;
@@ -104,7 +104,7 @@ void CookieControlsBubbleViewController::OnUserClosedContentView() {
       FROM_HERE,
       base::BindOnce(&CookieControlsBubbleViewController::OnReloadingUiTimeout,
                      weak_factory_.GetWeakPtr()),
-      content_settings::features::kUserBypassUIReloadBubbleTimeout.Get());
+      kUserBypassUIReloadBubbleTimeout);
 }
 
 void CookieControlsBubbleViewController::OnFaviconFetched(
@@ -146,10 +146,7 @@ void CookieControlsBubbleViewController::ApplyThirdPartyCookiesBlockedState() {
       l10n_util::GetStringUTF16(
           IDS_COOKIE_CONTROLS_BUBBLE_SITE_NOT_WORKING_TITLE),
       l10n_util::GetStringUTF16(
-          base::FeatureList::IsEnabled(
-              content_settings::features::kUserBypassUxSimplification)
-              ? IDS_COOKIE_CONTROLS_BUBBLE_SITE_NOT_WORKING_DESCRIPTION
-              : IDS_TRACKING_PROTECTION_BUBBLE_SITE_NOT_WORKING_DESCRIPTION));
+          IDS_COOKIE_CONTROLS_BUBBLE_SITE_NOT_WORKING_DESCRIPTION));
   bubble_view_->GetContentView()->SetCookiesLabel(l10n_util::GetStringUTF16(
       IDS_TRACKING_PROTECTION_BUBBLE_3PC_BLOCKED_SUBTITLE));
 }
@@ -168,8 +165,6 @@ void CookieControlsBubbleViewController::FillViewForThirdPartyCookies(
   switch (enforcement) {
     case CookieControlsEnforcement::kNoEnforcement:
       bubble_view_->GetContentView()->SetContentLabelsVisible(true);
-      bubble_view_->GetContentView()->SetFeedbackSectionVisibility(
-          tpcs_allowed);
       bubble_view_->GetContentView()->SetToggleVisible(true);
       bubble_view_->GetContentView()->SetEnforcedIconVisible(false);
       break;
@@ -178,7 +173,6 @@ void CookieControlsBubbleViewController::FillViewForThirdPartyCookies(
     case CookieControlsEnforcement::kEnforcedByCookieSetting:
       bubble_view_->GetContentView()->SetContentLabelsVisible(
           enforcement == CookieControlsEnforcement::kEnforcedByCookieSetting);
-      bubble_view_->GetContentView()->SetFeedbackSectionVisibility(false);
       bubble_view_->GetContentView()->SetToggleVisible(false);
       bubble_view_->GetContentView()->SetEnforcedIcon(
           content_settings::CookieControlsUtil::GetEnforcedIcon(enforcement),
@@ -235,12 +229,6 @@ void CookieControlsBubbleViewController::SetCallbacks() {
           base::BindRepeating(
               &CookieControlsBubbleViewController::OnToggleButtonPressed,
               weak_factory_.GetWeakPtr()));
-
-  feedback_button_callback_ =
-      bubble_view_->GetContentView()->RegisterFeedbackButtonPressedCallback(
-          base::BindRepeating(
-              &CookieControlsBubbleViewController::OnFeedbackButtonPressed,
-              weak_factory_.GetWeakPtr()));
 }
 
 void CookieControlsBubbleViewController::OnToggleButtonPressed(
@@ -252,20 +240,6 @@ void CookieControlsBubbleViewController::OnToggleButtonPressed(
   controller_->OnCookieBlockingEnabledForSite(!toggled_on);
   bubble_view_->GetContentView()->NotifyAccessibilityEventDeprecated(
       ax::mojom::Event::kAlert, true);
-}
-
-void CookieControlsBubbleViewController::OnFeedbackButtonPressed() {
-  chrome::ShowFeedbackPage(
-      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
-          web_contents_.get()),
-      feedback::kFeedbackSourceCookieControls,
-      /*description_template=*/std::string(),
-      l10n_util::GetStringUTF8(
-          IDS_COOKIE_CONTROLS_BUBBLE_SEND_FEEDBACK_FORM_PLACEHOLDER),
-      "cookie-controls",
-      /*extra_diagnostics=*/std::string());
-  base::RecordAction(
-      base::UserMetricsAction("CookieControls.Bubble.SendFeedback"));
 }
 
 std::unique_ptr<views::View>

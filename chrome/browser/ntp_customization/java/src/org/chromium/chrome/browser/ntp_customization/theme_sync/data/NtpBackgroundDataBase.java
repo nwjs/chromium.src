@@ -7,7 +7,6 @@ package org.chromium.chrome.browser.ntp_customization.theme_sync.data;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 
-import androidx.annotation.IntDef;
 import androidx.annotation.VisibleForTesting;
 
 import org.json.JSONException;
@@ -18,8 +17,6 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundType;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.util.Objects;
 
 /** Base class for NTP background data. */
@@ -32,26 +29,7 @@ public abstract class NtpBackgroundDataBase {
     @VisibleForTesting static final String PLATFORM_TYPE_KEY = "platformType";
     @VisibleForTesting static final String BACKGROUND_TYPE_KEY = "backgroundType";
     @VisibleForTesting static final String PRIMARY_COLOR_KEY = "primaryColor";
-
-    @IntDef({
-        PlatformType.UNKNOWN,
-        PlatformType.ANDROID_REMOTE,
-        PlatformType.ANDROID_LOCAL,
-        PlatformType.IOS,
-        PlatformType.DESKTOP,
-        PlatformType.ANDROID_DESKTOP,
-        PlatformType.MAX_COUNT
-    })
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface PlatformType {
-        int UNKNOWN = 0;
-        int ANDROID_LOCAL = 1;
-        int ANDROID_REMOTE = 2;
-        int IOS = 3;
-        int DESKTOP = 4;
-        int ANDROID_DESKTOP = 5;
-        int MAX_COUNT = 6;
-    }
+    @VisibleForTesting static final String FILE_ID_HASH_KEY = "fileIdHash";
 
     private final @PlatformType int mPlatformType;
 

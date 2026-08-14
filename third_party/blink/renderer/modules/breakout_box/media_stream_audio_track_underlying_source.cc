@@ -4,18 +4,19 @@
 
 #include "third_party/blink/renderer/modules/breakout_box/media_stream_audio_track_underlying_source.h"
 
+#include <atomic>
+
 #include "base/compiler_specific.h"
 #include "base/feature_list.h"
+#include "base/memory/raw_ptr.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/threading/platform_thread.h"
+#include "base/time/time.h"
 #include "media/base/audio_buffer.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
-#include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/streams/readable_stream_transferring_optimizer.h"
-#include "third_party/blink/renderer/core/timing/dom_window_performance.h"
 #include "third_party/blink/renderer/core/timing/performance.h"
-#include "third_party/blink/renderer/core/timing/worker_global_scope_performance.h"
-#include "third_party/blink/renderer/core/workers/worker_global_scope.h"
+#include "third_party/blink/renderer/modules/breakout_box/breakout_box_util.h"
 #include "third_party/blink/renderer/modules/breakout_box/frame_queue_transferring_optimizer.h"
 #include "third_party/blink/renderer/modules/breakout_box/metrics.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream_track.h"
@@ -26,7 +27,7 @@
 namespace blink {
 
 BASE_FEATURE(kBreakoutBoxExposePageRelativeAudioCaptureTime,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Expects all calls to SetFormat() and CopyIntoAudioBuffer() to come from the
 // same thread/sequence. This is almost certainly the realtime Audio capture
@@ -39,7 +40,8 @@ class AudioBufferPoolImpl
   AudioBufferPoolImpl(base::TimeTicks time_origin,
                       bool is_cross_origin_isolated,
                       bool should_expose_page_relative_capture_time)
-      : time_origin_(time_origin),
+      : time_origin_delta_us_(
+            (time_origin - base::TimeTicks()).InMicroseconds()),
         is_cross_origin_isolated_(is_cross_origin_isolated),
         should_expose_page_relative_capture_time_(
             should_expose_page_relative_capture_time) {}
@@ -70,10 +72,15 @@ class AudioBufferPoolImpl
 
     base::TimeDelta timestamp;
     if (should_expose_page_relative_capture_time_) {
+      base::TimeTicks time_origin =
+          base::TimeTicks() + base::Microseconds(time_origin_delta_us_.load(
+                                  std::memory_order_relaxed));
+      bool is_cross_origin_isolated =
+          is_cross_origin_isolated_.load(std::memory_order_relaxed);
       DOMHighResTimeStamp page_relative_timestamp =
           Performance::MonotonicTimeToDOMHighResTimeStamp(
-              time_origin_, capture_time, /*allow_negative_value=*/true,
-              is_cross_origin_isolated_);
+              time_origin, capture_time, /*allow_negative_value=*/true,
+              is_cross_origin_isolated);
       timestamp = base::Milliseconds(page_relative_timestamp);
     } else {
       timestamp = capture_time - base::TimeTicks();
@@ -94,7 +101,7 @@ class AudioBufferPoolImpl
     buffer->set_timestamp(timestamp);
 
     // Copy the data over.
-    const std::vector<uint8_t*>& dest_data = buffer->channel_data();
+    const std::vector<raw_ptr<uint8_t>>& dest_data = buffer->channel_data();
     for (int ch = 0; ch < audio_bus.channels(); ++ch) {
       const float* src_channel = audio_bus.channel(ch).data();
       UNSAFE_TODO(memcpy(dest_data[ch], src_channel,
@@ -106,6 +113,15 @@ class AudioBufferPoolImpl
   }
 
   int GetSizeForTesting() override { return buffers_.size(); }
+
+  void UpdateRealmInfo(base::TimeTicks time_origin,
+                       bool is_cross_origin_isolated) override {
+    time_origin_delta_us_.store(
+        (time_origin - base::TimeTicks()).InMicroseconds(),
+        std::memory_order_relaxed);
+    is_cross_origin_isolated_.store(is_cross_origin_isolated,
+                                    std::memory_order_relaxed);
+  }
 
  private:
   scoped_refptr<media::AudioBuffer> AllocateAndSaveNewBuffer(
@@ -147,8 +163,8 @@ class AudioBufferPoolImpl
 
   media::AudioParameters params_;
 
-  const base::TimeTicks time_origin_;
-  const bool is_cross_origin_isolated_;
+  std::atomic<int64_t> time_origin_delta_us_;
+  std::atomic<bool> is_cross_origin_isolated_;
   // Cached to avoid querying base::FeatureList::IsEnabled on the real-time
   // audio thread.
   const bool should_expose_page_relative_capture_time_;
@@ -156,21 +172,6 @@ class AudioBufferPoolImpl
   static constexpr int kInlineCapacity = 4;
   Deque<scoped_refptr<media::AudioBuffer>, kInlineCapacity> buffers_;
 };
-
-// static
-Performance*
-MediaStreamAudioTrackUnderlyingSource::GetPerformanceFromExecutionContext(
-    ExecutionContext* context) {
-  if (!context) {
-    return nullptr;
-  }
-  if (auto* window = DynamicTo<LocalDOMWindow>(context)) {
-    return DOMWindowPerformance::performance(*window);
-  } else if (auto* worker = DynamicTo<WorkerGlobalScope>(context)) {
-    return WorkerGlobalScopePerformance::performance(*worker);
-  }
-  NOTREACHED();
-}
 
 MediaStreamAudioTrackUnderlyingSource::MediaStreamAudioTrackUnderlyingSource(
     ScriptState* script_state,
@@ -270,11 +271,22 @@ MediaStreamAudioTrackUnderlyingSource::GetTransferringOptimizer() {
           WrapCrossThreadWeakPersistent(this)));
 }
 
+void MediaStreamAudioTrackUnderlyingSource::UpdateRealmInfo(
+    base::TimeTicks time_origin,
+    bool is_cross_origin_isolated) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (buffer_pool_) {
+    buffer_pool_->UpdateRealmInfo(time_origin, is_cross_origin_isolated);
+  }
+}
+
 void MediaStreamAudioTrackUnderlyingSource::OnSourceTransferStarted(
     scoped_refptr<base::SequencedTaskRunner> transferred_runner,
-    CrossThreadPersistent<TransferredAudioDataQueueUnderlyingSource> source) {
+    CrossThreadPersistent<TransferredAudioDataQueueUnderlyingSource> source,
+    base::TimeTicks time_origin,
+    bool is_cross_origin_isolated) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  TransferSource(std::move(source));
+  TransferSource(std::move(source), time_origin, is_cross_origin_isolated);
   RecordBreakoutBoxUsage(BreakoutBoxUsage::kReadableAudioWorker);
 }
 

@@ -64,7 +64,6 @@ source_set("implementation") {
     "//chromeos/ash/experiences/arc/session:connection_holder",
     "//chromeos/components/mgs",
     "//chromeos/constants",
-    "//chromeos/crosapi/mojom",
     "//components/metrics/structured:structured_events",
     "//components/services/app_service",
     "//components/webapps/browser",
@@ -77,12 +76,6 @@ source_set("implementation") {
   visibility = [
     ":*",
     "//chrome/browser",
-
-    # For transition period, let crosapi allow to depend on this for
-    # allow_circular_includes_from. Both Lacros and crosapi removal
-    # are in progress. When both removals are done, the following
-    # lines can then be deleted.
-    "//chrome/browser/ash/crosapi",
     "//chrome/browser/ash/system_web_apps/apps/help_app:browser_tests",
   ]
 }
@@ -210,7 +203,6 @@ source_set("test_support") {
     "//base",
     "//chrome/browser/apps/almanac_api_client",
     "//chrome/browser/web_applications",
-    "//chromeos/crosapi/mojom",
     "//components/services/app_service",
     "//components/webapps/common",
     "//net:test_support",

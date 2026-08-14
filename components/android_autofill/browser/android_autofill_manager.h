@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/containers/flat_set.h"
+#include "base/containers/span.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/notreached.h"
@@ -124,6 +125,12 @@ class AndroidAutofillManager : public AutofillManager,
       const FormData& form,
       const FieldGlobalId& field_id,
       const std::u16string& old_value) override {}
+
+  void OnDidDetectJavaScriptAutofillImpl(
+      const FormData& form,
+      const FieldGlobalId& trigger_field_id,
+      const std::vector<autofill::JavaScriptFieldModification>&
+          field_modifications) override {}
 
   void OnLoadedServerPredictionsImpl(
       base::span<const raw_ref<FormStructure>> forms) override {}

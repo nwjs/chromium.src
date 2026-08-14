@@ -6,7 +6,6 @@
 
 #include "base/functional/bind.h"
 #include "base/test/scoped_feature_list.h"
-#include "base/test/test_mock_time_task_runner.h"
 #include "base/test/tracing/trace_event_analyzer.h"
 #include "base/test/tracing/trace_test_utils.h"
 #include "base/time/time.h"
@@ -16,17 +15,18 @@
 #include "testing/gmock/include/gmock/gmock-matchers.h"
 #include "third_party/blink/renderer/core/dom/dom_high_res_time_stamp.h"
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
-#include "third_party/blink/renderer/core/frame/frame_test_helpers.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/core/html/html_image_element.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/loader/resource/image_resource.h"
 #include "third_party/blink/renderer/core/loader/resource/video_timing.h"
 #include "third_party/blink/renderer/core/paint/timing/largest_contentful_paint_calculator.h"
+#include "third_party/blink/renderer/core/paint/timing/largest_contentful_paint_manager.h"
 #include "third_party/blink/renderer/core/paint/timing/mock_paint_timing_callback_manager.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_detector.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_record.h"
+#include "third_party/blink/renderer/core/paint/timing/paint_timing_test_base.h"
 #include "third_party/blink/renderer/core/scroll/scroll_types.h"
 #include "third_party/blink/renderer/core/svg/svg_image_element.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
@@ -38,7 +38,6 @@
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/testing/paint_test_configurations.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
-#include "third_party/blink/renderer/platform/testing/task_environment.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/url_test_helpers.h"
 #include "third_party/skia/include/core/SkImage.h"
@@ -71,94 +70,59 @@ namespace blink {
 using UkmPaintTiming = ukm::builders::Blink_PaintTiming;
 using ::testing::Optional;
 
-class ImagePaintTimingDetectorTest : public testing::Test,
+class ImagePaintTimingDetectorTest : public PaintTimingTestBase,
                                      public PaintTestConfigurations {
  public:
-  ImagePaintTimingDetectorTest()
-      : test_task_runner_(
-            base::MakeRefCounted<base::TestMockTimeTaskRunner>()) {}
-
-  void SetUp() override {
-    web_view_helper_.Initialize();
-
-    // Enable compositing on the page before running the document lifecycle.
-    web_view_helper_.GetWebView()
-        ->GetPage()
-        ->GetSettings()
-        .SetAcceleratedCompositingEnabled(true);
-
-    WebLocalFrameImpl& frame_impl = *web_view_helper_.LocalMainFrame();
-    frame_impl.ViewImpl()->MainFrameViewWidget()->Resize(gfx::Size(640, 480));
-
-    frame_test_helpers::LoadFrame(
-        web_view_helper_.GetWebView()->MainFrameImpl(), "about:blank");
-    GetDocument().View()->SetParentVisible(true);
-    GetDocument().View()->SetSelfVisible(true);
-  }
-
- protected:
-  LocalFrameView& GetFrameView() { return *GetFrame()->View(); }
-  LocalFrameView& GetChildFrameView() { return *GetChildFrame()->View(); }
-  Document& GetDocument() { return *GetFrame()->GetDocument(); }
-  Document* GetChildDocument() { return GetChildFrame()->GetDocument(); }
-  PaintTimingDetector& GetPaintTimingDetector() {
-    return GetFrameView().GetPaintTimingDetector();
-  }
-  PaintTimingDetector& GetChildPaintTimingDetector() {
-    return GetChildFrameView().GetPaintTimingDetector();
-  }
+  ImagePaintTimingDetectorTest() = default;
 
   const PerformanceTimingForReporting& GetPerformanceTimingForReporting() {
     PerformanceTimingForReporting* performance_for_reporting =
-        DOMWindowPerformance::performance(*GetFrame()->DomWindow())
+        DOMWindowPerformance::performance(*GetFrame().DomWindow())
             ->timingForReporting();
     return *performance_for_reporting;
   }
 
-  gfx::Rect GetViewportRect(LocalFrameView& view) {
-    ScrollableArea* scrollable_area = view.GetScrollableArea();
-    DCHECK(scrollable_area);
-    return scrollable_area->VisibleContentRect(kExcludeScrollbars);
-  }
-
   ImageRecord* LargestImage() {
-    return GetPaintTimingDetector()
-        .GetLargestContentfulPaintCalculator()
+    return PaintTiming::From(GetDocument())
+        .GetLargestContentfulPaintManager()
+        ->LargestContentfulPaintCalculatorForTest()
         ->LargestPaintedOrPendingImageForTest();
   }
 
   ImageRecord* LargestPaintedImage() {
-    return GetPaintTimingDetector()
-        .GetLargestContentfulPaintCalculator()
+    return PaintTiming::From(GetDocument())
+        .GetLargestContentfulPaintManager()
+        ->LargestContentfulPaintCalculatorForTest()
         ->LargestPaintedImageForTest();
   }
 
   ImageRecord* ChildFrameLargestImage() {
-    return GetChildFrameView()
-        .GetPaintTimingDetector()
-        .GetLargestContentfulPaintCalculator()
+    return GetChildPaintTimingDetector()
+        .GetPaintTiming()
+        .GetLargestContentfulPaintManager()
+        ->LargestContentfulPaintCalculatorForTest()
         ->LargestPaintedOrPendingImageForTest();
   }
 
   size_t CountImageRecords() {
     return GetPaintTimingDetector()
         .GetImagePaintTimingDetector()
-        .records_manager_.recorded_images_.size();
+        .recorded_images_.size();
   }
 
   size_t ContainerTotalSize() {
     size_t result = GetPaintTimingDetector()
                         .GetImagePaintTimingDetector()
-                        .records_manager_.recorded_images_.size() +
+                        .recorded_images_.size() +
                     GetPaintTimingDetector()
                         .GetImagePaintTimingDetector()
-                        .records_manager_.pending_images_.size() +
+                        .pending_images_.size() +
                     GetPaintTimingDetector()
                         .GetImagePaintTimingDetector()
-                        .records_manager_.images_queued_for_paint_time_.size() +
+                        .images_queued_for_paint_time_.size() +
                     GetPaintTimingDetector()
                         .GetImagePaintTimingDetector()
-                        .records_manager_.image_finished_times_.size();
+                        .image_finished_times_.size();
 
     return result;
   }
@@ -166,155 +130,58 @@ class ImagePaintTimingDetectorTest : public testing::Test,
   size_t CountChildFrameRecords() {
     return GetChildPaintTimingDetector()
         .GetImagePaintTimingDetector()
-        .records_manager_.recorded_images_.size();
+        .recorded_images_.size();
   }
 
   base::TimeTicks LargestPaintTime() {
-    return GetPaintTimingDetector()
-        .GetLargestContentfulPaintCalculator()
+    return PaintTiming::From(GetDocument())
+        .GetLargestContentfulPaintManager()
+        ->LargestContentfulPaintCalculatorForTest()
         ->LatestLcpDetails()
         .largest_image_paint_time;
   }
 
   uint64_t LargestPaintSize() {
-    return GetPaintTimingDetector()
-        .GetLargestContentfulPaintCalculator()
+    return PaintTiming::From(GetDocument())
+        .GetLargestContentfulPaintManager()
+        ->LargestContentfulPaintCalculatorForTest()
         ->LatestLcpDetails()
         .largest_image_paint_size;
   }
 
   bool HasLargestIgnoredImage() {
-    return !!GetPaintTimingDetector()
-                 .GetImagePaintTimingDetector()
-                 .records_manager_.LargestIgnoredImage();
-  }
-
-  static constexpr base::TimeDelta kQuantumOfTime = base::Milliseconds(10);
-
-  void SimulatePassOfTime() {
-    test_task_runner_->FastForwardBy(kQuantumOfTime);
-  }
-
-  base::TimeTicks NowTicks() const { return test_task_runner_->NowTicks(); }
-
-  void SimulateRendering() {
-    GetDocument().View()->UpdateAllLifecyclePhasesForTest();
-    mock_callback_manager_->OnAnimationFrameComplete();
-  }
-
-  void SimulatePresentationTime() {
-    SimulatePassOfTime();
-    mock_callback_manager_->InvokeCallbacksForOneAnimationFrame(NowTicks());
-  }
-
-  void SimulateRenderingAndPresentationTime() {
-    SimulateRendering();
-    SimulatePresentationTime();
-  }
-
-  void SetBodyInnerHTML(const std::string& content) {
-    frame_test_helpers::LoadHTMLString(
-        web_view_helper_.GetWebView()->MainFrameImpl(), content,
-        KURL("http://test.com"));
-    mock_callback_manager_ =
-        MakeGarbageCollected<MockPaintTimingCallbackManager>();
-    PaintTiming::From(GetDocument())
-        .SetCallbackManagerForTest(mock_callback_manager_);
-    // Set this so presentation time callbacks aren't coarsened, which would
-    // result in the callback running in a separate task.
-    DOMWindowPerformance::performance(*GetDocument().domWindow())
-        ->SetCrossOriginIsolatedCapabilityForTesting(true);
-  }
-
-  void SetChildBodyInnerHTML(const String& content) {
-    GetChildDocument()->SetBaseURLOverride(KURL("http://test.com"));
-    GetChildDocument()->body()->SetInnerHTMLWithoutTrustedTypes(
-        content, ASSERT_NO_EXCEPTION);
-    PaintTiming::From(*GetChildDocument())
-        .SetCallbackManagerForTest(mock_callback_manager_);
-    // Set this so presentation time callbacks aren't coarsened, which would
-    // result in the callback running in a separate task.
-    DOMWindowPerformance::performance(*GetChildDocument()->domWindow())
-        ->SetCrossOriginIsolatedCapabilityForTesting(true);
+    return PaintTiming::From(GetDocument())
+        .GetLargestContentfulPaintManager()
+        ->HasLargestIgnoredImageForTest();
   }
 
   void SetImageAndPaint(const char* id, int width, int height) {
     Element* element = GetDocument().getElementById(AtomicString(id));
-    // Set image and make it loaded.
     ImageResourceContent* content = CreateImageForTest(width, height);
     To<HTMLImageElement>(element)->SetImageForTest(content);
   }
 
   void SetChildFrameImageAndPaint(const char* id, int width, int height) {
-    DCHECK(GetChildDocument());
-    Element* element = GetChildDocument()->getElementById(AtomicString(id));
+    Element* element = ChildDocument().getElementById(AtomicString(id));
     DCHECK(element);
-    // Set image and make it loaded.
     ImageResourceContent* content = CreateImageForTest(width, height);
     To<HTMLImageElement>(element)->SetImageForTest(content);
   }
 
   void SetSVGImageAndPaint(const char* id, int width, int height) {
     Element* element = GetDocument().getElementById(AtomicString(id));
-    // Set image and make it loaded.
     ImageResourceContent* content = CreateImageForTest(width, height);
     To<SVGImageElement>(element)->SetImageForTest(content);
   }
 
-  void SimulateScroll() {
-    GetPaintTimingDetector().NotifyScroll(mojom::blink::ScrollType::kUser);
-  }
-
-  void SimulateKeyDown() {
-    GetPaintTimingDetector().NotifyInputEvent(WebInputEvent::Type::kKeyDown);
-  }
-
-  void SimulateKeyUp() {
-    GetPaintTimingDetector().NotifyInputEvent(WebInputEvent::Type::kKeyUp);
-  }
-
-  LocalFrame* GetChildFrame() {
-    return To<LocalFrame>(GetFrame()->Tree().FirstChild());
-  }
-
-  test::TaskEnvironment task_environment_;
-  scoped_refptr<base::TestMockTimeTaskRunner> test_task_runner_;
-  frame_test_helpers::WebViewHelper web_view_helper_;
-
- private:
-  LocalFrame* GetFrame() {
-    return web_view_helper_.GetWebView()->MainFrameImpl()->GetFrame();
-  }
-  ImageResourceContent* CreateImageForTest(int width, int height) {
-    sk_sp<SkColorSpace> src_rgb_color_space = SkColorSpace::MakeSRGB();
-    SkImageInfo raster_image_info =
-        SkImageInfo::MakeN32Premul(width, height, src_rgb_color_space);
-    sk_sp<SkSurface> surface(SkSurfaces::Raster(raster_image_info));
-    sk_sp<SkImage> image = surface->makeImageSnapshot();
-    scoped_refptr<UnacceleratedStaticBitmapImage> original_image_data =
-        UnacceleratedStaticBitmapImage::Create(image);
-    // To ensure that the image may be considered as an LCP candidate, allocate
-    // a small amount of memory for the image (0.1bpp should exceed the LCP
-    // entropy threshold).
-    int bytes = (width * height / 80) + 1;
-    scoped_refptr<SharedBuffer> shared_buffer =
-        SharedBuffer::Create(Vector<char>(bytes));
-    original_image_data->SetData(shared_buffer, /*all_data_received=*/true);
-    ImageResourceContent* original_image_content =
-        ImageResourceContent::CreateLoaded(original_image_data.get());
-    return original_image_content;
-  }
-
+ protected:
   base::test::TracingEnvironment tracing_environment_;
-  Persistent<MockPaintTimingCallbackManager> mock_callback_manager_;
 };
-
-constexpr base::TimeDelta ImagePaintTimingDetectorTest::kQuantumOfTime;
 
 INSTANTIATE_PAINT_TEST_SUITE_P(ImagePaintTimingDetectorTest);
 
 TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_NoImage) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <div></div>
   )HTML");
   SimulateRenderingAndPresentationTime();
@@ -324,14 +191,14 @@ TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_NoImage) {
 
 TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_OneImage) {
   ukm::TestAutoSetUkmRecorder test_ukm_recorder;
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <img id="target"></img>
   )HTML");
   SetImageAndPaint("target", 5, 5);
   SimulateRenderingAndPresentationTime();
   ImageRecord* record = LargestImage();
   EXPECT_TRUE(record);
-  EXPECT_EQ(record->RecordedSize(), 25ul);
+  EXPECT_EQ(record->EffectiveVisualSize(), 25ul);
   EXPECT_TRUE(record->HasLoadTime());
   // Simulate some input event to force StopRecordEntries().
   SimulateKeyDown();
@@ -343,7 +210,7 @@ TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_OneImage) {
 }
 
 TEST_P(ImagePaintTimingDetectorTest, InsertionOrderIsSecondaryRankingKey) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
   )HTML");
 
   auto* image1 = MakeGarbageCollected<HTMLImageElement>(GetDocument());
@@ -371,7 +238,7 @@ TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_TraceEvent_Candidate) {
   using trace_analyzer::Query;
   trace_analyzer::Start("loading");
   {
-    SetBodyInnerHTML(R"HTML(
+    SetMainFrameBodyContent(R"HTML(
       <img id="target"></img>
     )HTML");
     SetImageAndPaint("target", 5, 5);
@@ -417,11 +284,11 @@ TEST_P(ImagePaintTimingDetectorTest,
   trace_analyzer::Start("loading");
   {
     GetDocument().SetBaseURLOverride(KURL("http://test.com"));
-    SetBodyInnerHTML(R"HTML(
+    SetMainFrameBodyContent(R"HTML(
       <style>iframe { display: block; position: relative; margin-left: 30px; margin-top: 50px; width: 250px; height: 250px;} </style>
       <iframe> </iframe>
     )HTML");
-    SetChildBodyInnerHTML(R"HTML(
+    SetChildFrameBodyContent(R"HTML(
       <style>body { margin: 10px;} #target { width: 200px; height: 200px; }
       </style>
       <img id="target"></img>
@@ -469,7 +336,7 @@ TEST_P(ImagePaintTimingDetectorTest, UpdatePerformanceTiming) {
           .LargestContentfulPaintDetailsForMetrics();
   EXPECT_EQ(largest_contentful_paint_details.image_paint_size, 0u);
   EXPECT_EQ(largest_contentful_paint_details.image_paint_time, 0u);
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <img id="target"></img>
   )HTML");
   SetImageAndPaint("target", 5, 5);
@@ -482,7 +349,7 @@ TEST_P(ImagePaintTimingDetectorTest, UpdatePerformanceTiming) {
 }
 
 TEST_P(ImagePaintTimingDetectorTest, UpdatePerformanceTimingToZero) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <img id="target"></img>
   )HTML");
   SetImageAndPaint("target", 5, 5);
@@ -500,7 +367,7 @@ TEST_P(ImagePaintTimingDetectorTest, UpdatePerformanceTimingToZero) {
 }
 
 TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_OpacityZero) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
     img {
       opacity: 0;
@@ -516,7 +383,7 @@ TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_OpacityZero) {
 }
 
 TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_VisibilityHidden) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
     img {
       visibility: hidden;
@@ -532,7 +399,7 @@ TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_VisibilityHidden) {
 }
 
 TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_DisplayNone) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
     img {
       display: none;
@@ -548,7 +415,7 @@ TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_DisplayNone) {
 }
 
 TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_OpacityNonZero) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
     img {
       opacity: 0.01;
@@ -565,7 +432,7 @@ TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_OpacityNonZero) {
 
 TEST_P(ImagePaintTimingDetectorTest,
        IgnoreImageUntilInvalidatedRectSizeNonZero) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <img id="target"></img>
   )HTML");
   SimulateRenderingAndPresentationTime();
@@ -578,7 +445,7 @@ TEST_P(ImagePaintTimingDetectorTest,
 }
 
 TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_Largest) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>img { display:block }</style>
     <img id="smaller"></img>
     <img id="medium"></img>
@@ -589,7 +456,7 @@ TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_Largest) {
   ImageRecord* record;
   record = LargestImage();
   EXPECT_TRUE(record);
-  EXPECT_EQ(record->RecordedSize(), 25ul);
+  EXPECT_EQ(record->EffectiveVisualSize(), 25ul);
 
   SetImageAndPaint("larger", 9, 9);
   SimulateRenderingAndPresentationTime();
@@ -598,7 +465,7 @@ TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_Largest) {
 
 TEST_P(ImagePaintTimingDetectorTest,
        LargestImagePaint_IgnoreThoseOutsideViewport) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
       img {
         position: fixed;
@@ -615,7 +482,7 @@ TEST_P(ImagePaintTimingDetectorTest,
 
 TEST_P(ImagePaintTimingDetectorTest,
        LargestImagePaint_UpdateOnRemovingTheLastImage) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <div id="parent">
       <img id="target"></img>
     </div>
@@ -639,7 +506,7 @@ TEST_P(ImagePaintTimingDetectorTest,
 }
 
 TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_UpdateOnRemoving) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <div id="parent">
       <img id="target1"></img>
       <img id="target2"></img>
@@ -674,7 +541,7 @@ TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_UpdateOnRemoving) {
 
 TEST_P(ImagePaintTimingDetectorTest,
        LargestImagePaint_NodeRemovedBetweenRegistrationAndInvocation) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <div id="parent">
       <img id="target"></img>
     </div>
@@ -695,7 +562,7 @@ TEST_P(ImagePaintTimingDetectorTest,
 
 TEST_P(ImagePaintTimingDetectorTest,
        RemoveRecordFromAllContainersAfterImageRemoval) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <div id="parent">
       <img id="target"></img>
     </div>
@@ -712,7 +579,7 @@ TEST_P(ImagePaintTimingDetectorTest,
 
 TEST_P(ImagePaintTimingDetectorTest,
        RemoveRecordFromAllContainersAfterInvisibleImageRemoved) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
       #target {
         position: relative;
@@ -741,7 +608,7 @@ TEST_P(ImagePaintTimingDetectorTest,
 
 TEST_P(ImagePaintTimingDetectorTest,
        RemoveRecordFromAllContainersAfterBackgroundImageRemoval) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
       #target {
         background-image: url()HTML" SIMPLE_IMAGE R"HTML();
@@ -764,7 +631,7 @@ TEST_P(ImagePaintTimingDetectorTest,
 
 TEST_P(ImagePaintTimingDetectorTest,
        RemoveRecordFromAllContainersAfterImageRemovedAndCallbackInvoked) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <div id="parent">
       <img id="target"></img>
     </div>
@@ -784,7 +651,8 @@ TEST_P(ImagePaintTimingDetectorTest,
 
 TEST_P(ImagePaintTimingDetectorTest,
        LargestImagePaint_ReattachedNodeNotTreatedAsNew) {
-  SetBodyInnerHTML(R"HTML(
+  base::TimeTicks start_time = NowTicks();
+  SetMainFrameBodyContent(R"HTML(
     <div id="parent">
     </div>
   )HTML");
@@ -792,7 +660,7 @@ TEST_P(ImagePaintTimingDetectorTest,
   image->setAttribute(html_names::kIdAttr, AtomicString("target"));
   GetDocument().getElementById(AtomicString("parent"))->AppendChild(image);
   SetImageAndPaint("target", 5, 5);
-  test_task_runner_->FastForwardBy(base::Seconds(1));
+  FastForwardBy(base::Seconds(1));
   SimulateRenderingAndPresentationTime();
   ImageRecord* record;
   record = LargestImage();
@@ -800,24 +668,24 @@ TEST_P(ImagePaintTimingDetectorTest,
   // SimulateRenderingAndPresentationTime() moves time forward
   // kQuantumOfTime so we should take that into account.
   EXPECT_EQ(record->PaintTime(),
-            base::TimeTicks() + base::Seconds(1) + kQuantumOfTime);
+            start_time + base::Seconds(1) + kQuantumOfTime);
 
   GetDocument().getElementById(AtomicString("parent"))->RemoveChild(image);
-  test_task_runner_->FastForwardBy(base::Seconds(1));
+  FastForwardBy(base::Seconds(1));
   SimulateRenderingAndPresentationTime();
   record = LargestImage();
   EXPECT_TRUE(record);
   EXPECT_EQ(record->PaintTime(),
-            base::TimeTicks() + base::Seconds(1) + kQuantumOfTime);
+            start_time + base::Seconds(1) + kQuantumOfTime);
 
   GetDocument().getElementById(AtomicString("parent"))->AppendChild(image);
   SetImageAndPaint("target", 5, 5);
-  test_task_runner_->FastForwardBy(base::Seconds(1));
+  FastForwardBy(base::Seconds(1));
   SimulateRenderingAndPresentationTime();
   record = LargestImage();
   EXPECT_TRUE(record);
   EXPECT_EQ(record->PaintTime(),
-            base::TimeTicks() + base::Seconds(1) + kQuantumOfTime);
+            start_time + base::Seconds(1) + kQuantumOfTime);
 }
 
 // This is to prove that a presentation time is assigned only to nodes of the
@@ -825,7 +693,7 @@ TEST_P(ImagePaintTimingDetectorTest,
 // should match frame A; presentation time B should match frame B.
 TEST_P(ImagePaintTimingDetectorTest,
        MatchPresentationTimeToNodesOfDifferentFrames) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <div id="parent">
       <img height="5" width="5" id="smaller"></img>
       <img height="9" width="9" id="larger"></img>
@@ -844,7 +712,7 @@ TEST_P(ImagePaintTimingDetectorTest,
   SimulatePresentationTime();
   // record1 is the smaller.
   ImageRecord* record1 = LargestPaintedImage();
-  EXPECT_EQ(record1->RecordedSize(), 25ul);
+  EXPECT_EQ(record1->EffectiveVisualSize(), 25ul);
   const base::TimeTicks record1Time = record1->PaintTime();
 
   // Invoke callbacks for the second frame.
@@ -852,14 +720,14 @@ TEST_P(ImagePaintTimingDetectorTest,
   SimulatePresentationTime();
   // record2 is the larger.
   ImageRecord* record2 = LargestPaintedImage();
-  EXPECT_EQ(record2->RecordedSize(), 81ul);
+  EXPECT_EQ(record2->EffectiveVisualSize(), 81ul);
   EXPECT_NE(record1Time, record2->PaintTime());
 }
 
 TEST_P(ImagePaintTimingDetectorTest,
        LargestImagePaint_UpdateResultWhenLargestChanged) {
   base::TimeTicks time1 = NowTicks();
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <div id="parent">
       <img id="target1"></img>
       <img id="target2"></img>
@@ -881,7 +749,7 @@ TEST_P(ImagePaintTimingDetectorTest,
 }
 
 TEST_P(ImagePaintTimingDetectorTest, OnePresentationPromiseForOneFrame) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>img { display:block }</style>
     <div id="parent">
       <img id="1"></img>
@@ -901,31 +769,32 @@ TEST_P(ImagePaintTimingDetectorTest, OnePresentationPromiseForOneFrame) {
   ImageRecord* record;
   record = LargestImage();
   EXPECT_TRUE(record);
-  EXPECT_EQ(record->RecordedSize(), 81ul);
+  EXPECT_EQ(record->EffectiveVisualSize(), 81ul);
   EXPECT_FALSE(record->HasPaintTime());
 
   // This callback assigns a time to the 9x9 image.
   SimulatePresentationTime();
   record = LargestImage();
   EXPECT_TRUE(record);
-  EXPECT_EQ(record->RecordedSize(), 81ul);
+  EXPECT_EQ(record->EffectiveVisualSize(), 81ul);
   EXPECT_TRUE(record->HasPaintTime());
 }
 
 TEST_P(ImagePaintTimingDetectorTest, VideoImage) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <video id="target" poster=")HTML" LARGE_IMAGE R"HTML("></video>
   )HTML");
-
+  // Poster image rendering requires flushing pending tasks first.
+  test::RunPendingTasks();
   SimulateRenderingAndPresentationTime();
   ImageRecord* record = LargestImage();
   EXPECT_TRUE(record);
-  EXPECT_GT(record->RecordedSize(), 0ul);
+  EXPECT_GT(record->EffectiveVisualSize(), 0ul);
   EXPECT_TRUE(record->HasPaintTime());
 }
 
 TEST_P(ImagePaintTimingDetectorTest, VideoImage_ImageNotLoaded) {
-  SetBodyInnerHTML("<video id='target'></video>");
+  SetMainFrameBodyContent("<video id='target'></video>");
 
   SimulateRenderingAndPresentationTime();
   ImageRecord* record = LargestImage();
@@ -933,7 +802,7 @@ TEST_P(ImagePaintTimingDetectorTest, VideoImage_ImageNotLoaded) {
 }
 
 TEST_P(ImagePaintTimingDetectorTest, SVGImage) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <svg>
       <image id="target" width="10" height="10"/>
     </svg>
@@ -944,12 +813,12 @@ TEST_P(ImagePaintTimingDetectorTest, SVGImage) {
   SimulateRenderingAndPresentationTime();
   ImageRecord* record = LargestImage();
   EXPECT_TRUE(record);
-  EXPECT_GT(record->RecordedSize(), 0ul);
+  EXPECT_GT(record->EffectiveVisualSize(), 0ul);
   EXPECT_TRUE(record->HasPaintTime());
 }
 
 TEST_P(ImagePaintTimingDetectorTest, BackgroundImage) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
       div {
         background-image: url()HTML" SIMPLE_IMAGE R"HTML();
@@ -965,7 +834,7 @@ TEST_P(ImagePaintTimingDetectorTest, BackgroundImage) {
 
 TEST_P(ImagePaintTimingDetectorTest,
        BackgroundImageAndLayoutImageTrackedDifferently) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
       img {
         background-image: url()HTML" LARGE_IMAGE R"HTML();
@@ -980,25 +849,25 @@ TEST_P(ImagePaintTimingDetectorTest,
   EXPECT_EQ(CountImageRecords(), 2u);
   ImageRecord* record = LargestImage();
   EXPECT_TRUE(record);
-  EXPECT_EQ(record->RecordedSize(), 1u);
+  EXPECT_EQ(record->EffectiveVisualSize(), 1u);
 }
 
 TEST_P(ImagePaintTimingDetectorTest, BackgroundImage_IgnoreBody) {
-  SetBodyInnerHTML("<style>body { background-image: url(" SIMPLE_IMAGE
-                   ")}</style>");
+  SetMainFrameBodyContent("<style>body { background-image: url(" SIMPLE_IMAGE
+                          ")}</style>");
   SimulateRendering();
   EXPECT_EQ(CountImageRecords(), 0u);
 }
 
 TEST_P(ImagePaintTimingDetectorTest, BackgroundImage_IgnoreHtml) {
-  SetBodyInnerHTML("<style>html { background-image: url(" SIMPLE_IMAGE
-                   ")}</style>");
+  SetMainFrameBodyContent("<style>html { background-image: url(" SIMPLE_IMAGE
+                          ")}</style>");
   SimulateRendering();
   EXPECT_EQ(CountImageRecords(), 0u);
 }
 
 TEST_P(ImagePaintTimingDetectorTest, BackgroundImage_IgnoreGradient) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
       div {
         background-image: linear-gradient(blue, yellow);
@@ -1015,7 +884,7 @@ TEST_P(ImagePaintTimingDetectorTest, BackgroundImage_IgnoreGradient) {
 // We put two background images in the same object, and test whether FCP++ can
 // find two different images.
 TEST_P(ImagePaintTimingDetectorTest, BackgroundImageTrackedDifferently) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
       #d {
         width: 50px;
@@ -1031,7 +900,7 @@ TEST_P(ImagePaintTimingDetectorTest, BackgroundImageTrackedDifferently) {
 }
 
 TEST_P(ImagePaintTimingDetectorTest, DeactivateAfterUserInput) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <div id="parent">
       <img id="target"></img>
     </div>
@@ -1039,13 +908,12 @@ TEST_P(ImagePaintTimingDetectorTest, DeactivateAfterUserInput) {
   SimulateScroll();
   SetImageAndPaint("target", 5, 5);
   SimulateRenderingAndPresentationTime();
-  EXPECT_FALSE(GetPaintTimingDetector()
-                   .GetImagePaintTimingDetector()
-                   .IsRecordingLargestImagePaint());
+  EXPECT_FALSE(
+      PaintTiming::From(GetDocument()).GetLargestContentfulPaintManager());
 }
 
 TEST_P(ImagePaintTimingDetectorTest, ContinueAfterKeyUp) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <div id="parent">
       <img id="target"></img>
     </div>
@@ -1053,13 +921,12 @@ TEST_P(ImagePaintTimingDetectorTest, ContinueAfterKeyUp) {
   SimulateKeyUp();
   SetImageAndPaint("target", 5, 5);
   SimulateRenderingAndPresentationTime();
-  EXPECT_TRUE(GetPaintTimingDetector()
-                  .GetImagePaintTimingDetector()
-                  .IsRecordingLargestImagePaint());
+  EXPECT_TRUE(
+      PaintTiming::From(GetDocument()).GetLargestContentfulPaintManager());
 }
 
 TEST_P(ImagePaintTimingDetectorTest, NullTimeNoCrash) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <img id="target"></img>
   )HTML");
   SetImageAndPaint("target", 5, 5);
@@ -1067,10 +934,10 @@ TEST_P(ImagePaintTimingDetectorTest, NullTimeNoCrash) {
 }
 
 TEST_P(ImagePaintTimingDetectorTest, Iframe) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <iframe width=100px height=100px></iframe>
   )HTML");
-  SetChildBodyInnerHTML(R"HTML(
+  SetChildFrameBodyContent(R"HTML(
     <style>img { display:block }</style>
     <img id="target"></img>
   )HTML");
@@ -1083,17 +950,17 @@ TEST_P(ImagePaintTimingDetectorTest, Iframe) {
   ImageRecord* image = ChildFrameLargestImage();
   EXPECT_TRUE(image);
   // Ensure the image size is not clipped (5*5).
-  EXPECT_EQ(image->RecordedSize(), 25ul);
+  EXPECT_EQ(image->EffectiveVisualSize(), 25ul);
 }
 
 TEST_P(ImagePaintTimingDetectorTest, Iframe_ClippedByMainFrameViewport) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
       #f { margin-top: 1234567px }
     </style>
     <iframe id="f" width=100px height=100px></iframe>
   )HTML");
-  SetChildBodyInnerHTML(R"HTML(
+  SetChildFrameBodyContent(R"HTML(
     <style>img { display:block }</style>
     <img id="target"></img>
   )HTML");
@@ -1105,13 +972,13 @@ TEST_P(ImagePaintTimingDetectorTest, Iframe_ClippedByMainFrameViewport) {
 }
 
 TEST_P(ImagePaintTimingDetectorTest, Iframe_HalfClippedByMainFrameViewport) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
       #f { margin-left: -5px; }
     </style>
     <iframe id="f" width=10px height=10px></iframe>
   )HTML");
-  SetChildBodyInnerHTML(R"HTML(
+  SetChildFrameBodyContent(R"HTML(
     <style>img { display:block }</style>
     <img id="target"></img>
   )HTML");
@@ -1122,11 +989,11 @@ TEST_P(ImagePaintTimingDetectorTest, Iframe_HalfClippedByMainFrameViewport) {
   SimulatePresentationTime();
   ImageRecord* image = ChildFrameLargestImage();
   EXPECT_TRUE(image);
-  EXPECT_LT(image->RecordedSize(), 100ul);
+  EXPECT_LT(image->EffectiveVisualSize(), 100ul);
 }
 
 TEST_P(ImagePaintTimingDetectorTest, SameSizeShouldNotBeIgnored) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>img { display:block }</style>
     <img id='1'></img>
     <img id='2'></img>
@@ -1140,7 +1007,7 @@ TEST_P(ImagePaintTimingDetectorTest, SameSizeShouldNotBeIgnored) {
 }
 
 TEST_P(ImagePaintTimingDetectorTest, UseIntrinsicSizeIfSmaller_Image) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <img height="300" width="300" display="block" id="target">
     </img>
   )HTML");
@@ -1148,11 +1015,11 @@ TEST_P(ImagePaintTimingDetectorTest, UseIntrinsicSizeIfSmaller_Image) {
   SimulateRenderingAndPresentationTime();
   ImageRecord* record = LargestImage();
   EXPECT_TRUE(record);
-  EXPECT_EQ(record->RecordedSize(), 25u);
+  EXPECT_EQ(record->EffectiveVisualSize(), 25u);
 }
 
 TEST_P(ImagePaintTimingDetectorTest, NotUseIntrinsicSizeIfLarger_Image) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <img height="1" width="1" display="block" id="target">
     </img>
   )HTML");
@@ -1160,12 +1027,12 @@ TEST_P(ImagePaintTimingDetectorTest, NotUseIntrinsicSizeIfLarger_Image) {
   SimulateRenderingAndPresentationTime();
   ImageRecord* record = LargestImage();
   EXPECT_TRUE(record);
-  EXPECT_EQ(record->RecordedSize(), 1u);
+  EXPECT_EQ(record->EffectiveVisualSize(), 1u);
 }
 
 TEST_P(ImagePaintTimingDetectorTest,
        UseIntrinsicSizeIfSmaller_BackgroundImage) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
       #d {
         width: 50px;
@@ -1178,13 +1045,13 @@ TEST_P(ImagePaintTimingDetectorTest,
   SimulateRendering();
   ImageRecord* record = LargestImage();
   EXPECT_TRUE(record);
-  EXPECT_EQ(record->RecordedSize(), 1u);
+  EXPECT_EQ(record->EffectiveVisualSize(), 1u);
 }
 
 TEST_P(ImagePaintTimingDetectorTest,
        NotUseIntrinsicSizeIfLarger_BackgroundImage) {
   // The image is in 16x16.
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
       #d {
         width: 5px;
@@ -1197,11 +1064,11 @@ TEST_P(ImagePaintTimingDetectorTest,
   SimulateRendering();
   ImageRecord* record = LargestImage();
   EXPECT_TRUE(record);
-  EXPECT_EQ(record->RecordedSize(), 25u);
+  EXPECT_EQ(record->EffectiveVisualSize(), 25u);
 }
 
 TEST_P(ImagePaintTimingDetectorTest, OpacityZeroHTML) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
       :root {
         opacity: 0;
@@ -1229,7 +1096,7 @@ TEST_P(ImagePaintTimingDetectorTest, OpacityZeroHTML) {
 }
 
 TEST_P(ImagePaintTimingDetectorTest, OpacityZeroHTML2) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
       #target {
         opacity: 0;
@@ -1253,7 +1120,7 @@ TEST_P(ImagePaintTimingDetectorTest, OpacityZeroHTML2) {
 }
 
 TEST_P(ImagePaintTimingDetectorTest, OpacityZeroHTMLWithInput) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
       :root {
         opacity: 0;
@@ -1282,22 +1149,22 @@ TEST_P(ImagePaintTimingDetectorTest, OpacityZeroHTMLWithInput) {
   EXPECT_EQ(largest_contentful_paint_details.image_paint_time, 0u);
 
   PaintTiming& paint_timing = PaintTiming::From(GetDocument());
-  // FCP and first image paint, however, should be marked, because that does not
-  // stop on input.
+  // FCP and first image paint should not be marked, since this feature is tied
+  // to hard LCP.
   //
   // Note: `PaintTiming` doesn't support `MockPaintTimingCallbackManager`, so
   // check the paint time instead of presentation time.
   base::TimeTicks fcp_timestamp =
       paint_timing.FirstContentfulPaintRenderedButNotPresentedAsMonotonicTime();
-  EXPECT_FALSE(fcp_timestamp.is_null());
+  EXPECT_TRUE(fcp_timestamp.is_null());
 
   base::TimeTicks image_timestamp =
       paint_timing.FirstImagePaintRenderedButNotPresentedAsMonotonicTime();
-  EXPECT_FALSE(image_timestamp.is_null());
+  EXPECT_TRUE(image_timestamp.is_null());
 }
 
 TEST_P(ImagePaintTimingDetectorTest, OpacityZeroHTMLRemoveElement) {
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>
       :root {
         opacity: 0;
@@ -1327,7 +1194,7 @@ TEST_P(ImagePaintTimingDetectorTest, OpacityZeroHTMLRemoveElement) {
 
 TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_FullViewportImage) {
   ukm::TestAutoSetUkmRecorder test_ukm_recorder;
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>body {margin: 0px;}</style>
     <img id="target"></img>
   )HTML");
@@ -1357,18 +1224,18 @@ TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_FullViewportImage) {
 TEST_P(ImagePaintTimingDetectorTest, MAYBE_LargestImagePaint_Detached_Frame) {
   using trace_analyzer::Query;
   GetDocument().SetBaseURLOverride(KURL("http://test.com"));
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
       <style>iframe { display: block; position: relative; margin-left: 30px; margin-top: 50px; width: 250px; height: 250px;} </style>
       <iframe> </iframe>
     )HTML");
-  SetChildBodyInnerHTML(R"HTML(
+  SetChildFrameBodyContent(R"HTML(
       <style>body { margin: 10px;} #target { width: 200px; height: 200px; }
       </style>
       <img id="target"></img>
     )HTML");
   SetChildFrameImageAndPaint("target", 5, 5);
   SimulateRenderingAndPresentationTime();
-  LocalFrame* child_frame = GetChildFrame();
+  LocalFrame* child_frame = &ChildFrame();
   GetDocument().body()->SetInnerHTMLWithoutTrustedTypes("",
                                                         ASSERT_NO_EXCEPTION);
   EXPECT_TRUE(child_frame->IsDetached());
@@ -1390,7 +1257,7 @@ TEST_P(ImagePaintTimingDetectorTest, MAYBE_LargestImagePaint_Detached_Frame) {
 TEST_P(ImagePaintTimingDetectorTest, LargestPaintedImageSetForFirstVideoFrame) {
   ScopedReportFirstFrameTimeAsRenderTimeForTest
       scoped_enable_use_first_frame_time(true);
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <video id="target" width=300 height=200></video>
   )HTML");
 
@@ -1419,7 +1286,7 @@ TEST_P(ImagePaintTimingDetectorTest, LargestPaintedImageSetForFirstVideoFrame) {
   EXPECT_FALSE(LargestPaintedImage());
   ImageRecord* record = LargestImage();
   ASSERT_TRUE(record);
-  EXPECT_GT(record->RecordedSize(), 0ul);
+  EXPECT_GT(record->EffectiveVisualSize(), 0ul);
   EXPECT_TRUE(record->HasPaintTime());
 
   SimulateRenderingAndPresentationTime();
@@ -1435,26 +1302,12 @@ class ImagePaintTimingDetectorFencedFrameTest
         features::kFencedFrames, {{"implementation_type", "mparch"}});
   }
 
-  void InitializeFencedFrameRoot(
-      blink::FencedFrame::DeprecatedFencedFrameMode mode) {
-    web_view_helper_.InitializeWithOpener(/*opener=*/nullptr,
-                                          /*frame_client=*/nullptr,
-                                          /*view_client=*/nullptr,
-                                          /*update_settings_func=*/nullptr,
-                                          mode);
-    // Enable compositing on the page before running the document lifecycle.
-    web_view_helper_.GetWebView()
-        ->GetPage()
-        ->GetSettings()
-        .SetAcceleratedCompositingEnabled(true);
+ protected:
+  void SetUp() override {
+    ImagePaintTimingDetectorTest::SetUp();
 
-    WebLocalFrameImpl& frame_impl = *web_view_helper_.LocalMainFrame();
-    frame_impl.ViewImpl()->MainFrameViewWidget()->Resize(gfx::Size(640, 480));
-
-    frame_test_helpers::LoadFrame(
-        web_view_helper_.GetWebView()->MainFrameImpl(), "about:blank");
-    GetDocument().View()->SetParentVisible(true);
-    GetDocument().View()->SetSelfVisible(true);
+    GetDocument().GetPage()->SetIsMainFrameFencedFrameRoot();
+    ASSERT_TRUE(GetDocument().GetFrame()->IsInFencedFrameTree());
   }
 
  private:
@@ -1465,10 +1318,7 @@ INSTANTIATE_PAINT_TEST_SUITE_P(ImagePaintTimingDetectorFencedFrameTest);
 
 TEST_P(ImagePaintTimingDetectorFencedFrameTest, NotReported) {
   ukm::TestAutoSetUkmRecorder test_ukm_recorder;
-  InitializeFencedFrameRoot(
-      blink::FencedFrame::DeprecatedFencedFrameMode::kDefault);
-  GetDocument().SetBaseURLOverride(KURL("https://test.com"));
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
     <style>body {margin: 0px;}</style>
     <img id="target"></img>
   )HTML");
@@ -1515,7 +1365,7 @@ TEST_P(ImagePaintTimingDetectorTransparentPlaceholderImageTest,
           .LargestContentfulPaintDetailsForMetrics();
   EXPECT_EQ(largest_contentful_paint_details.image_paint_size, 0u);
   EXPECT_EQ(largest_contentful_paint_details.image_paint_time, 0u);
-  SetBodyInnerHTML(R"HTML(
+  SetMainFrameBodyContent(R"HTML(
       <img id="placeholder"></img>
     )HTML");
   SetTransparentPlaceholderImageAndPaint("placeholder");

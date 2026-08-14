@@ -20,6 +20,18 @@ import java.util.Set;
  */
 @NullMarked
 public interface ActorForegroundServiceController {
+    /** Starts the service. */
+    default void startService() {
+        startService("");
+    }
+
+    /**
+     * Starts the service.
+     *
+     * @param glicTriggerMessageId The GLIC trigger message ID associated with the request.
+     */
+    void startService(String glicTriggerMessageId);
+
     /**
      * Starts the service and binds to it.
      *
@@ -64,6 +76,9 @@ public interface ActorForegroundServiceController {
      * is acting on.
      */
     boolean isActivityVisibleForTabs(Set<Integer> tabIds);
+
+    /** Returns true if a tabbed activity is currently visible. */
+    boolean isTabbedActivityVisible();
 
     /** Returns the singleton instance. */
     static ActorForegroundServiceController get() {

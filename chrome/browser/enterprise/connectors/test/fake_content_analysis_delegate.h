@@ -10,11 +10,11 @@
 #include "base/files/file_path.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/enterprise/connectors/analysis/clipboard_request_handler.h"
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_delegate.h"
 #include "chrome/browser/enterprise/connectors/test/fake_files_request_handler.h"
 #include "components/enterprise/common/proto/connectors.pb.h"
 #include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_request.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/clipboard_request_handler.h"
 #include "components/enterprise/connectors/core/cloud_content_scanning/common.h"
 
 namespace content {
@@ -44,7 +44,8 @@ class FakeContentAnalysisDelegate : public ContentAnalysisDelegate {
                               std::string dm_token,
                               content::WebContents* web_contents,
                               Data data,
-                              CompletionCallback callback);
+                              CompletionCallback callback,
+                              DeepScanAccessPoint access_point);
   ~FakeContentAnalysisDelegate() override;
 
   // Use with ContentAnalysisDelegate::SetFactoryForTesting() to create
@@ -56,7 +57,8 @@ class FakeContentAnalysisDelegate : public ContentAnalysisDelegate {
       std::string dm_token,
       content::WebContents* web_contents,
       Data data,
-      CompletionCallback callback);
+      CompletionCallback callback,
+      DeepScanAccessPoint access_point);
 
   // Sets a delay to have before returning responses. This is used by tests that
   // need to simulate response taking some time.

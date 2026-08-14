@@ -650,6 +650,34 @@ TEST_F(ContextualTasksUiTest, PendingTaskNoNewTaskCreatedOnNav) {
   observer.reset();
 }
 
+TEST_F(ContextualTasksUiTest, PendingTaskWithEmptyTitleNoNewTaskCreatedOnNav) {
+  MockTaskInfoDelegate delegate;
+
+  base::Uuid task_id = base::Uuid::ParseCaseInsensitive(kUuid);
+  SetupMockDelegate(&delegate, task_id, std::nullopt, "");
+
+  auto observer = std::make_unique<ContextualTasksUI::FrameNavObserver>(
+      embedded_web_contents_.get(), service_for_nav_.get(),
+      contextual_tasks_service_.get(), &delegate);
+
+  GURL url(kAiPageUrl);
+  url = net::AppendQueryParameter(url, "q", "test");
+  url = net::AppendQueryParameter(url, "mtid", "5678");
+  url = net::AppendQueryParameter(url, "mstk", "1234");
+
+  EXPECT_CALL(*contextual_tasks_service_, CreateTaskFromUrl(_)).Times(0);
+  EXPECT_CALL(*service_for_nav_, OnTaskChanged(_, _, _, _, _)).Times(0);
+
+  std::unique_ptr<content::MockNavigationHandle> nav_handle =
+      CreateMockNavigationHandle(url);
+
+  observer->DidFinishNavigation(nav_handle.get());
+
+  EXPECT_EQ(delegate.GetTaskId(), task_id);
+
+  observer.reset();
+}
+
 TEST_F(ContextualTasksUiTest, TaskDetailsUpdated) {
   MockTaskInfoDelegate delegate;
 
@@ -729,6 +757,16 @@ TEST_F(ContextualTasksUiTest, AreUrlsEqual) {
   EXPECT_FALSE(ContextualTasksUI::AreUrlsEqual(
       GURL("https://google.com/search?q=test&udm=50"),
       GURL("https://google.com/search?udm=50&q=test&extra=1")));
+}
+
+TEST_F(ContextualTasksUiTest, GetContextualTasksLoadTimeData) {
+  base::DictValue load_time_data =
+      ContextualTasksUI::GetContextualTasksLoadTimeData(profile_);
+
+  std::optional<bool> is_system_voice_search_enabled =
+      load_time_data.FindBool("isSystemVoiceSearchEnabled");
+  ASSERT_TRUE(is_system_voice_search_enabled.has_value());
+  EXPECT_EQ(is_system_voice_search_enabled.value(), !!BUILDFLAG(IS_ANDROID));
 }
 
 TEST_F(ContextualTasksUiTest, DidFinishNavigation_ZeroState) {
@@ -1250,16 +1288,11 @@ TEST_F(ContextualTasksUiTest,
   GURL zero_state_url_with_history_ui(
       "https://www.google.com/search?udm=50&atvm=1");
 
-  base::Uuid task_id2 =
-      base::Uuid::ParseCaseInsensitive("20000000-0000-0000-0000-000000000000");
-  ContextualTask task2(task_id2);
-
   // The URL may change while still in zero state (i.e. open/close history UI)
   // We expect PushTaskDetailsToPage to be called with replace_navigation_entry
-  // = true.
-  EXPECT_CALL(*contextual_tasks_service_, CreateTask()).WillOnce(Return(task2));
+  // = true and the same task_id.
   EXPECT_CALL(delegate,
-              PushTaskDetailsToPage(std::make_optional(task_id2),
+              PushTaskDetailsToPage(std::make_optional(task_id),
                                     zero_state_url_with_history_ui,
                                     /*replace_navigation_entry=*/true))
       .Times(1);
@@ -1267,6 +1300,57 @@ TEST_F(ContextualTasksUiTest,
   auto handle2 = CreateMockNavigationHandle(zero_state_url_with_history_ui);
   handle2->set_has_committed(true);
   observer->DidFinishNavigation(handle2.get());
+}
+
+TEST_F(ContextualTasksUiTest,
+       DidFinishNavigation_ZeroState_ReusesTaskIdWhenNoThread) {
+  MockTaskInfoDelegate delegate;
+  base::Uuid existing_task_id = base::Uuid::ParseCaseInsensitive(kUuid);
+  SetupMockDelegate(&delegate, existing_task_id, std::nullopt, std::nullopt);
+
+  auto observer = std::make_unique<ContextualTasksUI::FrameNavObserver>(
+      embedded_web_contents_.get(), service_for_nav_.get(),
+      contextual_tasks_service_.get(), &delegate);
+
+  GURL zero_state_url("https://www.google.com/search?udm=50");
+
+  EXPECT_CALL(*contextual_tasks_service_, CreateTask()).Times(0);
+  EXPECT_CALL(delegate,
+              PushTaskDetailsToPage(std::make_optional(existing_task_id),
+                                    zero_state_url,
+                                    /*replace_navigation_entry=*/true))
+      .Times(1);
+
+  auto handle = CreateMockNavigationHandle(zero_state_url);
+  handle->set_has_committed(true);
+  observer->DidFinishNavigation(handle.get());
+}
+
+TEST_F(ContextualTasksUiTest,
+       DidFinishNavigation_ZeroState_CreatesNewTaskWhenThreadExists) {
+  MockTaskInfoDelegate delegate;
+  base::Uuid old_task_id = base::Uuid::ParseCaseInsensitive(kUuid);
+  SetupMockDelegate(&delegate, old_task_id, "thread_123", std::nullopt);
+
+  auto observer = std::make_unique<ContextualTasksUI::FrameNavObserver>(
+      embedded_web_contents_.get(), service_for_nav_.get(),
+      contextual_tasks_service_.get(), &delegate);
+
+  GURL zero_state_url("https://www.google.com/search?udm=50");
+  base::Uuid new_task_id =
+      base::Uuid::ParseCaseInsensitive("20000000-0000-0000-0000-000000000000");
+  ContextualTask new_task(new_task_id);
+
+  EXPECT_CALL(*contextual_tasks_service_, CreateTask())
+      .WillOnce(Return(new_task));
+  EXPECT_CALL(delegate, PushTaskDetailsToPage(
+                            std::make_optional(new_task_id), zero_state_url,
+                            /*replace_navigation_entry=*/true))
+      .Times(1);
+
+  auto handle = CreateMockNavigationHandle(zero_state_url);
+  handle->set_has_committed(true);
+  observer->DidFinishNavigation(handle.get());
 }
 
 TEST_F(ContextualTasksUiTest,

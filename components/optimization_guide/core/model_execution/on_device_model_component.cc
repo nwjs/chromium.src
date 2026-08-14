@@ -21,6 +21,7 @@
 #include "base/sequence_checker.h"
 #include "base/strings/strcat.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
 #include "components/optimization_guide/core/delivery/model_util.h"
@@ -176,12 +177,10 @@ std::string GetUmaModelNameFromState(OnDeviceModelComponentState* state) {
   return ConvertModelNameToUmaModelName(state->GetBaseModelSpec().model_name);
 }
 
-bool WasOnDeviceModelRecentlyUsed(UsageTracker* usage_tracker,
-                                  OnDeviceModelType model_type) {
+bool WasOnDeviceModelRecentlyUsed(UsageTracker* usage_tracker) {
   return std::ranges::any_of(
       OnDeviceFeatureSet::All(), [&](mojom::OnDeviceFeature feature) {
-        return GetOnDeviceModelType(feature) == model_type &&
-               usage_tracker->WasUseCaseRecentlyUsed(ToUseCaseName(feature));
+        return usage_tracker->WasUseCaseRecentlyUsed(ToUseCaseName(feature));
       });
 }
 
@@ -205,6 +204,8 @@ std::ostream& operator<<(std::ostream& out, OnDeviceModelStatus status) {
       return out << "Insufficient Disk Space";
     case OnDeviceModelStatus::kNoOnDeviceFeatureUsed:
       return out << "No On-device Feature Used";
+    case OnDeviceModelStatus::kInsufficientDiskSpaceForCaches:
+      return out << "Insufficient Disk Space For Caches";
   }
 }
 
@@ -272,13 +273,11 @@ OnDeviceModelComponentStateManager::OnDeviceModelComponentStateManager(
     PrefService* local_state,
     base::SafeRef<PerformanceClassifier> performance_classifier,
     UsageTracker& usage_tracker,
-    std::unique_ptr<Delegate> delegate,
-    OnDeviceModelType model_type)
+    std::unique_ptr<Delegate> delegate)
     : local_state_(local_state),
       performance_classifier_(std::move(performance_classifier)),
       delegate_(std::move(delegate)),
-      usage_tracker_(usage_tracker),
-      model_type_(model_type) {
+      usage_tracker_(usage_tracker) {
   CHECK(local_state);  // Useful to catch poor test setup.
   usage_tracker_observation_.Observe(&usage_tracker);
   pref_change_registrar_.Init(local_state);
@@ -352,7 +351,7 @@ OnDeviceModelComponentStateManager::GetDebugState() {
   debug.criteria_ = registration_criteria_.get();
   debug.disk_space_available_ = registration_criteria_
                                     ? registration_criteria_->disk_space_free
-                                    : base::ByteCount(-1);
+                                    : std::nullopt;
   debug.status_ = GetOnDeviceModelStatus();
   debug.has_override_ = !!switches::GetOnDeviceModelExecutionOverride();
   debug.state_ = state_.get();
@@ -380,10 +379,12 @@ OnDeviceModelComponentStateManager::GetBrokerProperties() const {
     props.push_back(mojom::BrokerPropertyInfo::New(
         "On external power",
         base::ToString(registration_criteria_->is_on_external_power)));
+    int64_t disk_space_free =
+        registration_criteria_->disk_space_free
+            ? registration_criteria_->disk_space_free->InMiB()
+            : -1;
     props.push_back(mojom::BrokerPropertyInfo::New(
-        "Disk space free",
-        base::ToString(registration_criteria_->disk_space_free.InMiB()) +
-            " MiB"));
+        "Disk space free", base::ToString(disk_space_free) + " MiB"));
   }
   return props;
 }
@@ -421,6 +422,12 @@ OnDeviceModelComponentStateManager::GetBrokerAssets() const {
   return assets;
 }
 
+base::SafeRef<PerformanceClassifier>
+OnDeviceModelComponentStateManager::performance_classifier() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return performance_classifier_;
+}
+
 void OnDeviceModelComponentStateManager::SetReady(
     const base::Version& version,
     const base::FilePath& install_dir,
@@ -445,6 +452,13 @@ void OnDeviceModelComponentStateManager::SetReady(
           "OptimizationGuide.OnDeviceModel.NewModelInstalled",
           ConvertModelNameToEnum(model_spec->model_name));
     }
+    base::ThreadPool::PostTaskAndReplyWithResult(
+        FROM_HERE, {base::MayBlock()},
+        base::BindOnce(&OnDeviceModelComponentStateManager::CheckCachesExist,
+                       install_dir),
+        base::BindOnce(
+            &OnDeviceModelComponentStateManager::OnCachesExistChecked,
+            weak_ptr_factory_.GetWeakPtr()));
   }
 
   NotifyStateChanged();
@@ -500,10 +514,6 @@ void OnDeviceModelComponentStateManager::OnDeviceEligibleUseCaseUsed(
     return;
   }
 
-  if (GetOnDeviceModelType(*feature) != model_type_) {
-    return;
-  }
-
   base::UmaHistogramEnumeration(
       "OptimizationGuide.ModelExecution.OnDeviceModelStatusAtUseTime",
       GetOnDeviceModelStatus());
@@ -522,7 +532,7 @@ void OnDeviceModelComponentStateManager::MaybeBeginBackgroundModelDownload() {
 }
 
 void OnDeviceModelComponentStateManager::GetFreeDiskSpaceForLogging(
-    base::OnceCallback<void(std::optional<base::ByteCount>)> callback) {
+    base::OnceCallback<void(std::optional<base::ByteSize>)> callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   delegate_->GetFreeDiskSpace(delegate_->GetInstallDirectory(),
                               std::move(callback));
@@ -558,14 +568,14 @@ void OnDeviceModelComponentStateManager::BeginUpdateRegistration() {
 
 OnDeviceModelComponentStateManager::RegistrationCriteria
 OnDeviceModelComponentStateManager::ComputeRegistrationCriteria(
-    base::ByteCount disk_space_free_bytes) {
+    std::optional<base::ByteSize> disk_space_free) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   RegistrationCriteria result;
   result.background_download_requested = background_download_requested_;
-  result.disk_space_free = disk_space_free_bytes;
+  result.disk_space_free = disk_space_free;
   result.device_capable = performance_classifier_->IsDeviceCapable();
   result.on_device_feature_recently_used =
-      WasOnDeviceModelRecentlyUsed(&usage_tracker_.get(), model_type_);
+      WasOnDeviceModelRecentlyUsed(&usage_tracker_.get());
   result.enabled_by_feature = features::IsOnDeviceExecutionEnabled();
   result.enabled_by_enterprise_policy =
       GetGenAILocalFoundationalModelEnterprisePolicySettings(local_state_) ==
@@ -595,11 +605,10 @@ OnDeviceModelComponentStateManager::ComputeRegistrationCriteria(
 }
 
 void OnDeviceModelComponentStateManager::UpdateRegistrationCriteria(
-    std::optional<base::ByteCount> disk_space_free) {
+    std::optional<base::ByteSize> disk_space_free) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // TODO(https://crbug.com/438265416): Handle failure to get free disk space.
-  RegistrationCriteria criteria = ComputeRegistrationCriteria(
-      disk_space_free.value_or(base::ByteCount(-1)));
+
+  RegistrationCriteria criteria = ComputeRegistrationCriteria(disk_space_free);
   bool first_registration_attempt = !registration_criteria_;
 
   OnDeviceModelStatus status = GetOnDeviceModelStatus();
@@ -617,7 +626,7 @@ void OnDeviceModelComponentStateManager::UpdateRegistrationCriteria(
   // Log metrics only for first registration attempt.
   if (first_registration_attempt) {
     LogInstallCriteria(criteria, "AtRegistration",
-                       disk_space_free.value_or(base::ByteCount(-1)).InGiB());
+                       disk_space_free ? disk_space_free->InGiB() : -1);
   }
 
   UpdateRegistration();
@@ -707,6 +716,11 @@ OnDeviceModelComponentStateManager::GetOnDeviceModelState() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   if (GetState() != nullptr) {
+    if (registration_criteria_ && !GetState()->has_caches() &&
+        registration_criteria_->is_disk_space_too_low_for_caches()) {
+      return base::unexpected(
+          OnDeviceModelStatus::kInsufficientDiskSpaceForCaches);
+    }
     return std::cref(*GetState());
   }
   if (!registration_criteria_) {
@@ -736,6 +750,28 @@ OnDeviceModelStatus
 OnDeviceModelComponentStateManager::GetOnDeviceModelStatus() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return GetOnDeviceModelState().error_or(OnDeviceModelStatus::kReady);
+}
+
+// static
+bool OnDeviceModelComponentStateManager::CheckCachesExist(
+    const base::FilePath& install_dir) {
+  return base::GetFileSize(install_dir.Append(kWeightCacheFile)).value_or(0) >
+             0 ||
+         base::GetFileSize(install_dir.Append(kProgramCacheFile)).value_or(0) >
+             0;
+}
+
+void OnDeviceModelComponentStateManager::OnCachesExistChecked(
+    bool caches_exist) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!state_) {
+    return;
+  }
+  OnDeviceModelStatus old_status = GetOnDeviceModelStatus();
+  state_->set_has_caches(caches_exist);
+  if (old_status != GetOnDeviceModelStatus()) {
+    NotifyStateChanged();
+  }
 }
 
 }  // namespace optimization_guide

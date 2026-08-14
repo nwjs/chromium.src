@@ -118,6 +118,7 @@
 #include "third_party/blink/renderer/core/scroll/scroll_animator_base.h"
 #include "third_party/blink/renderer/core/svg/graphics/svg_image.h"
 #include "third_party/blink/renderer/core/xml/parser/xml_document_parser.h"
+#include "third_party/blink/renderer/core/xml/xslt_processor.h"
 #include "third_party/blink/renderer/platform/bindings/dom_wrapper_world.h"
 #include "third_party/blink/renderer/platform/bindings/script_forbidden_scope.h"
 #include "third_party/blink/renderer/platform/bindings/v8_dom_activity_logger.h"
@@ -243,6 +244,7 @@ void FrameLoader::Trace(Visitor* visitor) const {
   visitor->Trace(frame_);
   visitor->Trace(progress_tracker_);
   visitor->Trace(document_loader_);
+  visitor->Trace(previous_document_loader_for_xslt_);
 }
 
 void FrameLoader::Init(
@@ -703,6 +705,21 @@ void FrameLoader::StartNavigation(FrameLoadRequest& request,
   LocalDOMWindow* origin_window = request.GetOriginWindow();
   NavigationPolicy policy = request.GetNavigationPolicy();
 
+  if (SchemeRegistry::IsDirectLaunchScheme(url.Protocol())) {
+    // TODO(crbug.com/517967197): Explore stripping the direct launch scheme
+    // prefix and continuing as a standard renderer-initiated navigation for web
+    // compatibility.
+    if (frame_->GetDocument()) {
+      frame_->GetDocument()->AddConsoleMessage(
+          MakeGarbageCollected<ConsoleMessage>(
+              mojom::blink::ConsoleMessageSource::kSecurity,
+              mojom::blink::ConsoleMessageLevel::kError,
+              StrCat({"Not allowed to navigate to direct-launch scheme '",
+                      url.Protocol(), "' from web contexts."})));
+    }
+    return;
+  }
+
   TRACE_EVENT2("navigation", "FrameLoader::StartNavigation", "url",
                url.GetString().Utf8(), "load_type",
                static_cast<int>(frame_load_type));
@@ -1019,8 +1036,8 @@ void FrameLoader::StartNavigation(FrameLoadRequest& request,
       request.IsUnfencedTopNavigation(), request.GetTriggeringEventInfo(),
       request.Form(), should_check_main_world_csp, request.GetBlobURLToken(),
       request.GetInputStartTime(), request.GetCreationTime(),
-      request.HrefTranslate().GetString(), request.Impression(),
-      request.GetInitiatorFrameToken(), request.GetSourceLocation(),
+      request.HrefTranslate().GetString(), request.GetInitiatorFrameToken(),
+      request.GetSourceLocation(),
       request.TakeInitiatorNavigationStateKeepAliveHandle(),
       request.IsContainerInitiated(),
       request.GetWindowFeatures().explicit_opener,
@@ -1266,8 +1283,11 @@ void FrameLoader::CommitNavigation(
     // For an XSLT document, set SentDidFinishLoad now to prevent the
     // DocumentLoader from reporting an error when detaching the pre-XSLT
     // document.
-    if (commit_reason == CommitReason::kXSLT && document_loader_)
+    if (commit_reason == CommitReason::kXSLT && document_loader_) {
+      DCHECK(XSLTProcessor::IsXSLTEnabled(nullptr));
       document_loader_->SetSentDidFinishLoad();
+      previous_document_loader_for_xslt_ = document_loader_.Get();
+    }
     if (!DetachDocument()) {
       DCHECK(!is_provisional);
       return;
@@ -1330,6 +1350,13 @@ void FrameLoader::CommitNavigation(
   DocumentLoader* new_document_loader = MakeGarbageCollected<DocumentLoader>(
       frame_, navigation_type, std::move(navigation_params),
       std::move(policy_container), std::move(extra_data));
+
+  if (previous_document_loader_for_xslt_) {
+    DCHECK(XSLTProcessor::IsXSLTEnabled(nullptr));
+    new_document_loader->InheritXsltUseCountersFrom(
+        previous_document_loader_for_xslt_);
+    previous_document_loader_for_xslt_ = nullptr;
+  }
 
   CommitDocumentLoader(
       new_document_loader,

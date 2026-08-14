@@ -131,6 +131,8 @@ Called by update_bad_message_reasons.py.-->
   <int value="11" label="RFH_INVALID_WEB_FRAME_URL"/>
   <int value="12" label="PVM_PRINT_FENCED_FRAME"/>
   <int value="13" label="SAGPC_INVALID_PERMISSION_REQUEST_CONTEXT"/>
+  <int value="14" label="TLSAPC_INVALID_PERMISSION_REQUEST_CONTEXT"/>
+  <int value="15" label="CCBC_GOOGLE_CHROME_SCHEME"/>
 </enum>
 
 <enum name="BadMessageReasonContent">
@@ -527,6 +529,18 @@ Called by update_bad_message_reasons.py.-->
   <int value="354"
       label="BIBI_BIND_WEBNN_WEIGHTS_FILE_CREATOR_BLOCKED_BY_PERMISSIONS_POLICY"/>
   <int value="355" label="RFH_AUTHENTICATOR_PDF_PROCESS_BLOCKED"/>
+  <int value="356"
+      label="BIBI_BIND_GAMEPAD_MONITOR_BLOCKED_BY_PERMISSIONS_POLICY"/>
+  <int value="357"
+      label="BIBI_BIND_GAMEPAD_HAPTICS_MANAGER_BLOCKED_BY_PERMISSIONS_POLICY"/>
+  <int value="358" label="RFH_CREATE_NEW_WINDOW_INVALID_PIP_OPTIONS"/>
+  <int value="359" label="RFPH_POST_MESSAGE_INVALID_DELEGATED_CAPABILITY"/>
+  <int value="360" label="RFHI_WEBMCP_OPAQUE_TARGET_ORIGIN"/>
+  <int value="361" label="RFH_ERROR_PAGE_URL_MISMATCH"/>
+  <int value="362" label="OBSOLETE_RFH_ORIENTATION_LOCK_FROM_SANDBOXED_FRAME"/>
+  <int value="363" label="RFH_FORM_SUBMISSION_FROM_SANDBOXED_FRAME"/>
+  <int value="364" label="RFPH_FORM_SUBMISSION_FROM_SANDBOXED_FRAME"/>
+  <int value="365" label="INSTALLED_APP_PROVIDER_FACTORY_INVALID_FRAME"/>
 </enum>
 
 <enum name="BadMessageReasonExtensions">
@@ -575,6 +589,7 @@ Called by update_bad_message_reasons.py.-->
   <int value="37" label="SWH_INVALID_SERVICE_WORKER_SCOPE"/>
   <int value="38" label="EMF_INVALID_MESSAGE_FROM_SANDBOXED_PROCESS"/>
   <int value="39" label="WRA_INVALID_EXTENSION_ID_FOR_PROCESS"/>
+  <int value="40" label="WRA_INVALID_LISTENER_REGISTRATION"/>
 </enum>
 
 <enum name="BadMessageReasonGuestView">

@@ -49,7 +49,6 @@ component("modules") {
     "//third_party/blink/renderer:config",
     "//third_party/blink/renderer:non_test_config",
     "//third_party/blink/renderer:inside_blink",
-    "//third_party/blink/renderer:narrowing",
     "//third_party/blink/renderer/core:blink_core_pch",
     "//v8:external_startup_data",
   ]
@@ -93,6 +92,7 @@ component("modules") {
     "//third_party/blink/renderer/modules/document_metadata",
     "//third_party/blink/renderer/modules/document_picture_in_picture",
     "//third_party/blink/renderer/modules/donottrack",
+    "//third_party/blink/renderer/modules/global_privacy_control",
     "//third_party/blink/renderer/modules/encoding",
     "//third_party/blink/renderer/modules/encryptedmedia",
     "//third_party/blink/renderer/modules/eventsource",
@@ -231,8 +231,6 @@ source_set("modules_testing") {
   sources = [
     "accessibility/testing/internals_accessibility.cc",
     "accessibility/testing/internals_accessibility.h",
-    "ad_auction/testing/internals_protected_audience.cc",
-    "ad_auction/testing/internals_protected_audience.h",
     "content_extraction/testing/internals_content_extraction.cc",
     "content_extraction/testing/internals_content_extraction.h",
     "credentialmanagement/testing/internals_fed_cm.cc",
@@ -284,7 +282,6 @@ source_set("modules_testing") {
   configs += [
     "//third_party/blink/renderer:config",
     "//third_party/blink/renderer:inside_blink",
-    "//third_party/blink/renderer:narrowing",
     "//third_party/blink/renderer/core:blink_core_pch",
   ]
 
@@ -427,6 +424,7 @@ source_set("unit_tests") {
     "animationworklet/worklet_animation_test.cc",
     "background_fetch/background_fetch_icon_loader_test.cc",
     "background_fetch/background_fetch_manager_test.cc",
+    "bluetooth/bluetooth_unittest.cc",
     "bluetooth/bluetooth_uuid_unittest.cc",
     "broadcastchannel/broadcast_channel_unittest.cc",
     "cache_storage/cache_test.cc",
@@ -622,18 +620,18 @@ source_set("unit_tests") {
     "sensor/sensor_test_utils.h",
     "service_worker/service_worker_container_test.cc",
     "service_worker/service_worker_event_queue_test.cc",
+    "service_worker/service_worker_global_scope_test.cc",
     "service_worker/service_worker_installed_scripts_manager_test.cc",
     "service_worker/service_worker_router_type_converter_test.cc",
     "service_worker/thread_safe_script_container_test.cc",
     "service_worker/wait_until_observer_test.cc",
     "service_worker/web_embedded_worker_impl_test.cc",
     "service_worker/web_service_worker_fetch_context_impl_test.cc",
-    "shared_storage/shared_storage_worklet_test.cc",
-    "shared_storage/shared_storage_worklet_unittest.cc",
     "speech/speech_recognition_controller_unittest.cc",
     "speech/speech_recognition_test.cc",
     "video_rvfc/video_frame_callback_requester_impl_test.cc",
     "video_rvfc/video_frame_request_callback_collection_test.cc",
+    "virtualkeyboard/virtual_keyboard_test.cc",
     "wake_lock/wake_lock_manager_test.cc",
     "wake_lock/wake_lock_sentinel_test.cc",
     "wake_lock/wake_lock_test.cc",
@@ -654,6 +652,8 @@ source_set("unit_tests") {
     "webaudio/oscillator_handler_test.cc",
     "webaudio/script_processor_node_test.cc",
     "webaudio/stereo_panner_node_test.cc",
+    "webaudio/testing/fake_audio_thread.cc",
+    "webaudio/testing/fake_audio_thread.h",
     "webaudio/testing/mock_web_audio_device.h",
     "webrtc/rtc_test.cc",
     "webrtc/webrtc_audio_device_impl_test.cc",
@@ -709,7 +709,6 @@ source_set("unit_tests") {
   configs += [
     "//third_party/blink/renderer:config",
     "//third_party/blink/renderer:inside_blink",
-    "//third_party/blink/renderer:narrowing",
     "//third_party/blink/renderer/core:blink_core_pch",
   ]
 
@@ -747,7 +746,6 @@ source_set("unit_tests") {
     "//third_party/blink/renderer/core:testing",
     "//third_party/blink/renderer/core:unit_test_support",
     "//third_party/blink/renderer/core:unit_tests",
-    "//third_party/blink/renderer/modules/ad_auction:unit_tests",
     "//third_party/blink/renderer/modules/breakout_box:unit_tests",
     "//third_party/blink/renderer/modules/clipboard:unit_tests",
     "//third_party/blink/renderer/modules/file_system_access:unit_tests",

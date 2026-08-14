@@ -40,6 +40,7 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.compositor.overlay_panel.OverlayPanel.StateChangeReason;
@@ -53,9 +54,11 @@ import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetTestSupport;
 import org.chromium.components.embedder_support.util.UrlConstants;
+import org.chromium.components.payments.PaymentFeatureList;
 import org.chromium.components.payments.ui.InputProtector;
 import org.chromium.components.payments.ui.test_support.FakeClock;
 import org.chromium.content_public.browser.LoadUrlParams;
+import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.content_public.browser.test.util.DOMUtils;
@@ -64,6 +67,7 @@ import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.net.test.ServerCertificate;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.url.GURL;
+import org.chromium.url.Origin;
 
 import java.util.Arrays;
 import java.util.List;
@@ -144,16 +148,30 @@ public class ExpandablePaymentHandlerTest {
         mClock = new FakeClock();
     }
 
-    private PaymentHandlerCoordinator createPaymentHandlerAndShow(ChromeTabbedActivity cta)
-            throws Throwable {
+    private PaymentHandlerCoordinator createPaymentHandler() throws Throwable {
         PaymentHandlerCoordinator paymentHandler = new PaymentHandlerCoordinator();
         paymentHandler.setInputProtectorForTest(new InputProtector(mClock));
+        return paymentHandler;
+    }
+
+    private void showPaymentHandler(
+            PaymentHandlerCoordinator paymentHandler, ChromeTabbedActivity cta) {
         ThreadUtils.runOnUiThreadBlocking(
                 () ->
                         paymentHandler.show(
                                 cta.getCurrentWebContents(),
                                 defaultPaymentAppUrl(),
                                 defaultUiObserver()));
+    }
+
+    private void showPaymentHandler(PaymentHandlerCoordinator paymentHandler) {
+        showPaymentHandler(paymentHandler, mDefaultActivity);
+    }
+
+    private PaymentHandlerCoordinator createPaymentHandlerAndShow(ChromeTabbedActivity cta)
+            throws Throwable {
+        PaymentHandlerCoordinator paymentHandler = createPaymentHandler();
+        showPaymentHandler(paymentHandler, cta);
         return paymentHandler;
     }
 
@@ -358,16 +376,48 @@ public class ExpandablePaymentHandlerTest {
     @Test
     @SmallTest
     @Feature({"Payments"})
+    @EnableFeatures({PaymentFeatureList.PAYMENT_HANDLER_DIALOG_USE_INITIATOR_IN_URL_LOAD})
+    public void testInitiatorOriginSet() throws Throwable {
+        startDefaultServer();
+        mStartingPage = mStartingPage.loadWebPageProgrammatically(mServer.getURL("/"));
+
+        CallbackHelper startNavigationCallbackHelper = new CallbackHelper();
+        PaymentHandlerCoordinator paymentHandler = createPaymentHandler();
+
+        WebContentsObserver observer =
+                new WebContentsObserver() {
+                    @Override
+                    public void didStartNavigationInPrimaryMainFrame(NavigationHandle navigation) {
+                        Origin expectedOrigin =
+                                Origin.create(
+                                        mDefaultActivity
+                                                .getCurrentWebContents()
+                                                .getLastCommittedUrl());
+                        Assert.assertEquals(expectedOrigin, navigation.getInitiatorOrigin());
+                        startNavigationCallbackHelper.notifyCalled();
+                    }
+                };
+        paymentHandler.setWebContentsObserverForTest(observer);
+
+        showPaymentHandler(paymentHandler);
+        waitForUiShown();
+
+        // Wait for navigation to complete before ending the test.
+        startNavigationCallbackHelper.waitForOnly();
+
+        ThreadUtils.runOnUiThreadBlocking(() -> paymentHandler.hide());
+        waitForUiClosed();
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Payments"})
     public void testUiElements() throws Throwable {
         startDefaultServer();
         PaymentHandlerCoordinator paymentHandler = createPaymentHandlerAndShow();
         waitForUiShown();
 
-        onView(withId(R.id.bottom_sheet))
-                .check(
-                        matches(
-                                withContentDescription(
-                                        "Payment handler sheet. Swipe down to close.")));
+        onView(withId(R.id.bottom_sheet)).check(matches(isDisplayed()));
 
         CriteriaHelper.pollInstrumentationThread(
                 () -> paymentHandler.getWebContentsForTest().getTitle().equals("Max Pay"));
@@ -375,12 +425,7 @@ public class ExpandablePaymentHandlerTest {
         onView(withId(R.id.title))
                 .check(matches(isDisplayed()))
                 .check(matches(withText("Max Pay")));
-        onView(withId(R.id.bottom_sheet))
-                .check(matches(isDisplayed()))
-                .check(
-                        matches(
-                                withContentDescription(
-                                        "Payment handler sheet. Swipe down to close.")));
+        onView(withId(R.id.bottom_sheet)).check(matches(isDisplayed()));
         onView(withId(R.id.close))
                 .check(matches(isDisplayed()))
                 .check(matches(withContentDescription("Close")));

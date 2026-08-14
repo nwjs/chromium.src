@@ -8,32 +8,25 @@
 #include <memory>
 #include <utility>
 
-#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/scoped_observation.h"
 #include "build/build_config.h"
-#include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_ui_util.h"
-#include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/profiles/profile_colors_util.h"
 #include "chrome/browser/ui/profiles/profile_view_utils.h"
-#include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/views/chrome_layout_provider.h"
-#include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/controls/hover_button.h"
-#include "chrome/grit/browser_resources.h"
-#include "components/signin/public/base/signin_switches.h"
+#include "chrome/browser/ui/views/profiles/avatar_badge_view.h"
 #include "components/supervised_user/core/browser/family_link_user_capabilities.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/interaction/element_tracker.h"
@@ -66,7 +59,6 @@
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/highlight_path_generator.h"
-#include "ui/views/controls/link.h"
 #include "ui/views/controls/scroll_view.h"
 #include "ui/views/controls/separator.h"
 #include "ui/views/controls/styled_label.h"
@@ -80,9 +72,9 @@
 #include "ui/views/style/typography.h"
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
+#include "ui/views/view_tracker.h"
 
 #if !BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/ui/views/profiles/badged_profile_photo.h"
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
 namespace {
@@ -181,15 +173,13 @@ class AvatarImageView : public views::ImageView {
 
  public:
   AvatarImageView(const ui::ImageModel& avatar_image,
-                  const ProfileMenuViewBase* root_view,
                   int image_size,
                   int border_size,
-                  bool has_dotted_ring)
+                  ProfileMenuViewBase::AvatarRingType avatar_ring)
       : avatar_image_(avatar_image),
         image_size_(image_size),
         border_size_(border_size),
-        has_dotted_ring_(has_dotted_ring),
-        root_view_(root_view) {
+        avatar_ring_(avatar_ring) {
     if (avatar_image_.IsEmpty()) {
       // This can happen if the account image hasn't been fetched yet, if there
       // is no image, or in tests.
@@ -206,42 +196,47 @@ class AvatarImageView : public views::ImageView {
     DCHECK(!avatar_image_.IsEmpty());
     ui::ColorProvider* color_provider = GetColorProvider();
     CHECK(color_provider);
-    const bool is_ai_ring_enabled =
-        IsAiSubscriptionRingEnabled(&(root_view_->profile()));
 
     gfx::ImageSkia sized_avatar_image;
     bool should_crop = true;
 
-    if (has_dotted_ring_) {
-      const int size_with_border = image_size_ + 2 * border_size_;
-      sized_avatar_image = profiles::GetAvatarWithDottedRing(
-          avatar_image_, size_with_border, /*has_padding=*/true,
-          /*has_background=*/true, *color_provider);
-      // Dotted ring avatar does not support a border, as the border is already
-      // included with the dotted ring.
-      CHECK_EQ(border_size_, 0);
-    } else if (is_ai_ring_enabled) {
-      // Keep the avatar's size identical with the no-ring case, the ring
-      // expands outwards.
-      sized_avatar_image =
-          AddAiRingToAvatar(avatar_image_, *color_provider, image_size_);
-      should_crop = false;
-    } else {
-      if (border_size_ > 0) {
-        // Total image size is `image_size_ + 2 * border_size_`.
-        ui::ImageModel sized_avatar_image_without_border =
-            ProfileMenuViewBase::GetCircularSizedImage(avatar_image_,
-                                                       image_size_);
-        sized_avatar_image = gfx::CanvasImageSource::CreatePadded(
-            sized_avatar_image_without_border.Rasterize(color_provider),
-            gfx::Insets(border_size_));
-      } else {
-        sized_avatar_image =
-            profiles::GetSizedAvatarImageModel(avatar_image_, image_size_)
-                .Rasterize(color_provider);
+    switch (avatar_ring_) {
+      case ProfileMenuViewBase::AvatarRingType::kDotted: {
+        const int size_with_border = image_size_ + 2 * border_size_;
+        sized_avatar_image = profiles::GetAvatarWithDottedRing(
+            avatar_image_, size_with_border, /*has_padding=*/true,
+            /*has_background=*/true, *color_provider);
+        // Dotted ring avatar does not support a border, as the border is
+        // already included with the dotted ring.
+        CHECK_EQ(border_size_, 0);
+        break;
       }
-      sized_avatar_image = profiles::AddBackgroundToImage(sized_avatar_image,
-                                                          GetBackgroundColor());
+      case ProfileMenuViewBase::AvatarRingType::kGradient: {
+        // Keep the avatar's size identical with the no-ring case, the ring
+        // expands outwards.
+        sized_avatar_image = AddLinearGradientRingToAvatar(
+            avatar_image_, *color_provider, image_size_);
+        should_crop = false;
+        break;
+      }
+      case ProfileMenuViewBase::AvatarRingType::kNone: {
+        if (border_size_ > 0) {
+          // Total image size is `image_size_ + 2 * border_size_`.
+          ui::ImageModel sized_avatar_image_without_border =
+              ProfileMenuViewBase::GetCircularSizedImage(avatar_image_,
+                                                         image_size_);
+          sized_avatar_image = gfx::CanvasImageSource::CreatePadded(
+              sized_avatar_image_without_border.Rasterize(color_provider),
+              gfx::Insets(border_size_));
+        } else {
+          sized_avatar_image =
+              profiles::GetSizedAvatarImageModel(avatar_image_, image_size_)
+                  .Rasterize(color_provider);
+        }
+        sized_avatar_image = profiles::AddBackgroundToImage(
+            sized_avatar_image, GetBackgroundColor());
+        break;
+      }
     }
 
     if (should_crop) {
@@ -263,8 +258,7 @@ class AvatarImageView : public views::ImageView {
   ui::ImageModel avatar_image_;
   const int image_size_;
   const int border_size_;
-  const bool has_dotted_ring_;
-  raw_ptr<const ProfileMenuViewBase> root_view_;
+  const ProfileMenuViewBase::AvatarRingType avatar_ring_;
 };
 
 BEGIN_METADATA(AvatarImageView)
@@ -407,14 +401,21 @@ class ProfileMenuViewBase::AXMenuWidgetObserver : public views::WidgetObserver {
   ~AXMenuWidgetObserver() override = default;
 
   void OnWidgetActivationChanged(views::Widget* widget, bool active) override {
+    views::ViewTracker tracker(owner_.get());
     if (active) {
       owner_->NotifyAccessibilityEventDeprecated(ax::mojom::Event::kMenuStart,
                                                  true);
+      if (!tracker.view()) {
+        return;
+      }
       owner_->NotifyAccessibilityEventDeprecated(
           ax::mojom::Event::kMenuPopupStart, true);
     } else {
       owner_->NotifyAccessibilityEventDeprecated(
           ax::mojom::Event::kMenuPopupEnd, true);
+      if (!tracker.view()) {
+        return;
+      }
       owner_->NotifyAccessibilityEventDeprecated(ax::mojom::Event::kMenuEnd,
                                                  true);
     }
@@ -429,7 +430,7 @@ class ProfileMenuViewBase::AXMenuWidgetObserver : public views::WidgetObserver {
 ProfileMenuViewBase::ProfileMenuViewBase(views::BubbleAnchor anchor_element,
                                          Browser* browser)
     : BubbleDialogDelegateView(anchor_element, views::BubbleBorder::TOP_RIGHT),
-      profile_(raw_ref<Profile>::from_ptr(browser->profile())),
+      profile_(raw_ref<Profile>::from_ptr(browser->GetProfile())),
       close_bubble_helper_(this, browser->tab_strip_model()) {
   SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
   set_margins(gfx::Insets(0));
@@ -475,6 +476,7 @@ void ProfileMenuViewBase::SetProfileIdentityWithCallToAction(
   constexpr int kSubtitleBottomMarginInfoBelow = 4;
   constexpr int kSubtitleBottomMarginButtonBelow = 12;
   constexpr int kButtonBottomMargin = 28;
+  constexpr int kAvatarBadgeTopMargin = 8;
 
   // Vertical view structure when all elements are present. Square brackets []
   // represent empty space:
@@ -557,12 +559,22 @@ void ProfileMenuViewBase::SetProfileIdentityWithCallToAction(
   identity_info_container_->AddChildView(
       views::Builder<views::View>(
           std::make_unique<AvatarImageView>(
-              params.profile_image, this,
+              params.profile_image,
               kIdentityInfoImageSize - 2 * params.profile_image_padding,
-              params.profile_image_padding, params.has_dotted_ring))
+              params.profile_image_padding, params.avatar_ring))
           .SetProperty(views::kMarginsKey,
                        gfx::Insets().set_top(kAvatarTopMargin))
           .Build());
+
+  // Optional subscription badge.
+  if (params.avatar_ring == AvatarRingType::kGradient) {
+    if (auto badge_view = GetAvatarBadgeView(params.badge_label)) {
+      badge_view->SetProperty(
+          views::kMarginsKey,
+          gfx::Insets::TLBR(kAvatarBadgeTopMargin, 0, 0, 0));
+      identity_info_container_->AddChildView(std::move(badge_view));
+    }
+  }
 
   // Title.
   const bool has_any_subtitle =
@@ -710,10 +722,12 @@ void ProfileMenuViewBase::SetProfileManagementHeading(
   label->SetHandlesTooltips(false);
 }
 
-void ProfileMenuViewBase::AddAvailableProfile(const ui::ImageModel& image_model,
-                                              const std::u16string& name,
-                                              bool is_guest,
-                                              base::RepeatingClosure action) {
+void ProfileMenuViewBase::AddAvailableProfile(
+    const ui::ImageModel& image_model,
+    const std::u16string& name,
+    bool is_guest,
+    base::RepeatingClosure action,
+    const std::u16string& extra_accessible_text) {
   // Initialize layout if this is the first time a button is added.
   if (!selectable_profiles_container_->GetLayoutManager()) {
     selectable_profiles_container_->SetLayoutManager(
@@ -732,13 +746,19 @@ void ProfileMenuViewBase::AddAvailableProfile(const ui::ImageModel& image_model,
   const int icon_offset =
       (image_model.Size().width() - kOtherProfileImageSize) / 2;
 
-  views::Button* button =
-      selectable_profiles_container_->AddChildView(CreateMenuRowButton(
-          std::move(action), std::make_unique<views::ImageView>(image_model),
-          name, icon_offset));
+  std::unique_ptr<HoverButton> button = CreateMenuRowButton(
+      std::move(action), std::make_unique<views::ImageView>(image_model), name,
+      icon_offset);
+
+  if (!extra_accessible_text.empty()) {
+    button->AddExtraAccessibleText(extra_accessible_text);
+  }
+
+  views::Button* added_button =
+      selectable_profiles_container_->AddChildView(std::move(button));
 
   if (!is_guest && !first_profile_button_) {
-    first_profile_button_ = button;
+    first_profile_button_ = added_button;
   }
 }
 

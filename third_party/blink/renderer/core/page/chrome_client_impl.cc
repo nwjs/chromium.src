@@ -434,8 +434,8 @@ Page* ChromeClientImpl::CreateWindowDelegate(
           requested_screen_rect,
           static_cast<WebNavigationPolicy>(r.GetNavigationPolicy()),
           sandbox_flags, session_storage_namespace_id, consumed_user_gesture,
-          r.Impression(), r.GetPictureInPictureWindowOptions(),
-          r.GetRequestorBaseURL(), manifest));
+          r.GetPictureInPictureWindowOptions(), r.GetRequestorBaseURL(),
+          manifest));
   if (!new_view) {
     return nullptr;
   }
@@ -1298,7 +1298,7 @@ void ChromeClientImpl::ShowVirtualKeyboardOnElementFocus(LocalFrame& frame) {
       ->ShowVirtualKeyboardOnElementFocus();
 }
 
-void ChromeClientImpl::OnMouseDown(Node& mouse_down_node) {
+void ChromeClientImpl::DidDispatchMouseDown(Node& mouse_down_node) {
   LocalFrame* frame = mouse_down_node.GetDocument().GetFrame();
   if (auto* fill_client = AutofillClientFromFrame(frame)) {
     fill_client->DidReceiveLeftMouseDownOrGestureTapInNode(
@@ -1310,14 +1310,21 @@ void ChromeClientImpl::OnMouseDown(Node& mouse_down_node) {
   }
 }
 
-void ChromeClientImpl::HandleKeyboardEventOnTextField(
-    HTMLInputElement& input_element,
+void ChromeClientImpl::WillDispatchPointerDown(LocalFrame& frame) {
+  if (auto* fill_client = AutofillClientFromFrame(&frame)) {
+    fill_client->DidReceiveLeftPointerDownBeforeDispatch();
+  }
+}
+
+bool ChromeClientImpl::HandleKeyboardEventOnEditableElement(
+    HTMLElement& element,
     KeyboardEvent& event) {
   if (auto* fill_client =
-          AutofillClientFromFrame(input_element.GetDocument().GetFrame())) {
-    fill_client->TextFieldDidReceiveKeyDown(WebInputElement(&input_element),
-                                            WebKeyboardEventBuilder(event));
+          AutofillClientFromFrame(element.GetDocument().GetFrame())) {
+    return fill_client->DidReceiveKeyDown(WebElement(&element),
+                                          WebKeyboardEventBuilder(event));
   }
+  return false;
 }
 
 void ChromeClientImpl::DidChangeValueInTextField(
@@ -1416,13 +1423,14 @@ void ChromeClientImpl::AjaxSucceeded(LocalFrame* frame) {
     fill_client->AjaxSucceeded();
 }
 
-void ChromeClientImpl::JavaScriptChangedValue(HTMLFormControlElement& element,
-                                              const String& old_value,
-                                              bool was_autofilled) {
+void ChromeClientImpl::JavaScriptSetValue(HTMLFormControlElement& element,
+                                          const String& old_value,
+                                          bool was_autofilled,
+                                          bool value_changed) {
   Document& doc = element.GetDocument();
   if (auto* fill_client = AutofillClientFromFrame(doc.GetFrame())) {
-    fill_client->JavaScriptChangedValue(WebFormControlElement(&element),
-                                        old_value, was_autofilled);
+    fill_client->JavaScriptSetValue(WebFormControlElement(&element), old_value,
+                                    was_autofilled, value_changed);
   }
 }
 
@@ -1481,7 +1489,7 @@ WebAutofillClient* ChromeClientImpl::AutofillClientFromFrame(
     LocalFrame* frame) {
   if (!frame) {
     // It is possible to pass nullptr to this method. For instance the call from
-    // OnMouseDown might be nullptr. See https://crbug.com/739199.
+    // DidDispatchMouseDown might be nullptr. See https://crbug.com/739199.
     return nullptr;
   }
 
@@ -1579,8 +1587,14 @@ gfx::Rect ChromeClientImpl::AdjustWindowRectForDisplay(
   return window;
 }
 
-void ChromeClientImpl::OnFirstContentfulPaint(const base::TimeDelta& duration) {
-  web_view_->OnFirstContentfulPaint(duration);
+void ChromeClientImpl::OnFirstContentfulPaint(
+    const base::TimeTicks& presentation_time) {
+  web_view_->OnFirstContentfulPaint(presentation_time);
+}
+
+void ChromeClientImpl::OnLargestContentfulPaint(
+    const base::TimeTicks& presentation_time) {
+  web_view_->OnLargestContentfulPaint(presentation_time);
 }
 
 }  // namespace blink

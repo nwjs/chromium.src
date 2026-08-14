@@ -20,6 +20,7 @@
 #include "chrome/browser/search_engines/template_url_service_factory_test_util.h"
 #include "chrome/browser/site_protection/site_familiarity_fetcher.h"
 #include "chrome/browser/site_protection/site_familiarity_process_selection_user_data.h"
+#include "chrome/browser/site_protection/site_familiarity_utils.h"
 #include "chrome/browser/ui/safety_hub/mock_safe_browsing_database_manager.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -37,6 +38,7 @@
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/test/mock_navigation_handle.h"
+#include "content/public/test/mock_render_process_host.h"
 #include "content/public/test/test_renderer_host.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -430,7 +432,10 @@ TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
       safe_browsing::kMigrateToBlockV8OptimizerOnUnfamiliarSites,
-      {{"min_site_engagement_score", "5"}});
+      {{safe_browsing::
+            kMigrateToBlockV8OptimizerOnUnfamiliarSitesMinSiteEngagementScore
+                .name,
+        "5"}});
 
   GURL kTestUrl("https://www.example.com");
 
@@ -450,7 +455,60 @@ TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
       safe_browsing::kMigrateToBlockV8OptimizerOnUnfamiliarSites,
-      {{"min_age_of_initial_visit", "12h"}});
+      {{safe_browsing::
+            kMigrateToBlockV8OptimizerOnUnfamiliarSitesMinAgeOfInitialVisit
+                .name,
+        "12h"}});
+
+  GURL kTestUrl("https://www.example.com");
+  SetSiteEngagementScore(kTestUrl, kMinSiteEngagementScoreForFamiliarity - 1);
+
+  // Add visit 13 hours ago. This is less than 24h (default) but more than 12h
+  // (config).
+  history_service()->AddPage(kTestUrl, (base::Time::Now() - base::Hours(13)),
+                             history::SOURCE_BROWSED);
+
+  content::MockNavigationHandle navigation_handle(kTestUrl, main_rfh());
+  BuildAndWaitForConditionToRunCallback(navigation_handle);
+
+  // Should be familiar because of the lowered threshold.
+  CheckSiteFamiliar(navigation_handle);
+}
+
+TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
+       FamiliarityHeuristic_EsbConfigurableEngagementScore) {
+  safe_browsing::SetSafeBrowsingState(
+      profile()->GetPrefs(),
+      safe_browsing::SafeBrowsingState::ENHANCED_PROTECTION);
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      safe_browsing::kEnableBlockV8OptimizerOnUnfamiliarSitesForEsbClients,
+      {{safe_browsing::kEsbMinSiteEngagementScore.name, "5"}});
+
+  GURL kTestUrl("https://www.example.com");
+
+  // Set engagement score to 6, which is below default (10) but above config
+  // (5).
+  SetSiteEngagementScore(kTestUrl, 6);
+
+  content::MockNavigationHandle navigation_handle(kTestUrl, main_rfh());
+  BuildAndWaitForConditionToRunCallback(navigation_handle);
+
+  // Should be familiar because of the lowered threshold.
+  CheckSiteFamiliar(navigation_handle);
+}
+
+TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
+       FamiliarityHeuristic_EsbConfigurableMinAgeOfInitialVisit) {
+  safe_browsing::SetSafeBrowsingState(
+      profile()->GetPrefs(),
+      safe_browsing::SafeBrowsingState::ENHANCED_PROTECTION);
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      safe_browsing::kEnableBlockV8OptimizerOnUnfamiliarSitesForEsbClients,
+      {{safe_browsing::kEsbMinAgeOfInitialVisit.name, "12h"}});
 
   GURL kTestUrl("https://www.example.com");
   SetSiteEngagementScore(kTestUrl, kMinSiteEngagementScoreForFamiliarity - 1);
@@ -1032,6 +1090,216 @@ TEST_F(SiteFamiliarityDefaultSearchEngineSkipFamiliarityCheckTest,
   CheckSiteUnfamiliar(navigation_handle);
   histogram_tester.ExpectTotalCount(
       kSiteFamiliarityDeferNavigationDurationHistogram, 1);
+}
+
+// SiteFamiliarityProcessSelectionDeferringConditionMockLookupTest subclass for
+// skip same-site checks tests.
+class SiteFamiliaritySameSiteSkipFamiliarityCheckTest
+    : public SiteFamiliarityProcessSelectionDeferringConditionMockLookupTest {
+ public:
+  SiteFamiliaritySameSiteSkipFamiliarityCheckTest() {
+    feature_list_.InitAndEnableFeature(
+        site_protection::kSkipSiteFamiliarityDeferralForSameSite);
+  }
+
+ protected:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+class SiteFamiliaritySameSiteRunFamiliarityCheckTest
+    : public SiteFamiliarityProcessSelectionDeferringConditionMockLookupTest {
+ public:
+  SiteFamiliaritySameSiteRunFamiliarityCheckTest() {
+    feature_list_.InitAndDisableFeature(
+        site_protection::kSkipSiteFamiliarityDeferralForSameSite);
+  }
+
+ protected:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Test that same-site main frame navigation does not defer.
+TEST_F(SiteFamiliaritySameSiteSkipFamiliarityCheckTest,
+       SameSiteMainFrameNavigation) {
+  GURL kMainFrameUrl("https://www.example.com/");
+  NavigateAndCommit(kMainFrameUrl);
+
+  GURL kNextFrameUrl("https://www.example.com/page.html");
+  content::MockNavigationHandle navigation_handle(kNextFrameUrl, main_rfh());
+
+  static_cast<content::MockRenderProcessHost*>(main_rfh()->GetProcess())
+      ->SetAreV8OptimizationsDisabled(false);
+
+  base::MockCallback<base::OnceClosure> mock_callback;
+  EXPECT_CALL(mock_callback, Run()).Times(0);
+
+  SiteFamiliarityProcessSelectionDeferringCondition condition(
+      navigation_handle);
+
+  // Proceed with process selection without deferral.
+  EXPECT_EQ(content::ProcessSelectionDeferringCondition::Result::kProceed,
+            condition.OnWillSelectFinalProcess(mock_callback.Get()));
+
+  // Verify that the services are not queried.
+  EXPECT_EQ(0, safe_browsing_database_manager_->num_queries());
+  EXPECT_EQ(0u,
+            static_cast<ManualCallbackEmptyHistoryService*>(history_service())
+                ->GetNumQueuedCallbacks());
+
+  CheckSiteFamiliar(navigation_handle);
+}
+
+// Test that same-site main frame navigation does not defer for unfamiliar case
+// as well.
+TEST_F(SiteFamiliaritySameSiteSkipFamiliarityCheckTest,
+       SameSiteMainFrameNavigationV8Disabled) {
+  GURL kMainFrameUrl("https://www.example.com/");
+  NavigateAndCommit(kMainFrameUrl);
+
+  GURL kNextFrameUrl("https://www.example.com/page.html");
+  content::MockNavigationHandle navigation_handle(kNextFrameUrl, main_rfh());
+
+  static_cast<content::MockRenderProcessHost*>(main_rfh()->GetProcess())
+      ->SetAreV8OptimizationsDisabled(true);
+
+  base::MockCallback<base::OnceClosure> mock_callback;
+  EXPECT_CALL(mock_callback, Run()).Times(0);
+
+  SiteFamiliarityProcessSelectionDeferringCondition condition(
+      navigation_handle);
+
+  // Proceed with process selection without deferral.
+  EXPECT_EQ(content::ProcessSelectionDeferringCondition::Result::kProceed,
+            condition.OnWillSelectFinalProcess(mock_callback.Get()));
+
+  // Verify that the services are not queried.
+  EXPECT_EQ(0, safe_browsing_database_manager_->num_queries());
+  EXPECT_EQ(0u,
+            static_cast<ManualCallbackEmptyHistoryService*>(history_service())
+                ->GetNumQueuedCallbacks());
+
+  CheckSiteUnfamiliar(navigation_handle);
+}
+
+// Test that same-site subframe navigation does not defer.
+TEST_F(SiteFamiliaritySameSiteSkipFamiliarityCheckTest,
+       SameSiteSubframeNavigation) {
+  GURL kMainFrameUrl("https://www.example.com/");
+  NavigateAndCommit(kMainFrameUrl);
+
+  GURL kSubframeUrl("https://www.example.com/page.html");
+  content::MockNavigationHandle navigation_handle(kSubframeUrl, main_rfh());
+  navigation_handle.set_is_in_primary_main_frame(false);
+
+  static_cast<content::MockRenderProcessHost*>(main_rfh()->GetProcess())
+      ->SetAreV8OptimizationsDisabled(false);
+
+  base::MockCallback<base::OnceClosure> mock_callback;
+  EXPECT_CALL(mock_callback, Run()).Times(0);
+
+  SiteFamiliarityProcessSelectionDeferringCondition condition(
+      navigation_handle);
+
+  // Proceed with process selection without deferral.
+  EXPECT_EQ(content::ProcessSelectionDeferringCondition::Result::kProceed,
+            condition.OnWillSelectFinalProcess(mock_callback.Get()));
+
+  // Verify that the services are not queried.
+  EXPECT_EQ(0, safe_browsing_database_manager_->num_queries());
+  EXPECT_EQ(0u,
+            static_cast<ManualCallbackEmptyHistoryService*>(history_service())
+                ->GetNumQueuedCallbacks());
+
+  CheckSiteFamiliar(navigation_handle);
+}
+
+// Test that same-site subframe navigation defaults to unfamiliar verdict if
+// V8 optimizations are disabled.
+TEST_F(SiteFamiliaritySameSiteSkipFamiliarityCheckTest,
+       SameSiteSubframeNavigationV8Disabled) {
+  GURL kMainFrameUrl("https://www.example.com/");
+  NavigateAndCommit(kMainFrameUrl);
+
+  GURL kSubframeUrl("https://www.example.com/page.html");
+  content::MockNavigationHandle navigation_handle(kSubframeUrl, main_rfh());
+  navigation_handle.set_is_in_primary_main_frame(false);
+
+  static_cast<content::MockRenderProcessHost*>(main_rfh()->GetProcess())
+      ->SetAreV8OptimizationsDisabled(true);
+
+  base::MockCallback<base::OnceClosure> mock_callback;
+  EXPECT_CALL(mock_callback, Run()).Times(0);
+
+  SiteFamiliarityProcessSelectionDeferringCondition condition(
+      navigation_handle);
+
+  // Proceed with process selection without deferral.
+  EXPECT_EQ(content::ProcessSelectionDeferringCondition::Result::kProceed,
+            condition.OnWillSelectFinalProcess(mock_callback.Get()));
+
+  // Verify that the services are not queried.
+  EXPECT_EQ(0, safe_browsing_database_manager_->num_queries());
+  EXPECT_EQ(0u,
+            static_cast<ManualCallbackEmptyHistoryService*>(history_service())
+                ->GetNumQueuedCallbacks());
+
+  CheckSiteUnfamiliar(navigation_handle);
+}
+
+// Test that same-site subframe navigation is deferred when the same-site skip
+// feature is disabled.
+TEST_F(SiteFamiliaritySameSiteRunFamiliarityCheckTest,
+       SameSiteSubframeDeferred) {
+  GURL kMainFrameUrl("https://www.example.com/");
+  NavigateAndCommit(kMainFrameUrl);
+
+  GURL kSubframeUrl("https://sub.example.com/page.html");
+  SetSiteEngagementScore(kSubframeUrl,
+                         kMinSiteEngagementScoreForFamiliarity - 1);
+
+  content::MockNavigationHandle navigation_handle(kSubframeUrl, main_rfh());
+  navigation_handle.set_is_in_primary_main_frame(false);
+
+  MockConditionCallback callback;
+  SiteFamiliarityProcessSelectionDeferringCondition condition(
+      navigation_handle);
+
+  EXPECT_EQ(content::ProcessSelectionDeferringCondition::Result::kDefer,
+            condition.OnWillSelectFinalProcess(callback.Get()));
+
+  // Complete history fetch.
+  raw_ptr<ManualCallbackEmptyHistoryService> mock_history_service =
+      static_cast<ManualCallbackEmptyHistoryService*>(history_service());
+  mock_history_service->RunNextCallback();
+  CheckSiteUnfamiliar(navigation_handle);
+}
+
+// Test that cross-site subframe navigation of a familiar main frame is
+// deferred.
+TEST_F(SiteFamiliaritySameSiteSkipFamiliarityCheckTest,
+       CrossSiteSubframeOfFamiliarMainFrame) {
+  GURL kMainFrameUrl("https://www.example.com/");
+  NavigateAndCommit(kMainFrameUrl);
+
+  GURL kSubframeUrl("https://www.unrelated.com/page.html");
+  SetSiteEngagementScore(kSubframeUrl,
+                         kMinSiteEngagementScoreForFamiliarity - 1);
+
+  content::MockNavigationHandle navigation_handle(kSubframeUrl, main_rfh());
+  navigation_handle.set_is_in_primary_main_frame(false);
+
+  MockConditionCallback callback;
+  SiteFamiliarityProcessSelectionDeferringCondition condition(
+      navigation_handle);
+
+  EXPECT_EQ(content::ProcessSelectionDeferringCondition::Result::kDefer,
+            condition.OnWillSelectFinalProcess(callback.Get()));
+
+  // Complete history fetch.
+  raw_ptr<ManualCallbackEmptyHistoryService> mock_history_service =
+      static_cast<ManualCallbackEmptyHistoryService*>(history_service());
+  mock_history_service->RunNextCallback();
+  CheckSiteUnfamiliar(navigation_handle);
 }
 
 // SiteFamiliarityDefaultSearchEngineTestBase subclass for tests that run site

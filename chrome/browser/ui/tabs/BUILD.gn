@@ -70,6 +70,22 @@ if (!is_android) {
     ]
   }
 
+  # Shared tab favicon theming helpers, used by both the Views tab strip
+  # (TabIcon) and the WebUI browser tab strip converter.
+  source_set("favicon_theming") {
+    sources = [
+      "tab_favicon_theming.cc",
+      "tab_favicon_theming.h",
+    ]
+
+    deps = [
+      "//chrome/browser/favicon",
+      "//chrome/browser/ui/color:color_headers",
+      "//ui/color",
+      "//ui/gfx",
+    ]
+  }
+
   source_set("tab_list_bridge") {
     sources = [
       "tab_list_bridge.cc",
@@ -501,10 +517,12 @@ if (!is_android) {
       "//chrome/browser/ui/lens",
       "//chrome/browser/ui/performance_controls",
       "//chrome/browser/ui/read_anything",
+      "//chrome/browser/ui/side_panel",
+      "//chrome/browser/ui/side_panel:side_panel_views_dependent",
       "//chrome/browser/ui/tabs/alert:tab_alert",
       "//chrome/browser/ui/tabs/back_to_opener",
       "//chrome/browser/ui/tabs/back_to_opener:impl",
-      "//chrome/browser/ui/tabs/projects:impl",
+      "//chrome/browser/ui/tabs/organizer:impl",
       "//chrome/browser/ui/tabs/saved_tab_groups",
       "//chrome/browser/ui/thumbnails",
       "//chrome/browser/ui/toolbar",
@@ -734,7 +752,7 @@ if (!is_android) {
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
     sources = [ "vertical_tab_strip_state_controller_interactive_uitest.cc" ]
 
-    sources += [ "tab_dialog_manager_uitest.cc" ]
+    sources += [ "tab_dialog_manager_interactive_uitest.cc" ]
 
     deps = [
       ":tabs",
@@ -745,6 +763,7 @@ if (!is_android) {
       "//chrome/browser/ui/toasts/api:toasts",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
+      "//chrome/test/user_education:impl",
       "//content/public/browser",
       "//content/test:test_support",
       "//testing/gtest",
@@ -815,6 +834,7 @@ if (!is_android) {
       "//chrome/browser/user_education",
       "//chrome/common:non_code_constants",
       "//chrome/test:test_support",
+      "//chrome/test/user_education:impl",
       "//components/commerce/core:account_checker_test_support",
       "//components/commerce/core:feature_list",
       "//components/commerce/core:shopping_service",

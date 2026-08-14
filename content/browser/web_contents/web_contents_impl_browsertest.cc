@@ -823,18 +823,20 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
                             page_destination_url /* expected_commit_url */));
 
   ASSERT_EQ(2U, observer.resource_load_entries().size());
+  const auto& resource_load_entry = observer.resource_load_entries()[0];
   const blink::mojom::ResourceLoadInfoPtr& page_load_info =
-      observer.resource_load_entries()[0].resource_load_info;
+      resource_load_entry.resource_load_info;
   EXPECT_EQ(page_destination_url, page_load_info->final_url);
-  EXPECT_EQ(page_original_url, page_load_info->original_url);
+  EXPECT_EQ(page_original_url, resource_load_entry.original_url);
 
   GURL image_destination_url(embedded_test_server()->GetURL("/blank.jpg"));
   GURL image_original_url(
       embedded_test_server()->GetURL("/server-redirect?blank.jpg"));
+  const auto& image_load_entry = observer.resource_load_entries()[1];
   const blink::mojom::ResourceLoadInfoPtr& image_load_info =
-      observer.resource_load_entries()[1].resource_load_info;
+      image_load_entry.resource_load_info;
   EXPECT_EQ(image_destination_url, image_load_info->final_url);
-  EXPECT_EQ(image_original_url, image_load_info->original_url);
+  EXPECT_EQ(image_original_url, image_load_entry.original_url);
 }
 
 IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
@@ -6875,6 +6877,118 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedConnectorWebContentsBrowserTest,
     ASSERT_TRUE(rwhv2);
     EXPECT_TRUE(rwhv2->IsRenderWidgetHostViewChildFrame());
   }
+}
+
+#if BUILDFLAG(IS_LINUX)
+// TODO(crbug.com/534306599): Disabled on Linux.
+#define MAYBE_SurfaceEmbedConnectorWithOOPIFInBFCache \
+  DISABLED_SurfaceEmbedConnectorWithOOPIFInBFCache
+#else
+#define MAYBE_SurfaceEmbedConnectorWithOOPIFInBFCache \
+  SurfaceEmbedConnectorWithOOPIFInBFCache
+#endif
+IN_PROC_BROWSER_TEST_F(SurfaceEmbedConnectorWebContentsBrowserTest,
+                       MAYBE_SurfaceEmbedConnectorWithOOPIFInBFCache) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  const GURL outer_url(
+      embedded_test_server()->GetURL("a.com", "/simple_page.html"));
+  const GURL inner_url1(embedded_test_server()->GetURL(
+      "a.com", "/cross_site_iframe_factory.html?a(b)"));
+  const GURL inner_url2(
+      embedded_test_server()->GetURL("b.com", "/title2.html"));
+
+  // Setup outer WebContents.
+  ASSERT_TRUE(NavigateToURL(shell(), outer_url));
+  WebContentsImpl* outer_wc =
+      static_cast<WebContentsImpl*>(shell()->web_contents());
+
+  // Setup inner WebContents.
+  WebContents::CreateParams inner_params(
+      shell()->web_contents()->GetBrowserContext());
+  std::unique_ptr<WebContents> inner_wc = WebContents::Create(inner_params);
+  WebContentsImpl* inner_wc_impl =
+      static_cast<WebContentsImpl*>(inner_wc.get());
+  // Setup Delegate for inner WebContents so that IsBackForwardCacheSupported()
+  // for the inner WebContents delegate goes to content::Shell and returns true.
+  // In production code, inner WebContents is expected to have delegate setup
+  // correctly.
+  inner_wc->SetDelegate(outer_wc->GetDelegate());
+
+  // Set the SurfaceEmbedConnector.
+  auto connector = CreateConnector(inner_wc_impl, outer_wc);
+  auto* connector_ptr = connector.get();
+  inner_wc_impl->SetSurfaceEmbedConnector(std::move(connector));
+  EXPECT_EQ(connector_ptr, inner_wc->GetSurfaceEmbedConnector());
+
+  // Navigate to first page, then second page to put first page in BFCache.
+  ASSERT_TRUE(NavigateToURL(inner_wc.get(), inner_url1));
+  auto* rfh_a = inner_wc_impl->GetPrimaryMainFrame();
+  ASSERT_TRUE(rfh_a);
+  auto* rfh_b = static_cast<RenderFrameHostImpl*>(ChildFrameAt(rfh_a, 0));
+  ASSERT_TRUE(rfh_b);
+
+  ASSERT_TRUE(NavigateToURL(inner_wc.get(), inner_url2));
+  auto* rfh2 = inner_wc_impl->GetPrimaryMainFrame();
+  ASSERT_TRUE(rfh2);
+  EXPECT_NE(rfh_a, rfh2);
+
+  // Verify that the inner WebContents's RFHs are still alive and first page is
+  // in BFCache.
+  EXPECT_TRUE(rfh_a->IsRenderFrameLive());
+  EXPECT_TRUE(rfh_b->IsRenderFrameLive());
+  EXPECT_TRUE(rfh2->IsRenderFrameLive());
+  EXPECT_EQ(rfh2, inner_wc->GetPrimaryMainFrame());
+  EXPECT_TRUE(rfh_a->IsInBackForwardCache());
+  EXPECT_TRUE(rfh_b->IsInBackForwardCache());
+  EXPECT_FALSE(rfh2->IsInBackForwardCache());
+
+  // Verify that RenderWidgetHostViews are RenderWidgetHostViewChildFrame.
+  {
+    auto* rwhva = static_cast<RenderWidgetHostViewBase*>(rfh_a->GetView());
+    ASSERT_TRUE(rwhva);
+    EXPECT_TRUE(rwhva->IsRenderWidgetHostViewChildFrame());
+    auto* rwhvb = static_cast<RenderWidgetHostViewBase*>(rfh_b->GetView());
+    ASSERT_TRUE(rwhvb);
+    EXPECT_TRUE(rwhvb->IsRenderWidgetHostViewChildFrame());
+    auto* rwhv2 = static_cast<RenderWidgetHostViewBase*>(rfh2->GetView());
+    ASSERT_TRUE(rwhv2);
+    EXPECT_TRUE(rwhv2->IsRenderWidgetHostViewChildFrame());
+  }
+
+  // Clear the SurfaceEmbedConnector.
+  inner_wc_impl->ClearSurfaceEmbedConnector();
+  ASSERT_EQ(nullptr, inner_wc->GetSurfaceEmbedConnector());
+
+  // Verify that the inner WebContents's RFHs are still alive and not changed.
+  EXPECT_TRUE(rfh_a->IsRenderFrameLive());
+  EXPECT_TRUE(rfh_b->IsRenderFrameLive());
+  EXPECT_TRUE(rfh2->IsRenderFrameLive());
+  EXPECT_EQ(rfh2, inner_wc->GetPrimaryMainFrame());
+  EXPECT_TRUE(rfh_a->IsInBackForwardCache());
+  EXPECT_TRUE(rfh_b->IsInBackForwardCache());
+
+  // Verify that RenderWidgetHostViews have changed to platform views and not
+  // RenderWidgetHostViewChildFrame.
+  {
+    auto* rwhva = static_cast<RenderWidgetHostViewBase*>(rfh_a->GetView());
+    ASSERT_TRUE(rwhva);
+    EXPECT_FALSE(rwhva->IsRenderWidgetHostViewChildFrame());
+    auto* rwhvb = static_cast<RenderWidgetHostViewBase*>(rfh_b->GetView());
+    ASSERT_TRUE(rwhvb);
+    if (AreAllSitesIsolatedForTesting()) {
+      EXPECT_TRUE(rwhvb->IsRenderWidgetHostViewChildFrame());
+    } else {
+      // When full site isolation is not enabled, all frames in the inner
+      // WebContents should share the same RenderWidgetHostView.
+      EXPECT_EQ(rwhva, rwhvb);
+    }
+    auto* rwhv2 = static_cast<RenderWidgetHostViewBase*>(rfh2->GetView());
+    ASSERT_TRUE(rwhv2);
+    EXPECT_FALSE(rwhv2->IsRenderWidgetHostViewChildFrame());
+  }
+
+  // End the test, there should be no CHECK when everything is unregistered
+  // properly.
 }
 
 IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,

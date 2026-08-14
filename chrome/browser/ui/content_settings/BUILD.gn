@@ -43,6 +43,7 @@ source_set("impl") {
     ]
     deps += [
       "//chrome/browser/custom_handlers",
+      "//chrome/browser/ui/views/site_data",
       "//chrome/browser/ui/web_applications",
     ]
   }
@@ -97,6 +98,7 @@ source_set("browser_tests") {
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/content_settings:content_settings_util",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui:chrome_pages",
     "//chrome/browser/ui/browser_window",
     "//chrome/test:test_support",
     "//components/content_settings/core/test:test_support",

@@ -50,10 +50,13 @@ source_set("test_support") {
     "//chrome/browser/glic/common",
     "//chrome/browser/tab_list",
     "//chrome/browser/ui:ui_features",
+    "//chrome/browser/ui/browser_window:create_browser_window",
+    "//chrome/browser/ui/side_panel",
     "//chrome/browser/ui/side_panel:side_panel_ui_provider",
     "//chrome/browser/ui/side_panel:side_panel_views_dependent",
     "//components/feature_engagement/test:test_support",
     "//components/signin/public/identity_manager:test_support",
+    "//components/skills:features",
   ]
   if (enable_desktop_aura || is_mac) {
     deps += [ "//ui/views:test_support" ]
@@ -76,6 +79,9 @@ source_set("test_support") {
     "//chrome/browser/glic:impl",
     "//chrome/test:test_support",
   ]
+  if (!is_android) {
+    public_deps += [ "//chrome/test/user_education:impl" ]
+  }
 
   # TODO(crbug.com/432285114): Fix code that adds exit-time destructors and
   # enable the diagnostic by removing this line.

@@ -19,18 +19,18 @@ using CreateBrowserWindowBrowserTest = InProcessBrowserTest;
 IN_PROC_BROWSER_TEST_F(CreateBrowserWindowBrowserTest, CreateNewBrowserWindow) {
   BrowserWindowInterface* new_browser =
       CreateBrowserWindow(BrowserWindowCreateParams(
-          *browser()->profile(), /*from_user_gesture=*/false));
+          *browser()->GetProfile(), /*from_user_gesture=*/false));
 
   ASSERT_TRUE(new_browser);
   ASSERT_NE(new_browser, browser());
-  EXPECT_EQ(new_browser->GetProfile(), browser()->profile());
+  EXPECT_EQ(new_browser->GetProfile(), browser()->GetProfile());
   EXPECT_EQ(BrowserWindowInterface::TYPE_NORMAL, new_browser->GetType());
 }
 
 // Smoke test for the asynchronous version of CreateBrowserWindow().
 IN_PROC_BROWSER_TEST_F(CreateBrowserWindowBrowserTest,
                        CreateNewBrowserWindowWithCallback) {
-  BrowserWindowCreateParams create_params(*browser()->profile(),
+  BrowserWindowCreateParams create_params(*browser()->GetProfile(),
                                           /*from_user_gesture=*/false);
 
   base::test::TestFuture<BrowserWindowInterface*> future;
@@ -39,6 +39,6 @@ IN_PROC_BROWSER_TEST_F(CreateBrowserWindowBrowserTest,
 
   ASSERT_TRUE(new_browser);
   ASSERT_NE(new_browser, browser());
-  EXPECT_EQ(new_browser->GetProfile(), browser()->profile());
+  EXPECT_EQ(new_browser->GetProfile(), browser()->GetProfile());
   EXPECT_EQ(BrowserWindowInterface::TYPE_NORMAL, new_browser->GetType());
 }

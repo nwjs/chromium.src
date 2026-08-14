@@ -54,6 +54,7 @@ static_library("app_install") {
     "//chrome/browser/apps/app_service",
     "//chrome/browser/apps/app_service/app_icon",
     "//chrome/browser/resources/chromeos/app_install:resources",
+    "//chrome/browser/ui/webui:theme_source",
 
     # This target includes //chrome/browser/ui:ui's headers, but :ui depends
     # back on this target (it compiles the desktop interface-binders file that
@@ -61,9 +62,11 @@ static_library("app_install") {
     # this target depending on the :ui monolith directly.
     "//chrome/browser/web_applications",
     "//chrome/common",
+    "//chromeos/ash/components/browser_context_helper",
     "//chromeos/constants",
     "//components/metrics/structured:events",
     "//components/metrics/structured:structured_events",
+    "//components/services/app_service",
     "//components/strings:components_strings",
     "//components/webapps/common",
     "//content/public/common",

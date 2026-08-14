@@ -10,10 +10,14 @@
 
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "chrome/browser/ui/page_action/page_action_controller.h"
 #include "chrome/browser/ui/page_action/page_action_model.h"
+#include "ui/base/accelerators/accelerator.h"
 #include "ui/base/identifier/unique_identifier.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/models/image_model.h"
+#include "ui/events/event.h"
+#include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/button/menu_button_controller.h"
 #include "ui/views/controls/menu/menu_runner.h"
@@ -74,6 +78,7 @@ class AnchoredMessageBubbleView : public views::BubbleDialogDelegate,
   // views::View:
   views::Widget* GetWidget() override;
   const views::Widget* GetWidget() const override;
+  void OnKeyEvent(ui::KeyEvent* event) override;
 
   void UpdateContent(const PageActionModelInterface& model);
 
@@ -89,7 +94,13 @@ class AnchoredMessageBubbleView : public views::BubbleDialogDelegate,
   void OnMenuClosed();
   void OnExpandButtonPressed();
 
+  void UpdateExpandButtonIcon();
   void UpdateExpandButtonTooltip();
+
+  void UpdateMainIconAndLabel(const PageActionModelInterface& model);
+  void UpdateChipContainer(const PageActionModelInterface& model);
+  void UpdateActionButtons(const PageActionModelInterface& model);
+  void UpdateExpandableContent(const PageActionModelInterface& model);
 
   raw_ptr<views::View> top_row_ = nullptr;
   raw_ptr<views::View> bottom_container_ = nullptr;
@@ -106,8 +117,7 @@ class AnchoredMessageBubbleView : public views::BubbleDialogDelegate,
   std::unique_ptr<views::MenuRunner> menu_runner_;
   std::unique_ptr<views::MenuButtonController::PressedLock> pressed_lock_;
   bool expanded_ = false;
-  std::optional<std::u16string> expand_button_tooltip_override_;
-  std::optional<std::u16string> collapse_button_tooltip_override_;
+  std::optional<AnchoredMessageExpandableContent> expandable_content_;
   const raw_ref<Delegate> delegate_;
 };
 

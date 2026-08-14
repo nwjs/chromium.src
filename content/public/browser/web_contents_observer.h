@@ -502,9 +502,15 @@ class CONTENT_EXPORT WebContentsObserver : public base::CheckedObserver {
   // This method is invoked when a resource associate with the frame
   // |render_frame_host| has been loaded, successfully or not. |request_id| will
   // only be populated for main frame resources.
+  // |original_url| is the unsanitized original URL of the resource request
+  // tracked by the browser process. |resource_load_info| comes directly from
+  // the renderer process. When `kSanitizeOriginalUrlDuringNavigation` is
+  // enabled, |resource_load_info.original_url| may be sanitized to be just the
+  // origin, while |original_url| is always the full URL.
   virtual void ResourceLoadComplete(
       RenderFrameHost* render_frame_host,
       const GlobalRequestID& request_id,
+      const GURL& original_url,
       const blink::mojom::ResourceLoadInfo& resource_load_info) {}
 
   // Called when document reads or sets a cookie (either via document.cookie or
@@ -1014,7 +1020,18 @@ class CONTENT_EXPORT WebContentsObserver : public base::CheckedObserver {
   virtual void VibrationRequested() {}
 
   // Called when a first contentful paint happened in the primary main frame.
-  virtual void OnFirstContentfulPaintInPrimaryMainFrame() {}
+  // `presentation_time` is the renderer-side presentation timestamp of the
+  // paint.
+  virtual void OnFirstContentfulPaintInPrimaryMainFrame(
+      base::TimeTicks presentation_time) {}
+
+  // Called when the largest contentful paint candidate changed in the primary
+  // main frame. May be called multiple times as larger elements paint; the
+  // last call (before user input freezes the metric) reflects the page's
+  // largest contentful paint. `presentation_time` is the renderer-side
+  // presentation timestamp of the current candidate.
+  virtual void OnLargestContentfulPaintInPrimaryMainFrame(
+      base::TimeTicks presentation_time) {}
 
   // Invoked when a fetch keepalive request is created in this WebContents.
   //

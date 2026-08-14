@@ -73,6 +73,7 @@
 #include "net/spdy/spdy_test_util_common.h"
 #include "net/ssl/ssl_cert_request_info.h"
 #include "net/ssl/test_ssl_config_service.h"
+#include "net/ssl/test_static_ech_mode_getter.h"
 #include "net/test/cert_test_util.h"
 #include "net/test/gtest_util.h"
 #include "net/test/ssl_test_util.h"
@@ -524,6 +525,10 @@ class HttpStreamPoolAttemptManagerTest : public TestWithTaskEnvironment {
   }
 
   HttpStreamPool& pool() { return *http_network_session_->http_stream_pool(); }
+
+  SSLClientContext* ssl_client_context() {
+    return http_network_session_->ssl_client_context();
+  }
 
   FakeServiceEndpointResolver* resolver() {
     return static_cast<FakeServiceEndpointResolver*>(
@@ -7660,6 +7665,47 @@ TEST_F(HttpStreamPoolAttemptManagerTest, EchSvcbOptional) {
   EXPECT_THAT(requester.result(), Optional(IsOk()));
 }
 
+TEST_F(HttpStreamPoolAttemptManagerTest,
+       EchSvcbOptionalIfEchModeDisabledForHost) {
+  ssl_config_service()->SetEchModeGetter(
+      std::make_unique<TestStaticEchModeGetter>(EchMode::kDisabled,
+                                                kDefaultServerName));
+
+  std::vector<uint8_t> ech_config_list;
+  ASSERT_TRUE(MakeTestEchKeys(kDefaultServerName, /*max_name_len=*/128,
+                              &ech_config_list));
+
+  // Endpoint 1 is an alternative endpoint with ECH. Endpoint 2 is an authority
+  // A/AAAA endpoint. Since EchMode is disabled for the host, attempts are
+  // SVCB-optional even though all alternative endpoints have ECH.
+  resolver()
+      ->AddFakeRequest()
+      ->add_endpoint(ServiceEndpointBuilder()
+                         .add_v4("192.0.2.1")
+                         .set_alpns({"http/1.1"})
+                         .set_ech_config_list(ech_config_list)
+                         .endpoint())
+      .add_endpoint(ServiceEndpointBuilder().add_v4("192.0.2.2").endpoint())
+      .CompleteStartSynchronously(OK);
+
+  // The first endpoint fails.
+  SequencedSocketData data1;
+  data1.set_connect_data(MockConnect(ASYNC, ERR_CONNECTION_FAILED));
+  socket_factory()->AddSocketDataProvider(&data1);
+
+  // The second endpoint succeeds.
+  SequencedSocketData data2;
+  socket_factory()->AddSocketDataProvider(&data2);
+  SSLSocketDataProvider ssl2(ASYNC, OK);
+  socket_factory()->AddSSLSocketDataProvider(&ssl2);
+
+  StreamRequester requester;
+  requester.set_destination(kDefaultDestination).RequestStream(pool());
+
+  requester.WaitForResult();
+  EXPECT_THAT(requester.result(), Optional(IsOk()));
+}
+
 TEST_F(HttpStreamPoolAttemptManagerTest, EchSvcbReliant) {
   std::vector<uint8_t> ech_config_list;
   ASSERT_TRUE(MakeTestEchKeys("www.example.org", /*max_name_len=*/128,
@@ -7777,13 +7823,13 @@ TEST_F(HttpStreamPoolAttemptManagerTest, TrustAnchorIDsDisabled) {
 
   requester.WaitForResult();
   EXPECT_THAT(requester.result(), Optional(IsOk()));
-  histogram_tester.ExpectUniqueSample("Net.SSL_Connection_Error_TrustAnchorIDs",
-                                      OK, 1);
+  histogram_tester.ExpectTotalCount("Net.SSL_Connection_Error_TrustAnchorIDs",
+                                    0);
   histogram_tester.ExpectTotalCount("Net.SSL_Connection_Latency_TrustAnchorIDs",
-                                    1);
+                                    0);
   histogram_tester.ExpectUniqueSample(
       "Net.SSL.TrustAnchorIDsResult",
-      SSLClientSocket::TrustAnchorIDsResult::kDnsSuccessInitial, 1);
+      SSLClientSocket::TrustAnchorIDsResult::kNoDnsSuccessInitial, 1);
 }
 
 // Tests that TLS Trust Anchor IDs are sent when the feature flag is enabled.
@@ -7798,11 +7844,9 @@ TEST_F(HttpStreamPoolAttemptManagerTest, TrustAnchorIDs) {
   SequencedSocketData data;
   socket_factory()->AddSocketDataProvider(&data);
   SSLSocketDataProvider ssl(ASYNC, OK);
-  // The expected Trust Anchor IDs are the intersection of the Trust Anchor IDs
-  // that Chrome trusts (set on SSLContextConfig above) and the Trust Anchor IDs
-  // provided by the server in DNS (set on the endpoint metadata below), in TLS
-  // wire format.
-  ssl.expected_trust_anchor_ids = {{0x02, 0x02, 0x02}};
+  // The expected Trust Anchor IDs are all the configured Trust Anchor IDs.
+  ssl.expected_trust_anchor_ids = std::vector<std::vector<uint8_t>>{
+      {0x01, 0x02, 0x03}, {0x02, 0x02}, {0x04, 0x04}};
   socket_factory()->AddSSLSocketDataProvider(&ssl);
 
   resolver()
@@ -7819,13 +7863,13 @@ TEST_F(HttpStreamPoolAttemptManagerTest, TrustAnchorIDs) {
 
   requester.WaitForResult();
   EXPECT_THAT(requester.result(), Optional(IsOk()));
-  histogram_tester.ExpectUniqueSample("Net.SSL_Connection_Error_TrustAnchorIDs",
-                                      OK, 1);
+  histogram_tester.ExpectTotalCount("Net.SSL_Connection_Error_TrustAnchorIDs",
+                                    0);
   histogram_tester.ExpectTotalCount("Net.SSL_Connection_Latency_TrustAnchorIDs",
-                                    1);
+                                    0);
   histogram_tester.ExpectUniqueSample(
       "Net.SSL.TrustAnchorIDsResult",
-      SSLClientSocket::TrustAnchorIDsResult::kDnsSuccessInitial, 1);
+      SSLClientSocket::TrustAnchorIDsResult::kNoDnsSuccessInitial, 1);
 }
 
 // Tests that TLS Trust Anchor IDs are sent even when ECH is disabled.
@@ -7842,11 +7886,9 @@ TEST_F(HttpStreamPoolAttemptManagerTest, TrustAnchorIDsEnabledWithECHDisabled) {
   SequencedSocketData data;
   socket_factory()->AddSocketDataProvider(&data);
   SSLSocketDataProvider ssl(ASYNC, OK);
-  // The expected Trust Anchor IDs are the intersection of the Trust Anchor IDs
-  // that Chrome trusts (set on SSLContextConfig above) and the Trust Anchor IDs
-  // provided by the server in DNS (set on the endpoint metadata below), in TLS
-  // wire format.
-  ssl.expected_trust_anchor_ids = {{0x02, 0x02, 0x02}};
+  // The expected Trust Anchor IDs are all the configured Trust Anchor IDs.
+  ssl.expected_trust_anchor_ids = std::vector<std::vector<uint8_t>>{
+      {0x01, 0x02, 0x03}, {0x02, 0x02}, {0x04, 0x04}};
   socket_factory()->AddSSLSocketDataProvider(&ssl);
 
   resolver()

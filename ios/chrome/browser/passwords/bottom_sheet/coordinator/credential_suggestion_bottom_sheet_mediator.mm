@@ -147,25 +147,10 @@ NSMutableSet<NSString*>* GetPasskeyUsernames(
     NSArray<FormSuggestion*>* suggestions) {
   NSMutableSet<NSString*>* passkeyUsernames = [NSMutableSet set];
   for (FormSuggestion* suggestion in suggestions) {
-    if (suggestion.type == autofill::SuggestionType::kWebauthnCredential) {
-      std::string encodedId =
-          webauthn::GetPasskeySuggestionEncodedCredentialId(suggestion);
-      std::string decodedIdString;
-      if (base::Base64Decode(encodedId, &decodedIdString)) {
-        std::vector<uint8_t> decodedId(decodedIdString.begin(),
-                                       decodedIdString.end());
-        auto it = std::ranges::find_if(
-            passkeys,
-            [&decodedId](const password_manager::PasskeyCredential& passkey) {
-              return passkey.credential_id() == decodedId;
-            });
-        if (it != passkeys.end()) {
-          NSString* username = base::SysUTF8ToNSString(it->username());
-          if (username.length) {
-            [passkeyUsernames addObject:[username lowercaseString]];
-          }
-        }
-      }
+    NSString* passkeyUsername =
+        webauthn::GetPasskeyUsernameForSuggestion(suggestion, passkeys);
+    if (passkeyUsername.length) {
+      [passkeyUsernames addObject:[passkeyUsername lowercaseString]];
     }
   }
   return passkeyUsernames;
@@ -175,20 +160,12 @@ NSMutableSet<NSString*>* GetPasskeyUsernames(
 // password suggestion and a passkey suggestion for the same username.
 NSArray<FormSuggestion*>* FilterDuplicateSuggestions(
     NSArray<FormSuggestion*>* suggestions,
-    web::WebState* webState,
-    const std::string& frameId) {
-  if (!webState) {
+    webauthn::IOSWebAuthnCredentialsDelegate* delegate) {
+  if (!delegate) {
     return suggestions;
   }
 
   if (!ContainsPasswordsAndPasskeys(suggestions)) {
-    return suggestions;
-  }
-
-  webauthn::IOSWebAuthnCredentialsDelegate* delegate =
-      webauthn::IOSWebAuthnCredentialsDelegateFactory::GetFactory(webState)
-          ->GetDelegateForFrameId(frameId);
-  if (!delegate) {
     return suggestions;
   }
 
@@ -354,9 +331,6 @@ NSArray<FormSuggestion*>* FilterDuplicateSuggestions(
 // Default globe favicon when no favicon is available.
 @property(nonatomic, readonly) FaviconAttributes* defaultGlobeIconAttributes;
 
-// Logs the SubmissionReadiness metric when suggestions are successfully loaded.
-- (void)logSubmissionReadinessMetrics:(NSArray<FormSuggestion*>*)suggestions;
-
 @end
 
 @implementation CredentialSuggestionBottomSheetMediator {
@@ -446,25 +420,21 @@ NSArray<FormSuggestion*>* FilterDuplicateSuggestions(
       // is called, so we need to store variables used in the completion block
       // locally.
       autofill::FormRendererId formId = params.form_renderer_id;
-      std::string frameId = params.frame_id;
+
+      webauthn::IOSWebAuthnCredentialsDelegate* delegate =
+          webauthn::IOSWebAuthnCredentialsDelegateFactory::GetFactory(
+              activeWebState)
+              ->GetDelegateForFrameId(params.frame_id);
+      self.webAuthnCredentialsDelegate =
+          delegate ? delegate->GetWeakPtr() : nullptr;
+
       __weak __typeof(self) weakSelf = self;
-      base::WeakPtr<web::WebState> weakWebState = activeWebState->GetWeakPtr();
       [_suggestionsProviderWrapper
           retrieveSuggestionsForForm:params
                             webState:activeWebState
                           completion:^(NSArray<FormSuggestion*>* suggestions) {
-                            web::WebState* webState = weakWebState.get();
-                            if (!webState) {
-                              return;
-                            }
-                            NSArray<FormSuggestion*>* filteredSuggestions =
-                                FilterDuplicateSuggestions(suggestions,
-                                                           webState, frameId);
-                            weakSelf.suggestions = filteredSuggestions;
-                            [weakSelf logSubmissionReadinessMetrics:
-                                          filteredSuggestions];
-                            [weakSelf fetchCredentialsForForm:formId
-                                                     webState:webState];
+                            [weakSelf suggestionsReceived:suggestions
+                                                   formId:formId];
                           }];
     }
 
@@ -524,31 +494,8 @@ NSArray<FormSuggestion*>* FilterDuplicateSuggestions(
                                      self.suggestions.firstObject))
        secondaryActionString:l10n_util::GetNSString(
                                  IDS_IOS_CREDENTIAL_BOTTOM_SHEET_USE_KEYBOARD)
-        secondaryActionImage:DefaultSymbolWithPointSize(
-                                 kKeyboardSymbol, kSymbolActionPointSize)];
-}
-
-- (void)logSubmissionReadinessMetrics:(NSArray<FormSuggestion*>*)suggestions {
-  if (suggestions.count > 0) {
-    // Log submission readiness only when the bottom sheet is actually shown to
-    // the user (which is confirmed by suggestions being successfully loaded and
-    // passed to the consumer). Logging this earlier (e.g., during form
-    // analysis) would skew metrics with forms where the bottom sheet was never
-    // presented.
-    password_manager::SubmissionReadinessState readiness =
-        suggestions.firstObject.metadata.submission_readiness;
-    base::UmaHistogramEnumeration(
-        "PasswordManager.TouchToFill.SubmissionReadiness", readiness);
-
-    web::WebState* activeWebState = [self activeWebState];
-    if (activeWebState) {
-      ukm::SourceId source_id =
-          ukm::GetSourceIdForWebStateDocument(activeWebState);
-      ukm::builders::TouchToFill_SubmissionReadiness(source_id)
-          .SetSubmissionReadiness(static_cast<int64_t>(readiness))
-          .Record(ukm::UkmRecorder::Get());
-    }
-  }
+        secondaryActionImage:SymbolWithPointSize(SymbolKeyboard,
+                                                 kSymbolActionPointSize)];
 }
 
 - (void)disconnect {
@@ -647,6 +594,46 @@ NSArray<FormSuggestion*>* FilterDuplicateSuggestions(
 }
 
 #pragma mark - Private
+
+// Handles when suggestions are successfully retrieved.
+- (void)suggestionsReceived:(NSArray<FormSuggestion*>*)suggestions
+                     formId:(autofill::FormRendererId)formId {
+  web::WebState* webState = [self activeWebState];
+  if (!webState) {
+    return;
+  }
+  webauthn::IOSWebAuthnCredentialsDelegate* delegate =
+      self.webAuthnCredentialsDelegate.get();
+  NSArray<FormSuggestion*>* filteredSuggestions =
+      FilterDuplicateSuggestions(suggestions, delegate);
+  self.suggestions = filteredSuggestions;
+  [self logSubmissionReadinessMetrics:filteredSuggestions];
+  [self fetchCredentialsForForm:formId webState:webState];
+}
+
+// Logs the SubmissionReadiness metric when suggestions are successfully loaded.
+- (void)logSubmissionReadinessMetrics:(NSArray<FormSuggestion*>*)suggestions {
+  if (suggestions.count > 0) {
+    // Log submission readiness only when the bottom sheet is actually shown to
+    // the user (which is confirmed by suggestions being successfully loaded and
+    // passed to the consumer). Logging this earlier (e.g., during form
+    // analysis) would skew metrics with forms where the bottom sheet was never
+    // presented.
+    password_manager::SubmissionReadinessState readiness =
+        suggestions.firstObject.metadata.submission_readiness;
+    base::UmaHistogramEnumeration(
+        "PasswordManager.TouchToFill.SubmissionReadiness", readiness);
+
+    web::WebState* activeWebState = [self activeWebState];
+    if (activeWebState) {
+      ukm::SourceId source_id =
+          ukm::GetSourceIdForWebStateDocument(activeWebState);
+      ukm::builders::TouchToFill_SubmissionReadiness(source_id)
+          .SetSubmissionReadiness(static_cast<int64_t>(readiness))
+          .Record(ukm::UkmRecorder::Get());
+    }
+  }
+}
 
 // Returns the active web state, if any.
 - (web::WebState*)activeWebState {

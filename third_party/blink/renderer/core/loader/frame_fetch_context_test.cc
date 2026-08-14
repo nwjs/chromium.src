@@ -321,10 +321,11 @@ class FrameFetchContextSubresourceFilterTest
     FetchInitiatorInfo initiator_info;
 
     std::optional<AdProvenance> ad_provenance =
-        GetFetchContext()->CalculateIfAdSubresource(
-            request, std::nullopt /* alias_url */, ResourceType::kMock,
-            initiator_info,
-            /*scan_stack_for_ads=*/false);
+        GetFetchContext()
+            ->CalculateResourceAnnotations(
+                request, std::nullopt /* alias_url */, ResourceType::kMock,
+                initiator_info, /*scan_javascript_stack=*/false)
+            .ad_provenance;
 
     if (expect_is_ad) {
       EXPECT_TRUE(std::holds_alternative<subresource_filter::ScopedRule>(
@@ -1773,10 +1774,10 @@ TEST_P(FrameFetchContextSubresourceFilterTest,
   }
 }
 
-// Tests that CalculateIfAdSubresource with an alias URL will tag ads
+// Tests that CalculateResourceAnnotations with an alias URL will tag ads
 // correctly according to the SubresourceFilter mode.
 TEST_P(FrameFetchContextSubresourceFilterTest,
-       CalculateIfAdSubresourceWithAliasURL) {
+       CalculateResourceAnnotationsWithAliasURL) {
   const struct {
     WebDocumentSubresourceFilter::LoadPolicy policy;
     bool expected_to_be_tagged_ad;
@@ -1797,10 +1798,11 @@ TEST_P(FrameFetchContextSubresourceFilterTest,
     ResourceLoaderOptions options(nullptr /* world */);
 
     std::optional<AdProvenance> ad_provenance =
-        GetFetchContext()->CalculateIfAdSubresource(
-            resource_request, alias_url, ResourceType::kScript,
-            options.initiator_info,
-            /*scan_stack_for_ads=*/false);
+        GetFetchContext()
+            ->CalculateResourceAnnotations(
+                resource_request, alias_url, ResourceType::kScript,
+                options.initiator_info, /*scan_javascript_stack=*/false)
+            .ad_provenance;
 
     if (test.expected_to_be_tagged_ad) {
       EXPECT_TRUE(std::holds_alternative<subresource_filter::ScopedRule>(
@@ -2048,7 +2050,7 @@ class FrameFetchContextNetworkGuardrailsTest
 
     ASSERT_TRUE(image_size >= base_png.size());
     Vector<char> image_data(base_png);
-    image_data.resize(image_size);
+    image_data.resize(static_cast<wtf_size_t>(image_size));
 
     base::ScopedTempDir temp_dir;
     ASSERT_TRUE(temp_dir.CreateUniqueTempDir());

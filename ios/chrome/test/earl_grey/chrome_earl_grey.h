@@ -68,9 +68,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Returns YES if running on an iPhone.
 - (BOOL)isIPhoneIdiom;
 
-// YES if the TabGridViewController's child views have been set up.
-- (BOOL)isTabGridSetUp;
-
 // YES if the current interface language uses RTL layout.
 - (BOOL)isRTL;
 
@@ -127,6 +124,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // profile (as opposed to managed profiles), as per
 // `ProfileAttributesStorageIOS::GetPersonalProfileName()`.
 - (NSString*)personalProfileName;
+
+// Waits for the current profile name to match `profileName`.
+- (void)waitForCurrentProfileName:(NSString*)profileName;
 
 #pragma mark - History Utilities (EG2)
 
@@ -204,6 +204,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // within a timeout, or a GREYAssert is induced.
 - (void)goBack;
 
+// Starts navigating forward to the next page without waiting for the loading to
+// complete.
+- (void)startGoingForward;
+
 // Navigates forward to the next page and waits for the loading to complete
 // within a timeout, or a GREYAssert is induced.
 - (void)goForward;
@@ -211,6 +215,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Waits for the page to finish loading within a timeout, or a GREYAssert is
 // induced.
 - (void)waitForPageToFinishLoading;
+
+// Waits for the page to finish loading within the given `timeout`. Returns nil
+// on success, or else an NSError indicating why the operation failed.
+- (NSError*)waitForPageToFinishLoadingWithTimeout:(base::TimeDelta)timeout;
 
 // Waits for the matcher to return an element that is sufficiently visible.
 - (void)waitForSufficientlyVisibleElementWithMatcher:(id<GREYMatcher>)matcher;
@@ -691,6 +699,11 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // is not met within a timeout a GREYAssert is induced.
 - (void)waitForWebStateFrameContainingText:(const std::string&)UTF8Text;
 
+// Waits for the main frame or an iframe to contain `UTF8Text`. If the condition
+// is not met within the given `timeout` a GREYAssert is induced.
+- (void)waitForWebStateFrameContainingText:(const std::string&)UTF8Text
+                                   timeout:(base::TimeDelta)timeout;
+
 // Waits for the current web state to contain `UTF8Text`. If the condition is
 // not met within the given `timeout` a GREYAssert is induced.
 - (void)waitForWebStateContainingText:(const std::string&)UTF8Text
@@ -815,6 +828,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 
 // Returns YES if kTestFeature is enabled.
 - (BOOL)isTestFeatureEnabled;
+
+// Returns YES if kOverflowMenuHomeCustomizationEntrypoint is enabled.
+- (BOOL)isOverflowMenuHomeCustomizationEntrypointEnabled;
 
 // Returns YES if Fullscreen smooth scrolling is supported.
 - (BOOL)isFullscreenSmoothScrollingSupported;

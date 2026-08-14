@@ -37,6 +37,7 @@
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
 #include "third_party/blink/public/common/features.h"
 #include "ui/views/test/dialog_test.h"
+#include "ui/views/test/widget_test.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/any_widget_observer.h"
 #include "ui/views/widget/widget.h"
@@ -79,7 +80,7 @@ class ProtocolHandlerLaunchDialogBrowserTest : public WebAppBrowserTestBase {
     views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
                                          "ProtocolHandlerLaunchDialogView");
     GURL protocol_url("web+test://test");
-    webapps::AppId test_app_id = InstallTestWebApp(browser()->profile());
+    webapps::AppId test_app_id = InstallTestWebApp(browser()->GetProfile());
 
     base::RunLoop run_loop;
     auto dialog_finished = base::BindLambdaForTesting(
@@ -89,7 +90,7 @@ class ProtocolHandlerLaunchDialogBrowserTest : public WebAppBrowserTestBase {
           EXPECT_EQ(expected_remember_user_choice, remember_user_choice);
         });
 
-    ShowWebAppProtocolLaunchDialog(protocol_url, browser()->profile(),
+    ShowWebAppProtocolLaunchDialog(protocol_url, browser()->GetProfile(),
                                    test_app_id, std::move(dialog_finished));
 
     waiter.WaitIfNeededAndGet()->CloseWithReason(reason);
@@ -149,12 +150,22 @@ class WebAppProtocolHandlerIntentPickerDialogInteractiveBrowserTest
     views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
                                          "ProtocolHandlerLaunchDialogView");
     GURL protocol_url("web+test://test");
-    webapps::AppId test_app_id = InstallTestWebApp(browser()->profile());
-    ShowWebAppProtocolLaunchDialog(protocol_url, browser()->profile(),
+    webapps::AppId test_app_id = InstallTestWebApp(browser()->GetProfile());
+    ShowWebAppProtocolLaunchDialog(protocol_url, browser()->GetProfile(),
                                    test_app_id, base::DoNothing());
-    waiter.WaitIfNeededAndGet()->CloseWithReason(
-        views::Widget::ClosedReason::kEscKeyPressed);
+    widget_ = waiter.WaitIfNeededAndGet()->GetWeakPtr();
   }
+
+  void DismissUi() override {
+    if (widget_) {
+      views::test::WidgetDestroyedWaiter waiter(widget_.get());
+      widget_->CloseWithReason(views::Widget::ClosedReason::kEscKeyPressed);
+      waiter.Wait();
+    }
+  }
+
+ private:
+  base::WeakPtr<views::Widget> widget_;
 };
 
 IN_PROC_BROWSER_TEST_F(

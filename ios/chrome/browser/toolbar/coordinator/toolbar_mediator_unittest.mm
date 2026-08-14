@@ -20,7 +20,10 @@
 #import "ios/chrome/browser/banner_promo/model/default_browser_banner_promo_app_agent.h"
 #import "ios/chrome/browser/banner_promo/model/fake_default_browser_banner_promo_app_agent.h"
 #import "ios/chrome/browser/default_browser/model/promo_source.h"
+#import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/test/test_fullscreen_controller.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_browser_agent.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_configuration.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_impl.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
@@ -50,6 +53,8 @@
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/signin/model/identity_test_environment_browser_state_adaptor.h"
+#import "ios/chrome/browser/sync/model/sync_service_factory.h"
+#import "ios/chrome/browser/sync/model/test_sync_service_utils.h"
 #import "ios/chrome/browser/toolbar/ui/toolbar_consumer.h"
 #import "ios/chrome/browser/web/model/web_navigation_browser_agent.h"
 #import "ios/chrome/browser/web/model/web_navigation_util.h"
@@ -97,6 +102,8 @@ class ToolbarMediatorTest : public PlatformTest,
         AuthenticationServiceFactory::GetInstance(),
         AuthenticationServiceFactory::GetFactoryWithDelegate(
             std::make_unique<FakeAuthenticationServiceDelegate>()));
+    builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
+                              base::BindRepeating(&CreateTestSyncService));
     builder.AddTestingFactory(GeminiServiceFactory::GetInstance(),
                               GeminiServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(
@@ -135,6 +142,11 @@ class ToolbarMediatorTest : public PlatformTest,
     BrowserActionFactory* action_factory_ =
         [[BrowserActionFactory alloc] initWithBrowser:browser_.get()
                                              scenario:kTestMenuScenario];
+
+    FullscreenBrowserAgent::CreateForBrowser(browser_.get());
+    GeminiBrowserAgent::CreateForBrowser(browser_.get());
+    gemini_browser_agent_ = GeminiBrowserAgent::FromBrowser(browser_.get());
+
     mediator_ = [[ToolbarMediator alloc]
                    initWithIncognito:NO
                         webStateList:browser_->GetWebStateList()
@@ -142,11 +154,13 @@ class ToolbarMediatorTest : public PlatformTest,
                          prefService:profile_->GetTestingPrefService()
                 fullscreenController:TestFullscreenController::FromBrowser(
                                          browser_.get())
+              fullscreenBrowserAgent:FullscreenBrowserAgent::FromBrowser(
+                                         browser_.get())
                          topPosition:GetParam()
         defaultBrowserBannerAppAgent:GetParam() ? mock_app_agent_ : nil
                authenticationService:auth_service_
                        geminiService:gemini_service_ptr_.get()
-                  geminiBrowserAgent:nil];
+                  geminiBrowserAgent:gemini_browser_agent_];
     mediator_.navigationBrowserAgent =
         WebNavigationBrowserAgent::FromBrowser(browser_.get());
     mediator_.settingsHandler = settings_handler_;
@@ -217,6 +231,10 @@ class ToolbarMediatorTest : public PlatformTest,
     }
   }
 
+  void SetFloatyInvoked(bool invoked) {
+    gemini_browser_agent_->is_floaty_invoked_ = invoked;
+  }
+
   void TearDown() override {
     [mediator_ disconnect];
     mediator_ = nil;
@@ -237,6 +255,7 @@ class ToolbarMediatorTest : public PlatformTest,
   id mock_app_agent_;
   id settings_handler_;
   raw_ptr<AuthenticationService> auth_service_;
+  raw_ptr<GeminiBrowserAgent> gemini_browser_agent_;
   std::unique_ptr<GeminiService> gemini_service_ptr_;
   raw_ptr<web::FakeNavigationManager> fake_navigation_manager_;
 };
@@ -484,12 +503,12 @@ TEST_P(ToolbarMediatorTest, TestBottomOmniboxEnabled) {
   }
   BOOL top_position = GetParam();
 
-  OCMExpect([consumer_ setVisible:top_position]);
+  OCMExpect([consumer_ setHasOmnibox:top_position]);
   TestingApplicationContext::GetGlobal()->GetLocalState()->SetBoolean(
       omnibox::kIsOmniboxInBottomPosition, false);
   EXPECT_OCMOCK_VERIFY(consumer_);
 
-  OCMExpect([consumer_ setVisible:!top_position]);
+  OCMExpect([consumer_ setHasOmnibox:!top_position]);
   TestingApplicationContext::GetGlobal()->GetLocalState()->SetBoolean(
       omnibox::kIsOmniboxInBottomPosition, true);
   EXPECT_OCMOCK_VERIFY(consumer_);
@@ -502,7 +521,7 @@ TEST_P(ToolbarMediatorTest, TestBottomOmniboxNotEnabled) {
     return;
   }
 
-  OCMReject([consumer_ setVisible:YES]).ignoringNonObjectArgs();
+  OCMReject([consumer_ setHasOmnibox:YES]).ignoringNonObjectArgs();
 
   TestingApplicationContext::GetGlobal()->GetLocalState()->SetBoolean(
       omnibox::kIsOmniboxInBottomPosition, false);
@@ -531,6 +550,7 @@ TEST_P(ToolbarMediatorTest, TestDisplayPromo) {
                        prefService:profile_->GetTestingPrefService()
               fullscreenController:TestFullscreenController::FromBrowser(
                                        browser_.get())
+            fullscreenBrowserAgent:nil
                        topPosition:GetParam()
       defaultBrowserBannerAppAgent:fake_app_agent
              authenticationService:nil
@@ -568,6 +588,7 @@ TEST_P(ToolbarMediatorTest, TestHidePromo) {
                        prefService:profile_->GetTestingPrefService()
               fullscreenController:TestFullscreenController::FromBrowser(
                                        browser_.get())
+            fullscreenBrowserAgent:nil
                        topPosition:GetParam()
       defaultBrowserBannerAppAgent:fake_app_agent
              authenticationService:nil
@@ -637,14 +658,18 @@ TEST_P(ToolbarMediatorTest, TestAssistantButtonTapped) {
   id mock_gemini_handler = OCMProtocolMock(@protocol(GeminiCommands));
   mediator_.geminiHandler = mock_gemini_handler;
 
+  SetFloatyInvoked(false);
   OCMExpect([mock_gemini_handler
       startGeminiEntryFlowWithStartupState:[OCMArg any]
                         baseViewController:nil
-                               accessPoint:signin_metrics::AccessPoint::
-                                               kIosGeminiButtonToolbar
                   showSnackbarOnCompletion:YES
                                 completion:nil]);
+  [mediator_ assistantButtonTapped];
 
+  // Test that the floaty is dismissed if the assistant button is tapped while
+  // it is showing.
+  SetFloatyInvoked(true);
+  OCMExpect([mock_gemini_handler dismissGeminiFlowWithCompletion:nil]);
   [mediator_ assistantButtonTapped];
 
   EXPECT_OCMOCK_VERIFY(mock_gemini_handler);
@@ -670,6 +695,7 @@ TEST_P(ToolbarMediatorTest, TestTabGridMenu_IncognitoDisabled) {
                        prefService:profile_->GetTestingPrefService()
               fullscreenController:TestFullscreenController::FromBrowser(
                                        browser_.get())
+            fullscreenBrowserAgent:nil
                        topPosition:GetParam()
       defaultBrowserBannerAppAgent:nil
              authenticationService:nil
@@ -730,6 +756,7 @@ TEST_P(ToolbarMediatorTest, TestTabGridMenu_IncognitoEnabled) {
                        prefService:profile_->GetTestingPrefService()
               fullscreenController:TestFullscreenController::FromBrowser(
                                        browser_.get())
+            fullscreenBrowserAgent:nil
                        topPosition:GetParam()
       defaultBrowserBannerAppAgent:nil
              authenticationService:nil
@@ -784,6 +811,8 @@ TEST_P(ToolbarMediatorTest, TestAssistantButtonVisible_PageActionMenuEnabled) {
   scoped_feature_list.InitWithFeatures({kPageActionMenu}, {});
 
   SetLocationEligible(true);
+  browser_->GetWebStateList()->InsertWebState(
+      CreateWebState(), WebStateList::InsertionParams::AtIndex(0).Activate());
   SignInAndSetCapability(true);
 
   OCMExpect([consumer_ setAssistantButtonVisible:YES enabled:NO]);
@@ -802,6 +831,8 @@ TEST_P(ToolbarMediatorTest, TestAssistantButtonNotVisible_EEACountryGated) {
   TestingApplicationContext::GetGlobal()->GetApplicationLocaleStorage()->Set(
       "en-US");
 
+  browser_->GetWebStateList()->InsertWebState(
+      CreateWebState(), WebStateList::InsertionParams::AtIndex(0).Activate());
   SignInAndSetCapability(true);
 
   OCMExpect([consumer_ setAssistantButtonVisible:NO enabled:NO]);
@@ -820,6 +851,8 @@ TEST_P(ToolbarMediatorTest, TestAssistantButtonNotVisible_JapanCountryGated) {
   TestingApplicationContext::GetGlobal()->GetApplicationLocaleStorage()->Set(
       "en-US");
 
+  browser_->GetWebStateList()->InsertWebState(
+      CreateWebState(), WebStateList::InsertionParams::AtIndex(0).Activate());
   SignInAndSetCapability(true);
 
   OCMExpect([consumer_ setAssistantButtonVisible:NO enabled:NO]);

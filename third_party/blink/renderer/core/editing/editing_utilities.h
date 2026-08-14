@@ -73,9 +73,6 @@ CORE_EXPORT bool NeedsLayoutTreeUpdate(const PositionInFlatTree&);
 // Returns true if |node| has "user-select:contain".
 CORE_EXPORT bool IsUserSelectContain(const Node& /* node */);
 
-// Returns true if element is input element or has editable style.
-CORE_EXPORT bool IsEditableElement(const Node&);
-
 CORE_EXPORT bool IsEditable(const Node&);
 CORE_EXPORT bool IsRichlyEditable(const Node&);
 
@@ -123,9 +120,12 @@ CORE_EXPORT Node* EnclosingNodeOfType(
     EditingBoundaryCrossingRule = kCannotCrossEditingBoundary);
 
 HTMLSpanElement* TabSpanElement(const Node*);
-Element* TableElementJustAfter(const VisiblePosition&);
+CORE_EXPORT Element* TableElementJustBefore(const Position&);
+CORE_EXPORT Element* TableElementJustBefore(const PositionInFlatTree&);
 CORE_EXPORT Element* TableElementJustBefore(const VisiblePosition&);
 CORE_EXPORT Element* TableElementJustBefore(const VisiblePositionInFlatTree&);
+Element* TableElementJustAfter(const Position&);
+Element* TableElementJustAfter(const VisiblePosition&);
 Element* EnclosingTableCell(const Position&);
 Element* EnclosingTableCell(const PositionInFlatTree&);
 
@@ -243,8 +243,9 @@ CORE_EXPORT PositionInFlatTree PreviousPositionOf(const PositionInFlatTree&,
 CORE_EXPORT PositionInFlatTree NextPositionOf(const PositionInFlatTree&,
                                               PositionMoveType);
 
-CORE_EXPORT int PreviousGraphemeBoundaryOf(const Node&, int current);
-CORE_EXPORT int NextGraphemeBoundaryOf(const Node&, int current);
+CORE_EXPORT wtf_size_t PreviousGraphemeBoundaryOf(const Node&,
+                                                  wtf_size_t current);
+CORE_EXPORT wtf_size_t NextGraphemeBoundaryOf(const Node&, wtf_size_t current);
 
 // Comparison functions on Position
 // Note: These functions reside in "compare_positions.cc" instead of

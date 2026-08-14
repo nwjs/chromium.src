@@ -42,6 +42,10 @@ class GlicProfileManager;
 class GlicSyntheticTrialManager;
 }  // namespace glic
 
+namespace omnibox_everywhere {
+class OmniboxEverywhereController;
+}
+
 class ApplicationLocaleStorage;
 class AudioProcessMlModelForwarder;
 class BrowserProcess;
@@ -61,6 +65,8 @@ class ApplicationAdvancedProtectionStatusDetector;
 #if !BUILDFLAG(IS_ANDROID)
 class ProfileLaunchObserver;
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+class GlassFrameService;
 
 #if BUILDFLAG(IS_WIN)
 class StartupLaunchManager;
@@ -123,6 +129,7 @@ class GlobalFeatures {
   // called immediately after construction, before any other
   // initialization.
   void Init();
+  void PreMainMessageLoopRun();
 
   // Each of these is called exactly once when the browser starts to shutdown,
   // in the named browser shutdown lifecycle phases. Importantly,
@@ -155,6 +162,12 @@ class GlobalFeatures {
 #if !BUILDFLAG(IS_ANDROID)
   glic::GlicBackgroundModeManager* glic_background_mode_manager() {
     return glic_background_mode_manager_.get();
+  }
+#endif
+#if !BUILDFLAG(IS_ANDROID)
+  omnibox_everywhere::OmniboxEverywhereController*
+  omnibox_everywhere_controller() {
+    return omnibox_everywhere_controller_.get();
   }
 #endif
 
@@ -247,6 +260,8 @@ class GlobalFeatures {
 #if !BUILDFLAG(IS_ANDROID)
   std::unique_ptr<glic::GlicBackgroundModeManager>
       glic_background_mode_manager_;
+  std::unique_ptr<omnibox_everywhere::OmniboxEverywhereController>
+      omnibox_everywhere_controller_;
 #endif
   std::unique_ptr<glic::GlicSyntheticTrialManager> synthetic_trial_manager_;
 
@@ -297,6 +312,8 @@ class GlobalFeatures {
 #endif  // !BUILDFLAG(IS_ANDROID)
 
   std::unique_ptr<tabs_api::TabDragSessionManager> tab_drag_session_manager_;
+
+  std::unique_ptr<GlassFrameService> glass_frame_service_;
 };
 
 #endif  // CHROME_BROWSER_GLOBAL_FEATURES_H_

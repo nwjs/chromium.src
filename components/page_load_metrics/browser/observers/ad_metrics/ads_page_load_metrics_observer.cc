@@ -251,12 +251,12 @@ AdsPageLoadMetricsObserver::HeavyAdThresholdNoiseProvider::
     HeavyAdThresholdNoiseProvider(bool use_noise)
     : use_noise_(use_noise) {}
 
-base::ByteCount AdsPageLoadMetricsObserver::HeavyAdThresholdNoiseProvider::
+base::ByteSize AdsPageLoadMetricsObserver::HeavyAdThresholdNoiseProvider::
     GetNetworkThresholdNoiseForFrame() const {
-  return base::ByteCount(
+  return base::ByteSize(
       use_noise_
-          ? base::RandIntInclusive(0, kMaxNetworkThresholdNoiseBytes.InBytes())
-          : 0);
+          ? base::RandGenerator(kMaxNetworkThresholdNoiseBytes.InBytes() + 1)
+          : 0u);
 }
 
 const char AdsPageLoadMetricsObserver::kObserverName[] =
@@ -790,14 +790,6 @@ void AdsPageLoadMetricsObserver::OnSubFrameDeleted(
   ad_frames_data_.erase(id_and_data);
 }
 
-void AdsPageLoadMetricsObserver::OnAdAuctionComplete(
-    bool is_server_auction,
-    bool is_on_device_auction,
-    content::AuctionResult result) {
-  aggregate_frame_data_->OnAdAuctionComplete(is_server_auction,
-                                             is_on_device_auction, result);
-}
-
 base::TimeDelta AdsPageLoadMetricsObserver::GetTotalAdCpuTime() const {
   return aggregate_frame_data_ ? aggregate_frame_data_->live_ad_cpu_usage()
                                : base::TimeDelta();
@@ -863,11 +855,11 @@ void AdsPageLoadMetricsObserver::OnPageActivationComputed(
   }
 }
 
-base::ByteCount AdsPageLoadMetricsObserver::GetUnaccountedAdBytes(
+base::ByteSize AdsPageLoadMetricsObserver::GetUnaccountedAdBytes(
     int process_id,
     const mojom::ResourceDataUpdatePtr& resource) const {
   if (!resource->reported_as_ad_resource) {
-    return base::ByteCount(0);
+    return base::ByteSize(0);
   }
   content::GlobalRequestID global_request_id(
       content::ToOriginatingProcessIdUnsafe(process_id), resource->request_id);
@@ -875,7 +867,7 @@ base::ByteCount AdsPageLoadMetricsObserver::GetUnaccountedAdBytes(
   // Resource just started loading.
   if (!GetDelegate().GetResourceTracker().HasPreviousUpdateForResource(
           global_request_id)) {
-    return base::ByteCount(0);
+    return base::ByteSize(0);
   }
 
   // If the resource had already started loading, and is now labeled as an ad,
@@ -885,8 +877,10 @@ base::ByteCount AdsPageLoadMetricsObserver::GetUnaccountedAdBytes(
       GetDelegate().GetResourceTracker().GetPreviousUpdateForResource(
           global_request_id);
   bool is_new_ad = !previous_update->reported_as_ad_resource;
-  return is_new_ad ? resource->received_data_length - resource->delta_bytes
-                   : base::ByteCount(0);
+  // AsByteSize() will CHECK if `delta_bytes` > `received_data_length`.
+  return is_new_ad ? (resource->received_data_length - resource->delta_bytes)
+                         .AsByteSize()
+                   : base::ByteSize(0);
 }
 
 void AdsPageLoadMetricsObserver::ProcessResourceForPage(
@@ -894,7 +888,7 @@ void AdsPageLoadMetricsObserver::ProcessResourceForPage(
     const mojom::ResourceDataUpdatePtr& resource) {
   int process_id = render_frame_host->GetProcess()->GetDeprecatedID();
   auto mime_type = ResourceLoadAggregator::GetResourceMimeType(resource);
-  base::ByteCount unaccounted_ad_bytes =
+  base::ByteSize unaccounted_ad_bytes =
       GetUnaccountedAdBytes(process_id, resource);
   bool is_outermost_main_frame = !render_frame_host->GetParentOrOuterDocument();
   aggregate_frame_data_->ProcessResourceLoadInFrame(resource,
@@ -943,7 +937,7 @@ void AdsPageLoadMetricsObserver::ProcessResourceForFrame(
   }
 
   auto mime_type = ResourceLoadAggregator::GetResourceMimeType(resource);
-  base::ByteCount unaccounted_ad_bytes = GetUnaccountedAdBytes(
+  base::ByteSize unaccounted_ad_bytes = GetUnaccountedAdBytes(
       render_frame_host->GetProcess()->GetDeprecatedID(), resource);
   if (!unaccounted_ad_bytes.is_zero()) {
     ancestor_data->AdjustAdBytes(unaccounted_ad_bytes, mime_type);
@@ -1046,46 +1040,6 @@ void AdsPageLoadMetricsObserver::RecordHistograms(ukm::SourceId source_id) {
         "PageLoad.Clients.Ads.AdPaintTiming."
         "TopFrameNavigationToFirstAdFirstContentfulPaint",
         first_ad_fcp_after_main_nav_start.value());
-
-    std::string fcp_after_auction_metric_name;
-    if (aggregate_frame_data_->completed_fledge_server_auction_before_fcp()) {
-      if (aggregate_frame_data_
-              ->completed_fledge_on_device_auction_before_fcp()) {
-        fcp_after_auction_metric_name =
-            "PageLoad.Clients.Ads.AdPaintTiming."
-            "TopFrameNavigationToFirstAdFirstContentfulPaintAfter"
-            "ServerAndDeviceAuctions";
-      } else {
-        fcp_after_auction_metric_name =
-            "PageLoad.Clients.Ads.AdPaintTiming."
-            "TopFrameNavigationToFirstAdFirstContentfulPaintAfterServerAuction";
-        if (aggregate_frame_data_->completed_only_winning_fledge_auctions()) {
-          PAGE_LOAD_HISTOGRAM(
-              "PageLoad.Clients.Ads.AdPaintTiming."
-              "TopFrameNavigationToFirstAdFirstContentfulPaintAfterWinning"
-              "ServerAuction",
-              first_ad_fcp_after_main_nav_start.value());
-        }
-      }
-    } else if (aggregate_frame_data_
-                   ->completed_fledge_on_device_auction_before_fcp()) {
-      fcp_after_auction_metric_name =
-          "PageLoad.Clients.Ads.AdPaintTiming."
-          "TopFrameNavigationToFirstAdFirstContentfulPaintAfterDeviceAuction";
-      if (aggregate_frame_data_->completed_only_winning_fledge_auctions()) {
-        PAGE_LOAD_HISTOGRAM(
-            "PageLoad.Clients.Ads.AdPaintTiming."
-            "TopFrameNavigationToFirstAdFirstContentfulPaintAfter"
-            "WinningDeviceAuction",
-            first_ad_fcp_after_main_nav_start.value());
-      }
-    } else {
-      fcp_after_auction_metric_name =
-          "PageLoad.Clients.Ads.AdPaintTiming."
-          "TopFrameNavigationToFirstAdFirstContentfulPaintAfterNoAuction";
-    }
-    PAGE_LOAD_HISTOGRAM(fcp_after_auction_metric_name,
-                        first_ad_fcp_after_main_nav_start.value());
   }
 
   RecordAggregateHistogramsForAdTagging(FrameVisibility::kNonVisible);

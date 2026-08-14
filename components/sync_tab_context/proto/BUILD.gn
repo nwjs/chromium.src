@@ -1,0 +1,14 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//third_party/protobuf/proto_library.gni")
+
+proto_library("proto") {
+  sources = [
+    "ephemeral_key_service.proto",
+    "tab_context_container_access_token.proto",
+  ]
+  deps = [ "//components/sync/protocol" ]
+  import_dirs = [ "//" ]
+}

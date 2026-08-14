@@ -84,9 +84,13 @@ ERRORPRONE_WARNINGS_TO_DISABLE = [
     'ThrowSpecificExceptions',
     'ThrowsUncheckedException',
     'TooManyParameters',
+
+    # TODO(crbug.com/534779546): Re-enabled after next Error Prone roll.
+    'TimeUnitMismatch',
     'TryFailRefactoring',
     'TypeParameterNaming',
     'UngroupedOverloads',
+    'UnnamedVariable',
     'UnnecessaryAnonymousClass',
     'UnnecessaryBoxedAssignment',
     'UnnecessaryDefaultInEnumSwitch',
@@ -186,6 +190,8 @@ ERRORPRONE_WARNINGS_TO_DISABLE = [
     'UnnecessaryTestMethodPrefix',
     # Too many suggestions where it's not actually necessary.
     'CanIgnoreReturnValueSuggester',
+    # Too many errors (https://issuetracker.google.com/516651197).
+    'ReferenceEquality',
 
     # These are all for Javadoc, which we don't really care about.
     'InvalidBlockTag',
@@ -214,7 +220,6 @@ ERRORPRONE_WARNINGS_TO_ENABLE = [
     'MultiVariableDeclaration',
     'RedundantOverride',
     'StaticQualifiedUsingExpression',
-    'TimeUnitMismatch',
     'UnnecessaryStaticImport',
     'UseBinds',
     'WildcardImport',

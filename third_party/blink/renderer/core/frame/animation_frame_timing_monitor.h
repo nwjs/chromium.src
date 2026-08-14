@@ -13,8 +13,10 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/timing/animation_frame_timing_info.h"
+#include "third_party/blink/renderer/core/timing/performance_entry.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
+#include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace base {
 class TimeTicks;
@@ -30,9 +32,14 @@ CORE_EXPORT BASE_DECLARE_FEATURE(kAlwaysLogLOAFURL);
 class LocalFrame;
 
 // Monitors long-animation-frame timing (LoAF).
-// This object is a supplement to a WebFrameWidgetImpl. It handles the state
-// machine related to capturing the timing for long animation frames, and
-// reporting them back to the frames that observe it.
+// On the main thread, this object is owned by a WebFrameWidgetImpl (which also
+// acts as its Client). It handles the state machine related to capturing the
+// timing for long animation frames, and reporting them back to the frames that
+// observe it.
+// In worker mode (owned by WorkerGlobalScope, which also acts as its Client,
+// for a dedicated worker) it has no rendering lifecycle; instead it observes
+// the worker's task loop and reports a long task blocking the event loop as a
+// congested moment via Client::ReportCongestedMoment().
 class CORE_EXPORT AnimationFrameTimingMonitor final
     : public GarbageCollected<AnimationFrameTimingMonitor>,
       public base::sequence_manager::TaskTimeObserver {
@@ -42,6 +49,7 @@ class CORE_EXPORT AnimationFrameTimingMonitor final
     virtual void ReportLongTaskTiming(base::TimeTicks start,
                                       base::TimeTicks end,
                                       ExecutionContext* context) = 0;
+    virtual void ReportCongestedMoment(AnimationFrameTimingInfo*) {}
     virtual bool ShouldReportLongAnimationFrameTiming() const = 0;
     virtual bool RequestedMainFramePending() = 0;
     virtual ukm::UkmRecorder* MainFrameUkmRecorder() = 0;
@@ -64,17 +72,15 @@ class CORE_EXPORT AnimationFrameTimingMonitor final
   AnimationFrameTimingInfo* RecordRenderingUpdateEndTime(
       LocalDOMWindow& local_root_window,
       base::TimeTicks);
-  void OnTaskCompleted(base::TimeTicks start_time,
-                       base::TimeTicks end_time,
-                       LocalFrame* frame);
+  void OnMainThreadTaskCompleted(base::TimeTicks start_time,
+                                 base::TimeTicks end_time,
+                                 LocalFrame* frame);
 
   // TaskTimeObserver
   void WillProcessTask(base::TimeTicks start_time) override;
 
   void DidProcessTask(base::TimeTicks start_time,
-                      base::TimeTicks end_time) override {
-    OnTaskCompleted(start_time, end_time, /*frame=*/nullptr);
-  }
+                      base::TimeTicks end_time) override;
 
   // probes
   void WillHandlePromise(ScriptState*,
@@ -112,9 +118,12 @@ class CORE_EXPORT AnimationFrameTimingMonitor final
   void DidFinishSyncXHR(base::TimeDelta);
   void WillHandleInput(LocalFrame*);
 
+  void MarkConditional(const AtomicString& name, base::TimeTicks start_time);
+
  private:
   Member<AnimationFrameTimingInfo> current_frame_timing_info_;
   HeapVector<Member<ScriptTimingInfo>> current_scripts_;
+  Vector<ConditionalMarkInfo> conditional_marks_;
   viz::BeginFrameId current_begin_frame_id_;
   struct PendingScriptInfo {
     ScriptTimingInfo::InvokerType invoker_type;
@@ -144,6 +153,9 @@ class CORE_EXPORT AnimationFrameTimingMonitor final
       const PendingScriptInfo& script_info);
 
   bool PushScriptEntryPoint(ScriptState*);
+
+  void OnWorkerTaskCompleted(base::TimeTicks start_time,
+                             base::TimeTicks end_time);
 
   void RecordLongAnimationFrameUKMAndTrace(const AnimationFrameTimingInfo&,
                                            LocalDOMWindow& window);
@@ -196,6 +208,10 @@ class CORE_EXPORT AnimationFrameTimingMonitor final
   bool task_longtask_reported_ = false;
 
   unsigned entry_point_depth_ = 0;
+
+  // Top-level script entry points in the current reporting interval, counted
+  // regardless of duration (so it can exceed current_scripts_.size()).
+  uint32_t script_count_ = 0;
 
   bool enabled_ = false;
 };

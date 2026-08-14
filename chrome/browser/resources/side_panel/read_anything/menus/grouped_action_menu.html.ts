@@ -28,17 +28,17 @@ export function getHtml(this: GroupedActionMenuElement) {
       ${group.items.map((item, itemIndex) => html`
         <button
             id="group-${groupIndex}-item-${itemIndex}"
-            class="dropdown-item"
+            class="${this.getItemClass_(item)}"
             style="${item.style}"
-            role="menuitemradio"
+            role="${this.getItemRole_(item)}"
             aria-label="${item.ariaLabel}"
-            aria-checked="${item.selected}"
+            aria-checked="${this.getItemAriaChecked_(item)}"
             @click="${this.onClick_}"
             data-group-index="${groupIndex}"
             data-item-index="${itemIndex}">
           <cr-icon
-              class="button-image check-mark check-mark-showing-${item.selected}"
-              icon="read-anything-20:check-mark">
+              class="${this.getItemIconClass_(item)}"
+              icon="${this.getItemIcon_(item)}">
           </cr-icon>
           ${item.title}
         </button>

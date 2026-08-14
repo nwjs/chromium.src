@@ -12,8 +12,49 @@
 #include "base/containers/fixed_flat_map.h"
 #include "base/memory/raw_span.h"
 #include "base/strings/cstring_view.h"
+#include "services/webnn/public/mojom/webnn_device.mojom.h"
 
 namespace webnn {
+
+// Specifies if an execution provider supports offline compilation and the
+// related information needed for offline compilation.
+struct OfflineCompilationSupport {
+  // The supported device type.
+  mojom::Device device_type;
+  // Supported device IDs corresponding to the device type.
+  base::raw_span<const uint32_t> device_ids;
+  // Libraries that must be preloaded before sandbox lockdown. This list should
+  // only contain workarounds when compiling a graph has issues to load a
+  // particular library.
+  // TODO(crbug.com/529544314): Remove once EPs load all required libraries
+  // internally by compiling a trivial graph.
+  base::raw_span<const std::string_view> preload_libraries_workaround;
+};
+
+namespace internal {
+
+inline constexpr OfflineCompilationSupport kOpenVINOOfflineCompilation[] = {
+    {
+        .device_type = mojom::Device::kNpu,
+        .device_ids =
+            (const uint32_t[]){
+                0x643E,  // Lunarlake
+                0xB03E,  // Pantherlake
+                0xFD3E,  // Wildcatlake
+            },
+        .preload_libraries_workaround =
+            (const std::string_view[]){
+                // This library is loaded on a worker thread internally in the
+                // NPU compiler, which triggers an ERROR_ACCESS_DENIED error
+                // since the worker thread runs on a lockdown token. Preloading
+                // this library before sandbox lockdown is a workaround for this
+                // issue.
+                "openvino_intel_npu_compiler.dll",
+            },
+    },
+};
+
+}  // namespace internal
 
 inline constexpr std::string_view kCPUExecutionProvider =
     "CPUExecutionProvider";
@@ -80,6 +121,13 @@ struct EpInfo {
   // The minimum driver versions required by the NPU device for this EP to work.
   // Empty value means no version check is needed (default allow).
   std::string_view min_npu_driver_version;
+  // Optional session config key for dumping models. When set,
+  // `SetOptimizedModelFilePath` is not used; instead, the dump path is passed
+  // via this config entry. Empty value means the EP uses the default
+  // `SetOptimizedModelFilePath` approach.
+  base::cstring_view model_dump_config_key;
+  // The information of offline compilation support.
+  base::raw_span<const OfflineCompilationSupport> offline_compilation_support;
 };
 
 // The listed EPs must match the names of the histogram variants
@@ -177,6 +225,12 @@ inline constexpr auto kKnownEPs = base::MakeFixedFlatMap<std::string_view,
                 },
             // The minimum NPU driver version in 4-part dot-separated format.
             .min_npu_driver_version = "32.0.100.4404",
+            // `SetOptimizedModelFilePath` does not work for the OpenVINO EP.
+            // Dump models via its own session config entry.
+            .model_dump_config_key =
+                "ep.openvinoexecutionprovider.dump_subgraphs",
+            .offline_compilation_support =
+                internal::kOpenVINOOfflineCompilation,
         },
     },
     // Qualcomm
@@ -206,6 +260,23 @@ inline constexpr auto kKnownEPs = base::MakeFixedFlatMap<std::string_view,
                     .Revision = 0,
                 },
             .vendor_id = 0x1022,
+            .enabled = false,
+        },
+    },
+    {
+        kWebGpuExecutionProvider,
+        {
+            .min_package_version =
+                {
+                    .Major = 0,
+                    .Minor = 2,
+                    .Build = 0,
+                    .Revision = 26194,
+                },
+            // The WebGPU EP is vendor-agnostic, so the vendor ID is set to 0
+            // to match ORT's convention.
+            // https://github.com/microsoft/onnxruntime/blob/a91b0b4/onnxruntime/core/providers/webgpu/ep/factory.cc#L66
+            .vendor_id = 0,
             .enabled = false,
         },
     },

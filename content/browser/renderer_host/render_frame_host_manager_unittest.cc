@@ -548,11 +548,11 @@ class RenderFrameHostManagerTest
             frame_tree_node, std::move(common_params), std::move(commit_params),
             !entry->is_renderer_initiated(), false /* was_opener_suppressed */,
             std::nullopt /* initiator_frame_token */,
-            ChildProcessHost::kInvalidUniqueID /* initiator_process_id */,
+            ChildProcessId() /* initiator_process_id */,
             nullptr /* initiator_navigation_state */,
             false /* should_ignore_initiator_policies_for_inheritance */,
             entry->extra_headers(), frame_entry, entry, is_form_submission,
-            nullptr /* navigation_ui_data */, std::nullopt /* impression */,
+            nullptr /* navigation_ui_data */,
             false /* started_with_transient_activation */,
             false /* started_by_ad */, EmbedderIsolationInfo::Mode::kNone);
 
@@ -3480,8 +3480,7 @@ TEST_P(RenderFrameHostManagerTest, NavigateFromDeadRendererToWebUI) {
           frame_tree_node, std::move(common_params), std::move(commit_params),
           false /* was_opener_suppressed */, entry.extra_headers(), frame_entry,
           &entry, false /* is_form_submission */,
-          nullptr /* navigation_ui_data */, std::nullopt /* impression */,
-          EmbedderIsolationInfo::Mode::kNone);
+          nullptr /* navigation_ui_data */, EmbedderIsolationInfo::Mode::kNone);
   frame_tree_node->TakeNavigationRequest(std::move(navigation_request));
 
   // The initial non-live RenderFrameHost should be reused for the WebUI

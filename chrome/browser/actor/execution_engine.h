@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "base/callback_list.h"
@@ -19,7 +20,6 @@
 #include "base/types/id_type.h"
 #include "base/types/optional_ref.h"
 #include "base/types/pass_key.h"
-#include "chrome/browser/actor/actor_container_config_slot.h"
 #include "chrome/browser/actor/enterprise_policy_checker.h"
 #include "chrome/browser/actor/site_policy.h"
 #include "chrome/browser/actor/tab_observation_strategy.h"
@@ -30,6 +30,7 @@
 #include "components/actor/core/aggregated_journal.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/autofill/core/browser/integrators/actor/actor_form_filling_types.h"
+#include "components/origin_gating/core/actor_container_config_slot.h"
 #include "components/origin_gating/core/origin_gating_cache.h"
 #include "components/origin_gating/core/origin_gating_checker.h"
 #include "components/password_manager/core/browser/actor_login/actor_login_service.h"
@@ -222,6 +223,9 @@ class ExecutionEngine : public ToolDelegate,
       AutofillSuggestionSelectedCallback callback) override;
   void RequestToShowGmailOtpOptInDialog(
       GmailOtpOptInCallback callback) override;
+  void RequestToShowGmailOtpConfirmationDialog(
+      const std::string& verification_code,
+      GmailOtpConfirmationCallback callback) override;
   void InterruptFromTool() override;
   void InterruptFromTool(bool retain_user_control) override;
   void UninterruptFromTool() override;
@@ -301,22 +305,30 @@ class ExecutionEngine : public ToolDelegate,
     return origin_gating_checker_.cache();
   }
 
+  const origin_gating::OriginGatingChecker& origin_gating_checker() const {
+    return origin_gating_checker_;
+  }
+  origin_gating::OriginGatingChecker& origin_gating_checker() {
+    return origin_gating_checker_;
+  }
+
   // Currently, navigations are generally forced to happen in the same tab (see
   // https://crbug.com/420669167 ). In some cases we need to drop this
   // restriction for certain tools to function.
   bool TabsCanOpenNewWebContents() const;
 
-  ActorContainerConfigSlot& actor_container_config_slot() {
-    return actor_container_config_slot_;
-  }
-
   // origin_gating::OriginGatingChecker::Delegate
   void DoesOriginRequireUserConfirmation(
       origin_gating::GatingDecisionContext* context,
+      origin_gating::GateableEvent event,
       const GURL& source,
       const GURL& destination,
       DoesOriginRequireUserConfirmationCallback callback) const override;
+  void EvaluateEnterprisePolicy(
+      const GURL& destination,
+      EvaluateEnterprisePolicyCallback callback) const override;
   void OnNoVerdict(origin_gating::GatingDecisionContext* context,
+                   origin_gating::GateableEvent event,
                    const GURL& source,
                    const GURL& destination,
                    bool requires_user_confirmation,
@@ -389,18 +401,16 @@ class ExecutionEngine : public ToolDelegate,
                            const url::Origin& destination,
                            bool applied_gate) const;
 
-  // Returns the highest-priority navigation gating decision. Prioritizes
-  // blocking navigations over allowing (except on same origin navigations).
-  GatingDecision DetermineGatingDecision(const GURL& source_url,
-                                         const GURL& destination_url) const;
   void OnComputedGatingDecision(
       NavigationDecisionCallback callback,
       const url::Origin& source_origin,
       const url::Origin& destination_origin,
       State initial_state,
       std::optional<url::Origin> initiator,
+      origin_gating::GateableEvent event,
       std::unique_ptr<origin_gating::GatingDecisionContext> context,
       origin_gating::GatingDecision decision);
+
   // Called when the browser detects the actor needs to confirm a
   // client-side-initiated navigation to a novel origin.
   void HandleNavigationToNewOrigin(
@@ -481,9 +491,6 @@ class ExecutionEngine : public ToolDelegate,
   origin_gating::OriginGatingCache dark_launch_origin_gating_cache_;
 
   TabObservationStrategy observation_strategy_;
-
-  // Manages the container config settings that have been sent by the server.
-  ActorContainerConfigSlot actor_container_config_slot_;
 
   // For multi-step login, this is the credential that the user has chosen to
   // allow the actor to use. The key is the

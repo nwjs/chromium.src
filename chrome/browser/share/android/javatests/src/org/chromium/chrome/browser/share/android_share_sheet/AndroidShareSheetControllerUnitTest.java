@@ -60,6 +60,7 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.PayloadCallbackHelper;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.enterprise.util.DataProtectionBridge;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -118,6 +119,7 @@ public class AndroidShareSheetControllerUnitTest {
     @Mock UserPrefsJni mMockUserPrefsJni;
     @Mock FaviconHelperJni mMockFaviconHelperJni;
     @Mock DomDistillerUrlUtilsJni mMockDomDistillerUrlUtilsJni;
+    @Mock DataProtectionBridge.Natives mMockDataProtectionBridgeNatives;
     @Mock BottomSheetController mBottomSheetController;
     @Mock TabModelSelector mTabModelSelector;
     @Mock Tab mTab;
@@ -168,6 +170,9 @@ public class AndroidShareSheetControllerUnitTest {
         doAnswer(invocation -> new GURL(invocation.getArgument(0)))
                 .when(mMockDomDistillerUrlUtilsJni)
                 .getOriginalUrlFromDistillerUrl(anyString());
+
+        DataProtectionBridge.setInstanceForTesting(mMockDataProtectionBridgeNatives);
+        doReturn(true).when(mMockDataProtectionBridgeNatives).isScreenshotAllowed(any());
 
         doReturn(true).when(mTabGroupSharingController).isAvailableForTab(any());
 
@@ -229,7 +234,7 @@ public class AndroidShareSheetControllerUnitTest {
             assertCustomActions(
                     intent,
                     R.string.sharing_long_screenshot,
-                    R.string.sharing_send_tab_to_self,
+                    R.string.send_tab_to_self,
                     R.string.qr_code_share_icon_label);
         } else {
             assertCustomActions(
@@ -237,7 +242,7 @@ public class AndroidShareSheetControllerUnitTest {
                     R.string.sharing_tab_group,
                     R.string.sharing_long_screenshot,
                     R.string.print_share_activity_title,
-                    R.string.sharing_send_tab_to_self,
+                    R.string.send_tab_to_self,
                     R.string.qr_code_share_icon_label);
         }
     }
@@ -378,7 +383,7 @@ public class AndroidShareSheetControllerUnitTest {
         assertCustomActions(
                 intent,
                 R.string.sharing_copy_image_with_link,
-                R.string.sharing_send_tab_to_self,
+                R.string.send_tab_to_self,
                 R.string.qr_code_share_icon_label);
     }
 
@@ -403,7 +408,7 @@ public class AndroidShareSheetControllerUnitTest {
         assertCustomActions(
                 intent,
                 R.string.sharing_copy_image_with_link,
-                R.string.sharing_send_tab_to_self,
+                R.string.send_tab_to_self,
                 R.string.qr_code_share_icon_label);
 
         chooseCustomAction(
@@ -573,7 +578,7 @@ public class AndroidShareSheetControllerUnitTest {
         assertCustomActions(
                 chooserIntent,
                 R.string.sharing_copy_highlight_without_link,
-                R.string.sharing_send_tab_to_self,
+                R.string.send_tab_to_self,
                 R.string.qr_code_share_icon_label);
 
         // Toggle the modify action again, link is removed from text.
@@ -587,6 +592,42 @@ public class AndroidShareSheetControllerUnitTest {
                 "Text being copied is different.",
                 "highlight",
                 clipboardManager.getPrimaryClip().getItemAt(0).getText());
+    }
+
+    @Test
+    public void shareLinkToHighlightText_EmptyUrlFallbackToTabUrl() throws CanceledException {
+        doReturn(JUnitTestGURLs.EXAMPLE_URL).when(mTab).getUrl();
+        ShareParams params =
+                new ShareParams.Builder(mWindow, "", "")
+                        .setFileContentType("text/plain")
+                        .setText("highlight")
+                        .setBypassFixingDomDistillerUrl(true)
+                        .build();
+        ChromeShareExtras chromeShareExtras =
+                new ChromeShareExtras.Builder()
+                        .setDetailedContentType(DetailedContentType.HIGHLIGHTED_TEXT)
+                        .build();
+        AndroidShareSheetController.showShareSheet(
+                params,
+                chromeShareExtras,
+                mBottomSheetController,
+                () -> mTab,
+                () -> mTabModelSelector,
+                mProfile,
+                mPrintCallback::notifyCalled,
+                mTabGroupSharingController,
+                mDeviceLockActivityLauncher,
+                mSigninAndHistorySyncActivityLauncher,
+                mActivityResultTracker,
+                mModalDialogManagerSupplier,
+                mSnackbarManager);
+
+        Intent chooserIntent = Shadows.shadowOf((Activity) mActivity).peekNextStartedActivity();
+        Intent shareIntent = chooserIntent.getParcelableExtra(Intent.EXTRA_INTENT);
+        Assert.assertEquals(
+                "Text being shared is different.",
+                "\"highlight\"\n " + JUnitTestGURLs.TEXT_FRAGMENT_URL.getSpec(),
+                shareIntent.getStringExtra(Intent.EXTRA_TEXT));
     }
 
     @Test
@@ -655,7 +696,7 @@ public class AndroidShareSheetControllerUnitTest {
         assertCustomActions(
                 intent,
                 R.string.sharing_copy_image_with_link,
-                R.string.sharing_send_tab_to_self,
+                R.string.send_tab_to_self,
                 R.string.qr_code_share_icon_label);
         chooseCustomAction(intent, R.string.qr_code_share_icon_label, ShareCustomAction.QR_CODE);
 
@@ -685,7 +726,7 @@ public class AndroidShareSheetControllerUnitTest {
                 intent,
                 R.string.sharing_copy_image,
                 R.string.sharing_copy_image_with_link,
-                R.string.sharing_send_tab_to_self,
+                R.string.send_tab_to_self,
                 R.string.qr_code_share_icon_label);
 
         Intent shareIntent = intent.getParcelableExtra(Intent.EXTRA_INTENT);
@@ -716,7 +757,7 @@ public class AndroidShareSheetControllerUnitTest {
                         .build();
         mController.showShareSheet(params, chromeShareExtras, 1L);
         Intent intent = Shadows.shadowOf((Activity) mActivity).peekNextStartedActivity();
-        assertCustomActions(intent, R.string.sharing_copy_image, R.string.sharing_send_tab_to_self);
+        assertCustomActions(intent, R.string.sharing_copy_image, R.string.send_tab_to_self);
 
         Intent shareIntent = intent.getParcelableExtra(Intent.EXTRA_INTENT);
         Assert.assertTrue(
@@ -743,7 +784,7 @@ public class AndroidShareSheetControllerUnitTest {
             assertCustomActions(
                     intent,
                     R.string.sharing_long_screenshot,
-                    R.string.sharing_send_tab_to_self,
+                    R.string.send_tab_to_self,
                     R.string.qr_code_share_icon_label);
         } else {
             assertCustomActions(
@@ -751,7 +792,7 @@ public class AndroidShareSheetControllerUnitTest {
                     R.string.sharing_tab_group,
                     R.string.sharing_long_screenshot,
                     R.string.print_share_activity_title,
-                    R.string.sharing_send_tab_to_self,
+                    R.string.send_tab_to_self,
                     R.string.qr_code_share_icon_label);
         }
         chooseCustomAction(

@@ -21,6 +21,7 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "base/values.h"
+#include "net/base/ech_mode.h"
 #include "net/base/ip_endpoint.h"
 #include "net/base/net_export.h"
 #include "net/base/network_handle.h"
@@ -281,6 +282,7 @@ class NET_EXPORT_PRIVATE HostResolverDnsTask final {
   // For histograms.
   base::TimeTicks a_record_end_time_;
   base::TimeTicks aaaa_record_end_time_;
+  base::TimeTicks https_record_end_time_;
 
   Results saved_results_;
   std::unique_ptr<HostResolverInternalErrorResult> deferred_failure_;
@@ -300,6 +302,10 @@ class NET_EXPORT_PRIVATE HostResolverDnsTask final {
   bool fallback_available_;
 
   const HostResolver::HttpsSvcbOptions https_svcb_options_;
+
+  // If true, the task will wait for the pending HTTPS query and treat
+  // certain HTTPS query errors as fatal.
+  const bool https_svcb_required_;
 
   // Set to true when HTTPS query is disabled.
   bool https_disabled_ = false;

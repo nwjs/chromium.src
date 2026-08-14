@@ -6,18 +6,129 @@
 #define COMPONENTS_SAFE_BROWSING_CORE_BROWSER_DB_SB_STORE_H_
 
 #include <string>
+#include <string_view>
 
 #include "base/files/file.h"
 #include "base/files/file_path.h"
+#include "base/location.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/types/expected.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
+#include "components/safe_browsing/core/common/proto/safebrowsingv5.pb.h"
+#include "components/safe_browsing/core/common/proto/webui.pb.h"
 #include "third_party/protobuf/src/google/protobuf/io/zero_copy_stream.h"
 #include "third_party/protobuf/src/google/protobuf/io/zero_copy_stream_impl_lite.h"
 class V5StoreFileFormat;
 
+// TODO(crbug.com/362791941): replace all |comments| with `comments`.
 namespace safe_browsing {
 
+namespace V5 {
+class HashList;
+}
+
 class V4StoreFileFormat;
+class SBStore;
+class ListInfo;
+class HashPrefixContainer;
+
+struct SBStoreDeleter;
+using SBStorePtr = std::unique_ptr<SBStore, SBStoreDeleter>;
+
+// Enumerate different events while applying the update fetched from the server
+// for logging purposes.
+enum class SBStoreUpdateResult {
+  // No errors.
+  kSuccess = 0,
+
+  // The update received from the server contains a prefix that's already
+  // present in the store.
+  kAdditionsHasExistingPrefixFailure = 1,
+
+  // One of more index(es) in removals field of the response is greater than
+  // the number of hash prefixes currently in the (old) store.
+  kRemovalsIndexTooLargeFailure = 2,
+
+  // The state of the store did not match the expected checksum sent by the
+  // server.
+  kChecksumMismatchFailure = 3,
+};
+
+// Enumerate different failure events while writing the file to disk.
+enum class SBStoreWriteResult {
+  // An unexpected error occurred while writing the file.
+  kUnexpectedWriteFailure = 0,
+
+  // Number of bytes written to disk was different from the size of the proto.
+  kUnexpectedBytesWrittenFailure = 1,
+
+  // Renaming the temporary file to store file failed.
+  kUnableToRenameFailure = 2,
+};
+
+// A ZeroCopyOutputStream that writes to a file using base::File. Any errors
+// during serialization close the file.
+class BaseFileOutputStream
+    : public google::protobuf::io::CopyingOutputStreamAdaptor {
+ public:
+  // Creates and opens `output_file`, overwriting any previous contents.
+  explicit BaseFileOutputStream(const base::FilePath& output_file);
+  BaseFileOutputStream(const BaseFileOutputStream&) = delete;
+  BaseFileOutputStream& operator=(const BaseFileOutputStream&) = delete;
+
+  // Closes the file, if it was still open.
+  ~BaseFileOutputStream() override;
+
+  // Returns `base::File::FILE_OK` if no error and the file is still open; else
+  // the error that led to closure of the file.
+  base::File::Error GetError() const;
+
+ private:
+  class CopyingBaseFileOutputStream
+      : public google::protobuf::io::CopyingOutputStream {
+   public:
+    explicit CopyingBaseFileOutputStream(const base::FilePath& output_file);
+    CopyingBaseFileOutputStream(const CopyingBaseFileOutputStream&) = delete;
+    CopyingBaseFileOutputStream& operator=(const CopyingBaseFileOutputStream&) =
+        delete;
+    ~CopyingBaseFileOutputStream() override;
+
+    base::File::Error GetError() const;
+
+    // google::protobuf::io::CopyingOutputStream:
+    bool Write(const void* buffer, int size) override;
+
+   private:
+    base::File file_;
+  };
+
+  CopyingBaseFileOutputStream stream_;
+};
+
+class SBStoreFactory {
+ public:
+  virtual ~SBStoreFactory() = default;
+  virtual SBStorePtr CreateStore(
+      const scoped_refptr<base::SequencedTaskRunner>& db_task_runner,
+      const base::FilePath& base_path,
+      const ListInfo& list_info) = 0;
+};
+
+// This will have either a `v4_response` or a `v5_response`. Having a shared
+// wrapper struct allows for more code reuse during the v4 -> v5 transition.
+struct SBUpdateResponse {
+  SBUpdateResponse();
+  ~SBUpdateResponse();
+
+  std::unique_ptr<ListUpdateResponse> v4_response;
+  std::unique_ptr<V5::HashList> v5_response;
+};
+
+using SBUpdateResponseMap =
+    std::unordered_map<ListIdentifier, std::unique_ptr<SBUpdateResponse>>;
+using UpdatedStoreReadyCallback =
+    base::OnceCallback<void(SBStorePtr new_store)>;
 
 // Enumerate different failure events while parsing the file read from disk for
 // histogramming purposes.  DO NOT CHANGE THE ORDERING OF THESE VALUES.
@@ -62,6 +173,9 @@ enum StoreReadResult {
 
   // Failed to migrate from v5 to v4.
   V5_TO_V4_MIGRATION_FAILURE = 11,
+
+  // V5 to V4 migration was ineligible, and wiping V5 succeeded.
+  V5_TO_V4_MIGRATION_WIPED_SUCCESSFULLY = 12,
 
   // Memory space for histograms is determined by the max.  ALWAYS
   // ADD NEW VALUES BEFORE THIS ONE.
@@ -109,7 +223,10 @@ enum class V5StoreReadResult {
   // Failed to migrate from v4 to v5.
   kV4ToV5MigrationFailure = 10,
 
-  kMaxValue = kV4ToV5MigrationFailure
+  // Migration was needed but the store was ineligible, and wiping V4 succeeded.
+  kV4ToV5MigrationWipedSuccessfully = 11,
+
+  kMaxValue = kV4ToV5MigrationWipedSuccessfully
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/safe_browsing/enums.xml:SafeBrowsingV5StoreReadResult)
 
@@ -183,6 +300,57 @@ class SBStore {
 
   int64_t file_size() const { return file_size_; }
 
+  // Records (in kilobytes) and returns the size of the file on disk for this
+  // store using `base_metric` as prefix and the filename as suffix.
+  virtual int64_t RecordAndReturnFileSize(const std::string& base_metric);
+
+  // Reset internal state.
+  virtual void Reset() = 0;
+
+  // TODO(crbug.com/362791941): All comments in sb_* files should use the modern
+  // `code` format rather than the older |code| format.
+  // Scheduled after reading the store file from disk on startup. When run, it
+  // ensures that the checksum of the hash prefixes in lexicographical sorted
+  // order matches the expected value in |expected_checksum_|. Returns true if
+  // it matches; false otherwise. Checksum verification can take a long time,
+  // so it is performed outside of the hotpath of loading SafeBrowsing database,
+  // which blocks resource loads.
+  virtual bool VerifyChecksum() = 0;
+
+  // Populates the DatabaseInfo message.
+  virtual void CollectStoreInfo(
+      DatabaseManagerInfo::DatabaseInfo::StoreInfo* store_info);
+
+  // Updates the SBStore with the response received from the SafeBrowsing
+  // service. `response` contains the protocol-specific update payload. `runner`
+  // is the task runner on which the callback should be run. `callback` is
+  // scheduled once the update has been processed.
+  virtual void ApplyUpdate(
+      std::unique_ptr<SBUpdateResponse> response,
+      const scoped_refptr<base::SequencedTaskRunner>& runner,
+      UpdatedStoreReadyCallback callback) = 0;
+
+  // If a hash prefix in this store matches `full_hash`, returns that hash
+  // prefix; otherwise returns an empty hash prefix.
+  virtual HashPrefixStr GetMatchingHashPrefix(const FullHashStr& full_hash) = 0;
+
+  // Returns the state of the store (i.e. state for V4, version for V5).
+  virtual const std::string& GetStoreState() const = 0;
+
+  // Converts a 32-character extension ID string into its raw 16-byte binary
+  // hash representation.
+  // `extension_id` is the base-16 string extension ID to convert. Must be
+  // exactly 32 characters long.
+  // Returns a string containing the raw 16 binary bytes.
+  static std::string ExtensionIdToHash(std::string_view extension_id);
+
+  // Converts a raw 16-byte binary hash representation of an extension ID
+  // into its 32-character extension ID string.
+  // `extension_hash` is the raw 16-byte binary hash to convert. Must be
+  // exactly 16 bytes long.
+  // Returns a string containing the 32-character extension ID.
+  static std::string ExtensionHashToId(std::string_view extension_hash);
+
  protected:
   static constexpr uint32_t kFileMagic = 0x600D71FE;
   static constexpr uint32_t kV4FileVersion = 9;
@@ -200,6 +368,67 @@ class SBStore {
       V5StoreFileFormat& file_format,
       int64_t* file_size = nullptr);
 
+  // Helper template method to write the store to disk.
+  // It handles writing to a temporary file, committing the write session
+  // for the `container`, renaming the file to the final destination, and
+  // cleaning up on error.
+  //  - `store_path`: The path where the store file should be written.
+  //  - `file_format`: The protobuf representation of the file format (V4 or
+  //    V5).
+  //  - `container`: The container holding the hash prefixes (HashPrefixMap or
+  //    HashPrefixList).
+  //  - `set_file_metadata`: Callback to set file-specific metadata (e.g. magic
+  //    number, version).
+  //  - `cleanup_on_error`: Callback to perform cleanup (e.g. delete written
+  //    hash files, clear container) if writing fails. Takes the temporary
+  //    store file path as argument.
+  //  - `get_hash_files_size`: Callback to calculate the total size of the hash
+  //    files.
+  //  - `cleanup_extra_files`: Callback to clean up any old/temporary files.
+  // Returns the final size of the written file on success, or an
+  // SBStoreWriteResult indicating the specific failure reason on failure.
+  // TODO(crbug.com/372395685): Collapse + simplify this method into v5
+  // implementation.
+  template <typename FileFormat, typename Container>
+  static base::expected<int64_t, SBStoreWriteResult> WriteToDiskLoop(
+      const base::FilePath& store_path,
+      FileFormat* file_format,
+      Container* container,
+      base::FunctionRef<void()> set_file_metadata,
+      base::FunctionRef<void(const base::FilePath&)> cleanup_on_error,
+      base::FunctionRef<int64_t()> get_hash_files_size,
+      base::FunctionRef<void()> cleanup_extra_files);
+
+  // Helper template method to merge additions and removals into
+  // `out_container`. It performs a merge sort of `old_prefixes` and
+  // `new_prefixes`, applying removals specified in `raw_removals`. It also
+  // verifies the checksum of the merged prefixes if `expected_checksum` is
+  // provided.
+  //  - `prefix_size`: The size of each hash prefix.
+  //  - `old_prefixes`: Span of existing sorted hash prefixes in the store.
+  //  - `new_prefixes`: Span of new sorted hash prefixes to add.
+  //  - `raw_removals`: Pointer to container of indices of prefixes to remove
+  //    (from the old list).
+  //  - `expected_checksum`: The expected SHA256 checksum of the merged
+  //    prefixes.
+  //  - `out_container`: The container where merged prefixes will be appended.
+  // Returns SBStoreUpdateResult indicating success or specific failure reason.
+  // TODO(crbug.com/372395685): Collapse + simplify this method into v5
+  // implementation.
+  template <typename RemovalsContainer>
+  static SBStoreUpdateResult MergeUpdateLoop(
+      PrefixSize prefix_size,
+      base::span<const uint8_t> old_prefixes,
+      base::span<const uint8_t> new_prefixes,
+      const RemovalsContainer* raw_removals,
+      const std::string& expected_checksum,
+      HashPrefixContainer* out_container);
+
+  // Returns the name of the temporary file used to buffer data for
+  // `filename`.
+  static const base::FilePath TemporaryFileForFilename(
+      const base::FilePath& filename);
+
   virtual std::string GetMetricPrefix() const = 0;
 
   // The size of the file on disk for this store.
@@ -209,10 +438,16 @@ class SBStore {
   // a full update.
   bool has_valid_data_;
 
+  // Records the time when the store was last updated.
+  base::Time last_apply_update_time_millis_;
+
   const base::FilePath store_path_;
   const scoped_refptr<base::SequencedTaskRunner> task_runner_;
 
  private:
+  friend class V4StoreTest;
+  friend class V5StoreTest;
+
   static void RecordBooleanWithAndWithoutSuffix(const std::string& metric,
                                                 bool value,
                                                 const std::string& suffix);
@@ -222,6 +457,26 @@ class SBStore {
   // A counter used to manage how frequently the value of `has_valid_data_`
   // below is recorded.
   uint8_t record_has_valid_data_counter_ = 0;
+};
+
+struct SBStoreDeleter {
+  explicit SBStoreDeleter(scoped_refptr<base::SequencedTaskRunner> task_runner);
+  ~SBStoreDeleter();
+
+  SBStoreDeleter(SBStoreDeleter&&);
+  SBStoreDeleter& operator=(SBStoreDeleter&&);
+
+  void operator()(const SBStore* ptr) {
+    if (ptr) {
+      if (task_runner_->RunsTasksInCurrentSequence()) {
+        delete ptr;
+      } else {
+        task_runner_->DeleteSoon(FROM_HERE, ptr);
+      }
+    }
+  }
+
+  scoped_refptr<base::SequencedTaskRunner> task_runner_;
 };
 
 }  // namespace safe_browsing

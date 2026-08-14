@@ -17,10 +17,8 @@
 #include "base/functional/bind.h"
 #include "base/i18n/rtl.h"
 #include "base/memory/raw_ptr.h"
-#include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
-#include "base/test/simple_test_clock.h"
 #include "base/test/simple_test_tick_clock.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -38,28 +36,17 @@
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/test/base/test_browser_window.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/views/chrome_views_test_base.h"
-#include "components/lookalikes/core/safety_tip_test_utils.h"
 #include "components/omnibox/browser/test_location_bar_model.h"
-#include "components/omnibox/common/omnibox_feature_configs.h"
-#include "components/omnibox/common/omnibox_features.h"
-#include "components/unified_consent/pref_names.h"
 #include "content/public/browser/browser_accessibility_state.h"
-#include "content/public/browser/focused_node_details.h"
 #include "content/public/browser/scoped_accessibility_mode.h"
-#include "content/public/test/browser_task_environment.h"
-#include "content/public/test/mock_navigation_handle.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/web_contents_tester.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/common/input/web_input_event.h"
-#include "third_party/blink/public/common/input/web_keyboard_event.h"
-#include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
@@ -69,7 +56,6 @@
 #include "ui/base/ime/text_edit_commands.h"
 #include "ui/events/event_utils.h"
 #include "ui/events/keycodes/dom/dom_code.h"
-#include "ui/gfx/animation/animation_container_element.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/render_text.h"
 #include "ui/gfx/render_text_test_api.h"
@@ -101,10 +87,6 @@ class TestingOmniboxView : public OmniboxViewViews {
                                 const Range& selection_range);
 
   void CheckUpdatePopupNotCalled();
-
-  void SetClipboardTextForTesting(const std::u16string& text) {
-    clipboard_text_for_menu_ = text;
-  }
 
   Range scheme_range() const { return scheme_range_; }
   Range emphasis_range() const { return emphasis_range_; }
@@ -324,7 +306,7 @@ class TestLocationBar : public LocationBar {
   }
 
   ui::TrackedElement* GetAnchorOrNull() override { return nullptr; }
-  Browser* GetBrowser() override { return nullptr; }
+  BrowserWindowInterface* GetBrowser() override { return nullptr; }
   Profile* GetProfile() override { return profile_; }
   bool IsInitialized() const override { return true; }
   bool IsVisible() const override { return true; }
@@ -332,6 +314,7 @@ class TestLocationBar : public LocationBar {
   bool IsFullscreen() const override { return false; }
   bool IsEditingOrEmpty() const override { return false; }
   bool IsMouseHovered() const override { return false; }
+  bool IsFocusWithin() const override { return false; }
   void InvalidateLayout() override {}
   gfx::Rect Bounds() const override { return gfx::Rect(); }
   gfx::Rect BoundsInScreen() const override { return gfx::Rect(); }
@@ -1164,8 +1147,16 @@ TEST_F(OmniboxViewViewsTest, SchemeStrikethrough) {
 }
 
 #if BUILDFLAG(SUPPORTS_AX_TEXT_OFFSETS)
+#if BUILDFLAG(IS_WIN) && defined(ARCH_CPU_ARM64)
+// TODO(crbug.com/533683545): Fix this test on Win ARM64.
+#define MAYBE_AccessibleTextOffsetsUpdatesAfterElideBehaviorChange \
+  DISABLED_AccessibleTextOffsetsUpdatesAfterElideBehaviorChange
+#else
+#define MAYBE_AccessibleTextOffsetsUpdatesAfterElideBehaviorChange \
+  AccessibleTextOffsetsUpdatesAfterElideBehaviorChange
+#endif
 TEST_F(OmniboxViewViewsTest,
-       AccessibleTextOffsetsUpdatesAfterElideBehaviorChange) {
+       MAYBE_AccessibleTextOffsetsUpdatesAfterElideBehaviorChange) {
   EnableDeferredLoadingAccessibility();
   CHECK(omnibox_view()->GetViewAccessibility().is_initialized());
 

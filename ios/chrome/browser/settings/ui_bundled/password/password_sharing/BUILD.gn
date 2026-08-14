@@ -147,8 +147,10 @@ source_set("password_sharing_util") {
     "multi_avatar_image_util.mm",
   ]
   deps = [
+    "//base",
     "//ios/chrome/browser/shared/ui/symbols",
     "//ios/chrome/browser/shared/ui/util",
+    "//ios/chrome/common/ui/colors",
   ]
 }
 
@@ -192,9 +194,11 @@ source_set("unit_tests") {
     "password_sharing_first_run_coordinator_unittest.mm",
     "sharing_status_coordinator_unittest.mm",
     "sharing_status_mediator_unittest.mm",
+    "sharing_status_view_controller_unittest.mm",
   ]
   deps = [
     ":password_sharing",
+    ":password_sharing_constants",
     ":password_sharing_metrics",
     ":password_sharing_ui",
     "//base/test:test_support",

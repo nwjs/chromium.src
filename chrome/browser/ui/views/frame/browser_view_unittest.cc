@@ -40,6 +40,7 @@
 #include "chrome/browser/ui/views/frame/test_with_browser_view.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
+#include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/toolbar/app_menu_control.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/window_metadata/window_metadata_controller.h"
@@ -385,7 +386,7 @@ TEST_F(BrowserViewTest, FindBarBoundingBoxNoLocationBar) {
 // Tests that a browser window is correctly associated to a WebContents that
 // belongs to that window's UI hierarchy.
 TEST_F(BrowserViewTest, FindBrowserWindowWithWebContents) {
-  auto web_view = std::make_unique<views::WebView>(browser()->profile());
+  auto web_view = std::make_unique<views::WebView>(browser()->GetProfile());
   ASSERT_NE(nullptr, web_view->GetWebContents());
 
   // If the web contents does not belong browser's UI hierarchy there should not
@@ -429,14 +430,11 @@ TEST_F(BrowserViewTest, FindBrowserWindowWithWebContentsTabSwitch) {
                                 new_active_contents));
 }
 
-// Tests that BrowserWindow::FromBrowser() resolves to the same BrowserWindow as
-// Browser::window(), and handles edge cases.
+// Tests that BrowserWindow::FromBrowser() resolves to the BrowserView-backed
+// BrowserWindow, and handles edge cases.
 TEST_F(BrowserViewTest, FromBrowser) {
-  // For a fully-constructed BrowserView-backed Browser the result must be
-  // identical to the legacy Browser::window() getter.
-  EXPECT_EQ(browser()->window(),  // nocheck
-            BrowserWindow::FromBrowser(browser()));
-  // The result must also match the BrowserView-specific lookup.
+  // For a fully-constructed BrowserView-backed Browser the result must match
+  // the BrowserView-specific lookup.
   EXPECT_EQ(browser_view(), BrowserWindow::FromBrowser(browser()));
 
   // Null input is tolerated and yields null output, mirroring the behavior

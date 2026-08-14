@@ -1494,7 +1494,11 @@ void WidgetBase::UpdateCompositionInfo(bool immediate_request) {
 
 void WidgetBase::ForceTextInputStateUpdate() {
 #if BUILDFLAG(IS_ANDROID)
+  base::WeakPtr<WidgetBase> weak_this = weak_ptr_factory_.GetWeakPtr();
   UpdateSelectionBounds();
+  if (!weak_this) {
+    return;
+  }
   UpdateTextInputStateInternal(false, true /* reply_to_request */);
 #endif
 }
@@ -1699,6 +1703,15 @@ void WidgetBase::ImeCommitText(const String& text,
   UpdateCompositionInfo(false /* not an immediate request */);
 }
 
+void WidgetBase::PasteIntoNode(const String& text,
+                               DOMNodeIdType target_dom_node_id) {
+  FrameWidget* frame_widget = client_->FrameWidget();
+  if (!frame_widget) {
+    return;
+  }
+  frame_widget->PasteIntoNode(text, target_dom_node_id);
+}
+
 void WidgetBase::ImeFinishComposingText(bool keep_selection) {
   if (!ShouldHandleImeEvents())
     return;
@@ -1788,10 +1801,14 @@ void WidgetBase::OnImeEventGuardFinish(ImeEventGuard* guard) {
   // ime event.
   UpdateSelectionBounds();
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-  if (guard->show_virtual_keyboard())
+  if (!guard->IsValid()) {
+    return;
+  }
+  if (guard->show_virtual_keyboard()) {
     ShowVirtualKeyboard();
-  else
+  } else {
     UpdateTextInputState();
+  }
 #endif
 }
 

@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/auto_reset.h"
 #include "base/base64.h"
 #include "base/notreached.h"
 #include "base/strings/to_string.h"
@@ -164,16 +165,9 @@ TEST_F(FormInteractionsUkmLoggerTest, AutofillSuggestionsShownTest) {
 
 // Test the field log events at the form submission.
 class FieldLogUkmMetricTest : public FormInteractionsUkmLoggerTest {
- protected:
-  FieldLogUkmMetricTest() {
-    scoped_features_.InitAndEnableFeatureWithParameters(
-        features::kAutofillLogUKMEventsWithSamplingOnSession,
-        {{features::kAutofillLogUKMEventsWithSamplingOnSessionRate.name,
-          "100"}});
-  }
-
  private:
-  base::test::ScopedFeatureList scoped_features_;
+  base::AutoReset<int> sampling_override_ =
+      autofill_metrics::SetUkmSamplingRateForTesting(100);
 };
 
 // Test if we record FieldInfo UKM event correctly after we click the field and
@@ -580,7 +574,7 @@ TEST_F(FieldLogUkmMetricTest, AutofillFieldInfoMetricsFieldType) {
        FormGlobalIdToHash64Bit(form.global_id())},
       {UFST::kFormSignatureName,
        Collapse(CalculateFormSignature(form)).value()},
-      {UFST::kAutofillFormEventsName, 0},
+      {UFST::kAutofillFormEventsName, 1LL << FORM_EVENT_DID_PARSE_FORM},
       {UFST::kAutofillFormEvents2Name, 0},
       {UFST::kSampleRateName, 1},
       {UFST::kWasSubmittedName, true},
@@ -1052,12 +1046,6 @@ class LogFocusedComplexFormAtFormRemoveTest
     : public AutofillMetricsBaseTest,
       public testing::TestWithParam<LogFocusedComplexFormAtFormRemoveTestCase> {
  public:
-  LogFocusedComplexFormAtFormRemoveTest() {
-    scoped_features_.InitAndEnableFeatureWithParameters(
-        features::kAutofillLogUKMEventsWithSamplingOnSession,
-        {{features::kAutofillLogUKMEventsWithSamplingOnSessionRate.name,
-          "100"}});
-  }
   ~LogFocusedComplexFormAtFormRemoveTest() override = default;
 
   void SetUp() override {
@@ -1073,7 +1061,8 @@ class LogFocusedComplexFormAtFormRemoveTest
   }
 
  private:
-  base::test::ScopedFeatureList scoped_features_;
+  base::AutoReset<int> sampling_override_ =
+      autofill_metrics::SetUkmSamplingRateForTesting(100);
   std::unique_ptr<icu::TimeZone> previousZone;
 };
 
@@ -1514,7 +1503,8 @@ TEST_P(LogFocusedComplexFormAtFormRemoveTest, TestEmittedUKM) {
 
   if (GetParam().step_0_focus) {
     task_environment_.FastForwardBy(base::Milliseconds(1000));
-    autofill_manager().OnFocusOnFormFieldImpl(form, first_field.global_id());
+    autofill_manager().OnFocusOnFormField(form, first_field.global_id(),
+                                          AutofillManagerTestApi::pass_key());
   }
   if (GetParam().step_1_click) {
     task_environment_.FastForwardBy(base::Milliseconds(1000));

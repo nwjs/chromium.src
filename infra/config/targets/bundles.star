@@ -1542,6 +1542,18 @@ targets.bundle(
 )
 
 targets.bundle(
+    name = "chromium_gtests_for_win_mac_ios_and_cros",
+    targets = [
+        "rlz_unittests",
+    ],
+    per_test_modifications = {
+        "rlz_unittests": targets.mixin(
+            experiment_percentage = 100,
+        ),
+    },
+)
+
+targets.bundle(
     name = "chromium_ios_scripts",
     targets = [
         "check_static_initializers",
@@ -1977,6 +1989,7 @@ targets.bundle(
         "chromium_gtests",
         "chromium_gtests_for_devices_with_graphical_output",
         "chromium_gtests_for_linux_and_mac_only",
+        "chromium_gtests_for_win_mac_ios_and_cros",
         "mac_specific_chromium_gtests",
         "non_android_and_cast_and_chromeos_chromium_gtests",
         "non_android_chromium_gtests_no_nacl",
@@ -2182,6 +2195,7 @@ targets.bundle(
         "chromium_gtests",
         "chromium_gtests_for_devices_with_graphical_output",
         "chromium_gtests_for_win_and_linux_only",
+        "chromium_gtests_for_win_mac_ios_and_cros",
         "fieldtrial_browser_tests",
         "non_android_and_cast_and_chromeos_chromium_gtests",
         "non_android_chromium_gtests_no_nacl",
@@ -2210,6 +2224,7 @@ targets.bundle(
         "chromium_gtests",
         "chromium_gtests_for_devices_with_graphical_output",
         "chromium_gtests_for_win_and_linux_only",
+        "chromium_gtests_for_win_mac_ios_and_cros",
         "non_android_and_cast_and_chromeos_chromium_gtests",
         "non_android_chromium_gtests_no_nacl",
         "vr_platform_specific_chromium_gtests",
@@ -2782,8 +2797,7 @@ targets.bundle(
         "display_unittests",
         "events_unittests",
         "filesystem_service_unittests",
-        # TODO(crbug.com/40821369): Enable this suite.
-        # "flatbuffers_unittests",
+        "flatbuffers_unittests",
         "gcm_unit_tests",
         "gfx_unittests",
         "gin_unittests",
@@ -2845,6 +2859,14 @@ targets.bundle(
             swarming = targets.swarming(
                 shards = 14,
             ),
+        ),
+        "flatbuffers_unittests": targets.per_test_modification(
+            mixins = targets.mixin(
+                args = [
+                    "--platform=fuchsia",
+                ],
+            ),
+            remove_mixins = ["upload_inv_extended_properties"],
         ),
         "net_unittests": targets.mixin(
             args = [
@@ -3163,10 +3185,7 @@ targets.bundle(
     name = "gpu_angle_mac_telemetry_tests",
     targets = [
         "gpu_info_collection_telemetry_tests",
-        "gpu_webgl2_conformance_gl_passthrough_ganesh_telemetry_tests",
         "gpu_webgl2_conformance_metal_passthrough_graphite_telemetry_tests",
-        "gpu_webgl_conformance_gl_passthrough_ganesh_telemetry_tests",
-        "gpu_webgl_conformance_metal_passthrough_ganesh_telemetry_tests",
         "gpu_webgl_conformance_metal_passthrough_graphite_telemetry_tests",
         "gpu_webgl_conformance_swangle_passthrough_representative_telemetry_tests",
     ],
@@ -3233,15 +3252,6 @@ targets.bundle(
         "gpu_common_and_optional_telemetry_tests",
         "gpu_validating_telemetry_tests",
         "gpu_webgl_conformance_validating_telemetry_tests",
-    ],
-)
-
-targets.bundle(
-    name = "gpu_common_gl_passthrough_ganesh_telemetry_tests",
-    targets = [
-        "gpu_common_and_optional_telemetry_tests",
-        "gpu_gl_passthrough_ganesh_telemetry_tests",
-        "gpu_webgl_conformance_gl_passthrough_ganesh_telemetry_tests",
     ],
 )
 
@@ -4065,16 +4075,6 @@ targets.bundle(
     ],
 )
 
-targets.bundle(
-    name = "gpu_fyi_android_shieldtv_gtests",
-    targets = [
-        "gpu_angle_unit_gtests",
-        "gpu_common_gtests_passthrough",
-        "gpu_common_gtests_validating",
-        "gpu_fyi_and_optional_non_linux_gtests",
-    ],
-)
-
 # TODO(crbug.com/40130073): Merge with an existing set of tests such as
 # gpu_fyi_linux_release_gtests once all CrOS tests have been enabled.
 targets.bundle(
@@ -4167,29 +4167,6 @@ targets.bundle(
 )
 
 targets.bundle(
-    name = "gpu_fyi_mac_nvidia_release_telemetry_tests",
-    targets = [
-        "gpu_common_and_optional_telemetry_tests",
-        "gpu_gl_passthrough_ganesh_telemetry_tests",
-        "gpu_webrtc_gl_passthrough_ganesh_telemetry_test",
-        "gpu_webcodecs_gl_passthrough_ganesh_telemetry_test",
-        "gpu_webgl2_conformance_gl_passthrough_ganesh_telemetry_tests",
-        "gpu_webgl_conformance_gl_passthrough_ganesh_telemetry_tests",
-        "gpu_webgl_conformance_swangle_passthrough_representative_telemetry_tests",
-    ],
-)
-
-targets.bundle(
-    name = "gpu_fyi_mac_pro_release_telemetry_tests",
-    targets = [
-        "gpu_common_and_optional_telemetry_tests",
-        "gpu_metal_passthrough_graphite_telemetry_tests",
-        "gpu_webgl2_conformance_metal_passthrough_graphite_telemetry_tests",
-        "gpu_webgl_conformance_metal_passthrough_graphite_telemetry_tests",
-    ],
-)
-
-targets.bundle(
     name = "gpu_fyi_mac_release_gtests",
     targets = [
         "gpu_angle_unit_gtests",
@@ -4202,18 +4179,9 @@ targets.bundle(
 targets.bundle(
     name = "gpu_fyi_mac_release_telemetry_tests",
     targets = [
-        "gpu_gl_passthrough_ganesh_telemetry_tests",
-        "gpu_metal_passthrough_ganesh_telemetry_tests",
-        "gpu_webrtc_gl_passthrough_ganesh_telemetry_test",
-        "gpu_webcodecs_gl_passthrough_ganesh_telemetry_test",
-        "gpu_webrtc_metal_passthrough_ganesh_telemetry_test",
-        "gpu_webcodecs_metal_passthrough_ganesh_telemetry_test",
         "gpu_webrtc_metal_passthrough_graphite_telemetry_test",
         "gpu_webcodecs_metal_passthrough_graphite_telemetry_test",
-        "gpu_webgl2_conformance_gl_passthrough_ganesh_telemetry_tests",
         "gpu_webgl2_conformance_metal_passthrough_graphite_telemetry_tests",
-        "gpu_webgl_conformance_gl_passthrough_ganesh_telemetry_tests",
-        "gpu_webgl_conformance_metal_passthrough_ganesh_telemetry_tests",
         "gpu_webgl_conformance_swangle_passthrough_representative_telemetry_tests",
     ],
 )
@@ -4233,19 +4201,6 @@ targets.bundle(
             ],
         ),
     },
-)
-
-targets.bundle(
-    name = "gpu_fyi_only_mac_release_graphite_telemetry_tests",
-    targets = [
-        "gpu_common_and_optional_telemetry_tests",
-        "gpu_metal_passthrough_graphite_telemetry_tests",
-        "gpu_webcodecs_metal_passthrough_graphite_telemetry_test",
-        "gpu_webrtc_metal_passthrough_graphite_telemetry_test",
-        "gpu_webgl2_conformance_metal_passthrough_graphite_telemetry_tests",
-        "gpu_webgl_conformance_metal_passthrough_graphite_telemetry_tests",
-        "gpu_webgl_conformance_swangle_passthrough_representative_telemetry_tests",
-    ],
 )
 
 targets.bundle(
@@ -4345,18 +4300,6 @@ targets.bundle(
             "gpu_integration_test_common_args",
         ],
     },
-)
-
-targets.bundle(
-    name = "gpu_nexus5x_telemetry_tests",
-    targets = [
-        "gpu_common_and_optional_telemetry_tests",
-        "gpu_validating_telemetry_tests",
-        "gpu_webrtc_validating_ganesh_telemetry_test",
-        "gpu_webcodecs_validating_ganesh_telemetry_test",
-        "gpu_webgl_conformance_gles_passthrough_ganesh_telemetry_tests",
-        "gpu_webgl_conformance_validating_ganesh_telemetry_tests",
-    ],
 )
 
 # Copy of gpu_passthrough_telemetry_tests that forces running with Skia/Ganesh.
@@ -4805,7 +4748,7 @@ targets.bundle(
         targets.bundle(
             targets = "ios_common_tests",
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_27_0",
+                "SIM_IPAD_A16_27_0",
                 "SIM_IPHONE_16_27_0",
             ],
         ),
@@ -4815,7 +4758,7 @@ targets.bundle(
                 "xcodebuild_sim_runner",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_27_0",
+                "SIM_IPAD_A16_27_0",
                 "SIM_IPHONE_16_27_0",
             ],
         ),
@@ -4826,7 +4769,7 @@ targets.bundle(
                 "record_failed_tests",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_27_0",
+                "SIM_IPAD_A16_27_0",
                 "SIM_IPHONE_16_27_0",
             ],
         ),
@@ -4837,14 +4780,14 @@ targets.bundle(
                 "record_failed_tests",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_27_0",
+                "SIM_IPAD_A16_27_0",
                 "SIM_IPHONE_16_27_0",
             ],
         ),
         targets.bundle(
             targets = "ios_screen_size_dependent_tests",
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_27_0",
+                "SIM_IPAD_A16_27_0",
                 "SIM_IPHONE_16_27_0",
                 "SIM_IPHONE_SE_3RD_GEN_27_0",
             ],
@@ -4861,7 +4804,7 @@ targets.bundle(
                 "use-ios-simulator-cache",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_27_0",
+                "SIM_IPAD_A16_27_0",
                 "SIM_IPHONE_16_27_0",
             ],
         ),
@@ -4872,7 +4815,7 @@ targets.bundle(
                 "use-ios-simulator-cache",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_27_0",
+                "SIM_IPAD_A16_27_0",
                 "SIM_IPHONE_16_27_0",
             ],
         ),
@@ -4883,7 +4826,7 @@ targets.bundle(
                 "use-ios-simulator-cache",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_27_0",
+                "SIM_IPAD_A16_27_0",
                 "SIM_IPHONE_16_27_0",
             ],
         ),
@@ -4893,7 +4836,7 @@ targets.bundle(
                 "use-ios-simulator-cache",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_27_0",
+                "SIM_IPAD_A16_27_0",
                 "SIM_IPHONE_16_27_0",
                 "SIM_IPHONE_SE_3RD_GEN_27_0",
             ],
@@ -5207,6 +5150,7 @@ targets.bundle(
         "ios_net_unittests",
         "ios_testing_unittests",
         "net_unittests",
+        "rlz_unittests",
         # TODO(https://bugs.chromium.org/p/gn/issues/detail?id=340): Enable this.
         # "rust_gtest_interop_unittests",
         "services_unittests",
@@ -5218,6 +5162,9 @@ targets.bundle(
             swarming = targets.swarming(
                 shards = 3,
             ),
+        ),
+        "rlz_unittests": targets.mixin(
+            experiment_percentage = 100,
         ),
     },
 )
@@ -5569,7 +5516,7 @@ targets.bundle(
     per_test_modifications = {
         "js_code_coverage_browser_tests": targets.mixin(
             swarming = targets.swarming(
-                shards = 16,
+                shards = 30,
             ),
         ),
     },
@@ -5788,48 +5735,6 @@ targets.bundle(
             ],
         ),
         targets.bundle(
-            targets = "gpu_gl_passthrough_ganesh_telemetry_tests",
-            variants = [
-                "MAC_MINI_INTEL_GPU_STABLE",
-                "MAC_RETINA_AMD_GPU_STABLE",
-            ],
-        ),
-        targets.bundle(
-            targets = "gpu_metal_passthrough_ganesh_telemetry_tests",
-            variants = [
-                "MAC_MINI_INTEL_GPU_STABLE",
-                "MAC_RETINA_AMD_GPU_STABLE",
-            ],
-        ),
-        targets.bundle(
-            targets = "gpu_webcodecs_gl_passthrough_ganesh_telemetry_test",
-            variants = [
-                "MAC_MINI_INTEL_GPU_STABLE",
-                "MAC_RETINA_AMD_GPU_STABLE",
-            ],
-        ),
-        targets.bundle(
-            targets = "gpu_webrtc_gl_passthrough_ganesh_telemetry_test",
-            variants = [
-                "MAC_MINI_INTEL_GPU_STABLE",
-                "MAC_RETINA_AMD_GPU_STABLE",
-            ],
-        ),
-        targets.bundle(
-            targets = "gpu_webcodecs_metal_passthrough_ganesh_telemetry_test",
-            variants = [
-                "MAC_MINI_INTEL_GPU_STABLE",
-                "MAC_RETINA_AMD_GPU_STABLE",
-            ],
-        ),
-        targets.bundle(
-            targets = "gpu_webrtc_metal_passthrough_ganesh_telemetry_test",
-            variants = [
-                "MAC_MINI_INTEL_GPU_STABLE",
-                "MAC_RETINA_AMD_GPU_STABLE",
-            ],
-        ),
-        targets.bundle(
             targets = "gpu_webcodecs_metal_passthrough_graphite_telemetry_test",
             variants = [
                 "MAC_MINI_INTEL_GPU_STABLE",
@@ -5845,20 +5750,6 @@ targets.bundle(
         ),
         targets.bundle(
             targets = "gpu_webgl2_conformance_metal_passthrough_graphite_telemetry_tests",
-            variants = [
-                "MAC_MINI_INTEL_GPU_STABLE",
-                "MAC_RETINA_AMD_GPU_STABLE",
-            ],
-        ),
-        targets.bundle(
-            targets = "gpu_webgl_conformance_gl_passthrough_ganesh_telemetry_tests",
-            variants = [
-                "MAC_MINI_INTEL_GPU_STABLE",
-                "MAC_RETINA_AMD_GPU_STABLE",
-            ],
-        ),
-        targets.bundle(
-            targets = "gpu_webgl_conformance_metal_passthrough_ganesh_telemetry_tests",
             variants = [
                 "MAC_MINI_INTEL_GPU_STABLE",
                 "MAC_RETINA_AMD_GPU_STABLE",
@@ -5915,12 +5806,12 @@ targets.bundle(
     name = "mac_vm_tests",
     targets = [
         "base_unittests",
-        "interactive_ui_tests",
+        "browser_tests",
     ],
     per_test_modifications = {
-        "interactive_ui_tests": targets.mixin(
+        "browser_tests": targets.mixin(
             swarming = targets.swarming(
-                shards = 7,
+                shards = 25,
             ),
         ),
     },
@@ -6180,7 +6071,6 @@ targets.bundle(
         "base_unittests",
         "rust_gtest_interop_unittests",
         "test_cpp_including_rust_unittests",
-        "test_serde_json_lenient",
     ],
 )
 

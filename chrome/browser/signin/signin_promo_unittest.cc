@@ -102,6 +102,8 @@ class SigninPromoUrlTest : public testing::Test {
     device::BluetoothAdapterFactory::SetAdapterForTesting(mock_adapter_);
   }
 
+  void TearDown() override { task_environment_.RunUntilIdle(); }
+
  protected:
   base::test::SingleThreadTaskEnvironment task_environment_;
   scoped_refptr<testing::NiceMock<device::MockBluetoothAdapter>> mock_adapter_;
@@ -109,8 +111,11 @@ class SigninPromoUrlTest : public testing::Test {
 
 TEST_F(SigninPromoUrlTest, SigninURLForDice) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(
-      syncer::kReplaceSyncPromosWithSignInPromos);
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{},
+      /*disabled_features=*/{
+          syncer::kReplaceSyncPromosWithSignInPromos,
+          syncer::kReplaceSyncPromosWithSigninPromosNewSignin});
 
   EXPECT_EQ(
       "https://accounts.google.com/signin/chrome/sync?ssp=1&"
@@ -163,61 +168,128 @@ TEST_F(SigninPromoUrlTest, SigninURLForDiceWithHistorySyncOptin) {
 
 TEST_F(SigninPromoUrlTest, SigninURLForDiceMagiChromeExperiments) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      switches::kMagiChromeSignInExperimentsBatch1,
-      {{"magichrome_fre_exp_branch", "test_branch"}});
+  feature_list.InitWithFeaturesAndParameters(
+      /*enabled_features=*/{{switches::kMagiChromeSignInExperimentsBatch1,
+                             {{"magichrome_fre_exp_branch", "test_branch"}}},
+                            {syncer::kReplaceSyncPromosWithSignInPromos, {}}},
+      /*disabled_features=*/{});
 
   EXPECT_EQ(
       "https://accounts.google.com/signin/chrome/sync?ssp=1&"
-      "theme=mn&magichrome_fre_exp_branch=test_branch",
+      "flow=history_opt_in&theme=mn&magichrome_fre_exp_branch=test_branch",
       GetChromeSyncURLForDice({}));
 }
 
-TEST(SigninPromoTest, IsHybridTransportSupportedForQrCodeSignin) {
+TEST(SigninPromoTest,
+     IsHybridTransportSupportedForQrCodeSignin_LeNotSupported) {
   base::test::SingleThreadTaskEnvironment task_environment;
+  auto bluetooth_override_values =
+      device::BluetoothAdapterFactory::Get()->InitGlobalOverrideValues();
+  bluetooth_override_values->SetLESupported(false);
 
-  // Case 1: LE is not supported.
-  {
-    auto bluetooth_override_values =
-        device::BluetoothAdapterFactory::Get()->InitGlobalOverrideValues();
-    bluetooth_override_values->SetLESupported(false);
+  base::test::TestFuture<bool> future;
+  IsHybridTransportSupportedForQrCodeSignin(future.GetCallback());
+  EXPECT_FALSE(future.Get());
+  task_environment.RunUntilIdle();
+}
 
-    base::test::TestFuture<bool> future;
-    IsHybridTransportSupportedForQrCodeSignin(future.GetCallback());
-    EXPECT_FALSE(future.Get());
-  }
+TEST(SigninPromoTest,
+     IsHybridTransportSupportedForQrCodeSignin_AdapterNotPresent) {
+  base::test::SingleThreadTaskEnvironment task_environment;
+  auto bluetooth_override_values =
+      device::BluetoothAdapterFactory::Get()->InitGlobalOverrideValues();
+  bluetooth_override_values->SetLESupported(true);
+  auto mock_adapter =
+      base::MakeRefCounted<testing::NiceMock<device::MockBluetoothAdapter>>();
+  ON_CALL(*mock_adapter, IsPresent()).WillByDefault(testing::Return(false));
+  device::BluetoothAdapterFactory::SetAdapterForTesting(mock_adapter);
 
-  // Case 2: LE is supported, Bluetooth adapter is present.
-  {
-    auto mock_adapter =
-        base::MakeRefCounted<testing::NiceMock<device::MockBluetoothAdapter>>();
-    ON_CALL(*mock_adapter, IsPresent()).WillByDefault(testing::Return(true));
-    device::BluetoothAdapterFactory::SetAdapterForTesting(mock_adapter);
+  base::test::TestFuture<bool> future;
+  IsHybridTransportSupportedForQrCodeSignin(future.GetCallback());
+  EXPECT_FALSE(future.Get());
+  task_environment.RunUntilIdle();
+}
 
-    auto bluetooth_override_values =
-        device::BluetoothAdapterFactory::Get()->InitGlobalOverrideValues();
-    bluetooth_override_values->SetLESupported(true);
+TEST(SigninPromoTest,
+     IsHybridTransportSupportedForQrCodeSignin_AdapterPresentAndPoweredOn) {
+  base::test::SingleThreadTaskEnvironment task_environment;
+  auto bluetooth_override_values =
+      device::BluetoothAdapterFactory::Get()->InitGlobalOverrideValues();
+  bluetooth_override_values->SetLESupported(true);
+  auto mock_adapter =
+      base::MakeRefCounted<testing::NiceMock<device::MockBluetoothAdapter>>();
+  ON_CALL(*mock_adapter, IsPresent()).WillByDefault(testing::Return(true));
+  ON_CALL(*mock_adapter, GetOsPermissionStatus())
+      .WillByDefault(testing::Return(
+          device::BluetoothAdapter::PermissionStatus::kAllowed));
+  ON_CALL(*mock_adapter, IsPowered()).WillByDefault(testing::Return(true));
+  device::BluetoothAdapterFactory::SetAdapterForTesting(mock_adapter);
 
-    base::test::TestFuture<bool> future;
-    IsHybridTransportSupportedForQrCodeSignin(future.GetCallback());
-    EXPECT_TRUE(future.Get());
-  }
+  base::test::TestFuture<bool> future;
+  IsHybridTransportSupportedForQrCodeSignin(future.GetCallback());
+  EXPECT_TRUE(future.Get());
+  task_environment.RunUntilIdle();
+}
 
-  // Case 3: LE is supported, Bluetooth adapter is NOT present.
-  {
-    auto mock_adapter =
-        base::MakeRefCounted<testing::NiceMock<device::MockBluetoothAdapter>>();
-    ON_CALL(*mock_adapter, IsPresent()).WillByDefault(testing::Return(false));
-    device::BluetoothAdapterFactory::SetAdapterForTesting(mock_adapter);
+TEST(SigninPromoTest,
+     IsHybridTransportSupportedForQrCodeSignin_AdapterPoweredOff) {
+  base::test::SingleThreadTaskEnvironment task_environment;
+  auto bluetooth_override_values =
+      device::BluetoothAdapterFactory::Get()->InitGlobalOverrideValues();
+  bluetooth_override_values->SetLESupported(true);
+  auto mock_adapter =
+      base::MakeRefCounted<testing::NiceMock<device::MockBluetoothAdapter>>();
+  ON_CALL(*mock_adapter, IsPresent()).WillByDefault(testing::Return(true));
+  ON_CALL(*mock_adapter, GetOsPermissionStatus())
+      .WillByDefault(testing::Return(
+          device::BluetoothAdapter::PermissionStatus::kAllowed));
+  ON_CALL(*mock_adapter, IsPowered()).WillByDefault(testing::Return(false));
+  device::BluetoothAdapterFactory::SetAdapterForTesting(mock_adapter);
 
-    auto bluetooth_override_values =
-        device::BluetoothAdapterFactory::Get()->InitGlobalOverrideValues();
-    bluetooth_override_values->SetLESupported(true);
+  base::test::TestFuture<bool> future;
+  IsHybridTransportSupportedForQrCodeSignin(future.GetCallback());
+  EXPECT_FALSE(future.Get());
+  task_environment.RunUntilIdle();
+}
 
-    base::test::TestFuture<bool> future;
-    IsHybridTransportSupportedForQrCodeSignin(future.GetCallback());
-    EXPECT_FALSE(future.Get());
-  }
+TEST(SigninPromoTest,
+     IsHybridTransportSupportedForQrCodeSignin_PermissionDenied) {
+  base::test::SingleThreadTaskEnvironment task_environment;
+  auto bluetooth_override_values =
+      device::BluetoothAdapterFactory::Get()->InitGlobalOverrideValues();
+  bluetooth_override_values->SetLESupported(true);
+  auto mock_adapter =
+      base::MakeRefCounted<testing::NiceMock<device::MockBluetoothAdapter>>();
+  ON_CALL(*mock_adapter, IsPresent()).WillByDefault(testing::Return(true));
+  ON_CALL(*mock_adapter, GetOsPermissionStatus())
+      .WillByDefault(
+          testing::Return(device::BluetoothAdapter::PermissionStatus::kDenied));
+  device::BluetoothAdapterFactory::SetAdapterForTesting(mock_adapter);
+
+  base::test::TestFuture<bool> future;
+  IsHybridTransportSupportedForQrCodeSignin(future.GetCallback());
+  EXPECT_FALSE(future.Get());
+  task_environment.RunUntilIdle();
+}
+
+TEST(SigninPromoTest,
+     IsHybridTransportSupportedForQrCodeSignin_PermissionUndetermined) {
+  base::test::SingleThreadTaskEnvironment task_environment;
+  auto bluetooth_override_values =
+      device::BluetoothAdapterFactory::Get()->InitGlobalOverrideValues();
+  bluetooth_override_values->SetLESupported(true);
+  auto mock_adapter =
+      base::MakeRefCounted<testing::NiceMock<device::MockBluetoothAdapter>>();
+  ON_CALL(*mock_adapter, IsPresent()).WillByDefault(testing::Return(true));
+  ON_CALL(*mock_adapter, GetOsPermissionStatus())
+      .WillByDefault(testing::Return(
+          device::BluetoothAdapter::PermissionStatus::kUndetermined));
+  device::BluetoothAdapterFactory::SetAdapterForTesting(mock_adapter);
+
+  base::test::TestFuture<bool> future;
+  IsHybridTransportSupportedForQrCodeSignin(future.GetCallback());
+  EXPECT_FALSE(future.Get());
+  task_environment.RunUntilIdle();
 }
 
 TEST(SigninPromoTest, IsSignInPromo_AutofillTypes) {

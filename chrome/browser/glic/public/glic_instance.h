@@ -30,6 +30,7 @@ class TabInterface;
 namespace glic {
 
 class GlicActorTaskManager;
+class GlicExperimentalTriggeringManager;
 class Host;
 class GlicSharingManager;
 
@@ -70,10 +71,6 @@ class GlicInstance {
   virtual base::CallbackListSubscription RegisterWillBeDestroyed(
       DestructionCallback callback) = 0;
 
-  // Get this instance's Host which manages the chrome://glic WebContents.
-  // DEPRECATED - Use specific GlicInstance methods instead.
-  virtual Host& host() = 0;
-
   // Sends additional context to the instance.
   // DEPRECATED: Use the invoke API instead.
   virtual void SendAdditionalContext(mojom::AdditionalContextPtr context) = 0;
@@ -85,12 +82,6 @@ class GlicInstance {
   // Notifies the instance that a row in the actor task list bubble was clicked.
   // TODO(b/512866173): Look into migrating this usage to the invoke API.
   virtual void NotifyActorTaskListRowClicked(int32_t task_id) = 0;
-
-  // Register a handler to observe experimental triggering related updates.
-  // The callback informs if the registration operations was successful or not.
-  virtual void GetExperimentalTriggeringUpdates(
-      mojo::PendingRemote<mojom::ExperimentalTriggeringUpdatesHandler> handler,
-      base::OnceCallback<void(bool)> success_status_callback) = 0;
 
   // Gets the window size of the active embedder.
   virtual gfx::Size GetPanelSize() = 0;
@@ -120,7 +111,13 @@ class GlicInstance {
   // has been submitted yet.
   virtual base::TimeDelta GetTimeSinceLastPromptSubmission() const = 0;
 
+  // Returns the initial invocation source for this instance if one was set.
+  virtual std::optional<mojom::InvocationSource> GetInitialInvocationSource()
+      const = 0;
+
   virtual GlicActorTaskManager* GetActorTaskManager() = 0;
+  virtual GlicExperimentalTriggeringManager*
+  GetExperimentalTriggeringManager() = 0;
 
   // Returns true if the instance is currently performing an actuation task.
   virtual bool IsActuating() const = 0;
@@ -128,8 +125,18 @@ class GlicInstance {
   // Cancels ongoing actuation task if one exists.
   virtual void CancelTask() = 0;
 
+  // Returns true if the instance is currently being invoked upon.
+  virtual bool IsInvoking() const = 0;
+
+  // Cancels any ongoing invocation if one exists.
+  virtual void CancelInvoke() = 0;
+
   // Exposes basic pinning controls to external Chrome consumers.
   virtual GlicSharingManager* GetSharingManager() = 0;
+
+  // Returns true if the instance is currently hibernated (its WebUI is not
+  // loaded).
+  virtual bool IsHibernated() const = 0;
 
   // Triggers sending skill previews to the web client.
   virtual void UpdateSkillPreviews(

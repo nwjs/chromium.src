@@ -146,6 +146,23 @@ chromium-metrics-reviews@google.com.
   <int value="1208" label="ScriptToolNavigationCommittedErrorPage"/>
   <int value="1209" label="ScriptToolNavigationFailedLoad"/>
   <int value="1300" label="ActorUiError"/>
+  <int value="1400" label="OtpRetrievalTimeout"/>
+  <int value="1401" label="OtpRetrievalError"/>
+  <int value="1402" label="OtpFillFailure"/>
+  <int value="1403" label="OtpRetrievalMismatch"/>
+  <int value="1404" label="OtpGmailConsentRequired"/>
+  <int value="1405" label="OtpGoogleConsentRequired"/>
+  <int value="1406" label="OtpDmaConsentRequired"/>
+  <int value="1407" label="OtpNoCodeFound"/>
+  <int value="1408" label="OtpExpired"/>
+  <int value="1409" label="OtpServiceUnavailable"/>
+  <int value="1410" label="OtpSigninContextMismatch"/>
+  <int value="1411" label="OtpInsecureContext"/>
+  <int value="1412" label="OtpUnableToFill"/>
+  <int value="1413" label="OtpUserDeclinedOptingIntoFilling"/>
+  <int value="1414" label="OtpTargetFrameNotFound"/>
+  <int value="1415" label="OtpNoLastTabObservation"/>
+  <int value="1416" label="OtpFieldNotFound"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/actor/public/mojom/actor_types.mojom:ActionResultCode) -->
@@ -313,6 +330,22 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//chrome/browser/glic/actor/glic_actor_policy_checker.h:CannotActReason) -->
 
+<!-- LINT.IfChange(ActorTaskState) -->
+
+<enum name="ActorTaskState">
+  <int value="0" label="Created"/>
+  <int value="1" label="Acting"/>
+  <int value="2" label="Reflecting"/>
+  <int value="3" label="PausedByActor"/>
+  <int value="4" label="PausedByUser"/>
+  <int value="5" label="Cancelled"/>
+  <int value="6" label="Finished"/>
+  <int value="7" label="WaitingOnUser"/>
+  <int value="8" label="Failed"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/actor/actor_task.h:State, histograms.xml:ActorTaskState) -->
+
 <!-- LINT.IfChange(ActorUiTabControllerError) -->
 
 <enum name="ActorUiTabControllerError">
@@ -439,6 +472,7 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Started new chat"/>
   <int value="7" label="Loaded previous chat"/>
   <int value="8" label="User navigated away"/>
+  <int value="9" label="Timeout"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/actor/actor_task.h:StoppedReason) -->

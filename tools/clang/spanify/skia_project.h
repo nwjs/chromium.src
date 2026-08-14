@@ -48,13 +48,25 @@ class SkiaProject : public Project {
     return "AS_WRITABLE_BYTE_SPAN_NOT_AVAILABLE";
   }
   std::string_view GetSafeConversionsIncludePath() const override {
-    return "NOT_AVAILABLE base/numerics/safe_conversions.h";
+    return "include/private/SkTo.h";
+  }
+  CheckedCastReplacement GetCheckedCastReplacement(
+      clang::SourceRange range) const override {
+    return CheckedCastReplacement{
+        .opener = {.range = range.getBegin(), .text = "SkTo<size_t>("},
+        .closer = {.range = range.getEnd(), .text = ")"}};
   }
   std::string_view GetRawSpanIncludePath() const override {
     return "PATH_TO_RAW_SPAN_H_NOT_AVAILABLE";
   }
   std::string_view GetAutoSpanificationHelperIncludePath() const override {
-    return "NOT_AVAILABLE base/containers/auto_spanification_helper.h";
+    return "include/core/SkSpan.h";
+  }
+  std::string_view GetPreIncrementSpanName() const override {
+    return "SkPreIncrementSpan";
+  }
+  std::string_view GetPostIncrementSpanName() const override {
+    return "SkPostIncrementSpan";
   }
   const std::vector<FuncMapping>& GetFuncMappingTable() const override {
     static const std::vector<FuncMapping> kFuncMappingTable = {};

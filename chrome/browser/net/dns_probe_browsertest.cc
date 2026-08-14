@@ -208,7 +208,7 @@ DnsProbeBrowserTest::~DnsProbeBrowserTest() {
 void DnsProbeBrowserTest::SetUpOnMainThread() {
   NetErrorTabHelper::set_state_for_testing(NetErrorTabHelper::TESTING_DEFAULT);
 
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       embedder_support::kAlternateErrorPagesEnabled, true);
 
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -243,7 +243,7 @@ bool DnsProbeBrowserTest::InterceptURLLoaderRequest(
 void DnsProbeBrowserTest::SetActiveBrowser(Browser* browser) {
   delaying_dns_probe_service_ = static_cast<DelayingDnsProbeService*>(
       DnsProbeServiceFactory::GetInstance()->SetTestingFactoryAndUse(
-          browser->profile(),
+          browser->GetProfile(),
           base::BindRepeating(
               &DelayingDnsProbeService::Create,
               base::BindRepeating(&DnsProbeBrowserTest::GetNetworkContext,
@@ -436,7 +436,7 @@ class DnsProbeCurrentSecureConfigFailingProbesTest
 #if BUILDFLAG(IS_CHROMEOS)
     // On Chrome OS, the local_state is shared between all users so the user-set
     // pref is stored in the profile's pref service.
-    pref_service = browser()->profile()->GetPrefs();
+    pref_service = browser()->GetProfile()->GetPrefs();
 #endif  // BUILDFLAG(IS_CHROMEOS)
     pref_service->SetString(prefs::kDnsOverHttpsMode,
                             SecureDnsConfig::kModeSecure);
@@ -572,7 +572,7 @@ IN_PROC_BROWSER_TEST_F(DnsProbeSuccessfulProbesTest, NoProbeInSubframe) {
 // Make sure browser sends NOT_RUN properly when probes are disabled.
 IN_PROC_BROWSER_TEST_F(DnsProbeUnreachableProbesTest, ProbesDisabled) {
   // Disable probes (And corrections).
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       embedder_support::kAlternateErrorPagesEnabled, false);
 
   NavigateToDnsError();

@@ -14,29 +14,39 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 
+import androidx.annotation.IntDef;
+import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.chromium.base.MathUtils;
 import org.chromium.base.Token;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabSelectionType;
+import org.chromium.chrome.browser.tabmodel.TabGroupMergeNotificationType;
 import org.chromium.chrome.browser.tabmodel.TabGroupUtils;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tasks.tab_management.TabGridItemLongPressOrchestrator;
 import org.chromium.chrome.browser.tasks.tab_management.TabListItemTouchHelperCallback;
 import org.chromium.chrome.browser.tasks.tab_management.TabListModel;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties;
+import org.chromium.chrome.browser.undo_tab_close_snackbar.UndoBarThrottle;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter.ViewHolder;
 import org.chromium.ui.recyclerview.widget.ItemTouchHelper2;
+import org.chromium.ui.util.TokenHolder;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -46,20 +56,89 @@ import java.util.function.Supplier;
  */
 @NullMarked
 public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelperCallback {
+    // LINT.IfChange(AndroidVerticalTabsDragDropResult)
+    @IntDef({
+        DragDropResult.REORDERED,
+        DragDropResult.GROUPED,
+        DragDropResult.UNGROUPED,
+        DragDropResult.ABORTED_NO_CHANGE,
+        DragDropResult.DRAGGED_OUT
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface DragDropResult {
+        int REORDERED = 0;
+        int GROUPED = 1;
+        int UNGROUPED = 2;
+        int ABORTED_NO_CHANGE = 3;
+        int DRAGGED_OUT = 4;
+        int COUNT = 5;
+    }
+
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:AndroidVerticalTabsDragDropResult)
+
     private static final long CONTEXT_MENU_ORCHESTRATOR_DELAY_MS = 10L;
     private final int mMouseDragThresholdSquared;
     private final Set<Integer> mDraggedChildTabIds = new HashSet<>();
     private final List<Integer> mSelectedGroupTabIds = new ArrayList<>();
+    private final List<RecyclerView.ViewHolder> mDraggedChildViewHolders = new ArrayList<>();
+    private final @Nullable UndoBarThrottle mUndoBarThrottle;
+    private @DragDropResult int mDragResult = DragDropResult.ABORTED_NO_CHANGE;
     private RecyclerView.@Nullable ViewHolder mSelectedViewHolder;
+    private @Nullable OnDragOutListener mOnDragOutListener;
+    private int mUndoBarThrottleToken = TokenHolder.INVALID_TOKEN;
+    private float mDragStartX;
+
+    public void setDragStartX(float x) {
+        mDragStartX = x;
+    }
+
+    public static RecyclerView.OnItemTouchListener createBeforeOnItemTouchListener(
+            VerticalTabListItemTouchHelperCallback callback) {
+        return new RecyclerView.OnItemTouchListener() {
+            @Override
+            public boolean onInterceptTouchEvent(RecyclerView recyclerView, MotionEvent event) {
+                callback.setIsMouseInputSource(
+                        event.getSource() == android.view.InputDevice.SOURCE_MOUSE);
+                int action = event.getActionMasked();
+                if (action == MotionEvent.ACTION_DOWN) {
+                    callback.setDragStartX(event.getX());
+                } else if (action == MotionEvent.ACTION_UP) {
+                    callback.stopThrottling();
+                }
+                return false;
+            }
+
+            @Override
+            public void onTouchEvent(RecyclerView recyclerView, MotionEvent event) {}
+
+            @Override
+            public void onRequestDisallowInterceptTouchEvent(boolean disallowIntercept) {}
+        };
+    }
+
+    /** Listener for when a dragged tab exits the horizontal boundaries of the tab strip. */
+    public interface OnDragOutListener {
+        void onDragOut(RecyclerView.ViewHolder viewHolder, float dX, float dY);
+    }
+
+    /** Sets the listener for outward drag events. */
+    public void setOnDragOutListener(OnDragOutListener listener) {
+        mOnDragOutListener = listener;
+    }
 
     /**
      * @param context The Android context.
      * @param model The {@link TabListModel} for the tab list.
      * @param currentTabModelSupplier Supplier for the current {@link TabModel}.
+     * @param undoBarThrottle Throttle to pause undo snackbars during active drag operations.
      */
     public VerticalTabListItemTouchHelperCallback(
-            Context context, TabListModel model, Supplier<TabModel> currentTabModelSupplier) {
+            Context context,
+            TabListModel model,
+            Supplier<TabModel> currentTabModelSupplier,
+            @Nullable UndoBarThrottle undoBarThrottle) {
         super(context, model, currentTabModelSupplier);
+        mUndoBarThrottle = undoBarThrottle;
         int touchSlop = ViewConfiguration.get(context).getScaledTouchSlop() / 4;
         mMouseDragThresholdSquared = touchSlop * touchSlop;
     }
@@ -70,18 +149,24 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
      */
     @Override
     public int getMovementFlags(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder) {
-        // TODO(crbug.com/518307037): Handle this in the initializer. (Change this for GTS also.)
-        if (mRecyclerViewSupplier.get() == null) {
-            mRecyclerViewSupplier.set(recyclerView);
-        }
         if (!hasTabPropertiesModel(viewHolder)) return 0;
-
-        // Regular and child tabs can move vertically.
-        int dragFlags = ItemTouchHelper.UP | ItemTouchHelper.DOWN;
-        // Pinned tabs can also move horizontally.
-        if (isPinnedRegularTab(viewHolder)) {
-            dragFlags |= ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT;
+        // Pinned tab hidden placeholders in the main vertical list (LinearLayoutManager) are
+        // non-draggable.
+        // Pinned tab cards in the top strip (GridLayoutManager) remain draggable in 2D.
+        if (viewHolder.getItemViewType() == TabProperties.UiType.PINNED_TAB
+                && !(recyclerView.getLayoutManager() instanceof GridLayoutManager)) {
+            return 0;
         }
+
+        // All tabs visually move vertically unless pinned, but we universally enable
+        // horizontal flags so that ItemTouchHelper provides us with horizontal cursor tracking.
+        // The visual horizontal movement for non-pinned tabs is suppressed below in onChildDraw().
+        int dragFlags =
+                ItemTouchHelper.UP
+                        | ItemTouchHelper.DOWN
+                        | ItemTouchHelper.LEFT
+                        | ItemTouchHelper.RIGHT;
+
         return makeMovementFlags(dragFlags, 0);
     }
 
@@ -95,9 +180,12 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
         // headers to encompass their respective children when a group is being dragged.
         boolean isDraggingGroup =
                 mSelectedViewHolder != null
-                        && mSelectedViewHolder.getItemViewType() == TabProperties.UiType.TAB_GROUP;
+                        && (mSelectedViewHolder.getItemViewType() == TabProperties.UiType.TAB_GROUP
+                                || isSolitaryChild(mSelectedViewHolder));
 
-        if (isDraggingGroup && viewHolder.getItemViewType() == TabProperties.UiType.TAB_GROUP) {
+        if (isDraggingGroup
+                && (viewHolder.getItemViewType() == TabProperties.UiType.TAB_GROUP
+                        || isSolitaryChild(viewHolder))) {
             Token groupId = getTabGroupId(viewHolder);
             if (groupId == null) return;
 
@@ -150,12 +238,12 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
         }
 
         boolean isCurrentGroupHeader = current.getItemViewType() == TabProperties.UiType.TAB_GROUP;
-        if (isCurrentGroupHeader) {
+        if (isCurrentGroupHeader || isSolitaryChild(current)) {
             // Prevent dropping a group over a child tab within any group to ensure the entire
             // dragged group moves as a single atomic unit and avoids janky intermediate states.
+            Token targetGroupId = getTabGroupId(target);
             boolean isTargetGroupChild =
-                    target.getItemViewType() == TabProperties.UiType.TAB
-                            && getTabGroupId(target) != null;
+                    target.getItemViewType() == TabProperties.UiType.TAB && targetGroupId != null;
             if (isTargetGroupChild) {
                 return false;
             }
@@ -163,7 +251,6 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
             // Allow a group header to float past its own children until it hits a valid
             // target, at which point the entire group (header + children) moves together.
             Token currentGroupId = getTabGroupId(current);
-            Token targetGroupId = getTabGroupId(target);
             if (currentGroupId != null && currentGroupId.equals(targetGroupId)) {
                 return false;
             }
@@ -197,6 +284,11 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
         int top = selectedBounds.top + dy;
         final int targetsSize = dropTargets.size();
         Rect targetBounds = new Rect();
+
+        boolean isSelectedStandalone =
+                selected.getItemViewType() == TabProperties.UiType.TAB
+                        && getTabGroupId(selected) == null;
+
         for (int i = 0; i < targetsSize; i++) {
             final RecyclerView.ViewHolder target = dropTargets.get(i);
             getBoundingBox(target, targetBounds);
@@ -226,6 +318,28 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
             int targetCenterY = targetBounds.top + targetBounds.height() / 2;
 
             if (dy < 0) {
+                // If a standalone tab is dragged upward into the lowest tab of a group,
+                // trigger grouping.
+                if (isSelectedStandalone) {
+                    boolean isTargetChildTab =
+                            target.getItemViewType() == TabProperties.UiType.TAB
+                                    && getTabGroupId(target) != null;
+
+                    if (isTargetChildTab) {
+                        int targetTabId = getTabId(target);
+                        List<Tab> relatedTabs = getRelatedTabsForId(targetTabId);
+                        boolean isTargetLowestTab =
+                                relatedTabs != null
+                                        && !relatedTabs.isEmpty()
+                                        && relatedTabs.get(relatedTabs.size() - 1).getId()
+                                                == targetTabId;
+
+                        if (isTargetLowestTab) {
+                            targetCenterY = targetBounds.bottom - targetBounds.height() / 4;
+                        }
+                    }
+                }
+
                 if (top < targetCenterY && targetBounds.top < selectedBounds.top) {
                     final int score = Math.abs(targetBounds.top - top);
                     if (score > winnerScore) {
@@ -246,6 +360,16 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
             }
         }
         return winner;
+    }
+
+    @Override
+    protected boolean shouldBlockOutOfBoundsScroll() {
+        return false;
+    }
+
+    @Override
+    protected boolean shouldBlockOnMoved() {
+        return false;
     }
 
     /**
@@ -270,16 +394,85 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
         boolean isGroupHeader = fromViewHolder.getItemViewType() == TabProperties.UiType.TAB_GROUP;
         Token currentGroupId = getTabGroupId(fromViewHolder);
         boolean isStandaloneTab = !isGroupHeader && currentGroupId == null;
+        boolean isSolitaryChild = !isGroupHeader && isSolitaryChild(fromViewHolder);
+        boolean isGroup = isGroupHeader || isSolitaryChild;
 
         int distance =
                 toViewHolder.getBindingAdapterPosition()
                         - fromViewHolder.getBindingAdapterPosition();
+
+        if (!isStandaloneTab && !isGroup) {
+            // This is a non-solitary child tab.
+            Token destGroupId = getTabGroupId(toViewHolder);
+            boolean isDestGroupHeader =
+                    toViewHolder.getItemViewType() == TabProperties.UiType.TAB_GROUP;
+
+            if (!Objects.equals(currentGroupId, destGroupId)
+                    || (isDestGroupHeader && Objects.equals(currentGroupId, destGroupId))) {
+                boolean trailing = distance > 0;
+                Tab currentTab = tabModel.getTabById(currentTabId);
+                if (currentTab != null) {
+                    ungroupTab(tabModel, currentTab, trailing);
+                }
+                return true;
+            }
+        }
+
+        if (isStandaloneTab) {
+            // Intercept swaps between a standalone tab and a tab group.
+            Token destGroupId = getTabGroupId(toViewHolder);
+            if (destGroupId != null) {
+                boolean isDestGroupHeader =
+                        toViewHolder.getItemViewType() == TabProperties.UiType.TAB_GROUP;
+                boolean isDestGroupCollapsed =
+                        isDestGroupHeader
+                                && assumeNonNull(((ViewHolder) toViewHolder).model)
+                                        .get(TabProperties.IS_COLLAPSED);
+
+                if (!isDestGroupCollapsed) {
+                    boolean isDraggingDown = distance > 0;
+
+                    Tab currentTab = tabModel.getTabById(currentTabId);
+                    Tab destinationTab = tabModel.getTabById(destinationTabId);
+
+                    if (currentTab != null && destinationTab != null) {
+                        // Handle grouping when a standalone tab intersects any part of a group.
+                        Integer indexInGroup = 0;
+                        if (!isDestGroupHeader) {
+                            List<Tab> destRelatedTabs = getRelatedTabsForId(destinationTabId);
+                            if (destRelatedTabs != null) {
+                                boolean isDraggingUp = distance < 0;
+                                boolean isTargetLowestTab =
+                                        destRelatedTabs.get(destRelatedTabs.size() - 1).getId()
+                                                == destinationTabId;
+                                if (isDraggingUp && isTargetLowestTab) {
+                                    indexInGroup = null;
+                                } else {
+                                    indexInGroup = destRelatedTabs.indexOf(destinationTab);
+                                    if (isDraggingDown) {
+                                        indexInGroup++;
+                                    }
+                                }
+                            }
+                        }
+                        tabModel.mergeListOfTabsToGroup(
+                                List.of(currentTab),
+                                destinationTab,
+                                indexInGroup,
+                                TabGroupMergeNotificationType.NOTIFY_ALWAYS);
+                        mDragResult = DragDropResult.GROUPED;
+                        return true;
+                    }
+                }
+            }
+        }
+
         int destinationIndex;
-        if (isGroupHeader || isStandaloneTab) {
+        boolean isTraversingGroup =
+                isGroup || (isStandaloneTab && getTabGroupId(toViewHolder) != null);
+        if (isTraversingGroup) {
             // Tab groups should maintain the boundaries of target tab groups
-            // so they do not inadvertently split existing groups during drags.
-            // TODO(crbug.com/518307037): This will be updated when standalone tabs can be dragged
-            // into groups.
+            // so they do not split other groups during drags.
             List<Tab> destinationTabGroup = getRelatedTabsForId(destinationTabId);
             destinationIndex =
                     distance >= 0
@@ -288,8 +481,8 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
                             : TabGroupUtils.getFirstTabModelIndexForList(
                                     tabModel, destinationTabGroup);
         } else {
-            // Child tabs should be precisely inserted at the literal destination slot within their
-            // group instead of bouncing to the ends of the group boundaries.
+            //  - Child tabs should reorder inside tab groups.
+            //  - Standalone tabs use this logic too, but only when not intersecting with a group.
             Tab destinationTab = tabModel.getTabById(destinationTabId);
             destinationIndex =
                     destinationTab != null
@@ -305,19 +498,19 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
         mSelectedTabIndex = toViewHolder.getBindingAdapterPosition();
 
         // Perform basic list reordering by updating the TabModel immediately.
-        // - Standalone tabs & group headers use moveRelatedTabs() to fire didMoveTabGroup(),
+        // - Group headers use moveRelatedTabs() to fire didMoveTabGroup(),
         //   which TabListMediator observes to update top-level UI rows.
         // - Child tabs use moveTab() because they move within their group, firing
         //   didMoveWithinGroup() which TabListMediator observes.
+        // - Standalone tabs use moveTab() since they are single elements.
 
-        if (isGroupHeader || isStandaloneTab) {
-            // TODO(crbug.com/518307037): Needs to handle grouping when a standalone tab is dragged
-            // into the index span of an expanded group.
+        if (isGroup) {
             tabModel.moveRelatedTabs(currentTabId, destinationIndex);
         } else {
-            // TODO(crbug.com/518307037): Needs to handle ungrouping when a child tab is dragged
-            // outside its parent group's boundaries.
             tabModel.moveTab(currentTabId, destinationIndex);
+        }
+        if (mDragResult == DragDropResult.ABORTED_NO_CHANGE) {
+            mDragResult = DragDropResult.REORDERED;
         }
         return true;
     }
@@ -352,12 +545,17 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
     public void onSelectedChanged(RecyclerView.@Nullable ViewHolder viewHolder, int actionState) {
         super.onSelectedChanged(viewHolder, actionState);
 
-        if (mTabGridItemLongPressOrchestrator != null && viewHolder != null) {
+        if (mTabGridItemLongPressOrchestrator != null
+                && viewHolder != null
+                && !mIsMouseInputSource) {
             int position = viewHolder.getBindingAdapterPosition();
             mTabGridItemLongPressOrchestrator.onSelectedChanged(position, actionState);
         }
 
         if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
+            // Pause undo snackbars while dragging.
+            startThrottling();
+            mDragResult = DragDropResult.ABORTED_NO_CHANGE;
             mSelectedViewHolder = viewHolder;
             mSelectedGroupTabIds.clear();
             if (!hasTabPropertiesModel(viewHolder)) return;
@@ -368,8 +566,6 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
             if (viewHolder.getItemViewType() == TabProperties.UiType.TAB_GROUP) {
                 // Select the group header, which ensures a tab within the group is active.
                 selectTabForGroup(viewHolder);
-
-                // TODO(crbug.com/518307037): Collapsed groups should not be expanded when dragged.
 
                 int currentSelectedTabId = getCurrentSelectedTabId();
 
@@ -396,6 +592,7 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
                 selectTab(viewHolder);
             }
         } else if (actionState == ItemTouchHelper.ACTION_STATE_IDLE) {
+            stopThrottling();
             mSelectedViewHolder = null;
             if (mSelectedTabIndex != TabModel.INVALID_TAB_INDEX) {
                 mModel.updateSelectedCardForSelection(mSelectedTabIndex, false);
@@ -443,19 +640,61 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
             float dY,
             int actionState,
             boolean isCurrentlyActive) {
-        super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive);
-        if (mTabGridItemLongPressOrchestrator != null) {
+
+        float renderDx = dX;
+        float renderDy = dY;
+
+        if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
+            float topLimitDy = recyclerView.getPaddingTop() - viewHolder.itemView.getTop();
+            float bottomLimitDy =
+                    recyclerView.getHeight()
+                            - recyclerView.getPaddingBottom()
+                            - viewHolder.itemView.getBottom();
+            renderDy = MathUtils.clamp(dY, topLimitDy, bottomLimitDy);
+
+            if (isPinnedRegularTab(viewHolder)) {
+                // Clamp horizontal movement to the left and right edges for pinned tabs.
+                float leftLimitDx = recyclerView.getPaddingLeft() - viewHolder.itemView.getLeft();
+                float rightLimitDx =
+                        recyclerView.getWidth()
+                                - recyclerView.getPaddingRight()
+                                - viewHolder.itemView.getRight();
+                renderDx = MathUtils.clamp(dX, leftLimitDx, rightLimitDx);
+            } else {
+                // Suppress visual horizontal movement for regular tabs.
+                renderDx = 0f;
+            }
+        }
+
+        super.onChildDraw(
+                c, recyclerView, viewHolder, renderDx, renderDy, actionState, isCurrentlyActive);
+        if (mTabGridItemLongPressOrchestrator != null && !mIsMouseInputSource) {
             float displacementSquared = calcMagnitudeSquared(dX, dY);
             mTabGridItemLongPressOrchestrator.processChildDisplacement(displacementSquared);
         }
 
         if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
-            if (!hasTabPropertiesModel(viewHolder)) return;
-            if (isCurrentlyActive) {
-                setBeingDragged(viewHolder, /* isBeingDragged= */ true);
+            if (isCurrentlyActive && mOnDragOutListener != null) {
+                float cursorX = mDragStartX + dX;
+
+                float panelLeft = 0;
+                float panelRight = recyclerView.getWidth();
+
+                if (recyclerView.getParent() instanceof android.view.View parentView) {
+                    panelLeft = -recyclerView.getLeft();
+                    panelRight = parentView.getWidth() - recyclerView.getLeft();
+                }
+
+                if (cursorX < panelLeft || cursorX > panelRight) {
+                    mOnDragOutListener.onDragOut(viewHolder, dX, dY);
+                }
             }
 
-            if (viewHolder.getItemViewType() != TabProperties.UiType.TAB_GROUP) return;
+            if (!hasTabPropertiesModel(viewHolder)) return;
+            setDraggingY(viewHolder, isCurrentlyActive ? renderDy : null);
+
+            if (viewHolder.getItemViewType() != TabProperties.UiType.TAB_GROUP
+                    && !isSolitaryChild(viewHolder)) return;
 
             Token groupId = getTabGroupId(viewHolder);
             if (groupId == null) return;
@@ -474,13 +713,16 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
                         int childTabId = getTabId(childViewHolder);
                         currentChildIds.add(childTabId);
 
-                        // Copy the translation/elevation from the dragged group header
-                        // to the children.
                         if (recyclerView.getItemAnimator() != null) {
                             recyclerView.getItemAnimator().endAnimation(childViewHolder);
                         }
-                        childView.setTranslationY(dY);
-                        childView.setTranslationX(dX);
+
+                        if (isCurrentlyActive
+                                && !mDraggedChildViewHolders.contains(childViewHolder)) {
+                            childViewHolder.setIsRecyclable(false);
+                            mDraggedChildViewHolders.add(childViewHolder);
+                        }
+                        childView.setTranslationY(renderDy);
 
                         mDraggedChildTabIds.add(childTabId);
                         if (isCurrentlyActive) {
@@ -489,6 +731,20 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
                             // Reset translation of non-active children after release.
                             childView.setTranslationZ(0f);
                         }
+                    }
+                }
+            }
+
+            for (RecyclerView.ViewHolder childViewHolder : mDraggedChildViewHolders) {
+                View childView = childViewHolder.itemView;
+                if (childView.getParent() != recyclerView) {
+                    // Ensure it is in the overlay when explicitly detached
+                    recyclerView.getOverlay().add(childView);
+                    childView.setTranslationY(renderDy);
+                    if (isCurrentlyActive) {
+                        childView.setTranslationZ(viewHolder.itemView.getElevation());
+                    } else {
+                        childView.setTranslationZ(0f);
                     }
                 }
             }
@@ -507,10 +763,28 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
                                 && getTabId(childViewHolder) == savedTabId) {
                             childView.setTranslationZ(0f);
                             childView.setTranslationY(0f);
-                            childView.setTranslationX(0f);
                             break;
                         }
                     }
+
+                    Iterator<RecyclerView.ViewHolder> holderIt =
+                            mDraggedChildViewHolders.iterator();
+                    while (holderIt.hasNext()) {
+                        RecyclerView.ViewHolder trackedHolder = holderIt.next();
+                        if (hasTabPropertiesModel(trackedHolder)
+                                && getTabId(trackedHolder) == savedTabId) {
+                            trackedHolder.setIsRecyclable(true);
+                            recyclerView.getOverlay().remove(trackedHolder.itemView);
+
+                            // Because it was in the overlay, it might have structural translations
+                            // persisting.
+                            trackedHolder.itemView.setTranslationZ(0f);
+                            trackedHolder.itemView.setTranslationY(0f);
+                            holderIt.remove();
+                            break;
+                        }
+                    }
+
                     it.remove();
                 }
             }
@@ -520,13 +794,23 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
     @Override
     public void clearView(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder) {
         super.clearView(recyclerView, viewHolder);
+        if (viewHolder == mSelectedViewHolder || mSelectedViewHolder == null) {
+            stopThrottling();
+        }
+        for (RecyclerView.ViewHolder childViewHolder : mDraggedChildViewHolders) {
+            childViewHolder.setIsRecyclable(true);
+            recyclerView.getOverlay().remove(childViewHolder.itemView);
+        }
+        mDraggedChildViewHolders.clear();
+
         // Safeguard finger lift: explicitly wipe out any running timer threads.
         if (mTabGridItemLongPressOrchestrator != null) {
             mTabGridItemLongPressOrchestrator.cancel();
         }
-        setBeingDragged(viewHolder, /* isBeingDragged= */ false);
+        setDraggingY(viewHolder, null);
         // When the drag completely finishes, clean up all manual visual overrides on children.
-        if (viewHolder.getItemViewType() == TabProperties.UiType.TAB_GROUP) {
+        if (viewHolder.getItemViewType() == TabProperties.UiType.TAB_GROUP
+                || isSolitaryChild(viewHolder)) {
             Token groupId = getTabGroupId(viewHolder);
             if (groupId != null) {
                 for (int i = 0; i < recyclerView.getChildCount(); i++) {
@@ -541,13 +825,156 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
                         if (groupId.equals(childGroupId)) {
                             childView.setTranslationZ(0f);
                             childView.setTranslationY(0f);
-                            childView.setTranslationX(0f);
                         }
                     }
                 }
             }
         }
+        if (viewHolder.getBindingAdapterPosition() == RecyclerView.NO_POSITION) {
+            mDragResult = DragDropResult.DRAGGED_OUT;
+        }
+        RecordHistogram.recordEnumeratedHistogram(
+                "Android.VerticalTabs.DragDropResult", mDragResult, DragDropResult.COUNT);
+        mDragResult = DragDropResult.ABORTED_NO_CHANGE;
         mDraggedChildTabIds.clear();
+    }
+
+    @Override
+    public boolean shouldAllowDragPastLayout() {
+        return true;
+    }
+
+    /**
+     * Determines whether a dragged child tab has escaped the visual boundaries of its tab group.
+     *
+     * <p>This establishes a "drop zone" just outside the top and bottom of a group. When a child
+     * tab is dragged past this threshold, it is immediately ungrouped. By returning true and
+     * executing the ungroup early, it short-circuits ItemTouchHelper's swap logic, preventing the
+     * dragged tab from erroneously swapping with adjacent groups and leaping past them.
+     */
+    @Override
+    public boolean hasDragEscapedBounds(
+            RecyclerView recyclerView,
+            RecyclerView.ViewHolder viewHolder,
+            int x,
+            int y,
+            float dx,
+            float dy) {
+        if (!hasTabPropertiesModel(viewHolder)) return false;
+        if (viewHolder.getItemViewType() == TabProperties.UiType.TAB_GROUP) return false;
+
+        Token groupId = getTabGroupId(viewHolder);
+        if (groupId == null) return false;
+
+        TabModel tabModel = mCurrentTabModelSupplier.get();
+        if (tabModel == null) return false;
+
+        int currentTabId = getTabId(viewHolder);
+        Tab currentTab = tabModel.getTabById(currentTabId);
+        if (currentTab == null) return false;
+
+        List<Tab> relatedTabs = getRelatedTabsForId(currentTabId);
+        // This implicitly covers the isSolitaryChild check as well!
+        if (relatedTabs == null || relatedTabs.size() <= 1) return false;
+        RecyclerView.LayoutManager layoutManager = recyclerView.getLayoutManager();
+
+        boolean isFirstInGroup = currentTab.getId() == relatedTabs.get(0).getId();
+        boolean isLastInGroup =
+                currentTab.getId() == relatedTabs.get(relatedTabs.size() - 1).getId();
+
+        if (dy > 0 && isLastInGroup) {
+            // Dragging down does not require crossing the group header, so it uses a smaller
+            // threshold.
+            int downThreshold = viewHolder.itemView.getHeight() / 4;
+            if (y > viewHolder.itemView.getTop() + downThreshold) {
+                // Check if the dragged tab is at the bottom of the RecyclerView viewport.
+                // Since this early return skips ItemTouchHelper's bounds scrolling logic,
+                // we manually track this to prevent list layout shifts later.
+                boolean isChildAtBottom = false;
+                if (layoutManager != null) {
+                    int maxBottom = layoutManager.getDecoratedBottom(viewHolder.itemView);
+                    if (maxBottom >= recyclerView.getHeight() - recyclerView.getPaddingBottom()) {
+                        isChildAtBottom = true;
+                    }
+                }
+
+                ungroupTab(tabModel, currentTab, true);
+
+                // If ungrouping pushes the new standalone tab off-screen at the bottom,
+                // instruct RecyclerView to scroll to it, keeping it pinned under the user's finger.
+                if (isChildAtBottom && layoutManager != null) {
+                    int childIndex = mModel.indexFromTabId(currentTab.getId());
+                    if (childIndex != TabModel.INVALID_TAB_INDEX) {
+                        layoutManager.scrollToPosition(childIndex);
+                    }
+                }
+                return true;
+            }
+        } else if (dy < 0 && isFirstInGroup) {
+            // Dragging up requires crossing the group header which sits above the first tab.
+            int upThreshold = viewHolder.itemView.getHeight() / 2;
+            if (y < viewHolder.itemView.getTop() - upThreshold) {
+                // Check if the group header is abutting the top of the RecyclerView padding.
+                // Since this early return skips ItemTouchHelper's bounds scrolling logic,
+                // we manually track this so we can anchor the scroll to the new tab position.
+                boolean isHeaderAtTop = false;
+                if (layoutManager != null) {
+                    for (int i = 0; i < recyclerView.getChildCount(); i++) {
+                        View child = recyclerView.getChildAt(i);
+                        // TODO(crbug.com/518307037): Use the TabModel directly instead.
+                        RecyclerView.ViewHolder childViewHolder =
+                                recyclerView.getChildViewHolder(child);
+                        if (childViewHolder.getItemViewType() == TabProperties.UiType.TAB_GROUP
+                                && groupId.equals(getTabGroupId(childViewHolder))) {
+                            if (layoutManager.getDecoratedTop(child)
+                                    <= recyclerView.getPaddingTop()) {
+                                isHeaderAtTop = true;
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                ungroupTab(tabModel, currentTab, false);
+
+                // If ungrouping prepends the new tab natively off-screen at the top,
+                // manually scroll to the new tab. This forces the group header to visually shift
+                // down, rather than overlapping the new tab and causing an immediate re-grouping.
+                if (isHeaderAtTop && layoutManager != null) {
+                    int childIndex = mModel.indexFromTabId(currentTab.getId());
+                    if (childIndex != TabModel.INVALID_TAB_INDEX) {
+                        layoutManager.scrollToPosition(childIndex);
+                    }
+                }
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void ungroupTab(TabModel tabModel, Tab tab, boolean trailing) {
+        tabModel.getTabUngrouper().ungroupTabs(List.of(tab), trailing, false);
+        mDragResult = DragDropResult.UNGROUPED;
+    }
+
+    /**
+     * Determines whether the view holder represents a tab that is the only child of its group.
+     *
+     * <p>When a group contains only one child, dragging that child behaves identically to dragging
+     * the tab group header itself (i.e. it moves the entire group rather than ungrouping the
+     * child).
+     */
+    private boolean isSolitaryChild(RecyclerView.ViewHolder viewHolder) {
+        if (viewHolder.getItemViewType() == TabProperties.UiType.TAB) {
+            Token groupId = getTabGroupId(viewHolder);
+            if (groupId != null) {
+                int tabId = getTabId(viewHolder);
+                List<Tab> relatedTabs = getRelatedTabsForId(tabId);
+                return relatedTabs != null && relatedTabs.size() == 1;
+            }
+        }
+        return false;
     }
 
     private @Nullable Token getTabGroupId(RecyclerView.ViewHolder viewHolder) {
@@ -582,7 +1009,7 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
 
         int tabId = getTabId(viewHolder);
         Tab tab = tabModel.getTabById(tabId);
-        selectTabInternal(tabModel, tab);
+        selectTabInternal(tabModel, tab, TabSelectionType.FROM_USER);
     }
 
     /**
@@ -609,22 +1036,25 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
             }
         }
 
-        selectTabInternal(tabModel, tabToSelect);
+        selectTabInternal(tabModel, tabToSelect, TabSelectionType.FROM_DRAG);
     }
 
-    private void selectTabInternal(TabModel tabModel, @Nullable Tab tab) {
+    private void selectTabInternal(
+            TabModel tabModel, @Nullable Tab tab, @TabSelectionType int type) {
         if (tab == null) return;
 
         int index = tabModel.indexOf(tab);
         if (index != TabModel.INVALID_TAB_INDEX && index != tabModel.index()) {
-            tabModel.setIndex(index, TabSelectionType.FROM_USER);
+            tabModel.setIndex(index, type);
         }
     }
 
-    private void setBeingDragged(RecyclerView.ViewHolder viewHolder, boolean isBeingDragged) {
-        int pos = viewHolder.getBindingAdapterPosition();
-        if (pos >= 0 && pos < mModel.size()) {
-            mModel.get(pos).model.set(TabProperties.IS_BEING_DRAGGED, isBeingDragged);
+    private void setDraggingY(RecyclerView.ViewHolder viewHolder, @Nullable Float draggingY) {
+        if (viewHolder instanceof ViewHolder simpleViewHolder) {
+            PropertyModel model = simpleViewHolder.model;
+            if (model != null) {
+                model.set(TabProperties.DRAGGING_Y, draggingY);
+            }
         }
     }
 
@@ -725,8 +1155,34 @@ public class VerticalTabListItemTouchHelperCallback extends TabListItemTouchHelp
         };
     }
 
+    /**
+     * Starts throttling undo group snackbars if a throttle is configured and not already
+     * throttling.
+     */
+    private void startThrottling() {
+        if (mUndoBarThrottle != null && mUndoBarThrottleToken == TokenHolder.INVALID_TOKEN) {
+            mUndoBarThrottleToken = mUndoBarThrottle.startThrottling();
+        }
+    }
+
+    /**
+     * Stops throttling undo group snackbars and resets the throttle token if throttling is active.
+     */
+    private void stopThrottling() {
+        if (mUndoBarThrottle != null && mUndoBarThrottleToken != TokenHolder.INVALID_TOKEN) {
+            mUndoBarThrottle.stopThrottling(mUndoBarThrottleToken);
+            mUndoBarThrottleToken = TokenHolder.INVALID_TOKEN;
+        }
+    }
+
+    /** Sets the tab grid item long press orchestrator for testing. */
     void setTabGridItemLongPressOrchestratorForTesting(
             TabGridItemLongPressOrchestrator orchestrator) {
         mTabGridItemLongPressOrchestrator = orchestrator;
+    }
+
+    /** Returns the drag out listener for testing. */
+    @Nullable OnDragOutListener getOnDragOutListenerForTesting() {
+        return mOnDragOutListener;
     }
 }

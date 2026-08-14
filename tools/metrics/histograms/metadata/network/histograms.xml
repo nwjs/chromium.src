@@ -2152,6 +2152,20 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram name="Network.GlobalPrivacyControlSource.Subsampled"
+    enum="GPCSignalSourceType" expires_after="2026-12-31">
+  <owner>arichiv@chromium.org</owner>
+  <owner>zalmashni@google.com</owner>
+  <summary>
+    During request initialization, this metric records the source of each
+    outgoing HTTP(S) request that had the Sec-GPC header set, categorized by the
+    type of the request.
+
+    Logged each time the Sec-GPC header is attached to an outgoing request,
+    during request finalization. Subsampled to one out of one thousand times.
+  </summary>
+</histogram>
+
 <histogram name="Network.Mdns.{ServiceType}" enum="MdnsQueryType"
     expires_after="2026-12-31">
   <owner>nmuggli@google.com</owner>
@@ -2471,7 +2485,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Network.SharedDictionary.CreateBrotliSourceStreamWithDictionary"
-    units="microseconds" expires_after="2026-11-01">
+    units="microseconds" expires_after="2027-01-03">
   <owner>pmeenan@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -2485,7 +2499,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Network.SharedDictionary.CreateZstdSourceStreamWithDictionary"
-    units="microseconds" expires_after="2026-11-01">
+    units="microseconds" expires_after="2027-01-03">
   <owner>pmeenan@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -2503,7 +2517,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Network.SharedDictionary.DocumentRequestCacheResult"
     enum="SharedDictionaryDocumentRequestCacheResult"
-    expires_after="2026-11-08">
+    expires_after="2027-01-10">
   <owner>pmeenan@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -2535,7 +2549,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Network.SharedDictionary.EncodingType"
-    enum="SharedDictionaryEncodingType" expires_after="2026-10-25">
+    enum="SharedDictionaryEncodingType" expires_after="2026-12-27">
   <owner>nidhijaju@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -5184,6 +5198,19 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram
+    name="NetworkService.CorsURLLoaderFactory.IsOutermostMainFrameClamped"
+    enum="Boolean" expires_after="2027-01-16">
+  <owner>pmeenan@chromium.org</owner>
+  <owner>src/services/network/OWNERS</owner>
+  <summary>
+    Recorded whenever a renderer request claims to originate from an outermost
+    main frame while its browser-created URLLoaderFactory does not. The request
+    value is clamped to the factory value. One known legitimate source is an
+    initial empty document in an opener-retaining popup created by a subframe.
+  </summary>
+</histogram>
+
 <histogram name="NetworkService.GrantAccessToDataPathError.{Directory}.Posix"
     enum="PopularOSErrno" expires_after="2026-01-22">
   <owner>ricea@chromium.org</owner>
@@ -5231,7 +5258,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.NetworkLoaderCompletionTime2.{Source}"
-    units="ms" expires_after="2026-11-08">
+    units="ms" expires_after="2027-01-10">
   <owner>hayato@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -5284,7 +5311,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="NetworkService.Scheduler.IOThread.NumberOfPendingTasks.{QueueName}Queue"
-    units="count" expires_after="2026-11-08">
+    units="count" expires_after="2027-01-10">
   <owner>hayato@chromium.org</owner>
   <owner>net-dev@chromium.org</owner>
   <summary>
@@ -5297,7 +5324,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="NetworkService.Scheduler.IOThread.QueuingTime.{QueueName}Queue"
-    units="ms" expires_after="2026-11-08">
+    units="ms" expires_after="2027-01-10">
   <owner>hayato@chromium.org</owner>
   <owner>net-dev@chromium.org</owner>
   <summary>
@@ -5338,17 +5365,6 @@ chromium-metrics-reviews@google.com.
     Records the percentage of wall time spent on-CPU by tasks running on the
     Network Service IO Thread. Recorded with 0.001 probability when a task
     scheduled on the IO thread finishes running.
-  </summary>
-</histogram>
-
-<histogram name="NetworkService.SecAdAuctionHeaderSize" units="bytes"
-    expires_after="2026-10-01">
-  <owner>toyoshim@chromium.org</owner>
-  <owner>chrome-loading@google.com</owner>
-  <summary>
-    The size of Sec-Ad-Auction-* headers in bytes. Recorded when validating
-    renderer-initiated requests in the Network Service. This helps monitor the
-    impact of size limits imposed to protect the IPC boundary.
   </summary>
 </histogram>
 

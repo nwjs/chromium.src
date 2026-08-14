@@ -219,7 +219,7 @@ class WebAuthnAutofillIntegrationTest : public CertVerifierBrowserTest {
     // popup to appear after aborting the request.
     password_manager::PasswordStoreInterface* password_store =
         ProfilePasswordStoreFactory::GetForProfile(
-            browser()->profile(), ServiceAccessType::EXPLICIT_ACCESS)
+            browser()->GetProfile(), ServiceAccessType::EXPLICIT_ACCESS)
             .get();
     password_manager::PasswordForm signin_form;
     GURL url = https_server_.GetURL(kRpId, "/");
@@ -247,7 +247,7 @@ class WebAuthnAutofillIntegrationTest : public CertVerifierBrowserTest {
 
     identity_test_env_adaptor_ =
         std::make_unique<IdentityTestEnvironmentProfileAdaptor>(
-            browser()->profile());
+            browser()->GetProfile());
     identity_test_env_adaptor_->identity_test_env()->SetPrimaryAccount(
         "test@gmail.com", signin::ConsentLevel::kSignin);
 
@@ -740,13 +740,12 @@ IN_PROC_BROWSER_TEST_F(WebAuthnMagiChromeQrAutofillIntegrationTest,
                               &autofill::Suggestion::type);
   ASSERT_NE(it, suggestions.end()) << "WebAuthn QR Code suggestion not found";
 
-  // It should replace "Sign in with another device..."
+  // Both inline QR code and "Sign in with another device..." should be present.
   auto another_device_it = std::ranges::find(
       suggestions, autofill::SuggestionType::kWebauthnSignInWithAnotherDevice,
       &autofill::Suggestion::type);
-  EXPECT_EQ(another_device_it, suggestions.end())
-      << "Old 'Sign in with another device...' suggestion should not be "
-         "present";
+  EXPECT_NE(another_device_it, suggestions.end())
+      << "'Sign in with another device...' suggestion should still be present";
 
   // Main text of QR suggestion should be correct:
   EXPECT_EQ(

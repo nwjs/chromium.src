@@ -4,13 +4,14 @@
 
 #include "chrome/browser/extensions/webstore_reinstaller.h"
 
-#include <utility>
+#include <memory>
 
 #include "base/memory/ref_counted.h"
 #include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_registrar.h"
+#include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/buildflags/buildflags.h"
 
@@ -47,11 +48,10 @@ bool WebstoreReinstaller::CheckRequestorAlive() const {
   return web_contents() != nullptr;
 }
 
-std::unique_ptr<ExtensionInstallPrompt::Prompt>
-WebstoreReinstaller::CreateInstallPrompt() const {
-  std::unique_ptr<ExtensionInstallPrompt::Prompt> prompt(
-      new ExtensionInstallPrompt::Prompt(
-          ExtensionInstallPrompt::REPAIR_PROMPT));
+std::unique_ptr<InstallPromptData> WebstoreReinstaller::CreateInstallPrompt()
+    const {
+  std::unique_ptr<InstallPromptData> prompt =
+      std::make_unique<InstallPromptData>(InstallPromptData::REPAIR_PROMPT);
   prompt->SetWebstoreData(localized_user_count(), show_user_count(),
                           average_rating(), rating_count(),
                           localized_rating_count());
@@ -80,6 +80,17 @@ void WebstoreReinstaller::OnInstallPromptDone(
 
   if (payload.result != ExtensionInstallPrompt::Result::ACCEPTED) {
     WebstoreStandaloneInstaller::OnInstallPromptDone(std::move(payload));
+    return;
+  }
+
+  // The extension can be uninstalled in another window while the repair prompt
+  // was showing. `UninstallExtension()` CHECKs that the extension is still
+  // installed, so bail out gracefully if it is gone to avoid crashing.
+  if (!ExtensionRegistry::Get(profile())->GetInstalledExtension(id())) {
+    // Run the callback now, because AbortInstall() doesn't do it.
+    RunCallback(false, kCouldNotUninstallExtension,
+                webstore_install::OTHER_ERROR);
+    AbortInstall();
     return;
   }
 

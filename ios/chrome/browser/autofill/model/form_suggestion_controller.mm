@@ -159,6 +159,11 @@ UIImage* DefaultIconForType(FormSuggestion* suggestion,
           entity->type().name(), isPersonalContext, kSymbolPointSize,
           /*tint_color=*/nil);
     }
+    case autofill::SuggestionType::kAutocompleteAtMemoryButton:
+      return SymbolWithPalette(
+          CustomSymbolWithPointSize(kMagnifyingglassSparkSymbol,
+                                    kSymbolActionPointSize),
+          @[ [UIColor colorNamed:kTextPrimaryColor] ]);
     case autofill::SuggestionType::kAutocompleteEntry:
     default:
       return nil;
@@ -532,10 +537,6 @@ bool IsRequestDedupingAllowed() {
     BOOL shouldUpdateIcon = !suggestion.icon && defaultIcon;
 
     if (shouldUpdateIcon) {
-      // If we ever get suggestions with metadata here, we'll need to use a
-      // different [FormSuggestion suggestionWithValue:...] to perform the copy.
-      CHECK(!suggestion.metadata.is_single_username_form);
-
       FormSuggestion* suggestionCopy = [FormSuggestion
                   suggestionWithValue:suggestion.value
                            minorValue:suggestion.minorValue
@@ -545,7 +546,8 @@ bool IsRequestDedupingAllowed() {
                               payload:suggestion.payload
           fieldByFieldFillingTypeUsed:suggestion.fieldByFieldFillingTypeUsed
                        requiresReauth:suggestion.requiresReauth
-           acceptanceA11yAnnouncement:suggestion.acceptanceA11yAnnouncement];
+           acceptanceA11yAnnouncement:suggestion.acceptanceA11yAnnouncement
+                             metadata:suggestion.metadata];
       // TODO(crbug.com/452315148): Include `featureForIPH` in the
       // `FormSuggestion` constructor.
       suggestionCopy.featureForIPH = suggestion.featureForIPH;

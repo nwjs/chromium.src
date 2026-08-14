@@ -38,12 +38,12 @@ include_rules = [
   "+chrome/browser/browsing_data/counters/tabs_counter.h",
   "+chrome/browser/browsing_data/navigation_entry_remover.h",
   "+chrome/browser/browsing_data/site_data_size_collector.h",
-  "+chrome/browser/browsing_topics/browsing_topics_service_factory.h",
   "+chrome/browser/commerce/merchant_viewer/merchant_viewer_data_manager.h",
   "+chrome/browser/commerce/merchant_viewer/merchant_viewer_data_manager_factory.h",
   "+chrome/browser/commerce/shopping_service_factory.h",
   "+chrome/browser/content_settings/host_content_settings_map_factory.h",
   "+chrome/browser/crash_upload_list/crash_upload_list.h",
+  "+chrome/browser/critical_actions/critical_action_factory.h",
   "+chrome/browser/custom_handlers/protocol_handler_registry_factory.h",
   "+chrome/browser/domain_reliability/service_factory.h",
   "+chrome/browser/downgrade/snapshot_file_collector.h",
@@ -97,6 +97,8 @@ include_rules = [
   "+chrome/browser/preloading/prefetch/search_prefetch/search_prefetch_service_factory.h",
   "+chrome/browser/privacy_sandbox/privacy_sandbox_attestations/privacy_sandbox_attestations_mixin.h",
   "+chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h",
+  "+chrome/browser/private_verification_tokens/private_verification_tokens_service.h",
+  "+chrome/browser/private_verification_tokens/private_verification_tokens_service_factory.h",
   "+chrome/browser/profiles/android",
   "+chrome/browser/profiles/keep_alive/profile_keep_alive_types.h",
   "+chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h",
@@ -156,6 +158,7 @@ include_rules = [
   "+chrome/browser/user_education/user_education_service.h",
   "+chrome/browser/user_education/user_education_service_factory.h",
   "+chrome/browser/web_applications/isolated_web_apps/commands/get_controlled_frame_partition_command.h",
+  "+chrome/browser/web_applications/isolated_web_apps/get_isolated_web_app_browsing_data.h",
   "+chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h",
   "+chrome/browser/web_applications/isolated_web_apps/remove_isolated_web_app_data.h",
   "+chrome/browser/web_applications/isolated_web_apps/test/isolated_web_app_builder.h",
@@ -177,3 +180,10 @@ include_rules = [
   "+device/fido/cros/credential_store.h",
   "+device/fido/platform_credential_store.h",
 ]
+
+specific_include_rules = {
+  ".*_(unit|browser|api)test\\.cc": [
+    "+components/private_verification_tokens/common/private_verification_tokens_database.h",
+    "+components/private_verification_tokens/common/private_verification_tokens_token.h"
+  ],
+}

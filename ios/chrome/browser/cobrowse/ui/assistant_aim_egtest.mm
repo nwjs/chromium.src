@@ -5,6 +5,7 @@
 #import <XCTest/XCTest.h>
 
 #import "base/files/file_path.h"
+#import "base/functional/bind.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
 #import "components/omnibox/browser/aim_eligibility_service_features.h"
@@ -26,12 +27,32 @@
 #import "ios/testing/earl_grey/app_launch_manager.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
 #import "net/test/embedded_test_server/embedded_test_server.h"
+#import "net/test/embedded_test_server/http_request.h"
+#import "net/test/embedded_test_server/http_response.h"
 #import "ui/base/l10n/l10n_util.h"
 #import "url/gurl.h"
 
 using chrome_test_util::OmniboxText;
 
 namespace {
+
+// Handles simulated search requests to provide an AIM-eligible page with a
+// link.
+std::unique_ptr<net::test_server::HttpResponse> HandleSearchRequest(
+    const net::test_server::HttpRequest& request) {
+  if (request.relative_url.find("/search") != 0) {
+    return nullptr;
+  }
+  auto response = std::make_unique<net::test_server::BasicHttpResponse>();
+  response->set_code(net::HTTP_OK);
+  response->set_content_type("text/html");
+  response->set_content("<html><body>"
+                        "<h1>Fake AIM Page</h1>"
+                        "<p>This is a simulated AIM search results page.</p>"
+                        "<a href=\"/pony.html\" id=\"my_link\" "
+                        "target=\"_blank\">link</a></body></html>");
+  return response;
+}
 
 // Waits for the assistant container to reach a specific detent.
 void WaitForDetent(AssistantContainerDetent detent) {
@@ -119,7 +140,6 @@ id<GREYMatcher> CloseButton() {
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config = [super appConfigurationForTestCase];
   // Enable features needed for composebox.
-  config.features_enabled.push_back(kComposeboxIOS);
   config.features_enabled.push_back(kComposeboxIpad);
   config.features_enabled.push_back(kAimCobrowse);
   config.features_enabled.push_back(kAssistantContainer);
@@ -128,6 +148,9 @@ id<GREYMatcher> CloseButton() {
   config.features_disabled.push_back(omnibox::kAimServerEligibilityEnabled);
   config.features_disabled.push_back(kAssistantAimMinimizedState);
   config.features_disabled.push_back(kComposeboxServerSideState);
+  // TODO(crbug.com/536079613): Re-enable kAppBarHideInFullscreen once these
+  // tests are updated to support it.
+  config.features_disabled.push_back(kAppBarHideInFullscreen);
 
   // Enable omnibox debugging flags.
   config.additional_args.push_back("-EnableOmniboxDebugging");
@@ -142,6 +165,33 @@ id<GREYMatcher> CloseButton() {
   config.additional_args.push_back("--ignore-google-port-numbers");
 
   return config;
+}
+
+- (BOOL)backgroundApplication {
+  XCUIApplication* currentApplication = [[XCUIApplication alloc] init];
+  // Tell the system to background the app.
+  // TODO(crbug.com/540470551): pressButton:XCUIDeviceButtonHome is broken on
+  // < iOS 27 when Xcode 27 is installed. Use springboard activation workaround.
+  if (@available(iOS 27, *)) {
+    [[XCUIDevice sharedDevice] pressButton:XCUIDeviceButtonHome];
+  } else {
+    [[[XCUIApplication alloc] initWithBundleIdentifier:@"com.apple.springboard"]
+        activate];
+  }
+  BOOL (^conditionBlock)(void) = ^BOOL {
+    return currentApplication.state == XCUIApplicationStateRunningBackground ||
+           currentApplication.state ==
+               XCUIApplicationStateRunningBackgroundSuspended;
+  };
+  GREYCondition* condition =
+      [GREYCondition conditionWithName:@"check if backgrounded"
+                                 block:conditionBlock];
+  return [condition waitWithTimeout:20.0 pollInterval:0.5];
+}
+
+- (void)tearDownHelper {
+  [ChromeEarlGrey removeUserDefaultsObjectForKey:@"EnableOmniboxDebugging"];
+  [super tearDownHelper];
 }
 
 - (void)setUp {
@@ -165,6 +215,8 @@ id<GREYMatcher> CloseButton() {
   [ComposeboxAppInterface enableAllTools];
   self.testServer->ServeFilesFromSourceDirectory(
       base::FilePath("ios/testing/data/http_server_files"));
+  self.testServer->RegisterRequestHandler(
+      base::BindRepeating(&HandleSearchRequest));
   GREYAssertTrue(self.testServer->Start(), @"Test server failed to start.");
   _defaultURL = self.testServer->GetURL("/echo");
 }
@@ -226,6 +278,76 @@ id<GREYMatcher> CloseButton() {
   id<GREYMatcher> composeboxMatcher =
       grey_accessibilityID(kComposeboxAccessibilityIdentifier);
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:composeboxMatcher];
+}
+
+// Tests that opening an external URL from the launcher while the app is in the
+// background dismisses an active Co-browse session that is in minimized state.
+- (void)testOpenExternalURLWithActiveCoBrowse {
+  if ([ComposeboxAppInterface isServerSideStateEnabled]) {
+    EARL_GREY_TEST_SKIPPED(
+        @"Skipped when kComposeboxServerSideState is enabled.");
+  }
+
+  // Open Co-browse session on an eligible search page.
+  OpenCoBrowse(_defaultURL);
+
+  // Wait for the assistant container to appear in Medium state.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:CloseButton()];
+
+  // Background the app.
+  [self backgroundApplication];
+
+  // Trigger opening an external URL via user activity (e.g. Universal Link /
+  // Handoff) while backgrounded.
+  GURL destinationURL = self.testServer->GetURL("/pony.html");
+  [ChromeEarlGrey
+      sceneContinueUserActivityWithType:NSUserActivityTypeBrowsingWeb
+                                    url:base::SysUTF8ToNSString(
+                                            destinationURL.spec())];
+
+  // Re-activate the application to bring it back to the foreground so the scene
+  // processes the user activity.
+  [[[XCUIApplication alloc] init] activate];
+
+  // Verify the assistant is dismissed after handling the external URL.
+  [[EarlGrey selectElementWithMatcher:CloseButton()]
+      assertWithMatcher:grey_nil()];
+}
+
+// Tests that opening a WidgetKit URL scheme while the app is in the background
+// dismisses an active Co-browse session that is in minimized state.
+- (void)testWidgetKitInvocationWithActiveCoBrowse {
+  if ([ComposeboxAppInterface isServerSideStateEnabled]) {
+    EARL_GREY_TEST_SKIPPED(
+        @"Skipped when kComposeboxServerSideState is enabled.");
+  }
+
+  // Open Co-browse session on an eligible search page.
+  OpenCoBrowse(_defaultURL);
+
+  // Wait for the assistant container to appear in Medium state.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:CloseButton()];
+  WaitForDetent(AssistantContainerDetent::kMedium);
+
+  // Swipe down to transition to Minimized state.
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(
+                                   kAssistantContainerDetentMediumIdentifier)]
+      performAction:grey_swipeFastInDirection(kGREYDirectionDown)];
+  WaitForDetent(AssistantContainerDetent::kMinimized);
+
+  // Background the app.
+  [self backgroundApplication];
+
+  // Trigger opening a WidgetKit URL scheme (e.g. Search Widget).
+  [ChromeEarlGrey sceneOpenURL:GURL("chromewidgetkit://search-widget/search")];
+
+  // Re-activate the application to bring it back to the foreground.
+  [[[XCUIApplication alloc] init] activate];
+
+  // Verify the assistant is dismissed after handling the WidgetKit invocation.
+  [[EarlGrey selectElementWithMatcher:CloseButton()]
+      assertWithMatcher:grey_nil()];
 }
 
 // Tests that the assistant can be dismissed and reopened multiple times.
@@ -312,6 +434,44 @@ id<GREYMatcher> CloseButton() {
 
   // Verify the assistant is visible again.
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:CloseButton()];
+}
+
+// Tests that when a new tab is opened from an eligible AIM page while a session
+// is already active, the assistant updates to the new tab's context.
+- (void)testNewTabTriggersCobrowseUpdatesContext {
+  if ([ComposeboxAppInterface isServerSideStateEnabled]) {
+    EARL_GREY_TEST_SKIPPED(
+        @"Skipped when kComposeboxServerSideState is enabled.");
+  }
+
+  // 1. Start Co-browse on a normal URL.
+  OpenCoBrowse(_defaultURL);
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:CloseButton()];
+
+  // 2. Navigate the main browser to a simulated AIM URL.
+  // The assistant will hide because AIM URLs themselves cannot show the
+  // assistant.
+  [ChromeEarlGrey loadURL:self.testServer->GetURL(
+                              "localhost", "/search?udm=50&q=HelloWorld")];
+  [ChromeEarlGrey waitForPageToFinishLoading];
+
+  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:CloseButton()];
+
+  // 3. Tap a link on the simulated AIM page that opens in a new tab.
+  // This correctly simulates the user tapping a link in the Assistant AIM
+  // sheet, because in both cases the new tab's opener is an AIM URL.
+  [ChromeEarlGrey tapWebStateElementWithID:@"my_link"];
+
+  // Wait for the new tab to open.
+  [ChromeEarlGrey waitForMainTabCount:2];
+
+  // 4. Because the new tab's opener is an AIM URL and the session is active,
+  // CobrowseTabHelper automatically configures the context and triggers the UI.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:CloseButton()];
+
+  // Verify the context was successfully updated to the opener's query!
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:grey_accessibilityLabel(
+                                                          @"HelloWorld")];
 }
 
 // Tests that the assistant can transition between medium, large, and minimized
@@ -484,6 +644,56 @@ id<GREYMatcher> CloseButton() {
           grey_accessibilityID(
               kAIMSRPDebuggerURLViewControllerCloseButtonAccessibilityIdentifier)]
       performAction:grey_tap()];
+}
+
+// Tests that when navigating the main browser to a new AIM URL while a session
+// is active, the context is updated, so that when returning to a non-AIM tab,
+// the updated context is displayed.
+- (void)testNavigateInMainBrowserUpdatesCobrowseContext {
+  if ([ComposeboxAppInterface isServerSideStateEnabled]) {
+    EARL_GREY_TEST_SKIPPED(
+        @"Skipped when kComposeboxServerSideState is enabled.");
+  }
+
+  // 1. Navigate to fake aim page A.
+  [ChromeEarlGrey
+      loadURL:self.testServer->GetURL("localhost", "/search?udm=50&q=pageA")];
+  [ChromeEarlGrey waitForPageToFinishLoading];
+
+  // 2. Open a new tab and navigate to a fake aim page B.
+  [ChromeEarlGrey openNewTab];
+  [ChromeEarlGrey
+      loadURL:self.testServer->GetURL("localhost", "/search?udm=50&q=pageB")];
+  [ChromeEarlGrey waitForPageToFinishLoading];
+
+  // 3. Open cobrowse by tapping on a link in fake aim page B.
+  // Context becomes aim page B.
+  [ChromeEarlGrey tapWebStateElementWithID:@"my_link"];
+  [ChromeEarlGrey waitForMainTabCount:3];
+
+  // Wait for cobrowse to appear on the new non-AIM tab.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:CloseButton()];
+  [ChromeEarlGrey
+      waitForUIElementToAppearWithMatcher:grey_accessibilityLabel(@"pageB")];
+
+  // 4. Navigate back to fake aim page A.
+  // Tab 0 is page A.
+  [ChromeEarlGrey selectTabAtIndex:0];
+  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:CloseButton()];
+
+  // 5. Query a new thing in this fake AIM webpage A.
+  [ChromeEarlGrey loadURL:self.testServer->GetURL(
+                              "localhost", "/search?udm=50&q=pageA_updated")];
+  [ChromeEarlGrey waitForPageToFinishLoading];
+
+  // 6. Go back to a tab that is not an AIM page.
+  // Tab 2 is the non-AIM page we opened from page B.
+  [ChromeEarlGrey selectTabAtIndex:2];
+
+  // 7. Observe that cobrowse is now displaying the context of AIM page A.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:CloseButton()];
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:grey_accessibilityLabel(
+                                                          @"pageA_updated")];
 }
 
 // Tests that the assistant starts in minimized state when the flag is enabled.
@@ -843,6 +1053,61 @@ id<GREYMatcher> CloseButton() {
                                                      OmniboxText(""), nil)];
 }
 
+// Tests that the cobrowse input plate is hidden when the plus menu bottom sheet
+// is opened, and reshown after it is dismissed.
+- (void)testInputPlateHiddenOnPlusMenu {
+  if (!IsComposeboxPlusButtonBottomSheet()) {
+    EARL_GREY_TEST_SKIPPED(
+        @"Skipped when kComposeboxPlusButtonBottomSheet is disabled.");
+  }
+  if ([ComposeboxAppInterface isServerSideStateEnabled]) {
+    EARL_GREY_TEST_SKIPPED(
+        @"Skipped when kComposeboxServerSideState is enabled.");
+  }
+
+  OpenCoBrowse(_defaultURL);
+
+  // Wait for the assistant to appear.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:CloseButton()];
+
+  // Verify that the cobrowse input plate is visible.
+  id<GREYMatcher> inputPlate =
+      grey_accessibilityID(kComposeboxAccessibilityIdentifier);
+  [[EarlGrey selectElementWithMatcher:inputPlate]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Focus the cobrowse input plate by tapping it.
+  [[EarlGrey selectElementWithMatcher:inputPlate] performAction:grey_tap()];
+
+  // Wait for the plus button to appear.
+  id<GREYMatcher> plusButton =
+      grey_accessibilityID(kComposeboxPlusButtonAccessibilityIdentifier);
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:plusButton];
+
+  // Tap on the plus button to open the menu.
+  [[EarlGrey selectElementWithMatcher:plusButton] performAction:grey_tap()];
+
+  // Wait for the plus menu to appear.
+  id<GREYMatcher> menuOption =
+      grey_accessibilityID(kComposeboxSelectTabsActionAccessibilityIdentifier);
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:menuOption];
+
+  // Verify that the cobrowse input plate is hidden.
+  [[EarlGrey selectElementWithMatcher:inputPlate]
+      assertWithMatcher:grey_notVisible()];
+
+  // Dismiss the bottom sheet menu by swiping it down.
+  [[EarlGrey selectElementWithMatcher:menuOption]
+      performAction:grey_swipeFastInDirection(kGREYDirectionDown)];
+
+  // Wait for the menu to disappear.
+  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:menuOption];
+
+  // Verify that the cobrowse input plate is visible again.
+  [[EarlGrey selectElementWithMatcher:inputPlate]
+      assertWithMatcher:grey_sufficientlyVisible()];
+}
+
 // Tests that focusing the Cobrowse input plate automatically attaches the
 // active tab.
 - (void)testCobrowseAutoAttachesActiveTabWhenTyping {
@@ -870,20 +1135,15 @@ id<GREYMatcher> CloseButton() {
       performAction:grey_tap()];
   WaitForDetent(AssistantContainerDetent::kLarge);
 
-  // 3. Verify that an attachment appears in the Cobrowse carousel.
-  id<GREYMatcher> cobrowseCarousel = grey_allOf(
-      grey_accessibilityID(kComposeboxCarouselAccessibilityIdentifier),
+  // 3. Verify that the auto-attached tab appears in the Cobrowse tabs
+  // accordion.
+  id<GREYMatcher> cobrowseTabsAccordion = grey_allOf(
+      grey_accessibilityID(kComposeboxTabsAccordionAccessibilityIdentifier),
       grey_ancestor(
           grey_accessibilityID(kAssistantContainerDetentLargeIdentifier)),
       nil);
 
-  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:cobrowseCarousel];
-
-  id<GREYMatcher> attachedItem = grey_allOf(
-      grey_accessibilityID(kComposeboxCarouselItemAccessibilityIdentifier),
-      grey_ancestor(cobrowseCarousel), nil);
-
-  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:attachedItem];
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:cobrowseTabsAccordion];
 }
 
 @end

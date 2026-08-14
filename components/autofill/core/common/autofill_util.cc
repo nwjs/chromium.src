@@ -193,8 +193,9 @@ IsPasswordRequestManuallyTriggered IsPasswordsAutofillManuallyTriggered(
 // Many assume that there are only two possible values.
 bool IsAtMemoryTriggerSource(AutofillSuggestionTriggerSource trigger_source) {
   switch (trigger_source) {
-    case AutofillSuggestionTriggerSource::kAtMemory:
     case AutofillSuggestionTriggerSource::kAtMemoryContextMenu:
+    case AutofillSuggestionTriggerSource::kAtMemoryKeyboardShortcut:
+    case AutofillSuggestionTriggerSource::kAtMemoryTriggerString:
       return true;
     case AutofillSuggestionTriggerSource::kUnspecified:
     case AutofillSuggestionTriggerSource::kFormControlElementClicked:
@@ -234,9 +235,7 @@ bool IsFormDataPerfectlyFilled(const FormData& form) {
   });
 }
 
-bool LikelyAugmentedPhoneCountryCode(
-    const FormFieldData& field,
-    bool new_augmented_cc_regex_experiment_enabled) {
+bool LikelyAugmentedPhoneCountryCode(const FormFieldData& field) {
   // The limits for the number of <option>s in a <select> field in between which
   // we consider a field to possibly be a phone country code field.
   constexpr size_t kMinOptions = 5;
@@ -262,14 +261,9 @@ bool LikelyAugmentedPhoneCountryCode(
   }
 
   // Count the number of options matching `kAugmentedPhoneCountryCodeRe`.
-  size_t matching_options = std::ranges::count_if(
-      field.options(),
-      [new_augmented_cc_regex_experiment_enabled](const SelectOption& option) {
-        return new_augmented_cc_regex_experiment_enabled
-                   ? MatchesRegex<kAugmentedPhoneCountryCodeParsingRe>(
-                         option.text)
-                   : MatchesRegex<kAugmentedPhoneCountryCodeExtractionRe>(
-                         option.text);
+  size_t matching_options =
+      std::ranges::count_if(field.options(), [](const SelectOption& option) {
+        return MatchesRegex<kAugmentedPhoneCountryCodeParsingRe>(option.text);
       });
 
   // (1) Low range.

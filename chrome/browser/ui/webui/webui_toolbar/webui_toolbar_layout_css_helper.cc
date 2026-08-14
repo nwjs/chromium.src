@@ -202,12 +202,6 @@ std::string WebUIToolbarLayoutCssHelper::GenerateLayoutConstantsCss() {
     css_string.append("--touch-mode: 0;");
   }
 
-  if (gfx::Animation::ShouldRenderRichAnimation()) {
-    css_string.append("--animations-enabled: 1;");
-  } else {
-    css_string.append("--animations-enabled: 0;");
-  }
-
   // Add LayoutConstant values.
   for (int layout_constant_num = 0;
        layout_constant_num <= static_cast<int>(LayoutConstant::kLast);
@@ -253,6 +247,9 @@ std::string WebUIToolbarLayoutCssHelper::GenerateLayoutConstantsCss() {
                    views::style::STYLE_PRIMARY, typography_provider,
                    css_string);
   AddFontVariables("--toolbar-button", CONTEXT_TOOLBAR_BUTTON,
+                   views::style::STYLE_PRIMARY, typography_provider,
+                   css_string);
+  AddFontVariables("--drag-template", views::style::CONTEXT_BUTTON,
                    views::style::STYLE_PRIMARY, typography_provider,
                    css_string);
 
@@ -345,21 +342,29 @@ void WebUIToolbarLayoutCssHelper::AddFontVariables(
     int style,
     const views::TypographyProvider& typography_provider,
     std::string& out) {
-  const gfx::FontList& font = typography_provider.GetFont(context, style);
-  DCHECK_EQ(1u, font.GetFonts().size());
-  std::string_view font_family = font.GetPrimaryFont().GetFontName();
-  // Convert internal Mac font name back to CSS name.
-  if (font_family == ".AppleSystemUIFont") {
-    font_family = "system-ui";
+  const gfx::FontList& font_list = typography_provider.GetFont(context, style);
+
+  std::vector<std::string> escaped_font_names;
+  for (const gfx::Font& font : font_list.GetFonts()) {
+    std::string_view font_name = font.GetFontName();
+    // Convert internal Mac font name back to CSS name.
+    if (font_name == ".AppleSystemUIFont") {
+      font_name = "system-ui";
+    }
+    escaped_font_names.push_back(
+        base::StrCat({"\"", EscapeCssFontName(font_name), "\""}));
   }
+
+  std::string font_family_css = base::JoinString(escaped_font_names, ",");
+
   base::StrAppend(
       &out,
       // clang-format off
-      {prefix, "-font-family:\"",
-       EscapeCssFontName(font_family), "\";",
-       prefix, "-font-size:", base::NumberToString(font.GetFontSize()), "px;",
+      {prefix, "-font-family:", font_family_css, ";",
+       prefix, "-font-size:",
+       base::NumberToString(font_list.GetFontSize()), "px;",
        prefix, "-font-weight:",
-       base::NumberToString(static_cast<int>(font.GetFontWeight())), ";",
+       base::NumberToString(static_cast<int>(font_list.GetFontWeight())), ";",
        prefix, "-line-height:",
        base::NumberToString(typography_provider.GetLineHeight(context, style)),
        "px;"});

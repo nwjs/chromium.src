@@ -16,7 +16,6 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_view_util.h"
-#include "content/browser/devtools/auction_worklet_devtools_agent_host.h"
 #include "content/browser/devtools/dedicated_worker_devtools_agent_host.h"
 #include "content/browser/devtools/devtools_http_handler.h"
 #include "content/browser/devtools/devtools_manager.h"
@@ -27,7 +26,6 @@
 #include "content/browser/devtools/render_frame_devtools_agent_host.h"
 #include "content/browser/devtools/service_worker_devtools_agent_host.h"
 #include "content/browser/devtools/service_worker_devtools_manager.h"
-#include "content/browser/devtools/shared_storage_worklet_devtools_manager.h"
 #include "content/browser/devtools/shared_worker_devtools_agent_host.h"
 #include "content/browser/devtools/shared_worker_devtools_manager.h"
 #include "content/browser/devtools/web_contents_devtools_agent_host.h"
@@ -148,8 +146,6 @@ const char DevToolsAgentHost::kTypeDedicatedWorker[] = "worker";
 const char DevToolsAgentHost::kTypeSharedWorker[] = "shared_worker";
 const char DevToolsAgentHost::kTypeServiceWorker[] = "service_worker";
 const char DevToolsAgentHost::kTypeWorklet[] = "worklet";
-const char DevToolsAgentHost::kTypeSharedStorageWorklet[] =
-    "shared_storage_worklet";
 const char DevToolsAgentHost::kTypeBrowser[] = "browser";
 const char DevToolsAgentHost::kTypeGuest[] = "webview";
 const char DevToolsAgentHost::kTypeOther[] = "other";
@@ -194,13 +190,10 @@ DevToolsAgentHost::List DevToolsAgentHost::GetOrCreateAll() {
   for (const auto& host : service_list)
     result.push_back(host);
 
-  SharedStorageWorkletDevToolsManager::GetInstance()->AddAllAgentHosts(&result);
-
   DedicatedWorkerDevToolsAgentHost::AddAllAgentHosts(&result);
   RenderFrameDevToolsAgentHost::AddAllAgentHosts(&result);
   WebContentsDevToolsAgentHost::AddAllAgentHosts(&result);
 
-  AuctionWorkletDevToolsAgentHostManager::GetInstance().GetAll(&result);
   MojomDevToolsAgentHost::GetAll(&result);
 
 #if DCHECK_IS_ON()

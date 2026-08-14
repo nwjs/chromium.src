@@ -50,8 +50,12 @@ source_set("app") {
   deps = [
     "//base",
     "//ios/chrome/app/startup:utils",
+    "//ios/chrome/browser/app_switcher/metrics",
+    "//ios/chrome/browser/app_switcher/model",
+    "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/shared/model/url:constants",
     "//ios/chrome/browser/shared/public/features",
+    "//ios/public/provider/chrome/browser/app_switcher:app_switcher_api",
     "//ios/public/provider/chrome/browser/application_mode_fetcher:application_mode_fetcher_api",
     "//net",
     "//url",
@@ -420,6 +424,7 @@ source_set("safe_mode_app_state_agent") {
     "//ios/chrome/app/application_delegate:app_state",
     "//ios/chrome/app/application_delegate:observing_app_state_agent",
     "//ios/chrome/browser/safe_mode/ui_bundled",
+    "//ios/chrome/browser/scoped_ui_blocker/ui_bundled",
     "//ios/chrome/browser/shared/coordinator/scene:observing_scene_agent",
   ]
 }
@@ -631,6 +636,7 @@ source_set("app_internal") {
     "//ios/chrome/browser/share_extension/model:controller",
     "//ios/chrome/browser/shared/coordinator/scene",
     "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
+    "//ios/chrome/browser/shared/coordinator/scene:scene_util",
     "//ios/chrome/browser/shared/model/application_context",
     "//ios/chrome/browser/shared/model/paths",
     "//ios/chrome/browser/shared/model/prefs:pref_names",

@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/auto_reset.h"
 #include "base/base64.h"
 #include "base/check.h"
 #include "base/containers/fixed_flat_map.h"
@@ -42,6 +43,7 @@
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/form_structure_test_api.h"
+#include "components/autofill/core/browser/foundations/autofill_manager_test_api.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
 #include "components/autofill/core/browser/foundations/test_autofill_driver.h"
@@ -626,7 +628,7 @@ TEST_F(AutofillMetricsTest, CreditCardCheckoutFlowUserActions) {
         test::CreateAutofillSuggestion(SuggestionType::kCreditCardEntry,
                                        u"Test",
                                        Suggestion::Guid(kTestLocalCardId)),
-        AutofillSuggestionDelegate::SuggestionMetadata{.row = 0});
+        AutofillSuggestionDelegate::SuggestionMetadata{.multi_index = {0}});
 
     EXPECT_EQ(1,
               user_action_tester.GetActionCount("Autofill_SelectedSuggestion"));
@@ -653,7 +655,7 @@ TEST_F(AutofillMetricsTest, CreditCardCheckoutFlowUserActions) {
 
     external_delegate().DidAcceptSuggestion(
         Suggestion(SuggestionType::kUndoOrClear),
-        AutofillSuggestionDelegate::SuggestionMetadata{.row = 0});
+        AutofillSuggestionDelegate::SuggestionMetadata{.multi_index = {0}});
 
     EXPECT_EQ(
         1, user_action_tester.GetActionCount("Autofill_UndoPaymentsAutofill"));
@@ -682,7 +684,7 @@ TEST_F(AutofillMetricsTest, CreditCardCheckoutFlowUserActions) {
         test::CreateAutofillSuggestion(SuggestionType::kCreditCardEntry,
                                        u"Test",
                                        Suggestion::Guid(kTestLocalCardId)),
-        AutofillSuggestionDelegate::SuggestionMetadata{.row = 0});
+        AutofillSuggestionDelegate::SuggestionMetadata{.multi_index = {0}});
 
     EXPECT_EQ(1,
               user_action_tester.GetActionCount("Autofill_SelectedSuggestion"));
@@ -814,7 +816,7 @@ TEST_F(AutofillMetricsTest, ProfileCheckoutFlowUserActions) {
         test::CreateAutofillSuggestion(SuggestionType::kCreditCardEntry,
                                        u"Test",
                                        Suggestion::Guid(kTestProfileId)),
-        AutofillSuggestionDelegate::SuggestionMetadata{.row = 0});
+        AutofillSuggestionDelegate::SuggestionMetadata{.multi_index = {0}});
 
     EXPECT_EQ(1,
               user_action_tester.GetActionCount("Autofill_SelectedSuggestion"));
@@ -2486,7 +2488,8 @@ TEST_F(AutofillMetricsTest, DynamicFormMetrics) {
   test_api(form).Remove(-1);
 
   // Trigger a refill, the refill metric should be updated.
-  autofill_manager().OnFormsSeen({form}, /*removed_forms=*/{});
+  autofill_manager().OnFormsSeen({form}, /*removed_forms=*/{},
+                                 AutofillManagerTestApi::pass_key());
   EXPECT_THAT(histogram_tester.GetAllSamples("Autofill.FormEvents.Address"),
               BucketsInclude(Bucket(FORM_EVENT_DID_DYNAMIC_REFILL, 1)));
 }
@@ -2893,13 +2896,6 @@ class AutofillMetricsSeamlessnessTest
   static constexpr auto kBitmask = MetricName::Variant::kBitmask;
 
  protected:
-  AutofillMetricsSeamlessnessTest() {
-    scoped_features_.InitAndEnableFeatureWithParameters(
-        features::kAutofillLogUKMEventsWithSamplingOnSession,
-        {{features::kAutofillLogUKMEventsWithSamplingOnSessionRate.name,
-          "100"}});
-  }
-
   void InitAutofillClient() override {
     AutofillMetricsCrossFrameFormTest::InitAutofillClient();
 
@@ -2908,7 +2904,8 @@ class AutofillMetricsSeamlessnessTest
   }
 
  private:
-  base::test::ScopedFeatureList scoped_features_;
+  base::AutoReset<int> sampling_override_ =
+      autofill_metrics::SetUkmSamplingRateForTesting(100);
 };
 
 // Tests that Autofill.CreditCard.SeamlessFills.* is not emitted for manual

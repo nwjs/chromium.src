@@ -39,6 +39,7 @@
 
 namespace {
 
+using ::base::test::ios::kWaitForPageLoadTimeout;
 using ::base::test::ios::kWaitForUIElementTimeout;
 using ::base::test::ios::WaitUntilConditionOrTimeout;
 
@@ -667,12 +668,15 @@ void TapDoneButtonOnInfobarModal() {
 
 // Tests that a supervised user account with parental controls enabled does not
 // have access to modify camera or microphone site permissions.
-- (void)testSupervisedUserPermissionsNoCameraOrMicAccess {
-  // TODO(crbug.com/40921852): Failing on iOS17.
-  if (@available(iOS 17.0, *)) {
-    XCTSkip(@"Failing on iOS17");
-  }
-
+// TODO(crbug.com/40921852): Failing on iOS17 on physical devices.
+#if TARGET_OS_SIMULATOR
+#define MAYBE_testSupervisedUserPermissionsNoCameraOrMicAccess \
+  testSupervisedUserPermissionsNoCameraOrMicAccess
+#else
+#define MAYBE_testSupervisedUserPermissionsNoCameraOrMicAccess \
+  DISABLED_testSupervisedUserPermissionsNoCameraOrMicAccess
+#endif
+- (void)MAYBE_testSupervisedUserPermissionsNoCameraOrMicAccess {
   // These settings are controlled in Family Link and would be updated through
   // Sync content settings.
   [ChromeEarlGrey setContentSetting:ContentSetting::CONTENT_SETTING_BLOCK
@@ -756,6 +760,33 @@ void TapDoneButtonOnInfobarModal() {
     [ChromeEarlGrey
         waitForSufficientlyVisibleElementWithMatcher:CameraBadge(
                                                          /*accepted=*/YES)];
+  }
+}
+
+// Tests that denying microphone permissions on a webpage that recursively
+// re-requests permission upon denial does not cause a synchronous WebKit
+// re-entrancy crash (regression test for issue 529634846).
+- (void)testMicrophonePermissionRecursionCrashRegression {
+  GREYAssertTrue(self.testServer->Start(), @"Test server failed to start.");
+  [ChromeEarlGrey loadURL:self.testServer->GetURL(
+                              "/permissions/microphone_recursion.html")];
+
+  {
+    ScopedSynchronizationDisabler disabler;
+    // Deny the initial microphone permission alert.
+    [self checkAndTapAlertContainingPermissions:
+              l10n_util::GetNSString(
+                  IDS_IOS_PERMISSIONS_ALERT_DIALOG_PERMISSION_MICROPHONE)
+                                    shouldAllow:NO];
+
+    // Verify that Chrome survives the recursion loop and updates the title.
+    GREYAssert(WaitUntilConditionOrTimeout(
+                   kWaitForPageLoadTimeout,
+                   ^{
+                     return [[ChromeEarlGrey currentTabTitle]
+                         isEqualToString:@"Denied And Survived"];
+                   }),
+               @"Page title was not updated after recursion loop.");
   }
 }
 

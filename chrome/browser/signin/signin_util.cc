@@ -490,6 +490,7 @@ bool IsValidAccessPointForHistoryOptinScreen(
     case signin_metrics::AccessPoint::kIosGeminiButtonToolbar:
     case signin_metrics::AccessPoint::kIndigo:
     case signin_metrics::AccessPoint::kLevelUp:
+    case signin_metrics::AccessPoint::kSignoutUndoSnackbar:
       return false;
     case signin_metrics::AccessPoint::kStartPage:
     case signin_metrics::AccessPoint::kMenu:
@@ -625,7 +626,8 @@ bool ShouldShowAvatarSyncPromo(Profile* profile) {
   return true;
 }
 
-void ShowErrorDialogWithMessage(Browser* browser, int error_message_id) {
+void ShowErrorDialogWithMessage(BrowserWindowInterface* browser,
+                                int error_message_id) {
   if (!browser) {
     return;
   }

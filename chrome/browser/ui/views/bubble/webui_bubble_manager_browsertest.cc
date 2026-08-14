@@ -7,7 +7,6 @@
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/views/bubble/webui_bubble_dialog_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/webui/top_chrome/top_chrome_web_ui_controller.h"
@@ -153,13 +152,13 @@ IN_PROC_BROWSER_TEST_F(WebUIBubbleManagerBrowserTest, DISABLED_WarmupLevel) {
 
   // Create a new process if there is no spare renderer.
   spare_manager.CleanupSparesForTesting();
-  DestroyBubble(bubble_manager(), browser()->profile());
+  DestroyBubble(bubble_manager(), browser()->GetProfile());
   bubble_manager()->ShowBubble(anchor_view());
   EXPECT_EQ(bubble_manager()->contents_warmup_level(),
             WebUIContentsWarmupLevel::kNoRenderer);
 
   // Use the process dedicated to top chrome WebUIs if there is one.
-  DestroyBubble(bubble_manager(), browser()->profile());
+  DestroyBubble(bubble_manager(), browser()->GetProfile());
   // Use a different domain under .top-chrome so that the WebContents
   // is not reused if WebUIBubblePerProfilePersistence is enabled.
   std::unique_ptr<WebUIBubbleManager> another_bubble_manager =

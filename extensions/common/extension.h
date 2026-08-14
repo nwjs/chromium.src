@@ -94,10 +94,10 @@ class Extension final : public base::RefCountedThreadSafe<Extension> {
     WAS_INSTALLED_BY_DEFAULT = 1 << 7,
 
     // Unused - was part of an abandoned experiment.
-    REQUIRE_PERMISSIONS_CONSENT = 1 << 8,
+    // REQUIRE_PERMISSIONS_CONSENT = 1 << 8,
 
     // Unused - this flag has been moved to ExtensionPrefs.
-    IS_EPHEMERAL = 1 << 9,
+    // IS_EPHEMERAL = 1 << 9,
 
     // `WAS_INSTALLED_BY_OEM` installed by an OEM (e.g on Chrome OS) and should
     // be placed in a special OEM folder in the App Launcher. Note: OEM apps are
@@ -240,11 +240,32 @@ class Extension final : public base::RefCountedThreadSafe<Extension> {
   // Can only be called after Init is finished.
   const ManifestData* GetManifestData(std::string_view key) const;
 
+  template <class T>
+  const T* GetManifestData() const {
+    static_assert(std::is_base_of_v<ManifestData, T>,
+                  "T must derive from Extension::ManifestData");
+    return static_cast<const T*>(GetManifestData(T::kManifestDataKey));
+  }
+
+  template <class T>
+  const T* GetManifestData(std::string_view key) const {
+    static_assert(std::is_base_of_v<ManifestData, T>,
+                  "T must derive from Extension::ManifestData");
+    return static_cast<const T*>(GetManifestData(key));
+  }
+
   // Sets `data` to be associated with the key.
   // Can only be called before Init is finished. Not thread-safe;
   // all SetManifestData calls should be on only one thread.
   void SetManifestData(std::string_view key,
                        std::unique_ptr<ManifestData> data);
+
+  template <class T>
+  void SetManifestData(std::unique_ptr<T> data) {
+    static_assert(std::is_base_of_v<ManifestData, T>,
+                  "T must derive from Extension::ManifestData");
+    SetManifestData(T::kManifestDataKey, std::move(data));
+  }
 
   // Sets the GUID for this extension. Note: this should *only* be used when
   // duplicating an existing extension; otherwise, the GUID will be
@@ -262,7 +283,6 @@ class Extension final : public base::RefCountedThreadSafe<Extension> {
   const HashedExtensionId& hashed_id() const;
   const ExtensionGuid& guid() const;
   const base::Version& version() const { return version_; }
-  const std::string& version_name() const;
   std::string VersionString() const;
   std::string DifferentialFingerprint() const;
   std::string GetVersionForDisplay() const;
@@ -451,27 +471,6 @@ class Extension final : public base::RefCountedThreadSafe<Extension> {
 };
 
 using ExtensionList = std::vector<scoped_refptr<const Extension>>;
-
-// Handy struct to pass core extension info around.
-struct ExtensionInfo {
-  ExtensionInfo(const base::DictValue* manifest,
-                const ExtensionId& id,
-                const base::FilePath& path,
-                mojom::ManifestLocation location);
-  ExtensionInfo(ExtensionInfo&&) noexcept;
-  ExtensionInfo(const ExtensionInfo&) = delete;
-  ExtensionInfo& operator=(const ExtensionInfo&) = delete;
-  ExtensionInfo& operator=(ExtensionInfo&&);
-  ~ExtensionInfo();
-
-  // Note: This may be null (e.g. for unpacked extensions retrieved from the
-  // Preferences file).
-  std::unique_ptr<base::DictValue> extension_manifest;
-
-  ExtensionId extension_id;
-  base::FilePath extension_path;
-  mojom::ManifestLocation extension_location;
-};
 
 }  // namespace extensions
 

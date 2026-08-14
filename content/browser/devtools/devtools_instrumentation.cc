@@ -4,6 +4,7 @@
 
 #include "content/browser/devtools/devtools_instrumentation.h"
 
+#include "base/byte_size.h"
 #include "base/containers/adapters.h"
 #include "base/feature_list.h"
 #include "base/notreached.h"
@@ -11,6 +12,7 @@
 #include "base/strings/to_string.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/traced_value.h"
+#include "base/unguessable_token.h"
 #include "components/download/public/common/download_create_info.h"
 #include "components/download/public/common/download_item.h"
 #include "components/download/public/common/download_url_parameters.h"
@@ -73,9 +75,6 @@ namespace content {
 namespace devtools_instrumentation {
 
 namespace {
-
-namespace AttributionReportingIssueTypeEnum =
-    protocol::Audits::AttributionReportingIssueTypeEnum;
 
 const char kExampleBrowserProcessDeprecation[] =
     "ExampleBrowserProcessDeprecation";
@@ -169,228 +168,132 @@ std::unique_ptr<protocol::Audits::InspectorIssue> BuildHeavyAdIssue(
   return issue;
 }
 
-protocol::Audits::AttributionReportingIssueType
-BuildAttributionReportingIssueViolationType(
-    blink::mojom::AttributionReportingIssueType type) {
-  switch (type) {
-    case blink::mojom::AttributionReportingIssueType::kPermissionPolicyDisabled:
-      return AttributionReportingIssueTypeEnum::PermissionPolicyDisabled;
-    case blink::mojom::AttributionReportingIssueType::
-        kUntrustworthyReportingOrigin:
-      return AttributionReportingIssueTypeEnum::UntrustworthyReportingOrigin;
-    case blink::mojom::AttributionReportingIssueType::kInsecureContext:
-      return AttributionReportingIssueTypeEnum::InsecureContext;
-    case blink::mojom::AttributionReportingIssueType::
-        kInvalidRegisterSourceHeader:
-      return AttributionReportingIssueTypeEnum::InvalidHeader;
-    case blink::mojom::AttributionReportingIssueType::
-        kInvalidRegisterTriggerHeader:
-      return AttributionReportingIssueTypeEnum::InvalidRegisterTriggerHeader;
-    case blink::mojom::AttributionReportingIssueType::kSourceAndTriggerHeaders:
-      return AttributionReportingIssueTypeEnum::SourceAndTriggerHeaders;
-    case blink::mojom::AttributionReportingIssueType::kSourceIgnored:
-      return AttributionReportingIssueTypeEnum::SourceIgnored;
-    case blink::mojom::AttributionReportingIssueType::kTriggerIgnored:
-      return AttributionReportingIssueTypeEnum::TriggerIgnored;
-    case blink::mojom::AttributionReportingIssueType::kOsSourceIgnored:
-      return AttributionReportingIssueTypeEnum::OsSourceIgnored;
-    case blink::mojom::AttributionReportingIssueType::kOsTriggerIgnored:
-      return AttributionReportingIssueTypeEnum::OsTriggerIgnored;
-    case blink::mojom::AttributionReportingIssueType::
-        kInvalidRegisterOsSourceHeader:
-      return AttributionReportingIssueTypeEnum::InvalidRegisterOsSourceHeader;
-    case blink::mojom::AttributionReportingIssueType::
-        kInvalidRegisterOsTriggerHeader:
-      return AttributionReportingIssueTypeEnum::InvalidRegisterOsTriggerHeader;
-    case blink::mojom::AttributionReportingIssueType::kWebAndOsHeaders:
-      return AttributionReportingIssueTypeEnum::WebAndOsHeaders;
-    case blink::mojom::AttributionReportingIssueType::kNoWebOrOsSupport:
-      return AttributionReportingIssueTypeEnum::NoWebOrOsSupport;
-    case blink::mojom::AttributionReportingIssueType::
-        kNavigationRegistrationWithoutTransientUserActivation:
-      // This issue is not reported from the browser.
-      NOTREACHED();
-    case blink::mojom::AttributionReportingIssueType::kInvalidInfoHeader:
-      return AttributionReportingIssueTypeEnum::InvalidInfoHeader;
-    case blink::mojom::AttributionReportingIssueType::kNoRegisterSourceHeader:
-      return AttributionReportingIssueTypeEnum::NoRegisterSourceHeader;
-    case blink::mojom::AttributionReportingIssueType::kNoRegisterTriggerHeader:
-      return AttributionReportingIssueTypeEnum::NoRegisterTriggerHeader;
-    case blink::mojom::AttributionReportingIssueType::kNoRegisterOsSourceHeader:
-      return AttributionReportingIssueTypeEnum::NoRegisterOsSourceHeader;
-    case blink::mojom::AttributionReportingIssueType::
-        kNoRegisterOsTriggerHeader:
-      return AttributionReportingIssueTypeEnum::NoRegisterOsTriggerHeader;
-    case blink::mojom::AttributionReportingIssueType::
-        kNavigationRegistrationUniqueScopeAlreadySet:
-      return AttributionReportingIssueTypeEnum::
-          NavigationRegistrationUniqueScopeAlreadySet;
-  }
-}
-
-std::unique_ptr<protocol::Audits::InspectorIssue>
-BuildAttributionReportingIssue(
-    const blink::mojom::AttributionReportingIssueDetailsPtr& issue_details) {
-  protocol::String violation_type = BuildAttributionReportingIssueViolationType(
-      issue_details->violation_type);
-
-  auto request = protocol::Audits::AffectedRequest::Create()
-                     .SetUrl(issue_details->request->url)
-                     .Build();
-  if (issue_details->request->request_id.has_value()) {
-    request->SetRequestId(issue_details->request->request_id.value());
-  }
-  auto attribution_reporting_issue_details =
-      protocol::Audits::AttributionReportingIssueDetails::Create()
-          .SetViolationType(violation_type)
-          .SetRequest(std::move(request))
-          .Build();
-  if (issue_details->invalid_parameter.has_value()) {
-    attribution_reporting_issue_details->SetInvalidParameter(
-        issue_details->invalid_parameter.value());
-  }
-
-  auto protocol_issue_details =
-      protocol::Audits::InspectorIssueDetails::Create()
-          .SetAttributionReportingIssueDetails(
-              std::move(attribution_reporting_issue_details))
-          .Build();
-
-  auto issue = protocol::Audits::InspectorIssue::Create()
-                   .SetCode(protocol::Audits::InspectorIssueCodeEnum::
-                                AttributionReportingIssue)
-                   .SetDetails(std::move(protocol_issue_details))
-                   .Build();
-  return issue;
-}
-
 protocol::Audits::FederatedAuthRequestIssueReason
-FederatedAuthRequestResultToProtocol(
-    blink::mojom::FederatedAuthRequestResult result) {
-  using blink::mojom::FederatedAuthRequestResult;
+FederatedRequestResultToProtocol(blink::mojom::FederatedRequestResult result) {
+  using blink::mojom::FederatedRequestResult;
   namespace FederatedAuthRequestIssueReasonEnum =
       protocol::Audits::FederatedAuthRequestIssueReasonEnum;
   switch (result) {
-    case FederatedAuthRequestResult::kShouldEmbargo: {
+    case FederatedRequestResult::kShouldEmbargo: {
       return FederatedAuthRequestIssueReasonEnum::ShouldEmbargo;
     }
-    case FederatedAuthRequestResult::kDisabledInSettings: {
+    case FederatedRequestResult::kDisabledInSettings: {
       return FederatedAuthRequestIssueReasonEnum::DisabledInSettings;
     }
-    case FederatedAuthRequestResult::kDisabledInFlags: {
+    case FederatedRequestResult::kDisabledInFlags: {
       return FederatedAuthRequestIssueReasonEnum::DisabledInFlags;
     }
-    case FederatedAuthRequestResult::kIdpNotPotentiallyTrustworthy: {
+    case FederatedRequestResult::kIdpNotPotentiallyTrustworthy: {
       return FederatedAuthRequestIssueReasonEnum::IdpNotPotentiallyTrustworthy;
     }
-    case FederatedAuthRequestResult::kTooManyRequests: {
+    case FederatedRequestResult::kTooManyRequests: {
       return FederatedAuthRequestIssueReasonEnum::TooManyRequests;
     }
-    case FederatedAuthRequestResult::kWellKnownHttpNotFound: {
+    case FederatedRequestResult::kWellKnownHttpNotFound: {
       return FederatedAuthRequestIssueReasonEnum::WellKnownHttpNotFound;
     }
-    case FederatedAuthRequestResult::kWellKnownNoResponse: {
+    case FederatedRequestResult::kWellKnownNoResponse: {
       return FederatedAuthRequestIssueReasonEnum::WellKnownNoResponse;
     }
-    case FederatedAuthRequestResult::kWellKnownInvalidResponse: {
+    case FederatedRequestResult::kWellKnownInvalidResponse: {
       return FederatedAuthRequestIssueReasonEnum::WellKnownInvalidResponse;
     }
-    case FederatedAuthRequestResult::kWellKnownListEmpty: {
+    case FederatedRequestResult::kWellKnownListEmpty: {
       return FederatedAuthRequestIssueReasonEnum::WellKnownListEmpty;
     }
-    case FederatedAuthRequestResult::kWellKnownInvalidContentType: {
+    case FederatedRequestResult::kWellKnownInvalidContentType: {
       return FederatedAuthRequestIssueReasonEnum::WellKnownInvalidContentType;
     }
-    case FederatedAuthRequestResult::kConfigNotInWellKnown: {
+    case FederatedRequestResult::kConfigNotInWellKnown: {
       return FederatedAuthRequestIssueReasonEnum::ConfigNotInWellKnown;
     }
-    case FederatedAuthRequestResult::kWellKnownTooBig: {
+    case FederatedRequestResult::kWellKnownTooBig: {
       return FederatedAuthRequestIssueReasonEnum::WellKnownTooBig;
     }
-    case FederatedAuthRequestResult::kConfigHttpNotFound: {
+    case FederatedRequestResult::kConfigHttpNotFound: {
       return FederatedAuthRequestIssueReasonEnum::ConfigHttpNotFound;
     }
-    case FederatedAuthRequestResult::kConfigNoResponse: {
+    case FederatedRequestResult::kConfigNoResponse: {
       return FederatedAuthRequestIssueReasonEnum::ConfigNoResponse;
     }
-    case FederatedAuthRequestResult::kConfigInvalidResponse: {
+    case FederatedRequestResult::kConfigInvalidResponse: {
       return FederatedAuthRequestIssueReasonEnum::ConfigInvalidResponse;
     }
-    case FederatedAuthRequestResult::kConfigInvalidContentType: {
+    case FederatedRequestResult::kConfigInvalidContentType: {
       return FederatedAuthRequestIssueReasonEnum::ConfigInvalidContentType;
     }
-    case FederatedAuthRequestResult::kAccountsHttpNotFound: {
+    case FederatedRequestResult::kAccountsHttpNotFound: {
       return FederatedAuthRequestIssueReasonEnum::AccountsHttpNotFound;
     }
-    case FederatedAuthRequestResult::kAccountsNoResponse: {
+    case FederatedRequestResult::kAccountsNoResponse: {
       return FederatedAuthRequestIssueReasonEnum::AccountsNoResponse;
     }
-    case FederatedAuthRequestResult::kAccountsInvalidResponse: {
+    case FederatedRequestResult::kAccountsInvalidResponse: {
       return FederatedAuthRequestIssueReasonEnum::AccountsInvalidResponse;
     }
-    case FederatedAuthRequestResult::kAccountsListEmpty: {
+    case FederatedRequestResult::kAccountsListEmpty: {
       return FederatedAuthRequestIssueReasonEnum::AccountsListEmpty;
     }
-    case FederatedAuthRequestResult::kAccountsInvalidContentType: {
+    case FederatedRequestResult::kAccountsInvalidContentType: {
       return FederatedAuthRequestIssueReasonEnum::AccountsInvalidContentType;
     }
-    case FederatedAuthRequestResult::kIdTokenHttpNotFound: {
+    case FederatedRequestResult::kIdTokenHttpNotFound: {
       return FederatedAuthRequestIssueReasonEnum::IdTokenHttpNotFound;
     }
-    case FederatedAuthRequestResult::kIdTokenNoResponse: {
+    case FederatedRequestResult::kIdTokenNoResponse: {
       return FederatedAuthRequestIssueReasonEnum::IdTokenNoResponse;
     }
-    case FederatedAuthRequestResult::kIdTokenInvalidResponse: {
+    case FederatedRequestResult::kIdTokenInvalidResponse: {
       return FederatedAuthRequestIssueReasonEnum::IdTokenInvalidResponse;
     }
-    case FederatedAuthRequestResult::kIdTokenIdpErrorResponse: {
+    case FederatedRequestResult::kIdTokenIdpErrorResponse: {
       return FederatedAuthRequestIssueReasonEnum::IdTokenIdpErrorResponse;
     }
-    case FederatedAuthRequestResult::kIdTokenCrossSiteIdpErrorResponse: {
+    case FederatedRequestResult::kIdTokenCrossSiteIdpErrorResponse: {
       return FederatedAuthRequestIssueReasonEnum::
           IdTokenCrossSiteIdpErrorResponse;
     }
-    case FederatedAuthRequestResult::kIdTokenInvalidContentType: {
+    case FederatedRequestResult::kIdTokenInvalidContentType: {
       return FederatedAuthRequestIssueReasonEnum::IdTokenInvalidContentType;
     }
-    case FederatedAuthRequestResult::kCanceled: {
+    case FederatedRequestResult::kCanceled: {
       return FederatedAuthRequestIssueReasonEnum::Canceled;
     }
-    case FederatedAuthRequestResult::kRpPageNotVisible:
+    case FederatedRequestResult::kRpPageNotVisible:
       return FederatedAuthRequestIssueReasonEnum::RpPageNotVisible;
-    case FederatedAuthRequestResult::kError: {
+    case FederatedRequestResult::kError: {
       return FederatedAuthRequestIssueReasonEnum::ErrorIdToken;
     }
-    case FederatedAuthRequestResult::kSilentMediationFailure: {
+    case FederatedRequestResult::kSilentMediationFailure: {
       return FederatedAuthRequestIssueReasonEnum::SilentMediationFailure;
     }
-    case FederatedAuthRequestResult::kNotSignedInWithIdp: {
+    case FederatedRequestResult::kNotSignedInWithIdp: {
       return FederatedAuthRequestIssueReasonEnum::NotSignedInWithIdp;
     }
-    case FederatedAuthRequestResult::kMissingTransientUserActivation: {
+    case FederatedRequestResult::kMissingTransientUserActivation: {
       return FederatedAuthRequestIssueReasonEnum::
           MissingTransientUserActivation;
     }
-    case FederatedAuthRequestResult::kReplacedByActiveMode: {
+    case FederatedRequestResult::kReplacedByActiveMode: {
       return FederatedAuthRequestIssueReasonEnum::ReplacedByActiveMode;
     }
-    case FederatedAuthRequestResult::kRelyingPartyOriginIsOpaque: {
+    case FederatedRequestResult::kRelyingPartyOriginIsOpaque: {
       return FederatedAuthRequestIssueReasonEnum::RelyingPartyOriginIsOpaque;
     }
-    case FederatedAuthRequestResult::kTypeNotMatching: {
+    case FederatedRequestResult::kTypeNotMatching: {
       return FederatedAuthRequestIssueReasonEnum::TypeNotMatching;
     }
-    case FederatedAuthRequestResult::kUiDismissedNoEmbargo: {
+    case FederatedRequestResult::kUiDismissedNoEmbargo: {
       return FederatedAuthRequestIssueReasonEnum::UiDismissedNoEmbargo;
     }
-    case FederatedAuthRequestResult::kCorsError: {
+    case FederatedRequestResult::kCorsError: {
       return FederatedAuthRequestIssueReasonEnum::CorsError;
     }
-    case FederatedAuthRequestResult::kSuppressedBySegmentationPlatform: {
+    case FederatedRequestResult::kSuppressedBySegmentationPlatform: {
       return FederatedAuthRequestIssueReasonEnum::
           SuppressedBySegmentationPlatform;
     }
-    case FederatedAuthRequestResult::kSuccess: {
+    case FederatedRequestResult::kSuccess: {
       NOTREACHED();
     }
   }
@@ -398,17 +301,17 @@ FederatedAuthRequestResultToProtocol(
 
 std::unique_ptr<protocol::Audits::InspectorIssue>
 BuildFederatedAuthRequestIssue(
-    const blink::mojom::FederatedAuthRequestIssueDetailsPtr& issue_details) {
-  auto federated_auth_request_details =
+    const blink::mojom::FederatedRequestIssueDetailsPtr& issue_details) {
+  auto federated_request_details =
       protocol::Audits::FederatedAuthRequestIssueDetails::Create()
           .SetFederatedAuthRequestIssueReason(
-              FederatedAuthRequestResultToProtocol(issue_details->status))
+              FederatedRequestResultToProtocol(issue_details->status))
           .Build();
 
   auto protocol_issue_details =
       protocol::Audits::InspectorIssueDetails::Create()
           .SetFederatedAuthRequestIssueDetails(
-              std::move(federated_auth_request_details))
+              std::move(federated_request_details))
           .Build();
 
   auto issue = protocol::Audits::InspectorIssue::Create()
@@ -1695,29 +1598,30 @@ void ApplyNetworkRequestOverrides(
 
 }  // namespace
 
-void ApplyExtraHeadersForWebSocket(const GlobalRenderFrameHostId& frame_id,
-                                   net::HttpRequestHeaders* headers) {
-  auto* frame = RenderFrameHostImpl::FromID(frame_id);
-  if (!frame) {
-    return;
+void ApplyExtraHeadersForWebSocket(
+    const GlobalRenderFrameHostId& frame_id,
+    const std::optional<base::UnguessableToken>& devtools_worker_token,
+    net::HttpRequestHeaders* headers) {
+  auto apply_overrides = [headers](DevToolsAgentHostImpl* agent_host) {
+    if (!agent_host) {
+      return;
+    }
+    bool disable_cache = false;
+    bool skip_service_worker = false;
+    ApplyNetworkRequestOverrides(agent_host, headers, &disable_cache, nullptr,
+                                 &skip_service_worker, nullptr, nullptr,
+                                 nullptr, nullptr);
+  };
+  if (RenderFrameHostImpl* frame = RenderFrameHostImpl::FromID(frame_id)) {
+    if (FrameTreeNode* ftn = frame->frame_tree_node()) {
+      apply_overrides(GetDevToolsAgentHostForNetworkOverrides(ftn));
+    }
   }
-
-  FrameTreeNode* ftn = frame->frame_tree_node();
-  if (!ftn) {
-    return;
+  if (devtools_worker_token && !devtools_worker_token->is_empty()) {
+    scoped_refptr<DevToolsAgentHostImpl> worker_agent_host =
+        DevToolsAgentHostImpl::GetForId(devtools_worker_token->ToString());
+    apply_overrides(worker_agent_host.get());
   }
-
-  DevToolsAgentHostImpl* agent_host =
-      GetDevToolsAgentHostForNetworkOverrides(ftn);
-  if (!agent_host) {
-    return;
-  }
-
-  bool disable_cache = false;
-  bool skip_service_worker = false;
-  ApplyNetworkRequestOverrides(agent_host, headers, &disable_cache, nullptr,
-                               &skip_service_worker, nullptr, nullptr, nullptr,
-                               nullptr);
 }
 
 void ApplyAuctionNetworkRequestOverrides(
@@ -2060,47 +1964,6 @@ void OnAuctionWorkletNetworkRequestComplete(
                    status);
 }
 
-bool NeedInterestGroupAuctionEvents(FrameTreeNodeId frame_tree_node_id) {
-  FrameTreeNode* ftn = FrameTreeNode::GloballyFindByID(frame_tree_node_id);
-  if (!ftn) {
-    return false;
-  }
-  DevToolsAgentHostImpl* agent_host = RenderFrameDevToolsAgentHost::GetFor(ftn);
-  if (!agent_host) {
-    return false;
-  }
-  for (auto* storage : protocol::StorageHandler::ForAgentHost(agent_host)) {
-    if (storage->interest_group_auction_tracking_enabled()) {
-      return true;
-    }
-  }
-  return false;
-}
-
-void OnInterestGroupAuctionEventOccurred(
-    FrameTreeNodeId frame_tree_node_id,
-    base::Time event_time,
-    InterestGroupAuctionEventType type,
-    const std::string& unique_auction_id,
-    base::optional_ref<const std::string> parent_auction_id,
-    const base::DictValue& auction_config) {
-  DispatchToAgents(
-      frame_tree_node_id,
-      &protocol::StorageHandler::NotifyInterestGroupAuctionEventOccurred,
-      event_time, type, unique_auction_id, parent_auction_id, auction_config);
-}
-
-void OnInterestGroupAuctionNetworkRequestCreated(
-    FrameTreeNodeId frame_tree_node_id,
-    InterestGroupAuctionFetchType type,
-    const std::string& request_id,
-    const std::vector<std::string>& devtools_auction_ids) {
-  DispatchToAgents(frame_tree_node_id,
-                   &protocol::StorageHandler::
-                       NotifyInterestGroupAuctionNetworkRequestCreated,
-                   type, request_id, devtools_auction_ids);
-}
-
 void OnNavigationRequestWillBeSent(
     const NavigationRequest& navigation_request) {
   // Note this intentionally deviates from the usual instrumentation signal
@@ -2295,33 +2158,6 @@ std::unique_ptr<protocol::Array<protocol::String>> BuildWarningReasons(
                                   WARN_SAMESITE_UNSPECIFIED_LAX_ALLOW_UNSAFE)) {
     warning_reasons->push_back(protocol::Audits::CookieWarningReasonEnum::
                                    WarnSameSiteUnspecifiedLaxAllowUnsafe);
-  }
-
-  // There can only be one of the following warnings.
-  if (status.HasWarningReason(net::CookieInclusionStatus::WarningReason::
-                                  WARN_STRICT_LAX_DOWNGRADE_STRICT_SAMESITE)) {
-    warning_reasons->push_back(protocol::Audits::CookieWarningReasonEnum::
-                                   WarnSameSiteStrictLaxDowngradeStrict);
-  } else if (status.HasWarningReason(
-                 net::CookieInclusionStatus::WarningReason::
-                     WARN_STRICT_CROSS_DOWNGRADE_STRICT_SAMESITE)) {
-    warning_reasons->push_back(protocol::Audits::CookieWarningReasonEnum::
-                                   WarnSameSiteStrictCrossDowngradeStrict);
-  } else if (status.HasWarningReason(
-                 net::CookieInclusionStatus::WarningReason::
-                     WARN_STRICT_CROSS_DOWNGRADE_LAX_SAMESITE)) {
-    warning_reasons->push_back(protocol::Audits::CookieWarningReasonEnum::
-                                   WarnSameSiteStrictCrossDowngradeLax);
-  } else if (status.HasWarningReason(
-                 net::CookieInclusionStatus::WarningReason::
-                     WARN_LAX_CROSS_DOWNGRADE_STRICT_SAMESITE)) {
-    warning_reasons->push_back(protocol::Audits::CookieWarningReasonEnum::
-                                   WarnSameSiteLaxCrossDowngradeStrict);
-  } else if (status.HasWarningReason(
-                 net::CookieInclusionStatus::WarningReason::
-                     WARN_LAX_CROSS_DOWNGRADE_LAX_SAMESITE)) {
-    warning_reasons->push_back(protocol::Audits::CookieWarningReasonEnum::
-                                   WarnSameSiteLaxCrossDowngradeLax);
   }
 
   if (status.HasWarningReason(
@@ -2556,7 +2392,7 @@ void BuildAndReportBrowserInitiatedIssue(
   } else if (info->code ==
              blink::mojom::InspectorIssueCode::kFederatedAuthRequestIssue) {
     issue = BuildFederatedAuthRequestIssue(
-        info->details->federated_auth_request_details);
+        info->details->federated_request_details);
   } else if (info->code ==
              blink::mojom::InspectorIssueCode::kDeprecationIssue) {
     issue = BuildDeprecationIssue(info->details->deprecation_issue_details);
@@ -2576,10 +2412,6 @@ void BuildAndReportBrowserInitiatedIssue(
                                kFederatedAuthUserInfoRequestIssue) {
     issue = BuildFederatedAuthUserInfoRequestIssue(
         info->details->federated_auth_user_info_request_details);
-  } else if (info->code ==
-             blink::mojom::InspectorIssueCode::kAttributionReportingIssue) {
-    issue = BuildAttributionReportingIssue(
-        info->details->attribution_reporting_issue_details);
   } else if (info->code ==
              blink::mojom::InspectorIssueCode::kUserReidentificationIssue) {
     issue = BuildUserReidentificationIssue(
@@ -2677,7 +2509,7 @@ void OnServiceWorkerMainScriptFetchingFailed(
           worker_token,
           status.completion_time.ToInternalValue() /
               static_cast<double>(base::Time::kMicrosecondsPerSecond),
-          status.encoded_data_length);
+          status.encoded_data_length.InBytes());
     }
   } else if (agent_host) {
     for (auto* network_handler :

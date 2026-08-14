@@ -89,11 +89,12 @@
 // to the view.
 @interface ReadingListCoordinator () <AccountSettingsPresenter,
                                       AuthenticationServiceObserving,
-                                      IdentityManagerObserverBridgeDelegate,
+                                      IdentityManagerObserving,
                                       ReadingListMenuProvider,
                                       ReadingListListItemFactoryDelegate,
                                       ReadingListListViewControllerAudience,
                                       ReadingListListViewControllerDelegate,
+                                      ReadingListMenuProvider,
                                       SigninPromoViewConsumer,
                                       SigninPromoViewMediatorDelegate,
                                       UIAdaptivePresentationControllerDelegate>
@@ -587,10 +588,10 @@
 
 // TODO(crbug.com/40898970): This delegate's implementation will be moved to
 // SigninPromoViewMediator.
-#pragma mark - IdentityManagerObserverBridgeDelegate
+#pragma mark - IdentityManagerObserving
 
 // Called when a user changes the syncing state.
-- (void)onPrimaryAccountChanged:
+- (void)primaryAccountDidChange:
     (const signin::PrimaryAccountChangeEvent&)event {
   switch (event.GetEventTypeFor(signin::ConsentLevel::kSignin)) {
     case signin::PrimaryAccountChangeEvent::Type::kSet:
@@ -691,7 +692,7 @@
   if (shouldShowSignInPromo) {
     [_signinPromoViewMediator signinPromoViewIsVisible];
   } else {
-    if (!_signinPromoViewMediator.invalidClosedOrNeverVisible) {
+    if (_signinPromoViewMediator.isUsable) {
       [_signinPromoViewMediator signinPromoViewIsHidden];
     }
   }

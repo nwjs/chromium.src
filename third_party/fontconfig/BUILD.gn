@@ -2,8 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/rust/cargo_crate.gni")
 import("//build/rust/rust_bindgen.gni")
-import("//build/rust/rust_static_library.gni")
 import("//third_party/fontconfig/fontconfig.gni")
 
 assert(is_linux || is_chromeos)
@@ -27,7 +27,7 @@ if (use_bundled_fontconfig) {
 
     bindgen_flags = [
       "merge-extern-blocks",
-      "allowlist-item=(FcPattern.*|FcRange.*|FcCharSet.*|FcLangSetFromCharSet|FC_.*_OBJECT)",
+      "allowlist-item=(FcPattern.*|FcRange.*|FcCharSet.*|FcLangSetFromCharSet|FC_.*_OBJECT|FcGenericAliasGetClassification)",
       "blocklist-type=(FcCharSet|FcLangSet)",
       "raw-line=pub use fontconfig_bindings::FcCharSet; pub use fontconfig_bindings::FcLangSet;",
     ]
@@ -39,8 +39,9 @@ if (use_bundled_fontconfig) {
     ]
   }
 
-  rust_static_library("fontconfig_fontations_ffi") {
+  cargo_crate("fontconfig_fontations_ffi") {
     allow_unsafe = true  # Needed for FFI that underpins the `cxx` crate.
+    build_native_rust_unit_tests = false
     edition = "2021"
     crate_root = "src/fc-fontations/mod.rs"
     sources = [
@@ -62,8 +63,8 @@ if (use_bundled_fontconfig) {
       ":fontconfig_h_bindgen",
       "//third_party/rust/font_types/v0_12:lib",
       "//third_party/rust/libc/v0_2:lib",
-      "//third_party/rust/read_fonts/v0_40:lib",
-      "//third_party/rust/skrifa/v0_43:lib",
+      "//third_party/rust/read_fonts/v0_41:lib",
+      "//third_party/rust/skrifa/v0_44:lib",
     ]
   }
 
@@ -72,6 +73,7 @@ if (use_bundled_fontconfig) {
       "src",
       "include/",
       "include/fc-const/",
+      "include/fc-genericfamily/",
       "include/fc-lang/",
     ]
   }
@@ -95,12 +97,14 @@ if (use_bundled_fontconfig) {
       "src/src/fccfg.c",
       "src/src/fccharset.c",
       "src/src/fccompat.c",
+      "src/src/fcconffile.c",
       "src/src/fcdbg.c",
       "src/src/fcdefault.c",
       "src/src/fcdir.c",
       "src/src/fcfontations.c",
       "src/src/fcformat.c",
       "src/src/fcfs.c",
+      "src/src/fcgenericalias.c",
       "src/src/fchash.c",
       "src/src/fcinit.c",
       "src/src/fcint.h",

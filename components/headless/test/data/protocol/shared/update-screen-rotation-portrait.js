@@ -4,11 +4,16 @@
 //
 // META: --screen-info={600x800}
 
-(async function(testRunner) {
+(async function(/** @type {import('test_runner').TestRunner} */ testRunner) {
   const {dp} = await testRunner.startBlank(
       'Tests CDP Emulation.updateScreen() API portrait rotation handling.');
 
-  const screenId = '1';
+  async function getScreenId(index) {
+    const {screenInfos} = (await dp.Emulation.getScreenInfos()).result;
+    return screenInfos[index].id;
+  }
+
+  const screenId = await getScreenId(0);
 
   for (const rotation of [0, 90, 180, 270]) {
     const {screenInfo} = (await dp.Emulation.updateScreen({

@@ -96,10 +96,12 @@ public class TabUmaTest {
                 new OneshotSupplierImpl<>(),
                 ObservableSuppliers.alwaysNull(),
                 new NoOpTopInsetProvider(),
+                new OneshotSupplierImpl<>(),
                 cta.getStartupMetricsTracker(),
                 /* exclusiveAccessManager= */ null,
                 /* backPressManager= */ null,
-                /* recentlyClosedEntriesManager= */ null);
+                /* recentlyClosedEntriesManager= */ null,
+                /* leftSideUiWidthSupplier= */ null);
     }
 
     private Tab createLazilyLoadedTab(boolean show) throws ExecutionException {

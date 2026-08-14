@@ -22,23 +22,6 @@ chromium-metrics-reviews@google.com.
 
 <histograms>
 
-<variants name="ContentAllProviderTypes">
-  <variant name="ComponentExtensionProvider"/>
-  <variant name="CustomExtensionProvider"/>
-  <variant name="DefaultProvider"/>
-  <variant name="ExtensionInstallTimePermissionProvider"/>
-  <variant name="InstalledWebappProvider"/>
-  <variant name="JavascriptOptimizerAndroidProvider"/>
-  <variant name="NotificationAndroidProvider"/>
-  <variant name="OneTimePermissionProvider"/>
-  <variant name="OtherProviderForTests"/>
-  <variant name="PolicyProvider"/>
-  <variant name="PrefProvider"/>
-  <variant name="ProviderForTests"/>
-  <variant name="SupervisedProvider"/>
-  <variant name="WebuiAllowlistProvider"/>
-</variants>
-
 <variants name="FeedNetworkRequestType">
   <variant name=".FeedQuery" summary="FeedQuery"/>
   <variant name=".FollowWebFeed" summary="FollowWebFeed"/>
@@ -78,7 +61,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Content.SharedWorker.CreationContextTypeMismatch"
-    enum="SharedWorkerCreationContextTypeMismatch" expires_after="2026-10-25">
+    enum="SharedWorkerCreationContextTypeMismatch" expires_after="2026-12-27">
   <owner>yyanagisawa@chromium.org</owner>
   <owner>content-owners@chromium.org</owner>
   <summary>
@@ -278,17 +261,26 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram
-    name="ContentSettings.ActiveExpiry.{ProviderType}.ContentSettingsType"
-    enum="PermissionType" expires_after="2025-07-10">
-  <owner>fjacky@chromium.org</owner>
-  <owner>dullweber@chromium.org</owner>
-  <owner>src/components/permissions/PERMISSIONS_OWNERS</owner>
+<histogram name="ContentSettings.AllowStorageAccessSync" units="ms"
+    expires_after="2026-12-14">
+  <owner>sisidovski@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
   <summary>
-    Logs the number of active expiries per provider type at content setting
-    granularity. Events are recorded at expiry time.
+    Measures how long a sync call to ContentSettingsManager::AllowStorageAccess
+    blocks the renderer thread. Logged each time the renderer asks the browser
+    for storage permission status synchronously.
   </summary>
-  <token key="ProviderType" variants="ContentAllProviderTypes"/>
+</histogram>
+
+<histogram name="ContentSettings.AllowStorageAccessSync.CacheHit"
+    enum="Boolean" expires_after="2026-12-14">
+  <owner>sisidovski@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Logged when the renderer checks storage permissions. True if the permission
+    was already cached in ContentSettingsAgentImpl (e.g. via eager fetching),
+    false if it required a synchronous Mojo IPC to the browser process.
+  </summary>
 </histogram>
 
 <histogram name="ContentSettings.Bubble.StorageAccess.Action"
@@ -1272,7 +1264,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSuggestions.Feed.Network.ResponseSizeKB" units="KB"
-    expires_after="2026-11-08">
+    expires_after="2027-01-10">
   <owner>jianli@chromium.org</owner>
   <owner>feed@chromium.org</owner>
   <summary>
@@ -1418,7 +1410,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSuggestions.Feed.UploadActionsStatus"
-    enum="FeedUploadActionsStatus" expires_after="2026-11-01">
+    enum="FeedUploadActionsStatus" expires_after="2027-01-03">
   <owner>jianli@chromium.org</owner>
   <owner>feed@chromium.org</owner>
   <summary>

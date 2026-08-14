@@ -43,6 +43,7 @@ import org.chromium.content_public.browser.ImeAdapter;
 import org.chromium.content_public.browser.RenderCoordinates;
 import org.chromium.content_public.browser.SmartClipProvider;
 import org.chromium.content_public.browser.ViewEventSink;
+import org.chromium.content_public.browser.ViewFocusChangeSuppression;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsAccessibility;
 import org.chromium.ui.accessibility.AccessibilityState;
@@ -99,6 +100,24 @@ public class ContentView extends FrameLayout
     private int mDesiredWidthMeasureSpec = DEFAULT_MEASURE_SPEC;
 
     private int mDesiredHeightMeasureSpec = DEFAULT_MEASURE_SPEC;
+
+    private int mContentOffsetXPix;
+
+    /** Sets the on-screen X offset amount for the left content margin. */
+    public void setContentOffsetXPix(int contentOffsetXPix) {
+        mContentOffsetXPix = contentOffsetXPix;
+    }
+
+    /** Returns the on-screen X offset amount for the left content margin. */
+    public int getContentOffsetXPix() {
+        return mContentOffsetXPix;
+    }
+
+    @Override
+    public void getLocationInWindow(int[] outLocation) {
+        super.getLocationInWindow(outLocation);
+        outLocation[0] += mContentOffsetXPix;
+    }
 
     private EventOffsetHandler mDragDropEventOffsetHandler;
     private boolean mDeferKeepScreenOnChanges;
@@ -432,6 +451,8 @@ public class ContentView extends FrameLayout
 
     @Override
     public boolean onKeyPreIme(int keyCode, KeyEvent event) {
+        if (isInputSuppressed()) return false;
+
         if (hasValidWebContents()) {
             ImeAdapter adapter = ImeAdapter.fromWebContents(mWebContents);
             if (adapter != null) {
@@ -449,6 +470,8 @@ public class ContentView extends FrameLayout
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (isInputSuppressed()) return false;
+
         if (!isFocused()) return super.dispatchKeyEvent(event);
         EventForwarder forwarder = getEventForwarder();
         return forwarder != null ? forwarder.dispatchKeyEvent(event) : false;
@@ -456,6 +479,8 @@ public class ContentView extends FrameLayout
 
     @Override
     public boolean onDragEvent(DragEvent event) {
+        if (isInputSuppressed()) return false;
+
         EventForwarder forwarder = getEventForwarder();
         return forwarder != null ? forwarder.onDragEvent(event, this) : false;
     }
@@ -501,6 +526,8 @@ public class ContentView extends FrameLayout
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        if (isInputSuppressed()) return false;
+
         if (TouchEventFilter.hasInvalidToolType(event)) return false;
         EventForwarder forwarder = getEventForwarder();
         GestureListenerManager gestureManager =
@@ -518,23 +545,31 @@ public class ContentView extends FrameLayout
      */
     @Override
     public boolean onHoverEvent(MotionEvent event) {
+        if (isInputSuppressed()) return false;
+
         for (View.OnHoverListener listener : mHoverListeners) {
             listener.onHover(this, event);
         }
         EventForwarder forwarder = getEventForwarder();
         boolean consumed = forwarder != null ? forwarder.onHoverEvent(event) : false;
-        if (!AccessibilityState.isTouchExplorationEnabled()) super.onHoverEvent(event);
+        if (!consumed && !AccessibilityState.isTouchExplorationEnabled()) {
+            super.onHoverEvent(event);
+        }
         return consumed;
     }
 
     @Override
     public boolean onGenericMotionEvent(MotionEvent event) {
+        if (isInputSuppressed()) return false;
+
         EventForwarder forwarder = getEventForwarder();
         return forwarder != null ? forwarder.onGenericMotionEvent(event) : false;
     }
 
     @Override
     public boolean onCapturedPointerEvent(MotionEvent event) {
+        if (isInputSuppressed()) return false;
+
         EventForwarder forwarder = getEventForwarder();
         if (forwarder != null) {
             // Device rotation is needed to update the raw touchpad events based on the device
@@ -746,6 +781,13 @@ public class ContentView extends FrameLayout
     @EnsuresNonNullIf("mWebContents")
     private boolean hasValidWebContents() {
         return mWebContents != null && !mWebContents.isDestroyed();
+    }
+
+    private boolean isInputSuppressed() {
+        // Reusing ViewFocusChangeSuppression to suppress input events as well, as they share the
+        // same lifecycle/condition (overlay actuation).
+        return hasValidWebContents()
+                && ViewFocusChangeSuppression.from(mWebContents).isSuppressed();
     }
 
     @EnsuresNonNullIf("mWebContents")

@@ -75,6 +75,9 @@ BASE_FEATURE(kAssistMultiWord, base::FEATURE_ENABLED_BY_DEFAULT);
 // Enables audio I/O selection improvement algorithm. http://launch/4301655.
 BASE_FEATURE(kAudioSelectionImprovement, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Controls whether to enable the audio focus enforcement toggle in settings.
+BASE_FEATURE(kAudioFocusSetting, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables the Auto Night Light feature which sets the default schedule type to
 // sunset-to-sunrise until the user changes it to something else. This feature
 // is not exposed to the end user, and is enabled only via cros_config for
@@ -164,9 +167,6 @@ BASE_FEATURE(kOnTaskStatusCheck, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<base::TimeDelta> kOnTaskStatusCheckInterval{
     &kOnTaskStatusCheck, "OnTaskStatusCheckInterval", base::Seconds(60)};
 
-// Enables or disables locked quiz migration to leverage the OnTask SWA.
-BASE_FEATURE(kBocaOnTaskLockedQuizMigration, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables or disables the Boca OnTask pod on ChromeOS.
 BASE_FEATURE(kBocaOnTaskPod, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -207,7 +207,7 @@ constexpr base::FeatureParam<std::string> kBocaSpotlightUrlTemplate{
     "https://remotedesktop.google.com/support/session/{sessionCode}"};
 
 // Enables or disables Gemini integration for Boca on ChromeOS.
-BASE_FEATURE(kBocaGeminiIntegration, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kBocaGeminiIntegration, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // The URL to use for Gemini integration in Boca.
 constexpr base::FeatureParam<std::string> kBocaGeminiUrl{
@@ -1090,6 +1090,9 @@ BASE_FEATURE(kInstantHotspotOnNearby, base::FEATURE_DISABLED_BY_DEFAULT);
 // Enables or disables Instant Tethering on ChromeOS.
 BASE_FEATURE(kInstantTethering, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables the inline update flow for Isolated Web Apps in Settings.
+BASE_FEATURE(kIsolatedWebAppInlineUpdate, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables or disables the internal server side speech recognition on ChromeOS.
 // The supported locales for this feature are specified using the locales
 // filter in finch config.
@@ -1309,7 +1312,7 @@ BASE_FEATURE(kOnDeviceSpeechRecognition, base::FEATURE_DISABLED_BY_DEFAULT);
 // Gates syncing of the first batch of visual accessibility settings so the
 // rollout can be staged and rolled back independently if issues surface.
 BASE_FEATURE(kOsSyncAccessibilitySettingsBatch1,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Gates syncing of the second batch of accessibility settings (reduced
 // animations and caption styling) so the rollout can proceed in small,
@@ -1320,7 +1323,7 @@ BASE_FEATURE(kOsSyncAccessibilitySettingsBatch2,
 // Gates syncing of the third batch of accessibility settings (screen + docked
 // magnifiers and select-to-speak toggles) so rollout can proceed incrementally.
 BASE_FEATURE(kOsSyncAccessibilitySettingsBatch3,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Whether the OneDrive upload flow should immediately prompt the user to
 // re-authenticate without first showing a notification.
@@ -1707,11 +1710,6 @@ BASE_FEATURE(kShowSharingUserInLauncherContinueSection,
 // Shows the spatial audio toggle in audio settings page.
 BASE_FEATURE(kShowSpatialAudioToggle, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Only collect metrics for the server certificate verification failure in
-// EAP networks.
-BASE_FEATURE(kSingleCaCertVerificationPhase0,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Try to use only a single CA cert for the EAP network if CA cert was selected,
 // fallback to the previous config.
 BASE_FEATURE(kSingleCaCertVerificationPhase1, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1977,10 +1975,6 @@ BASE_FEATURE(kWifiSyncApplyProxyConfigs, base::FEATURE_DISABLED_BY_DEFAULT);
 // over another window.
 BASE_FEATURE(kWindowSplitting, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables an experimental feature that lets users easily layout, resize and
-// position their windows using only mouse and touch gestures.
-BASE_FEATURE(kWmMode, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables or disables PSM CheckMembership for 28 day device active pings
 // on ChromeOS.
 BASE_FEATURE(kDeviceActiveClient28DayActiveCheckMembership,
@@ -2001,9 +1995,9 @@ BASE_FEATURE(kDeviceActiveClientChurnObservationCheckMembership,
 BASE_FEATURE(kDeviceActiveClientChurnObservationNewDeviceMetadata,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables or disables persisting device config (networks, EULA acceptance...)
-// over a powerwash that happens as part of a device move to a new domain
-BASE_FEATURE(kDeviceMoveConfigSave, base::FEATURE_DISABLED_BY_DEFAULT);
+// Enables or disables certain OOBE config options, set before a powerwash that
+// happens as part of a device move to a new domain.
+BASE_FEATURE(kDeviceMoveConfigSave, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the DeviceWeeklyScheduledSuspend policy for Managed Guest Sessions.
 BASE_FEATURE(kDeviceWeeklyScheduledSuspendMgs,
@@ -2288,10 +2282,6 @@ bool IsBocaConsumerEnabled() {
 
 bool IsBocaCustomPollingEnabled() {
   return base::FeatureList::IsEnabled(kBocaCustomPolling);
-}
-
-bool IsBocaOnTaskLockedQuizMigrationEnabled() {
-  return base::FeatureList::IsEnabled(kBocaOnTaskLockedQuizMigration);
 }
 
 bool IsBocaOnTaskPodEnabled() {
@@ -3317,10 +3307,6 @@ bool IsWifiSyncAndroidEnabled() {
 
 bool IsWindowSplittingEnabled() {
   return base::FeatureList::IsEnabled(kWindowSplitting);
-}
-
-bool IsWmModeEnabled() {
-  return base::FeatureList::IsEnabled(kWmMode);
 }
 
 bool IsFeatureAwareDeviceDemoModeEnabled() {

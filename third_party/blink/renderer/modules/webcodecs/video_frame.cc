@@ -18,6 +18,7 @@
 #include "base/time/time.h"
 #include "cc/paint/skia_paint_canvas.h"
 #include "components/viz/common/gpu/raster_context_provider.h"
+#include "media/base/format_utils.h"
 #include "media/base/limits.h"
 #include "media/base/timestamp_constants.h"
 #include "media/base/video_frame.h"
@@ -56,7 +57,7 @@
 #include "third_party/blink/renderer/modules/webcodecs/video_frame_init_util.h"
 #include "third_party/blink/renderer/modules/webcodecs/video_frame_rect_util.h"
 #include "third_party/blink/renderer/platform/geometry/geometry_hash_traits.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_non_2d_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_snapshot_info.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/image.h"
@@ -227,6 +228,9 @@ bool IsFormatEnabled(media::VideoPixelFormat fmt) {
   }
 }
 
+BASE_FEATURE(kUseSharedImageFormatForWebcodecsVideoFrame,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 class CachedVideoFramePool : public GarbageCollected<CachedVideoFramePool>,
                              public Supplement<ExecutionContext>,
                              public ExecutionContextLifecycleStateObserver {
@@ -353,8 +357,7 @@ class CanvasNon2DResourceProviderCache
   CanvasNon2DResourceProviderCache(const CanvasNon2DResourceProviderCache&) =
       delete;
 
-  CanvasNon2DResourceProviderSharedImage* CreateProvider(
-      const media::VideoFrame& frame) {
+  CanvasNon2DResourceProvider* CreateProvider(const media::VideoFrame& frame) {
     if (providers_.empty()) {
       PostMonitoringTask();
     }
@@ -374,8 +377,8 @@ class CanvasNon2DResourceProviderCache
       providers_.clear();
     }
 
-    std::unique_ptr<CanvasNon2DResourceProviderSharedImage> provider =
-        CanvasNon2DResourceProviderSharedImage::Create(
+    std::unique_ptr<CanvasNon2DResourceProvider> provider =
+        CanvasNon2DResourceProvider::Create(
             required_provider_info.size, required_provider_info.format,
             required_provider_info.alpha_type,
             required_provider_info.color_space,
@@ -431,7 +434,7 @@ class CanvasNon2DResourceProviderCache
     PostMonitoringTask();
   }
 
-  Vector<std::unique_ptr<CanvasNon2DResourceProviderSharedImage>> providers_;
+  Vector<std::unique_ptr<CanvasNon2DResourceProvider>> providers_;
   base::TimeTicks last_access_time_;
   TaskHandle task_handle_;
 };
@@ -821,21 +824,13 @@ VideoFrame* VideoFrame::Create(ScriptState* script_state,
   if (image->IsTextureBacked() && SharedGpuContext::IsGpuCompositingEnabled() &&
       !has_undiscarded_unpremultiplied_alpha) {
     DCHECK(image->IsStaticBitmapImage());
-    const auto format = media::VideoPixelFormatFromSkColorType(
-        paint_image.GetColorType(),
-        image->IsOpaque() || init->alpha() == V8AlphaOption::Enum::kDiscard);
-
-    ParsedVideoFrameInit parsed_init(init, format, coded_size,
-                                     default_visible_rect, default_display_size,
-                                     exception_state);
-    if (exception_state.HadException())
-      return nullptr;
-
     auto* sbi = To<StaticBitmapImage>(image.get());
 
     // We don't know which thread the video frame might end up on, so Transfer()
     // the image so that it doesn't hold on to any thread-affine state.
     sbi->Transfer();
+
+    const bool is_image_opaque = image->IsOpaque();
 
     // The sync token needs to be updated when |frame| is released, but
     // AcceleratedStaticBitmapImage::UpdateSyncToken() is not thread-safe.
@@ -854,8 +849,32 @@ VideoFrame* VideoFrame::Create(ScriptState* script_state,
                                 client_shared_image->debug_label());
       base::debug::DumpWithoutCrashing();
     }
+    std::optional<media::VideoPixelFormat> format;
+    // TODO(crbug.com/492116792): Add 1-copy path for copying RGBA to RGBX
+    // SharedImage with alpha discard.
+    if (base::FeatureList::IsEnabled(
+            kUseSharedImageFormatForWebcodecsVideoFrame)) {
+      format = media::SharedImageFormatToVideoPixelFormat(
+          client_shared_image->format());
+      if (!format.has_value()) {
+        exception_state.ThrowTypeError("Invalid shared image format");
+        return nullptr;
+      }
+    } else {
+      format = media::VideoPixelFormatFromSkColorType(
+          paint_image.GetColorType(),
+          is_image_opaque || init->alpha() == V8AlphaOption::Enum::kDiscard);
+    }
+
+    ParsedVideoFrameInit parsed_init(init, format.value(), coded_size,
+                                     default_visible_rect, default_display_size,
+                                     exception_state);
+    if (exception_state.HadException()) {
+      return nullptr;
+    }
+
     frame = media::VideoFrame::WrapSharedImage(
-        format, std::move(client_shared_image), sbi->GetSyncToken(),
+        format.value(), std::move(client_shared_image), sbi->GetSyncToken(),
         std::move(release_cb), parsed_init.visible_rect,
         parsed_init.display_size, timestamp);
 
@@ -1300,8 +1319,6 @@ void VideoFrame::ConvertAndCopyToRGB(scoped_refptr<media::VideoFrame> frame,
                                      base::span<uint8_t> buffer,
                                      PredefinedColorSpace target_color_space) {
   DCHECK(media::IsRGB(dest_layout.Format()));
-  SkColorType skia_pixel_format = media::SkColorTypeForPlane(
-      dest_layout.Format(), media::VideoFrame::Plane::kARGB);
 
   if (frame->visible_rect() != src_rect) {
     frame = media::VideoFrame::WrapVideoFrame(frame, frame->format(), src_rect,
@@ -1309,9 +1326,21 @@ void VideoFrame::ConvertAndCopyToRGB(scoped_refptr<media::VideoFrame> frame,
   }
 
   auto sk_color_space = PredefinedColorSpaceToSkColorSpace(target_color_space);
-  SkImageInfo dst_image_info =
-      SkImageInfo::Make(src_rect.width(), src_rect.height(), skia_pixel_format,
-                        kUnpremul_SkAlphaType, sk_color_space);
+  bool same_color_space =
+      SkColorSpace::Equals(sk_color_space.get(),
+                           frame->CompatRGBColorSpace().ToSkColorSpace().get());
+  bool same_format = frame->format() == dest_layout.Format();
+
+  if (frame->HasDirectCpuAccess() && same_color_space && same_format) {
+    CopyMappablePlanes(*frame, src_rect, dest_layout, buffer);
+    return;
+  }
+
+  SkImageInfo dst_image_info = SkImageInfo::Make(
+      src_rect.width(), src_rect.height(),
+      media::SkColorTypeForPlane(dest_layout.Format(),
+                                 media::VideoFrame::Plane::kARGB),
+      kUnpremul_SkAlphaType, sk_color_space);
 
   const wtf_size_t plane = 0;
   DCHECK_EQ(dest_layout.NumPlanes(), 1u);

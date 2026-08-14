@@ -252,7 +252,7 @@ public class BaseSuggestionProcessorUnitTest {
                 /* hasTabMatch= */ false,
                 TEST_URL);
 
-        Runnable touchDownListener = mModel.get(BaseSuggestionViewProperties.ON_TOUCH_DOWN_EVENT);
+        var touchDownListener = mModel.get(BaseSuggestionViewProperties.ON_TOUCH_DOWN_EVENT);
         assertNull(touchDownListener);
     }
 
@@ -265,7 +265,7 @@ public class BaseSuggestionProcessorUnitTest {
                 /* hasTabMatch= */ false,
                 TEST_URL);
 
-        Runnable touchDownListener = mModel.get(BaseSuggestionViewProperties.ON_TOUCH_DOWN_EVENT);
+        var touchDownListener = mModel.get(BaseSuggestionViewProperties.ON_TOUCH_DOWN_EVENT);
         assertNotNull(touchDownListener);
 
         var histogramWatcher =
@@ -274,10 +274,11 @@ public class BaseSuggestionProcessorUnitTest {
                                 OmniboxMetrics.HISTOGRAM_SEARCH_PREFETCH_TOUCH_DOWN_PROCESS_TIME)
                         .build();
 
-        touchDownListener.run();
+        touchDownListener.onResult(1000L);
 
         histogramWatcher.assertExpected();
-        verify(mSuggestionHost, times(1)).onSuggestionTouchDown(mSuggestion, /* position= */ 0);
+        verify(mSuggestionHost, times(1))
+                .onSuggestionTouchDown(mSuggestion, /* position= */ 0, /* eventTime= */ 1000L);
     }
 
     @Test
@@ -290,7 +291,7 @@ public class BaseSuggestionProcessorUnitTest {
                 /* hasTabMatch= */ false,
                 TEST_URL);
 
-        Runnable touchDownListener = mModel.get(BaseSuggestionViewProperties.ON_TOUCH_DOWN_EVENT);
+        var touchDownListener = mModel.get(BaseSuggestionViewProperties.ON_TOUCH_DOWN_EVENT);
         assertNull(touchDownListener);
     }
 
@@ -521,6 +522,29 @@ public class BaseSuggestionProcessorUnitTest {
 
         var actions = mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS);
         assertEquals(null, actions);
+    }
+
+    @Test
+    public void allowOmniboxActions_HubPageClassificationSkipsChips() {
+        // When the ANDROID_HUB PageClassification is seen, action chips are skipped.
+        mInput.setPageClassification(PageClassification.ANDROID_HUB_VALUE);
+
+        createSuggestionWithActions(
+                OmniboxSuggestionType.SEARCH_WHAT_YOU_TYPED,
+                /* isSearch= */ true,
+                TEST_URL,
+                List.of(
+                        new OmniboxActionInSuggest(
+                                0,
+                                "hint",
+                                "accessibility",
+                                SuggestTemplateInfo.TemplateAction.ActionType.REVIEWS_VALUE,
+                                "https://google.com",
+                                /* tabId= */ 0,
+                                ActionPresentationMode.CHIP)));
+
+        var chips = mModel.get(ActionChipsProperties.ACTION_CHIPS);
+        assertEquals(null, chips);
     }
 
     @Test

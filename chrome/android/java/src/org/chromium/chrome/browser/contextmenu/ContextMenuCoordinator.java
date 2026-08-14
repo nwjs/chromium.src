@@ -21,14 +21,16 @@ import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.app.AlertDialog;
 
 import org.chromium.base.Callback;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
-import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
 import org.chromium.components.browser_ui.widget.ContextMenuDialog;
+import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
+import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.BackPressResult;
 import org.chromium.components.embedder_support.contextmenu.ChipDelegate;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuNativeDelegate;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuParams;
@@ -38,7 +40,6 @@ import org.chromium.content_public.browser.LoadCommittedDetails;
 import org.chromium.content_public.browser.Visibility;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
-import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.hierarchicalmenu.FlyoutController;
 import org.chromium.ui.hierarchicalmenu.FlyoutController.FlyoutHandler;
@@ -56,6 +57,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * The main coordinator for the context menu, responsible for creating the context menu in general
@@ -74,34 +76,20 @@ public class ContextMenuCoordinator implements ContextMenuUi, FlyoutHandler<Cont
     }
 
     private final Activity mActivity;
+    private final List<ContextMenuListView> mListViews;
+    private final float mTopContentOffsetPx;
+    private final HierarchicalMenuController<ContextMenuDialog> mHierarchicalMenuController;
+    private final ContextMenuNativeDelegate mNativeDelegate;
+    private final boolean mIsCustomItemPresent;
+    private final Supplier<Integer> mLeftSideUiWidthSupplier;
+
     private WebContents mWebContents;
     private WebContentsObserver mWebContentsObserver;
     private @Nullable ContextMenuChipController mChipController;
     private ContextMenuHeaderCoordinator mHeaderCoordinator;
     private ContextMenuParams mParams;
-
-    private final List<ContextMenuListView> mListViews;
-    private final float mTopContentOffsetPx;
-
-    private final HierarchicalMenuController<ContextMenuDialog> mHierarchicalMenuController;
-
     private Runnable mOnMenuClosed;
-    private final ContextMenuNativeDelegate mNativeDelegate;
-    private final boolean mIsCustomItemPresent;
     private boolean mUsePopupWindow;
-
-    /**
-     * Constructor that also sets the content offset.
-     *
-     * @param activity The {@link Activity} for the application.
-     * @param topContentOffsetPx content offset from the top.
-     * @param nativeDelegate The {@link ContextMenuNativeDelegate} to retrieve the thumbnail from
-     *     native.
-     */
-    ContextMenuCoordinator(
-            Activity activity, float topContentOffsetPx, ContextMenuNativeDelegate nativeDelegate) {
-        this(activity, topContentOffsetPx, nativeDelegate, /* isCustomItemPresent= */ false);
-    }
 
     /**
      * @param activity The {@link Activity} for the application.
@@ -109,16 +97,19 @@ public class ContextMenuCoordinator implements ContextMenuUi, FlyoutHandler<Cont
      * @param nativeDelegate The {@link ContextMenuNativeDelegate} to retrieve the thumbnail from
      *     native.
      * @param isCustomItemPresent Whether a custom item is present in the context menu.
+     * @param leftSideUiWidthSupplier Supplier providing the left side UI width in px.
      */
     ContextMenuCoordinator(
             Activity activity,
             float topContentOffsetPx,
             ContextMenuNativeDelegate nativeDelegate,
-            boolean isCustomItemPresent) {
+            boolean isCustomItemPresent,
+            Supplier<Integer> leftSideUiWidthSupplier) {
         mActivity = activity;
         mTopContentOffsetPx = topContentOffsetPx;
         mNativeDelegate = nativeDelegate;
         mIsCustomItemPresent = isCustomItemPresent;
+        mLeftSideUiWidthSupplier = leftSideUiWidthSupplier;
         mListViews = new ArrayList<>();
         mHierarchicalMenuController = ListMenuUtils.createHierarchicalMenuController(mActivity);
     }
@@ -195,10 +186,7 @@ public class ContextMenuCoordinator implements ContextMenuUi, FlyoutHandler<Cont
 
         View containerView = assumeNonNull(webContents.getViewAndroidDelegate()).getContainerView();
 
-        int leftContentOffsetPx =
-                VerticalTabUtils.isVerticalTabsEnabled(mActivity)
-                        ? ViewUtils.dpToPx(mActivity, VerticalTabUtils.SIDE_UI_CONTAINER_WIDTH_DP)
-                        : 0;
+        int leftContentOffsetPx = mLeftSideUiWidthSupplier.get();
 
         // Calculate the Rect used to display the context menu dialog.
         Rect contextMenuRect =
@@ -279,7 +267,8 @@ public class ContextMenuCoordinator implements ContextMenuUi, FlyoutHandler<Cont
                         desiredPopupContentWidth,
                         dragDispatchingTargetView,
                         contextMenuRect,
-                        /* onDismissCallback= */ null);
+                        /* onDismissCallback= */ null,
+                        /* flyoutExtraPaddingY= */ 0);
         dialog.setOnShowListener(dialogInterface -> onMenuShown.run());
         dialog.setOnDismissListener(
                 (dialogInterface) -> {
@@ -296,9 +285,10 @@ public class ContextMenuCoordinator implements ContextMenuUi, FlyoutHandler<Cont
                         mWebContents,
                         mNativeDelegate,
                         mIsCustomItemPresent);
+        boolean isIncognito = Profile.fromWebContents(mWebContents).isIncognitoBranded();
         ContextMenuMediator mediator =
                 new ContextMenuMediator(
-                        mActivity, mHeaderCoordinator, onItemClicked, this::dismiss);
+                        mActivity, mHeaderCoordinator, isIncognito, onItemClicked, this::dismiss);
 
         // The Integer here specifies the {@link ListItemType}.
         ModelList listItems =
@@ -354,7 +344,26 @@ public class ContextMenuCoordinator implements ContextMenuUi, FlyoutHandler<Cont
         mHierarchicalMenuController.setupFlyoutController(
                 /* flyoutHandler= */ this,
                 dialog,
+                listView::setOnScrollChangeListener,
                 /* drillDownOverrideValue= */ mUsePopupWindow ? null : true);
+        dialog.setBackPressHandler(
+                new BackPressHandler() {
+                    @Override
+                    public @BackPressResult int handleBackPress() {
+                        return mHierarchicalMenuController.handleBackPress()
+                                ? BackPressResult.SUCCESS
+                                : BackPressResult.FAILURE;
+                    }
+
+                    @Override
+                    public NonNullObservableSupplier<Boolean> getHandleBackPressChangedSupplier() {
+                        return mHierarchicalMenuController.getHandleBackPressChangedSupplier();
+                    }
+                });
+        if (mUsePopupWindow) {
+            mHierarchicalMenuController.setupBackPressBehaviorForPopupWindow(
+                    dialog.getContentView(), this::dismissDialogs);
+        }
     }
 
     @Override
@@ -369,7 +378,10 @@ public class ContextMenuCoordinator implements ContextMenuUi, FlyoutHandler<Cont
 
     @Override
     public ContextMenuDialog createAndShowFlyoutPopup(
-            List<ListItem> items, View view, Runnable dismissRunnable) {
+            List<ListItem> items,
+            View view,
+            Runnable dismissRunnable,
+            View.OnScrollChangeListener scrollListener) {
         assert view != null;
         assert mUsePopupWindow;
 
@@ -400,8 +412,10 @@ public class ContextMenuCoordinator implements ContextMenuUi, FlyoutHandler<Cont
                         calculateFlyoutAnchorRect(mActivity, view),
                         () -> {
                             dismissRunnable.run();
-                        });
+                        },
+                        listView.getPaddingTop());
 
+        listView.setOnScrollChangeListener(scrollListener);
         dialog.show();
         return dialog;
     }
@@ -434,7 +448,8 @@ public class ContextMenuCoordinator implements ContextMenuUi, FlyoutHandler<Cont
      * @param layout The inflated context menu layout that will house the context menu.
      * @param menuView The inflated view that contains the list view.
      * @param isPopup Whether the context menu is being shown in a {@link AnchoredPopupWindow}.
-     * @param isPopup Whether the window is a flyout popup.
+     * @param isFlyout Whether the window is a flyout popup.
+     * @param shouldRemoveScrim Whether to remove the scrim behind the dialog.
      * @param topMarginPx An explicit top margin for the dialog, or -1 to use default defined in
      *     XML.
      * @param bottomMarginPx An explicit bottom margin for the dialog, or -1 to use default defined
@@ -445,6 +460,8 @@ public class ContextMenuCoordinator implements ContextMenuUi, FlyoutHandler<Cont
      *     drag event happened outside of ContextMenu will be dispatched into this View.
      * @param rect Rect location where context menu is triggered. If this menu is a popup, the
      *     coordinates are expected to be screen coordinates.
+     * @param onDismissCallback Callback to run when the dialog is dismissed.
+     * @param flyoutExtraPaddingY Extra vertical padding for flyout positioning.
      * @return Returns a final dialog that does not have a background can be displayed using {@link
      *     AlertDialog#show()}.
      */
@@ -463,7 +480,8 @@ public class ContextMenuCoordinator implements ContextMenuUi, FlyoutHandler<Cont
             @Nullable Integer desiredPopupContentWidth,
             @Nullable View dragDispatchingTargetView,
             Rect rect,
-            @Nullable Runnable onDismissCallback) {
+            @Nullable Runnable onDismissCallback,
+            int flyoutExtraPaddingY) {
         // TODO(sinansahin): Refactor ContextMenuDialog as well.
         final ContextMenuDialog dialog =
                 new ContextMenuDialog(
@@ -483,7 +501,8 @@ public class ContextMenuCoordinator implements ContextMenuUi, FlyoutHandler<Cont
                         rect,
                         /* shouldPadForWindowInsets= */ EdgeToEdgeUtils
                                 .isEdgeToEdgeEverywhereEnabled(),
-                        onDismissCallback);
+                        onDismissCallback,
+                        flyoutExtraPaddingY);
         dialog.setContentView(layout);
 
         return dialog;

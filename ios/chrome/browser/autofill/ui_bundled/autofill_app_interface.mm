@@ -42,11 +42,14 @@
 #import "components/password_manager/core/browser/password_store/password_form_converters.h"
 #import "components/password_manager/core/browser/password_store/password_store_consumer.h"
 #import "components/password_manager/core/browser/password_store/password_store_interface.h"
+#import "ios/chrome/browser/autofill/atmemory/public/at_memory_commands.h"
 #import "ios/chrome/browser/autofill/model/personal_data_manager_factory.h"
 #import "ios/chrome/browser/autofill/ui_bundled/chrome_autofill_client_ios.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_profile_password_store_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
+#import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
+#import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/common/ui/reauthentication/mock_reauthentication_module.h"
 #import "ios/chrome/test/app/chrome_test_util.h"
 #import "ios/chrome/test/app/tab_test_util.h"
@@ -789,9 +792,63 @@ class FakeCreditCardServer : public CreditCardSaveManager::ObserverForTest {
   }
 }
 
++ (void)showAtMemoryUI {
+  id<AtMemoryCommands> atMemoryHandler = HandlerForProtocol(
+      chrome_test_util::GetMainBrowser()->GetCommandDispatcher(),
+      AtMemoryCommands);
+  [atMemoryHandler showAtMemory];
+}
+
 + (autofill::EntityDataManager*)entityDataManager {
   return autofill::FakeCreditCardServer::GetAutofillClient()
       .GetEntityDataManager();
+}
+
+namespace {
+
+autofill::AutofillDriverIOS* GetMainFrameAutofillDriver() {
+  web::WebState* web_state = chrome_test_util::GetCurrentWebState();
+  if (!web_state) {
+    return nullptr;
+  }
+  web::WebFramesManager* frames_manager =
+      autofill::AutofillJavaScriptFeature::GetInstance()->GetWebFramesManager(
+          web_state);
+  if (!frames_manager) {
+    return nullptr;
+  }
+  web::WebFrame* main_frame = frames_manager->GetMainWebFrame();
+  if (!main_frame) {
+    return nullptr;
+  }
+  return autofill::AutofillDriverIOS::FromWebStateAndWebFrame(web_state,
+                                                              main_frame);
+}
+
+}  // namespace
+
++ (BOOL)isFormCachedInMainFrame {
+  autofill::AutofillDriverIOS* driver = GetMainFrameAutofillDriver();
+  if (!driver) {
+    return NO;
+  }
+  return !autofill::test_api(driver->GetAutofillManager())
+              .form_structures()
+              .empty();
+}
+
++ (BOOL)waitForFormToBeCachedInMainFrame {
+  if (![self isFormCachedInMainFrame]) {
+    if (autofill::AutofillDriverIOS* driver = GetMainFrameAutofillDriver()) {
+      driver->ScanForms(/*immediately=*/true);
+    }
+  }
+
+  ConditionBlock condition = ^BOOL {
+    return [self isFormCachedInMainFrame];
+  };
+  return base::test::ios::WaitUntilConditionOrTimeout(
+      base::test::ios::kWaitForPageLoadTimeout, condition);
 }
 
 @end

@@ -1125,14 +1125,20 @@ void ViewTransitionStyleTracker::SetCaptureRectsFromCompositor(
     // This rect no longer matters.
     element_data->cached_captured_rect_in_layout_space.reset();
 
-    if (auto* pseudo_element = OriginatingElement()->GetStyledPseudoElement(
-            PseudoId::kPseudoIdViewTransitionOld, entry.key)) {
-      static_cast<ViewTransitionContentElement*>(pseudo_element)
-          ->SetIntrinsicSize(rect_from_compositor,
-                             element_data->GetReferenceRect(
-                                 /*use_cached_data=*/true, device_pixel_ratio_),
-                             /*propagates_max_extents_rect=*/false);
+    auto* originating_element = OriginatingElement();
+    if (!originating_element) {
+      continue;
     }
+    auto* pseudo_element = originating_element->GetStyledPseudoElement(
+        PseudoId::kPseudoIdViewTransitionOld, entry.key);
+    if (!pseudo_element) {
+      continue;
+    }
+    static_cast<ViewTransitionContentElement*>(pseudo_element)
+        ->SetIntrinsicSize(rect_from_compositor,
+                           element_data->GetReferenceRect(
+                               /*use_cached_data=*/true, device_pixel_ratio_),
+                           /*propagates_max_extents_rect=*/false);
   }
 }
 
@@ -1869,7 +1875,8 @@ gfx::Transform ViewTransitionStyleTracker::ComputeTransformForParticipant(
 
   if (!scope_box->IsLayoutView()) {
     // Adjust for the scope element's borders and scrollbars.
-    transform.Translate(-scope_box->ClientLeft(), -scope_box->ClientTop());
+    transform.Translate(
+        -gfx::Vector2dF(scope_box->PhysicalPaddingBoxRect().offset));
   }
 
   return transform;
@@ -2074,8 +2081,8 @@ gfx::Rect ViewTransitionStyleTracker::GetSnapshotRootInFixedViewport() const {
   gfx::Rect snapshot_viewport_rect =
       document_->GetSettings()->GetViewportEnabled()
           ? gfx::Rect(frame_view.Size().width(), frame_view.Size().height())
-          : gfx::Rect(layout_view.ClientWidth().ToInt(),
-                      layout_view.ClientHeight().ToInt());
+          : gfx::Rect(layout_view.PhysicalPaddingBoxRect().Width().ToInt(),
+                      layout_view.PhysicalPaddingBoxRect().Height().ToInt());
   snapshot_viewport_rect.Outset(GetFixedToSnapshotViewportOutsets(*document_));
 
   return snapshot_viewport_rect;

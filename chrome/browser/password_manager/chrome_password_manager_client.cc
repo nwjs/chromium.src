@@ -11,10 +11,12 @@
 
 #include "base/check_deref.h"
 #include "base/command_line.h"
+#include "base/containers/map_util.h"
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/json/json_writer.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -22,13 +24,17 @@
 #include "base/time/time.h"
 #include "base/types/expected.h"
 #include "base/types/optional_util.h"
+#include "base/uuid.h"
+#include "base/values.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/affiliations/affiliation_service_factory.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/critical_actions/critical_action_factory.h"
 #include "chrome/browser/device_reauth/chrome_device_authenticator_factory.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/history/history_tab_helper.h"
 #include "chrome/browser/metrics/profile_metrics_service_factory.h"
 #include "chrome/browser/password_manager/android/first_cct_page_load_marker.h"
@@ -68,6 +74,7 @@
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/autofill/core/common/password_generation_util.h"
 #include "components/browsing_data/content/browsing_data_helper.h"
+#include "components/critical_actions/core/browser/critical_action_service.h"
 #include "components/device_reauth/device_authenticator.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/no_state_prefetch/browser/no_state_prefetch_contents.h"
@@ -1374,6 +1381,36 @@ void ChromePasswordManagerClient::NavigateToManagePasswordsPage(
 #endif
 }
 
+void ChromePasswordManagerClient::OnPasswordFilled(
+    password_manager::PasswordManagerDriver* driver,
+    const GURL& url,
+    PasswordFillTrigger trigger_type) {
+  critical_actions::CriticalActionEntry entry;
+  entry.critical_action_id = base::Uuid::GenerateRandomV4().AsLowercaseString();
+  entry.timestamp = base::Time::Now();
+  entry.action_type = critical_actions::ActionType::kFormFill;
+  entry.action_source = critical_actions::ActionSource::kPasswordManager;
+  entry.url = url;
+
+  std::string type = trigger_type == PasswordFillTrigger::kAgentTask
+                         ? "agent_task"
+                         : "password_manager_autofill";
+
+  base::DictValue metadata_dict;
+  metadata_dict.Set("type", type);
+  std::string metadata_json;
+  if (base::JSONWriter::Write(metadata_dict, &metadata_json)) {
+    entry.metadata = std::move(metadata_json);
+  }
+
+  int64_t navigation_id = GetNavigationIdForDriver(driver);
+  critical_actions::CriticalActionService* service =
+      critical_actions::CriticalActionFactory::GetForProfile(GetProfile());
+  if (service) {
+    service->AddCriticalActionWithNavigationId(entry, navigation_id);
+  }
+}
+
 #if BUILDFLAG(IS_ANDROID)
 void ChromePasswordManagerClient::NavigateToManagePasskeysPage(
     password_manager::ManagePasswordsReferrer referrer) {
@@ -1554,6 +1591,11 @@ void ChromePasswordManagerClient::AutomaticGenerationAvailable(
           /*log_debug_data*/ false)) {
     return;
   }
+
+  autofill::FieldGlobalId field_id = autofill::FieldGlobalId(
+      autofill::LocalFrameToken(*driver->render_frame_host()->GetFrameToken()),
+      ui_data.generation_element_id);
+
 #if BUILDFLAG(IS_ANDROID)
   if (!ShouldAcceptFocusEvent(web_contents(), driver,
                               FocusedFieldType::kFillablePasswordField)) {
@@ -1576,14 +1618,15 @@ void ChromePasswordManagerClient::AutomaticGenerationAvailable(
   // Trigger password suggestions. This is a fallback case if the field was
   // wrongly classified as new password field.
   driver->GetPasswordAutofillManager()->MaybeShowPasswordSuggestions(
-      element_bounds_in_screen_space, ui_data.text_direction);
+      field_id, element_bounds_in_screen_space, ui_data.text_direction);
 #else
   // Attempt to show the autofill dropdown UI first.
   gfx::RectF element_bounds_in_top_frame_space =
       TransformToRootCoordinates(driver->render_frame_host(), ui_data.bounds);
   if (driver->GetPasswordAutofillManager()
           ->MaybeShowPasswordSuggestionsWithGeneration(
-              element_bounds_in_top_frame_space, ui_data.text_direction,
+              field_id, element_bounds_in_top_frame_space,
+              ui_data.text_direction,
               /*show_password_suggestions=*/
               ui_data.is_generation_element_password_type)) {
     // (see crbug.com/40229464)
@@ -1917,6 +1960,33 @@ void ChromePasswordManagerClient::PrimaryPageChanged(content::Page& page) {
       page.GetMainDocument().GetPageUkmSourceId());
 }
 
+void ChromePasswordManagerClient::DidFinishNavigation(
+    content::NavigationHandle* navigation_handle) {
+  if (navigation_handle->HasCommitted()) {
+    if (navigation_handle->IsInPrimaryMainFrame()) {
+      rfh_to_navigation_id_[navigation_handle->GetRenderFrameHost()] =
+          navigation_handle->GetNavigationId();
+    }
+  } else if (auto* service =
+                 critical_actions::CriticalActionFactory::GetForProfile(
+                     GetProfile())) {
+    service->OnNavigationDiscarded(navigation_handle->GetNavigationId());
+  }
+}
+
+void ChromePasswordManagerClient::RenderFrameDeleted(
+    content::RenderFrameHost* render_frame_host) {
+  auto it = rfh_to_navigation_id_.find(render_frame_host);
+  if (it != rfh_to_navigation_id_.end()) {
+    int64_t nav_id = it->second;
+    rfh_to_navigation_id_.erase(it);
+    if (auto* service = critical_actions::CriticalActionFactory::GetForProfile(
+            GetProfile())) {
+      service->OnNavigationDiscarded(nav_id);
+    }
+  }
+}
+
 void ChromePasswordManagerClient::WebContentsDestroyed() {
   // crbug.com/40133549
   // Drop the connection before the WebContentsObserver destructors are invoked.
@@ -1937,6 +2007,7 @@ void ChromePasswordManagerClient::WebContentsDestroyed() {
 void ChromePasswordManagerClient::ResourceLoadComplete(
     content::RenderFrameHost* render_frame_host,
     const content::GlobalRequestID& request_id,
+    const GURL& original_url,
     const blink::mojom::ResourceLoadInfo& resource_load_info) {
   if (resource_load_info.method == "POST" &&
       resource_load_info.http_status_code >= 400 &&
@@ -1944,7 +2015,7 @@ void ChromePasswordManagerClient::ResourceLoadComplete(
     password_manager_.OnResourceLoadingFailed(
         password_manager::ContentPasswordManagerDriver::GetForRenderFrameHost(
             render_frame_host),
-        resource_load_info.original_url);
+        original_url);
   }
 }
 
@@ -2156,6 +2227,11 @@ void ChromePasswordManagerClient::GenerationResultAvailable(
   if (!ui_data || !driver) {
     return;
   }
+  // The reply is renderer-controlled and may arrive after the originating RFH
+  // has been BFCached / become non-primary; do not show UI for inactive RFHs.
+  if (!CheckFrameActiveAndNotPrerendering(driver->render_frame_host())) {
+    return;
+  }
   // Check the data because it's a Mojo callback and the input isn't trusted.
   if (!password_manager::bad_message::CheckChildProcessSecurityPolicyForURL(
           driver->render_frame_host(), ui_data->form_data.url(),
@@ -2256,5 +2332,37 @@ void ChromePasswordManagerClient::ResetErrorMessageDelegate() {
   password_manager_error_message_delegate_.reset();
 }
 #endif
+
+int64_t ChromePasswordManagerClient::GetNavigationIdForDriver(
+    password_manager::PasswordManagerDriver* driver) const {
+  content::RenderFrameHost* rfh = nullptr;
+  if (driver) {
+    rfh = static_cast<password_manager::ContentPasswordManagerDriver*>(driver)
+              ->render_frame_host();
+  } else if (web_contents()) {
+    rfh = web_contents()->GetPrimaryMainFrame();
+  }
+
+  if (!rfh) {
+    return 0;
+  }
+
+  if (const int64_t* nav_id = base::FindOrNull(rfh_to_navigation_id_, rfh)) {
+    return *nav_id;
+  }
+
+  // Fall back to the primary main frame's navigation ID if this frame
+  // belongs to the active frame tree.
+  content::RenderFrameHost* main_rfh =
+      web_contents() ? web_contents()->GetPrimaryMainFrame() : nullptr;
+  if (const int64_t* nav_id =
+          (main_rfh && rfh->GetOutermostMainFrame() == main_rfh)
+              ? base::FindOrNull(rfh_to_navigation_id_, main_rfh)
+              : nullptr) {
+    return *nav_id;
+  }
+
+  return 0;
+}
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(ChromePasswordManagerClient);

@@ -15,10 +15,8 @@
 #include "chrome/browser/glic/browser_ui/context_sharing_border_view.h"
 #include "chrome/browser/glic/browser_ui/context_sharing_border_view_controller_impl.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ai_overlay_dialog/ai_overlay_dialog_controller.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/read_anything/read_anything_immersive_overlay_view.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
@@ -38,7 +36,6 @@
 #include "content/public/browser/web_contents.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
-#include "ui/color/color_provider.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rect.h"
@@ -246,7 +243,7 @@ void ContentsContainerView::SetBorderRoundedCornersFrom(
     const gfx::RoundedCornersF& corner_radii) {
   // Update devtools rounded corners. Note, devtools exists behind the contents
   // view so all devtools corners are rounded.
-  devtools_web_view_->holder()->SetCornerRadii(corner_radii);
+  devtools_web_view_->holder()->SetNativeViewCornerRadii(corner_radii);
   devtools_scrim_view_->SetRoundedCorners(corner_radii);
 
   const bool devtools_in_upper_left =
@@ -283,24 +280,24 @@ void ContentsContainerView::SetBorderRoundedCornersFrom(
                    : content_rounded_corners;
 
   contents_view_->SetBackgroundRadii(radii);
-  contents_view_->holder()->SetCornerRadii(radii);
+  contents_view_->holder()->SetNativeViewCornerRadii(radii);
   contents_scrim_view_->SetRoundedCorners(corner_radii);
 
   if (new_tab_footer_view_) {
-    new_tab_footer_view_->holder()->SetCornerRadii(
+    new_tab_footer_view_->holder()->SetNativeViewCornerRadii(
         content_lower_rounded_corners);
   }
 
   if (actor_overlay_web_view_) {
     // ActorOverlayWebView should use the same radii as the contents view since
     // it acts as a full transparent layer directly over the main web content.
-    actor_overlay_web_view_->holder()->SetCornerRadii(radii);
+    actor_overlay_web_view_->holder()->SetNativeViewCornerRadii(radii);
   }
 
   if (ai_overlay_dialog_view_) {
     // ai_overlay_dialog_view_ should use the same radii as the contents view
     // since it acts as a layer directly over the main web content.
-    ai_overlay_dialog_view_->holder()->SetCornerRadii(radii);
+    ai_overlay_dialog_view_->holder()->SetNativeViewCornerRadii(radii);
   }
 
   if (glic_selection_overlay_view_) {
@@ -453,13 +450,8 @@ void ContentsContainerView::SetRoundedCorners(
 }
 
 void ContentsContainerView::UpdateContentsClip() {
-  bool changed = false;
-  if (auto* const layer = contents_view_->holder()->GetUILayer()) {
-    if (layer->clip_rect() != contents_clip_rect_) {
-      layer->SetClipRect(contents_clip_rect_);
-      changed = true;
-    }
-  }
+  bool changed =
+      contents_view_->holder()->SetNativeViewClipRect(contents_clip_rect_);
   if (auto* const layer = contents_view_->layer()) {
     if (layer->clip_rect() != contents_clip_rect_) {
       layer->SetClipRect(contents_clip_rect_);

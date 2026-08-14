@@ -148,15 +148,6 @@ BASE_FEATURE(kWebViewVulkanIntermediateBuffer,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
-// Hardcoded as disabled for WebView to have a different default for
-// UseSurfaceLayerForVideo from chrome.
-BASE_FEATURE(kUseSurfaceLayerForVideoDefault, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kWebViewNewInvalidateHeuristic, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kWebViewNewInvalidateHeuristicForTV,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // If enabled and the device's SOC manufacturer is in the allowlist, WebView
 // reports the set of threads involved in frame production to HWUI, and they're
 // included in the HWUI ADPF session.
@@ -264,63 +255,14 @@ BASE_FEATURE(kUseAndroidCustomFrameDeadlines,
              base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<int> kAndroidCustomFrameDeadlinePresentationOffset{
     &kUseAndroidCustomFrameDeadlines, "presentation_offset", 0};
-
-// If disabled, `viz::ExternalBeginFrameSourceAndroid::AChoreographerImpl`
-// always forwards the VSync interval (aka VSync period) that the OS provided
-// via the callback registered through
-// `AChoreographer_registerRefreshRateCallback`.
-//
-// If enabled and `kDeriveVSyncIntervalFromFrameTimelinesModeParam` is
-// `kAlwaysDerive`, `AChoreographerImpl` derives the VSync interval from the
-// frame timelines that the OS provided via the callback registered through
-// `AChoreographer_postVsyncCallback` (as long as the OS provided at least two
-// timelines). It uses the difference between the presentation timestamps of the
-// first two timelines as the VSync interval. `AChoreographerImpl` might snap
-// this timeline-derived interval to the closest display-supported interval in
-// `Display.getSupportedRefreshRates()` depending on
-// `kDeriveVSyncIntervalFromFrameTimelinesSnapToleranceParam`.
-//
-// If enabled and `kDeriveVSyncIntervalFromFrameTimelinesModeParam` is
-// `kDeriveIfLonger`, `AChoreographerImpl` uses the maximum of the two values
-// above as the VSync period.
-BASE_FEATURE(kDeriveVSyncIntervalFromFrameTimelines,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-constexpr base::FeatureParam<DeriveVSyncIntervalFromFrameTimelinesMode>::Option
-    kDeriveVSyncIntervalFromFrameTimelinesModeOptions[] = {
-        {DeriveVSyncIntervalFromFrameTimelinesMode::kAlwaysDerive,
-         "always_derive"},
-        {DeriveVSyncIntervalFromFrameTimelinesMode::kDeriveIfLonger,
-         "derive_if_longer"},
-};
-
-const base::FeatureParam<DeriveVSyncIntervalFromFrameTimelinesMode>
-    kDeriveVSyncIntervalFromFrameTimelinesModeParam = {
-        &kDeriveVSyncIntervalFromFrameTimelines,
-        "mode",
-        DeriveVSyncIntervalFromFrameTimelinesMode::kAlwaysDerive,
-        &kDeriveVSyncIntervalFromFrameTimelinesModeOptions,
-};
-
-// Specifies how far `viz::ExternalBeginFrameSourceAndroid::AChoreographerImpl`
-// can snap from the timeline-derived VSync interval to a display-supported
-// VSync interval, as a fraction of the timeline-derived VSync interval (e.g.
-// 0.1 means 10%). Given a timeline-derived interval TDI, display-supported
-// interval DSI and snap tolerance ST, `AChoreographerImpl` will snap TDI to DSI
-// if:
-//
-// `|TDI - DSI| <= ST * TDI`
-//
-// For example, given TDI = 16 ms and ST = 0.1, `AChoreographerImpl` will snap
-// TDI to DSI values between 14.4 ms and 17.6 ms (inclusive).
-//
-// If this parameter is zero (`ST = 0`), `AChoreographerImpl` won't snap at all.
-const base::FeatureParam<double>
-    kDeriveVSyncIntervalFromFrameTimelinesSnapToleranceParam = {
-        &kDeriveVSyncIntervalFromFrameTimelines,
-        "snap_tolerance",
-        0.0,
-};
+const base::FeatureParam<base::TimeDelta>
+    kAndroidCustomFrameDeadlineMaxNonInteractiveIdleDuration{
+        &kUseAndroidCustomFrameDeadlines, "max_non_interactive_idle_duration",
+        base::Milliseconds(50)};
+const base::FeatureParam<base::TimeDelta>
+    kAndroidCustomFrameDeadlineMaxInteractionIdleDuration{
+        &kUseAndroidCustomFrameDeadlines, "max_interaction_idle_duration",
+        base::Seconds(3)};
 #endif
 
 // When enabled, SDR maximum luminance nits of then current display will be used
@@ -339,6 +281,8 @@ BASE_FEATURE(kUseDisplaySDRMaxLuminanceNits, base::FEATURE_DISABLED_BY_DEFAULT);
 // On mac, when the RenderWidgetHostViewMac is hidden, also hide the
 // DelegatedFrameHost. Among other things, it unlocks the compositor frames,
 // which can saves hundreds of MiB of memory with bfcache entries.
+// TODO(crbug.com/538294830): Enable this in Finch alongside
+// OmniboxWebUIPopupMarkAsHidden to fix Mac memory eviction tracking.
 BASE_FEATURE(kHideDelegatedFrameHostMac, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, ClientResourceProvider will attempt to unlock and delete
@@ -408,7 +352,7 @@ BASE_FEATURE(kCrosContentAdjustedRefreshRate,
 BASE_FEATURE(kNoCompositorFrameAcks, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<int> kNumberPendingFramesUntilThrottle{
     &kNoCompositorFrameAcks, "pending_frames", 1};
-BASE_FEATURE(kDisplaySchedulerAsClient, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDisplaySchedulerAsClient, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables prioritization of the BeginFrame InputClient (like
 // FlingSchedulerAndroid) so it can dispatch events before the renderer
@@ -420,12 +364,6 @@ BASE_FEATURE(kFlingSchedulingImprovements, base::FEATURE_DISABLED_BY_DEFAULT);
 // This is a temporary flag to work as a kill switch for the optimization and
 // should be removed as soon as we confirm that the optimization is stable.
 BASE_FEATURE(kRpdqFilterLookupOptimizations, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Use correct default ColorSpace in `SharedMemoryVideoFramePool::WrapBuffer`
-// when creating a VideoFrame instead of when it is used in
-// `FrameSinkVideoCapturerImpl::MaybeCaptureFrame`.
-BASE_FEATURE(kSharedMemoryVFPoolUseCorrectColorSpace,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, bypasses deadlocks caused by outdated activation dependency
 // tokens when parent frame submission lags behind child surface execution.
@@ -477,34 +415,6 @@ bool IsUsingVizFrameSubmissionForWebView() {
 
 bool ShouldWebRtcLogCapturePipeline() {
   return base::FeatureList::IsEnabled(kWebRtcLogCapturePipeline);
-}
-
-#if BUILDFLAG(IS_ANDROID)
-bool UseWebViewNewInvalidateHeuristic() {
-  // For Android TVs we bundle this with WebViewSurfaceControlForTV.
-  if (base::android::device_info::is_tv()) {
-    return base::FeatureList::IsEnabled(kWebViewNewInvalidateHeuristicForTV);
-  }
-
-  return base::FeatureList::IsEnabled(kWebViewNewInvalidateHeuristic);
-}
-#endif
-
-bool UseSurfaceLayerForVideo() {
-#if BUILDFLAG(IS_ANDROID)
-  // SurfaceLayer video should work fine with new heuristic.
-  if (UseWebViewNewInvalidateHeuristic()) {
-    return true;
-  }
-
-  // Allow enabling UseSurfaceLayerForVideo if webview is using surface control.
-  if (::features::IsAndroidSurfaceControlEnabled()) {
-    return true;
-  }
-  return base::FeatureList::IsEnabled(kUseSurfaceLayerForVideoDefault);
-#else
-  return true;
-#endif
 }
 
 int MaxOverlaysConsidered() {

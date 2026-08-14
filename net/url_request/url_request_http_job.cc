@@ -1162,6 +1162,13 @@ void URLRequestHttpJob::OnSetCookieResult(const CookieOptions& options,
 
 #if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
 void URLRequestHttpJob::ProcessDeviceBoundSessionsHeader() {
+  DCHECK(response_info_);
+  const SSLInfo& ssl_info = response_info_->ssl_info;
+  // Do not process DBSC headers on connections with certificate errors.
+  if (!ssl_info.is_valid() || IsCertStatusError(ssl_info.cert_status)) {
+    return;
+  }
+
   device_bound_sessions::SessionService* service =
       request_->context()->device_bound_session_service();
   if (!service) {
@@ -1800,15 +1807,16 @@ bool URLRequestHttpJob::ShouldFixMismatchedContentLength(int rv) const {
   if (rv == ERR_CONTENT_LENGTH_MISMATCH ||
       rv == ERR_INCOMPLETE_CHUNKED_ENCODING) {
     if (request_->response_headers()) {
-      std::optional<base::ByteCount> content_length =
+      std::optional<base::ByteSize> content_length =
           request_->response_headers()->GetContentLength();
-      base::ByteCount expected_length =
-          content_length.value_or(base::ByteCount(-1));
       VLOG(1) << __func__ << "() \"" << request_->url().spec() << "\""
-              << " content-length = " << expected_length
+              << " content-length = "
+              << content_length.transform(&base::ByteSizeDelta::FromByteSize)
+                     .value_or(base::ByteSizeDelta(-1))
               << " pre total = " << prefilter_bytes_read()
               << " post total = " << postfilter_bytes_read();
-      if (postfilter_bytes_read().AsDeprecatedByteCount() == expected_length) {
+      if (content_length.has_value() &&
+          postfilter_bytes_read() == content_length.value()) {
         // Clear the error.
         return true;
       }
@@ -1936,6 +1944,18 @@ void URLRequestHttpJob::RecordTimer() {
       transaction_->GetResponseInfo()->ssl_info.server_padding_received) {
     base::UmaHistogramMediumTimes("Net.HttpTimeToFirstByte.ServerPadding",
                                   to_start);
+
+    LoadTimingInfo load_timing_info;
+    if (transaction_->GetLoadTimingInfo(&load_timing_info)) {
+      // Only log this histogram if connection wasn't reused and request wasn't
+      // served from cache.
+      if (!load_timing_info.socket_reused &&
+          !transaction_->GetResponseInfo()->was_cached) {
+        base::UmaHistogramMediumTimes(
+            "Net.HttpTimeToFirstByte.ServerPaddingFirstConnectionOnly",
+            to_start);
+      }
+    }
   }
 }
 

@@ -498,12 +498,12 @@ ParseSheetResult CSSParserImpl::ParseStyleSheet(
           static_cast<size_t>(LocalFrameUkmAggregator::kParseStyleSheet)));
     }
   }
-  TRACE_EVENT_BEGIN2("blink,blink_style", "CSSParserImpl::parseStyleSheet",
-                     "baseUrl", context->BaseURL().GetString().Utf8(), "mode",
-                     context->Mode());
+  TRACE_EVENT_BEGIN("blink,blink_style", "CSSParserImpl::parseStyleSheet",
+                    "baseUrl", context->BaseURL().GetString().Utf8(), "mode",
+                    context->Mode());
 
-  TRACE_EVENT_BEGIN0("blink,blink_style",
-                     "CSSParserImpl::parseStyleSheet.parse");
+  TRACE_EVENT_BEGIN("blink,blink_style",
+                    "CSSParserImpl::parseStyleSheet.parse");
   CSSParserTokenStream stream(string);
   CSSParserImpl parser(context, style_sheet);
   if (defer_property_parsing == CSSDeferPropertyParsing::kYes) {
@@ -537,11 +537,10 @@ ParseSheetResult CSSParserImpl::ParseStyleSheet(
         style_sheet->ParserAppendRule(rule);
       });
   style_sheet->SetHasSyntacticallyValidCSSHeader(first_rule_valid);
-  TRACE_EVENT_END0("blink,blink_style", "CSSParserImpl::parseStyleSheet.parse");
+  TRACE_EVENT_END("blink,blink_style");
 
-  TRACE_EVENT_END2("blink,blink_style", "CSSParserImpl::parseStyleSheet",
-                   "tokenCount", stream.TokenCount(), "length",
-                   string.length());
+  TRACE_EVENT_END("blink,blink_style", "tokenCount", stream.TokenCount(),
+                  "length", string.length());
   return result;
 }
 
@@ -2495,8 +2494,9 @@ StyleRuleMixin* CSSParserImpl::ConsumeMixinRule(CSSParserTokenStream& stream) {
   std::unique_ptr<HeapVector<CSSSelector>, decltype(func_clear_arena)>
       scope_guard(&arena_, std::move(func_clear_arena));
 
-  // Parse the prelude; just a function token (the name) and some arguments.
-  if (stream.Peek().GetType() != kFunctionToken) {
+  // Parse the prelude: a dashed ident with an optional parameter list.
+  if (stream.Peek().GetType() != kIdentToken &&
+      stream.Peek().GetType() != kFunctionToken) {
     ConsumeErroneousAtRule(stream, CSSAtRuleID::kCSSAtRuleMixin);
     return nullptr;  // Parse error.
   }
@@ -2506,9 +2506,12 @@ StyleRuleMixin* CSSParserImpl::ConsumeMixinRule(CSSParserTokenStream& stream) {
     return nullptr;
   }
 
-  // Parse the argument list (which may be empty).
+  // Parse the parameter list (which may be empty).
   std::optional<HeapVector<StyleRuleFunction::Parameter>> parameters;
-  {
+  if (stream.Peek().GetType() == kIdentToken) {
+    stream.ConsumeIncludingWhitespace();
+    parameters.emplace();
+  } else {
     CSSParserTokenStream::BlockGuard guard(stream);
     stream.ConsumeWhitespace();
     parameters = ConsumeFunctionParameters(stream);
@@ -2519,8 +2522,8 @@ StyleRuleMixin* CSSParserImpl::ConsumeMixinRule(CSSParserTokenStream& stream) {
   }
   stream.ConsumeWhitespace();
 
-  // After the argument list, there should be nothing (there's no return value,
-  // unlike with functions).
+  // After the name or parameter list, there should be nothing (there's no
+  // return value, unlike with functions).
   if (!ConsumeEndOfPreludeForAtRuleWithBlock(stream,
                                              CSSAtRuleID::kCSSAtRuleMixin)) {
     return nullptr;
@@ -2672,8 +2675,8 @@ StyleRuleApplyMixin* CSSParserImpl::ConsumeApplyMixinRule(
       observer_->StartRuleBody(stream.Offset());
       observer_->EndRuleBody(stream.Offset());
     }
-    return MakeGarbageCollected<StyleRuleApplyMixin>(name, std::move(arguments),
-                                                     nullptr);
+    return MakeGarbageCollected<StyleRuleApplyMixin>(name,
+                                                     std::move(arguments));
   }
 
   if (stream.UncheckedPeek().GetType() != kLeftBraceToken) {
@@ -2682,10 +2685,11 @@ StyleRuleApplyMixin* CSSParserImpl::ConsumeApplyMixinRule(
   }
 
   // Parse the @contents block.
-  StyleRule* fake_parent_rule_for_contents =
-      ConsumeDeclarationListForMixins(stream);
+  StyleRule* fake_parent_rule = ConsumeDeclarationListForMixins(stream);
+  fake_parent_rule->EnsureChildRules();
   return MakeGarbageCollected<StyleRuleApplyMixin>(
-      name, std::move(arguments), fake_parent_rule_for_contents);
+      name, std::move(arguments),
+      HeapVector{std::move(*fake_parent_rule->ChildRules())});
 }
 
 StyleRuleContentsStatement* CSSParserImpl::ConsumeContentsRule(
@@ -2703,7 +2707,8 @@ StyleRuleContentsStatement* CSSParserImpl::ConsumeContentsRule(
     if (!stream.AtEnd()) {
       stream.UncheckedConsume();  // kSemicolonToken
     }
-    return MakeGarbageCollected<StyleRuleContentsStatement>(nullptr);
+    return MakeGarbageCollected<StyleRuleContentsStatement>(
+        HeapVector<Member<StyleRuleBase>>{});
   }
 
   if (stream.UncheckedPeek().GetType() != kLeftBraceToken) {
@@ -2719,7 +2724,9 @@ StyleRuleContentsStatement* CSSParserImpl::ConsumeContentsRule(
 
   // Parse the actual block.
   StyleRule* fake_parent_rule = ConsumeDeclarationListForMixins(stream);
-  return MakeGarbageCollected<StyleRuleContentsStatement>(fake_parent_rule);
+  fake_parent_rule->EnsureChildRules();
+  return MakeGarbageCollected<StyleRuleContentsStatement>(
+      HeapVector{std::move(*fake_parent_rule->ChildRules())});
 }
 
 // Parse the parameters of a CSS function: Zero or more comma-separated

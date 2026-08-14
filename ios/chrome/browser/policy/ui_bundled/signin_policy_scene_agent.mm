@@ -36,8 +36,8 @@
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 
 @interface SigninPolicySceneAgent () <AuthenticationServiceObserving,
-                                      IdentityManagerObserverBridgeDelegate,
                                       FullscreenSigninCoordinatorDelegate,
+                                      IdentityManagerObserving,
                                       ProfileStateObserver,
                                       SceneUIBlockerStateObserver,
                                       UIBlockerManagerObserver> {
@@ -157,9 +157,9 @@
   [self handleSigninPromptsIfUIAvailable];
 }
 
-#pragma mark - IdentityManagerObserverBridgeDelegate
+#pragma mark - IdentityManagerObserving
 
-- (void)onPrimaryAccountChanged:
+- (void)primaryAccountDidChange:
     (const signin::PrimaryAccountChangeEvent&)event {
   // Consider showing the sign-in prompts when there is change in the
   // primary account.
@@ -252,9 +252,10 @@
     // Use the UIBlockerExtent::kApplication extent since the sign-in policies
     // have to be pushed through the platform which concerns the entire app in
     // itself including all profiles.
+    SceneState* sceneState = self.sceneState;
     __block std::unique_ptr<ScopedUIBlocker> uiBlocker =
-        std::make_unique<ScopedUIBlocker>(self.sceneState,
-                                          UIBlockerExtent::kApplication);
+        ScopedUIBlocker::AppScoped(sceneState,
+                                   sceneState.profileState.appState);
 
     __weak __typeof(self) weakSelf = self;
     [self.sceneHandler dismissModalDialogsWithCompletion:^{

@@ -4,6 +4,7 @@
 
 import("//components/spellcheck/spellcheck_build_features.gni")
 import("//extensions/buildflags/buildflags.gni")
+import("//pdf/features.gni")
 import("//printing/buildflags/buildflags.gni")
 
 # The bubble model headers only need the small confirm_bubble_model target
@@ -28,12 +29,8 @@ source_set("bubble_models") {
 
 source_set("renderer_context_menu") {
   if (!is_android) {
-    # TODO(crbug.com/353332589): Remove this circular dependency when
-    # chrome/browser/ui gets componentized further.
-    allow_circular_includes_from = [ "//chrome/browser/ui" ]
-
     if (is_mac) {
-      allow_circular_includes_from += [ "//chrome/browser/ui/cocoa" ]
+      allow_circular_includes_from = [ "//chrome/browser/ui/cocoa" ]
     }
 
     public = [ "render_view_context_menu.h" ]
@@ -42,7 +39,6 @@ source_set("renderer_context_menu") {
       ":bubble_models",
       "//base",
       "//chrome/app:command_ids",
-      "//chrome/browser/ui",
       "//chrome/browser/ui/autofill",
       "//chrome/common:mojo_bindings",
       "//components/compose:buildflags",
@@ -84,8 +80,10 @@ source_set("impl") {
   deps = [
     ":renderer_context_menu",
     "//base",
+    "//base:i18n",
     "//chrome/browser/app_mode",
-    "//chrome/common:url_constants",
+    "//chrome/browser/ui",
+    "//chrome/common",
     "//components/renderer_context_menu",
     "//content/public/browser",
     "//extensions/buildflags",
@@ -144,12 +142,13 @@ source_set("impl") {
       "//chrome/browser/reading_list",
       "//chrome/browser/search_engines",
       "//chrome/browser/send_tab_to_self",
-      "//chrome/browser/sharing/click_to_call",
       "//chrome/browser/sharing_hub",
       "//chrome/browser/spellchecker",
       "//chrome/browser/sync",
       "//chrome/browser/translate",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:chrome_pages",
+      "//chrome/browser/ui:confirm_bubble",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/autofill",
       "//chrome/browser/ui/lens",
@@ -328,12 +327,18 @@ if (!is_android) {
       "//chrome/browser/password_manager",
       "//chrome/browser/prefs",
       "//chrome/browser/search_engines",
+      "//chrome/browser/send_tab_to_self",
+      "//chrome/browser/ui:chrome_pages",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/lens",
       "//chrome/browser/ui/side_panel:test_support",
       "//chrome/browser/user_education",
       "//chrome/test:test_support",
       "//components/proxy_config",
+      "//components/send_tab_to_self",
+      "//components/send_tab_to_self:features",
+      "//components/send_tab_to_self:test_support",
+      "//components/tabs:test_support",
       "//content/public/browser",
       "//content/test:test_support",
       "//testing/gmock",
@@ -377,7 +382,9 @@ if (!is_android) {
       "//chrome/browser/pdf:pdf_extension_test_utils",
       "//chrome/browser/profiles:misc",
       "//chrome/browser/search_engines",
+      "//chrome/browser/send_tab_to_self",
       "//chrome/browser/spellchecker",
+      "//chrome/browser/sync",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/lens",
       "//chrome/browser/ui/side_panel",
@@ -390,6 +397,9 @@ if (!is_android) {
       "//chrome/test/supervised_user:test_support",
       "//components/enterprise/data_controls/core/browser:test_support",
       "//components/lens:enterprise_policy",
+      "//components/send_tab_to_self",
+      "//components/send_tab_to_self:features",
+      "//components/send_tab_to_self:test_support",
       "//components/spellcheck/browser",
       "//content/public/browser",
       "//content/test:test_support",
@@ -410,6 +420,10 @@ if (!is_android) {
 
     if (is_chromeos) {
       deps += [ "//chrome/browser/ash/boca/on_task" ]
+    }
+
+    if (enable_pdf) {
+      deps += [ "//chrome/browser/pdf:pdf_extension_test_base" ]
     }
   }
 

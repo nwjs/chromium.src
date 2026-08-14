@@ -56,8 +56,6 @@ import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.side_panel.AndroidSidePanelEnabledFn;
-import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
-import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.text.VerticallyFixedEditText;
@@ -65,6 +63,8 @@ import org.chromium.components.find_in_page.FindInPageBridge;
 import org.chromium.components.find_in_page.FindMatchRectsDetails;
 import org.chromium.components.find_in_page.FindNotificationDetails;
 import org.chromium.components.find_in_page.FindResultBar;
+import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.ui.base.DeviceInput;
 import org.chromium.ui.base.UiAndroidFeatureList;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.text.EmptyTextWatcher;
@@ -76,7 +76,7 @@ import java.lang.annotation.RetentionPolicy;
 
 /** A toolbar providing find in page functionality. */
 @NullMarked
-public class FindToolbar extends LinearLayout implements BackPressHandler, SideUiObserver {
+public class FindToolbar extends LinearLayout implements BackPressHandler {
     @IntDef({
         FindLocationBarState.SHOWN,
         FindLocationBarState.SHOWING,
@@ -158,6 +158,16 @@ public class FindToolbar extends LinearLayout implements BackPressHandler, SideU
                 return true;
             }
             return super.onKeyDown(keyCode, event);
+        }
+
+        @Override
+        public boolean onKeyUp(int keyCode, KeyEvent event) {
+            // Consume Enter key up to prevent default TextView focus navigation to shift to other
+            // active UI components.
+            if (keyCode == KeyEvent.KEYCODE_ENTER) {
+                return true;
+            }
+            return super.onKeyUp(keyCode, event);
         }
 
         @Override
@@ -408,9 +418,6 @@ public class FindToolbar extends LinearLayout implements BackPressHandler, SideU
     }
 
     @Override
-    public void onSideUiSpecsChanged(SideUiSpecs sideUiSpecs) {}
-
-    @Override
     public boolean onGenericMotionEvent(MotionEvent event) {
         if (UiAndroidFeatureList.sBlockMouseEventsOnView.isEnabled()
                 && MotionEventUtils.isPointerEvent(event)) {
@@ -507,8 +514,9 @@ public class FindToolbar extends LinearLayout implements BackPressHandler, SideU
         if (result.finalUpdate) {
             if (result.numberOfMatches > 0) {
                 // TODO(johnme): Don't wait till end of find, stream rects live!
-                mFindInPageBridge.requestFindMatchRects(
-                        mResultBar != null ? mResultBar.getRectsVersion() : -1);
+                if (mResultBar != null) {
+                    mFindInPageBridge.requestFindMatchRects(mResultBar.getRectsVersion());
+                }
             } else {
                 clearResults();
             }
@@ -778,6 +786,11 @@ public class FindToolbar extends LinearLayout implements BackPressHandler, SideU
     }
 
     private void setResultsBarVisibility(boolean visibility) {
+        if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(getContext())
+                && (DeviceInput.supportsKeyboard(getContext())
+                        || DeviceInput.supportsPrecisionPointer())) {
+            return;
+        }
         if (visibility
                 && mResultBar == null
                 && mCurrentTab != null

@@ -113,6 +113,8 @@ class ChromeMetricsServiceClientTest : public testing::Test {
         {metrics::dwa::kDwaFeature, switches::kDynamicProfileCountry,
          features::kSystemPdhMetrics},
         {});
+#elif BUILDFLAG(IS_ANDROID)
+    scoped_feature_list_.InitWithFeatures({metrics::dwa::kDwaFeature}, {});
 #else
     scoped_feature_list_.InitWithFeatures(
         {metrics::dwa::kDwaFeature, switches::kDynamicProfileCountry}, {});
@@ -213,7 +215,7 @@ TEST_F(ChromeMetricsServiceClientTest, TestRegisterMetricsServiceProviders) {
   size_t expected_providers = 2;
 
   // This is the number of metrics providers that are outside any #if macros.
-  expected_providers += 24;
+  expected_providers += 25;
 
   int sample_rate;
   if (ChromeMetricsServicesManagerClient::GetSamplingRatePerMille(

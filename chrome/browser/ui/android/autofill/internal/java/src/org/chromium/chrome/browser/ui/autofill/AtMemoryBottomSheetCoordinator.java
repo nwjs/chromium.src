@@ -8,15 +8,11 @@ import android.content.Context;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.ui.autofill.internal.R;
 import org.chromium.components.autofill.AutofillSuggestion;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
 import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
-import org.chromium.ui.modelutil.LayoutViewBuilder;
-import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
-import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
 
 import java.util.List;
 
@@ -51,7 +47,15 @@ public class AtMemoryBottomSheetCoordinator {
 
         void onQueryTextChanged(String query);
 
+        void requestExpandSheet(boolean expandInFullHeight);
+
         void onSuggestionClicked(int position);
+
+        void onSuggestionDismissed(int position);
+
+        void onChildSuggestionsShown(int parentPosition);
+
+        void onChildSuggestionClicked(int parentPosition, int childPosition);
 
         boolean isSearching();
     }
@@ -65,38 +69,18 @@ public class AtMemoryBottomSheetCoordinator {
 
         AtMemoryBottomSheetView view = new AtMemoryBottomSheetView(context);
 
-        ModelList modelList = new ModelList();
-        mMediator =
-                new AtMemoryBottomSheetMediator(
-                        profile, delegate, modelList, view::hideKeyboardAndClearFocus);
+        mMediator = new AtMemoryBottomSheetMediator(context, delegate, view);
 
-        SimpleRecyclerViewAdapter adapter = new SimpleRecyclerViewAdapter(modelList);
-        adapter.registerType(
-                ITEM_TYPE_SUGGESTION,
-                new LayoutViewBuilder<>(R.layout.at_memory_bottom_sheet_suggestion_item),
-                AtMemoryBottomSheetSuggestionViewBinder::bind);
-        adapter.registerType(
-                ITEM_TYPE_SEARCH_TILE,
-                new LayoutViewBuilder<>(R.layout.at_memory_bottom_sheet_search_item),
-                AtMemoryBottomSheetSearchTileViewBinder::bind);
-        adapter.registerType(
-                ITEM_TYPE_ZERO_STATE,
-                new LayoutViewBuilder<>(R.layout.at_memory_bottom_sheet_zero_state_item),
-                // Zero-state illustration and text are static in the layout, so no view binding is
-                // needed.
-                (m, v, k) -> {});
-        view.setRecyclerViewAdapter(adapter);
+        mContent = new AtMemoryBottomSheetContent(view, mBottomSheetController);
 
-        mContent = new AtMemoryBottomSheetContent(view.getContentView(), mBottomSheetController);
-
-        PropertyModelChangeProcessor.create(
-                mMediator.getModel(), view, AtMemoryBottomSheetViewBinder::bind);
+        setUpModelChangeProcessors(view);
     }
 
     public void show(List<AutofillSuggestion> suggestions) {
         mBottomSheetController.addObserver(mBottomSheetObserver);
         if (mBottomSheetController.requestShowContent(mContent, /* animate= */ true)) {
             mMediator.show(suggestions);
+            expand(/* expandInFullHeight= */ true);
         } else {
             onDismissed();
         }
@@ -106,6 +90,29 @@ public class AtMemoryBottomSheetCoordinator {
         mBottomSheetController.hideContent(mContent, /* animate= */ true);
     }
 
+    /**
+     * Requests the sheet to recompute its height and transition to the half state. If the sheet is
+     * in the full state, this request is ignored unless {@code expandInFullHeight} is true.
+     *
+     * @param expandInFullHeight If true, forces the sheet to recompute its height and transition
+     *     even if it is in the full state.
+     */
+    public void expand(boolean expandInFullHeight) {
+        if (expandInFullHeight
+                || mBottomSheetController.getSheetState()
+                        != BottomSheetController.SheetState.FULL) {
+            // If attached to the window, post the expansion call to the view's message queue so
+            // that it runs after the current layout pass completes. This ensures the bottom sheet
+            // measures its content height correctly. Otherwise, expand directly (e.g. in tests).
+            if (mContent.getContentView().isAttachedToWindow()) {
+                mContent.getContentView()
+                        .post(() -> mBottomSheetController.expandSheet(/* animate= */ true));
+            } else {
+                mBottomSheetController.expandSheet(/* animate= */ true);
+            }
+        }
+    }
+
     private void onDismissed() {
         mBottomSheetController.removeObserver(mBottomSheetObserver);
         mMediator.onDismissed();
@@ -113,5 +120,26 @@ public class AtMemoryBottomSheetCoordinator {
 
     AtMemoryBottomSheetContent getBottomSheetContentForTesting() {
         return mContent;
+    }
+
+    /**
+     * Sets up the Model Change Processors (MCPs) to bind the separate property models for the
+     * bottom sheet, the home screen, and the flyout screen to their respective views.
+     */
+    private void setUpModelChangeProcessors(AtMemoryBottomSheetView view) {
+        PropertyModelChangeProcessor.create(
+                mMediator.getModel(),
+                view,
+                AtMemoryBottomSheetViewBinder::bindAtMemoryBottomSheetView);
+
+        PropertyModelChangeProcessor.create(
+                mMediator.getHomeModel(),
+                view.getHomeView(),
+                AtMemoryBottomSheetViewBinder::bindAtMemoryHomeView);
+
+        PropertyModelChangeProcessor.create(
+                mMediator.getFlyoutModel(),
+                view.getFlyoutView(),
+                AtMemoryBottomSheetViewBinder::bindAtMemoryFlyoutView);
     }
 }

@@ -85,6 +85,7 @@ public class StubTabModelUnitTest {
                             "addTabGroupObserver",
                             "removeTabGroupObserver",
                             "getCurrentTabSupplier",
+                            "getNextTabPolicySupplier",
                             "getTabCountSupplier",
                             "getTabByIdChecked",
                             "getNextTabIfClosed",
@@ -132,7 +133,7 @@ public class StubTabModelUnitTest {
 
             try {
                 // Check if StubTabModel declares this method itself.
-                Method unused =
+                var _ =
                         StubTabModel.class.getDeclaredMethod(
                                 methodName, method.getParameterTypes());
             } catch (NoSuchMethodException e) {

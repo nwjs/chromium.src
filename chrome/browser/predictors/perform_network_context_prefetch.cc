@@ -31,7 +31,6 @@
 #include "net/url_request/url_request_job.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "services/network/public/cpp/resource_request.h"
-#include "services/network/public/mojom/attribution.mojom.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "third_party/blink/public/common/features.h"
@@ -92,16 +91,16 @@ bool IsBannedCrossSiteAuth(const GURL& url,
 // needs to be a mutable ref because its methods aren't marked const. This is
 // similar to PrefetchManager::PrefetchUrl(), but makes more effort to precisely
 // predict the exact headers and other fields that the render process will set.
-void PrefetchResource(
-    network::mojom::NetworkContext* network_context,
-    blink::UserAgentMetadata& ua_metadata,
-    const std::string& user_agent,
-    const std::string& accept_language,
-    ResourceType type,
-    const GURL& page,
-    const url::Origin& page_origin,
-    const GURL& url,
-    network::mojom::RequestDestination destination) {
+void PrefetchResource(network::mojom::NetworkContext* network_context,
+                      blink::UserAgentMetadata& ua_metadata,
+                      const std::string& user_agent,
+                      const std::string& accept_language,
+                      ResourceType type,
+                      const GURL& page,
+                      const url::Origin& page_origin,
+                      const GURL& url,
+                      network::mojom::RequestDestination destination,
+                      base::UnguessableToken network_restrictions_id) {
   const auto site_for_cookies = net::SiteForCookies::FromUrl(page);
   network::ResourceRequest request;
   request.method = "GET";
@@ -154,8 +153,6 @@ void PrefetchResource(
   request.enable_load_timing = true;
   request.do_not_prompt_for_login = false;
   request.is_outermost_main_frame = true;
-  request.attribution_reporting_support =
-      network::mojom::AttributionSupport::kWeb;
   request.shared_dictionary_writer_enabled = true;
 
   // Suppress credentials for cross-origin image loads. See the comment in
@@ -194,7 +191,8 @@ void PrefetchResource(
   network_context->Prefetch(
       content::GlobalRequestID::MakeBrowserInitiated().request_id,
       network::mojom::kURLLoadOptionBlockLocalRequest, request,
-      net::MutableNetworkTrafficAnnotationTag(kPrefetchTrafficAnnotation));
+      net::MutableNetworkTrafficAnnotationTag(kPrefetchTrafficAnnotation),
+      network_restrictions_id);
 }
 
 std::string ComputeAcceptLanguageHeaderValue(const url::Origin& page_origin,
@@ -274,7 +272,7 @@ void PerformNetworkContextPrefetch(Profile* profile,
   const PrefService* prefs = profile->GetPrefs();
   const std::string user_agent = embedder_support::GetUserAgent();
 
-  for (const auto& [url, destination] : requests) {
+  for (const auto& [url, destination, network_restrictions_id, _] : requests) {
     auto resource_type = GetResourceTypeForPrefetch(destination);
     if (!resource_type) {
       // TODO(crbug.com/342445996): Support more resource types.
@@ -294,8 +292,8 @@ void PerformNetworkContextPrefetch(Profile* profile,
     const std::string accept_language =
         ComputeAcceptLanguageHeaderValue(page_origin, url, profile, prefs);
     PrefetchResource(network_context, ua_metadata, user_agent, accept_language,
-                     resource_type.value(), page, page_origin, url,
-                     destination);
+                     resource_type.value(), page, page_origin, url, destination,
+                     network_restrictions_id);
   }
 }
 

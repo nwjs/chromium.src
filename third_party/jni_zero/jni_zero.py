@@ -116,10 +116,6 @@ def _add_codegen_args(parser, *, is_final=False, is_javap=False):
                      action='append',
                      dest='extra_includes',
                      help='Header file to #include in the generated header.')
-  group.add_argument(
-      '--enable-legacy-natives',
-      action='store_true',
-      help='Whether to generate code from "native" java methods.')
   if is_final:
     group.add_argument(
         '--add-stubs-for-missing-native',
@@ -157,11 +153,6 @@ def _add_codegen_args(parser, *, is_final=False, is_javap=False):
     group.add_argument('--use-std-primitive-types',
                        action='store_true',
                        help='Use e.g.: int32_t rather than jint in codegen')
-    if not is_javap:
-      group.add_argument(
-          '--enable-definition-macros',
-          action='store_true',
-          help='Generate JNI glue code in DEFINE_JNI_FOR_MyClass() macros')
     group.add_argument('--allow-private-called-by-natives',
                        action='store_true',
                        help='Whether to allow private @CalledByNative symbols.')

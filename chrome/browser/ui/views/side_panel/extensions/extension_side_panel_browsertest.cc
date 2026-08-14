@@ -35,6 +35,7 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_button.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_desktop.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -55,6 +56,7 @@
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_utils.h"
 #include "extensions/browser/api_test_utils.h"
+#include "extensions/browser/extension_host_test_helper.h"
 #include "extensions/browser/test_event_router_observer.h"
 #include "extensions/browser/test_image_loader.h"
 #include "extensions/common/constants.h"
@@ -467,7 +469,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest, MultipleBrowsers) {
 
   // Open a new browser window. The extension's SidePanelEntry should also be
   // registered for the new window's global SidePanelRegistry.
-  Browser* second_browser = CreateBrowser(browser()->profile());
+  Browser* second_browser = CreateBrowser(browser()->GetProfile());
   BrowserActions* browser_actions_second_browser =
       second_browser->browser_actions();
 
@@ -1090,7 +1092,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
   }
 
   // Open a new browser window.
-  Browser* second_browser = CreateBrowser(browser()->profile());
+  Browser* second_browser = CreateBrowser(browser()->GetProfile());
   TabStripModel* target_tab_strip = second_browser->tab_strip_model();
 
   // Detach the second tab from `browser()` and add it to the new browser.
@@ -1332,8 +1334,9 @@ class ExtensionOpenSidePanelBrowserTest : public ExtensionSidePanelBrowserTest {
  public:
   ExtensionOpenSidePanelBrowserTest() {
     scoped_feature_list_.InitWithFeatures(
-        {metrics::kCriticalUserJourneyService, metrics::kPinExtensionJourney},
-        {});
+        /*enabled_features=*/{metrics::kCriticalUserJourneyService,
+                              metrics::kPinExtensionJourney},
+        /*disabled_features=*/{features::kExtensionsPinnedByDefault});
   }
   ~ExtensionOpenSidePanelBrowserTest() override = default;
 
@@ -1452,7 +1455,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
 
   // Open a tab in an incognito browser window to use.
   Browser* incognito_browser =
-      OpenURLOffTheRecord(browser()->profile(), GURL("about:blank"));
+      OpenURLOffTheRecord(browser()->GetProfile(), GURL("about:blank"));
   ASSERT_TRUE(incognito_browser);
   int incognito_tab_id = ExtensionTabUtil::GetTabId(
       incognito_browser->tab_strip_model()->GetActiveWebContents());
@@ -1467,7 +1470,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
   // Run `sidePanel.open()` for the incognito profile. The panel should only
   // open in the incognito browser and not the non-incognito browser.
   RunOpenPanelForTabAndProfile(*extension, incognito_tab_id,
-                               incognito_browser->profile());
+                               incognito_browser->GetProfile());
   EXPECT_TRUE(
       incognito_panel_ui->IsSidePanelEntryShowing(GetKey(extension->id())));
   EXPECT_FALSE(
@@ -1776,7 +1779,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
 
   // Open an incognito browser window to use and get the window id.
   Browser* incognito_browser =
-      OpenURLOffTheRecord(browser()->profile(), GURL("about:blank"));
+      OpenURLOffTheRecord(browser()->GetProfile(), GURL("about:blank"));
   ASSERT_TRUE(incognito_browser);
   int incognito_window_id = ExtensionTabUtil::GetWindowId(incognito_browser);
 
@@ -1790,7 +1793,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
   // Run `sidePanel.open()`. The panel should open in the active tab of the
   // incognito browser.
   RunOpenPanelForWindowAndProfile(*extension, incognito_window_id,
-                                  incognito_browser->profile());
+                                  incognito_browser->GetProfile());
   EXPECT_TRUE(
       incognito_panel_ui->IsSidePanelEntryShowing(GetKey(extension->id())));
   EXPECT_FALSE(
@@ -1910,7 +1913,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
                 /*enabled=*/true);
 
   // Open a second browser window.
-  Browser* second_browser = CreateBrowser(browser()->profile());
+  Browser* second_browser = CreateBrowser(browser()->GetProfile());
   ASSERT_TRUE(second_browser);
   ui_test_utils::BrowserDidBecomeActiveWaiter(second_browser).Wait();
 
@@ -2197,7 +2200,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest, GetLayout) {
   const Extension* ext = LoadExtension(dir.UnpackedPath());
   ASSERT_TRUE(ext);
 
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
 
   // Helper that sets the side panel alignment preference and
   // then verifies that getLayout() returns the expected side.
@@ -2550,6 +2553,12 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnOpenedEventSidePanelBrowserTest,
 
 class ExtensionOnClosedEventSidePanelBrowserTest
     : public ExtensionSidePanelBrowserTest {
+ public:
+  ExtensionOnClosedEventSidePanelBrowserTest() {
+    scoped_feature_list_.InitAndDisableFeature(
+        features::kExtensionsPinnedByDefault);
+  }
+
  protected:
   // Helper to load a test extension configured for the onClosed event tests.
   const Extension* CreateOnClosedTestExtension() {
@@ -2616,11 +2625,12 @@ class ExtensionOnClosedEventSidePanelBrowserTest
 
  private:
   std::vector<extensions::TestExtensionDir> test_dirs_;
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Tests that onClosed fires when the hosting tab is closed.
 IN_PROC_BROWSER_TEST_F(ExtensionOnClosedEventSidePanelBrowserTest,
-                       OnClosedEvent_TabClosed) {
+                       DISABLED_OnClosedEvent_TabClosed) {
   // Open a new tab first to prevent the browser from shutting down.
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL("about:blank"), WindowOpenDisposition::NEW_FOREGROUND_TAB,
@@ -2637,7 +2647,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnClosedEventSidePanelBrowserTest,
   SidePanelEntry* extension_entry =
       GetCurrentTabRegistry()->GetEntryForKey(GetKey(extension->id()));
   ASSERT_TRUE(extension_entry);
+
+  extensions::ExtensionHostTestHelper host_helper(profile(), extension->id());
   ShowContextualEntryAndWait(GetKey(extension->id()));
+  host_helper.WaitForHostCompletedFirstLoad();
 
   // Close the active tab, which has the panel. This action should trigger the
   // onClosed event in the extension.
@@ -2710,7 +2723,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnClosedEventSidePanelBrowserTest,
   // The initial `browser()` will remain open to keep the process alive.
   // We create a new browser window to perform the test actions and then close.
   // Creating a new browser makes it the active one by default.
-  Browser* browser_to_close = CreateBrowser(browser()->profile());
+  Browser* browser_to_close = CreateBrowser(browser()->GetProfile());
 
   extensions::ResultCatcher result_catcher;
 
@@ -2733,8 +2746,16 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnClosedEventSidePanelBrowserTest,
     SidePanelUI* const browser_to_close_ui =
         browser_to_close->GetFeatures().side_panel_ui();
     TestSidePanelEntryWaiter waiter(extension_entry);
+
+    // Prepare to wait for Extensionhost so that onOpened can be dispatched.
+    extensions::ExtensionHostTestHelper host_helper(profile(), extension->id());
+
     browser_to_close_ui->Show(GetKey(extension->id()));
     waiter.WaitForEntryShown();
+
+    // Ensures onOpened is dispatched before closing the window.
+    host_helper.WaitForHostCompletedFirstLoad();
+
     EXPECT_TRUE(browser_to_close_ui->IsSidePanelShowing());
   }
 

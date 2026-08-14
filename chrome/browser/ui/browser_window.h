@@ -23,6 +23,7 @@
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/translate/partial_translate_bubble_model.h"
+#include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search.mojom.h"
 #include "chrome/common/buildflags.h"
 #include "components/content_settings/core/common/content_settings_types.h"
@@ -239,17 +240,6 @@ class BrowserWindow : public ui::BaseWindow {
   // if the window is visible.
   virtual void UpdateLoadingAnimations(bool is_visible) = 0;
 
-  // Sets the starred state for the current tab.
-  virtual void SetStarredState(bool is_starred) = 0;
-
-  // Checks if the browser popup is a tab modal popup.
-  virtual bool IsTabModalPopupDeprecated() const = 0;
-
-  // Sets whether the browser popup is a tab modal popup. Tab modal popups, used
-  // by autofill features, intentionally disable save card prompts because they
-  // are not intended for saving new card details.
-  virtual void SetIsTabModalPopupDeprecated(
-      bool is_tab_modal_popup_deprecated) = 0;
 
   // Called when the active tab changes.  Subclasses which implement
   // TabStripModelObserver should implement this instead of ActiveTabChanged();
@@ -408,7 +398,7 @@ class BrowserWindow : public ui::BaseWindow {
   // This method should call |callback| with the user's response.
   virtual void ConfirmBrowserCloseWithPendingDownloads(
       int download_count,
-      Browser::DownloadCloseType dialog_type,
+      UnloadController::DownloadCloseType dialog_type,
       base::OnceCallback<void(bool)> callback) = 0;
 
   // Shows the app menu (for accessibility).

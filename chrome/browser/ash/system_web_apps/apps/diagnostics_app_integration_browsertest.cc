@@ -4,9 +4,11 @@
 
 #include "ash/webui/diagnostics_ui/url_constants.h"
 #include "ash/wm/window_pin_util.h"
+#include "base/check_deref.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
 #include "chrome/browser/ash/browser_delegate/browser_controller.h"
+#include "chrome/browser/ash/browser_delegate/browser_delegate.h"
 #include "chrome/browser/ash/system_web_apps/test_support/system_web_app_integration_test.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -100,7 +102,10 @@ IN_PROC_BROWSER_TEST_P(DiagnosticsAppIntegrationTest, UsageMetricsTest) {
   LaunchApp(ash::SystemWebAppType::DIAGNOSTICS, &system_app_browser);
 
   // Find system browser for diagnostics and close it to trigger usage metrics.
-  EXPECT_TRUE(ash::IsSystemWebApp(system_app_browser));
+  EXPECT_TRUE(ash::IsBrowserForSystemWebApp(
+      CHECK_DEREF(ash::BrowserController::GetInstance()->GetDelegate(
+          system_app_browser)),
+      ash::SystemWebAppType::DIAGNOSTICS));
   ui_test_utils::BrowserDestroyedObserver observer(system_app_browser);
   chrome::CloseWindow(system_app_browser);
   observer.Wait();
@@ -199,8 +204,12 @@ IN_PROC_BROWSER_TEST_P(DiagnosticsAppIntegrationTest,
                        DiagnosticsAppCapturesNavigation) {
   auto* app_web_contents = LaunchDiagnosticsApp();
 
-  const auto* app_browser = ash::FindSystemWebAppBrowser(
-      profile(), ash::SystemWebAppType::DIAGNOSTICS);
+  ash::BrowserDelegate* app_browser_delegate = ash::FindSystemWebAppBrowser(
+      profile(), ash::SystemWebAppType::DIAGNOSTICS, ash::BrowserType::kApp);
+  Browser* app_browser =
+      app_browser_delegate
+          ? app_browser_delegate->GetBrowser().GetBrowserForMigrationOnly()
+          : nullptr;
   EXPECT_TRUE(app_browser);
   // DiagnosticsApp launched in its own browser.
   EXPECT_NE(browser(), app_browser);

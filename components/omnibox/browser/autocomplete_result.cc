@@ -165,15 +165,9 @@ size_t AutocompleteResult::GetMaxMatches(
     return kMaxFeaturedKeywordAutocompleteMatches;
 #endif
 
-  // If we're interested in the zero suggest match limit, and one has been
-  // specified, return it.
+  // If we're interested in the zero suggest match limit, return it.
   if (is_zero_suggest) {
-    size_t field_trial_value = base::GetFieldTrialParamByFeatureAsInt(
-        omnibox::kMaxZeroSuggestMatches,
-        OmniboxFieldTrial::kMaxZeroSuggestMatchesParam,
-        kDefaultMaxZeroSuggestMatches);
-    DCHECK(kMaxAutocompletePositionValue > field_trial_value);
-    return field_trial_value;
+    return kDefaultMaxZeroSuggestMatches;
   }
 
   // Otherwise, i.e. if no zero suggest specific limit has been specified or the
@@ -481,6 +475,23 @@ void AutocompleteResult::SortAndCull(
                omnibox::IsAndroidWidget(page_classification)) {
       sections.push_back(
           std::make_unique<AndroidWebZpsSection>(suggestion_groups_map_));
+    } else if (is_android_any && omnibox::IsComposebox(page_classification)) {
+      auto composebox_suggestion_limit_config =
+          omnibox_feature_configs::ComposeboxSuggestionLimit::Get();
+      size_t composebox_max_suggestions = 15u;
+      size_t max_aim_suggestions = 15u;
+      size_t max_contextual_suggestions = 15u;
+      if (composebox_suggestion_limit_config.enabled) {
+        composebox_max_suggestions =
+            composebox_suggestion_limit_config.max_suggestions;
+        max_aim_suggestions =
+            composebox_suggestion_limit_config.max_aim_suggestions;
+        max_contextual_suggestions =
+            composebox_suggestion_limit_config.max_contextual_suggestions;
+      }
+      sections.push_back(std::make_unique<AndroidComposeboxZpsSection>(
+          suggestion_groups_map_, composebox_max_suggestions,
+          max_aim_suggestions, max_contextual_suggestions));
     } else if constexpr (is_android_mobile) {
       if (omnibox::IsNTPPage(page_classification)) {
         sections.push_back(std::make_unique<AndroidNTPZpsSection>(
@@ -488,23 +499,6 @@ void AutocompleteResult::SortAndCull(
       } else if (omnibox::IsSearchResultsPage(page_classification)) {
         sections.push_back(
             std::make_unique<AndroidSRPZpsSection>(suggestion_groups_map_));
-      } else if (omnibox::IsComposebox(page_classification)) {
-        auto composebox_suggestion_limit_config =
-            omnibox_feature_configs::ComposeboxSuggestionLimit::Get();
-        size_t composebox_max_suggestions = 15u;
-        size_t max_aim_suggestions = 15u;
-        size_t max_contextual_suggestions = 15u;
-        if (composebox_suggestion_limit_config.enabled) {
-          composebox_max_suggestions =
-              composebox_suggestion_limit_config.max_suggestions;
-          max_aim_suggestions =
-              composebox_suggestion_limit_config.max_aim_suggestions;
-          max_contextual_suggestions =
-              composebox_suggestion_limit_config.max_contextual_suggestions;
-        }
-        sections.push_back(std::make_unique<AndroidComposeboxZpsSection>(
-            suggestion_groups_map_, composebox_max_suggestions,
-            max_aim_suggestions, max_contextual_suggestions));
       } else {
         sections.push_back(
             std::make_unique<AndroidWebZpsSection>(suggestion_groups_map_));
@@ -763,8 +757,8 @@ void AutocompleteResult::SortAndCull(
     }
 
     // Limit total matches accounting for suggestions score <= 0, sub matches,
-    // and feature configs such as OmniboxUIExperimentMaxAutocompleteMatches,
-    // OmniboxMaxZeroSuggestMatches, and OmniboxDynamicMaxAutocomplete.
+    // and feature configs such as `OmniboxUIExperimentMaxAutocompleteMatches`
+    // and `OmniboxDynamicMaxAutocomplete`.
     const size_t num_matches =
         CalculateNumMatches(is_zero_suggest, input.GetFeaturedKeywordMode(),
                             matches_, comparing_object);
@@ -868,8 +862,8 @@ void AutocompleteResult::SplitActionsToSuggestions() {
     }
     for (size_t j = 0; j < matches_[i].actions.size(); j++) {
       if (matches_[i].actions[j]->ActionId() == OmniboxActionId::PEDAL) {
-        *matches_.insert(matches_.begin() + i + 1,
-                         matches_[i].CreateActionMatch(j));
+        matches_.insert(matches_.begin() + i + 1,
+                        matches_[i].CreateActionMatch(j));
         // Remove this action from the primary match and repeat checking at this
         // same index, which will hence be the next action.
         matches_[i].actions.erase(matches_[i].actions.begin() + j);
@@ -1023,6 +1017,10 @@ void AutocompleteResult::AttachPedalsToMatches(
 }
 
 void AutocompleteResult::AttachContextualSearchFulfillmentActionToMatches() {
+#if !BUILDFLAG(IS_ANDROID)
+  // ContextualSearchFulfillmentAction is a Desktop-specific legacy action that
+  // lacks an Android JNI counterpart. Skip since Android currently only has
+  // minimal contextual search supports (e.g., Lens Overlay entry point).
   for (AutocompleteMatch& match : matches_) {
     if (match.IsContextualSearchSuggestion() && !match.HasLensSearchAction()) {
       match.takeover_action =
@@ -1031,6 +1029,7 @@ void AutocompleteResult::AttachContextualSearchFulfillmentActionToMatches() {
               match.subtypes.contains(omnibox::SUBTYPE_ZERO_PREFIX));
     }
   }
+#endif
 }
 
 void AutocompleteResult::AttachContextualSearchOpenLensActionToMatches() {
@@ -1109,8 +1108,11 @@ void AutocompleteResult::ConvertOpenTabMatches(
 #if BUILDFLAG(IS_ANDROID)
       match.android_tab_id = tab_info->second.android_tab_id;
 #endif
-      if (!match.from_keyword ||
-          match.type != AutocompleteMatchType::OPEN_TAB) {
+      if ((!match.from_keyword ||
+           match.type != AutocompleteMatchType::OPEN_TAB) &&
+          !(client->IsWebUiNtpEnabledForDesktopAndroid() && input &&
+            input->current_page_classification() ==
+                OmniboxEventProto::NTP_REALBOX)) {
         if constexpr (is_android_any) {
 #if BUILDFLAG(IS_ANDROID)
           // On Android, we attach the action to allow switching to tab.

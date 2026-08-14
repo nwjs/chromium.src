@@ -139,7 +139,7 @@ class PLATFORM_EXPORT CanvasResource : public gpu::ClientImage {
   const scoped_refptr<base::SingleThreadTaskRunner> owning_thread_task_runner_;
 
  private:
-  friend class CanvasResourceProviderTest;
+  friend class Canvas2DResourceProviderTest;
   friend class WebGPUMailboxTexture;
   friend class ExportedCanvasResource;
 
@@ -231,8 +231,6 @@ class PLATFORM_EXPORT CanvasResourceSharedImage final : public CanvasResource {
   // Uploads the contents of |sk_surface| to the resource's backing memory.
   // Should be called only if the resource is using software raster.
   void UploadSoftwareRenderingResults(SkSurface* sk_surface);
-
-  void PrepareForWebGPUDummyMailbox();
 
  private:
   base::WeakPtr<WebGraphicsContext3DProviderWrapper> ContextProviderWrapper()

@@ -11,7 +11,6 @@
 #include "base/containers/span.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/raw_ptr_exclusion.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/unsafe_shared_memory_pool.h"
@@ -180,8 +179,9 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
 
     bool Init(MappableBuffer* mappable_buffer, bool is_already_mapped);
 
-    // RAW_PTR_EXCLUSION: Performance reasons (based on analysis of MotionMark).
-    RAW_PTR_EXCLUSION MappableBuffer* buffer_ = nullptr;
+    // Uses UnprotectedInRelease for performance reasons (based on analysis of
+    // MotionMark).
+    raw_ptr<MappableBuffer, UnprotectedInRelease> buffer_ = nullptr;
     gfx::Size size_;
     viz::SharedImageFormat format_;
   };
@@ -285,6 +285,13 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
       ContextSupport* context_support,
       base::OnceCallback<void(std::unique_ptr<gfx::GpuFence>)> callback);
 
+  static uint64_t SignalLatestSyncToken(
+      std::vector<scoped_refptr<ClientSharedImage>> shared_images,
+      std::vector<SyncToken> sync_tokens,
+      base::OnceClosure callback,
+      ContextSupport* context_support,
+      uint64_t pending_callback_id);
+
   void UpdateDestructionSyncToken(const gpu::SyncToken& sync_token) {
     destruction_sync_token_ = sync_token;
   }
@@ -295,6 +302,11 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
   // to ensure that any future service-side accesses to this SharedImage are
   // sequenced with respect to this call being processed.
   gpu::SyncToken BackingWasExternallyUpdated(const gpu::SyncToken& sync_token);
+
+  // Similar to the function above, except that this overloaded version accepts
+  // GpuFence. This version is used in ArImageTransport.
+  gpu::SyncToken BackingWasExternallyUpdated(
+      std::unique_ptr<gfx::GpuFence> fence);
 
   // Creates a ClientSharedImage that is not associated with any
   // SharedImageInterface for testing.
@@ -469,6 +481,9 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
       gfx::GpuMemoryBufferHandle buffer_handle,
       base::UnsafeSharedMemoryRegion memory_region,
       base::OnceCallback<void(bool)> callback);
+
+  SyncToken StoreSyncTokenInternal(const SyncToken& sync_token);
+  SyncToken GenSyncTokenInternal(InterfaceBase* ib);
 
   void RunOnTaskRunner(MappableBuffer::CopyNativeBufferToShMemCallback callback,
                        gfx::GpuMemoryBufferHandle buffer_handle,

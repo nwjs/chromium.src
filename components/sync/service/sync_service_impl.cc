@@ -81,7 +81,7 @@
 #include "components/password_manager/core/browser/split_stores_and_local_upm.h"
 #include "components/sync/android/jni_headers/ExplicitPassphrasePlatformClient_jni.h"
 #include "components/sync/android/sync_service_android_bridge.h"
-#include "components/sync/nigori/nigori.h"
+#include "components/sync/model/crypto/nigori.h"
 #include "components/sync/protocol/nigori_specifics.pb.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -230,8 +230,10 @@ SyncServiceImpl::SyncServiceImpl(InitParams init_params)
       identity_manager_(sync_prefs_.IsLocalSyncEnabled()
                             ? nullptr
                             : sync_client_->GetIdentityManager()),
-      auth_manager_(std::make_unique<SyncAuthManager>(identity_manager_,
-                                                      /*delegate=*/this)),
+      auth_manager_(std::make_unique<SyncAuthManager>(
+          identity_manager_,
+          /*delegate=*/this,
+          init_params.account_managed_status_finder_timeout)),
       channel_(init_params.channel),
       debug_identifier_(std::move(init_params.debug_identifier)),
       sync_service_url_(
@@ -380,7 +382,9 @@ void SyncServiceImpl::Initialize(DataTypeController::TypeVector controllers) {
   const bool is_sync_feature_requested_for_metrics =
       IsLocalSyncEnabled() ||
 #if BUILDFLAG(IS_CHROMEOS)
-      !user_settings_->IsSyncFeatureDisabledViaDashboard();
+      (!user_settings_->IsSyncFeatureDisabledViaDashboard() &&
+       (!base::FeatureList::IsEnabled(kReplaceSyncPromosWithSignInPromos) ||
+        HasSyncConsent()));
 #else
       HasSyncConsent();
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -876,14 +880,12 @@ SyncService::TransportState SyncServiceImpl::GetTransportState() const {
     return TransportState::INITIALIZING;
   }
 
-  if (base::FeatureList::IsEnabled(kSyncDetermineAccountManagedStatus)) {
-    // Determining the account's managed-ness status is also considered part of
-    // initialization.
-    if (!IsLocalSyncEnabled() &&
-        auth_manager_->GetActiveAccountInfo().managed_status ==
-            signin::AccountManagedStatusFinderOutcome::kPending) {
-      return TransportState::INITIALIZING;
-    }
+  // Determining the account's managed-ness status is also considered part of
+  // initialization.
+  if (!IsLocalSyncEnabled() &&
+      auth_manager_->GetActiveAccountInfo().managed_status ==
+          signin::AccountManagedStatusFinderOutcome::kPending) {
+    return TransportState::INITIALIZING;
   }
 
   // At this point we should usually be able to configure our data types (so the
@@ -1186,6 +1188,16 @@ void SyncServiceImpl::OnActionableProtocolError(
         account_mutator->RemovePrimaryAccountButKeepTokens(
             signin_metrics::ProfileSignout::kServerForcedDisable);
 #else
+        // The Sync consent will be revoked, and Sync will enter
+        // Sync-the-transport mode.
+        if (base::FeatureList::IsEnabled(
+                kSyncCopyPreferencesToTransportModeOnServerForcedDisable)) {
+          CHECK(!GetAccountInfo().gaia.empty());
+          // Migrating the user's selected types prefs to ensure that they will
+          // be available in Sync-the-transport mode.
+          SyncPrefs::MigrateGlobalDataTypePrefsToAccount(
+              sync_client_->GetPrefService(), GetAccountInfo().gaia);
+        }
         // Note: On some platforms, revoking the sync consent will also clear
         // the primary account as transitioning from ConsentLevel::kSync to
         // ConsentLevel::kSignin is not supported.
@@ -1292,8 +1304,7 @@ void SyncServiceImpl::SyncAuthAccountStateChanged() {
       // If sync startup is still deferred, then honor that. (In practice, this
       // mostly happens when the `managed_status` of the account gets
       // determined.)
-      if (!base::FeatureList::IsEnabled(kSyncDetermineAccountManagedStatus) ||
-          deferring_first_start_since_.is_null()) {
+      if (deferring_first_start_since_.is_null()) {
         TryStart();
       }
       NotifyObservers();
@@ -1690,14 +1701,12 @@ void SyncServiceImpl::ConfigureDataTypeManager(
     return;
   }
 
-  if (base::FeatureList::IsEnabled(kSyncDetermineAccountManagedStatus)) {
-    // If the account type hasn't been determined yet, don't configure. A
-    // configuration will be triggered again once the type has been determined.
-    if (!IsLocalSyncEnabled() &&
-        auth_manager_->GetActiveAccountInfo().managed_status ==
-            signin::AccountManagedStatusFinderOutcome::kPending) {
-      return;
-    }
+  // If the account type hasn't been determined yet, don't configure. A
+  // configuration will be triggered again once the type has been determined.
+  if (!IsLocalSyncEnabled() &&
+      auth_manager_->GetActiveAccountInfo().managed_status ==
+          signin::AccountManagedStatusFinderOutcome::kPending) {
+    return;
   }
 
   DCHECK(!engine_->GetCacheGuid().empty());

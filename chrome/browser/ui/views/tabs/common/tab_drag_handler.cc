@@ -40,6 +40,7 @@
 #include "ui/base/models/list_selection_model.h"
 #include "ui/compositor/layer.h"
 #include "ui/events/event.h"
+#include "ui/events/event_target.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/vector2d.h"
 #include "ui/views/interaction/element_tracker_views.h"
@@ -202,7 +203,18 @@ void TabDragHandlerImpl::InitializeDrag(
 
   CHECK(drag_init_data.source_dragged_view);
 
-  const gfx::Point offset_from_source = event.location();
+  // The event source is not guaranteed to be the same as the source dragged
+  // view (e.g. the tab group header view handles the event, while the tab
+  // group view is considered the drag source).
+  // Calculate the offset accordingly.
+  std::unique_ptr<ui::Event> cloned_event = event.Clone();
+  ui::LocatedEvent* located_event = cloned_event->AsLocatedEvent();
+  if (event.target()) {
+    event.target()->ConvertEventToTarget(drag_init_data.source_dragged_view,
+                                         located_event);
+  }
+  const gfx::Point offset_from_source = located_event->location();
+
   if (drag_controller_->Init(this, drag_init_data.source_dragged_view,
                              drag_init_data.dragged_views, offset_from_source,
                              original_selection_model,
@@ -703,11 +715,10 @@ void TabDragHandlerImpl::StartedDragging(
         tab_strip_model_->group_model()->GetTabGroup(group_id);
     if (group && !group->visual_data()->is_collapsed()) {
       drag_controller_->SetGroupHeaderWasCollapsedFromDrag(true);
-      TabCollectionNode* group_node = GetNodeForTabGroup(group_id);
-      if (group_node) {
-        group_node->GetController()->ToggleTabGroupCollapsedState(
-            group, ToggleTabGroupCollapsedStateOrigin::kMouse);
-      }
+      tab_groups::TabGroupVisualData new_data(group->visual_data()->title(),
+                                              group->visual_data()->color(),
+                                              /*is_collapsed=*/true);
+      tab_strip_model_->ChangeTabGroupVisuals(group_id, new_data);
     }
   }
 
@@ -785,11 +796,10 @@ void TabDragHandlerImpl::StoppedDragging() {
       const TabGroup* group =
           tab_strip_model_->group_model()->GetTabGroup(group_id);
       if (group && group->visual_data()->is_collapsed()) {
-        TabCollectionNode* group_node = GetNodeForTabGroup(group_id);
-        if (group_node) {
-          group_node->GetController()->ToggleTabGroupCollapsedState(
-              group, ToggleTabGroupCollapsedStateOrigin::kMouse);
-        }
+        tab_groups::TabGroupVisualData new_data(group->visual_data()->title(),
+                                                group->visual_data()->color(),
+                                                /*is_collapsed=*/false);
+        tab_strip_model_->ChangeTabGroupVisuals(group_id, new_data);
       }
     }
   }

@@ -43,16 +43,16 @@ base::Value ConvertToValue(const page_content_annotations::ScreenshotOptions::
 }
 
 template <>
-struct TypeConverter<base::Value, glic::mojom::GetTabContextOptions> {
-  static base::Value Convert(const glic::mojom::GetTabContextOptions& in) {
+struct TypeConverter<base::Value, glic::mojom::TabContextOptions> {
+  static base::Value Convert(const glic::mojom::TabContextOptions& in) {
     base::Value raw_out(base::Value::Type::DICT);
     base::DictValue& out = raw_out.GetDict();
-    out.Set("includeInnerText", in.include_inner_text);
+    out.Set("innerText", in.inner_text);
     out.Set("innerTextBytesLimit", static_cast<int>(in.inner_text_bytes_limit));
-    out.Set("includeViewportScreenshot", in.include_viewport_screenshot);
-    out.Set("includeAnnotatedPageContent", in.include_annotated_page_content);
+    out.Set("viewportScreenshot", in.viewport_screenshot);
+    out.Set("annotatedPageContent", in.annotated_page_content);
     out.Set("maxMetaTags", static_cast<int>(in.max_meta_tags));
-    out.Set("includePdf", in.include_pdf);
+    out.Set("pdfData", in.pdf_data);
     out.Set("pdfSizeLimit", static_cast<int>(in.pdf_size_limit));
     out.Set("annotatedPageContentMode",
             static_cast<int>(in.annotated_page_content_mode));
@@ -476,8 +476,8 @@ IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleGmailOtpEnabledBrowserTest,
   // Verify the callback in C++ receives the correct approved response
   ::actor::webui::mojom::GmailOtpOptInResultPtr response =
       response_future.Take();
-  ASSERT_TRUE(response->is_permission_granted());
-  EXPECT_TRUE(response->get_permission_granted());
+  ASSERT_TRUE(response->is_response());
+  EXPECT_TRUE(response->get_response()->permission_granted);
 
   task_manager->GetClientSessionForTesting()->StopActorTask(
       task_id.value(), glic::mojom::ActorTaskStopReason::kTaskComplete);
@@ -512,9 +512,9 @@ IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleGmailOtpEnabledBrowserTest,
   ::actor::webui::mojom::GmailOtpOptInResultPtr response =
       response_future.Take();
   ASSERT_TRUE(response->is_error_reason());
-  EXPECT_EQ(::actor::webui::mojom::GmailOtpOptInErrorReason::
-                kRequestPromiseNoSubscriber,
-            response->get_error_reason());
+  EXPECT_EQ(
+      ::actor::webui::mojom::GmailOtpErrorReason::kRequestPromiseNoSubscriber,
+      response->get_error_reason());
 
   // Continue JS test to finish the JS runner thread cleanly.
   ContinueJsTest();
@@ -552,9 +552,126 @@ IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
   ::actor::webui::mojom::GmailOtpOptInResultPtr response =
       response_future.Take();
   ASSERT_TRUE(response->is_error_reason());
-  EXPECT_EQ(::actor::webui::mojom::GmailOtpOptInErrorReason::
-                kRequestPromiseNoSubscriber,
-            response->get_error_reason());
+  EXPECT_EQ(
+      ::actor::webui::mojom::GmailOtpErrorReason::kRequestPromiseNoSubscriber,
+      response->get_error_reason());
+
+  // Continue JS test to finish the JS runner thread cleanly.
+  ContinueJsTest();
+
+  task_manager->GetClientSessionForTesting()->StopActorTask(
+      task_id.value(), glic::mojom::ActorTaskStopReason::kTaskComplete);
+}
+
+IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleGmailOtpEnabledBrowserTest,
+                       testGmailOtpConfirmationDialog) {
+  GlicInstanceImpl* instance = GetInstanceImpl();
+  ASSERT_TRUE(instance);
+
+  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateActorTask(instance));
+  EXPECT_NE(task_id, TaskId());
+
+  // Execute JS test, which sets up the subscriber and calls
+  // advanceToNextStep()
+  ExecuteJsTest();
+
+  GlicActorTaskManager* task_manager = instance->GetActorTaskManager();
+  ASSERT_TRUE(task_manager);
+
+  ::actor::ActorTaskDelegate* delegate =
+      task_manager->GetClientSessionForTesting();
+  ASSERT_TRUE(delegate);
+
+  base::test::TestFuture<::actor::webui::mojom::GmailOtpConfirmationResultPtr>
+      response_future;
+  delegate->RequestToShowGmailOtpConfirmationDialog(
+      task_id, "123456", response_future.GetCallback());
+
+  // Continue JS test, which awaits the dialog request promise and completes
+  // it.
+  ContinueJsTest();
+
+  // Verify the callback in C++ receives the correct approved response
+  ::actor::webui::mojom::GmailOtpConfirmationResultPtr response =
+      response_future.Take();
+  ASSERT_TRUE(response->is_response());
+  EXPECT_TRUE(response->get_response()->permission_granted);
+
+  task_manager->GetClientSessionForTesting()->StopActorTask(
+      task_id.value(), glic::mojom::ActorTaskStopReason::kTaskComplete);
+}
+
+IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleGmailOtpEnabledBrowserTest,
+                       testGmailOtpConfirmationDialogNoSubscriber) {
+  GlicInstanceImpl* instance = GetInstanceImpl();
+  ASSERT_TRUE(instance);
+
+  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateActorTask(instance));
+  EXPECT_NE(task_id, TaskId());
+
+  // Execute JS test (does nothing and calls advanceToNextStep())
+  ExecuteJsTest();
+
+  GlicActorTaskManager* task_manager = instance->GetActorTaskManager();
+  ASSERT_TRUE(task_manager);
+
+  ::actor::ActorTaskDelegate* delegate =
+      task_manager->GetClientSessionForTesting();
+  ASSERT_TRUE(delegate);
+
+  base::test::TestFuture<::actor::webui::mojom::GmailOtpConfirmationResultPtr>
+      response_future;
+  delegate->RequestToShowGmailOtpConfirmationDialog(
+      task_id, "123456", response_future.GetCallback());
+
+  // Verify that the callback resolves with the correct error reason (no
+  // subscriber)
+  ::actor::webui::mojom::GmailOtpConfirmationResultPtr response =
+      response_future.Take();
+  ASSERT_TRUE(response->is_error_reason());
+  EXPECT_EQ(
+      ::actor::webui::mojom::GmailOtpErrorReason::kRequestPromiseNoSubscriber,
+      response->get_error_reason());
+
+  // Continue JS test to finish the JS runner thread cleanly.
+  ContinueJsTest();
+
+  task_manager->GetClientSessionForTesting()->StopActorTask(
+      task_id.value(), glic::mojom::ActorTaskStopReason::kTaskComplete);
+}
+
+IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
+                       testGmailOtpConfirmationDialogFeatureDisabled) {
+  GlicInstanceImpl* instance = GetInstanceImpl();
+  ASSERT_TRUE(instance);
+
+  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateActorTask(instance));
+  EXPECT_NE(task_id, TaskId());
+
+  // Execute JS test (asserts selectGmailOtpConfirmationRequestHandler is
+  // undefined)
+  ExecuteJsTest();
+
+  GlicActorTaskManager* task_manager = instance->GetActorTaskManager();
+  ASSERT_TRUE(task_manager);
+
+  ::actor::ActorTaskDelegate* delegate =
+      task_manager->GetClientSessionForTesting();
+  ASSERT_TRUE(delegate);
+
+  base::test::TestFuture<::actor::webui::mojom::GmailOtpConfirmationResultPtr>
+      response_future;
+  delegate->RequestToShowGmailOtpConfirmationDialog(
+      task_id, "123456", response_future.GetCallback());
+
+  // Verify that the callback resolves with the correct error reason (no
+  // subscriber)
+  ::actor::webui::mojom::GmailOtpConfirmationResultPtr response =
+      response_future.Take();
+  ASSERT_TRUE(response->is_error_reason());
+  EXPECT_EQ(
+      ::actor::webui::mojom::GmailOtpErrorReason::kRequestPromiseNoSubscriber,
+      response->get_error_reason());
 
   // Continue JS test to finish the JS runner thread cleanly.
   ContinueJsTest();

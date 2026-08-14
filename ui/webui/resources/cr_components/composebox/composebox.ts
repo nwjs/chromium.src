@@ -20,8 +20,6 @@ import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 
 import type {SearchAnimatedGlowElement} from '//resources/cr_components/search/animated_glow.js';
 import {ComposeboxContextAddedMethod, GlowAnimationState} from '//resources/cr_components/search/constants.js';
-import {DragAndDropHandler} from '//resources/cr_components/search/drag_drop_handler.js';
-import type {DragAndDropHost} from '//resources/cr_components/search/drag_drop_host.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
@@ -71,7 +69,7 @@ export interface ComposeboxElement {
 
 // LINT.IfChange
 export class ComposeboxElement extends ComposeboxEmbedderMixin
-(CrLitElement) implements DragAndDropHost {
+(CrLitElement) {
   static get is() {
     return 'cr-composebox';
   }
@@ -178,7 +176,6 @@ export class ComposeboxElement extends ComposeboxEmbedderMixin
 
   // Retains the latest version of the pending automatic active tab's title.
   protected pendingAutomaticActiveTabTitle_: string = '';
-  protected dragAndDropHandler_: DragAndDropHandler;
 
   private get webUIOmniboxAskGAboutThisPageEnabled_(): boolean {
     return loadTimeData.valueExists('webUIOmniboxAskGAboutThisPageEnabled') &&
@@ -254,8 +251,6 @@ export class ComposeboxElement extends ComposeboxEmbedderMixin
     this.searchboxCallbackRouter_ =
         ComposeboxProxyImpl.getInstance().searchboxCallbackRouter;
     this.searchboxHandler_ = ComposeboxProxyImpl.getInstance().searchboxHandler;
-    this.dragAndDropHandler_ =
-        new DragAndDropHandler(this, this.dragAndDropEnabled);
   }
 
   override getInputElement(): ComposeboxInputElement {
@@ -347,15 +342,8 @@ export class ComposeboxElement extends ComposeboxEmbedderMixin
 
     // If it is the first render, or 'entrypointName' has changed from its default.
     if (!this.hasUpdated || changedProperties.has('entrypointName')) {
-      // TODO(crbug.com/511319142): Add this first branch's logic to
-      // contextual tasks specific composebox.
-      if (this.entrypointName === 'ContextualTasks') {
-        this.voiceSearchCoherenceEnabled = loadTimeData.getBoolean(
-            'voiceSearchCoherenceCobrowsingComposeboxEnabled');
-      } else {
-        this.voiceSearchCoherenceEnabled =
-            loadTimeData.getBoolean('voiceSearchCoherenceComposeboxesEnabled');
-      }
+      this.voiceSearchCoherenceEnabled =
+          this.computeVoiceSearchCoherenceEnabled();
     }
   }
 
@@ -366,11 +354,6 @@ export class ComposeboxElement extends ComposeboxEmbedderMixin
     }
   }
 
-  /* Used by drag/drop host interface so the
-  drag and drop handler can access addDroppedFiles(). */
-  getDropTarget() {
-    return this;
-  }
 
   playGlowAnimation() {
     // If |animationState_| were still EXPANDING, this function would have no

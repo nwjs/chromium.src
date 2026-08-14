@@ -41,6 +41,7 @@ void GlicActuationPriorityVoter::TearDownOnGraph(Graph* graph) {
   graph->RemoveFrameNodeObserver(this);
   graph->RemovePageNodeObserver(this);
   voting_channel_.Reset();
+  voted_contexts_.clear();
 }
 
 void GlicActuationPriorityVoter::OnGlicActuationStateChanged(
@@ -50,7 +51,8 @@ void GlicActuationPriorityVoter::OnGlicActuationStateChanged(
       PageLiveStateDecorator::Data::FromPageNode(page_node)
           ->GetGlicActuationState();
 
-  if (auto* main_frame_node = page_node->GetMainFrameNode()) {
+  auto* main_frame_node = page_node->GetMainFrameNode();
+  if (main_frame_node && main_frame_node->IsCurrent()) {
     UpdateFrameNodeVote(main_frame_node, previous_state, state);
   }
 }
@@ -75,29 +77,40 @@ void GlicActuationPriorityVoter::OnBeforeFrameNodeAdded(
   const GlicActuationState state =
       PageLiveStateDecorator::Data::FromPageNode(pending_page_node)
           ->GetGlicActuationState();
-  if (state != GlicActuationState::kNone) {
+  if (state != GlicActuationState::kNone && frame_node->IsMainFrame() &&
+      frame_node->IsCurrent()) {
     UpdateFrameNodeVote(frame_node, GlicActuationState::kNone, state);
   }
 }
 
 void GlicActuationPriorityVoter::OnBeforeFrameNodeRemoved(
     const FrameNode* frame_node) {
-  const GlicActuationState state =
-      PageLiveStateDecorator::Data::FromPageNode(frame_node->GetPageNode())
-          ->GetGlicActuationState();
-  if (frame_node->IsMainFrame() && state != GlicActuationState::kNone) {
-    voting_channel_.InvalidateVote(GetExecutionContext(frame_node));
-  }
+  InvalidateVote(GetExecutionContext(frame_node));
 }
 
 void GlicActuationPriorityVoter::OnCurrentFrameChanged(
     const FrameNode* previous_frame_node,
     const FrameNode* current_frame_node) {
-  // An actuating glic instance should never have its current frame changed.
-  CHECK_EQ(PageLiveStateDecorator::Data::FromPageNode(
-               current_frame_node->GetPageNode())
-               ->GetGlicActuationState(),
-           GlicActuationState::kNone);
+  const FrameNode* frame_node =
+      current_frame_node ? current_frame_node : previous_frame_node;
+  CHECK(frame_node);
+  if (!frame_node->IsMainFrame()) {
+    return;
+  }
+  GlicActuationState state =
+      PageLiveStateDecorator::Data::FromPageNode(frame_node->GetPageNode())
+          ->GetGlicActuationState();
+  if (state == GlicActuationState::kNone) {
+    return;
+  }
+
+  // The current frame can change when an actor task navigates the actuated tab.
+  if (current_frame_node) {
+    UpdateFrameNodeVote(current_frame_node, GlicActuationState::kNone, state);
+  }
+  if (previous_frame_node) {
+    InvalidateVote(GetExecutionContext(previous_frame_node));
+  }
 }
 
 void GlicActuationPriorityVoter::UpdateFrameNodeVote(
@@ -111,7 +124,7 @@ void GlicActuationPriorityVoter::UpdateFrameNodeVote(
   }
 
   if (new_state == GlicActuationState::kNone) {
-    voting_channel_.InvalidateVote(GetExecutionContext(frame_node));
+    InvalidateVote(GetExecutionContext(frame_node));
     return;
   }
 
@@ -122,10 +135,32 @@ void GlicActuationPriorityVoter::UpdateFrameNodeVote(
 
   const Vote vote(priority, kGlicActuationReason);
 
-  if (previous_state != GlicActuationState::kNone) {
-    voting_channel_.ChangeVote(GetExecutionContext(frame_node), vote);
-  } else {
-    voting_channel_.SubmitVote(GetExecutionContext(frame_node), vote);
+  SubmitVote(GetExecutionContext(frame_node), vote);
+}
+
+void GlicActuationPriorityVoter::SubmitVote(
+    const execution_context::ExecutionContext* execution_context,
+    const Vote& vote) {
+  if (!execution_context) {
+    return;
+  }
+  auto [it, inserted] = voted_contexts_.try_emplace(execution_context, vote);
+  if (inserted) {
+    voting_channel_.SubmitVote(execution_context, vote);
+  } else if (it->second != vote) {
+    it->second = vote;
+    voting_channel_.ChangeVote(execution_context, vote);
+  }
+}
+
+void GlicActuationPriorityVoter::InvalidateVote(
+    const execution_context::ExecutionContext* execution_context) {
+  if (!execution_context) {
+    return;
+  }
+  size_t removed = voted_contexts_.erase(execution_context);
+  if (removed) {
+    voting_channel_.InvalidateVote(execution_context);
   }
 }
 

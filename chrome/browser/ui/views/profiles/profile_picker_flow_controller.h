@@ -20,6 +20,10 @@ class Profile;
 class ProfilePickerPostSignInAdapter;
 class ForceSigninUIError;
 
+namespace signin {
+enum class DeviceSignalsDisclaimerResult;
+}
+
 class ProfilePickerFlowController : public ProfileManagementFlowControllerImpl {
  public:
   ProfilePickerFlowController(ProfilePickerWebContentsHost* host,
@@ -76,12 +80,24 @@ class ProfilePickerFlowController : public ProfileManagementFlowControllerImpl {
       const CoreAccountInfo& account_info,
       std::unique_ptr<content::WebContents> contents) override;
 
-  // Callback after loading a profile and opening a browser.
+  // Callback after loading the profile but before opening the browser.
+  void OnProfileLoadedForPicking(
+      bool open_command_line_urls,
+      base::OnceCallback<void(Browser*)> pick_profile_complete_callback,
+      Profile* profile);
+
+  // Callback after loading the profile and opening the browser.
   void OnSwitchToProfileComplete(
       bool open_settings,
       bool exit_flow_after_profile_picked,
       base::OnceCallback<void(bool)> pick_profile_complete_callback,
       Browser* browser);
+
+  void OnDeviceSignalsDisclaimerResult(
+      Profile* profile,
+      bool open_command_line_urls,
+      base::OnceCallback<void(Browser*)> pick_profile_complete_callback,
+      signin::DeviceSignalsDisclaimerResult result);
 
   const ProfilePicker::EntryPoint entry_point_;
   const GURL selected_profile_target_url_;

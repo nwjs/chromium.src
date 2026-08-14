@@ -73,18 +73,14 @@ base::WeakPtr<WebNNContextImpl> ContextImplCoreml::AsWeakPtr() {
 }
 
 void ContextImplCoreml::CreateGraphImpl(
-    mojo::PendingReceiver<mojom::WebNNGraph> receiver,
     mojom::GraphInfoPtr graph_info,
     WebNNGraphImpl::ComputeResourceInfo compute_resource_info,
     base::flat_map<OperandId, std::unique_ptr<WebNNConstantOperand>>
         constant_operands,
-    base::flat_map<OperandId, scoped_refptr<WebNNTensorImpl>>
-        constant_tensor_operands,
     CreateGraphImplCallback callback) {
   GraphImplCoreml::CreateAndBuild(
-      std::move(receiver), *this, std::move(graph_info),
-      std::move(compute_resource_info), std::move(constant_operands),
-      std::move(constant_tensor_operands), options().Clone(), properties(),
+      *this, std::move(graph_info), std::move(compute_resource_info),
+      std::move(constant_operands), options().Clone(), properties(),
       std::move(callback));
 }
 
@@ -92,12 +88,6 @@ base::expected<scoped_refptr<WebNNTensorImpl>, mojom::ErrorPtr>
 ContextImplCoreml::CreateTensorImpl(
     mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
     mojom::TensorInfoPtr tensor_info) {
-  // TODO(crbug.com/332350952): implement constant tensors for CoreML.
-  if (tensor_info->usage.Has(MLTensorUsageFlags::kGraphConstant)) {
-    return base::unexpected(
-        mojom::Error::New(mojom::Error::Code::kNotSupportedError,
-                          "Creation of constant tensors is not supported."));
-  }
   return TensorImplCoreml::Create(std::move(receiver), *this,
                                   std::move(tensor_info));
 }

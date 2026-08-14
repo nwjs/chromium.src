@@ -1608,7 +1608,8 @@ int RenderProcessHost::GetCurrentRenderProcessCountForTesting() {
 RenderProcessHost* RenderProcessHostImpl::CreateRenderProcessHost(
     BrowserContext* browser_context,
     SiteInstanceImpl* site_instance,
-    bool is_spare_renderer) {
+    bool is_spare_renderer,
+    bool is_for_outermost_main_frame) {
   if (g_render_process_host_factory_) {
     return g_render_process_host_factory_->CreateRenderProcessHost(
         browser_context, site_instance);
@@ -1662,15 +1663,17 @@ RenderProcessHost* RenderProcessHostImpl::CreateRenderProcessHost(
 #endif  // !BUILDFLAG(IS_ANDROID)
 
   return new RenderProcessHostImpl(browser_context, storage_partition_impl,
-                                   flags, is_spare_renderer);
+                                   flags, is_spare_renderer,
+                                   is_for_outermost_main_frame);
 }
 
 // static
-RenderProcessHost* RenderProcessHostImpl::CreateRenderProcessHost(
+RenderProcessHost* RenderProcessHostImpl::CreateRenderProcessHostForTesting(
     BrowserContext* browser_context,
     SiteInstanceImpl* site_instance) {
   return CreateRenderProcessHost(browser_context, site_instance,
-                                 /* is_spare_renderer=*/false);
+                                 /* is_spare_renderer= */ false,
+                                 /* is_for_outermost_main_frame= */ false);
 }
 
 // static
@@ -1678,7 +1681,8 @@ RenderProcessHost* RenderProcessHostImpl::CreateSpareRenderProcessHost(
     BrowserContext* browser_context,
     SiteInstanceImpl* site_instance) {
   return CreateRenderProcessHost(browser_context, site_instance,
-                                 /* is_spare_renderer=*/true);
+                                 /* is_spare_renderer= */ true,
+                                 /* is_for_outermost_main_frame= */ false);
 }
 
 // static
@@ -1689,7 +1693,8 @@ RenderProcessHostImpl::RenderProcessHostImpl(
     BrowserContext* browser_context,
     StoragePartitionImpl* storage_partition_impl,
     int flags,
-    bool is_spare_renderer)
+    bool is_spare_renderer,
+    bool is_for_outermost_main_frame)
     : priority_(!blink::kLaunchingProcessIsBackgrounded,
                 false /* has_media_stream */,
                 false /* has_immersive_xr_session */,
@@ -1714,6 +1719,8 @@ RenderProcessHostImpl::RenderProcessHostImpl(
       spare_renderer_priority_status_(
           is_spare_renderer ? SpareRendererPriorityStatus::kSpare
                             : SpareRendererPriorityStatus::kNormal),
+      next_launch_for_initial_outermost_main_frame_(
+          is_for_outermost_main_frame),
 #endif
       tracing_track_(
           perfetto::NamedTrack::FromPointer("RenderProcessHostImpl",
@@ -3231,7 +3238,9 @@ void RenderProcessHostImpl::RemoveRoute(int32_t routing_id) {
                                   ->set_render_process_host_listener_changed();
                 proto->set_routing_id(routing_id);
               });
-  CHECK(listeners_.Lookup(routing_id) != nullptr, base::NotFatalUntil::M152);
+  // TODO(crbug.com/541475235): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK(listeners_.Lookup(routing_id) != nullptr);
   listeners_.Remove(routing_id);
   Cleanup();
 }
@@ -3830,14 +3839,6 @@ void RenderProcessHostImpl::AppendRendererCommandLine(
   command_line->AppendSwitchASCII(switches::kRendererClientId,
                                   base::NumberToString(GetID().value()));
 
-  // Synchronize unix/monotonic clocks across consistent processes.
-  if (base::TimeTicks::IsConsistentAcrossProcesses()) {
-    command_line->AppendSwitchASCII(
-        switches::kTimeTicksAtUnixEpoch,
-        base::NumberToString(
-            base::TimeTicks::UnixEpoch().since_origin().InMicroseconds()));
-  }
-
 #if BUILDFLAG(IS_LINUX)
   // Append `kDisableVideoCaptureUseGpuMemoryBuffer` flag if there is no support
   // for NV12 GPU memory buffer.
@@ -3970,6 +3971,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
       switches::kWebSettingsForTesting,
       // Please keep these in alphabetical order.
       blink::switches::kAllowPreCommitInput,
+      blink::switches::kDisableBackForwardCacheForWebSockets,
       blink::switches::kBlinkSettings,
       blink::switches::kDarkModeSettings,
       blink::switches::kDefaultTileWidth,
@@ -4631,7 +4633,9 @@ void RenderProcessHostImpl::Cleanup() {
         base::BindOnce(&WebRtcLog::ClearLogMessageCallback, GetDeprecatedID()));
   }
 
-  CHECK_EQ(0, pending_views_, base::NotFatalUntil::M152);
+  // TODO(crbug.com/540651680): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK_EQ(0, pending_views_);
 
   // If the process associated with this RenderProcessHost is still alive,
   // notify all observers that the process has exited cleanly, even though it
@@ -5559,8 +5563,12 @@ RenderProcessHost* RenderProcessHostImpl::GetProcessHostForSiteInstance(
     // RenderProcessHostFactory may not instantiate a StoragePartition, and
     // creating one here with GetStoragePartition() can run into cross-thread
     // issues as TestBrowserContext initialization is done on the main thread.
-    render_process_host =
-        CreateRenderProcessHost(browser_context, site_instance);
+    bool is_for_outermost_main_frame =
+        allocation_context.navigation_context.has_value() &&
+        allocation_context.navigation_context->is_outermost_main_frame;
+    render_process_host = CreateRenderProcessHost(
+        browser_context, site_instance, /*is_spare_renderer=*/false,
+        is_for_outermost_main_frame);
 
     site_instance->set_process_assignment(
         SiteInstanceProcessAssignment::CREATED_NEW_PROCESS);
@@ -5764,7 +5772,8 @@ void RenderProcessHostImpl::ProcessDied(
 
   compositing_mode_reporter_.reset();
 
-  metrics::HistogramController::GetInstance()->NotifyChildDied(this);
+  metrics::HistogramController::GetInstance()->NotifyChildDied(
+      GetProcessIdForHistogram());
   // This object is not deleted at this point and might be reused later.
   // TODO(darin): clean this up
 }
@@ -6137,6 +6146,10 @@ void RenderProcessHostImpl::OnProcessLaunched() {
 
   process_launched_time_ = base::TimeTicks::Now();
 
+#if BUILDFLAG(IS_ANDROID)
+  next_launch_for_initial_outermost_main_frame_ = false;
+#endif
+
   if (child_process_launcher_) {
     CHECK(child_process_launcher_->GetProcess().IsValid(),
           base::NotFatalUntil::M152);
@@ -6275,6 +6288,10 @@ void RenderProcessHostImpl::OnProcessLaunchFailed(int error_code) {
   if (deleting_soon_)
     return;
 
+#if BUILDFLAG(IS_ANDROID)
+  next_launch_for_initial_outermost_main_frame_ = false;
+#endif
+
   ChildProcessTerminationInfo info;
   info.status = base::TERMINATION_STATUS_LAUNCH_FAILED;
   info.exit_code = error_code;
@@ -6304,6 +6321,10 @@ void RenderProcessHostImpl::OnSpareRendererPriorityGraduated(bool is_alive) {
     observer.SpareRendererPriorityGraduated(this, is_alive);
   }
 }
+
+bool RenderProcessHostImpl::IsForOutermostMainFrame() {
+  return next_launch_for_initial_outermost_main_frame_;
+}
 #endif  // BUILDFLAG(IS_ANDROID)
 
 void RenderProcessHostImpl::BindChildHistogramFetcherFactory(
@@ -6314,6 +6335,10 @@ void RenderProcessHostImpl::BindChildHistogramFetcherFactory(
 
 bool RenderProcessHostImpl::IsWebiumRenderer() const {
   return IsForTopChromeWebUI();
+}
+
+uint64_t RenderProcessHostImpl::GetProcessIdForHistogram() const {
+  return GetID().value();
 }
 
 // static

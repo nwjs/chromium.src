@@ -8,6 +8,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
+import android.graphics.Point;
 import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.view.InputDevice;
@@ -22,6 +23,7 @@ import androidx.annotation.ColorRes;
 import androidx.annotation.StyleRes;
 import androidx.core.widget.ImageViewCompat;
 
+import org.chromium.base.Callback;
 import org.chromium.base.CallbackController;
 import org.chromium.base.supplier.LazyOneshotSupplier;
 import org.chromium.build.annotations.NullMarked;
@@ -38,10 +40,13 @@ class BookmarkBarButton extends LinearLayout {
     private ImageView mIcon;
     private int mLastEventMetaState;
     private int mLastEventButtonState;
+    private float mLastEventX;
+    private float mLastEventY;
     private TextView mTitle;
 
     private @Nullable ClickWithMetaStateCallback mClickCallback;
     private @Nullable CallbackController mIconCallbackController;
+    private @Nullable Callback<Point> mPointCallback;
 
     /**
      * Constructor that is called when inflating a bookmark bar button from XML.
@@ -66,16 +71,27 @@ class BookmarkBarButton extends LinearLayout {
         // NOTE: Update `mLastEventMetaState` and `mLastEventButtonState` in anticipation of a
         // potential click.
         mLastEventMetaState = event.getMetaState();
+        mLastEventX = event.getX();
+        mLastEventY = event.getY();
 
         int action = event.getActionMasked();
         if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_BUTTON_PRESS) {
             mLastEventButtonState = event.getButtonState();
         }
 
-        // Consume events for the middle button. Since we consume ACTION_DOWN for middle-clicks,
-        // the standard OnClickListener (which only handles primary clicks) will not be triggered.
-        if ((mLastEventButtonState & MotionEvent.BUTTON_TERTIARY) != 0) {
-            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+        // Consume events for the middle and secondary buttons. Since we consume ACTION_DOWN, the
+        // standard OnClickListener (which only handles primary clicks) will not be triggered.
+        if ((mLastEventButtonState & MotionEvent.BUTTON_TERTIARY) != 0
+                || (mLastEventButtonState & MotionEvent.BUTTON_SECONDARY) != 0) {
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_BUTTON_RELEASE) {
+                int buttonToFire = mLastEventButtonState;
+                if (action == MotionEvent.ACTION_BUTTON_RELEASE && event.getActionButton() != 0) {
+                    buttonToFire = event.getActionButton();
+                }
+                mLastEventButtonState = buttonToFire;
+                onClick(this);
+                mLastEventButtonState = 0;
+            } else if (action == MotionEvent.ACTION_CANCEL) {
                 mLastEventButtonState = 0;
             }
             return true;
@@ -97,6 +113,8 @@ class BookmarkBarButton extends LinearLayout {
     @Override
     public boolean onGenericMotionEvent(MotionEvent event) {
         mLastEventMetaState = event.getMetaState();
+        mLastEventX = event.getX();
+        mLastEventY = event.getY();
 
         int action = event.getActionMasked();
         if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_BUTTON_PRESS) {
@@ -104,18 +122,37 @@ class BookmarkBarButton extends LinearLayout {
         }
 
         if ((event.getSource() & InputDevice.SOURCE_CLASS_POINTER) != 0) {
-            // Handle middle-click on release to match standard click behavior.
+            // Handle middle-click and right-click on release to match standard click behavior.
             // getActionButton() identifies the button that changed state.
             if (action == MotionEvent.ACTION_BUTTON_RELEASE
-                    && event.getActionButton() == MotionEvent.BUTTON_TERTIARY) {
-                // Manually set the button state to tertiary for the click callback, as
+                    && (event.getActionButton() == MotionEvent.BUTTON_TERTIARY
+                            || event.getActionButton() == MotionEvent.BUTTON_SECONDARY)) {
+                // Manually set the button state to tertiary or secondary for the click callback, as
                 // ACTION_BUTTON_RELEASE excludes the button being released from getButtonState().
-                mLastEventButtonState = MotionEvent.BUTTON_TERTIARY;
+                mLastEventButtonState = event.getActionButton();
                 onClick(this);
                 return true;
             }
         }
         return super.onGenericMotionEvent(event);
+    }
+
+    /**
+     * Sets the callback to notify of the last touch coordinate before a click event is fired.
+     *
+     * @param callback the callback to notify.
+     */
+    public void setPointCallback(@Nullable Callback<Point> callback) {
+        mPointCallback = callback;
+    }
+
+    /**
+     * Returns the coordinates of the most recent touch or pointer event on this button.
+     *
+     * @return A {@link Point} containing the X and Y coordinates of the last click or motion event.
+     */
+    public Point getLastClickPoint() {
+        return new Point((int) mLastEventX, (int) mLastEventY);
     }
 
     /**
@@ -129,16 +166,31 @@ class BookmarkBarButton extends LinearLayout {
         mClickCallback = callback;
         if (callback == null) {
             setOnClickListener(null);
+            setOnLongClickListener(null);
             return;
         }
 
         setOnClickListener(this::onClick);
+        setOnLongClickListener(this::onLongClick);
     }
 
     private void onClick(View view) {
+        if (mPointCallback != null) {
+            mPointCallback.onResult(new Point((int) mLastEventX, (int) mLastEventY));
+        }
         if (mClickCallback != null) {
             mClickCallback.onClickWithMeta(mLastEventMetaState, mLastEventButtonState);
         }
+    }
+
+    private boolean onLongClick(View view) {
+        if (mPointCallback != null) {
+            mPointCallback.onResult(new Point((int) mLastEventX, (int) mLastEventY));
+        }
+        if (mClickCallback != null) {
+            mClickCallback.onClickWithMeta(mLastEventMetaState, MotionEvent.BUTTON_SECONDARY);
+        }
+        return true;
     }
 
     /**

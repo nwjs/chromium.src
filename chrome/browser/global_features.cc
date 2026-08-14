@@ -26,17 +26,21 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/safe_browsing/application_advanced_protection_status_detector.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/views/frame/glass_frame_service.h"
 #include "components/application_locale_storage/application_locale_storage.h"
 #include "components/browser_apis/tab_drag/sessions/tab_drag_session_manager.h"
 #include "components/on_device_translation/buildflags/buildflags.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "media/base/media_switches.h"
 #include "net/net_buildflags.h"
+#include "ui/base/ui_base_features.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 // This causes a gn error on Android builds, because gn does not understand
 // buildflags, so we include it only on platforms where it is used.
 #include "chrome/browser/background/glic/glic_background_mode_manager.h"  // nogncheck
+#include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_controller.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/tabs/tab_drag_api/desktop_tab_drag_impl/tab_drag_session_desktop_injector.h"
 #endif
 
@@ -133,6 +137,13 @@ void GlobalFeatures::PostBrowserProcessInit() {
         std::make_unique<glic::GlicSyntheticTrialManager>();
   }
 
+#if !BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(omnibox::kOmniboxEverywhere)) {
+    omnibox_everywhere_controller_ =
+        std::make_unique<omnibox_everywhere::OmniboxEverywhereController>();
+  }
+#endif
+
 #if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
   if (unexportable_keys::UnexportableKeyServiceImpl::
           IsStatefulUnexportableKeyProviderSupported(
@@ -199,9 +210,7 @@ void GlobalFeatures::PostBrowserProcessInitCore() {
 
   application_locale_storage_ = std::make_unique<ApplicationLocaleStorage>();
 
-  glic::GlicGlobalEnabling::Delegate glic_enabling_delegate;
-  glic_global_enabling_ =
-      std::make_unique<glic::GlicGlobalEnabling>(glic_enabling_delegate);
+  glic_global_enabling_ = std::make_unique<glic::GlicGlobalEnabling>();
 
 #if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
   if (base::FeatureList::IsEnabled(
@@ -235,6 +244,16 @@ void GlobalFeatures::Init() {
   global_browser_collection_ = CreateGlobalBrowserCollection();
 }
 
+void GlobalFeatures::PreMainMessageLoopRun() {
+#if BUILDFLAG(IS_MAC)
+  if (features::IsGlassFrameEnabled()) {
+    glass_frame_service_ =
+        GetUserDataFactory().CreateInstance<GlassFrameService>(
+            *g_browser_process, *g_browser_process);
+  }
+#endif
+}
+
 void GlobalFeatures::PostMainMessageLoopRun() {
 #if !BUILDFLAG(IS_ANDROID)
   smart_restart_manager_.reset();
@@ -247,6 +266,7 @@ void GlobalFeatures::PostMainMessageLoopRun() {
     glic_background_mode_manager_->Shutdown();
     glic_background_mode_manager_.reset();
   }
+  omnibox_everywhere_controller_.reset();
 #endif
   if (glic_profile_manager_) {
     glic_profile_manager_->Shutdown();
@@ -258,6 +278,8 @@ void GlobalFeatures::PostMainMessageLoopRun() {
 
   application_advanced_protection_status_detector_.reset();
   tab_drag_session_manager_.reset();
+
+  glass_frame_service_.reset();
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   DefaultBrowserPromptManager::GetInstance()->CloseAllPrompts(

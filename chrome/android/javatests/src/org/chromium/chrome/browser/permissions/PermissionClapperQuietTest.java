@@ -22,6 +22,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.ThreadUtils;
@@ -43,6 +44,8 @@ import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
+import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
+import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.components.content_settings.ContentSetting;
 import org.chromium.components.content_settings.ContentSettingsType;
@@ -64,7 +67,13 @@ import org.chromium.content_public.common.ContentSwitches;
 @Batch(Batch.PER_CLASS)
 public class PermissionClapperQuietTest {
 
-    @Rule public PermissionTestRule mPermissionRule = new PermissionTestRule();
+    public AutoResetCtaTransitTestRule mActivityTestRule =
+            ChromeTransitTestRules.autoResetCtaActivityRule();
+    public PermissionTestRule mPermissionRule =
+            new PermissionTestRule(mActivityTestRule.getActivityTestRule());
+
+    @Rule
+    public RuleChain mRuleChain = RuleChain.outerRule(mActivityTestRule).around(mPermissionRule);
 
     private static final String PAGE_URL = "/content/test/data/android/permission_navigation.html";
 
@@ -603,41 +612,6 @@ public class PermissionClapperQuietTest {
         onView(withId(R.id.url_bar)).perform(click());
 
         onDismissedCallback.waitForCallback(0);
-
-        histogramWatcher.assertExpected();
-        mPermissionRule.checkPermissionSettingForOrigin(
-                ContentSettingsType.NOTIFICATIONS, ContentSetting.ASK, PAGE_URL);
-    }
-
-    @Test
-    @MediumTest
-    @Feature({"Permissions"})
-    public void testQuietClapperCookiesControlsInteraction() throws Exception {
-        // This test simulates a Cookie Controls icon event (e.g., highlighting) while the Quiet
-        // Icon is shown. This high-priority icon update should preempt the quiet icon, causing it
-        // to be removed and the request to be Ignored.
-        HistogramWatcher histogramWatcher = expectAction(PermissionTestRule.PromptAction.IGNORED);
-
-        triggerQuietClapper();
-        waitForQuietIcon();
-
-        // Trigger the Cookie Controls icon animation via the StatusMediator.
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    LocationBarCoordinator locationBarCoordinator =
-                            (LocationBarCoordinator)
-                                    mPermissionRule
-                                            .getActivity()
-                                            .getToolbarManager()
-                                            .getLocationBar();
-                    locationBarCoordinator
-                            .getStatusCoordinator()
-                            .getMediatorForTesting()
-                            .onHighlightCookieControl(true);
-                });
-
-        // The quiet icon should be replaced/removed.
-        waitForQuietIconGone();
 
         histogramWatcher.assertExpected();
         mPermissionRule.checkPermissionSettingForOrigin(

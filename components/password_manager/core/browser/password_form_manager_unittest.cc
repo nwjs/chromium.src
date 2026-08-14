@@ -255,6 +255,11 @@ class MockPasswordManagerClient : public StubPasswordManagerClient {
               GetAccountPasswordStore,
               (),
               (const, override));
+  MOCK_METHOD(bool, IsActorTaskActive, (), (override));
+  MOCK_METHOD(void,
+              OnPasswordFilled,
+              (PasswordManagerDriver*, const GURL&, PasswordFillTrigger),
+              (override));
 #if BUILDFLAG(IS_ANDROID)
   MOCK_METHOD(void,
               ShowPasswordManagerErrorMessage,
@@ -5545,6 +5550,20 @@ TEST_F(PasswordFormManagerTestWithMockedSaver,
   form_manager_->ProcessServerPredictions(predictions);
 }
 
+// Tests that OnPasswordFilledManually notifies the client with kAgent trigger
+// when an actor task is active.
+TEST_P(PasswordFormManagerTest, OnPasswordFilledManually_AgentFill) {
+  CreateFormManager(observed_form_);
+
+  EXPECT_CALL(client_, IsActorTaskActive).WillRepeatedly(Return(true));
+  EXPECT_CALL(
+      client_,
+      OnPasswordFilled(&driver_, observed_form_.url(),
+                       PasswordManagerClient::PasswordFillTrigger::kAgentTask));
+
+  form_manager_->OnPasswordFilledManually();
+}
+
 // Tests that username is not taken when a possible username is not valid.
 TEST_F(PasswordFormManagerTestWithMockedSaver,
        UsernameFirstFlowDifferentDomains) {
@@ -5577,12 +5596,7 @@ TEST_F(PasswordFormManagerTestWithMockedSaver,
 
 class PasswordFormManagerWebAuthnCredentialsTest : public testing::Test {
  protected:
-  PasswordFormManagerWebAuthnCredentialsTest() {
-#if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
-    features_.InitAndDisableFeature(
-        features::kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu);
-#endif  //! BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
-  }
+  PasswordFormManagerWebAuthnCredentialsTest() = default;
   void SetUp() override {
     PasswordFormManager::set_wait_for_server_predictions_for_filling(false);
 #if BUILDFLAG(IS_ANDROID)
@@ -5614,7 +5628,6 @@ class PasswordFormManagerWebAuthnCredentialsTest : public testing::Test {
   PasswordFormManager& form_manager() { return *form_manager_.get(); }
 
  private:
-  base::test::ScopedFeatureList features_;
   MockPasswordManagerClient client_;
   MockPasswordManagerDriver driver_;
   MockWebAuthnCredentialsDelegate webauthn_credentials_delegate_;
@@ -5647,24 +5660,12 @@ TEST_F(PasswordFormManagerWebAuthnCredentialsTest,
 }
 
 #if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
-TEST_F(
-    PasswordFormManagerWebAuthnCredentialsTest,
-    NoPasskeysFromConditionalRequest_WhenUseAnotherDeviceInContextMenu_ThenNoWebauthnCredentials) {
-  base::test::ScopedFeatureList features(
-      features::kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu);
+TEST_F(PasswordFormManagerWebAuthnCredentialsTest,
+       NoPasskeysFromConditionalRequest_ThenNoWebauthnCredentials) {
   ON_CALL(webauthn_credentials_delegate(), GetPasskeys)
       .WillByDefault(Return(base::ok(&kNoPasskeys)));
 
   EXPECT_FALSE(form_manager().WebAuthnCredentialsAvailable());
-}
-
-TEST_F(
-    PasswordFormManagerWebAuthnCredentialsTest,
-    NoPasskeysFromConditionalRequest_WhenUseAnotherDeviceInAutofillPopup_ThenWebauthnCredentials) {
-  ON_CALL(webauthn_credentials_delegate(), GetPasskeys)
-      .WillByDefault(Return(base::ok(&kNoPasskeys)));
-
-  EXPECT_TRUE(form_manager().WebAuthnCredentialsAvailable());
 }
 #else
 

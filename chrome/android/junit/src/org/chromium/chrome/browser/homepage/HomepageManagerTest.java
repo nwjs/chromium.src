@@ -24,6 +24,7 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.FeatureOverrides;
 import org.chromium.base.UserDataHost;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -52,6 +53,7 @@ import java.util.Locale;
 /** Unit tests for {@link HomepageManager}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
+@EnableFeatures(ChromeFeatureList.CHROME_NATIVE_URL_OVERRIDING)
 @DisableFeatures(ChromeFeatureList.GLIC)
 public class HomepageManagerTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
@@ -358,6 +360,149 @@ public class HomepageManagerTest {
 
         Assert.assertFalse(
                 "Overridden NTP should still be considered NTP.",
+                homepageManager.isHomepageNonNtp());
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.CHROME_NATIVE_URL_OVERRIDING)
+    public void testGetHomepageGurl_RegularNtpOverridden_OverridingDisabled() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_ENABLED, true);
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_USE_CHROME_NTP, true);
+
+        ExtensionsUrlOverrideRegistry.setNtpOverrideEnabled(true);
+        UrlConstantResolverFactory.resetResolvers();
+
+        GURL originalNtp = UrlConstantResolverFactory.getOriginalResolver().getNtpGurl();
+        GURL incognitoNtp = UrlConstantResolverFactory.getIncognitoResolver().getNtpGurl();
+
+        Assert.assertEquals(
+                "Regular homepage should be the native NTP URL.",
+                originalNtp,
+                homepageManager.getHomepageGurl(false));
+        Assert.assertEquals(
+                "Incognito homepage should be the native NTP URL for incognito.",
+                incognitoNtp,
+                homepageManager.getHomepageGurl(true));
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.CHROME_NATIVE_URL_OVERRIDING)
+    public void testGetHomepageGurl_IncognitoNtpOverridden_OverridingDisabled() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_ENABLED, true);
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_USE_CHROME_NTP, true);
+
+        ExtensionsUrlOverrideRegistry.setIncognitoNtpOverrideEnabled(true);
+        UrlConstantResolverFactory.resetResolvers();
+
+        GURL originalNtp = UrlConstantResolverFactory.getOriginalResolver().getNtpGurl();
+        GURL incognitoNtp = UrlConstantResolverFactory.getIncognitoResolver().getNtpGurl();
+
+        Assert.assertEquals(
+                "Regular homepage should be the native NTP URL.",
+                originalNtp,
+                homepageManager.getHomepageGurl(false));
+        Assert.assertEquals(
+                "Incognito homepage should be the native NTP URL for incognito.",
+                incognitoNtp,
+                homepageManager.getHomepageGurl(true));
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.CHROME_NATIVE_URL_OVERRIDING)
+    public void testGetHomepageGurl_BothNtpOverridden_OverridingDisabled() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_ENABLED, true);
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_USE_CHROME_NTP, true);
+
+        ExtensionsUrlOverrideRegistry.setNtpOverrideEnabled(true);
+        ExtensionsUrlOverrideRegistry.setIncognitoNtpOverrideEnabled(true);
+        UrlConstantResolverFactory.resetResolvers();
+
+        GURL originalNtp = UrlConstantResolverFactory.getOriginalResolver().getNtpGurl();
+        GURL incognitoNtp = UrlConstantResolverFactory.getIncognitoResolver().getNtpGurl();
+
+        Assert.assertEquals(
+                "Regular homepage should be the native NTP URL.",
+                originalNtp,
+                homepageManager.getHomepageGurl(false));
+        Assert.assertEquals(
+                "Incognito homepage should be the native NTP URL for incognito.",
+                incognitoNtp,
+                homepageManager.getHomepageGurl(true));
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.CHROME_NATIVE_URL_OVERRIDING)
+    public void testGetNtpUrl_ExtensionOverride_OverridingDisabled() {
+        ExtensionsUrlOverrideRegistry.setNtpOverrideEnabled(true);
+        UrlConstantResolverFactory.resetResolvers();
+
+        GURL nonNativeNtp = new GURL(getOriginalNtpUrl());
+        GURL nativeNtp = UrlConstantResolverFactory.getOriginalResolver().getNtpGurl();
+        Assert.assertNotEquals(
+                "getNtpUrl should return native NTP when override is disabled by feature.",
+                nonNativeNtp,
+                nativeNtp);
+
+        ExtensionsUrlOverrideRegistry.setNtpOverrideEnabled(false);
+        UrlConstantResolverFactory.resetResolvers();
+
+        GURL nativeNtpAfterReset = UrlConstantResolverFactory.getOriginalResolver().getNtpGurl();
+        Assert.assertEquals(
+                "getNtpUrl should still return native NTP when not overridden.",
+                nativeNtp,
+                nativeNtpAfterReset);
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.CHROME_NATIVE_URL_OVERRIDING)
+    public void testShouldCloseAppWithZeroTabs_NtpOverridden_OverridingDisabled() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_ENABLED, true);
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_USE_CHROME_NTP, true);
+
+        Assert.assertFalse(
+                "Should not close with zero tabs if homepage is NTP.",
+                homepageManager.shouldCloseAppWithZeroTabs());
+
+        // Override NTP and check that the behavior is unchanged.
+        ExtensionsUrlOverrideRegistry.setNtpOverrideEnabled(true);
+        UrlConstantResolverFactory.resetResolvers();
+
+        Assert.assertFalse(
+                "Should not close with zero tabs if homepage is NTP, even with override"
+                        + " attempt.",
+                homepageManager.shouldCloseAppWithZeroTabs());
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.CHROME_NATIVE_URL_OVERRIDING)
+    public void testIsHomepageNonNtp_NtpOverridden_OverridingDisabled() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_ENABLED, true);
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_USE_CHROME_NTP, true);
+
+        Assert.assertFalse(
+                "Homepage should be considered NTP.", homepageManager.isHomepageNonNtp());
+
+        // Override NTP and check that the behavior is unchanged.
+        ExtensionsUrlOverrideRegistry.setNtpOverrideEnabled(true);
+        UrlConstantResolverFactory.resetResolvers();
+
+        Assert.assertFalse(
+                "Homepage should still be considered NTP when override is disabled.",
                 homepageManager.isHomepageNonNtp());
     }
 
@@ -708,6 +853,7 @@ public class HomepageManagerTest {
 
     @Test
     @EnableFeatures({ChromeFeatureList.HOME_BUTTON_REMOVAL + ":remove_home_button_everywhere/true"})
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
     public void testIsHomepageEnabled_HomeButtonRemovalEverywhere() {
         HomepageManager homepageManager = HomepageManager.getInstance();
         ChromeSharedPreferences.getInstance()
@@ -734,6 +880,7 @@ public class HomepageManagerTest {
 
     @Test
     @EnableFeatures({ChromeFeatureList.HOME_BUTTON_REMOVAL + ":remove_home_button_everywhere/true"})
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
     public void testShouldShowHomepageSettings_HomeButtonRemovalEverywhere() {
         Locale.setDefault(Locale.US);
         Assert.assertFalse(
@@ -756,6 +903,7 @@ public class HomepageManagerTest {
 
     @Test
     @EnableFeatures({ChromeFeatureList.HOME_BUTTON_REMOVAL + ":keep_home_button_on_ntp/true"})
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
     public void testShouldShowHomeButtonOnToolbar_KeepOnNtp() {
         HomepageManager homepageManager = HomepageManager.getInstance();
         ChromeSharedPreferences.getInstance()
@@ -792,6 +940,7 @@ public class HomepageManagerTest {
 
     @Test
     @EnableFeatures({ChromeFeatureList.HOME_BUTTON_REMOVAL + ":keep_home_button_on_ntp/true"})
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
     public void testShouldShowHomepageMenuItem_KeepOnNtp() {
         HomepageManager homepageManager = HomepageManager.getInstance();
         ChromeSharedPreferences.getInstance()
@@ -814,5 +963,27 @@ public class HomepageManagerTest {
                 "Homepage menu item should be shown with keep_on_ntp and apply_to_all_countries set"
                         + " to true in non-US geo.",
                 homepageManager.shouldShowHomepageMenuItem());
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.HOME_BUTTON_REMOVAL + ":set_default_to_false_on_homepage_on_desktop/true"
+    })
+    public void testGetPrefHomepageEnabled_DesktopDefaultFalse() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        HomepageManager homepageManager = HomepageManager.getInstance();
+
+        // Without preference written in SharedPreferences, should default to false on Desktop.
+        Assert.assertFalse(
+                "getPrefHomepageEnabled should default to false on Desktop",
+                homepageManager.getPrefHomepageEnabled());
+
+        // Once toggle is explicitly enabled, should read true from SharedPreferences.
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_ENABLED, true);
+        Assert.assertTrue(
+                "getPrefHomepageEnabled should return true after preference is set.",
+                homepageManager.getPrefHomepageEnabled());
+        DeviceInfo.setIsDesktopForTesting(false);
     }
 }

@@ -7,10 +7,7 @@
 #include <string_view>
 
 #include "ui/base/metadata/metadata_impl_macros.h"
-#include "ui/compositor/layer.h"
 #include "ui/views/background.h"
-#include "ui/views/controls/scroll_view.h"
-#include "ui/views/controls/separator.h"
 
 #if BUILDFLAG(IS_MAC)
 #include "chrome/browser/ui/views/desktop_capture/desktop_media_permission_pane_view_mac.h"
@@ -19,7 +16,9 @@
 DesktopMediaPaneView::DesktopMediaPaneView(
     DesktopMediaList::Type type,
     std::unique_ptr<views::View> content_view,
-    std::unique_ptr<ShareAudioView> share_audio_view)
+    std::unique_ptr<ShareAudioView> share_audio_view,
+    bool show_audio_recommendation,
+    AudioSharingToggleStyle style_audio_toggle)
 #if BUILDFLAG(IS_MAC)
     : type_(type)
 #endif
@@ -31,11 +30,20 @@ DesktopMediaPaneView::DesktopMediaPaneView(
   // lacking permission.
   content_pane_view_ =
       AddChildView(std::make_unique<DesktopMediaContentPaneView>(
-          std::move(content_view), std::move(share_audio_view)));
+          std::move(content_view), std::move(share_audio_view),
+          show_audio_recommendation, style_audio_toggle));
   layout_->SetFlexForView(content_pane_view_, 1);
 }
 
 DesktopMediaPaneView::~DesktopMediaPaneView() = default;
+
+bool DesktopMediaPaneView::IsAudioRecommendationVisible() const {
+  return content_pane_view_->IsAudioRecommendationVisible();
+}
+
+void DesktopMediaPaneView::SetAudioRecommendationVisible(bool visible) {
+  content_pane_view_->SetAudioRecommendationVisible(visible);
+}
 
 bool DesktopMediaPaneView::AudioOffered() const {
   return content_pane_view_->AudioOffered();
@@ -51,6 +59,14 @@ void DesktopMediaPaneView::SetAudioSharingApprovedByUser(bool is_on) {
 
 std::u16string_view DesktopMediaPaneView::GetAudioLabelText() const {
   return content_pane_view_->GetAudioLabelText();
+}
+
+views::ToggleButton*
+DesktopMediaPaneView::GetAudioToggleButtonForTesting()  // IN-TEST
+    const {
+  return content_pane_view_
+             ? content_pane_view_->GetAudioToggleButtonForTesting()  // IN-TEST
+             : nullptr;
 }
 
 bool DesktopMediaPaneView::IsPermissionPaneVisible() const {

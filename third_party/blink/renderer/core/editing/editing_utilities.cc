@@ -716,12 +716,12 @@ PositionInFlatTree LastEditablePositionBeforePositionInRoot(
 }
 
 template <typename StateMachine>
-int FindNextBoundaryOffset(const String& str, int current) {
+wtf_size_t FindNextBoundaryOffset(const String& str, wtf_size_t current) {
   StateMachine machine;
   TextSegmentationMachineState state = TextSegmentationMachineState::kInvalid;
 
-  for (int i = current - 1; i >= 0; --i) {
-    state = machine.FeedPrecedingCodeUnit(str[i]);
+  for (wtf_size_t i = current; i > 0; --i) {
+    state = machine.FeedPrecedingCodeUnit(str[i - 1]);
     if (state != TextSegmentationMachineState::kNeedMoreCodeUnit)
       break;
   }
@@ -729,9 +729,9 @@ int FindNextBoundaryOffset(const String& str, int current) {
     state = machine.TellEndOfPrecedingText();
   if (state == TextSegmentationMachineState::kFinished)
     return current + machine.FinalizeAndGetBoundaryOffset();
-  const int length = str.length();
+  const wtf_size_t length = str.length();
   DCHECK_EQ(TextSegmentationMachineState::kNeedFollowingCodeUnit, state);
-  for (int i = current; i < length; ++i) {
+  for (wtf_size_t i = current; i < length; ++i) {
     state = machine.FeedFollowingCodeUnit(str[i]);
     if (state != TextSegmentationMachineState::kNeedMoreCodeUnit)
       break;
@@ -740,29 +740,29 @@ int FindNextBoundaryOffset(const String& str, int current) {
 }
 
 // Explicit instantiation to avoid link error for the usage in EditContext.
-template int FindNextBoundaryOffset<BackwardGraphemeBoundaryStateMachine>(
+template wtf_size_t FindNextBoundaryOffset<
+    BackwardGraphemeBoundaryStateMachine>(const String& str,
+                                          wtf_size_t current);
+template wtf_size_t FindNextBoundaryOffset<ForwardGraphemeBoundaryStateMachine>(
     const String& str,
-    int current);
-template int FindNextBoundaryOffset<ForwardGraphemeBoundaryStateMachine>(
-    const String& str,
-    int current);
+    wtf_size_t current);
 
-int PreviousGraphemeBoundaryOf(const Node& node, int current) {
+wtf_size_t PreviousGraphemeBoundaryOf(const Node& node, wtf_size_t current) {
   // TODO(yosin): Need to support grapheme crossing |Node| boundary.
-  DCHECK_GE(current, 0);
   auto* text_node = DynamicTo<Text>(node);
   if (current <= 1 || !text_node)
     return current - 1;
   const String& text = text_node->data();
   // TODO(yosin): Replace with DCHECK for out-of-range request.
-  if (static_cast<unsigned>(current) > text.length())
+  if (current > text.length()) {
     return current - 1;
+  }
   return FindNextBoundaryOffset<BackwardGraphemeBoundaryStateMachine>(text,
                                                                       current);
 }
 
-static int PreviousBackwardDeletionOffsetOf(const Node& node, int current) {
-  DCHECK_GE(current, 0);
+static wtf_size_t PreviousBackwardDeletionOffsetOf(const Node& node,
+                                                   wtf_size_t current) {
   if (current <= 1)
     return 0;
   auto* text_node = DynamicTo<Text>(node);
@@ -770,17 +770,17 @@ static int PreviousBackwardDeletionOffsetOf(const Node& node, int current) {
     return current - 1;
 
   const String& text = text_node->data();
-  DCHECK_LT(static_cast<unsigned>(current - 1), text.length());
+  DCHECK_LT(current - 1, text.length());
   return FindNextBoundaryOffset<BackspaceStateMachine>(text, current);
 }
 
-int NextGraphemeBoundaryOf(const Node& node, int current) {
+wtf_size_t NextGraphemeBoundaryOf(const Node& node, wtf_size_t current) {
   // TODO(yosin): Need to support grapheme crossing |Node| boundary.
   auto* text_node = DynamicTo<Text>(node);
   if (!text_node)
     return current + 1;
   const String& text = text_node->data();
-  const int length = text.length();
+  const wtf_size_t length = text.length();
   DCHECK_LE(current, length);
   if (current >= length - 1)
     return current + 1;
@@ -857,7 +857,7 @@ PositionTemplate<Strategy> NextPositionOfAlgorithm(
   if (!node)
     return position;
 
-  const int offset = position.ComputeEditingOffset();
+  const wtf_size_t offset = position.ComputeEditingOffset();
 
   if (Node* child = Strategy::ChildAt(*node, offset)) {
     return PositionTemplate<Strategy>::FirstPositionInOrBeforeNode(*child);
@@ -1027,9 +1027,9 @@ String RepeatString(const String& string, unsigned count) {
 
 template <typename Strategy>
 static Element* TableElementJustBeforeAlgorithm(
-    const VisiblePositionTemplate<Strategy>& visible_position) {
+    const PositionTemplate<Strategy>& position) {
   const PositionTemplate<Strategy> upstream(
-      MostBackwardCaretPosition(visible_position.DeepEquivalent()));
+      MostBackwardCaretPosition(position));
   if (IsDisplayInsideTable(upstream.AnchorNode()) &&
       upstream.AtLastEditingPositionForNode())
     return To<Element>(upstream.AnchorNode());
@@ -1037,14 +1037,21 @@ static Element* TableElementJustBeforeAlgorithm(
   return nullptr;
 }
 
+Element* TableElementJustBefore(const Position& position) {
+  return TableElementJustBeforeAlgorithm<EditingStrategy>(position);
+}
+
+Element* TableElementJustBefore(const PositionInFlatTree& position) {
+  return TableElementJustBeforeAlgorithm<EditingInFlatTreeStrategy>(position);
+}
+
 Element* TableElementJustBefore(const VisiblePosition& visible_position) {
-  return TableElementJustBeforeAlgorithm<EditingStrategy>(visible_position);
+  return TableElementJustBefore(visible_position.DeepEquivalent());
 }
 
 Element* TableElementJustBefore(
     const VisiblePositionInFlatTree& visible_position) {
-  return TableElementJustBeforeAlgorithm<EditingInFlatTreeStrategy>(
-      visible_position);
+  return TableElementJustBefore(visible_position.DeepEquivalent());
 }
 
 Element* EnclosingTableCell(const Position& p) {
@@ -1054,14 +1061,17 @@ Element* EnclosingTableCell(const PositionInFlatTree& p) {
   return To<Element>(EnclosingNodeOfType(p, IsTableCell));
 }
 
-Element* TableElementJustAfter(const VisiblePosition& visible_position) {
-  Position downstream(
-      MostForwardCaretPosition(visible_position.DeepEquivalent()));
+Element* TableElementJustAfter(const Position& position) {
+  Position downstream(MostForwardCaretPosition(position));
   if (IsDisplayInsideTable(downstream.AnchorNode()) &&
       downstream.AtFirstEditingPositionForNode())
     return To<Element>(downstream.AnchorNode());
 
   return nullptr;
+}
+
+Element* TableElementJustAfter(const VisiblePosition& visible_position) {
+  return TableElementJustAfter(visible_position.DeepEquivalent());
 }
 
 // Returns the position at the beginning of a node

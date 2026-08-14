@@ -6,7 +6,6 @@
 
 #include <memory>
 
-#include "base/compiler_specific.h"
 #include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -73,14 +72,14 @@ void WebMTracksParser::ResetTrackEntry() {
   video_client_.Reset();
 }
 
-int WebMTracksParser::Parse(const uint8_t* buf, int size) {
+int WebMTracksParser::Parse(base::span<const uint8_t> buf) {
   if (reset_on_next_parse_)
     Reset();
 
   reset_on_next_parse_ = true;
 
   WebMListParser parser(kWebMIdTracks, this);
-  int result = parser.Parse(buf, size);
+  int result = parser.Parse(buf);
 
   if (result <= 0)
     return result;
@@ -281,14 +280,14 @@ bool WebMTracksParser::OnFloat(int id, double val) {
   return true;
 }
 
-bool WebMTracksParser::OnBinary(int id, const uint8_t* data, int size) {
+bool WebMTracksParser::OnBinary(int id, base::span<const uint8_t> data) {
   if (id == kWebMIdCodecPrivate) {
     if (!codec_private_.empty()) {
       MEDIA_LOG(ERROR, media_log_)
           << "Multiple CodecPrivate fields in a track.";
       return false;
     }
-    codec_private_.assign(data, UNSAFE_TODO(data + size));
+    codec_private_.assign(data.begin(), data.end());
     return true;
   }
   return true;

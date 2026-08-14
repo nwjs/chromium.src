@@ -1240,7 +1240,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.CWP.ParsePSICPU" enum="ChromeOSParsePSICPUStatus"
-    expires_after="2026-08-10">
+    expires_after="2027-08-10">
   <owner>shantuo@google.com</owner>
   <owner>cwp-team@google.com</owner>
   <summary>
@@ -2085,7 +2085,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Inputs.AttachmentType.{Form}" enum="AttachmentType"
-    expires_after="2026-09-27">
+    expires_after="2027-01-10">
   <owner>wmahon@google.com</owner>
   <owner>chromeos-tango@google.com</owner>
   <owner>cros-device-enablement@google.com</owner>
@@ -2364,7 +2364,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Inputs.Peripherals.MicrophoneMuteToggleDevices"
-    enum="MicrophoneMuteToggleDevices" expires_after="2025-12-15">
+    enum="MicrophoneMuteToggleDevices" expires_after="2027-06-18">
   <owner>jingyliang@google.com</owner>
   <owner>chromeos-tango@google.com</owner>
   <summary>
@@ -2372,6 +2372,9 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
     state. It classifies whether the peripheral has a keyboard (likely
     indicating not a telephony device) and what scan code it uses to trigger the
     event. It also groups devices based on popular vendors.
+
+    Warning: this histogram was expired from 2025-12-15 to 2026-06-18; data may
+    be missing.
   </summary>
 </histogram>
 
@@ -2538,7 +2541,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Keyboard.HasBacklight" enum="Boolean"
-    expires_after="2026-09-01">
+    expires_after="2027-03-01">
   <owner>longbowei@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <owner>cros-device-enablement@google.com</owner>
@@ -2714,7 +2717,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Liveness.PingResponseTime" units="ms"
-    expires_after="2026-11-15">
+    expires_after="2027-01-17">
   <owner>xiyuan@google.com</owner>
   <owner>cros-sw-perf@google.com</owner>
   <summary>
@@ -2821,7 +2824,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Mahi.ContextMenuView.Activated"
-    enum="MahiContextMenuButtonType" expires_after="2026-11-01">
+    enum="MahiContextMenuButtonType" expires_after="2027-01-03">
   <owner>newcomer@chromium.org</owner>
   <owner>cros-status-area-eng@google.com</owner>
   <summary>
@@ -2841,7 +2844,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Mahi.ContextMenuView.ButtonClicked"
-    enum="MahiMenuButton" expires_after="2026-11-01">
+    enum="MahiMenuButton" expires_after="2027-01-03">
   <owner>newcomer@chromium.org</owner>
   <owner>cros-status-area-eng@google.com</owner>
   <summary>
@@ -2919,7 +2922,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Ownership.OwnerKeyUmaEvent" enum="OwnerKeyUmaEvent"
-    expires_after="2026-11-01">
+    expires_after="2027-01-03">
   <owner>miersh@google.com</owner>
   <owner>chromeos-commercial-networking@google.com</owner>
   <summary>
@@ -3104,7 +3107,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.SAML.APIError" enum="ChromeOSSamlApiError"
-    expires_after="2026-11-15">
+    expires_after="2027-01-17">
   <owner>andreydav@google.com</owner>
   <owner>cros-3pidp@google.com</owner>
   <summary>Recorded when the Credentials Passing API call fails.</summary>
@@ -4779,7 +4782,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.UserTypeByDeviceType.LogSegment"
-    enum="UserDeviceMatrix" expires_after="2026-11-15">
+    enum="UserDeviceMatrix" expires_after="2027-01-17">
   <owner>bmalcolm@chromium.org</owner>
   <owner>cros-client-wa@google.com</owner>
   <summary>

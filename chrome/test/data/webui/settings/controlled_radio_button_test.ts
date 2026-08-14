@@ -7,7 +7,11 @@ import 'chrome://settings/settings.js';
 
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import type {ControlledRadioButtonElement} from 'chrome://settings/settings.js';
+import {PrefService, PrefsBrowserProxy} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {microtasksFinished} from 'chrome://webui-test/test_util.js';
+
+import {TestPrefsBrowserProxy} from './test_prefs_browser_proxy.js';
 // clang-format on
 
 suite('controlled radio button', function() {
@@ -62,5 +66,54 @@ suite('controlled radio button', function() {
     assertEquals(1, slot.assignedElements().length);
     const slotElement = slot.assignedElements()[0] as HTMLElement;
     assertEquals('foo', slotElement.textContent);
+  });
+});
+
+suite('ControlledRadioButtonPrefKey', () => {
+  let radioButton: ControlledRadioButtonElement;
+  let prefsBrowserProxy: TestPrefsBrowserProxy;
+
+  const initialPrefs = [
+    {
+      key: 'test_boolean',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+    },
+  ];
+
+  setup(async () => {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
+    prefsBrowserProxy = new TestPrefsBrowserProxy(initialPrefs);
+    PrefsBrowserProxy.setInstance(prefsBrowserProxy);
+    PrefService.resetInstanceForTesting();
+    await PrefService.getInstance().whenInitialized();
+
+    radioButton = document.createElement('controlled-radio-button');
+    radioButton.prefKey = 'test_boolean';
+    document.body.appendChild(radioButton);
+  });
+
+  test('disablesWhenPrefIsManaged', async () => {
+    assertFalse(radioButton.disabled);
+
+    // Make it managed.
+    prefsBrowserProxy.fakeApi.sendPrefChanges([{
+      key: 'test_boolean',
+      value: true,
+      enforcement: chrome.settingsPrivate.Enforcement.ENFORCED,
+    }]);
+    await microtasksFinished();
+
+    // Verify that policy indicator is shown only when the radio button
+    // corresponds to the enforced preference value.
+    assertTrue(radioButton.disabled);
+    assertFalse(
+        !!radioButton.shadowRoot!.querySelector('cr-policy-pref-indicator'));
+
+    radioButton.name = 'true';
+    await microtasksFinished();
+    assertTrue(
+        !!radioButton.shadowRoot!.querySelector('cr-policy-pref-indicator'));
   });
 });

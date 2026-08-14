@@ -8,6 +8,9 @@ option optimize_for = LITE_RUNTIME;
 
 package lens;
 
+import "tool_mode.proto";
+import "tool_substate.proto";
+import "model_mode.proto";
 import "aim_query.proto";
 import "modality_chip_props.proto";
 
@@ -105,6 +108,21 @@ message InjectedInputUpdate {
   InjectedInputUpdatePayload payload = 1;
 }
 
+// LINT.IfChange(ExitToolPayload)
+// Payload for the ExitTool Event.
+message ExitToolPayload {
+  // The tool to exit.
+  ToolMode tool_mode = 1;
+  // The new tool mode we are switching to.
+  ToolMode new_tool_mode = 2;
+}
+// LINT.ThenChange()
+
+// Message from client to AIM to exit a tool.
+message ExitTool {
+  ExitToolPayload payload = 1;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // AIM -> Client messages
 ////////////////////////////////////////////////////////////////////////////////
@@ -124,6 +142,7 @@ message ClientToAimMessage {
     OpenThreadsView open_threads_view = 3;
     SetCobrowsingDisplayMode set_cobrowsing_display_mode = 4;
     InjectedInputUpdate injected_input_update = 5;
+    ExitTool exit_tool = 6;
   }
 }
 
@@ -144,6 +163,7 @@ message AimToClientMessage {
     UnlockInput unlock_input = 12;
     LockInput lock_input = 13;
     OpenLinkInSidePanelMode open_link_in_side_panel_mode = 14;
+    UpdateInputPlateStateRequest update_input_plate_state = 16;
   }
 }
 
@@ -245,4 +265,10 @@ message RemoveInjectedInput {
 // Message AIM sends to clients to notify to open a link in the side panel.
 message OpenLinkInSidePanelMode {
   string url = 1;
+}
+
+message UpdateInputPlateStateRequest {
+  omnibox.ToolMode active_tool = 1;
+  omnibox.ToolSubstate active_tool_substate = 2;
+  omnibox.ModelMode active_model = 3;
 }

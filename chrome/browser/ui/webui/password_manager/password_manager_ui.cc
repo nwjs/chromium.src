@@ -12,6 +12,7 @@
 #include "chrome/browser/extensions/api/passwords_private/passwords_private_delegate.h"
 #include "chrome/browser/extensions/api/passwords_private/passwords_private_delegate_factory.h"
 #include "chrome/browser/password_manager/chrome_password_change_service.h"
+#include "chrome/browser/password_manager/password_change/features.h"
 #include "chrome/browser/password_manager/password_change_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -19,13 +20,14 @@
 #include "chrome/browser/ui/webui/favicon_source.h"
 #include "chrome/browser/ui/webui/managed_ui_handler.h"
 #include "chrome/browser/ui/webui/page_not_available_for_guest/page_not_available_for_guest_ui.h"
-#include "chrome/browser/ui/webui/password_manager/promo_card.h"
-#include "chrome/browser/ui/webui/password_manager/promo_cards_handler.h"
+#include "chrome/browser/ui/webui/password_manager/notification_card.h"
+#include "chrome/browser/ui/webui/password_manager/notification_cards_handler.h"
 #include "chrome/browser/ui/webui/password_manager/sync_handler.h"
 #include "chrome/browser/ui/webui/plural_string_handler.h"
 #include "chrome/browser/ui/webui/policy_indicator_localized_strings_provider.h"
 #include "chrome/browser/ui/webui/sanitized_image/sanitized_image_source.h"
 #include "chrome/browser/ui/webui/settings/safety_hub_handler.h"
+#include "chrome/browser/ui/webui/theme_source.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
@@ -43,7 +45,6 @@
 #include "components/password_manager/core/browser/leak_detection_dialog_utils.h"
 #include "components/password_manager/core/common/password_manager_constants.h"
 #include "components/password_manager/core/common/password_manager_features.h"
-#include "components/signin/public/base/signin_switches.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_contents.h"
@@ -136,10 +137,22 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
        IDS_PASSWORD_MANAGER_UI_PASSWORD_CHANGE_CHECKUP_BUTTON},
       {"automatedPasswordChangeCheckupButtonAriaDescription",
        IDS_PASSWORD_MANAGER_UI_PASSWORD_CHANGE_CHECKUP_BUTTON_ARIA_DESCRIPTION},
+      {"automatedPasswordChangeAttemptingSignIn",
+       IDS_PASSWORD_MANAGER_UI_PASSWORD_CHANGE_ATTEMPTING_SIGN_IN},
+      {"automatedPasswordChangeChangingPassword",
+       IDS_PASSWORD_MANAGER_UI_PASSWORD_CHANGE_CHANGING_PASSWORD},
+      {"automatedPasswordChangeConfirmingChangedPassword",
+       IDS_PASSWORD_MANAGER_UI_PASSWORD_CHANGE_CONFIRMING_CHANGED_PASSWORD},
+      {"automatedPasswordChangeChangedSuccessfully",
+       IDS_PASSWORD_MANAGER_UI_PASSWORD_CHANGE_CHANGED_SUCCESSFULLY},
+      {"automatedPasswordChangeError",
+       IDS_PASSWORD_MANAGER_UI_PASSWORD_CHANGE_ERROR},
       {"automatedPasswordChangeTitle",
        IDS_PASSWORD_MANAGER_UI_PASSWORD_CHANGE_SETTINGS_TITLE},
       {"automatedPasswordChangeDescription",
        IDS_PASSWORD_MANAGER_UI_PASSWORD_CHANGE_SETTINGS_DESCRIPTION},
+      {"passwordChangeSettingToggleLabel",
+       IDS_PASSWORD_MANAGER_UI_PASSWORD_CHANGE_SETTINGS_TOGGLE_LABEL},
       {"autosigninLabel", IDS_PASSWORD_MANAGER_UI_AUTOSIGNIN_TOGGLE_LABEL},
       {"backToCheckup",
        IDS_PASSWORD_MANAGER_UI_BACK_TO_CHECKUP_ARIA_DESCRIPTION},
@@ -174,7 +187,7 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
       {"checkupTitle", IDS_PASSWORD_MANAGER_UI_CHECKUP_TITLE},
       {"clearSearch", IDS_CLEAR_SEARCH},
       {"close", IDS_CLOSE},
-      {"closePromoCardButtonAriaLabel",
+      {"closeNotificationCardButtonAriaLabel",
        IDS_PASSWORD_MANAGER_UI_CLOSE_PROMO_CARD_BUTTON_ARIA_LABEL},
       {"columnHeadingConsider", IDS_SETTINGS_COLUMN_HEADING_CONSIDER},
       {"columnHeadingWhenUsed", IDS_SETTINGS_COLUMN_HEADING_WHEN_USED},
@@ -326,12 +339,6 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
       {"moreActionsAriaDescription",
        IDS_PASSWORD_MANAGER_UI_MORE_ACTIONS_ARIA_DESCRIPTION},
       {"movePasswordsButton", IDS_PASSWORD_MANAGER_UI_MOVE_PASSWORDS_BUTTON},
-      {"moveSinglePassword",
-       IDS_PASSWORD_MANAGER_UI_MOVE_SINGLE_PASSWORD_TO_ACCOUNT},
-      {"moveSinglePasswordTitle",
-       IDS_PASSWORD_MANAGER_UI_MOVE_SINGLE_PASSWORD_TITLE},
-      {"moveSinglePasswordDescription",
-       IDS_PASSWORD_MANAGER_UI_MOVE_SINGLE_PASSWORD_DESCRIPTION},
       {"moveSinglePasswordButton",
        IDS_PASSWORD_MANAGER_UI_MOVE_SINGLE_PASSWORD_ACTION_BUTTON},
       {"movePasswordsDescription",
@@ -418,7 +425,8 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
       {"phishedAndLeakedPassword",
        IDS_PASSWORD_MANAGER_UI_PASSWORD_PHISHED_AND_LEAKED},
       {"phishedPassword", IDS_PASSWORD_MANAGER_UI_PASSWORD_PHISHED},
-      {"promoCardAriaLabel", IDS_PASSWORD_MANAGER_UI_PROMO_CARD_ARIA_LABEL},
+      {"notificationCardAriaLabel",
+       IDS_PASSWORD_MANAGER_UI_PROMO_CARD_ARIA_LABEL},
       {"removeBlockedAriaDescription",
        IDS_PASSWORD_MANAGER_UI_REMOVE_BLOCKED_SITE_ARIA_DESCRIPTION},
       {"reload", IDS_RELOAD},
@@ -679,14 +687,20 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
                      PasswordChangeServiceFactory::GetForProfile(profile)
                          ->UserIsActivePasswordChangeUser());
 
+  source->AddBoolean("isPasswordChangeWithPrivateInferenceLoginCheckEnabled",
+                     base::FeatureList::IsEnabled(
+                         password_change::features::
+                             kPasswordChangeWithPrivateInferenceLoginCheck));
+
   source->AddBoolean(
       "enablePasswordManagerMojoApi",
       base::FeatureList::IsEnabled(
           password_manager::features::kEnablePasswordManagerMojoApi));
 
   source->AddBoolean(
-      "passwordUploadUiUpdate",
-      base::FeatureList::IsEnabled(switches::kPasswordUploadUiUpdate));
+      "enablePasswordManagerMojoApiPhase2",
+      base::FeatureList::IsEnabled(
+          password_manager::features::kEnablePasswordManagerMojoApiPhase2));
 
   source->AddString("webuiRefresh2026", features::IsWebuiRefresh2026Enabled()
                                             ? "webui-refresh-2026"
@@ -695,6 +709,7 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
   content::URLDataSource::Add(
       profile, std::make_unique<FaviconSource>(
                    profile, chrome::FaviconUrlFormat::kFavicon2));
+  content::URLDataSource::Add(profile, std::make_unique<ThemeSource>(profile));
 
   return source;
 }
@@ -794,7 +809,7 @@ PasswordManagerUI::PasswordManagerUI(content::WebUI* web_ui)
   web_ui->AddMessageHandler(std::make_unique<ExtensionControlHandler>());
   web_ui->AddMessageHandler(std::make_unique<SafetyHubHandler>(profile));
   web_ui->AddMessageHandler(
-      std::make_unique<password_manager::PromoCardsHandler>(profile));
+      std::make_unique<password_manager::NotificationCardsHandler>(profile));
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
   web_ui->AddMessageHandler(std::make_unique<settings::PasskeysHandler>());
 #endif

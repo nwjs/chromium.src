@@ -94,7 +94,8 @@ class BrowserEncodingTest
     scoped_refptr<content::MessageLoopRunner> loop_runner(
         new content::MessageLoopRunner);
     content::SavePackageFinishedObserver observer(
-        browser()->profile()->GetDownloadManager(), loop_runner->QuitClosure());
+        browser()->GetProfile()->GetDownloadManager(),
+        loop_runner->QuitClosure());
     browser()->tab_strip_model()->GetActiveWebContents()->SavePage(
         full_file_name, temp_sub_resource_dir_,
         content::SAVE_PAGE_TYPE_AS_COMPLETE_HTML);
@@ -231,8 +232,8 @@ IN_PROC_BROWSER_TEST_F(BrowserEncodingTest, TestEncodingAutoDetect) {
   // Set the default charset to one of encodings not supported by the current
   // auto-detector (Please refer to the above comments) to make sure we
   // incorrectly decode the page. Now we use ISO-8859-4.
-  browser()->profile()->GetPrefs()->SetString(prefs::kDefaultCharset,
-                                              "ISO-8859-4");
+  browser()->GetProfile()->GetPrefs()->SetString(prefs::kDefaultCharset,
+                                                 "ISO-8859-4");
 
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();

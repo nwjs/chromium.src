@@ -8,7 +8,9 @@
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
 #include "third_party/blink/renderer/core/dom/scroll_marker_group_pseudo_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/html_anchor_element.h"
+#include "third_party/blink/renderer/core/layout/geometry/axis.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/scroll/scroll_into_view_util.h"
@@ -31,7 +33,7 @@ Element* ScrollTargetElement(Element* scroll_marker) {
 }
 
 mojom::blink::ScrollAlignment GetAlignmentForScrollTarget(
-    ScrollOrientation axis,
+    PhysicalAxis axis,
     const LayoutObject* target_object) {
   cc::ScrollSnapAlign snap = target_object->StyleRef().GetScrollSnapAlign();
 
@@ -112,9 +114,9 @@ std::optional<double> ScrollMarkerChooser::GetScrollTargetPosition(
   rect_to_scroll.Expand(scroll_margin);
 
   mojom::blink::ScrollAlignment align_y =
-      GetAlignmentForScrollTarget(kVerticalScroll, target_object);
+      GetAlignmentForScrollTarget(PhysicalAxis::kVertical, target_object);
   mojom::blink::ScrollAlignment align_x =
-      GetAlignmentForScrollTarget(kHorizontalScroll, target_object);
+      GetAlignmentForScrollTarget(PhysicalAxis::kHorizontal, target_object);
   ScrollOffset target_scroll_offset =
       scroll_into_view_util::GetScrollOffsetToExpose(
           *scrollable_area_, rect_to_scroll, scroll_margin, align_x, align_y);
@@ -174,18 +176,20 @@ HeapVector<Member<Element>> ScrollMarkerChooser::ComputeTargetPositions(
   // Update the target positions to account for unreachable targets.
   double before_range_start = min_position_;
   for (auto& target : before_targets) {
-    double previous_target_position = target_positions.at(target);
+    auto it = target_positions.find(target);
+    double previous_target_position = it->value;
     double current_target_position =
         ((previous_target_position - *min_candidate_position) /
          (before_range_start + distribute_range - *min_candidate_position)) *
             distribute_range +
         before_range_start;
-    target_positions.Set(target, current_target_position);
+    it->value = current_target_position;
   }
 
   double after_range_start = max_position_ - distribute_range;
   for (auto& target : after_targets) {
-    double previous_target_position = target_positions.at(target);
+    auto it = target_positions.find(target);
+    double previous_target_position = it->value;
     double current_target_position =
         ((previous_target_position - (after_range_start)) /
          (*max_candidate_position - (after_range_start))) *
@@ -583,6 +587,13 @@ Element* ScrollMarkerGroupData::ChooseMarkerRecursively() {
     // group.
     if (targets.empty()) {
       break;
+    }
+    // Form controls in autofill preview state may have been scrolled to bring
+    // the previewed value into view. Keep the current selection so that the
+    // suggested value cannot be observed via the selected scroll marker.
+    if (auto* form_control = DynamicTo<HTMLFormControlElement>(scroller);
+        form_control && form_control->IsPreviewed()) {
+      return selected_marker_;
     }
     LayoutBox* scroller_box = scroller->GetLayoutBox();
     DCHECK(scroller_box);

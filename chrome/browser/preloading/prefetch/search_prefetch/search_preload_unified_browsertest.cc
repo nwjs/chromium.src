@@ -19,6 +19,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/autocomplete/chrome_autocomplete_scheme_classifier.h"
 #include "chrome/browser/browser_features.h"
+#include "chrome/browser/page_load_metrics/chrome_initiator_location.h"
 #include "chrome/browser/preloading/chrome_preloading.h"
 #include "chrome/browser/preloading/prefetch/search_prefetch/cache_alias_search_prefetch_url_loader.h"
 #include "chrome/browser/preloading/prefetch/search_prefetch/field_trial_settings.h"
@@ -454,7 +455,7 @@ class SearchPreloadUnifiedBrowserTest : public PlatformBrowserTest,
     // Prepare some context.
     AutocompleteInput input(
         base::ASCIIToUTF16(prerender_query), metrics::OmniboxEventProto::BLANK,
-        ChromeAutocompleteSchemeClassifier(browser()->profile()));
+        ChromeAutocompleteSchemeClassifier(browser()->GetProfile()));
     AutocompleteController* autocomplete_controller =
         location_bar->GetOmniboxController()->autocomplete_controller();
 
@@ -593,7 +594,7 @@ IN_PROC_BROWSER_TEST_F(SearchPreloadUnifiedBrowserTest,
   prerender_observer.WaitForActivation();
   histogram_tester.ExpectUniqueSample(
       "Omnibox.SearchPrefetch.PrefetchFinalStatus.SuggestionPrefetch",
-      SearchPrefetchStatus::kComplete, 1);
+      SearchPrefetchStatus::kPrefetchServedForRealNavigation, 1);
 
   // On prerender activation, `URLLoaderRequestInterceptor` would not be called,
   // so no more sample should be recorded.
@@ -628,7 +629,7 @@ IN_PROC_BROWSER_TEST_F(SearchPreloadUnifiedBrowserTest,
             ukm_source_id, content::PreloadingType::kPrefetch,
             content::PreloadingEligibility::kEligible,
             content::PreloadingHoldbackStatus::kAllowed,
-            content::PreloadingTriggeringOutcome::kReady,
+            content::PreloadingTriggeringOutcome::kSuccess,
             content::PreloadingFailureReason::kUnspecified,
             /*accurate=*/true,
             /*ready_time=*/kMockElapsedTime),
@@ -721,7 +722,7 @@ IN_PROC_BROWSER_TEST_F(SearchPreloadUnifiedBrowserTest,
   prerender_observer.WaitForActivation();
   histogram_tester.ExpectUniqueSample(
       "Omnibox.SearchPrefetch.PrefetchFinalStatus.SuggestionPrefetch",
-      SearchPrefetchStatus::kComplete, 1);
+      SearchPrefetchStatus::kPrefetchServedForRealNavigation, 1);
   {
     ukm::SourceId ukm_source_id = activation_observer.next_page_ukm_source_id();
     auto ukm_entries = test_ukm_recorder()->GetEntries(
@@ -735,7 +736,7 @@ IN_PROC_BROWSER_TEST_F(SearchPreloadUnifiedBrowserTest,
             ukm_source_id, content::PreloadingType::kPrefetch,
             content::PreloadingEligibility::kEligible,
             content::PreloadingHoldbackStatus::kAllowed,
-            content::PreloadingTriggeringOutcome::kReady,
+            content::PreloadingTriggeringOutcome::kSuccess,
             content::PreloadingFailureReason::kUnspecified,
             /*accurate=*/true,
             /*ready_time=*/kMockElapsedTime),
@@ -804,8 +805,6 @@ IN_PROC_BROWSER_TEST_F(SearchPreloadUnifiedBrowserTest,
       GetCanonicalSearchURL(GetSearchUrl(prerender_query, UrlType::kPrerender)),
       {SearchPrefetchStatus::kRequestFailed});
 
-  histogram_tester.ExpectUniqueSample(
-      "Omnibox.SearchPrefetch.FetchResult.SuggestionPrefetch", false, 1);
   EXPECT_FALSE(prerender_manager()->HasSearchResultPagePrerendered());
 
   auto entries = GetMergedUkmEntries(PrerenderPageLoad::kEntryName);
@@ -1493,7 +1492,7 @@ IN_PROC_BROWSER_TEST_F(SearchPreloadUnifiedBrowserTest, TriggerAndActivate) {
   prerender_observer.WaitForActivation();
   histogram_tester.ExpectUniqueSample(
       "Omnibox.SearchPrefetch.PrefetchFinalStatus.SuggestionPrefetch",
-      SearchPrefetchStatus::kComplete, 1);
+      SearchPrefetchStatus::kPrefetchServedForRealNavigation, 1);
   EXPECT_EQ(1, prerender_helper().GetRequestCount(expected_prefetch_url));
   EXPECT_EQ(0, prerender_helper().GetRequestCount(expected_prerender_url));
 }
@@ -1631,7 +1630,7 @@ IN_PROC_BROWSER_TEST_F(SearchPreloadUnifiedBrowserTest,
             ukm_source_id, content::PreloadingType::kPrefetch,
             content::PreloadingEligibility::kEligible,
             content::PreloadingHoldbackStatus::kAllowed,
-            content::PreloadingTriggeringOutcome::kReady,
+            content::PreloadingTriggeringOutcome::kSuccess,
             content::PreloadingFailureReason::kUnspecified,
             /*accurate=*/true,
             /*ready_time=*/kMockElapsedTime),
@@ -2667,8 +2666,8 @@ IN_PROC_BROWSER_TEST_F(SearchPreloadUnifiedBrowserTest,
 
   EXPECT_TRUE(omnibox_observer.navigation_type().has_value());
   EXPECT_EQ(omnibox_observer.navigation_type().value(),
-            page_load_metrics::NavigationHandleUserData::InitiatorLocation::
-                kOmniboxDefaultSearchEngine);
+            GetInitiatorLocation(
+                ChromeInitiatorLocation::kOmniboxDefaultSearchEngine));
 }
 
 }  // namespace

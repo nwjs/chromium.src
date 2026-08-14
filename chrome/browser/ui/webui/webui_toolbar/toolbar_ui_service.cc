@@ -146,23 +146,72 @@ void ToolbarUIService::OnPageActionClick(
     ::toolbar_ui_api::mojom::PageActionId action_id,
     ::toolbar_ui_api::mojom::PageActionTrigger trigger,
     OnPageActionClickCallback callback) {
-  NOTIMPLEMENTED();
-  std::move(callback).Run(
-      base::unexpected(Error::New(Code::kUnimplemented, "Not implemented")));
+  if (delegate_) {
+    delegate_->OnPageActionClick(action_id, trigger, std::move(callback));
+  } else {
+    std::move(callback).Run(base::unexpected(Error::New(
+        Code::kFailedPrecondition,
+        base::StringPrintf("ToolbarUIService: cannot click page action "
+                           "(action_id=%d, trigger=%d) without delegate_",
+                           static_cast<int>(action_id),
+                           static_cast<int>(trigger)))));
+  }
 }
 
 void ToolbarUIService::OnPageActionChipShowingChanged(
     ::toolbar_ui_api::mojom::PageActionId action_id,
     OnPageActionChipShowingChangedCallback callback) {
-  NOTIMPLEMENTED();
-  std::move(callback).Run(
-      base::unexpected(Error::New(Code::kUnimplemented, "Not implemented")));
+  if (delegate_) {
+    delegate_->OnPageActionChipShowingChanged(action_id, std::move(callback));
+  } else {
+    std::move(callback).Run(base::unexpected(Error::New(
+        Code::kFailedPrecondition,
+        base::StringPrintf("ToolbarUIService: cannot change page action "
+                           "chip showing (action_id=%d) without delegate_",
+                           static_cast<int>(action_id)))));
+  }
 }
 
 void ToolbarUIService::InvokePinnedToolbarAction(
     toolbar_ui_api::mojom::PinnedToolbarAction action_id) {
   if (delegate_) {
     delegate_->InvokePinnedToolbarAction(action_id);
+  }
+}
+
+void ToolbarUIService::OnLocationBarFocusWithinChanged(bool focused) {
+  if (delegate_) {
+    delegate_->OnLocationBarFocusWithinChanged(focused);
+  }
+}
+
+void ToolbarUIService::MovePinnedToolbarAction(
+    toolbar_ui_api::mojom::PinnedToolbarAction action_id,
+    int32_t target_index) {
+  if (delegate_) {
+    delegate_->MovePinnedToolbarAction(action_id, target_index);
+  }
+}
+
+void ToolbarUIService::MovePinnedToolbarActionBy(
+    toolbar_ui_api::mojom::PinnedToolbarAction action_id,
+    int32_t delta) {
+  if (delegate_) {
+    delegate_->MovePinnedToolbarActionBy(action_id, delta);
+  }
+}
+
+void ToolbarUIService::MoveExtensionAction(const std::string& extension_id,
+                                           int32_t target_index) {
+  if (delegate_) {
+    delegate_->MoveExtensionAction(extension_id, target_index);
+  }
+}
+
+void ToolbarUIService::MoveExtensionActionBy(const std::string& extension_id,
+                                             int32_t delta) {
+  if (delegate_) {
+    delegate_->MoveExtensionActionBy(extension_id, delta);
   }
 }
 
@@ -289,6 +338,34 @@ void ToolbarUIService::SetAvatarButtonIphPromoShowing(
 void ToolbarUIService::OnAppMenuFocusChanged(bool focused) {
   if (delegate_) {
     delegate_->OnAppMenuFocusChanged(focused);
+  }
+}
+
+void ToolbarUIService::ExecuteExtensionAction(const std::string& extension_id) {
+  if (delegate_) {
+    delegate_->ExecuteExtensionAction(extension_id);
+  }
+}
+
+void ToolbarUIService::ShowExtensionContextMenu(
+    const std::string& extension_id,
+    ui::mojom::MenuSourceType source) {
+  if (delegate_) {
+    delegate_->ShowExtensionContextMenu(extension_id, source);
+  }
+}
+
+void ToolbarUIService::AdjustOmniboxTextForCopy(
+    const std::u16string& text,
+    int32_t selection_start,
+    AdjustOmniboxTextForCopyCallback callback) {
+  if (delegate_) {
+    std::move(callback).Run(
+        delegate_->AdjustOmniboxTextForCopy(text, selection_start));
+  } else {
+    std::move(callback).Run(base::unexpected(Error::New(
+        Code::kFailedPrecondition,
+        "ToolbarUIService: null delegate_ for AdjustOmniboxTextForCopy")));
   }
 }
 }  // namespace toolbar_ui_api

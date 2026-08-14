@@ -50,13 +50,13 @@ class SessionServiceLogTest : public InProcessBrowserTest {
   void PreRunTestOnMainThread() override {
     InProcessBrowserTest::PreRunTestOnMainThread();
     ASSERT_TRUE(browser());
-    profile_ = browser()->profile();
+    profile_ = browser()->GetProfile();
     ASSERT_TRUE(profile_);
   }
 
   void SetUpOnMainThread() override {
     SessionStartupPref pref(SessionStartupPref::LAST);
-    SessionStartupPref::SetStartupPref(browser()->profile(), pref);
+    SessionStartupPref::SetStartupPref(browser()->GetProfile(), pref);
   }
 
   std::optional<SessionServiceEvent> FindMostRecentEventOfType(

@@ -55,6 +55,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_cssnumericvalue_string_unrestricteddouble.h"
 #include "third_party/blink/renderer/core/animation/animation.h"
 #include "third_party/blink/renderer/core/animation/animation_clock.h"
+#include "third_party/blink/renderer/core/animation/compositing/specific_compositing_decision.h"
 #include "third_party/blink/renderer/core/animation/css/compositor_keyframe_double.h"
 #include "third_party/blink/renderer/core/animation/document_animations.h"
 #include "third_party/blink/renderer/core/animation/document_timeline.h"
@@ -255,21 +256,26 @@ class AnimationCompositorAnimationsTest : public PaintTestConfigurations,
   CompositorAnimations::FailureReasons CheckCanStartEffectOnCompositor(
       const Timing& timing,
       const Element& element,
-      const Animation* animation,
-      const EffectModel& effect_model,
-      PropertyHandleSet* unsupported_properties_for_tracing = nullptr) {
+      Animation* animation,
+      const EffectModel& effect_model) {
     const PaintArtifactCompositor* paint_artifact_compositor =
         GetDocument().View()->GetPaintArtifactCompositor();
+    AnimationCompositingDecisionState empty_state;
+    AnimationCompositingDecisionState& state =
+        animation ? animation->GetCompositingDecisionState() : empty_state;
+    state.disposition = CompositorAnimations::kNoFailure;
     return CompositorAnimations::CheckCanStartEffectOnCompositor(
-        timing, NormalizedTiming(timing), element, animation, effect_model,
-        paint_artifact_compositor, 1, unsupported_properties_for_tracing);
+        timing, NormalizedTiming(timing), element, animation, state,
+        effect_model, paint_artifact_compositor, 1.0);
   }
 
   CompositorAnimations::FailureReasons CheckCanStartElementOnCompositor(
       const Element& element,
       const EffectModel& model) {
-    return CompositorAnimations::CheckCanStartElementOnCompositor(element,
-                                                                  model);
+    AnimationCompositingDecisionState empty_state;
+    empty_state.disposition = CompositorAnimations::kNoFailure;
+    return CompositorAnimations::CheckCanStartElementOnCompositor(
+        element, model, empty_state);
   }
 
   void GetAnimationOnCompositor(
@@ -687,6 +693,63 @@ class LayoutObjectProxy : public LayoutObject {
 
 INSTANTIATE_PAINT_TEST_SUITE_P(AnimationCompositorAnimationsTest);
 
+// This test guards against one case of crbug.com/40061259. This test passes so
+// long as it doesn't crash.
+TEST_P(AnimationCompositorAnimationsTest,
+       NestedBackdropFilterInWillChangeContentsSubtree) {
+  SetBodyInnerHTML(R"HTML(
+    <!DOCTYPE html>
+    <style>
+      #grandparent {
+        will-change: contents;
+      }
+      #parent {
+        width: 400px;
+        height: 400px;
+        background-color: green;
+      }
+      #parent.animation {
+        animation: myanim linear 2s;
+      }
+      #child {
+        backdrop-filter: invert(1);
+        width: 200px;
+        height: 200px;
+      }
+      @keyframes myanim {
+        0% {
+          translate: 10px 10px;
+          opacity: 1;
+        }
+        100% {
+          translate: 0px 0px;
+          opacity: 0;
+        }
+      }
+    </style>
+    <div id="grandparent">
+      <div id="parent">
+        <div id="child">
+        </div>
+      </div>
+    </div>
+  )HTML");
+  Element* target = GetDocument().getElementById(AtomicString("parent"));
+  target->setAttribute(html_names::kClassAttr, AtomicString("animation"));
+
+  UpdateAllLifecyclePhasesForTest();
+
+  ElementAnimations* ea = target->GetElementAnimations();
+  EXPECT_TRUE(ea);
+  EXPECT_EQ(ea->Animations().size(), 1u);
+  Animation* anim = ea->Animations().begin()->key;
+
+  EXPECT_NE(anim->CheckCanStartAnimationOnCompositor(
+                GetDocument().View()->GetPaintArtifactCompositor(),
+                StartOnCompositorReason::kGeneric),
+            CompositorAnimations::kNoFailure);
+}
+
 TEST_P(AnimationCompositorAnimationsTest,
        CanStartEffectOnCompositorKeyframeMultipleCSSProperties) {
   StringKeyframeVector supported_mixed_keyframe_vector;
@@ -769,7 +832,6 @@ TEST_P(AnimationCompositorAnimationsTest,
 
 TEST_P(AnimationCompositorAnimationsTest,
        CanStartEffectOnCompositorCustomCssProperty) {
-  ScopedOffMainThreadCSSPaintForTest off_main_thread_css_paint(true);
   RegisterProperty(GetDocument(), "--foo", "<number>", "0", false);
   RegisterProperty(GetDocument(), "--bar", "<length>", "10px", false);
   RegisterProperty(GetDocument(), "--loo", "<color>", "rgb(0, 0, 0)", false);
@@ -1432,16 +1494,19 @@ TEST_P(AnimationCompositorAnimationsTest,
       MakeGarbageCollected<KeyframeEffect>(element_.Get(), effect1, timing_);
 
   Animation* animation1 = timeline_->Play(keyframe_effect1);
+  AnimationCompositingDecisionState& state =
+      animation1->GetCompositingDecisionState();
+  state.Reset(true);
   effect1->SnapshotAllCompositorKeyframesIfNecessary(*element_.Get(), style,
                                                      nullptr);
 
   // Make sure supported properties do not register a failure
-  PropertyHandleSet unsupported_properties_for_tracing1;
-  EXPECT_EQ(CheckCanStartEffectOnCompositor(
-                timing_, *inline_.Get(), animation1, *effect1,
-                &unsupported_properties_for_tracing1),
+  EXPECT_EQ(CheckCanStartEffectOnCompositor(timing_, *inline_.Get(), animation1,
+                                            *effect1),
             CompositorAnimations::kNoFailure);
-  EXPECT_TRUE(unsupported_properties_for_tracing1.empty());
+  EXPECT_EQ(state.specific_reasons->Map().find(
+                SpecificCompositingDecision::kUnsupportedPropertyName),
+            state.specific_reasons->Map().end());
 
   StringKeyframeEffectModel* effect2 = CreateKeyframeEffectModel(
       CreateReplaceOpKeyframe(CSSPropertyID::kHeight, "100px", 0),
@@ -1451,19 +1516,21 @@ TEST_P(AnimationCompositorAnimationsTest,
       MakeGarbageCollected<KeyframeEffect>(element_.Get(), effect2, timing_);
 
   Animation* animation2 = timeline_->Play(keyframe_effect2);
+  AnimationCompositingDecisionState& state2 =
+      animation2->GetCompositingDecisionState();
+  state2.Reset(true);
   effect2->SnapshotAllCompositorKeyframesIfNecessary(*element_.Get(), style,
                                                      nullptr);
 
   // Make sure unsupported properties are reported
-  PropertyHandleSet unsupported_properties_for_tracing2;
-  EXPECT_EQ(CheckCanStartEffectOnCompositor(
-                timing_, *inline_.Get(), animation2, *effect2,
-                &unsupported_properties_for_tracing2),
+  EXPECT_EQ(CheckCanStartEffectOnCompositor(timing_, *inline_.Get(), animation2,
+                                            *effect2),
             CompositorAnimations::kUnsupportedCSSProperty);
-  EXPECT_EQ(unsupported_properties_for_tracing2.size(), 1U);
-  EXPECT_EQ(unsupported_properties_for_tracing2.begin()
-                ->GetCSSPropertyName()
-                .ToAtomicString(),
+  auto it = state2.specific_reasons->Map().find(
+      SpecificCompositingDecision::kUnsupportedPropertyName);
+  ASSERT_NE(it, state2.specific_reasons->Map().end());
+  ASSERT_EQ(it->value.size(), 1U);
+  EXPECT_EQ(it->value.front().property->GetCSSPropertyName().ToAtomicString(),
             "height");
 
   StringKeyframeEffectModel* effect3 =
@@ -1484,19 +1551,21 @@ TEST_P(AnimationCompositorAnimationsTest,
       MakeGarbageCollected<KeyframeEffect>(element_.Get(), effect3, timing_);
 
   Animation* animation3 = timeline_->Play(keyframe_effect3);
+  AnimationCompositingDecisionState& state3 =
+      animation3->GetCompositingDecisionState();
+  state3.Reset(true);
   effect3->SnapshotAllCompositorKeyframesIfNecessary(*element_.Get(), style,
                                                      nullptr);
 
   // Make sure none of the supported properties are reported as unsupported
-  PropertyHandleSet unsupported_properties_for_tracing3;
-  EXPECT_TRUE(CheckCanStartEffectOnCompositor(
-                  timing_, *inline_.Get(), animation3, *effect3,
-                  &unsupported_properties_for_tracing3) &
+  EXPECT_TRUE(CheckCanStartEffectOnCompositor(timing_, *inline_.Get(),
+                                              animation3, *effect3) &
               CompositorAnimations::kUnsupportedCSSProperty);
-  EXPECT_EQ(unsupported_properties_for_tracing3.size(), 1U);
-  EXPECT_EQ(unsupported_properties_for_tracing3.begin()
-                ->GetCSSPropertyName()
-                .ToAtomicString(),
+  it = state3.specific_reasons->Map().find(
+      SpecificCompositingDecision::kUnsupportedPropertyName);
+  ASSERT_NE(it, state3.specific_reasons->Map().end());
+  ASSERT_EQ(it->value.size(), 1U);
+  EXPECT_EQ(it->value.front().property->GetCSSPropertyName().ToAtomicString(),
             "height");
 }
 
@@ -2005,8 +2074,6 @@ TEST_P(AnimationCompositorAnimationsTest,
 
 TEST_P(AnimationCompositorAnimationsTest,
        CreateCustomFloatPropertyAnimationWithNonAsciiName) {
-  ScopedOffMainThreadCSSPaintForTest off_main_thread_css_paint(true);
-
   String property_name = "--東京都";
   RegisterProperty(GetDocument(), property_name, "<number>", "0", false);
   SetCustomProperty(property_name, "10");
@@ -2026,8 +2093,6 @@ TEST_P(AnimationCompositorAnimationsTest,
 
 TEST_P(AnimationCompositorAnimationsTest,
        CreateSimpleCustomFloatPropertyAnimation) {
-  ScopedOffMainThreadCSSPaintForTest off_main_thread_css_paint(true);
-
   RegisterProperty(GetDocument(), "--foo", "<number>", "0", false);
   SetCustomProperty("--foo", "10");
 
@@ -2062,8 +2127,6 @@ TEST_P(AnimationCompositorAnimationsTest,
 
 TEST_P(AnimationCompositorAnimationsTest,
        CreateSimpleCustomColorPropertyAnimation) {
-  ScopedOffMainThreadCSSPaintForTest off_main_thread_css_paint(true);
-
   RegisterProperty(GetDocument(), "--foo", "<color>", "rgb(0, 0, 0)", false);
   SetCustomProperty("--foo", "rgb(0, 0, 0)");
 
@@ -2097,8 +2160,6 @@ TEST_P(AnimationCompositorAnimationsTest,
 }
 
 TEST_P(AnimationCompositorAnimationsTest, MixedCustomPropertyAnimation) {
-  ScopedOffMainThreadCSSPaintForTest off_main_thread_css_paint(true);
-
   RegisterProperty(GetDocument(), "--foo", "<number> | <color>", "0", false);
   SetCustomProperty("--foo", "0");
 
@@ -2666,11 +2727,11 @@ TEST_P(AnimationCompositorAnimationsTest,
   const SVGElement* instance_1 = use_1->InstanceRoot();
   const SVGElement* instance_2 = use_2->InstanceRoot();
 
-  const Animation* reference_animation =
+  Animation* reference_animation =
       reference->GetElementAnimations()->Animations().begin()->key;
-  const Animation* instance_1_animation =
+  Animation* instance_1_animation =
       instance_1->GetElementAnimations()->Animations().begin()->key;
-  const Animation* instance_2_animation =
+  Animation* instance_2_animation =
       instance_2->GetElementAnimations()->Animations().begin()->key;
 
   // The animations all run on compositor
@@ -2708,7 +2769,7 @@ TEST_P(AnimationCompositorAnimationsTest, UnsupportedSVGCSSProperty) {
   )HTML");
 
   Element* element = GetDocument().getElementById(AtomicString("rect"));
-  const Animation& animation =
+  Animation& animation =
       *element->GetElementAnimations()->Animations().begin()->key;
   EXPECT_EQ(CompositorAnimations::kUnsupportedCSSProperty,
             animation.CheckCanStartAnimationOnCompositor(
@@ -2739,7 +2800,7 @@ TEST_P(AnimationCompositorAnimationsTest, UnsupportedSVGResource) {
 
   for (Element& child :
        ElementTraversal::DescendantsOf(*GetElementById("root"))) {
-    const Animation& animation =
+    Animation& animation =
         *child.GetElementAnimations()->Animations().begin()->key;
     EXPECT_TRUE(animation.CheckCanStartAnimationOnCompositor(
                     GetDocument().View()->GetPaintArtifactCompositor(),
@@ -2822,7 +2883,7 @@ TEST_P(AnimationCompositorAnimationsTest, Fragmented) {
   )HTML");
 
   Element* target = GetDocument().getElementById(AtomicString("target"));
-  const Animation& animation =
+  Animation& animation =
       *target->GetElementAnimations()->Animations().begin()->key;
   EXPECT_TRUE(target->GetLayoutObject()->IsFragmented());
   EXPECT_EQ(CompositorAnimations::kTargetHasInvalidCompositingState,
@@ -4971,9 +5032,11 @@ TEST_F(CompositorTimelineTriggerBehaviorTest, PerformPlayOnFinishedAnimation) {
   EXPECT_EQ(event.type, cc::AnimationTriggerEvent::Type::kActivate);
   EXPECT_EQ(event.time, play_time);
 
-  TestKeyframeModel(impl_keyframe_model, gfx::KeyframeModel::RUNNING,
-                    /* hold_time=*/std::nullopt,
-                    /* start_time=*/play_time);
+  TestKeyframeModel(
+      impl_keyframe_model, gfx::KeyframeModel::PAUSED,
+      /* hold_time=*/
+      base::TimeDelta(base::Milliseconds(kAnimationDurationMilliSeconds)),
+      /* start_time=*/std::nullopt);
 
   cc::AnimationTrigger* main_trigger = GetMainCcTrigger();
 
@@ -4986,9 +5049,11 @@ TEST_F(CompositorTimelineTriggerBehaviorTest, PerformPlayOnFinishedAnimation) {
   // Simulate main thread sync.
   main_trigger->DispatchAnimationTriggerEvent(event);
 
-  TestKeyframeModel(main_keyframe_model, gfx::KeyframeModel::RUNNING,
-                    /*hold_time=*/std::nullopt,
-                    /*start_time=*/play_time);
+  TestKeyframeModel(
+      main_keyframe_model, gfx::KeyframeModel::PAUSED,
+      /*hold_time=*/
+      base::TimeDelta(base::Milliseconds(kAnimationDurationMilliSeconds)),
+      /*start_time=*/std::nullopt);
 }
 
 TEST_F(CompositorTimelineTriggerBehaviorTest, PlaySimple) {
@@ -6234,6 +6299,107 @@ TEST_F(CompositorTimelineTriggerBehaviorTest, PlayReset) {
   TestKeyframeModel(impl_keyframe_model, gfx::KeyframeModel::PAUSED_EXCLUSIVE,
                     /* hold_time=*/base::TimeDelta(),
                     /* start_time=*/std::nullopt);
+}
+
+TEST_F(CompositorAnimationTriggerTest, InactiveTimeline) {
+  SimRequest request("https://example.com/test.html", "text/html");
+  LoadURL("https://example.com/test.html");
+  request.Complete(R"HTML(
+    <!DOCTYPE html>
+    <style>
+     @keyframes anim {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      #target {
+        animation: anim 1s both;
+        width: 100px; height: 50px; background: blue;
+        timeline-trigger: --trigger scroll(self);
+        animation-trigger: --trigger play;
+      }
+    </style>
+    <div id='target'></div>
+  )HTML");
+
+  Compositor().BeginFrame();
+
+  Element* target = GetElement("target");
+  ASSERT_NE(target, nullptr);
+  ASSERT_NE(target->NamedTriggers(), nullptr);
+  ASSERT_FALSE(target->NamedTriggers()->empty());
+
+  TimelineTrigger* trigger =
+      DynamicTo<TimelineTrigger>(target->NamedTriggers()->begin()->value.Get());
+  ASSERT_NE(trigger, nullptr);
+
+  EXPECT_FALSE(trigger->Timeline()->IsActive());
+  EXPECT_EQ(trigger->CompositorTrigger(), nullptr);
+}
+
+TEST_F(CompositorAnimationTriggerTest,
+       InactiveMainTimelineCompositorUpdateSkipped) {
+  SimRequest request("https://example.com/test.html", "text/html");
+  LoadURL("https://example.com/test.html");
+  request.Complete(R"HTML(
+    <!DOCTYPE html>
+    <style>
+      #scroller {
+        width: 100px;
+        height: 200px;
+        overflow: scroll;
+      }
+      #content {
+        height: 300px;
+      }
+      @keyframes anim {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      #target {
+        width: 100px;
+        height: 50px;
+        background: blue;
+      }
+      #target.trigger-active {
+        animation: anim 1s both;
+        timeline-trigger: --trigger scroll(nearest);
+        animation-trigger: --trigger play;
+      }
+    </style>
+    <div id='scroller'>
+      <div id='content'></div>
+      <div id='target' class='trigger-active'></div>
+    </div>
+  )HTML");
+
+  Compositor().BeginFrame();
+
+  Element* scroller = GetElement("scroller");
+  Element* target = GetElement("target");
+
+  // Verify active and composited.
+  TimelineTrigger* trigger =
+      DynamicTo<TimelineTrigger>(target->NamedTriggers()->begin()->value.Get());
+  EXPECT_TRUE(trigger->Timeline()->IsActive());
+  EXPECT_NE(trigger->CompositorTrigger(), nullptr);
+
+  // Remove animation to destroy compositor trigger.
+  target->removeAttribute(html_names::kClassAttr);
+  Compositor().BeginFrame();
+  EXPECT_EQ(trigger->CompositorTrigger(), nullptr);
+
+  // Make timeline inactive AND restore trigger.
+  scroller->setAttribute(html_names::kStyleAttr,
+                         AtomicString("display: none;"));
+  target->setAttribute(html_names::kClassAttr, AtomicString("trigger-active"));
+
+  // Use kJavaScript to update layout but defer snapshotting, keeping the
+  // compositor timeline offsets stale (active) while main thread is inactive.
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kJavaScript);
+
+  // Trigger creation while mismatched.
+  GetDocument().GetDocumentAnimations().UpdateAnimations(
+      DocumentLifecycle::kLayoutClean, nullptr, false);
 }
 
 }  // namespace blink

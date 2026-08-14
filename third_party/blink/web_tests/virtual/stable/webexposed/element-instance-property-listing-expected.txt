@@ -770,6 +770,7 @@ html element input
     property autocomplete
     property checkValidity
     property checked
+    property createValueRange
     property defaultChecked
     property defaultValue
     property dirName
@@ -1110,11 +1111,14 @@ html element template
     property shadowRootCustomElementRegistry
     property shadowRootDelegatesFocus
     property shadowRootMode
+    property shadowRootReferenceTarget
     property shadowRootSerializable
+    property shadowRootSlotAssignment
 html element textarea
     property autocomplete
     property checkValidity
     property cols
+    property createValueRange
     property defaultValue
     property dirName
     property disabled

@@ -14,13 +14,6 @@
 <translation id="1002829167638728809">도메인 안정성 관련 데이터 보고 허용</translation>
 <translation id="1004590217607585595">웹 앱 관리 설정</translation>
 <translation id="1006218396155867129">원격 액세스 사용자가 원격 호스트와 파일을 주고받지 못하도록 차단</translation>
-<translation id="1007043180702842391"><ph name="PRODUCT_NAME" />의 PDF 뷰어에서 프로세스 외부 iframe(OOPIF)을 사용할지 여부를 제어합니다. 더 간단해지고 새로운 기능을 더 쉽게 추가할 수 있으므로 향후 새로운 PDF 뷰어 아키텍처가 될 것입니다. 기존 GuestView PDF 뷰어는 오래되고 복잡한 아키텍처로서 지원이 중단됩니다.
-
-정책을 '사용'으로 설정하거나 설정하지 않으면 <ph name="PRODUCT_NAME" />에서 OOPIF PDF 뷰어 아키텍처를 사용할 수 있습니다. 사용 설정하거나 설정하지 않으면 <ph name="PRODUCT_NAME" />에서 기본 동작을 결정합니다.
-
-정책을 '사용 안함'으로 설정하면 <ph name="PRODUCT_NAME" />에서 기존 GuestView PDF 뷰어를 엄격하게 사용합니다. 별도의 프레임 트리가 있는 웹페이지를 다른 웹페이지에 삽입합니다.
-
-이 정책은 OOPIF PDF 뷰어 기능이 완전히 출시되면 향후 삭제될 예정입니다.</translation>
 <translation id="1007149936182752368">북마크 수정 사용 중지</translation>
 <translation id="1009336698423963085">다음 사이트에서 자동 전체 화면 허용</translation>
 <translation id="1010151305531217567">기본 마우스 버튼을 오른쪽 버튼으로 전환</translation>
@@ -283,6 +276,7 @@ https://chromeenterprise.google/policies/url-patterns/ 페이지를 참고하세
 <translation id="117059611145966538">외부 인쇄 서버</translation>
 <translation id="117080706484659953"><ph name="MAC_OS_NAME" />에서 정책 범위 감지 허용</translation>
 <translation id="1171106901454883937">기기 버전 정보 보고 사용 설정</translation>
+<translation id="1171286631068003605">스킬 정의를 가리키는 URL입니다. 고유한 이름이어야 합니다.</translation>
 <translation id="1173493742686115032">모든 웹페이지에서 <ph name="SEARCH_SIDE_PANEL_FEATURE_NAME" /> 사용 설정</translation>
 <translation id="1176740714945046981">IWA의 다운그레이드 기능을 사용 설정합니다. 기본적으로 최신 버전의 IWA만 설치됩니다. <ph name="TRUE" />로 설정하면 이전 버전도 설치할 수 있습니다. 다운그레이드를 사용 설정하려면 `pinned_version` 필드를 사용하여 원하는 버전 값을 지정해야 합니다. `allow_downgrades`가 제공되지 않거나 <ph name="FALSE" />로 설정된 경우 해당 IWA에 대해 다운그레이드가 사용 중지됩니다.</translation>
 <translation id="1177624681620856105"> 이 정책은 '항상 열기' 체크박스를 외부 프로토콜 시작 확인 메시지에 표시할지 제어합니다.
@@ -350,6 +344,7 @@ https://chromeenterprise.google/policies/url-patterns/ 페이지를 참고하세
       <ph name="IMAGE_SEARCH_SOURCE" />,
       <ph name="IMAGE_THUMBNAIL" />,
       <ph name="IMAGE_THUMBNAIL_BASE64" /></translation>
+<translation id="1238071290662886238">모든 브라우저 창이 닫힐 때 백그라운드 자동 다시 실행을 제어합니다.</translation>
 <translation id="1238150413700645698">보호된 콘텐츠</translation>
 <translation id="1238868319430505522"><ph name="GOOGLE_DRIVE_NAME" /> 및 <ph name="GOOGLE_WORKSPACE_NAME" />의 <ph name="CLOUD_UPLOAD_NAME" /> 흐름 구성</translation>
 <translation id="1239526922294123540">웹사이트가 안전하지 않은 방식으로 더 높은 수준의 비공개 네트워크 엔드포인트에 요청할 수 있도록 허용할지 제어합니다.
@@ -443,6 +438,15 @@ https://chromeenterprise.google/policies/url-patterns/ 페이지를 참고하세
 정책을 사용 안함으로 설정하거나 설정하지 않은 채로 두면 전체 복원 설정에 따라 로그인 시 실행할 항목이 결정됩니다.</translation>
 <translation id="1327466551276625742">오프라인일 때 네트워크 설정 프롬프트를 사용하도록 설정</translation>
 <translation id="13356285923490863">정책 이름</translation>
+<translation id="1336231837510847759"><ph name="ON_NETWORK_REQUEST_ENTERPRISE_CONNECTOR" /> Enterprise 커넥터에 적용할 <ph name="PRODUCT_NAME" /> Enterprise 커넥터 서비스 설정의 목록으로, <ph name="PRODUCT_NAME" />에서 네트워크 요청이 이루어질 때 실행됩니다. 이 정책은 HTTP POST 요청만 평가합니다.
+
+<ph name="ENTERPRISE_CONNECTOR_AUDIT_FIELD" /> 필드는 어떤 요청을 감사해야 하는지 결정하는 데 사용됩니다. 요청 및 해당 요청의 콘텐츠가 분석 요청을 생성하지만 차단되지는 않습니다. 감사 분석 요청을 생성하려면 네트워크 요청이 정책의 한 가지 목록 항목에 대해서만 일치해야 합니다.
+
+<ph name="ENTERPRISE_CONNECTOR_REQUEST_DOMAIN_FIELD" /> 및 <ph name="ENTERPRISE_CONNECTOR_TAB_DOMAIN_FIELD" /> 목록 필드는 각각 요청의 URL 및 요청이 시작된 기본 탭 URL과 일치합니다. 필드 중 하나가 누락된 경우 해당 필드는 암시적으로 일치하는 것으로 간주됩니다.
+
+<ph name="ENTERPRISE_CONNECTOR_TAGS_FIELD" /> 필드는 <ph name="ENTERPRISE_CONNECTOR_AUDIT_FIELD" /> 필드가 일치할 경우 분석 요청에 어떤 태그를 포함할지 결정하는 데 사용됩니다.
+
+이 정책을 적용하려면 추가 설정이 필요합니다. 다음 페이지에서 자세히 알아보세요. https://support.google.com/chrome/a?p=chrome_enterprise_connector_policies_setting</translation>
 <translation id="1338603603553894503">브라우저 시작 시 프로필 선택도구를 사용 설정할지, 사용 중지할지, 강제 실행할지 지정합니다.
 
       게스트 또는 시크릿 모드에서 브라우저를 시작하거나, 프로필 디렉터리 또는 URL이 명령줄에 의해 지정되거나, 앱이 열리도록 명시적으로 요청되었거나, 기본 알림에 의해 브라우저가 실행되었거나, 하나의 프로필만 이용 가능하거나, 정책 ForceBrowserSignin이 True로 설정된 경우 기본적으로 프로필 선택도구가 표시되지 않습니다.
@@ -930,6 +934,7 @@ URL은 http://example.com 또는 https://example.com과 같은 표준 스킴이�
 <translation id="1625700732886306811"><ph name="PRODUCT_NAME" />에서 모든 IP 주소의 기기에 연결하도록 허용</translation>
 <translation id="1626379196197114720">뒤로-앞으로 캐시 사용 허용</translation>
 <translation id="1628974048137236820">새 탭 페이지에 카드 표시 안함</translation>
+<translation id="1628984674324273832">Gemini로 정보 찾기 및 자동 완성을 허용하지 않습니다.</translation>
 <translation id="163200210584085447">이 목록의 패턴을 요청 URL의 보안 출처와 비교합니다.
       일치하는 항목이 확인되는 경우 SAML 로그인 페이지에서
       동영상 캡처 기기에 액세스할 수 있는 권한이 부여됩니다.
@@ -969,6 +974,17 @@ Chrome 앱은 ID(예: <ph name="DEFAULT_HANDLERS_FOR_FILE_EXTENSIONS_POLICY_CHRO
 <translation id="1654087023995670109">브라우저 게스트 모드 시행</translation>
 <translation id="1655229863189977773">디스크 캐시 크기 설정(바이트)</translation>
 <translation id="1655518801232583832">네트워크 서비스 외부에서 시스템 DNS 변환 사용 설정</translation>
+<translation id="1656749771365000307">이 정책은 적용 범위 내의 모든 생성형 AI 기능에 대한 기본 설정을 정의합니다. 예를 들어 정책이 값 1로 설정되면 모든 적용되는 생성형 AI 기능의 기본 설정이 1이 됩니다. 수동으로 설정된 정책 값에는 영향을 미치지 않습니다. 이 설정은 Chrome의 적용 범위에 해당하는 생성형 AI 기능의 기본값을 정의합니다. 적용되는 기능 목록은 https://support.google.com/chrome/a?p=generative_ai_settings를 참고하세요.
+
+<ph name="GEMINI_SETTINGS_POLICY_NAME" /> 정책과 같은 일부 정책은 허용 및 허용 안 함 상태만 지원합니다. 이 경우 <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> 정책을 0 또는 1로 설정하면 이 기능이 사용 설정됩니다. <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> 정책을 2로 설정하면 이 기능이 사용 중지됩니다. 각 기능의 문서에는 이 정책의 값과 상호작용하는 방식에 관한 자세한 내용이 포함되어 있습니다(예: Chrome의 Gemini - https://support.google.com/chrome/a/answer/16291696). 이러한 기능에는 자체 보증 및/또는 서비스 약관(https://support.google.com/chrome/a/?p=genai_features_chrome)이 적용되므로 <ph name="GEMINI_IN_CHROME_NAME" />, Google 렌즈, AI 모드 기능에 적용됩니다.
+
+0 = 이 기능을 사용하도록 허용하면서 Google에서 관련 데이터를 사용하여 AI 모델을 개선하도록 허용합니다. 관련 데이터에는 기능에 따라 프롬프트나 입력, 출력, 소스 자료, 서면 의견이 포함될 수 있습니다. AI 모델을 개선하기 위해 사람이 데이터를 검토할 수도 있습니다. 아래에 명시된 경우를 제외하고 0이 기본값입니다.
+
+1 = 기능을 사용하도록 허용하되 Google에서 사용자 콘텐츠(프롬프트, 입력, 출력, 소스 자료, 서면 의견 등)를 사용하여 모델을 개선하도록 허용하지 않습니다. 1은 <ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME" />에서 관리되는 기업 사용자 및 <ph name="GOOGLE_WORKSPACE_PRODUCT_NAME" />에서 관리되는 Education 계정의 기본값입니다.
+
+2 = 기능을 허용하지 않습니다.
+
+생성형 AI 기능의 데이터 처리에 관한 자세한 내용은 https://support.google.com/chrome/a?p=generative_ai_settings 페이지를 참고하세요.</translation>
 <translation id="165769015320654523">다음 사이트가 주어진 공급업체 및 제품 ID를 사용해 HID 기기에 연결할 수 있는 권한을 자동으로 부여합니다.</translation>
 <translation id="1659406551862245683">가상 키보드의 기본적인 크기 조절 동작이 레이아웃 표시 영역의 크기를 조절하도록 변경됨</translation>
 <translation id="166427968280387991">프록시 서버</translation>
@@ -1286,6 +1302,7 @@ Manifest V2 확장 프로그램 지원이 중단되며 향후 모든 확장 프�
 <translation id="1851034156561932736">충전 소리 켜기</translation>
 <translation id="1851282952069386119">사용자가 Chrome 정리도구 정리 결과를 Google과 공유하도록 선택할 수 있음</translation>
 <translation id="1852294065645015766">미디어 자동 재생 허용</translation>
+<translation id="1853303312483982680">모든 창이 닫힐 때 자동 다시 실행 사용 중지</translation>
 <translation id="1855963029978337744">정책을 설정하면 주어진 공급업체 ID 및 제품 ID로 HID 기기 액세스 권한을 자동으로 부여받는 사이트를 지정하는 URL 목록을 작성할 수 있습니다. 항목이 유효하려면 목록의 각 항목에 <ph name="DEVICES_FIELD_NAME" /> 및 <ph name="URLS_FIELD_NAME" /> 필드가 있어야 하며, 그러지 않으면 항목이 무시됩니다. <ph name="DEVICES_FIELD_NAME" /> 필드에 포함된 각 항목은 <ph name="VENDOR_ID_FIELD_NAME" /> 필드를 가져야 하며 <ph name="PRODUCT_ID_FIELD_NAME" /> 필드를 가질 수 있습니다. <ph name="PRODUCT_ID_FIELD_NAME" /> 필드를 생략하면 지정된 공급업체 ID가 있는 모든 기기와 일치하는 정책이 생성됩니다. <ph name="PRODUCT_ID_FIELD_NAME" /> 필드는 있지만 <ph name="VENDOR_ID_FIELD_NAME" /> 필드가 없는 항목은 유효하지 않으며 무시됩니다.
 
       정책을 설정하지 않으면 <ph name="DEFAULT_WEB_HID_GUARD_SETTING_POLICY_NAME" />이 적용(설정된 경우에 한해)되며 설정되지 않으면 사용자의 개인 설정이 적용됩니다.
@@ -1380,6 +1397,18 @@ false로 설정되면 사용자 식별을 위해 사용할 수 있는 정보가 
         |TIME_LIMITS|은(는) 일일 사용 제한을 적용하여 지정된 날짜에서 제한에 도달한 후에는 앱을 사용할 수 없게 합니다. 사용 제한은 |daily_limit_mins|에 지정됩니다. 사용 제한은 매일 |reset_at|(UTC 기준)에 재설정됩니다.
         이 정책은 자녀 사용자에게만 사용됩니다.
         이 정책은 'UsageTimeLimit'을 보완합니다. 기기 사용 시간 및 취침 시간과 같이 'UsageTimeLimit'에 지정된 제한은 'PerAppTimeLimits'와 관계없이 시행됩니다.</translation>
+<translation id="19133869326547269">클릭 투 콜 기능이 Chrome에서 삭제되었으므로 이 정책은 지원 중단되었으며 아무런 영향을 미치지 않습니다.
+
+원래 설명:
+사용자가 로그인되어 있으면 Chrome 데스크톱에서 Android 기기로 전화번호를 전송하도록 허용하는 클릭 투 콜 기능을 사용 설정합니다. 자세한 내용은 고객센터 도움말을 참고하세요. https://support.google.com/chrome/answer/9430554?hl=ko
+
+이 정책이 사용 설정된 경우 Chrome 사용자가 Android 기기로 전화번호를 전송할 수 있습니다.
+
+사용 중지된 경우 Chrome 사용자가 Android 기기로 전화번호를 전송할 수 없습니다.
+
+이 정책을 설정하면 사용자가 변경하거나 재정의할 수 없습니다.
+
+정책을 설정하지 않으면 클릭 투 콜 기능이 기본적으로 사용 설정됩니다.</translation>
 <translation id="1913629775420987861">사용자가 종료하려고 할 때 경고 대화상자 표시</translation>
 <translation id="1915242485679279502">확장된 기업 툴바 배지 표시</translation>
 <translation id="1916266055944569995">정책을 설정하면 주어진 원본의 Managed Configuration API 반환 값이 정의됩니다.
@@ -1672,6 +1701,7 @@ URL로 입력된 측정항목 수집이 허용되거나 사용자가 이를 사�
 <translation id="2107601598727098402">
         이 정책은 M72부터 지원이 중단되었습니다. 대신 CloudManagementEnrollmentToken을 사용하세요.
         </translation>
+<translation id="2111355600078097861">AI 모델을 개선하지 않고 Gemini로 정보 찾기 및 자동 완성을 허용합니다.</translation>
 <translation id="2112656109118682849">사용자가 로그인 화면의 시스템 정보 표시를 전환하도록 허용</translation>
 <translation id="2113068765175018713">자동으로 재부팅하여 기기 가동 시간 제한</translation>
 <translation id="211386002920955760">기업 사용자가 Chrome에서 탭 그룹 공유 기능에 액세스할 수 있는지 설정합니다.
@@ -1996,13 +2026,6 @@ URI 템플릿에 <ph name="HTTP_VARIABLE_DNS" /> 변수가 포함된 경우 리�
       사용자는 이 설정을 변경하거나 재정의할 수 없습니다.
 
       참고: 정책을 사용하면 https://support.google.com/a/answer/1668854에서 설명된 바와 같이 X-GoogApps-Allowed-Domains 헤더가 모든 google.com 도메인에 대한 HTTP 및 HTTPS 요청에 첨부됩니다.</translation>
-<translation id="2287414160388710497">관리자가 데이터 손실 방지(DLP) 규칙에 따라 적용된 워터마크의 모양을 맞춤설정할 수 있습니다. 여기에는 채우기/윤곽선 불투명도 설정 및 글꼴 크기 정의가 포함됩니다.
-정책 또는 일부 값을 설정하지 않으면 Chrome에서 기본 워터마크 동작을 사용합니다.
-기본값은 채우기 불투명도 4, 윤곽선 불투명도 6, 글꼴 크기 24입니다.
-
-'채우기 불투명도'는 0(완전 투명)에서 100(완전 불투명) 사이의 백분율입니다.
-'윤곽선 불투명도'는 0(완전 투명)에서 100(완전 불투명) 사이의 백분율입니다.
-'글꼴 크기'는 포인트 단위로 지정됩니다.</translation>
 <translation id="2288506601233091655">인쇄 작업 내역 삭제 허용 안함</translation>
 <translation id="2289688405312849186">사용자 주 구성원 'user@realm'입니다. <ph name="LOGIN_ID_PLACEHOLDER" /> 자리표시자가 사용자 이름 'user'로 교체됩니다. <ph name="LOGIN_EMAIL_PLACEHOLDER" /> 자리표시자가 전체 주 구성원 'user@realm'으로 교체됩니다.</translation>
 <translation id="2290270645214705008">정책을 사용 안함으로 설정하면 수신되는 연결을 허용하도록 원격 액세스 호스트 서비스를 시작하거나 구성할 수 없습니다.  이 정책은 원격 지원 시나리오에 영향을 주지 않습니다.
@@ -2117,6 +2140,7 @@ Chrome 앱은 ID(예: pjkljhegncpnkpknbcohdijeoejaedia)로, Android 앱은 패�
       "tls1" 또는 "tls1.1" 설정 지원은 버전 91부터 삭제되었습니다. TLS 1.0/1.1 경고 숨김은 더 이상 지원되지 않습니다.</translation>
 <translation id="2364639863953745682">어시스턴트 온보딩 환경 모드</translation>
 <translation id="2366301887862414321">사용자 수준과 시스템 수준의 기본 메시지 호스트 둘 다 허용</translation>
+<translation id="2371015218815226913">활성 WebSocket 연결이 있으면 페이지가 뒤로-앞으로 캐시에 저장되지 않습니다.</translation>
 <translation id="2373014700224092497">사용자가 Kerberos 계정을 추가하도록 허용</translation>
 <translation id="2376134474855349829">로그인 화면에서 터치 키보드를 사용 중지하고 사용자가 일시적으로 사용 설정할 수 있도록 허용</translation>
 <translation id="2376151922689284770">설치 프로그램 UI에 표시할 이름입니다(예: Happy VM). 설정하지 않으면 BruschettaVMConfiguration 정책의 첫 번째(표시순) 항목에서 파생된 이름이나 일반적인 이름(파생되지 않은 경우)으로 대체되어 표시됩니다.</translation>
@@ -2259,31 +2283,11 @@ ServiceWorkerAutoPreload 기능은 ServiceWorker 부트스트랩 프로세스를
 이 정책은 이 기능을 제어하기 위한 일시적인 조치이며 M154에서 삭제될 예정입니다.</translation>
 <translation id="2467181864598429837">기본 브라우저 동작</translation>
 <translation id="2467896267442150508">최대 1주일 기간의 시간 간격입니다. 시작 시간이 종료 시간 이후인 경우 간격이 범위를 둘러싼 값으로 설정됩니다.</translation>
-<translation id="2475594733565572760">이 정책은 적용 범위 내의 모든 생성형 AI 기능에 대한 기본 설정을 정의합니다. 예를 들어 정책이 값 1로 설정되면 모든 적용되는 생성형 AI 기능의 기본 설정이 1이 됩니다. 수동으로 설정된 정책 값에는 영향을 미치지 않습니다. 이 설정은 Chrome의 적용 범위에 해당하는 생성형 AI 기능의 기본값을 정의합니다. 적용되는 기능 목록은 https://support.google.com/chrome/a?p=generative_ai_settings를 참고하세요.
-
-<ph name="GEMINI_SETTINGS_POLICY_NAME" /> 정책과 같은 일부 정책은 '허용' 및 '허용 안함' 상태만 지원합니다. 이 경우 <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> 정책을 0 또는 1로 설정하면 이 기능이 사용 설정됩니다. <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> 정책을 2로 설정하면 이 기능이 사용 중지됩니다. 각 기능의 문서에는 이 정책의 값과 상호작용하는 방식에 관한 자세한 내용이 포함되어 있습니다(예: Chrome의 Gemini - https://support.google.com/chrome/a/?p=gemini_in_chrome). 이러한 기능에는 자체 보증 또는 서비스 약관 (https://support.google.com/chrome/a/?p=genai_features_chrome)이 적용되므로 Chrome의 Gemini, Google 렌즈, AI 모드 기능에 적용됩니다.
-
-0 = 이 기능을 사용하도록 허용하면서 Google에서 관련 데이터를 사용하여 AI 모델을 개선하도록 허용합니다. 관련 데이터에는 기능에 따라 프롬프트나 입력, 출력, 소스 자료, 서면 의견이 포함될 수 있습니다. AI 모델을 개선하기 위해 사람이 데이터를 검토할 수도 있습니다. 아래에 명시된 경우를 제외하고 0이 기본값입니다.
-
-1 = 기능을 사용하도록 허용하되 Google에서 사용자 콘텐츠(프롬프트, 입력, 출력, 소스 자료, 서면 의견 등)를 사용하여 모델을 개선하도록 허용하지 않습니다. 1은 <ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME" />에서 관리되는 기업 사용자 및 <ph name="GOOGLE_WORKSPACE_PRODUCT_NAME" />에서 관리되는 Education 계정의 기본값입니다.
-
-2 = 기능을 허용하지 않습니다.
-
-생성형 AI 기능의 데이터 처리에 관한 자세한 내용은 https://support.google.com/chrome/a?p=generative_ai_settings 페이지를 참고하세요.</translation>
 <translation id="2476249479201711962">기본 검색 제공업체 컨텍스트 메뉴에 대한 액세스 허용</translation>
 <translation id="2478756867046106663">악의적 사용자 환경이 포함된 사이트에서 새 창 또는 탭 열기 허용</translation>
 <translation id="2479760962196319822">이 정책은 <ph name="PRODUCT_OS_NAME" /> 사용자가 데이터를 로컬로 저장할 수 있는지 제어합니다.
       정책을 False로 설정하면 <ph name="PRODUCT_OS_NAME" />에 로컬로 저장이 차단됩니다. 사용자는 데이터를 로컬로 저장할 수 없으며 로컬 디렉터리에 액세스할 수 없습니다.
       정책을 True로 설정하거나 설정하지 않으면 <ph name="PRODUCT_OS_NAME" />에서 로컬 저장이 허용됩니다. 사용자가 데이터를 저장할 수 있는 위치나 액세스할 수 있는 디렉터리에는 제한이 없습니다.</translation>
-<translation id="2480971699591919564">사용자가 로그인되어 있으면 Chrome 데스크톱에서 Android 기기로 전화번호를 전송하도록 허용하는 클릭 투 콜 기능을 사용 설정합니다. 자세한 내용은 고객센터 도움말을 참고하세요. https://support.google.com/chrome/answer/9430554?hl=ko
-
-      이 정책이 사용 설정된 경우 Chrome 사용자가 Android 기기로 전화번호를 전송할 수 있습니다.
-
-      사용 중지된 경우 Chrome 사용자가 Android 기기로 전화번호를 전송할 수 없습니다.
-
-      정책이 설정되면 사용자가 이를 변경하거나 재정의할 수 없습니다.
-
-      정책을 설정하지 않으면 클릭 투 콜 기능이 기본적으로 사용 설정됩니다.</translation>
 <translation id="2482676533225429905">기본 메시지</translation>
 <translation id="2483146640187052324">모든 네트워크 연결의 네트워크 활동 예측</translation>
 <translation id="2487495476672607707"><ph name="PRODUCT_OS_NAME" /> 파일 동기화를 사용하면 자동으로 사용자의 내 드라이브에 있는 <ph name="GOOGLE_DRIVE_NAME" /> 파일을 <ph name="CHROMEBOOK_PLUS_NAME" /> 기기에서 오프라인(공간 허용)으로 사용할 수 있습니다.
@@ -2375,8 +2379,24 @@ URL과 유사한 지정자:
 
           정책이 설정되지 않은 경우 처음에는 캐럿 강조표시가 사용 중지되어 있으나 사용자가 언제든지 사용하도록 설정할 수 있습니다.</translation>
 <translation id="2506865562891982662">사용자가 <ph name="PRODUCT_NAME" /> 메뉴에서 액세스 코드 또는 QR 코드를 사용하여 Cast 기기를 선택하도록 허용</translation>
+<translation id="2508800409212941632"><ph name="ON_NETWORK_REQUEST_ENTERPRISE_CONNECTOR" /> <ph name="PRODUCT_NAME" /> Enterprise 커넥터의 구성 정책</translation>
 <translation id="2509748672176727116">사용자가 네트워크 패킷 캡처를 실행할 수 있음</translation>
 <translation id="2509919237512982967">M84까지 기존 양식 컨트롤을 사용합니다.</translation>
+<translation id="2509947330677441695">정책을 설정하면 시크릿 모드에서 목록에 추가된 URL에 액세스할 수 있습니다. 이 정책을 사용하면 (https://support.google.com/chrome/a?p=url_blocklist_filter_format)에 지정된 형식을 사용하여 <ph name="INCOGNITO_MODE_URL_BLOCKLIST_POLICY_NAME" />에 정의된 특정 URL 패턴에 대한 예외를 열 수 있습니다.
+
+이 정책과 <ph name="INCOGNITO_MODE_URL_BLOCKLIST_POLICY_NAME" /> 정책이 모두 설정된 경우 허용 목록이 우선 적용됩니다. URL이 허용 목록의 패턴과 일치하면 허용됩니다. 차단 목록의 패턴과 일치하지만 허용 목록의 패턴과 일치하지 않으면 차단됩니다. URL이 어느 쪽과도 일치하지 않으면 일반 <ph name="URL_BLOCKLIST_POLICY_NAME" />/<ph name="URL_ALLOWLIST_POLICY_NAME" /> 정책이 대체 정책으로 사용됩니다.
+
+이 정책이 설정되어 있고 <ph name="INCOGNITO_MODE_URL_BLOCKLIST_POLICY_NAME" /> 정책은 설정되어 있지 않은 경우 허용 목록에 없는 모든 URL이 시크릿 모드에서 차단됩니다.
+
+<ph name="INCOGNITO_MODE_AVAILABILITY_POLICY_NAME" /> 정책이 허용 안 함(값 1)으로 설정되어 있지만 이 정책이 구성된 경우 허용 목록과 일치하는 URL에만 시크릿 모드를 사용할 수 있습니다.
+
+정책을 설정하지 않으면 <ph name="INCOGNITO_MODE_URL_BLOCKLIST_POLICY_NAME" /> 및 <ph name="INCOGNITO_MODE_AVAILABILITY_POLICY_NAME" />에 예외가 허용되지 않습니다.
+
+이 정책은 시크릿 모드에만 영향을 미칩니다. 모든 사용자 프로필에서 URL을 허용하려면 <ph name="URL_ALLOWLIST_POLICY_NAME" /> 정책을 사용하세요.
+
+포괄적 호스트 와일드 카드(즉, '*' 또는 '[*]')는 허용되지 않습니다. 전체적으로 기능을 사용 설정하려면 <ph name="INCOGNITO_MODE_AVAILABILITY_POLICY_NAME" /> 정책을 사용하세요.
+
+정책의 항목은 1,000개로 제한됩니다.</translation>
 <translation id="2512531606818417084">이 정책은 일시적이며 M137부터는 더 이상 작동하지 않습니다.
 
 이 기능을 사용하면 Accept-Encoding 요청 헤더에서 'zstd'를 사용하고 <ph name="ZSTANDARD_SHORTNAME" />로 압축된 웹 콘텐츠의 압축 해제를 지원할 수 있습니다.
@@ -3190,6 +3210,11 @@ false로 설정되면 기능에 액세스할 수 없습니다.</translation>
         이 정책은 이미 출시된 정책에는 영향을 미치지 않습니다.</translation>
 <translation id="3002067315837777719">'휴대전화 허브 알림' 사용 설정을 불허</translation>
 <translation id="3003490107503207900">Office 문서(예: .docx)를 <ph name="BASIC_EDITOR_NAME" />에서 여는 대신 강제 다운로드</translation>
+<translation id="3003832749381802588">온라인 로그인 시 비밀번호 불일치가 감지되었을 때 <ph name="PRODUCT_OS_NAME" />에서 이를 처리하는 방식을 설정합니다. 이 정책은 온라인 IdP(예: 서드 파티 IdP, GAIA)를 통해 인증된 사용자의 비밀번호가 로컬 데이터 암호화에 사용된 비밀번호와 일치하지 않을 때의 처리 방식을 결정합니다. 이 현상은 대개 사용자가 외부에서 비밀번호를 변경했을 때 발생합니다.
+
+정책을 0(표준 비밀번호 변경 흐름)으로 설정하거나 따로 설정하지 않으면 표준 비밀번호 변경 절차가 시작됩니다. 로컬 데이터 암호화를 업데이트하기 위해 사용자에게 이전 비밀번호를 입력하라는 프롬프트가 표시됩니다. 또는 사용 가능한 경우 다른 로컬 데이터 복구 메커니즘을 사용할 수도 있습니다.
+
+정책을 1(로컬 데이터 자동 삭제)로 설정하면 표준 비밀번호 변경 절차를 우회합니다. 비밀번호 불일치가 감지되면 사용자의 로컬 데이터가 자동으로 삭제됩니다. 이렇게 하면 사용자가 새 비밀번호로 원활하게 로그인할 수 있지만, 사용자 프로필 내에 로컬로 저장된 모든 데이터(예: 다운로드, 동기화되지 않은 설정)가 삭제됩니다. 이 옵션은 사용자가 주로 데이터를 클라우드에 저장하거나 비밀번호를 자주 변경해야 하는 환경에 적합합니다.</translation>
 <translation id="300673820739371513">이 정책에 따라 웹페이지의 일반 텍스트 항목 감지 여부가 결정되며, 이를 통해 사용자는 이 항목과 상호작용하여 컨텍스트 작업을 트리거할 수 있습니다.
 정책에는 항목 유형별로 하나씩 여러 개의 속성이 있습니다.
 항목 유형에는 <ph name="DEFAULT_ENUM_VALUE" />, <ph name="ADDRESS_ENUM_VALUE" /> 등이 있습니다.
@@ -3931,6 +3956,18 @@ false로 설정된 경우 기존 및 신규 Crostini 컨테이너에 대한 루�
 <translation id="3518293344797498431">배터리 수명을 최대로 연장하기 위해 배터리를 약 80%까지 충전합니다.</translation>
 <translation id="3518512927469906365">특정 최상위 출처에 대해 서드 파티 저장용량 파티셔닝을 사용 중지합니다.</translation>
 <translation id="3519035925054387801">유휴 감지가 허용되는 사이트</translation>
+<translation id="3522162663567623647">이 정책은 사용자가 Google 관리 콘솔에 승인 요청을 보낼 수 있도록 허용하는 <ph name="PRODUCT_NAME" /> 확장 프로그램 설치 요청을 제어합니다.
+
+<ph name="CLOUD_REPORTING_ENABLED_POLICY_NAME" /> 정책이 설정되지 않거나 사용 중지되면 정책이 무시되며 확장 프로그램 설치 요청이 생성 또는 업로드되지 않습니다.
+정책이 설정되지 않거나 사용 중지되면 확장 프로그램 설치 요청은 생성 또는 업로드되지 않습니다.
+정책이 사용 설정되면 확장 프로그램 설치 요청이 생성되고 Google 관리 콘솔에 업로드됩니다.
+
+사용자가 <ph name="EXTENSION_INSTALL_ALLOWLIST" /> 또는 <ph name="EXTENSION_SETTINGS" />에서 허용되지 않는 확장 프로그램을 설치하려고 하면 확장 프로그램 설치 요청이 생성됩니다.
+
+<ph name="PRODUCT_NAME" />의 경우 정책은 기기가 <ph name="CLOUD_MANAGEMENT_ENROLLMENT_TOKEN" />에 등록되어 있을 때만 적용됩니다.
+<ph name="PRODUCT_OS_NAME" />의 경우 정책이 항상 적용됩니다.
+
+참고: 이 정책은 확장 프로그램을 지원하는 플랫폼에만 적용됩니다.</translation>
 <translation id="3522257170445891912">정책이 설정되면 설정값에 따라 다음 방식 중 하나로 로그인 인증 절차가 이루어집니다.
 
       GAIA로 설정된 경우 표준 GAIA 인증 절차에 따라 로그인이 진행됩니다.
@@ -5020,6 +5057,11 @@ URL 패턴은 <ph name="DIRECT_SOCKETS_ALLOWED_FOR_URLS_POLICY_NAME" />와 충�
 
           정책이 설정되지 않은 경우 처음에는 자동 클릭이 사용 중지되어 있으나 사용자가 언제든지 사용하도록 설정할 수 있습니다.</translation>
 <translation id="4212181786686887763">배경화면 이미지를 다운로드할 수 있는 URL입니다.</translation>
+<translation id="4224566202253696739">이 설정은 <ph name="GEMINI_IN_CHROME_NAME" /> 내에서 파일 업로드가 허용되는지를 제어합니다(https://support.google.com/chrome/a/answer/16291696 참고).
+
+0/설정 안 함 = 사용자가 <ph name="GEMINI_IN_CHROME_NAME" />에 파일을 업로드할 수 있습니다.
+
+1 = 사용자가 <ph name="GEMINI_IN_CHROME_NAME" />에 파일을 업로드하는 것을 허용하지 않습니다.</translation>
 <translation id="4224610387358583899">화면 잠금 지연</translation>
 <translation id="42267415200641481">정책을 true로 설정하면 시스템 구성 및 기능 플래그에 따라 시스템 DNS 변환(getaddrinfo())이 네트워크 프로세스 외부에서 실행될 수 있습니다.
 
@@ -5036,6 +5078,7 @@ URL 패턴은 <ph name="DIRECT_SOCKETS_ALLOWED_FOR_URLS_POLICY_NAME" />와 충�
 형식이 잘못된 도메인은 무시됩니다.</translation>
 <translation id="4238777612788632629">오래된 경우 빠르게 다시 실행</translation>
 <translation id="4239720644496144453">이 캐시는 Android 앱에 사용되지 않습니다. 여러 사용자가 동일한 Android 앱을 설치하는 경우 앱이 각 사용자마다 새로 다운로드됩니다.</translation>
+<translation id="4239949495354048254">Chrome의 Gemini에 파일 업로드를 허용합니다.</translation>
 <translation id="4242583077375244471">정책을 사용 설정하면 <ph name="PRODUCT_NAME" />에서
 Chrome Root Store를 공개 신뢰의 소스로 사용하는 내장된
 인증서 확인 기능으로 서버 인증서를 인증합니다.
@@ -5406,19 +5449,6 @@ false로 설정되면 확장 프로그램 및 플러그인 데이터가 수집�
 <translation id="4501388411278568771">기능 출시 상태에 따라 HTTPS 업그레이드가 적용될 수 있습니다.</translation>
 <translation id="45036050223225148">TLS Encrypted ClientHello 실험 사용 중지</translation>
 <translation id="4503935079903510542">x86_64 기기에 VM을 설치하는 데 사용되는 UEFI 부팅 가능한 디스크 이미지입니다.</translation>
-<translation id="4505299160236615603">정책을 설정하면 시크릿 모드에서 목록에 추가된 URL에 액세스할 수 있습니다. 이 정책을 사용하면 (https://support.google.com/chrome/a?p=url_blocklist_filter_format)에 지정된 형식을 사용하여 <ph name="INCOGNITO_MODE_URL_BLOCKLIST_POLICY_NAME" />에 정의된 특정 URL 패턴에 대한 예외를 열 수 있습니다.
-
-이 정책과 <ph name="INCOGNITO_MODE_URL_BLOCKLIST_POLICY_NAME" /> 정책이 모두 설정된 경우 허용 목록이 우선 적용됩니다. URL이 허용 목록의 패턴과 일치하면 허용됩니다. 차단 목록의 패턴과 일치하지만 허용 목록의 패턴과 일치하지 않으면 차단됩니다. URL이 어느 쪽과도 일치하지 않으면 일반 <ph name="URL_BLOCKLIST_POLICY_NAME" />/<ph name="URL_ALLOWLIST_POLICY_NAME" /> 정책이 대체 정책으로 사용됩니다.
-
-이 정책이 설정되어 있고 <ph name="INCOGNITO_MODE_URL_BLOCKLIST_POLICY_NAME" /> 정책은 설정되어 있지 않은 경우 허용 목록에 없는 모든 URL이 시크릿 모드에서 차단됩니다.
-
-<ph name="INCOGNITO_MODE_AVAILABILITY_POLICY_NAME" /> 정책이 허용 안함(값 1)으로 설정되어 있지만 이 정책이 구성된 경우 허용 목록과 일치하는 URL에만 시크릿 모드를 사용할 수 있습니다.
-
-정책을 설정하지 않으면 <ph name="INCOGNITO_MODE_URL_BLOCKLIST_POLICY_NAME" /> 및 <ph name="INCOGNITO_MODE_AVAILABILITY_POLICY_NAME" />에 예외가 허용되지 않습니다.
-
-이 정책은 시크릿 모드에만 영향을 미칩니다. 모든 사용자 프로필에서 URL을 허용하려면 <ph name="URL_ALLOWLIST_POLICY_NAME" /> 정책을 사용하세요.
-
-정책의 항목은 1,000개로 제한됩니다.</translation>
 <translation id="4508728400492074981">First-Party Sets 기능 정책을 제어합니다.</translation>
 <translation id="4510131075424939993">ID 정보를 평가할 때 <ph name="DOH_TEMPLATES_WITH_IDENTIFIERS_POLICY_NAME" />에 사용할 솔트 값 지정</translation>
 <translation id="4510923771103268849">사용자는 Crostini 컨테이너에 대한 루트 액세스 권한을 가질 수 있음</translation>
@@ -6117,19 +6147,6 @@ URL 패턴은 <ph name="DIRECT_SOCKETS_BLOCKED_FOR_URLS_POLICY_NAME" />와 충�
       M76 이하 버전에서 정책을 설정하지 않으면 기본적으로 <ph name="PRODUCT_NAME" />에서 이러한 로그를 수집하거나 업로드할 수 없습니다. M77부터는 <ph name="PRODUCT_NAME" />에서 기본적으로 클라우드 기반 사용자 수준 엔터프라이즈 정책의 영향을 받는 대부분의 프로필에서 이러한 로그를 수집하고 업로드할 수 있습니다. M77부터 M80까지는 <ph name="PRODUCT_NAME" />에서 기본적으로 <ph name="PRODUCT_NAME" /> 온프레미스 관리의 영향을 받는 프로필에서 이러한 로그를 수집하고 업로드할 수도 있습니다.</translation>
 <translation id="4911334289324462969">포트 989(2022년 2월 1일까지 차단 해제될 수 있음)</translation>
 <translation id="4917385247580444890">강력</translation>
-<translation id="4917925819533520480">이 정책을 사용하여 특정 URL에서 <ph name="CHROME_DEVTOOLS_NAME" />을(를) 허용할 수 있습니다.
-
-URL 패턴이 검사 중인 페이지의 모든 프레임 URL과 일치합니다. <ph name="DEVELOPER_TOOLS_AVAILABILITY_BLOCKLIST_POLICY_NAME" /> 정책도 설정되어 있는지에 따라 결과 동작이 달라집니다.
-
-이 정책이 설정되어 있고 <ph name="DEVELOPER_TOOLS_AVAILABILITY_BLOCKLIST_POLICY_NAME" /> 정책은 설정되어 있지 않은 경우, <ph name="CHROME_DEVTOOLS_NAME" />이(가) 허용되려면 모든 프레임의 URL이 해당 허용 목록의 패턴과 일치해야 합니다. 프레임 중 하나라도 URL이 일치하지 않으면 전체 페이지에서 DevTools가 차단됩니다. URL 형식에 대한 정보는 https://support.google.com/chrome/a?p=url_blocklist_filter_format에서 확인하세요.
-
-이 정책과 <ph name="DEVELOPER_TOOLS_AVAILABILITY_BLOCKLIST_POLICY_NAME" /> 정책이 모두 설정된 경우 이 허용 목록이 우선 적용됩니다. 프레임의 URL이 해당 허용 목록의 패턴과 일치하는 경우, 차단 목록의 패턴과도 일치하더라도 해당 URL은 허용됩니다. URL이 차단 목록의 패턴과는 일치하지만 허용 목록의 패턴과는 일치하지 않을 경우 차단됩니다. URL이 어느 쪽과도 일치하지 않으면 <ph name="DEVELOPER_TOOLS_AVAILABILITY_POLICY_NAME" /> 정책이 대체 정책으로 사용됩니다.
-
-이 정책을 설정하지 않은 경우, <ph name="DEVELOPER_TOOLS_AVAILABILITY_BLOCKLIST_POLICY_NAME" /> 및 <ph name="DEVELOPER_TOOLS_AVAILABILITY_POLICY_NAME" /> 정책에 따라 <ph name="CHROME_DEVTOOLS_NAME" />의 사용 가능 여부가 결정됩니다.
-
-이 정책은 확장 프로그램 및 웹 애플리케이션용으로 열리는 <ph name="CHROME_DEVTOOLS_NAME" />에도 적용됩니다.
-
-정책의 항목은 1,000개로 제한됩니다.</translation>
 <translation id="4918150584200819898">자동 온라인 재인증 시작을 사용 설정합니다.</translation>
 <translation id="4918261735182294270">사용자가 <ph name="CHROME_SYNC_NAME" /> 설정 여부를 선택하도록 허용</translation>
 <translation id="4918485681633125382">PDF 문서에서 XFA 양식 지원 사용 설정</translation>
@@ -6429,6 +6446,7 @@ https://chromeenterprise.google/policies/url-patterns/ 페이지를 참고하세
 정책을 설정하지 않으면 <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> 정책에 따라 동작이 결정됩니다.
 
 생성형 AI 기능의 데이터 처리에 관한 자세한 내용은 https://support.google.com/chrome/a?p=generative_ai_settings 페이지를 참고하세요.</translation>
+<translation id="5070539335358964387">Gemini로 정보 찾기 및 자동 완성을 허용하고 AI 모델을 개선합니다.</translation>
 <translation id="5071303485174858500">제한된 관리 게스트 세션을 사용 중지합니다.</translation>
 <translation id="5073609397321802133">정책이 false로 설정되어 있으면 사용자가 새 탭 페이지의 배경을 맞춤설정할 수 없습니다. 나중에 정책이 true로 설정되더라도 기존의 모든 맞춤 배경이 완전히 삭제됩니다.
 
@@ -7245,6 +7263,28 @@ Microsoft SharePoint 및 OneDrive 카드에는 추가 관리자 구성이 필요
 
       이 정책은 지원 중단되었습니다. 대신 <ph name="PROMOTIONS_ENABLED_POLICY_NAME" /> 정책을 사용하세요.</translation>
 <translation id="5556607617517096419">Borealis</translation>
+<translation id="5556933299171172140">이 정책을 설정하면 특정 URL 패턴에서 차단되는 자동 완성 데이터 유형을 지정할 수 있습니다.
+
+정책은 사전 목록으로 구성됩니다. 각 사전에는 다음이 포함되어야 합니다.
+* 'url_pattern': 기본 프레임의 콘텐츠 설정 URL 패턴(예: 'https://[*.]example.com')입니다.
+* 'blocked_types': 차단할 자동 완성 데이터의 카테고리를 나타내는 문자열 목록입니다.
+
+'blocked_types'에 지원되는 값은 다음과 같습니다.
+* 'contact_info': 연락처 정보 입력 및 저장을 차단합니다.
+* 'payments': 신용카드 및 결제 수단의 자동 입력 및 저장을 차단합니다.
+* 'identity_docs': 신분증(예: 여권, 운전면허증, 국가 신분증)의 자동 입력 및 저장을 차단합니다.
+* 'travel': 여행 정보(예: 항공편 예약, 차량 등록)의 자동 입력 및 저장을 차단합니다.
+* 'shopping': 쇼핑 정보(예: 온라인 주문, 배송)의 자동 입력 및 저장을 차단합니다.
+* 'all': 모든 자동 완성 데이터 유형의 자동 입력 및 저장을 차단합니다.
+
+사이트에서 데이터 유형이 차단되면 해당 사이트에서 추천 생성과 해당 유형의 새 데이터를 저장하고 가져오라는 프롬프트가 모두 사용 중지됩니다.
+
+URL이 목록의 여러 패턴 항목과 일치하면 일치하는 모든 항목의 차단된 유형이 결합(합집합 병합)됩니다. 목록의 잘못된 URL 패턴은 무시됩니다.
+
+이 정책을 설정하지 않으면 도메인별로 자동 완성 데이터 유형이 차단되지 않습니다.
+
+유효한 URL 패턴에 관한 자세한 내용은
+https://chromeenterprise.google/policies/url-patterns 페이지를 참고하세요. 와일드 카드*가 지원되며, 이 패턴은 스킴, 포트, 경로와 관계없이 모든 URL과 일치합니다.</translation>
 <translation id="5557753512027261467"><ph name="GOOGLE_DRIVE_NAME" /> 옵션 표시.</translation>
 <translation id="5558394213067608844">Wilco 진단 및 텔레메트리 컨트롤러 사용 설정</translation>
 <translation id="5559079916187891399">이 정책은 Android 앱에 아무런 영향을 미치지 않습니다.</translation>
@@ -7583,7 +7623,15 @@ Microsoft SharePoint 및 OneDrive 카드에는 추가 관리자 구성이 필요
 
 정책을 사용 중지하거나 설정하지 않으면 브라우저 기능 실행 프로세스에서
 적응형 버퍼링 사용 여부를 결정합니다.</translation>
+<translation id="579556027056000499">URL의 콘텐츠에 대한 SHA-256 해시입니다.</translation>
 <translation id="5800329278018669527">오프라인일 때 네트워크 구성 프롬프트 사용 중지</translation>
+<translation id="5800627752428920394">이 정책은 페이지가 뒤로-앞으로 캐시에 저장될 때 활성 WebSocket 연결을 해제할지 제어합니다. 이전에는 활성 WebSocket 연결로 인해 페이지가 뒤로-앞으로 캐시에 저장되지 않았지만 <ph name="PRODUCT_NAME" />에서 이 동작을 변경하여 대신 WebSocket 연결을 해제하므로, 페이지를 캐시하고 연결이 해제된 상태로 복원할 수 있습니다.
+
+이 정책을 사용 설정됨으로 설정하거나 미설정 상태로 남겨 두면 페이지가 뒤로-앞으로 캐시에 저장될 때 WebSocket이 연결 해제됩니다.
+
+이 정책을 사용 안함으로 설정하면 페이지가 뒤로-앞으로 캐시에 저장될 때 WebSocket 연결이 해제되지 않습니다. 뒤로-앞으로 캐시는 활성 WebSocket을 지원하지 않으므로 활성 WebSocket이 있는 페이지는 캐시되지 않습니다.
+
+이 정책은 일시적이며 향후 삭제될 예정입니다.</translation>
 <translation id="5802931736499687181">암호화된 보고 파이프라인을 사용 중지합니다.</translation>
 <translation id="5803715507113569033">이 정책을 통해 관리자는 <ph name="MICROSOFT_ONE_DRIVE_NAME" />의 마운트를 구성할 수 있습니다.
 
@@ -7964,16 +8012,6 @@ URL이 <ph name="AUTOMATIC_DOWNLOADS_ALLOWED_FOR_URLS_POLICY_NAME" /> 및 <ph na
 단축키를 구성할 수 있습니다.</translation>
 <translation id="6019162469732742754">자동 모드 사용</translation>
 <translation id="6019606564278029236">원격 지원 세션에서 원격 사용자가 관리자 창과 상호작용할 수 있도록 허용</translation>
-<translation id="602038990586229155">이 정책은 사용자가 Google 관리 콘솔에 승인 요청을 보낼 수 있도록 허용하는 <ph name="PRODUCT_NAME" /> 확장 프로그램 설치 요청을 제어합니다.
-
-<ph name="CLOUD_REPORTING_ENABLED_POLICY_NAME" /> 정책이 설정되지 않거나 사용 중지되면 정책이 무시되며 확장 프로그램 설치 요청이 생성 또는 업로드되지 않습니다.
-정책이 설정되지 않거나 사용 중지되면 확장 프로그램 설치 요청은 생성 또는 업로드되지 않습니다.
-정책이 사용 설정되면 확장 프로그램 설치 요청이 생성되고 Google 관리 콘솔에 업로드됩니다.
-
-사용자가 <ph name="EXTENSION_INSTALL_ALLOWLIST" /> 또는 <ph name="EXTENSION_SETTINGS" />에서 허용되지 않는 확장 프로그램을 설치하려고 하면 확장 프로그램 설치 요청이 생성됩니다.
-
-<ph name="PRODUCT_NAME" />의 경우 정책은 기기가 <ph name="CLOUD_MANAGEMENT_ENROLLMENT_TOKEN" />에 등록되어 있을 때만 적용됩니다.
-<ph name="PRODUCT_OS_NAME" />의 경우 정책이 항상 적용됩니다.</translation>
 <translation id="6020795917180493154">M119부터 정책을 false로 설정하거나 설정하지 않으면, WebSQL이 사용 중지되지만 Chrome 신고 'web-sql-access'를 통해 사용 설정할 수 있습니다. 정책을 true로 설정하면 WebSQL 액세스가 사용 설정됩니다.
 이 정책은 M124부터 지원이 중단됩니다.</translation>
 <translation id="6022948604095165524">시작 시 동작</translation>
@@ -8123,6 +8161,14 @@ ArcEnabled 및 UnaffiliatedArcAllowed 정책에서 적용하는 제한사항과 
 
 이 정책이 사용 중지되면 키 바로가기 앱이 읽기 전용 모드로 전환되어 맞춤설정을 허용하지 않습니다.</translation>
 <translation id="6150320133676152520">잠금 및 로그인 화면에서 PIN 자동 제출 사용 안함</translation>
+<translation id="6152224988699207920">관리자가 데이터 손실 방지(DLP) 규칙에 따라 적용된 워터마크의 모양을 맞춤설정할 수 있습니다. 여기에는 채우기/윤곽선 불투명도 설정, 글꼴 크기 정의, 타임스탬프 시간대 설정이 포함됩니다.
+정책 또는 일부 값을 설정하지 않으면 Chrome에서 기본 워터마크 동작을 사용합니다.
+기본값은 채우기 불투명도 4, 윤곽선 불투명도 6, 글꼴 크기 24, 타임스탬프 시간대 'user_device'(사용자의 로컬 기기 시간대)입니다.
+
+'채우기 불투명도'는 0(완전 투명)에서 100(완전 불투명) 사이의 백분율입니다.
+'윤곽선 불투명도'는 0(완전 투명)에서 100(완전 불투명) 사이의 백분율입니다.
+'글꼴 크기'는 포인트 단위로 지정됩니다.
+'타임스탬프 시간대'는 IANA 시간대 데이터베이스(https://www.iana.org/time-zones)의 이름을 따르는 워터마크 타임스탬프(Chrome 152 이상에서 지원)의 형식을 지정하는 데 사용되는 IANA 시간대 식별자(예: 'America/Toronto')를 지정합니다.</translation>
 <translation id="6155350825868160236">사용자가 맞춤법 오류를 해결하는 Google 웹 서비스의 사용 여부를 선택하도록 허용</translation>
 <translation id="6155936611791017817">로그인 화면에서 큰 커서의 기본 상태를 설정</translation>
 <translation id="6157537876488211233">쉼표로 구분된 프록시 우회 규칙 목록</translation>
@@ -8388,6 +8434,7 @@ Origin-Agent-Cluster: 헤더가 설정되지 않았을 때 M111의 기본값은 
 <ph name="MS_WIN_NAME" />의 경우 이 정책은 <ph name="MS_AD_NAME" /> 도메인에 연결되거나, <ph name="MS_AAD_NAME" />에 연결되거나, <ph name="CHROME_ENTERPRISE_CORE_NAME" />에 등록된 인스턴스에서만 사용할 수 있습니다.
 
 <ph name="MAC_OS_NAME" />의 경우 이 정책은 MDM을 통해 관리되거나, MCX를 통해 도메인에 연결되거나, <ph name="CHROME_ENTERPRISE_CORE_NAME" />에 등록된 인스턴스에서만 사용할 수 있습니다.</translation>
+<translation id="6279539269393750872">Chrome의 Gemini 파일 업로드 설정</translation>
 <translation id="628084107912717806">WebAssembly 모듈이 출처 간에 전송되도록 허용할지 선택</translation>
 <translation id="6280973140313576289">시작 시 프로필 선택도구 강제 사용</translation>
 <translation id="6282524907402492171"><ph name="CLOUD_PRINT_NAME" /> 지원 중단 경고 표시</translation>
@@ -8448,6 +8495,11 @@ Origin-Agent-Cluster: 헤더가 설정되지 않았을 때 M111의 기본값은 
        정책이 사용 중지되거나 설정되지 않은 경우 <ph name="DM_CRYPT" /> 사용자 홈의 기본 저장용량 암호화는 <ph name="AES_NI_NAME" />입니다.</translation>
 <translation id="6316971721180184579">배터리 잔량 낮음 알림음 끄기</translation>
 <translation id="6319198883324703402">첫 번째 사용자 재실행 알림 시간을 설정합니다.</translation>
+<translation id="6319529757992804545">보안 업데이트가 대기 중이고 모든 브라우저 창이 닫힐 때 macOS의 백그라운드 자동 다시 시작 동작을 제어합니다.
+
+정책을 True로 설정하거나 설정하지 않은 상태로 두면, 모든 브라우저 창이 닫힐 때 <ph name="PRODUCT_NAME" /> 제품을 자동으로 다시 실행하여 대기 중인 업데이트를 적용하도록 허용합니다.
+
+이 정책을 False로 설정하면 모든 브라우저 창이 닫힐 때 자동 다시 실행이 사용 중지됩니다.</translation>
 <translation id="6319907968994678054">정책을 사용 설정하면 Google에서 호스팅하는 동기화 서비스를 사용하는 <ph name="PRODUCT_NAME" />의 데이터 동기화가 사용 중지됩니다.
       <ph name="CHROME_SYNC_NAME" /> 서비스를 완전히 사용 중지하려면 <ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME" />에서 서비스를 사용 중지하는 것이 좋습니다.
 
@@ -8997,6 +9049,7 @@ false로 설정하면 P2P가 사용되지 않습니다.
 
       참고: 정책을 <ph name="REMOTE_ACCESS_HOST_TOKEN_URL_POLICY_NAME" />과 함께 사용하세요.</translation>
 <translation id="6625136649067113817">터치 키보드가 맞춤법 검사를 지원할 수 있는지 나타내는 부울 플래그입니다.</translation>
+<translation id="6625424971640741579">기본 비밀번호 변경 절차</translation>
 <translation id="6625716212597516929">기존 쿠키 범위 동작으로 되돌리기</translation>
 <translation id="6626319579493977784">동적 코드 설정</translation>
 <translation id="66265932317331474">CPU 정보 보고</translation>
@@ -9207,6 +9260,7 @@ false로 설정되면 Crostini 컨테이너로 포트 전달이 사용 중지됩
 <translation id="6763023079133439068">로컬 신뢰 앵커에서 발급할 때 subjectAlternativeName 확장이 없는 인증서 허용</translation>
 <translation id="6766216162565713893">사이트에서 사용자에게 근처 블루투스 기기에 대한 액세스 권한을 부여할 것인지 묻도록 허용합니다.</translation>
 <translation id="6770454900105963262">활성 키오스크 세션에 관한 정보 보고</translation>
+<translation id="6770703270685871935">로컬 데이터 자동 삭제</translation>
 <translation id="6774132787348495175">사용자가 Linux 앱을 지원하는 데 필요한 가상 머신을 사용하도록 허용 안함</translation>
 <translation id="6782331708811245959">기기 부팅 모드 보고 사용 설정</translation>
 <translation id="6783578496154221347">새 코드에 WeeklyTimeIntervalChecked를 사용합니다.</translation>
@@ -9511,6 +9565,7 @@ https://chromeenterprise.google/policies/url-patterns/ 페이지를 참고하세
       정책을 설정하지 않는 경우 기기 프린터가 사용되지 않으면 다른 <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> 정책이 무시됩니다.</translation>
 <translation id="69525503251220566">기본 검색엔진에 이미지로 검색 기능을 제공하는 매개변수</translation>
 <translation id="6953102253399571439">기본적으로 PIN 인쇄 사용</translation>
+<translation id="6953246833109449226">온라인 비밀번호 불일치 시 동작 설정</translation>
 <translation id="695532899547292238">키오스크 애플리케이션 로그 수집 사용 설정</translation>
 <translation id="6956272732789158625">모든 사이트에서 키 생성 사용 허용 안함</translation>
 <translation id="6960996423652450945">로그인 화면에서 캐럿 강조표시 사용 안함</translation>
@@ -9638,6 +9693,7 @@ JavaScript 최적화 정책 예외는 사이트 세부사항에서만 시행됩�
 <translation id="7025153290982655996">기존 쿠키 범위 동작으로 되돌리기</translation>
 <translation id="7025332601572838001">CCT 첫 실행 시 서비스 약관 동작 구성</translation>
 <translation id="7026351325994257733"><ph name="PRODUCT_OS_NAME" /> 기기 및 연결된 Android 휴대전화 전체에서 Wi-Fi 네트워크 구성을 동기화하도록 허용합니다.</translation>
+<translation id="7026488120383693794">WebSocket에 뒤로-앞으로 캐시 허용</translation>
 <translation id="7027057540229843762">밝은 테마 사용</translation>
 <translation id="7027785306666625591"><ph name="PRODUCT_OS_NAME" />에서 전원 관리를 설정합니다.
 
@@ -9668,6 +9724,7 @@ JavaScript 최적화 정책 예외는 사이트 세부사항에서만 시행됩�
 
       이 정책을 적용하려면 추가 설정이 필요합니다. 다음 페이지에서 자세히 알아보세요. https://support.google.com/chrome/a?p=chrome_enterprise_connector_policies_setting</translation>
 <translation id="7032323070729112362">Translator API 사용 허용하지 않음</translation>
+<translation id="7032734784894075746">Chrome에서 스킬 구성</translation>
 <translation id="7032813174556919004">DNS-over-HTTPS 사용 안함</translation>
 <translation id="703672323011778742">M88에서 이 정책이 지원 중단되며 Chrome에서 플래시는 더 이상 지원되지 않습니다. 정책을 1로 설정하면 모든 웹사이트에서 <ph name="FLASH_PLUGIN_NAME" /> 플러그인의 자동 실행을 허용할지 결정할 수 있습니다. 정책을 2로 설정하면 모든 웹사이트에서 이 플러그인을 거부합니다. 클릭 재생방식을 사용하면 <ph name="FLASH_PLUGIN_NAME" /> 플러그인을 실행할 수 있지만 사용자가 자리표시자를 클릭해야 시작됩니다.
 
@@ -9893,6 +9950,7 @@ JavaScript 최적화 정책 예외는 사이트 세부사항에서만 시행됩�
 <translation id="7136237405361383549">필드 체험판 구성에 따라 기본 렌더기를 사용합니다.</translation>
 <translation id="7138762292550697459">자바스크립트 setTimeout() 함수의 최소 시간 초과를 제어합니다.</translation>
 <translation id="7138792262152376158">PrefixedVideoFullscreen API의 일반적인 지원 중단 타임라인을 따릅니다.</translation>
+<translation id="7140755255968613921">Gemini로 정보 찾기 및 자동 완성 설정</translation>
 <translation id="7140760943584613237">Microsoft® 클라우드 ID 공급업체</translation>
 <translation id="714219487865269980">키보드 포커스 강조표시 사용 설정</translation>
 <translation id="7144022711746703451">
@@ -10315,6 +10373,19 @@ URL 패턴은 <ph name="WEB_PRINTING_ALLOWED_FOR_URLS_POLICY_NAME" /> 정책과 
 <translation id="7402257017733669351">브라우저 프로세스에서 동적 코드를 만들지 못하도록 방지</translation>
 <translation id="7406039009275722824"><ph name="CHROME_SYNC_NAME" />를 사용 중지하면 Android 백업 및 복원이 제대로 작동하지 않게 됩니다.</translation>
 <translation id="7406276857470642718">외부 IdP로 SAML을 통해 인증된 사용자를 위한 설정을 관리합니다.</translation>
+<translation id="7407431811343706437">사용자가 <ph name="PRODUCT_NAME" />에서 'Gemini로 정보 찾기 및 자동 완성' 기능을 사용할 수 있는지를 제어합니다.
+
+0 = 이 기능을 사용하도록 허용하면서 Google에서 관련 데이터를 사용하여 AI 모델을 개선하도록 허용합니다. 관련 데이터에는 기능에 따라 프롬프트나 입력, 출력, 소스 자료, 서면 의견이 포함될 수 있습니다. 아래에 명시된 경우를 제외하고 0이 기본값입니다.
+
+1 = 기능을 사용하도록 허용하되 Google에서 사용자 콘텐츠(프롬프트, 입력, 출력, 소스 자료, 서면 의견 등)를 사용하여 모델을 개선하도록 허용하지 않습니다. 1은 <ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME" />에서 관리되는 기업 사용자 및 <ph name="GOOGLE_WORKSPACE_PRODUCT_NAME" />에서 관리되는 Education 계정의 기본값입니다.
+
+2 = 기능을 허용하지 않습니다.
+
+Gemini 앱이 사용 중지되면 이 정책은 아무런 영향을 미치지 않습니다. 예를 들어 <ph name="GEMINI_SETTINGS_POLICY_NAME" /> 정책으로 Gemini 앱을 사용 중지할 수 있습니다.
+
+정책을 설정하지 않으면 <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> 정책에 따라 동작이 결정됩니다.
+
+생성형 AI 기능의 데이터 처리에 관한 자세한 내용은 https://support.google.com/chrome/a?p=generative_ai_settings 페이지를 참고하세요.</translation>
 <translation id="7407441173422042771">이 정책은 <ph name="PRODUCT_NAME" />의 네트워크 예측을 제어합니다. 또한 DNS 미리 가져오기, TCP 및 SSL 사전 연결, 웹페이지 사전 렌더링을 제어합니다.
 
       정책을 설정하면 사용자가 변경할 수 없습니다. 설정하지 않으면 네트워크 예측이 사용 설정되지만 사용자가 이를 변경할 수 있습니다.</translation>
@@ -10485,19 +10556,6 @@ URL 패턴은 <ph name="DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS_BLOCKED_FOR_URLS_P
 
       정책이 설정되지 않거나 False로 설정되면 TLS의 RC4 암호화 스위트가 사용 설정되지 않습니다. 아니면 오래된 서버와의 호환성을 유지하기 위해 True로 설정될 수 있습니다. 임시방편이므로 서버를 다시 구성해야 합니다.</translation>
 <translation id="751615601677744094">사용 안함: 변형 이벤트의 일반적인 동작으로, 삭제 날짜 이후에는 이러한 이벤트가 실행되지 않는다는 의미입니다.</translation>
-<translation id="7518736413346509172">정책을 사용 설정하면 <ph name="LOCAL_NETWORK_ACCESS" />
-요청은 <ph name="LOCAL_NETWORK_ACCESS" /> 검사 실패로 인해 <ph name="CHROME_DEVTOOLS_NAME" />에서만 경고를 표시합니다.
-
-정책을 사용 중지하거나 설정하지 않으면 <ph name="LOCAL_NETWORK_ACCESS" /> 요청에서 이러한 요청의
-기본 처리를 사용합니다.
-
-<ph name="LOCAL_NETWORK_ACCESS" /> 제한사항에 관한 내용은 https://wicg.github.io/local-network-access/ 페이지를 참고하세요.
-
-이 기업 정책은 일시적이며, M152 이후 삭제될 예정입니다.
-
-장기적으로 <ph name="LOCAL_NETWORK_ACCESS_ALLOWED_FOR_URLS_POLICY_NAME" /> 정책을 사용하여
-<ph name="LOCAL_NETWORK_ACCESS" /> 권한이 자동으로 부여되어야 하는 URL 패턴을
-허용 목록에 추가할 수 있습니다.</translation>
 <translation id="7519218194072744342">프로토콜 핸들러의 URL입니다.</translation>
 <translation id="7519251620064708155">이 사이트에서 키 생성 허용</translation>
 <translation id="7521864460386999758">서드 파티 코드가 Chrome에 삽입되지 않도록 차단</translation>
@@ -10584,6 +10642,21 @@ URL 패턴은 <ph name="DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS_BLOCKED_FOR_URLS_P
 <translation id="759957074386651883">세이프 브라우징 설정</translation>
 <translation id="7602621823177962064">기기 메모리 정보 보고 사용 중지</translation>
 <translation id="7604169113182304895">Android 앱이 자발적으로 이 목록을 사용하도록 선택할 수 있습니다. 강제로 Android 앱에서 이 목록을 사용하도록 할 수 없습니다.</translation>
+<translation id="7604302274842086162">이 정책을 사용하여 특정 URL에서 <ph name="CHROME_DEVTOOLS_NAME" />을(를) 허용할 수 있습니다.
+
+URL 패턴이 검사 중인 페이지의 모든 프레임 URL과 일치합니다. <ph name="DEVELOPER_TOOLS_AVAILABILITY_BLOCKLIST_POLICY_NAME" /> 정책도 설정되어 있는지에 따라 결과 동작이 달라집니다.
+
+이 정책이 설정되어 있고 <ph name="DEVELOPER_TOOLS_AVAILABILITY_BLOCKLIST_POLICY_NAME" /> 정책은 설정되어 있지 않은 경우, <ph name="CHROME_DEVTOOLS_NAME" />이(가) 허용되려면 모든 프레임의 URL이 해당 허용 목록의 패턴과 일치해야 합니다. 프레임 중 하나라도 URL이 일치하지 않으면 전체 페이지에서 DevTools가 차단됩니다. URL 형식에 대한 정보는 https://support.google.com/chrome/a?p=url_blocklist_filter_format에서 확인하세요.
+
+이 정책과 <ph name="DEVELOPER_TOOLS_AVAILABILITY_BLOCKLIST_POLICY_NAME" /> 정책이 모두 설정된 경우 이 허용 목록이 우선 적용됩니다. 프레임의 URL이 해당 허용 목록의 패턴과 일치하는 경우, 차단 목록의 패턴과도 일치하더라도 해당 URL은 허용됩니다. URL이 차단 목록의 패턴과는 일치하지만 허용 목록의 패턴과는 일치하지 않을 경우 차단됩니다. URL이 어느 쪽과도 일치하지 않으면 <ph name="DEVELOPER_TOOLS_AVAILABILITY_POLICY_NAME" /> 정책이 대체 정책으로 사용됩니다.
+
+이 정책을 설정하지 않은 경우, <ph name="DEVELOPER_TOOLS_AVAILABILITY_BLOCKLIST_POLICY_NAME" /> 및 <ph name="DEVELOPER_TOOLS_AVAILABILITY_POLICY_NAME" /> 정책에 따라 <ph name="CHROME_DEVTOOLS_NAME" />의 사용 가능 여부가 결정됩니다.
+
+이 정책은 확장 프로그램 및 웹 애플리케이션용으로 열리는 <ph name="CHROME_DEVTOOLS_NAME" />에도 적용됩니다.
+
+포괄적 호스트 와일드 카드(즉, '*' 또는 '[*]')는 허용되지 않습니다. 전체적으로 기능을 사용 설정하려면 <ph name="DEVELOPER_TOOLS_AVAILABILITY_POLICY_NAME" /> 정책을 사용하세요.
+
+정책의 항목은 1,000개로 제한됩니다.</translation>
 <translation id="7607831126797434329">이 사이트에서 자동 다운로드 차단</translation>
 <translation id="7608186022704392724">PIN 자동 제출 기능은 <ph name="PRODUCT_OS_NAME" />에서 PIN이 입력되는 방식을 변경합니다.
           이 기능은 비밀번호 입력에 사용되는 텍스트 입력란을 표시하는 대신
@@ -10927,6 +11000,7 @@ Internet Explorer의 <ph name="IEEM_SITELIST_POLICY" /> 정책(https://docs.micr
 
       참고: <ph name="FLASH_PLUGIN_NAME" /> 플러그인을 실행할 수 있는 웹사이트를 제어하려면 <ph name="DEFAULT_PLUGINS_SETTING_POLICY_NAME" />, <ph name="PLUGINS_ALLOWED_FOR_URLS_POLICY_NAME" />, <ph name="PLUGINS_BLOCKED_FOR_URLS_POLICY_NAME" /> 정책을 참고하세요.</translation>
 <translation id="7801163363326128751">메모리 절약 모드의 절약 수준 변경</translation>
+<translation id="7802903687499576891">WebSocket에 뒤로-앞으로 캐시를 허용합니다(캐시에 저장될 때는 WebSocket 연결 해제).</translation>
 <translation id="7804859754080118507">등록된 기기에서 네트워크 연결 및 신호 강도 이벤트를 보고합니다.
 
       정책을 false로 설정하거나 정책이 설정되어 있지 않으면 정보가 보고되지 않습니다.
@@ -11405,6 +11479,7 @@ https://chromeenterprise.google/policies/url-patterns를 참고하세요.
 <translation id="8102913158860568230">기본 mediastream 설정</translation>
 <translation id="8104962233214241919">이 사이트에 대해 클라이언트 인증서를 자동으로 선택합니다.</translation>
 <translation id="8109762054721090517"><ph name="CLIENT_NAME_IPP_ATTRIBUTE" /> <ph name="INTERNET_PRINTING_PROTOCOL" /> <ph name="IPP_ATTRIBUTE" /> 템플릿</translation>
+<translation id="811012672754800797">Chrome의 Gemini에 파일 업로드를 허용하지 않습니다.</translation>
 <translation id="8111331908123507719">잠금 화면의 화면 보호기가 표시되기까지 기기의 유휴 상태 제한 시간(초)을 구성합니다.
 
 유효한 값의 범위는 1초~9,999초입니다. 정책을 설정하지 않으면 <ph name="PRODUCT_OS_NAME" />에서 기본값인 7초를 사용합니다.
@@ -11945,6 +12020,15 @@ Windows에서는 GPO를 통해 정책을 설정하는 것이 좋습니다. 하�
 <translation id="8471860377920321311">생성형 AI 기능 허용 및 AI 모델 개선</translation>
 <translation id="8473107305327396242">플랫폼 트러스트 저장소에서 사용자가 추가한 TLS 서버 인증서를 가져옵니다.</translation>
 <translation id="8473841363404590708">Microsoft OneDrive로 로컬 파일 이전 및 로컬 폴더 숨기기</translation>
+<translation id="8476434719168701332">정책을 설정하면 <ph name="PRODUCT_NAME" />에서 사용자에게 생성형 AI 스킬이 게시됩니다.
+
+설정되어 있는 경우 개인 스킬 외에도 이러한 구성된 스킬이 기본적으로 chrome://skills 페이지에서 사용자에게 표시됩니다. 사용자는 개인적인 용도로 이러한 스킬을 보고, 수정하고, 저장할 수 있습니다.
+
+목록의 각 스킬은 스킬 콘텐츠를 다운로드할 수 있는 곳인 <ph name="URL_NAME" />을(를) 포함하고, 적용 전에 무결성을 확인하기 위한 해당 콘텐츠의 <ph name="HASH_NAME" />(SHA-256)을(를) 포함한 객체여야 합니다. 각 스킬 URL은 변경 불가능해야 합니다. 스킬 파일을 업데이트하려면 새 URL과 해시가 필요합니다.
+
+10개를 초과하는 스킬이 제공되면 경고가 표시되고 처음 10개 스킬만 게시됩니다.
+
+정책을 설정하지 않거나 빈 목록으로 설정하면 사용자에게 엔터프라이즈 스킬이 게시되지 않습니다.</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>
 <translation id="8479032202539686055">WebRTC가 최상의 경로를 검색할 때 가능한 모든 인터페이스를 사용합니다.</translation>
 <translation id="8479496880635054740">로그인 화면에서 접근성 가상 키보드 사용 중지</translation>
@@ -12122,6 +12206,7 @@ Windows에서는 GPO를 통해 정책을 설정하는 것이 좋습니다. 하�
       정책을 True로 설정하면 비정상 종료 또는 재부팅 후, 앱 복원 설정에 따라 앱 및 앱 창이 복원되거나 복원되지 않습니다.
       정책을 False로 설정하면 브라우저 창만 자동으로 실행됩니다.</translation>
 <translation id="8579020983849384175">텍스트 편집기(버전 136부터 지원됨)</translation>
+<translation id="8580740891685654239">모든 창이 닫힐 때 자동 다시 실행 사용 설정</translation>
 <translation id="8583509234908413302">WebRTC에서 레거시 TLS/DTLS 다운그레이드 허용</translation>
 <translation id="8584279193368801689">PIN 인쇄 모드를 제한합니다. 정책이 설정되지 않은 경우 제한이 없는 것으로 간주됩니다. 이 모드를 사용할 수 없는 경우 이 정책은 무시됩니다. PIN 인쇄 기능은 IPPS, HTTPS, USB 또는 IPP-over-USB 프로토콜을 사용하는 프린터에서만 지원됩니다.</translation>
 <translation id="858510846828945657">플로팅 SSO 서비스 도메인 차단 목록 예외 목록</translation>
@@ -12672,27 +12757,6 @@ https://chromeenterprise.google/policies/url-patterns 페이지를 참고하세�
 <translation id="8931555638815157255">정책을 사용 설정하거나 설정하지 않으면 등록된 기기에서 주기적으로 OS 및 펌웨어 버전을 보고합니다.
 
       정책을 사용 중지하면 등록된 기기에서 버전 정보를 보고하지 않습니다.</translation>
-<translation id="8931984670731745012">이 정책을 설정하면 특정 URL 패턴에서 차단되는 자동 완성 데이터 유형을 지정할 수 있습니다.
-
-정책은 사전 목록으로 구성됩니다. 각 사전에는 다음이 포함되어야 합니다.
-* 'url_pattern': 콘텐츠 설정 URL 패턴(예: 'https://[*.]example.com')입니다.
-* 'blocked_types': 차단할 자동 완성 데이터의 카테고리를 나타내는 문자열 목록입니다.
-
-'blocked_types'에 지원되는 값은 다음과 같습니다.
-* 'contact_info': 연락처 정보 입력 및 저장을 차단합니다.
-* 'payments': 신용카드 및 결제 수단의 자동 입력 및 저장을 차단합니다.
-* 'identity_docs': 신분증(예: 여권, 운전면허증, 국가 신분증)의 자동 입력 및 저장을 차단합니다.
-* 'travel': 여행 정보(예: 항공편 예약, 차량 등록)의 자동 입력 및 저장을 차단합니다.
-* 'shopping': 쇼핑 정보(예: 온라인 주문, 배송)의 자동 입력 및 저장을 차단합니다.
-
-사이트에서 데이터 유형이 차단되면 해당 사이트에서 추천 생성과 해당 유형의 새 데이터를 저장하고 가져오라는 메시지가 모두 사용 중지됩니다.
-
-URL이 목록의 여러 패턴 항목과 일치하면 일치하는 모든 항목의 차단된 유형이 결합(합집합 병합)됩니다. 목록의 잘못된 URL 패턴은 무시됩니다.
-
-이 정책을 설정하지 않으면 도메인별로 자동 완성 데이터 유형이 차단되지 않습니다.
-
-유효한 URL 패턴에 관한 자세한 내용은
-https://chromeenterprise.google/policies/url-patterns 페이지를 참고하세요. 와일드 카드*가 지원되며, 이 패턴은 스킴, 포트, 경로와 관계없이 모든 URL과 일치합니다.</translation>
 <translation id="8934296213794658971">Gemini 통합 설정</translation>
 <translation id="8937282917198525844"> M81부터 표준 양식 컨트롤 요소(예: &lt;select&gt;, &lt;button&gt;, &lt;input type=date&gt;)의 디자인이 새로워졌으며, 접근성 및 플랫폼 동일성이 개선되었습니다. 이 정책은 M84까지 이전의 '기존' 양식 컨트롤 요소를 복원합니다.
 
@@ -12947,9 +13011,30 @@ https://chromeenterprise.google/policies/url-patterns 페이지를 참고하세�
 
       정책을 False로 설정하거나 설정하지 않으면 정보가 보고되지 않습니다.
       True로 설정되면 기기 로그인/로그아웃 이벤트가 보고됩니다.</translation>
+<translation id="9087577919890548366">정책을 사용 설정하면 <ph name="LOCAL_NETWORK_ACCESS" />
+요청은 <ph name="LOCAL_NETWORK_ACCESS" /> 검사 실패로 인해 <ph name="CHROME_DEVTOOLS_NAME" />에서만 경고를 표시합니다.
+
+정책을 사용 중지하거나 설정하지 않으면 <ph name="LOCAL_NETWORK_ACCESS" /> 요청에서 이러한 요청의
+기본 처리를 사용합니다.
+
+<ph name="LOCAL_NETWORK_ACCESS" /> 제한사항에 관한 내용은 https://wicg.github.io/local-network-access/ 페이지를 참고하세요.
+
+이 기업 정책은 일시적이며, M156 이후 삭제될 예정입니다.
+
+장기적으로 <ph name="LOCAL_NETWORK_ACCESS_ALLOWED_FOR_URLS_POLICY_NAME" /> 정책을 사용하여
+<ph name="LOCAL_NETWORK_ACCESS" /> 권한이 자동으로 부여되어야 하는 URL 패턴을
+허용 목록에 추가할 수 있습니다.</translation>
 <translation id="9087652369391570821">OnFileTransfer Chrome Enterprise 커넥터 설정 정책</translation>
 <translation id="9088433379343318874">관리 대상 사용자 콘텐츠 제공업체 사용</translation>
 <translation id="9088444059179765143">자동 시간대 감지 방법 설정</translation>
+<translation id="9091741086777905807">워터마크 타임스탬프의 형식을 지정하는 데 사용되는 IANA 시간대 식별자(예: 'America/Toronto')이며, Chrome 152 이상에서 지원됩니다. 기본값은 'user_device'입니다.</translation>
+<translation id="9094681501120769194"><ph name="PRODUCT_NAME" />의 PDF 뷰어에서 프로세스 외부 iframe(OOPIF)을 사용할지 여부를 제어합니다. 더 간단해지고 새로운 기능을 더 쉽게 추가할 수 있으므로 향후 새로운 PDF 뷰어 아키텍처가 될 것입니다. 기존 GuestView PDF 뷰어는 오래되고 복잡한 아키텍처로서 지원이 중단됩니다.
+
+정책을 '사용'으로 설정하거나 설정하지 않으면 <ph name="PRODUCT_NAME" />에서 OOPIF PDF 뷰어 아키텍처를 사용할 수 있습니다. 사용 설정하거나 설정하지 않으면 <ph name="PRODUCT_NAME" />에서 기본 동작을 결정합니다.
+
+정책을 '사용 안함'으로 설정하면 <ph name="PRODUCT_NAME" />에서 기존 GuestView PDF 뷰어를 엄격하게 사용합니다. 별도의 프레임 트리가 있는 웹페이지를 다른 웹페이지에 삽입합니다.
+
+이 정책은 M152에서 지원 중단되며 M155에서 삭제될 예정입니다. GuestView PDF 뷰어가 삭제되고 프로세스 외부 iframe(OOPIF) PDF 뷰어 아키텍처가 항상 사용됩니다.</translation>
 <translation id="9095599826504830315">탭 비교를 허용하지 않습니다.</translation>
 <translation id="9096772739225230999">네트워크 구성 보고 안함</translation>
 <translation id="9098409326885953506">가려진 창을 감지하여 색상 설정 정지</translation>

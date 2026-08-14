@@ -23,7 +23,7 @@ chromium-metrics-reviews@google.com.
 <histograms>
 
 <histogram name="PDF.Actions" enum="ChromePDFViewerActions"
-    expires_after="2026-11-01">
+    expires_after="2027-01-03">
   <owner>andyphan@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -37,7 +37,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.Caret.FirstVisible" enum="Boolean"
-    expires_after="2026-10-27">
+    expires_after="2026-12-27">
   <owner>andyphan@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -49,7 +49,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.DefaultState" enum="DefaultBrowserState"
-    expires_after="2026-11-01">
+    expires_after="2027-01-03">
   <owner>jessemckenna@google.com</owner>
   <owner>davidbienvenu@chromium.org</owner>
   <summary>
@@ -58,7 +58,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.EngineLifetime" units="ms" expires_after="2026-11-15">
+<histogram name="PDF.EngineLifetime" units="ms" expires_after="2027-01-17">
   <owner>rhalavati@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -68,7 +68,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.FirstPaintTime" units="ms" expires_after="2026-11-15">
+<histogram name="PDF.FirstPaintTime" units="ms" expires_after="2027-01-17">
   <owner>rhalavati@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -80,7 +80,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.FormType" enum="PDFFormTypes" expires_after="2026-11-15">
+<histogram name="PDF.FormType" enum="PDFFormTypes" expires_after="2027-01-17">
   <owner>dhoss@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -129,7 +129,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.InfoBar.SettingsResult" enum="PdfInfoBarSettingsResult"
-    expires_after="2026-11-01">
+    expires_after="2027-01-03">
   <owner>jessemckenna@google.com</owner>
   <owner>davidbienvenu@chromium.org</owner>
   <summary>
@@ -140,18 +140,38 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.InfoBar.Shown" enum="BooleanShown"
-    expires_after="2026-11-01">
+    expires_after="2027-01-03">
   <owner>jessemckenna@google.com</owner>
   <owner>davidbienvenu@chromium.org</owner>
   <summary>Recorded every time the PDF infobar is shown.</summary>
 </histogram>
 
 <histogram name="PDF.InfoBar.UserInteraction" enum="PDFInfoBarUserInteraction"
-    expires_after="2026-11-01">
+    expires_after="2027-01-03">
   <owner>jessemckenna@google.com</owner>
   <owner>davidbienvenu@chromium.org</owner>
   <summary>
     User interaction with the PDF infobar (e.g., accepted, ignored, dismissed).
+  </summary>
+</histogram>
+
+<histogram name="PDF.Ink2EmojiFontLoadFailed" enum="Boolean"
+    expires_after="2026-12-16">
+  <owner>andyphan@chromium.org</owner>
+  <owner>thestig@chromium.org</owner>
+  <summary>
+    Tracks emoji font load failures for Ink text annotations in the PDF viewer.
+    Recorded when an emoji font fails to load. Always records true.
+  </summary>
+</histogram>
+
+<histogram name="PDF.Ink2FontLoaded" enum="Boolean" expires_after="2026-12-16">
+  <owner>andyphan@chromium.org</owner>
+  <owner>thestig@chromium.org</owner>
+  <summary>
+    Tracks the success or failure of loading fonts for Ink text annotations in
+    the PDF viewer. Recorded when attempting to load a font. Records true on
+    success and false on failure.
   </summary>
 </histogram>
 
@@ -326,6 +346,17 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="PDF.LoadedWithInkTextAnnotations"
+    enum="PDFLoadedWithInkTextAnnotations" expires_after="2026-12-20">
+  <owner>andyphan@chromium.org</owner>
+  <owner>thestig@chromium.org</owner>
+  <summary>
+    Tracks the number of PDF documents loaded with existing Ink text annotations
+    in the PDF viewer. Records &quot;Unknown&quot; if there is a timeout failure
+    when scanning the PDF for existing Ink text annotations.
+  </summary>
+</histogram>
+
 <histogram name="PDF.LoadedWithV2InkAnnotations2"
     enum="PDFLoadedWithV2InkAnnotations" expires_after="2026-08-09">
   <owner>andyphan@chromium.org</owner>
@@ -338,7 +369,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.LoadStatus2" enum="ChromePDFViewerLoadStatus"
-    expires_after="2026-11-01">
+    expires_after="2027-01-03">
   <owner>andyphan@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -348,7 +379,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.PageCount" units="pages" expires_after="2026-11-01">
+<histogram name="PDF.PageCount" units="pages" expires_after="2027-01-03">
   <owner>andyphan@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -356,7 +387,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.PageHasText" enum="Boolean" expires_after="2026-11-15">
+<histogram name="PDF.PageHasText" enum="Boolean" expires_after="2027-01-17">
   <owner>rhalavati@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -366,7 +397,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.PostMessageDataType" enum="PDFPostMessageDataType"
-    expires_after="2026-10-25">
+    expires_after="2026-12-27">
   <owner>andyphan@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -506,7 +537,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.SearchifyAddedText" enum="Boolean"
-    expires_after="2026-11-01">
+    expires_after="2027-01-03">
   <owner>rhalavati@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -517,7 +548,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.SearchifySuccessful2" enum="Boolean"
-    expires_after="2026-11-01">
+    expires_after="2027-01-03">
   <owner>rhalavati@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>

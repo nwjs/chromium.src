@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import './icons.html.js';
+import '//resources/cr_elements/cr_button/cr_button.js';
 import '//resources/cr_elements/cr_icon/cr_icon.js';
 import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import '//resources/cr_elements/cr_lazy_render/cr_lazy_render_lit.js';
@@ -94,6 +95,8 @@ export class TopToolbarElement extends TopToolbarElementBase {
       contextualTasksEnableSpatialModelToolbarLayoutNewThreadInOverflow_:
           {type: Boolean},
       overflowMenuOpen_: {type: Boolean},
+      isSidePanelRearchitectureEnabled_: {type: Boolean},
+      webuiRoundedIconsEnabled_: {type: Boolean},
     };
   }
 
@@ -102,6 +105,8 @@ export class TopToolbarElement extends TopToolbarElementBase {
   accessor darkMode: boolean = false;
   accessor isAiPage: boolean = loadTimeData.getBoolean('isAiPage');
   accessor isAimEligible: boolean = loadTimeData.getBoolean('isAimEligible');
+  protected accessor isSidePanelRearchitectureEnabled_: boolean =
+      loadTimeData.getBoolean('contextualTasksSidePanelRearchitectureEnabled');
   accessor isUserSignedIn: boolean = true;
   accessor enableOpenInNewTabButton: boolean = false;
   accessor showReopenTabs_: boolean = false;
@@ -118,8 +123,8 @@ export class TopToolbarElement extends TopToolbarElementBase {
   protected accessor contextualTasksEnableSpatialModelToolbarLayout_: boolean =
       loadTimeData.getBoolean('contextualTasksEnableSpatialModelToolbarLayout');
   protected accessor contextualTasksEnableSpatialModelToolbarLayoutNewThreadInOverflow_:
-      boolean = loadTimeData.getBoolean(
-          'contextualTasksEnableSpatialModelToolbarLayoutNewThreadInOverflow');
+          boolean = loadTimeData.getBoolean(
+              'contextualTasksEnableSpatialModelToolbarLayoutNewThreadInOverflow');
   accessor hideOverflowMenuButton_: boolean =
       this.hideOverflowMenuOnAiPageEnabled_ && this.isAiPage;
   protected accessor isPinned: boolean =
@@ -127,6 +132,8 @@ export class TopToolbarElement extends TopToolbarElementBase {
   protected accessor contextManagementInComposeboxEnabled_: boolean =
       loadTimeData.getBoolean('contextManagementInComposeboxEnabled');
   protected accessor overflowMenuOpen_: boolean = false;
+  protected accessor webuiRoundedIconsEnabled_: boolean =
+      loadTimeData.getBoolean('webuiRoundedIconsEnabled');
 
   override connectedCallback() {
     super.connectedCallback();
@@ -163,6 +170,8 @@ export class TopToolbarElement extends TopToolbarElementBase {
     this.registerHelpBubble(
         'kContextualTasksWebUIOverflowMenuElementId',
         '#overflowMenuButton');
+    this.registerHelpBubble(
+        'kContextualTasksSuperGButtonElementId', '.top-toolbar-logo');
   }
   // </if>
 
@@ -240,6 +249,13 @@ export class TopToolbarElement extends TopToolbarElementBase {
 
   protected onReopenTabsDismissClick_() {
     this.showReopenTabs_ = false;
+  }
+
+  protected onLogoClick_() {
+    if (!this.isSidePanelRearchitectureEnabled_) {
+      return;
+    }
+    this.browserProxy_.handler.showPageInfoBubble();
   }
 }
 

@@ -791,7 +791,7 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             # Needed for interop with third-party library.
             r'^third_party/blink/renderer/core/typed_arrays/array_buffer/' +
             r'array_buffer_contents\.(cc|h)',
-            r'^third_party/blink/renderer/core/inspector/devtools_session\.h',
+            r'^third_party/blink/renderer/core/inspector/v8_session_holder\.h',
             r'^third_party/blink/renderer/core/typed_arrays/dom_array_buffer\.cc',
             '^third_party/blink/renderer/bindings/core/v8/' +
             'v8_wasm_response_extensions.cc',
@@ -1007,8 +1007,16 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             # Needed to implement Dawn wire interfaces.
             r'gpu/command_buffer/client/dawn_client_memory_transfer_service\.cc',
             r'gpu/command_buffer/client/dawn_client_memory_transfer_service\.h',
+            r'gpu/command_buffer/client/dawn_client_serializer\.cc',
+            r'gpu/command_buffer/client/dawn_client_serializer\.h',
+            r'gpu/command_buffer/client/dawn_wire_client\.cc',
             r'gpu/command_buffer/service/dawn_service_memory_transfer_service\.cc',
             r'gpu/command_buffer/service/dawn_service_memory_transfer_service\.h',
+            r'gpu/command_buffer/service/dawn_service_serializer\.cc',
+            r'gpu/command_buffer/service/dawn_service_serializer\.h',
+            r'gpu/command_buffer/service/dawn_wire_server\.cc',
+            r'third_party/blink/renderer/platform/graphics/gpu/dawn_command_serializers\.cc',
+            r'third_party/blink/renderer/platform/graphics/gpu/dawn_command_serializers\.h',
 
             # Needed to implement and use Dawn caching interfaces.
             r'gpu/command_buffer/service/dawn_caching_interface\.cc',
@@ -1829,6 +1837,14 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
         (),
     ),
     BanRule(
+        'CComBSTR',
+        ('New code should use base::ScopedBstr from base/win/scoped_bstr.h as ',
+         'a replacement for CComBSTR from ATL. See http://crbug.com/5027 for ',
+         'more details.'),
+        False,
+        (),
+    ),
+    BanRule(
         'CComPtr',
         ('New code should use Microsoft::WRL::ComPtr from wrl/client.h as a ',
          'replacement for CComPtr from ATL. See http://crbug.com/5027 for more ',
@@ -1884,6 +1900,16 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             r'^base/trace_event/.*',
             r'^base/tracing/.*',
         ),
+    ),
+    BanRule(
+        r'/\bTRACE_(COPY_)?COUNTER(_ID)?[12]\b',
+        (
+            'Please use TRACE_COUNTER macro with perfetto::CounterTrack ',
+            'instead of legacy TRACE_COUNTER1/2 macros which are not well ',
+            'supported in perfetto.',
+        ),
+        True,
+        (),
     ),
     BanRule(
         r'/\bperfetto::Track(\(|\{|::(Global|FromPointer|ThreadScoped)\b)',
@@ -1950,8 +1976,9 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
     ),
     BanRule(
         r'base::Feature k',
-        ('Please use BASE_DECLARE_FEATURE() or BASE_FEATURE() instead of ',
-         'directly declaring/defining features.'),
+        ('Please use the BASE_DECLARE_FEATURE() macro to declare features and ',
+         'the BASE_FEATURE() or BASE_RUNTIME_MUTABLE_FEATURE() macros to ',
+         'define features, rather than declaring/defining them directly.'),
         True,
         [
             # Implements BASE_DECLARE_FEATURE().
@@ -2622,8 +2649,12 @@ _GENERIC_PYDEPS_FILES = [
     'build/android/resource_sizes.pydeps',
     'build/android/test_runner.pydeps',
     'build/android/test_wrapper/logdog_wrapper.pydeps',
+    'build/fuchsia/starview/run_cuttlefish.pydeps',
+    'build/fuchsia/starview/run_cuttlefish_test.pydeps',
     'build/fuchsia/test/component_storage_test.pydeps',
     'build/protoc_java.pydeps',
+    'chrome/browser/resources/glic/glic_api_impl/generate_impl/parse.pydeps',
+    'chrome/browser/resources/glic/glic_api_impl/generate_impl/run_tsc.pydeps',
     'chrome/test/chromedriver/log_replay/client_replay_unittest.pydeps',
     'chrome/test/chromedriver/test/run_py_tests.pydeps',
     'chrome/test/media/performance/openscreen_cast_performance_test.pydeps',
@@ -2662,6 +2693,7 @@ _GENERIC_PYDEPS_FILES = [
     'tools/flags/generate_expired_list.pydeps',
     'tools/grit/grit_info.pydeps',
     'tools/grit/grit.pydeps',
+    'tools/grit/pak_util.pydeps',
     'tools/grit/preprocess_if_expr.pydeps',
     "tools/metrics/histograms/generate_allowlist_from_histograms_file.pydeps",
     'tools/perf/process_perf_results.pydeps',
@@ -3039,6 +3071,44 @@ def CheckNoDISABLETypoInTests(input_api, output_api):
     ]
 
 
+def CheckNoOzonePlatformMacrosInTests(input_api, output_api):
+    """Warns if SUPPORTS_OZONE_WAYLAND or SUPPORTS_OZONE_X11 is used in tests.
+
+    These are compile-time macros and do not reflect the runtime environment.
+    Tests should use runtime checks instead.
+    """
+
+    def FilterFile(affected_file):
+        res = input_api.FilterSourceFile(
+            affected_file,
+            files_to_check=_TEST_CODE_EXCLUDED_PATHS,
+            files_to_skip=_EXCLUDED_PATHS)
+        return res
+
+    problems = []
+    ozone_macro_pattern = input_api.re.compile(
+        r'\bBUILDFLAG\(SUPPORTS_OZONE_(WAYLAND|X11)\)')
+
+    for f in input_api.AffectedSourceFiles(FilterFile):
+        for line_num, line in f.ChangedContents():
+            if ozone_macro_pattern.search(line):
+                problems.append(f'{f.LocalPath()}:{line_num}: {line.strip()}')
+
+    if not problems:
+        return []
+
+    return [
+        output_api.PresubmitPromptWarning(
+            'Use of SUPPORTS_OZONE_WAYLAND or SUPPORTS_OZONE_X11 in '
+            'test files:\n'
+            'These macros are compile-time configurations and do not '
+            'check if the\n'
+            'test is running on Wayland or X11 at runtime. Please '
+            'use runtime checks\n'
+            'instead (e.g., checking the ozone platform).', problems)
+    ]
+
+
 def CheckForgettingMAYBEInTests(input_api, output_api):
     """Checks to make sure tests disabled conditionally are not missing a
     corresponding MAYBE_ prefix.
@@ -3144,30 +3214,6 @@ def CheckNoDEPSGIT(input_api, output_api):
                 'See https://sites.google.com/a/chromium.org/dev/developers/how-tos/'
                 'get-the-code#Rolling_DEPS\n'
                 'for more information')
-        ]
-    return []
-
-
-def CheckCrosApiNeedBrowserTest(input_api, output_api):
-    """Check new crosapi should add browser test."""
-    has_new_crosapi = False
-    has_browser_test = False
-    for f in input_api.AffectedFiles():
-        path = f.UnixLocalPath()
-        if (path.startswith('chromeos/crosapi/mojom')
-                and _IsMojomFile(input_api, path) and f.Action() == 'A'):
-            has_new_crosapi = True
-        if path.endswith('browsertest.cc') or path.endswith('browser_test.cc'):
-            has_browser_test = True
-    if has_new_crosapi and not has_browser_test:
-        return [
-            output_api.PresubmitPromptWarning(
-                'You are adding a new crosapi, but there is no file ends with '
-                'browsertest.cc file being added or modified. It is important '
-                'to add crosapi browser test coverage to avoid version '
-                ' skew issues.\n'
-                'Check //docs/lacros/test_instructions.md for more information.'
-            )
         ]
     return []
 
@@ -3942,22 +3988,6 @@ def CheckAddedDepsHaveTargetApprovals(input_api, output_api):
         return []
     if 'PRESUBMIT_SKIP_NETWORK' in input_api.environ:
         return []
-    try:
-        if (input_api.change.issue
-                and input_api.gerrit.IsOwnersOverrideApproved(
-                    input_api.change.issue)):
-            # Skip OWNERS check when Owners-Override label is approved. This is
-            # intended for global owners, trusted bots, and on-call sheriffs.
-            # Review is still required for these changes.
-            return []
-    except Exception as e:
-        return [
-            output_api.PresubmitPromptWarning(
-                'Failed to retrieve owner override status - %s' % str(e))
-        ]
-
-    # A set of paths (that might not exist) that are being added as DEPS
-    # (via lines like "+foo/bar/baz").
     depended_on_paths = set()
 
     file_filter = lambda f: not input_api.re.match(r'^third_party/blink/.*',
@@ -3998,6 +4028,21 @@ def CheckAddedDepsHaveTargetApprovals(input_api, output_api):
                     "DEPS approval by OWNERS check failed: this change has "
                     "no change number, so we can't check it for approvals.")
             ]
+
+        # Try/except because this does a network call.
+        try:
+            # Skip OWNERS check when Owners-Override label is approved. This is
+            # intended for global owners, trusted bots, and on-call sheriffs.
+            # Review is still required for these changes.
+            if input_api.gerrit.IsOwnersOverrideApproved(
+                    input_api.change.issue):
+                return []
+        except Exception as e:
+            return [
+                output_api.PresubmitPromptWarning(
+                    'Failed to retrieve owner override status - %s' % str(e))
+            ]
+
         output = output_api.PresubmitError
     else:
         output = output_api.PresubmitNotifyResult
@@ -4102,6 +4147,9 @@ def CheckSpamLogging(input_api, output_api):
             r'^components/viz/service/display/'
             r'overlay_strategy_underlay_cast\.cc$',
             r'^components/zucchini/.*',
+            # Apéritif runs prior to system and //base static initializers, so it
+            # cannot depend on base logging.
+            r'^content/app/aperitif_mac\.cc$',
             # TODO(peter): Remove exception. https://crbug.com/534537
             r'^content/browser/notifications/notification_event_dispatcher_impl\.cc$',
             r'^content/common/gpu/client/gl_helper_benchmark\.cc$',
@@ -6051,6 +6099,66 @@ def CheckFuzzTargetsOnUpload(input_api, output_api):
                                           items=files_with_missing_header,
                                           long_text=long_text)
     ]
+
+
+def CheckNewLLVMStyleFuzzersOnUpload(input_api, output_api):
+    """Nudges developers to use FUZZ_TEST instead of legacy LLVM-style fuzzers for new targets."""
+    fuzzer_targets = []
+    fuzzer_sources = []
+
+    # Regex to match fuzzer_test target definition in BUILD.gn
+    fuzzer_test_re = input_api.re.compile(r'^\s*fuzzer_test\s*\(')
+    # Regex to match LLVMFuzzerTestOneInput or
+    # DEFINE_LLVM_FUZZER_TEST_ONE_INPUT_SPAN in C++ files.
+    # TODO(crbug.com/505034799): Add LPM fuzzers once we fully support using
+    # FuzzTests with protos.
+    llvm_fuzzer_re = input_api.re.compile(
+        r'\b(LLVMFuzzerTestOneInput|'
+        r'DEFINE_LLVM_FUZZER_TEST_ONE_INPUT_SPAN)\b')
+
+    for f in input_api.AffectedFiles(include_deletes=False):
+        filename = f.LocalPath()
+        if filename.endswith('BUILD.gn'):
+            for line_num, line in f.ChangedContents():
+                if fuzzer_test_re.match(line):
+                    fuzzer_targets.append(f"{filename}:{line_num}")
+        elif filename.endswith(('.cc', '.cpp', '.h')):
+            for line_num, line in f.ChangedContents():
+                if llvm_fuzzer_re.search(line):
+                    fuzzer_sources.append(f"{filename}:{line_num}")
+
+    results = []
+    if fuzzer_targets or fuzzer_sources:
+        message = (
+            "You are adding a new LLVM Style Fuzzer (detected via "
+            "LLVMFuzzerTestOneInput, DEFINE_LLVM_FUZZER_TEST_ONE_INPUT_SPAN, "
+            "or fuzzer_test in BUILD.gn).\n\n"
+            "FuzzTest is now recommended for all new fuzzers in Chromium.\n\n"
+            "Please consider using FUZZ_TEST instead of an LLVM-style fuzzer. "
+            "FuzzTest integrates with GTest and can be written in _unittest.cc "
+            "files next to existing unit tests. They are easier to write and maintain.\n\n"
+            "See the Getting Started with FuzzTest guide for details on how to "
+            "write a FuzzTest and configure the GN build target:\n"
+            "https://chromium.googlesource.com/chromium/src/+/main/testing/libfuzzer/getting_started.md\n\n"
+            "If you need to use MojoLPM, or are modifying an existing fuzzer, "
+            "you may bypass this warning."
+        )
+        items = []
+        if fuzzer_targets:
+            items.append("GN targets:")
+            items.extend(fuzzer_targets)
+        if fuzzer_sources:
+            items.append("C++ sources:")
+            items.extend(fuzzer_sources)
+
+        results.append(
+            output_api.PresubmitPromptWarning(
+                message=message,
+                items=items
+            )
+        )
+
+    return results
 
 
 def _CheckNewImagesWarning(input_api, output_api):
@@ -8204,9 +8312,12 @@ def CheckNoBrowserStarInUnittests(input_api, output_api):
 
 
 def CheckBaseFeatureMacro(input_api, output_api):
-    """Checks for correct usage of the BASE_FEATURE macro."""
+    """Checks for correct usage of the BASE_FEATURE macros.
+
+    Matches both BASE_FEATURE and BASE_RUNTIME_MUTABLE_FEATURE.
+    """
     pattern = input_api.re.compile(
-        r'\bBASE_FEATURE\s*\(\s*([^,]+)\s*,\s*([^,)]+)')
+        r'\bBASE_(?:RUNTIME_MUTABLE_)?FEATURE\s*\(\s*([^,]+)\s*,\s*([^,)]+)')
     warnings = []
 
     for f in input_api.AffectedFiles():
@@ -8242,7 +8353,8 @@ def CheckBaseFeatureMacro(input_api, output_api):
 
             if param2.startswith('"') and param2.endswith('"'):
                 warnings.append(
-                    '    %s:%d: The 3-argument BASE_FEATURE macro with a '
+                    '    %s:%d: Use of the 3-argument BASE_FEATURE and '
+                    'BASE_RUNTIME_MUTABLE_FEATURE macros with a '
                     'string literal is discouraged. Use the 2-argument '
                     'version instead.' % (f.LocalPath(), start_line))
 

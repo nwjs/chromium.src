@@ -35,11 +35,12 @@ void InstantBrowserTestBase::SetUpOnMainThread() {
   clock_ = new base::SimpleTestClock();
 
   template_url_service_ =
-      TemplateURLServiceFactory::GetForProfile(browser()->profile());
+      TemplateURLServiceFactory::GetForProfile(browser()->GetProfile());
   search_test_utils::WaitForTemplateURLServiceToLoad(template_url_service_);
 
   SetUserSelectedDefaultSearchProvider("{google:baseURL}");
-  instant_service_ = InstantServiceFactory::GetForProfile(browser()->profile());
+  instant_service_ =
+      InstantServiceFactory::GetForProfile(browser()->GetProfile());
 }
 
 void InstantBrowserTestBase::TearDownOnMainThread() {
@@ -69,7 +70,7 @@ void InstantBrowserTestBase::SetUserSelectedDefaultSearchProvider(
 
 Profile* InstantBrowserTestBase::CreateProfile(
     const std::string& profile_name) {
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
   TemplateURLServiceFactory::GetInstance()->SetTestingFactoryAndUse(
       profile,
       base::BindRepeating(&TemplateURLServiceFactory::BuildInstanceFor));

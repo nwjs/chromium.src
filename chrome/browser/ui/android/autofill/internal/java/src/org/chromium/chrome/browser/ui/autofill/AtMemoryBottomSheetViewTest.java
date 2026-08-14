@@ -5,38 +5,65 @@
 package org.chromium.chrome.browser.ui.autofill;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import static org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.VISIBLE;
 
 import android.content.Context;
 import android.view.ContextThemeWrapper;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.TextView;
 
 import androidx.constraintlayout.helper.widget.Flow;
+import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.core.app.ApplicationProvider;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.shadows.ShadowLooper;
 
+import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.FlyoutProperties;
+import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.HomeProperties;
+import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.ScreenId;
+import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.SuggestionItemProperties;
 import org.chromium.chrome.browser.ui.autofill.internal.R;
 import org.chromium.components.autofill.AutofillSuggestion;
+import org.chromium.components.autofill.SuggestionType;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent.HeightMode;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.widget.chips.ChipView;
+import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
+import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /** Unit tests for {@link AtMemoryBottomSheetView}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @NullMarked
 public class AtMemoryBottomSheetViewTest {
+    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
+
+    @Mock private Runnable mMockBackClickListener;
+    @Mock private Callback<Integer> mMockSuggestionClickListener;
+    @Mock private BottomSheetController mBottomSheetController;
 
     private Context mContext;
     private AtMemoryBottomSheetView mView;
@@ -47,6 +74,7 @@ public class AtMemoryBottomSheetViewTest {
                 new ContextThemeWrapper(
                         ApplicationProvider.getApplicationContext(),
                         R.style.Theme_BrowserUI_DayNight);
+
         mView = new AtMemoryBottomSheetView(mContext);
     }
 
@@ -54,14 +82,16 @@ public class AtMemoryBottomSheetViewTest {
     public void testSearchAreaGainsFocusWhenVisible() {
         PropertyModel model =
                 new PropertyModel.Builder(AtMemoryBottomSheetProperties.ALL_KEYS)
-                        .with(AtMemoryBottomSheetProperties.VISIBLE, true)
+                        .with(VISIBLE, true)
                         .build();
-        AtMemoryBottomSheetViewBinder.bind(model, mView, AtMemoryBottomSheetProperties.VISIBLE);
+        PropertyModelChangeProcessor.create(
+                model, mView, AtMemoryBottomSheetViewBinder::bindAtMemoryBottomSheetView);
 
         View contentView = mView.getContentView();
         View searchView = contentView.findViewById(R.id.search_query_input);
         assertNotNull(searchView);
         assertTrue(searchView.hasFocus());
+        assertTrue(mView.searchHasFocus());
     }
 
     @Test
@@ -73,9 +103,10 @@ public class AtMemoryBottomSheetViewTest {
 
         PropertyModel model =
                 new PropertyModel.Builder(AtMemoryBottomSheetProperties.ALL_KEYS)
-                        .with(AtMemoryBottomSheetProperties.VISIBLE, true)
+                        .with(VISIBLE, true)
                         .build();
-        AtMemoryBottomSheetViewBinder.bind(model, mView, AtMemoryBottomSheetProperties.VISIBLE);
+        PropertyModelChangeProcessor.create(
+                model, mView, AtMemoryBottomSheetViewBinder::bindAtMemoryBottomSheetView);
 
         assertEquals("", searchView.getText().toString());
     }
@@ -87,18 +118,31 @@ public class AtMemoryBottomSheetViewTest {
                         new AutofillSuggestion.Builder()
                                 .setLabel("Label 1")
                                 .setSubLabel("Sublabel 1")
+                                .setSuggestionType(SuggestionType.AT_MEMORY_SEARCH_RESULT)
                                 .build(),
                         new AutofillSuggestion.Builder()
                                 .setLabel("Label 2")
                                 .setSubLabel("")
+                                .setSuggestionType(SuggestionType.AT_MEMORY_SEARCH_RESULT)
                                 .build());
 
         PropertyModel model =
-                new PropertyModel.Builder(AtMemoryBottomSheetProperties.ALL_KEYS)
-                        .with(AtMemoryBottomSheetProperties.FLYOUT_SUGGESTIONS, suggestions)
+                new PropertyModel.Builder(FlyoutProperties.ALL_KEYS)
+                        .with(FlyoutProperties.TITLE, "Flyout Title")
+                        .with(FlyoutProperties.SUGGESTIONS, suggestions)
                         .build();
-        AtMemoryBottomSheetViewBinder.bind(
-                model, mView, AtMemoryBottomSheetProperties.FLYOUT_SUGGESTIONS);
+        PropertyModelChangeProcessor.create(
+                model,
+                mView.getFlyoutView(),
+                AtMemoryBottomSheetViewBinder::bindAtMemoryFlyoutView);
+
+        TextView titleText = mView.getContentView().findViewById(R.id.flyout_title);
+        assertEquals("Flyout Title", titleText.getText().toString());
+
+        TextView sourceText = mView.getContentView().findViewById(R.id.flyout_source_text);
+        assertEquals(
+                mContext.getString(R.string.autofill_at_memory_suggestion_source_text),
+                sourceText.getText().toString());
 
         ViewGroup chipsContainer = mView.getContentView().findViewById(R.id.flyout_chips_container);
         assertNotNull(chipsContainer);
@@ -127,42 +171,167 @@ public class AtMemoryBottomSheetViewTest {
     }
 
     @Test
-    public void testNoticeVisibleProperty() {
-        View contentView = mView.getContentView();
-        View noticeContainer = contentView.findViewById(R.id.notice_container);
-        assertNotNull(noticeContainer);
+    public void testNoticeItemViewBinding() {
+        View noticeView =
+                android.view.LayoutInflater.from(mContext)
+                        .inflate(R.layout.at_memory_bottom_sheet_notice_item, null);
 
+        Runnable okClicked = mock(Runnable.class);
+        Runnable settingsClicked = mock(Runnable.class);
         PropertyModel model =
-                new PropertyModel.Builder(AtMemoryBottomSheetProperties.ALL_KEYS)
-                        .with(AtMemoryBottomSheetProperties.IS_NOTICE_VISIBLE, true)
+                new PropertyModel.Builder(
+                                AtMemoryBottomSheetProperties.NoticeItemProperties.ALL_KEYS)
+                        .with(
+                                AtMemoryBottomSheetProperties.NoticeItemProperties.ON_OK_CLICKED,
+                                okClicked)
+                        .with(
+                                AtMemoryBottomSheetProperties.NoticeItemProperties
+                                        .ON_SETTINGS_CLICKED,
+                                settingsClicked)
                         .build();
-        AtMemoryBottomSheetViewBinder.bind(
-                model, mView, AtMemoryBottomSheetProperties.IS_NOTICE_VISIBLE);
 
-        assertEquals(View.VISIBLE, noticeContainer.getVisibility());
+        PropertyModelChangeProcessor.create(
+                model,
+                (AtMemoryBottomSheetNoticeView) noticeView,
+                AtMemoryBottomSheetViewBinder::bindNoticeItemView);
 
-        model.set(AtMemoryBottomSheetProperties.IS_NOTICE_VISIBLE, false);
-        AtMemoryBottomSheetViewBinder.bind(
-                model, mView, AtMemoryBottomSheetProperties.IS_NOTICE_VISIBLE);
-
-        assertEquals(View.GONE, noticeContainer.getVisibility());
+        View noticeOkButton = noticeView.findViewById(R.id.notice_ok_button);
+        assertNotNull(noticeOkButton);
+        noticeOkButton.performClick();
+        verify(okClicked).run();
     }
 
     @Test
-    public void testNoticeOkClickListenerProperty() {
-        View contentView = mView.getContentView();
-        View noticeOkButton = contentView.findViewById(R.id.notice_ok_button);
-        assertNotNull(noticeOkButton);
-
-        Runnable clicked = mock(Runnable.class);
+    public void testFlyoutBackClickNotifiesCallback() {
         PropertyModel model =
-                new PropertyModel.Builder(AtMemoryBottomSheetProperties.ALL_KEYS)
-                        .with(AtMemoryBottomSheetProperties.NOTICE_OK_CLICK_LISTENER, clicked)
+                new PropertyModel.Builder(FlyoutProperties.ALL_KEYS)
+                        .with(FlyoutProperties.ON_BACK_CLICKED, mMockBackClickListener)
                         .build();
-        AtMemoryBottomSheetViewBinder.bind(
-                model, mView, AtMemoryBottomSheetProperties.NOTICE_OK_CLICK_LISTENER);
+        PropertyModelChangeProcessor.create(
+                model,
+                mView.getFlyoutView(),
+                AtMemoryBottomSheetViewBinder::bindAtMemoryFlyoutView);
 
-        noticeOkButton.performClick();
-        verify(clicked).run();
+        View backButton = mView.getContentView().findViewById(R.id.flyout_back_button);
+        backButton.performClick();
+
+        verify(mMockBackClickListener).run();
+    }
+
+    @Test
+    public void testFlyoutManageClickNotifiesCallback() {
+        AutofillSuggestion manageSuggestion =
+                new AutofillSuggestion.Builder()
+                        .setLabel("Manage information")
+                        .setSubLabel("")
+                        .setSuggestionType(SuggestionType.MANAGE_AUTOFILL_AI)
+                        .setIconId(R.drawable.ic_chrome)
+                        .build();
+        PropertyModel model =
+                new PropertyModel.Builder(FlyoutProperties.ALL_KEYS)
+                        .with(FlyoutProperties.SUGGESTIONS, List.of(manageSuggestion))
+                        .with(FlyoutProperties.ON_SUGGESTION_CLICKED, mMockSuggestionClickListener)
+                        .build();
+        PropertyModelChangeProcessor.create(
+                model,
+                mView.getFlyoutView(),
+                AtMemoryBottomSheetViewBinder::bindAtMemoryFlyoutView);
+
+        View manageButton = mView.getContentView().findViewById(R.id.flyout_manage_button);
+        assertEquals(View.VISIBLE, manageButton.getVisibility());
+        manageButton.performClick();
+
+        verify(mMockSuggestionClickListener).onResult(0);
+    }
+
+    @Test
+    public void testFlyoutSuggestionClickNotifiesCallback() {
+        AutofillSuggestion suggestion =
+                new AutofillSuggestion.Builder()
+                        .setLabel("Label 1")
+                        .setSubLabel("")
+                        .setSuggestionType(SuggestionType.AT_MEMORY_SEARCH_RESULT)
+                        .build();
+
+        PropertyModel model =
+                new PropertyModel.Builder(FlyoutProperties.ALL_KEYS)
+                        .with(FlyoutProperties.SUGGESTIONS, List.of(suggestion))
+                        .with(FlyoutProperties.ON_SUGGESTION_CLICKED, mMockSuggestionClickListener)
+                        .build();
+        PropertyModelChangeProcessor.create(
+                model,
+                mView.getFlyoutView(),
+                AtMemoryBottomSheetViewBinder::bindAtMemoryFlyoutView);
+
+        ViewGroup chipsContainer = mView.getContentView().findViewById(R.id.flyout_chips_container);
+        ChipView chip = getChipViews(chipsContainer).get(0);
+        chip.performClick();
+
+        verify(mMockSuggestionClickListener).onResult(0);
+    }
+
+    @Test
+    public void testHeightRatiosWhenSearchHasFocus() {
+        when(mBottomSheetController.getContainerHeight()).thenReturn(1000);
+
+        AtMemoryBottomSheetContent content =
+                new AtMemoryBottomSheetContent(mView, mBottomSheetController);
+
+        assertTrue(content.getHalfHeightRatio() > 0.0f && content.getHalfHeightRatio() <= 0.5f);
+        assertEquals(1.0f, content.getFullHeightRatio(), 0.01f);
+
+        EditText searchView = mView.getContentView().findViewById(R.id.search_query_input);
+        searchView.requestFocus();
+
+        assertTrue(mView.searchHasFocus());
+        assertEquals(1.0f, content.getFullHeightRatio(), 0.01f);
+        assertEquals(HeightMode.DISABLED, content.getHalfHeightRatio(), 0.01f);
+    }
+
+    @Test
+    public void testHeightRatiosOnFlyoutScreen() {
+        when(mBottomSheetController.getContainerHeight()).thenReturn(1000);
+
+        AtMemoryBottomSheetContent content =
+                new AtMemoryBottomSheetContent(mView, mBottomSheetController);
+
+        mView.setCurrentScreen(ScreenId.FLYOUT_SCREEN);
+
+        assertTrue(content.getHalfHeightRatio() > 0.0f && content.getHalfHeightRatio() <= 0.5f);
+        assertEquals(1.0f, content.getFullHeightRatio(), 0.01f);
+    }
+
+    @Test
+    public void testSuggestionWithDeactivatedStyle() {
+        ModelList modelList = new ModelList();
+        PropertyModel suggestionModel =
+                new PropertyModel.Builder(SuggestionItemProperties.ALL_KEYS)
+                        .with(SuggestionItemProperties.TITLE, "Couldn't find this info")
+                        .with(SuggestionItemProperties.APPLY_DEACTIVATED_STYLE, true)
+                        .build();
+
+        modelList.add(new ListItem(HomeProperties.ItemType.SUGGESTION, suggestionModel));
+        AtMemoryHomeView homeView = mView.getHomeView();
+        homeView.setUpSheetItems(modelList);
+
+        ShadowLooper.idleMainLooper();
+
+        RecyclerView recyclerView = homeView.findViewById(R.id.suggestions_view);
+        recyclerView.layout(0, 0, 100, 1000);
+        AtMemoryBottomSheetSuggestionView suggestionView =
+                (AtMemoryBottomSheetSuggestionView) recyclerView.getChildAt(0);
+
+        assertFalse(suggestionView.isEnabled());
+    }
+
+    private List<ChipView> getChipViews(ViewGroup viewGroup) {
+        List<ChipView> chips = new ArrayList<>();
+        for (int i = 0; i < viewGroup.getChildCount(); i++) {
+            View child = viewGroup.getChildAt(i);
+            if (child instanceof ChipView) {
+                chips.add((ChipView) child);
+            }
+        }
+        return chips;
     }
 }

@@ -272,13 +272,13 @@ public class OptionalButtonViewTest {
                 mButton.getTooltipText(),
                 mActivity.getResources().getString(R.string.button_new_tab));
 
-        // Test whether reader mode tooltip Text is null.
+        // Test whether reader mode tooltip text falls back to the content description.
         buttonData = getDataForTestingTooltipText(AdaptiveToolbarButtonVariant.READER_MODE, 0);
         mOptionalButtonView.updateButtonWithAnimation(buttonData);
         assertEquals(
                 "Tooltip text for reader mode button is not as expected",
-                mButton.getTooltipText(),
-                null);
+                mActivity.getString(R.string.actionbar_share),
+                mButton.getTooltipText());
     }
 
     @Test
@@ -1530,5 +1530,42 @@ public class OptionalButtonViewTest {
         // but must end the transition and update the button.
         mOptionalButtonView.updateButtonWithAnimation(buttonData);
         assertEquals(View.VISIBLE, mOptionalButtonView.getVisibility());
+    }
+
+    @Test
+    public void testHasOverlappingRendering_returnsFalse() {
+        assertFalse(mOptionalButtonView.hasOverlappingRendering());
+    }
+
+    @Test
+    public void testSetLayerType_zeroDimensions_coercesHardwareLayerToNone() {
+        mOptionalButtonView.layout(/* l= */ 0, /* t= */ 0, /* r= */ 0, /* b= */ 0);
+        assertEquals(0, mOptionalButtonView.getWidth());
+        assertEquals(0, mOptionalButtonView.getHeight());
+
+        mOptionalButtonView.setLayerType(View.LAYER_TYPE_HARDWARE, /* paint= */ null);
+        assertEquals(View.LAYER_TYPE_NONE, mOptionalButtonView.getLayerType());
+    }
+
+    @Test
+    public void testSetLayerType_positiveDimensions_preservesHardwareLayer() {
+        mOptionalButtonView.layout(/* l= */ 0, /* t= */ 0, /* r= */ 100, /* b= */ 100);
+        assertEquals(100, mOptionalButtonView.getWidth());
+        assertEquals(100, mOptionalButtonView.getHeight());
+
+        mOptionalButtonView.setLayerType(View.LAYER_TYPE_HARDWARE, /* paint= */ null);
+        assertEquals(View.LAYER_TYPE_HARDWARE, mOptionalButtonView.getLayerType());
+    }
+
+    @Test
+    public void testOnLayout_zeroDimensions_resetsHardwareLayerToNone() {
+        mOptionalButtonView.layout(/* l= */ 0, /* t= */ 0, /* r= */ 100, /* b= */ 100);
+        mOptionalButtonView.setLayerType(View.LAYER_TYPE_HARDWARE, /* paint= */ null);
+        assertEquals(View.LAYER_TYPE_HARDWARE, mOptionalButtonView.getLayerType());
+
+        mOptionalButtonView.layout(/* l= */ 0, /* t= */ 0, /* r= */ 0, /* b= */ 0);
+        assertEquals(0, mOptionalButtonView.getWidth());
+        assertEquals(0, mOptionalButtonView.getHeight());
+        assertEquals(View.LAYER_TYPE_NONE, mOptionalButtonView.getLayerType());
     }
 }

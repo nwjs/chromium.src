@@ -32,7 +32,6 @@
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/sync/sync_startup_tracker.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/webui/signin/history_sync_optin_helper.h"
@@ -200,7 +199,7 @@ TurnSyncOnHelper::TurnSyncOnHelper(
 
 TurnSyncOnHelper::TurnSyncOnHelper(
     Profile* profile,
-    Browser* browser,
+    BrowserWindowInterface* browser,
     signin_metrics::AccessPoint signin_access_point,
     signin_metrics::PromoAction signin_promo_action,
     const CoreAccountId& account_id,
@@ -389,7 +388,7 @@ void TurnSyncOnHelper::LoadPolicyWithCachedCredentials() {
 
 void TurnSyncOnHelper::CreateNewSignedInProfile() {
   // Use the same the default search engine in the new profile.
-  search_engines::ChoiceData search_engine_choice_data =
+  std::optional<search_engines::ChoiceData> search_engine_choice_data =
       SearchEngineChoiceDialogService::GetChoiceDataFromProfile(*profile_);
 
   base::OnceCallback<void(Profile*)> profile_created_callback = base::BindOnce(
@@ -412,7 +411,7 @@ syncer::SyncService* TurnSyncOnHelper::GetSyncService() {
 }
 
 void TurnSyncOnHelper::OnNewSignedInProfileCreated(
-    search_engines::ChoiceData search_engine_choice_data,
+    std::optional<search_engines::ChoiceData> search_engine_choice_data,
     Profile* new_profile) {
   DCHECK(dice_signed_in_profile_creator_);
   dice_signed_in_profile_creator_.reset();

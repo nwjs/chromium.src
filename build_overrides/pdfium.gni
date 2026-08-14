@@ -5,7 +5,7 @@
 import("//base/allocator/partition_allocator/partition_alloc.gni")
 
 # Enable usage of the /BrotliDecode filter in PDFs.
-pdf_enable_brotli_override = false
+pdf_enable_brotli_override = true
 
 # Enable use of Javascript in PDFs.
 pdf_enable_v8_override = true
@@ -31,6 +31,9 @@ pdf_skia_font_manager_target_override = ""
 # Disallow PDFium Fontations support.
 # TODO(crbug.com/pdfium/2107): Enable this.
 pdf_enable_fontations_override = false
+
+# Disable Rust-based BMP decoder in PDFium.
+pdf_enable_rust_bmp_override = false
 
 # Enable Rust-based PNG decoder and encoder in PDFium.
 pdf_enable_rust_png_override = true

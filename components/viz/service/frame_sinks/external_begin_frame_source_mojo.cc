@@ -6,6 +6,8 @@
 
 #include <utility>
 
+#include "base/check_is_test.h"
+#include "base/notreached.h"
 #include "components/viz/service/frame_sinks/frame_sink_manager_impl.h"
 #include "mojo/public/cpp/bindings/message.h"
 
@@ -17,11 +19,13 @@ ExternalBeginFrameSourceMojo::ExternalBeginFrameSourceMojo(
         controller_receiver,
     mojo::PendingAssociatedRemote<mojom::ExternalBeginFrameControllerClient>
         controller_client_remote,
-    uint32_t restart_id)
+    uint32_t restart_id,
+    bool wait_for_all_frame_sinks)
     : ExternalBeginFrameSource(this, restart_id),
       frame_sink_manager_(frame_sink_manager),
       receiver_(this, std::move(controller_receiver)),
-      remote_client_(std::move(controller_client_remote)) {
+      remote_client_(std::move(controller_client_remote)),
+      wait_for_all_frame_sinks_(wait_for_all_frame_sinks) {
   frame_sink_manager_->AddObserver(this);
 }
 
@@ -32,9 +36,9 @@ ExternalBeginFrameSourceMojo::~ExternalBeginFrameSourceMojo() {
 
 void ExternalBeginFrameSourceMojo::IssueExternalBeginFrame(
     const BeginFrameArgs& args,
-    bool force,
     base::OnceCallback<void(const BeginFrameAck&)> callback) {
-  if (pending_frame_callback_ || !pending_frame_sinks_.empty()) {
+  if (pending_frame_callback_ ||
+      (wait_for_all_frame_sinks_ && !pending_frame_sinks_.empty())) {
     mojo::ReportBadMessage("Got overlapping IssueExternalBeginFrame");
     return;
   }
@@ -44,13 +48,14 @@ void ExternalBeginFrameSourceMojo::IssueExternalBeginFrame(
 
   pending_frame_callback_ = std::move(callback);
 
-  // When not forcing a frame, wait for it to occur when sinks needs a frame.
-  if (!force)
+  if (!display_) {
+    CHECK_IS_TEST();
     return;
-  // Ensure that Display will receive the BeginFrame (as a missed one), even
-  // if it doesn't currently need it. This way, we ensure that
-  // OnDisplayDidFinishFrame will be called for this BeginFrame.
-  CHECK(display_);
+  }
+
+  // Ensure that Display will receive the BeginFrame (as a missed one), even if
+  // it doesn't currently need it. This way, we ensure that
+  // `OnDisplayDidFinishFrame()` will be called for this BeginFrame.
   display_->SetNeedsOneBeginFrame(args);
   MaybeProduceFrameCallback();
 }
@@ -136,10 +141,20 @@ void ExternalBeginFrameSourceMojo::DispatchFrameCallback(
 }
 
 void ExternalBeginFrameSourceMojo::OnDisplayDidFinishFrame(
-    const BeginFrameAck& ack) {
+    const BeginFrameId& frame_id,
+    DisplaySchedulerDrawResult result) {
   if (!pending_frame_callback_)
     return;
-  if (!pending_frame_sinks_.empty()) {
+
+  if (result == DisplaySchedulerDrawResult::kDrawnLate ||
+      result == DisplaySchedulerDrawResult::kMayDrawLate) {
+    NOTREACHED();
+  }
+
+  bool has_damage = (result == DisplaySchedulerDrawResult::kDrawn);
+  BeginFrameAck ack(frame_id.source_id, frame_id.sequence_number, has_damage);
+
+  if (wait_for_all_frame_sinks_ && !pending_frame_sinks_.empty()) {
     CHECK(!pending_ack_);
     pending_ack_ = ack;
     return;

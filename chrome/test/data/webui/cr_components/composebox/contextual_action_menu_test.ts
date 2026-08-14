@@ -99,6 +99,129 @@ suite('ContextualActionMenu', () => {
   });
 
   test(
+      'Drop shadows on plus menu and flyout match and use elevation 3',
+      async () => {
+        actionMenu.remove();
+        actionMenu =
+            document.createElement('cr-composebox-contextual-action-menu');
+        actionMenu.contextManagementInComposeboxEnabled = true;
+        const tabInfo = createTabSuggestion({
+          tabId: 101,
+          title: 'Shadow Verification Tab',
+          url: 'about:blank/1',
+        });
+        actionMenu.tabSuggestions = [tabInfo];
+        actionMenu.inputState = new MockInputState({
+          allowedInputTypes: [InputType.kBrowserTab],
+        });
+        document.body.appendChild(actionMenu);
+        await microtasksFinished();
+
+        actionMenu.showAt(actionMenu);
+        await microtasksFinished();
+        assertTrue(actionMenu.$.menu.open);
+
+        // Verify plus menu drop shadow is elevation 3.
+        const expectedElevation3 =
+            window.getComputedStyle(document.documentElement)
+                .getPropertyValue('--cr-elevation-3')
+                .trim();
+        const menuShadowVariable = window.getComputedStyle(actionMenu.$.menu)
+                                       .getPropertyValue('--cr-menu-shadow')
+                                       .trim();
+        assertEquals(expectedElevation3, menuShadowVariable);
+
+        const menuDialog = actionMenu.$.menu.getDialog();
+        const menuShadow = window.getComputedStyle(menuDialog).boxShadow;
+        assertTrue(!!menuShadow && menuShadow !== 'none');
+
+        // Hover over Share Tabs to open flyout.
+        const trigger = $$(actionMenu, '#shareTabsTrigger') as HTMLElement;
+        assertTrue(!!trigger);
+        trigger.dispatchEvent(new PointerEvent('pointerenter'));
+        await microtasksFinished();
+
+        // Verify flyout drop shadow matches plus menu drop shadow.
+        const flyout = $$(actionMenu, '.share-tabs-flyout') as HTMLElement;
+        assertTrue(!!flyout);
+        assertFalse(flyout.hidden);
+
+        const flyoutShadow = window.getComputedStyle(flyout).boxShadow;
+        assertEquals(menuShadow, flyoutShadow);
+
+        actionMenu.$.menu.close();
+        await microtasksFinished();
+      });
+
+  test(
+      'Flyout scroll position retained when collapsing flyout, but reset when entire menu closes',
+      async () => {
+        actionMenu.remove();
+        actionMenu =
+            document.createElement('cr-composebox-contextual-action-menu');
+        actionMenu.contextManagementInComposeboxEnabled = true;
+        const tabSuggestions: TabInfo[] = [];
+        for (let i = 0; i < 15; i++) {
+          tabSuggestions.push(createTabSuggestion({
+            tabId: 100 + i,
+            title: `Tab ${i}`,
+            url: `about:blank/${i}`,
+          }));
+        }
+        actionMenu.tabSuggestions = tabSuggestions;
+        actionMenu.inputState = new MockInputState({
+          allowedInputTypes: [InputType.kBrowserTab],
+        });
+        document.body.appendChild(actionMenu);
+        await microtasksFinished();
+
+        actionMenu.showAt(actionMenu);
+        await microtasksFinished();
+        assertTrue(actionMenu.$.menu.open);
+
+        const trigger = $$(actionMenu, '#shareTabsTrigger') as HTMLElement;
+        assertTrue(!!trigger);
+        trigger.dispatchEvent(new PointerEvent('pointerenter'));
+        await microtasksFinished();
+
+        const flyout = $$(actionMenu, '.share-tabs-flyout') as HTMLElement;
+        assertTrue(!!flyout);
+        assertFalse(flyout.hidden);
+
+        flyout.scrollTop = 120;
+        assertEquals(120, flyout.scrollTop);
+
+        // Collapse flyout while main menu remains open.
+        trigger.dispatchEvent(new PointerEvent('pointerleave'));
+        asInternal(actionMenu).scheduleCloseTimer_();
+        await microtasksFinished();
+
+        // Reopen flyout and verify scroll position is retained.
+        trigger.dispatchEvent(new PointerEvent('pointerenter'));
+        await microtasksFinished();
+        assertFalse(flyout.hidden);
+        assertEquals(120, flyout.scrollTop);
+
+        // Close entire menu.
+        actionMenu.$.menu.close();
+        await microtasksFinished();
+        assertFalse(actionMenu.$.menu.open);
+
+        // Reopen entire menu and verify flyout scroll position is reset to 0.
+        actionMenu.showAt(actionMenu);
+        await microtasksFinished();
+        assertTrue(actionMenu.$.menu.open);
+
+        trigger.dispatchEvent(new PointerEvent('pointerenter'));
+        await microtasksFinished();
+        assertFalse(flyout.hidden);
+        assertEquals(0, flyout.scrollTop);
+
+        actionMenu.$.menu.close();
+        await microtasksFinished();
+      });
+
+  test(
       'No tabs or tab header displayed when there are no tab suggestions',
       async () => {
         // Arrange & Act.
@@ -1717,9 +1840,8 @@ suite('ContextualActionMenu', () => {
     actionMenu.showAt(actionMenu);
     await microtasksFinished();
 
-    const trigger = $$(actionMenu, '#shareTabsTrigger') as HTMLElement;
-    trigger.dispatchEvent(new PointerEvent('pointerenter'));
-    await microtasksFinished();
+    actionMenu.shareTabsFlyoutOpen = true;
+    await actionMenu.updateComplete;
 
     const suffix = $$(actionMenu, '.recent-tabs-suffix');
     assertTrue(isVisible(suffix));
@@ -1753,12 +1875,12 @@ suite('ContextualActionMenu', () => {
     assertTrue(!!trigger);
     assertTrue(trigger.disabled);
 
-    // Hovering should open the flyout.
+    // Hovering should not open the flyout.
     trigger.dispatchEvent(new PointerEvent('pointerenter'));
     await microtasksFinished();
 
     const flyout = $$(actionMenu, '.share-tabs-flyout') as HTMLElement;
-    assertFalse(flyout.hidden);
+    assertTrue(flyout.hidden);
   });
 
   test(

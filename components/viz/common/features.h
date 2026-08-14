@@ -10,6 +10,7 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/viz/common/viz_common_export.h"
 
@@ -81,7 +82,6 @@ VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kUseSkiaOutputDeviceBufferQueue);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kWebRtcLogCapturePipeline);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kWebViewVulkanIntermediateBuffer);
 #if BUILDFLAG(IS_ANDROID)
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kUseSurfaceLayerForVideoDefault);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kWebViewEnableADPF);
 VIZ_COMMON_EXPORT extern const base::FeatureParam<std::string>
     kWebViewADPFSocManufacturerAllowlist;
@@ -119,17 +119,10 @@ VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAllowMultipleSwapsPerVsync);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kUseAndroidCustomFrameDeadlines);
 VIZ_COMMON_EXPORT extern const base::FeatureParam<int>
     kAndroidCustomFrameDeadlinePresentationOffset;
-
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kDeriveVSyncIntervalFromFrameTimelines);
-enum class DeriveVSyncIntervalFromFrameTimelinesMode {
-  kAlwaysDerive,
-  kDeriveIfLonger,
-};
-VIZ_COMMON_EXPORT extern const base::FeatureParam<
-    DeriveVSyncIntervalFromFrameTimelinesMode>
-    kDeriveVSyncIntervalFromFrameTimelinesModeParam;
-VIZ_COMMON_EXPORT extern const base::FeatureParam<double>
-    kDeriveVSyncIntervalFromFrameTimelinesSnapToleranceParam;
+VIZ_COMMON_EXPORT extern const base::FeatureParam<base::TimeDelta>
+    kAndroidCustomFrameDeadlineMaxNonInteractiveIdleDuration;
+VIZ_COMMON_EXPORT extern const base::FeatureParam<base::TimeDelta>
+    kAndroidCustomFrameDeadlineMaxInteractionIdleDuration;
 #endif
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kUseDisplaySDRMaxLuminanceNits);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kHideDelegatedFrameHostMac);
@@ -171,7 +164,6 @@ VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kDisplaySchedulerAsClient);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kFlingSchedulingImprovements);
 
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kRpdqFilterLookupOptimizations);
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kSharedMemoryVFPoolUseCorrectColorSpace);
 
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kBypassOutdatedSurfaceActivation);
 
@@ -188,8 +180,6 @@ VIZ_COMMON_EXPORT bool ShouldRemoveRedirectionBitmap();
 VIZ_COMMON_EXPORT bool IsUsingVizFrameSubmissionForWebView();
 VIZ_COMMON_EXPORT bool IsUsingPreferredIntervalForVideo();
 VIZ_COMMON_EXPORT bool ShouldWebRtcLogCapturePipeline();
-VIZ_COMMON_EXPORT bool UseWebViewNewInvalidateHeuristic();
-VIZ_COMMON_EXPORT bool UseSurfaceLayerForVideo();
 VIZ_COMMON_EXPORT int MaxOverlaysConsidered();
 VIZ_COMMON_EXPORT bool ShouldOnBeginFrameThrottleVideo();
 VIZ_COMMON_EXPORT bool IsVSyncAlignedForScrolling();

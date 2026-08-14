@@ -48,6 +48,7 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/page.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/service_worker_context.h"
@@ -149,7 +150,7 @@ class ChromeServiceWorkerTest : public InProcessBrowserTest {
 
   content::ServiceWorkerContext* GetServiceWorkerContext() {
     return browser()
-        ->profile()
+        ->GetProfile()
         ->GetDefaultStoragePartition()
         ->GetServiceWorkerContext();
   }
@@ -169,7 +170,7 @@ class ChromeServiceWorkerTest : public InProcessBrowserTest {
     GetServiceWorkerContext()->StopAllServiceWorkersForStorageKey(
         blink::StorageKey::CreateFirstParty(
             url::Origin::Create(embedded_test_server()->base_url())));
-    HostContentSettingsMapFactory::GetForProfile(browser()->profile())
+    HostContentSettingsMapFactory::GetForProfile(browser()->GetProfile())
         ->SetDefaultContentSetting(ContentSettingsType::JAVASCRIPT,
                                    CONTENT_SETTING_BLOCK);
 
@@ -238,6 +239,7 @@ IN_PROC_BROWSER_TEST_F(ChromeServiceWorkerTest,
       blink::StorageKey::CreateFirstParty(url::Origin::Create(options.scope));
   GetServiceWorkerContext()->RegisterServiceWorker(
       embedded_test_server()->GetURL("/service_worker.js"), key, options,
+      content::GlobalRenderFrameHostId(),
       base::BindOnce(&ExpectResultAndRun<blink::ServiceWorkerStatusCode>,
                      blink::ServiceWorkerStatusCode::kOk,
                      run_loop.QuitClosure()));
@@ -268,6 +270,7 @@ IN_PROC_BROWSER_TEST_F(ChromeServiceWorkerTest,
       blink::StorageKey::CreateFirstParty(url::Origin::Create(options.scope));
   GetServiceWorkerContext()->RegisterServiceWorker(
       embedded_test_server()->GetURL("/service_worker.js"), key, options,
+      content::GlobalRenderFrameHostId(),
       base::BindOnce(&ExpectResultAndRun<blink::ServiceWorkerStatusCode>,
                      blink::ServiceWorkerStatusCode::kOk,
                      run_loop.QuitClosure()));
@@ -286,7 +289,7 @@ IN_PROC_BROWSER_TEST_F(ChromeServiceWorkerTest,
   WriteFile(FILE_PATH_LITERAL("service_worker.js"), "");
   InitializeServer();
 
-  HostContentSettingsMapFactory::GetForProfile(browser()->profile())
+  HostContentSettingsMapFactory::GetForProfile(browser()->GetProfile())
       ->SetDefaultContentSetting(ContentSettingsType::JAVASCRIPT,
                                  CONTENT_SETTING_BLOCK);
 
@@ -298,6 +301,7 @@ IN_PROC_BROWSER_TEST_F(ChromeServiceWorkerTest,
       blink::StorageKey::CreateFirstParty(url::Origin::Create(options.scope));
   GetServiceWorkerContext()->RegisterServiceWorker(
       embedded_test_server()->GetURL("/service_worker.js"), key, options,
+      content::GlobalRenderFrameHostId(),
       base::BindOnce(&ExpectResultAndRun<blink::ServiceWorkerStatusCode>,
                      blink::ServiceWorkerStatusCode::kErrorDisallowed,
                      run_loop.QuitClosure()));
@@ -996,6 +1000,7 @@ IN_PROC_BROWSER_TEST_F(ChromeServiceWorkerNavigationHintTest,
       blink::StorageKey::CreateFirstParty(url::Origin::Create(options.scope));
   GetServiceWorkerContext()->RegisterServiceWorker(
       embedded_test_server()->GetURL("/sw.js"), key, options,
+      content::GlobalRenderFrameHostId(),
       base::BindOnce(&ExpectResultAndRun<blink::ServiceWorkerStatusCode>,
                      blink::ServiceWorkerStatusCode::kOk,
                      run_loop.QuitClosure()));
@@ -1107,7 +1112,7 @@ class ChromeServiceWorkerNavigationPreloadTest : public InProcessBrowserTest {
 IN_PROC_BROWSER_TEST_F(ChromeServiceWorkerNavigationPreloadTest,
                        TopFrameWithThirdPartyBlocking) {
   // Enable third-party cookie blocking.
-  browser()->profile()->GetPrefs()->SetInteger(
+  browser()->GetProfile()->GetPrefs()->SetInteger(
       prefs::kCookieControlsMode,
       static_cast<int>(content_settings::CookieControlsMode::kBlockThirdParty));
 
@@ -1141,7 +1146,7 @@ IN_PROC_BROWSER_TEST_F(ChromeServiceWorkerNavigationPreloadTest,
 IN_PROC_BROWSER_TEST_F(ChromeServiceWorkerNavigationPreloadTest,
                        SubFrameWithThirdPartyBlocking) {
   // Enable third-party cookie blocking.
-  browser()->profile()->GetPrefs()->SetInteger(
+  browser()->GetProfile()->GetPrefs()->SetInteger(
       prefs::kCookieControlsMode,
       static_cast<int>(content_settings::CookieControlsMode::kBlockThirdParty));
 
@@ -1202,6 +1207,83 @@ IN_PROC_BROWSER_TEST_F(ChromeServiceWorkerPrewarmForDSETest, PrewarmIsCalled) {
   EXPECT_GE(*ChromeContentBrowserClient::
                 PrewarmServiceWorkerRegistrationForDSECalledCountForTesting(),
             1);
+}
+
+IN_PROC_BROWSER_TEST_F(ChromeServiceWorkerTest,
+                       VerifyNoChromeApisInNormalServiceWorker) {
+  WriteFile(
+      FILE_PATH_LITERAL("sw.js"),
+      "self.addEventListener('message', event => {"
+      "  const chromeExists = typeof chrome !== 'undefined';"
+      "  const loadTimesExists = chromeExists && typeof chrome.loadTimes !== "
+      "'undefined';"
+      "  const csiExists = chromeExists && typeof chrome.csi !== 'undefined';"
+      "  const benchmarkingExists = chromeExists && typeof chrome.benchmarking "
+      "!== 'undefined';"
+      "  event.source.postMessage({"
+      "    chromeExists,"
+      "    loadTimesExists,"
+      "    csiExists,"
+      "    benchmarkingExists"
+      "  });"
+      "});");
+  WriteFile(FILE_PATH_LITERAL("test.html"),
+            "<script>"
+            "navigator.serviceWorker.register('./sw.js')"
+            "  .then(reg => {"
+            "    if (reg.active) {"
+            "      document.title = 'READY';"
+            "    } else {"
+            "      const worker = reg.installing || reg.waiting;"
+            "      worker.addEventListener('statechange', () => {"
+            "        if (worker.state === 'activated') {"
+            "          document.title = 'READY';"
+            "        }"
+            "      });"
+            "    }"
+            "  });"
+            "</script>");
+
+  InitializeServer();
+  NavigateToPageAndWaitForReadyTitle("/test.html");
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  // Set up message listener in the page
+  ASSERT_TRUE(content::ExecJs(
+      web_contents,
+      "var receivedMessage = null;"
+      "navigator.serviceWorker.addEventListener('message', event => {"
+      "  receivedMessage = event.data;"
+      "});"));
+
+  // Send message to SW to trigger the check
+  ASSERT_TRUE(content::ExecJs(web_contents,
+                              "navigator.serviceWorker.ready.then(reg => {"
+                              "  reg.active.postMessage('check');"
+                              "});"));
+
+  // Wait for message
+  content::EvalJsResult result = content::EvalJs(
+      web_contents,
+      "new Promise(resolve => {"
+      "  if (receivedMessage) {"
+      "    resolve(receivedMessage);"
+      "  } else {"
+      "    navigator.serviceWorker.addEventListener('message', event => {"
+      "      resolve(event.data);"
+      "    }, {once: true});"
+      "  }"
+      "});");
+
+  ASSERT_TRUE(result.is_dict());
+  const base::DictValue& dict = result.ExtractDict();
+
+  // Assert that these APIs are NOT present in a normal service worker.
+  EXPECT_FALSE(dict.FindBool("loadTimesExists").value_or(true));
+  EXPECT_FALSE(dict.FindBool("csiExists").value_or(true));
+  EXPECT_FALSE(dict.FindBool("benchmarkingExists").value_or(true));
 }
 
 }  // namespace chrome_service_worker_browser_test

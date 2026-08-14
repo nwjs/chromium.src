@@ -24,12 +24,17 @@
 #include "components/user_data_importer/mojom/bookmark_html_parser.mojom.h"
 #include "content/public/utility/utility_thread.h"
 #include "extensions/buildflags/buildflags.h"
+#include "media/media_buildflags.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/service_factory.h"
 #include "pdf/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "services/passage_embeddings/passage_embeddings_service.h"
 #include "ui/accessibility/accessibility_features.h"
+
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/services/readaloud/read_aloud_playback_controller.h"
+#endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_WIN)
 #include "chrome/services/system_signals/win/win_system_signals_service.h"
@@ -66,6 +71,10 @@
 #include "services/screen_ai/public/mojom/screen_ai_factory.mojom.h"  // nogncheck
 #include "services/screen_ai/screen_ai_service_impl.h"  // nogncheck
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(ENABLE_MEDIA_REMOTING_REDIRECTION)
+#include "chrome/services/redirection/redirection_service.h"
+#endif  // BUILDFLAG(ENABLE_MEDIA_REMOTING_REDIRECTION)
 
 #if BUILDFLAG(ENABLE_BROWSER_SPEECH_SERVICE)
 #include "chrome/services/speech/speech_recognition_service_impl.h"  // nogncheck
@@ -251,6 +260,13 @@ auto RunMirroringService(
 }
 
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(ENABLE_MEDIA_REMOTING_REDIRECTION)
+auto RunRedirectionService(
+    mojo::PendingReceiver<redirection::mojom::RedirectionService> receiver) {
+  return std::make_unique<redirection::RedirectionService>(std::move(receiver));
+}
+#endif  // BUILDFLAG(ENABLE_MEDIA_REMOTING_REDIRECTION)
 
 auto RunPassageEmbeddingsService(
     mojo::PendingReceiver<passage_embeddings::mojom::PassageEmbeddingsService>
@@ -438,6 +454,15 @@ auto RunBabelOrcaTachyonParsingService(
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
+#if BUILDFLAG(IS_ANDROID)
+auto RunReadAloudPlaybackControllerFactory(
+    mojo::PendingReceiver<read_aloud::mojom::ReadAloudPlaybackControllerFactory>
+        receiver) {
+  return std::make_unique<readaloud::ReadAloudPlaybackController>(
+      std::move(receiver));
+}
+#endif  // BUILDFLAG(IS_ANDROID)
+
 }  // namespace
 
 void RegisterElevatedMainThreadServices(mojo::ServiceFactory& services) {
@@ -457,12 +482,20 @@ void RegisterMainThreadServices(mojo::ServiceFactory& services) {
   services.Add(RunPassageEmbeddingsService);
   services.Add(RunOakSessionService);
 
+#if BUILDFLAG(IS_ANDROID)
+  services.Add(RunReadAloudPlaybackControllerFactory);
+#endif  // BUILDFLAG(IS_ANDROID)
+
 #if !BUILDFLAG(IS_ANDROID)
   services.Add(RunProfileImporter);
   services.Add(RunMirroringService);
   services.Add(RunReadingModeMetricsService);
   services.Add(RunScreenAIServiceFactory);
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(ENABLE_MEDIA_REMOTING_REDIRECTION)
+  services.Add(RunRedirectionService);
+#endif  // BUILDFLAG(ENABLE_MEDIA_REMOTING_REDIRECTION)
 
 #if BUILDFLAG(ENABLE_BROWSER_SPEECH_SERVICE)
   services.Add(RunSpeechRecognitionService);

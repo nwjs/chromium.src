@@ -7,12 +7,14 @@
 #include <memory>
 #include <string>
 
-#include "base/feature_list.h"
 #include "base/strings/utf_string_conversions.h"
-#include "extensions/common/extension_features.h"
 #include "extensions/common/manifest_constants.h"
 
 namespace extensions {
+
+// static
+const char* MessageSerializationInfo::kManifestDataKey =
+    manifest_keys::kMessageSerialization;
 
 MessageSerializationInfo::MessageSerializationInfo(
     bool opts_in_structured_clone)
@@ -22,13 +24,8 @@ MessageSerializationInfo::~MessageSerializationInfo() = default;
 
 // static
 bool MessageSerializationInfo::UsesStructuredClone(const Extension* extension) {
-  const MessageSerializationInfo* info =
-      static_cast<const MessageSerializationInfo*>(
-          extension->GetManifestData(manifest_keys::kMessageSerialization));
-  bool is_opted_in = info && info->opts_in_structured_clone;
-  return is_opted_in &&
-         base::FeatureList::IsEnabled(
-             extensions_features::kStructuredCloningForMessaging);
+  const auto* info = extension->GetManifestData<MessageSerializationInfo>();
+  return info && info->opts_in_structured_clone;
 }
 
 MessageSerializationHandler::MessageSerializationHandler() = default;
@@ -64,7 +61,6 @@ bool MessageSerializationHandler::Parse(Extension* extension,
   }
 
   extension->SetManifestData(
-      manifest_keys::kMessageSerialization,
       std::make_unique<MessageSerializationInfo>(opts_in_structured_clone));
   return true;
 }

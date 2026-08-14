@@ -39,7 +39,6 @@
 #include "content/public/common/url_constants.h"
 #include "extensions/browser/allowlist_state.h"
 #include "extensions/browser/disable_reason.h"
-#include "extensions/browser/event_router.h"
 #include "extensions/browser/extension_allowlist.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registrar.h"
@@ -80,16 +79,6 @@ namespace extensions {
 
 namespace {
 
-// DO NOT REORDER. This enum is used in histograms.
-enum class ManifestVersionPopulationSplit {
-  kNoExtensions = 0,
-  kMv2ExtensionsOnly,
-  kMv2AndMv3Extensions,
-  kMv3ExtensionsOnly,
-
-  kMaxValue = kMv3ExtensionsOnly,
-};
-
 // Used in histogram Extensions.BackgroundPageType.
 enum class BackgroundPageType {
   kNone = 0,
@@ -125,7 +114,7 @@ bool IsManifestCorrupt(const base::DictValue& manifest) {
          manifest.contains(manifest_keys::kBackgroundScripts);
 }
 
-bool ShouldReloadExtensionManifest(const ExtensionInfo& info) {
+bool ShouldReloadExtensionManifest(const ExtensionPrefs::InstallRecord& info) {
   // Always reload manifests of unpacked extensions, because they can change
   // on disk independent of the manifest in our prefs.
   if (Manifest::IsUnpackedLocation(info.extension_location)) {
@@ -283,7 +272,8 @@ InstalledLoader::InstalledLoader(Profile* profile)
 
 InstalledLoader::~InstalledLoader() = default;
 
-void InstalledLoader::Load(const ExtensionInfo& info, bool write_to_prefs) {
+void InstalledLoader::Load(const ExtensionPrefs::InstallRecord& info,
+                           bool write_to_prefs) {
   // TODO(asargent): add a test to confirm that we can't load extensions if
   // their ID in preferences does not match the extension's actual ID.
   if (invalid_extensions_.find(info.extension_path) !=
@@ -366,7 +356,7 @@ void InstalledLoader::LoadAllExtensions(Profile* profile) {
       profile_util::ProfileCanUseNonComponentExtensions(profile);
   const base::TimeTicks load_start_time = base::TimeTicks::Now();
 
-  ExtensionPrefs::ExtensionsInfo extensions_info =
+  ExtensionPrefs::InstallRecords extensions_info =
       extension_prefs_->GetInstalledExtensionsInfo();
 
   bool should_write_prefs = false;
@@ -486,7 +476,6 @@ void InstalledLoader::RecordExtensionsMetrics(Profile* profile) {
   int incognito_not_allowed_count = 0;
   int file_access_allowed_count = 0;
   int file_access_not_allowed_count = 0;
-  int eventless_event_pages_count = 0;
   int off_store_item_count = 0;
   int web_request_blocking_count = 0;
   int web_request_count = 0;
@@ -698,17 +687,6 @@ void InstalledLoader::RecordExtensionsMetrics(Profile* profile) {
     if (type == Manifest::Type::kExtension) {
       base::UmaHistogramEnumeration("Extensions.BackgroundPageType2",
                                     GetBackgroundPageType(extension));
-
-      if (GetBackgroundPageType(extension) == BackgroundPageType::kEventPage) {
-        // Count extension event pages with no registered events. Either the
-        // event page is badly designed, or there may be a bug where the event
-        // page failed to start after an update (crbug.com/40410577).
-        if (!EventRouter::Get(profile_)->HasRegisteredEvents(extension->id())) {
-          ++eventless_event_pages_count;
-          VLOG(1) << "Event page without registered event listeners: "
-                  << extension->id() << " " << extension->name();
-        }
-      }
     }
 
     // Using an enumeration shows us the total installed ratio across all users.
@@ -904,44 +882,6 @@ void InstalledLoader::RecordExtensionsMetrics(Profile* profile) {
   base::UmaHistogramCounts100("Extensions.ManifestVersion3Count.Unpacked",
                               unpacked_manifest_version_counts.version_3_count);
 
-  auto get_manifest_version_population_split =
-      [](const ManifestVersion2And3Counts& counts) {
-        if (counts.version_2_count == 0 && counts.version_3_count == 0) {
-          return ManifestVersionPopulationSplit::kNoExtensions;
-        }
-        if (counts.version_2_count > 0 && counts.version_3_count == 0) {
-          return ManifestVersionPopulationSplit::kMv2ExtensionsOnly;
-        }
-        if (counts.version_3_count > 0 && counts.version_2_count == 0) {
-          return ManifestVersionPopulationSplit::kMv3ExtensionsOnly;
-        }
-        return ManifestVersionPopulationSplit::kMv2AndMv3Extensions;
-      };
-  base::UmaHistogramEnumeration(
-      "Extensions.ManifestVersionPopulationSplit.Internal",
-      get_manifest_version_population_split(internal_manifest_version_counts));
-  base::UmaHistogramEnumeration(
-      "Extensions.ManifestVersionPopulationSplit.External",
-      get_manifest_version_population_split(external_manifest_version_counts));
-  base::UmaHistogramEnumeration(
-      "Extensions.ManifestVersionPopulationSplit.Component",
-      get_manifest_version_population_split(component_manifest_version_counts));
-  base::UmaHistogramEnumeration(
-      "Extensions.ManifestVersionPopulationSplit.Unpacked",
-      get_manifest_version_population_split(unpacked_manifest_version_counts));
-  ManifestVersion2And3Counts internal_and_external_counts;
-  internal_and_external_counts.version_2_count =
-      internal_manifest_version_counts.version_2_count +
-      external_manifest_version_counts.version_2_count;
-  internal_and_external_counts.version_3_count =
-      internal_manifest_version_counts.version_3_count +
-      external_manifest_version_counts.version_3_count;
-  // We log an additional one for the combination of internal and external
-  // since these are both "user controlled" and not unpacked.
-  base::UmaHistogramEnumeration(
-      "Extensions.ManifestVersionPopulationSplit.InternalAndExternal",
-      get_manifest_version_population_split(internal_manifest_version_counts));
-
   base::UmaHistogramCounts100("Extensions.LoadApp2",
                               app_user_count + app_external_count);
   base::UmaHistogramCounts100("Extensions.LoadAppUser2", app_user_count);
@@ -988,8 +928,6 @@ void InstalledLoader::RecordExtensionsMetrics(Profile* profile) {
   base::UmaHistogramCounts100(
       "Extensions.CorruptExtensionTotalDisables2",
       extension_prefs_->GetPrefAsInteger(kCorruptedDisableCount));
-  base::UmaHistogramCounts100("Extensions.EventlessEventPages2",
-                              eventless_event_pages_count);
   base::UmaHistogramCounts100("Extensions.LoadOffStoreItems2",
                               off_store_item_count);
   base::UmaHistogramCounts100("Extensions.WebRequestBlockingCount2",
@@ -1009,7 +947,8 @@ void InstalledLoader::RecordExtensionsMetrics(Profile* profile) {
   }
 }
 
-int InstalledLoader::GetCreationFlags(const ExtensionInfo* info) {
+int InstalledLoader::GetCreationFlags(
+    const ExtensionPrefs::InstallRecord* info) {
   int flags = extension_prefs_->GetCreationFlags(info->extension_id);
   if (!Manifest::IsUnpackedLocation(info->extension_location)) {
     flags |= Extension::REQUIRE_KEY;

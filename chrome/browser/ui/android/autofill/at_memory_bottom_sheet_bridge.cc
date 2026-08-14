@@ -32,7 +32,8 @@ namespace {
 // - `labels[0]` (joined with spaces) -> `sublabel`
 // - `icon` -> `iconId` (mapped via ResourceMapper)
 // - `type` -> `suggestionType`
-// TODO(crbug.com/502801668): Add support for `payload` and `children`.
+// - `children` -> `children`
+// TODO(crbug.com/536821036): Add support for `payload` and pass name of the type there.
 base::android::ScopedJavaLocalRef<jobject> CreateJavaSuggestion(
     JNIEnv* env,
     const Suggestion& suggestion) {
@@ -42,15 +43,27 @@ base::android::ScopedJavaLocalRef<jobject> CreateJavaSuggestion(
         base::ToVector(suggestion.labels[0], &Suggestion::Text::value), u" ");
   }
 
+  std::u16string secondary_label;
+  if (std::holds_alternative<Suggestion::AtMemoryPayload>(suggestion.payload)) {
+    secondary_label =
+        std::get<Suggestion::AtMemoryPayload>(suggestion.payload).type_name;
+  }
+
   int android_icon_id = 0;
   if (suggestion.icon != Suggestion::Icon::kNoIcon) {
     android_icon_id =
         ResourceMapper::MapToJavaDrawableId(GetIconResourceID(suggestion.icon));
   }
 
+  std::vector<base::android::ScopedJavaLocalRef<jobject>> children =
+      base::ToVector(suggestion.children, [env](const Suggestion& child) {
+        return CreateJavaSuggestion(env, child);
+      });
+
   return Java_AtMemoryBottomSheetBridge_createAutofillSuggestion(
-      env, suggestion.main_text.value, sub_label, android_icon_id,
-      std::to_underlying(suggestion.type));
+      env, suggestion.main_text.value, secondary_label, sub_label,
+      android_icon_id, std::to_underlying(suggestion.type), children,
+      suggestion.IsAcceptable(), suggestion.HasDeactivatedStyle());
 }
 
 }  // namespace
@@ -133,10 +146,32 @@ void AtMemoryBottomSheetBridge::OnQueryTextChanged(
   }
 }
 
+void AtMemoryBottomSheetBridge::OnSuggestionDismissed(JNIEnv* env,
+                                                      int position) {
+  if (delegate_) {
+    delegate_->OnSuggestionDismissed(position);
+  }
+}
+
 void AtMemoryBottomSheetBridge::OnSuggestionSelected(JNIEnv* env,
                                                      int position) {
   if (delegate_) {
     delegate_->OnSuggestionSelected(position);
+  }
+}
+
+void AtMemoryBottomSheetBridge::OnChildSuggestionsShown(JNIEnv* env,
+                                                        int parent_position) {
+  if (delegate_) {
+    delegate_->OnChildSuggestionsShown(parent_position);
+  }
+}
+
+void AtMemoryBottomSheetBridge::OnChildSuggestionSelected(JNIEnv* env,
+                                                          int parent_position,
+                                                          int child_position) {
+  if (delegate_) {
+    delegate_->OnChildSuggestionSelected(parent_position, child_position);
   }
 }
 

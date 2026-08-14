@@ -30,7 +30,6 @@
 #include "device/fido/public/public_key_credential_descriptor.h"
 #include "device/fido/public/public_key_credential_rp_entity.h"
 #include "device/fido/public/public_key_credential_user_entity.h"
-#include "third_party/boringssl/src/include/openssl/base.h"
 
 namespace device {
 
@@ -96,7 +95,7 @@ class COMPONENT_EXPORT(DEVICE_FIDO) VirtualFidoDevice : public FidoDevice {
     RegistrationData(
         std::unique_ptr<PrivateKey> private_key,
         base::span<const uint8_t, kRpIdHashLength> application_parameter,
-        uint32_t counter);
+        std::optional<uint32_t> counter);
 
     RegistrationData(RegistrationData&& data);
     RegistrationData& operator=(RegistrationData&& other);
@@ -108,7 +107,7 @@ class COMPONENT_EXPORT(DEVICE_FIDO) VirtualFidoDevice : public FidoDevice {
 
     std::unique_ptr<PrivateKey> private_key = PrivateKey::FreshP256Key();
     std::array<uint8_t, kRpIdHashLength> application_parameter;
-    uint32_t counter = 0;
+    std::optional<uint32_t> counter = 0;
     bool is_resident = false;
     bool backup_eligible = false;
     bool backup_state = false;
@@ -136,6 +135,16 @@ class COMPONENT_EXPORT(DEVICE_FIDO) VirtualFidoDevice : public FidoDevice {
 
     // The custom provider name for this credential.
     std::optional<std::string> provider_name;
+
+    // The list of CMTG keys associated to this credential.
+    std::vector<std::unique_ptr<PrivateKey>> cmtg_keys;
+
+    // The index of the current CMTG key in use. If this is greater or equal to
+    // the count of CMTG keys, it's reset to 0.
+    size_t selected_cmtg_key_index = 0;
+
+    // If true, generates a new CMTG key on the next operation.
+    bool generate_cmtg_key_on_next_operation = false;
   };
 
   using Credential = std::pair<base::span<const uint8_t>, RegistrationData*>;
@@ -206,6 +215,9 @@ class COMPONENT_EXPORT(DEVICE_FIDO) VirtualFidoDevice : public FidoDevice {
     bool unset_uv_bit = false;
     // If true, UP bit is always set to 0 in the response.
     bool unset_up_bit = false;
+    // If true, the authenticator won't process the CMTG key extension, even if
+    // it is supported.
+    bool simulate_cmtg_key_failure = false;
     // default_backup_eligibility determines the default value of the
     // credential's BE (Backup Eligible) flag. This applies to both credentials
     // created by invoking the CTAP make credential command (in which case the
@@ -229,7 +241,7 @@ class COMPONENT_EXPORT(DEVICE_FIDO) VirtualFidoDevice : public FidoDevice {
     // The PIN for the device, or an empty string if no PIN is set.
     std::string pin;
     // The elliptic-curve key. (Not expected to be set externally.)
-    bssl::UniquePtr<EC_KEY> ecdh_key;
+    std::optional<crypto::keypair::PrivateKey> ecdh_key;
     // The random PIN token that is returned as a placeholder for the PIN
     // itself.
     uint8_t pin_token[32];
@@ -343,7 +355,7 @@ class COMPONENT_EXPORT(DEVICE_FIDO) VirtualFidoDevice : public FidoDevice {
     bool InjectResidentKey(base::span<const uint8_t> credential_id,
                            device::PublicKeyCredentialRpEntity rp,
                            device::PublicKeyCredentialUserEntity user,
-                           int32_t signature_counter,
+                           std::optional<uint32_t> signature_counter,
                            std::unique_ptr<PrivateKey> private_key);
 
     // Adds a resident credential with the specified values, creating a new

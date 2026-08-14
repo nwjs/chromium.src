@@ -34,7 +34,6 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
 #endif
       "chrome://actor-internals",
       "chrome://actor-overlay",
-      "chrome://attribution-internals",
       "chrome://autofill-ml-internals",
       "chrome://autofill-internals",
 
@@ -99,6 +98,9 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       "chrome://indigo-internals",
 #endif
       "chrome://inspect",
+#if !BUILDFLAG(IS_ANDROID)
+      "chrome://iwa-dev",
+#endif
       "chrome://internals/session-service",
       "chrome://interstitials",
       "chrome://interstitials/ssl",
@@ -120,6 +122,7 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       "chrome://newtab-footer",
       "chrome://new-tab-page-third-party",
       "chrome://newtab",
+      "chrome://notebooks-internals",
       "chrome://ntp-tiles-internals",
       "chrome://omnibox",
       "chrome://on-device-internals",
@@ -140,7 +143,6 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       "chrome://prefs-internals",
 #endif
 
-      "chrome://private-aggregation-internals",
       "chrome://private-ai-internals",
       "chrome://process-internals",
       "chrome://profile-internals",
@@ -166,7 +168,6 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       "chrome://tab-strip-internals",
       "chrome://tabs-from-other-devices.top-chrome",
       "chrome://terms",
-      "chrome://topics-internals",
       "chrome://traces",
       "chrome://traces-internals",
       "chrome://tracing",
@@ -267,7 +268,6 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
 #endif
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
       "chrome://signin-dice-web-intercept.top-chrome/?debug",
-      "chrome://signin-qrcode-bar",
 #endif
 #if BUILDFLAG(ENABLE_DICE_SUPPORT) && !BUILDFLAG(IS_CHROMEOS)
       "chrome://signout-confirmation",

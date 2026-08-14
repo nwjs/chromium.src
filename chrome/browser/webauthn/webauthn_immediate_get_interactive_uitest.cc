@@ -67,11 +67,7 @@ const DeepQuery kMessage{"#message-container"};
 using Fixture = InteractiveBrowserTestMixin<EnclaveAuthenticatorTestBase>;
 class WebAuthnImmediateGetTest : public Fixture {
  public:
-  WebAuthnImmediateGetTest() {
-    feature_list_.InitWithFeatures(
-        {device::kWebAuthnImmediateGet},
-        {device::kWebAuthnImmediateRequestRateLimit});
-  }
+  WebAuthnImmediateGetTest() = default;
 
   ~WebAuthnImmediateGetTest() override = default;
 
@@ -119,12 +115,10 @@ class WebAuthnImmediateGetTest : public Fixture {
 
     scoped_refptr<password_manager::PasswordStoreInterface> password_store =
         ProfilePasswordStoreFactory::GetForProfile(
-            browser()->profile(), ServiceAccessType::IMPLICIT_ACCESS);
+            browser()->GetProfile(), ServiceAccessType::IMPLICIT_ACCESS);
     password_store->AddLogin(password_manager::FromPasswordForm(form));
   }
 
- private:
-  base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(WebAuthnImmediateGetTest,

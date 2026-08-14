@@ -31,6 +31,7 @@
 #include "base/types/expected_macros.h"
 #include "base/types/pass_key.h"
 #include "components/services/storage/dom_storage/dom_storage_database.h"
+#include "components/services/storage/dom_storage/dom_storage_rollout.h"
 #include "components/services/storage/dom_storage/leveldb/dom_storage_batch_operation_leveldb.h"
 #include "components/services/storage/dom_storage/leveldb/dom_storage_database_leveldb_utils.h"
 #include "components/services/storage/dom_storage/leveldb_status_helper.h"
@@ -38,6 +39,7 @@
 #include "third_party/leveldatabase/env_chromium.h"
 #include "third_party/leveldatabase/leveldb_chrome.h"
 #include "third_party/leveldatabase/src/include/leveldb/db.h"
+#include "third_party/leveldatabase/src/include/leveldb/env.h"
 #include "third_party/leveldatabase/src/include/leveldb/status.h"
 
 namespace storage {
@@ -137,7 +139,8 @@ DomStorageDatabaseLevelDB::Open(
         memory_dump_id,
     KeyView version_key,
     int64_t min_supported_version,
-    int64_t max_supported_version) {
+    int64_t max_supported_version,
+    bool write_tag_file) {
   std::unique_ptr<DomStorageDatabaseLevelDB> instance = base::WrapUnique(
       new DomStorageDatabaseLevelDB(storage_type, directory, memory_dump_id));
   DbStatus status = instance->InitializeLevelDB();
@@ -150,13 +153,38 @@ DomStorageDatabaseLevelDB::Open(
   if (!status.ok()) {
     return base::unexpected(std::move(status));
   }
+
+  if (write_tag_file) {
+    // The storage service is sandboxed, so the write must go through the env's
+    // `FilesystemProxy`. The tag is only written for on-disk databases, so
+    // `directory` is non-empty.
+    CHECK(!directory.empty());
+    status = FromLevelDBStatus(leveldb::WriteStringToFile(
+        instance->options_.env, leveldb::Slice(),
+        GetLevelDbExperimentalTagPath(directory).AsUTF8Unsafe()));
+    if (!status.ok()) {
+      return base::unexpected(std::move(status));
+    }
+  }
+
   return instance;
 }
 
 // static
 DbStatus DomStorageDatabaseLevelDB::Destroy(const base::FilePath& directory) {
+  leveldb_env::Options options = MakeOnDiskOptions();
+
+  // Remove the experimental tag file if one exists so `DestroyDB()` can clear
+  // the folder after removing LevelDB related files. The storage service is
+  // sandboxed, so this goes through the env's `FilesystemProxy`.
+  DbStatus status = FromLevelDBStatus(options.env->RemoveFile(
+      GetLevelDbExperimentalTagPath(directory).AsUTF8Unsafe()));
+  if (!status.ok()) {
+    return status;
+  }
+
   return FromLevelDBStatus(
-      leveldb::DestroyDB(directory.AsUTF8Unsafe(), MakeOnDiskOptions()));
+      leveldb::DestroyDB(directory.AsUTF8Unsafe(), options));
 }
 
 StatusOr<DomStorageDatabase::Value> DomStorageDatabaseLevelDB::Get(

@@ -23,7 +23,10 @@ export function getHtml(this: AiTaskboxElement) {
                 ${this.todos?.map(todo => html`
                   <todo-item
                       .heading="${todo.title}"
-                      .description="${todo.description}">
+                      .description="${todo.description}"
+                      .actionableUrl="${todo.actionableUrl}"
+                      .sourceReferences="${todo.sourceReferences}"
+                      .score="${todo.score}">
                   </todo-item>
                 `)}
             </div>

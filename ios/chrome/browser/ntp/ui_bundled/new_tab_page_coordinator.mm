@@ -13,6 +13,7 @@
 #import "base/time/time.h"
 #import "components/contextual_search/contextual_search_service.h"
 #import "components/feature_engagement/public/event_constants.h"
+#import "components/feature_engagement/public/feature_constants.h"
 #import "components/feature_engagement/public/tracker.h"
 #import "components/feed/core/v2/public/common_enums.h"
 #import "components/feed/core/v2/public/ios/pref_names.h"
@@ -49,6 +50,8 @@
 #import "ios/chrome/browser/content_suggestions/coordinator/content_suggestions_coordinator.h"
 #import "ios/chrome/browser/content_suggestions/coordinator/content_suggestions_delegate.h"
 #import "ios/chrome/browser/content_suggestions/coordinator/content_suggestions_mediator.h"
+#import "ios/chrome/browser/content_suggestions/magic_stack/ui/magic_stack_collection_view.h"
+#import "ios/chrome/browser/content_suggestions/magic_stack/ui/magic_stack_smart_stack_layout.h"
 #import "ios/chrome/browser/content_suggestions/ui/content_suggestions_collection_utils.h"
 #import "ios/chrome/browser/content_suggestions/ui/content_suggestions_view_controller.h"
 #import "ios/chrome/browser/context_menu/ui_bundled/link_preview/link_preview_coordinator.h"
@@ -166,24 +169,24 @@
                                      DiscoverFeedObserverBridgeDelegate,
                                      DiscoverFeedPreviewDelegate,
                                      DiscoverFeedVisibilityObserver,
+                                     FamilyLinkUserCapabilitiesObserving,
                                      FeedControlDelegate,
                                      FeedSignInPromoDelegate,
                                      FeedWrapperViewControllerDelegate,
                                      HomeCustomizationDelegate,
                                      HomeStartDataSource,
-                                     IdentityManagerObserverBridgeDelegate,
+                                     IdentityManagerObserving,
+                                     NewTabPageActionsDelegate,
                                      NewTabPageContentDelegate,
                                      NewTabPageDelegate,
                                      NewTabPageHeaderCommands,
-                                     NewTabPageActionsDelegate,
+                                     NewTabPageShortcutsHandler,
                                      NewTabPageURLLoaderDelegate,
                                      OverscrollActionsControllerDelegate,
                                      ProfileStateObserver,
+                                     SafariDataImportChildCoordinatorDelegate,
                                      SceneStateObserver,
-                                     TabGridStateObserving,
-                                     FamilyLinkUserCapabilitiesObserving,
-                                     NewTabPageShortcutsHandler,
-                                     SafariDataImportChildCoordinatorDelegate> {
+                                     TabGridStateObserving> {
   // Observes changes in the IdentityManager.
   std::unique_ptr<signin::IdentityManagerObserverBridge>
       _identityObserverBridge;
@@ -200,6 +203,7 @@
       _familyLinkUserCapabilitiesObserverBridge;
 
   BubbleViewControllerPresenter* _fakeboxLensIconBubblePresenter;
+  BubbleViewControllerPresenter* _aimBubblePresenter;
 }
 
 // Coordinator for the ContentSuggestions.
@@ -375,6 +379,11 @@
   [self configureContentSuggestionsCoordinator];
   self.feedMetricsRecorder.NTPActionsDelegate = self;
   [self configureNTPViewController];
+
+  id<PopupMenuCommands> popupMenuHandler = HandlerForProtocol(
+      self.browser->GetCommandDispatcher(), PopupMenuCommands);
+  [self setBlueDotVisible:[popupMenuHandler hasBlueDotForOverflowMenu]];
+
   [self configureTabGroupIndicator];
 
   [self startObservers];
@@ -491,6 +500,10 @@
   _safariDataImportExportCoordinator = nil;
 
   [_fakeboxLensIconBubblePresenter dismissAnimated:NO];
+  _fakeboxLensIconBubblePresenter = nil;
+
+  [_aimBubblePresenter dismissAnimated:NO];
+  _aimBubblePresenter = nil;
 
   _identityManager = nullptr;
 
@@ -641,6 +654,26 @@
   [self presentLensIconBubbleNow];
 }
 
+- (void)presentAIModeBubble {
+  if (!IsLevelUpEnabled()) {
+    return;
+  }
+
+  if (!self.isScrolledToTop) {
+    __weak __typeof(self) weakSelf = self;
+    [UIView animateWithDuration:kMaterialDuration1
+        animations:^{
+          [weakSelf setContentOffsetToTop];
+        }
+        completion:^(BOOL finished) {
+          [weakSelf presentAIModeBubbleNow];
+        }];
+    return;
+  }
+
+  [self presentAIModeBubbleNow];
+}
+
 - (BOOL)isFeedVisible {
   return [self.NTPMediator isFeedHeaderVisible] && self.feedViewController;
 }
@@ -651,6 +684,10 @@
   [self stopAccountMenuCoordinator];
   [self stopSigninCoordinator];
   [self dismissCustomizationMenu];
+}
+
+- (void)setBlueDotVisible:(BOOL)visible {
+  [self.headerView setOverflowMenuBlueDot:visible];
 }
 
 #pragma mark - Initializers
@@ -821,16 +858,21 @@
   NTPMediator.feedVisibilityObserver = self;
   NTPMediator.feedControlDelegate = self;
   NTPMediator.NTPContentDelegate = self;
-  NTPMediator.headerConsumer = self.headerView;
   if (IsNTPRedesignEnabled()) {
+    NTPMediator.headerConsumer = self.NTPRedesignViewController;
     NTPMediator.consumer = self.NTPRedesignViewController;
   } else {
+    NTPMediator.headerConsumer = self.headerView;
     NTPMediator.consumer = self.NTPViewController;
   }
   PlaceholderService* placeholderService =
       ios::PlaceholderServiceFactory::GetForProfile(self.profile);
   NTPMediator.placeholderService = placeholderService;
-  NTPMediator.imageUpdater = self.headerView;
+  if (IsNTPRedesignEnabled()) {
+    NTPMediator.imageUpdater = self.NTPRedesignViewController;
+  } else {
+    NTPMediator.imageUpdater = self.headerView;
+  }
   NTPMediator.logoMediator = _searchEngineLogoMediator;
 
   [NTPMediator setUp];
@@ -839,6 +881,8 @@
 // Binds properties to the New Tab Page view controller.
 - (void)configureViewControllerProperties:
     (NewTabPageViewController*)NTPViewController {
+  NTPViewController.layoutGuideCenter =
+      LayoutGuideCenterForBrowser(self.browser);
   NTPViewController.incognitoDisabled =
       IsIncognitoModeDisabled(self.prefService);
   NTPViewController.mutator = self.NTPMediator;
@@ -866,6 +910,23 @@
 - (void)configureNTPViewController {
   if (IsNTPRedesignEnabled()) {
     self.NTPRedesignViewController.NTPContentDelegate = self;
+    self.NTPRedesignViewController.headerCommandsHandler = self;
+    self.NTPRedesignViewController.feedViewController = self.feedViewController;
+    self.NTPRedesignViewController.mostVisitedViewController =
+        self.contentSuggestionsCoordinator.viewController;
+    self.NTPRedesignViewController.magicStackViewController =
+        self.contentSuggestionsCoordinator.magicStackCollectionView;
+    MagicStackSmartStackLayout* customLayout =
+        [[MagicStackSmartStackLayout alloc] init];
+    [self.contentSuggestionsCoordinator.magicStackCollectionView
+        updateCollectionViewLayout:customLayout];
+    self.NTPRedesignViewController.NTPShortcutsHandler = self;
+    feature_engagement::Tracker* tracker =
+        feature_engagement::TrackerFactory::GetForProfile(self.profile);
+    BOOL showLensBadge =
+        tracker && tracker->ShouldTriggerHelpUI(
+                       feature_engagement::kIPHiOSHomepageLensNewBadge);
+    self.NTPRedesignViewController.useNewBadgeForLensButton = showLensBadge;
     [self configureMainViewControllerUsing:self.NTPRedesignViewController];
     return;
   }
@@ -928,9 +989,6 @@
   DCHECK(self.started);
   if (self.isOffTheRecord) {
     return self.incognitoViewController;
-  }
-  if (IsNTPRedesignEnabled()) {
-    return self.NTPRedesignViewController;
   }
   return self.containerViewController;
 }
@@ -1326,9 +1384,12 @@
   } else {
     id<FakeboxFocuser> fakeboxFocuserHandler = HandlerForProtocol(
         self.browser->GetCommandDispatcher(), FakeboxFocuser);
+    id<FakeboxButtonsSnapshotProvider> snapshotProvider =
+        IsNTPRedesignEnabled() ? self.NTPRedesignViewController
+                               : self.headerView;
     [fakeboxFocuserHandler focusOmniboxFromFakebox:_fakeboxTapped
                                             pinned:[self isFakeboxPinned]
-                    fakeboxButtonsSnapshotProvider:self.headerView];
+                    fakeboxButtonsSnapshotProvider:snapshotProvider];
   }
 }
 
@@ -1587,11 +1648,11 @@
   }
 }
 
-#pragma mark - IdentityManagerObserverBridgeDelegate
+#pragma mark - IdentityManagerObserving
 
 // TODO(crbug.com/346756363): Remove this method as it is replaced with
 // `onIsSubjectToParentalControlsCapabilityChanged`.
-- (void)onPrimaryAccountChanged:
+- (void)primaryAccountDidChange:
     (const signin::PrimaryAccountChangeEvent&)event {
   // An account change may trigger after the coordinator has been stopped.
   // In this case do not process the event.
@@ -1690,9 +1751,8 @@
 }
 
 - (void)showAccountMenu:(UIView*)identityDisc {
-  UIViewController* baseVC = [self activeViewController];
   _accountMenuCoordinator = [[AccountMenuCoordinator alloc]
-      initWithBaseViewController:baseVC
+      initWithBaseViewController:self.baseViewController
                          browser:self.browser
                       anchorView:identityDisc
                      accessPoint:AccountMenuAccessPoint::kNewTabPage
@@ -1746,6 +1806,15 @@
 // Updates the NTP to take into account a change in module visibility
 - (void)handleChangeInModules {
   if (IsNTPRedesignEnabled()) {
+    if (self.feedViewController) {
+      self.discoverFeedService->RemoveFeedViewController(
+          self.feedViewController);
+    }
+    self.feedViewController = nil;
+    if ([self.NTPMediator isFeedHeaderVisible]) {
+      [self configureFeedAndHeader];
+    }
+    self.NTPRedesignViewController.feedViewController = self.feedViewController;
     return;
   }
   DCHECK(self.NTPViewController);
@@ -1911,7 +1980,11 @@
 // Restores the saved scroll position of the NTP associated with `self.webState`
 // if necessary.
 - (void)restoreNTPScrollPosition {
-  [self.NTPMediator restoreNTPScrollPositionForWebState:self.webState];
+  if ([self isStartSurface]) {
+    [self.NTPMediator.consumer restoreScrollPosition:-CGFLOAT_MAX];
+  } else {
+    [self.NTPMediator restoreNTPScrollPositionForWebState:self.webState];
+  }
 }
 
 // Opens the Home customization menu at a specific `page`.
@@ -2000,6 +2073,35 @@
   }
   [presenter presentInViewController:activeVC anchorPoint:anchorPoint];
   _fakeboxLensIconBubblePresenter = presenter;
+}
+
+// Presents the AI Mode button IPH bubble without checking scroll position.
+- (void)presentAIModeBubbleNow {
+  NSString* text = l10n_util::GetNSString(IDS_IOS_LEVEL_UP_AI_SEARCH_IPH);
+  UIView* aimButton = [LayoutGuideCenterForBrowser(self.browser)
+      referencedViewUnderName:kNTPAIMButtonGuide];
+  if (!aimButton) {
+    return;
+  }
+  CGPoint anchorPoint = [aimButton.superview convertPoint:aimButton.frame.origin
+                                                   toView:nil];
+  anchorPoint.x += aimButton.frame.size.width / 2;
+  anchorPoint.y += aimButton.frame.size.height;
+
+  BubbleViewControllerPresenter* presenter =
+      [[BubbleViewControllerPresenter alloc]
+          initDefaultBubbleWithText:text
+                     arrowDirection:BubbleArrowDirectionUp
+                          alignment:BubbleAlignmentTopOrLeading
+                  dismissalCallback:nil];
+  // Discard if it doesn't fit in the view as it is currently shown.
+  UIViewController* viewController = [self activeViewController];
+  if (![presenter canPresentInView:viewController.view
+                       anchorPoint:anchorPoint]) {
+    return;
+  }
+  [presenter presentInViewController:viewController anchorPoint:anchorPoint];
+  _aimBubblePresenter = presenter;
 }
 
 #pragma mark - HomeCustomizationDelegate

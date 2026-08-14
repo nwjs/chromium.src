@@ -2181,6 +2181,73 @@ TEST_F(TabStripModelTest, CommandCloseOtherTabs) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
+TEST_F(TabStripModelTest, CloseOtherTabsInGroupIndices) {
+  if (!tabstrip()->SupportsTabGroups()) {
+    return;
+  }
+
+  class GroupIndexChangeObserver : public TabStripModelObserver {
+   public:
+    struct Call {
+      int tab_id;
+      int index;
+      std::optional<tab_groups::TabGroupId> old_group;
+      std::optional<tab_groups::TabGroupId> new_group;
+    };
+    std::vector<Call> calls;
+
+    void TabGroupedStateChanged(TabStripModel* tab_strip_model,
+                                std::optional<tab_groups::TabGroupId> old_group,
+                                std::optional<tab_groups::TabGroupId> new_group,
+                                tabs::TabInterface* tab,
+                                int index) override {
+      calls.push_back({GetID(tab->GetContents()), index, old_group, new_group});
+    }
+  };
+
+  // Create 3 tabs.
+  PrepareTabs(tabstrip(), 3);
+
+  // Group all 3 tabs.
+  tab_groups::TabGroupId group = tabstrip()->AddToNewGroup({0, 1, 2});
+
+  // Set T1 as active.
+  tabstrip()->ActivateTabAt(1);
+
+  GroupIndexChangeObserver observer;
+  tabstrip()->AddObserver(&observer);
+
+  // Execute "Close other tabs" on T1 (which is at index 1).
+  // This should close T0 (index 0) and T2 (index 2).
+  // T1 should remain in the group.
+  tabstrip()->ExecuteContextMenuCommand(1,
+                                        TabStripModel::CommandCloseOtherTabs);
+
+  // We expect T0 (id 0) and T2 (id 2) to be removed from the group.
+  // The observer should be notified with their indices BEFORE removals started.
+  // T0 was at index 0.
+  // T2 was at index 2.
+  ASSERT_EQ(2u, observer.calls.size());
+
+  EXPECT_EQ(0, observer.calls[0].tab_id);
+  EXPECT_EQ(0, observer.calls[0].index);
+  EXPECT_EQ(group, observer.calls[0].old_group);
+  EXPECT_EQ(std::nullopt, observer.calls[0].new_group);
+
+  EXPECT_EQ(2, observer.calls[1].tab_id);
+  EXPECT_EQ(2, observer.calls[1].index);
+  EXPECT_EQ(group, observer.calls[1].old_group);
+  EXPECT_EQ(std::nullopt, observer.calls[1].new_group);
+
+  // Verify T1 (id 1) remains and is still in the group.
+  EXPECT_EQ(1, tabstrip()->count());
+  EXPECT_EQ(1, GetID(tabstrip()->GetWebContentsAt(0)));
+  EXPECT_EQ(group, tabstrip()->GetTabAtIndex(0)->GetGroup());
+
+  tabstrip()->RemoveObserver(&observer);
+  tabstrip()->CloseAllTabs();
+}
+
 // Tests IsContextMenuCommandEnabled and ExecuteContextMenuCommand with
 // CommandCloseTabsToRight.
 TEST_F(TabStripModelTest, CommandCloseTabsToRight) {
@@ -2286,70 +2353,55 @@ TEST_F(TabStripModelTest, DetachingFocusedGroupUnsetsFocus) {
   EXPECT_EQ(model.GetFocusedGroup(), std::nullopt);
 }
 
-TEST_F(TabStripModelTest, TabGroupsFocusingAutoClose) {
+TEST_F(TabStripModelTest, ReorderingTabsInFocusedGroupPreservesFocus) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeatureWithParameters(
-      features::kTabGroupsFocusing,
-      {{"tab_groups_focusing_auto_close", "true"}});
+  scoped_feature_list.InitAndEnableFeature(features::kTabGroupsFocusing);
 
-  PrepareTabs(tabstrip(), 5);
+  PrepareTabs(tabstrip(), 4);
   tab_groups::TabGroupId group_id = tabstrip()->AddToNewGroup({1, 2});
-  ASSERT_EQ(5, tabstrip()->count());
-  ASSERT_TRUE(tabstrip()->group_model()->ContainsTabGroup(group_id));
-
   tabstrip()->SetFocusedGroup(group_id);
   ASSERT_EQ(group_id, tabstrip()->GetFocusedGroup());
 
-  // Unfocusing should close the group.
-  tabstrip()->SetFocusedGroup(std::nullopt);
+  // Reorder tabs inside the focused group using SetSelectionFromModel.
+  ui::ListSelectionModel selection;
+  selection.SetSelectedIndex(2);
+  tabstrip()->SetSelectionFromModel(selection);
+
+  // Focus should be preserved because tab 2 is within the focused group.
+  EXPECT_EQ(group_id, tabstrip()->GetFocusedGroup());
+}
+
+TEST_F(TabStripModelTest, SelectingTabOutsideFocusedGroupUnsetsFocus) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(features::kTabGroupsFocusing);
+
+  PrepareTabs(tabstrip(), 4);
+  tab_groups::TabGroupId group_id = tabstrip()->AddToNewGroup({1, 2});
+  tabstrip()->SetFocusedGroup(group_id);
+  ASSERT_EQ(group_id, tabstrip()->GetFocusedGroup());
+
+  // Select tab 3 which is outside the focused group.
+  ui::ListSelectionModel selection;
+  selection.SetSelectedIndex(3);
+  tabstrip()->SetSelectionFromModel(selection);
+
+  // Focus should be unset because selection is outside the focused group.
   EXPECT_EQ(std::nullopt, tabstrip()->GetFocusedGroup());
-  EXPECT_FALSE(tabstrip()->group_model()->ContainsTabGroup(group_id));
-  EXPECT_EQ(3, tabstrip()->count());
 }
 
-TEST_F(TabStripModelTest, TabGroupsFocusingAutoCloseSwitchFocus) {
+TEST_F(TabStripModelTest, ClosingOnlyTabInFocusedGroupUnsetsFocus) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeatureWithParameters(
-      features::kTabGroupsFocusing,
-      {{"tab_groups_focusing_auto_close", "true"}});
-
-  PrepareTabs(tabstrip(), 5);
-  tab_groups::TabGroupId group_id1 = tabstrip()->AddToNewGroup({1});
-  tab_groups::TabGroupId group_id2 = tabstrip()->AddToNewGroup({3});
-  ASSERT_EQ(5, tabstrip()->count());
-
-  tabstrip()->SetFocusedGroup(group_id1);
-  ASSERT_EQ(group_id1, tabstrip()->GetFocusedGroup());
-
-  // Switching focus to G2 should close G1.
-  tabstrip()->SetFocusedGroup(group_id2);
-  EXPECT_EQ(group_id2, tabstrip()->GetFocusedGroup());
-  EXPECT_FALSE(tabstrip()->group_model()->ContainsTabGroup(group_id1));
-  EXPECT_TRUE(tabstrip()->group_model()->ContainsTabGroup(group_id2));
-  EXPECT_EQ(4, tabstrip()->count());
-}
-
-TEST_F(TabStripModelTest, ActivateTabUnfocusesAndClosesGroupNoCrash) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeatureWithParameters(
-      features::kTabGroupsFocusing,
-      {{"tab_groups_focusing_auto_close", "true"}});
+  scoped_feature_list.InitAndEnableFeature(features::kTabGroupsFocusing);
 
   PrepareTabs(tabstrip(), 3);
-  tab_groups::TabGroupId group_id = tabstrip()->AddToNewGroup({0, 1});
+  tab_groups::TabGroupId group_id = tabstrip()->AddToNewGroup({1});
   tabstrip()->SetFocusedGroup(group_id);
+  ASSERT_EQ(group_id, tabstrip()->GetFocusedGroup());
 
-  // Tab 2 is not in the group.
-  // This should call SetFocusedGroup(nullopt), which should close the group.
-  // This previously crashed due to ReentrancyCheck in CloseAllTabsInGroup
-  // because ActivateTabAt already has a ReentrancyCheck.
-  tabstrip()->ActivateTabAt(
-      2, TabStripUserGestureDetails(
-             TabStripUserGestureDetails::GestureType::kOther));
+  // Close index 1, which is the only tab in the focused group.
+  tabstrip()->CloseWebContentsAt(1, TabCloseTypes::CLOSE_NONE);
 
   EXPECT_EQ(std::nullopt, tabstrip()->GetFocusedGroup());
-  EXPECT_FALSE(tabstrip()->group_model()->ContainsTabGroup(group_id));
-  EXPECT_EQ(1, tabstrip()->count());
 }
 
 TEST_F(TabStripModelTest, SplitTabPinning) {

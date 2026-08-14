@@ -75,7 +75,8 @@ ProcessingInstruction::ProcessingInstruction(Document& document,
 ProcessingInstruction::~ProcessingInstruction() = default;
 
 bool ProcessingInstruction::IsXSL() const {
-  CHECK(!is_xsl_ || RuntimeEnabledFeatures::XSLTEnabled());
+  CHECK(!is_xsl_ ||
+        XSLTProcessor::IsXSLTEnabled(GetDocument().GetExecutionContext()));
   return is_xsl_;
 }
 
@@ -179,8 +180,9 @@ bool ProcessingInstruction::ValidateAttributeName(
     const AtomicString& name,
     ExceptionState& exception_state) const {
   if (!Document::IsValidAttributeLocalName(name)) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidCharacterError,
-                                      "Invalid attribute name: " + name);
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kInvalidCharacterError,
+        StrCat({"Invalid attribute name: ", name}));
     return false;
   }
   return true;
@@ -189,7 +191,6 @@ bool ProcessingInstruction::ValidateAttributeName(
 const AtomicString& ProcessingInstruction::GetAttributeValue(
     const AtomicString& name,
     const AtomicString& default_value) {
-  DCHECK_EQ(name, name.ToAsciiLower());
   ProcessAttributesIfNeeded();
   for (const auto& pair : attributes_) {
     if (pair.key == name) {
@@ -199,8 +200,7 @@ const AtomicString& ProcessingInstruction::GetAttributeValue(
   return default_value;
 }
 
-bool ProcessingInstruction::HasAttribute(const AtomicString& name) {
-  DCHECK_EQ(name, name.ToAsciiLower());
+bool ProcessingInstruction::hasAttribute(const AtomicString& name) {
   ProcessAttributesIfNeeded();
   for (const auto& pair : attributes_) {
     if (pair.key == name) {
@@ -212,7 +212,6 @@ bool ProcessingInstruction::HasAttribute(const AtomicString& name) {
 
 void ProcessingInstruction::SetAttribute(const AtomicString& name,
                                          const AtomicString& value) {
-  DCHECK_EQ(name, name.ToAsciiLower());
   DCHECK(ValidateAttributeName(name, ASSERT_NO_EXCEPTION));
 
   ProcessAttributesIfNeeded();
@@ -227,8 +226,7 @@ void ProcessingInstruction::SetAttribute(const AtomicString& name,
   UpdateDataFromAttributes();
 }
 
-void ProcessingInstruction::RemoveAttribute(const AtomicString& name) {
-  DCHECK_EQ(name, name.ToAsciiLower());
+void ProcessingInstruction::removeAttribute(const AtomicString& name) {
   ProcessAttributesIfNeeded();
   const wtf_size_t size = attributes_.size();
   for (wtf_size_t i = 0; i < size; ++i) {
@@ -247,8 +245,7 @@ void ProcessingInstruction::ToggleAttribute(const AtomicString& name,
     return;
   }
 
-  DCHECK_EQ(name, name.ToAsciiLower());
-  const bool already_there = HasAttribute(name);
+  const bool already_there = hasAttribute(name);
   force = force.value_or(!already_there);
 
   if (*force) {
@@ -256,7 +253,7 @@ void ProcessingInstruction::ToggleAttribute(const AtomicString& name,
       SetAttribute(name, g_empty_atom);
     }
   } else {
-    RemoveAttribute(name);
+    removeAttribute(name);
   }
 }
 
@@ -278,14 +275,14 @@ Vector<AtomicString> ProcessingInstruction::getAttributeNames() {
 void ProcessingInstruction::UpdateDataFromAttributes() {
   StringBuilder builder;
   const wtf_size_t size = attributes_.size();
+  const auto type = GetSerializationType(GetDocument());
   for (wtf_size_t i = 0; i < size; ++i) {
     if (i) {
       builder.Append(" ");
     }
     builder.Append(attributes_[i].key);
     builder.Append("=\"");
-    MarkupFormatter::AppendAttributeValue(builder, attributes_[i].value,
-                                          GetDocument().IsHTMLDocument());
+    MarkupFormatter::AppendAttributeValue(attributes_[i].value, type, builder);
     builder.Append("\"");
   }
   SetDataFromAttributeChange(builder.ReleaseString());
@@ -321,7 +318,8 @@ bool ProcessingInstruction::CheckStyleSheet(String& href, String& charset) {
     return false;
   }
 
-  if (is_xsl_ && !RuntimeEnabledFeatures::XSLTEnabled()) {
+  if (is_xsl_ &&
+      !XSLTProcessor::IsXSLTEnabled(GetDocument().GetExecutionContext())) {
     XSLTProcessor::ReportXSLTDisabled(GetDocument(),
                                       /*exception_state*/ nullptr);
     is_xsl_ = false;

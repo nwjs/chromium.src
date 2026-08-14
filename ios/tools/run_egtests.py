@@ -198,6 +198,9 @@ def _run_tests(out_dir: str, simulator_udid: str, arch: str, scheme: str,
         scheme,
         '-destination',
         f'platform=iOS Simulator,id={simulator_udid},arch={arch}',
+        f'CONFIGURATION_BUILD_DIR={os.path.abspath(out_dir)}',
+        '-collect-test-diagnostics',
+        'never',
     ]
     if test_filters:
         for test_filter in test_filters:
@@ -334,9 +337,14 @@ def main() -> int:
         '--scheme',
         help='The EG test scheme to build and run. If not provided, it will be '
         'inferred from --tests.')
-    parser.add_argument('--device', help='The device type to use for the test.')
-    parser.add_argument('--os',
-                        help='The OS version to use for the test (e.g., 17.5).')
+    parser.add_argument(
+        '--device',
+        help='The device type or UDID to use for the test '
+             '(can also be set via IOS_SIMULATOR_DEFAULT_DEVICE).')
+    parser.add_argument(
+        '--os',
+        help='The OS version to use for the test (e.g., 17.5) '
+             '(can also be set via IOS_SIMULATOR_DEFAULT_OS).')
     parser.add_argument('--test-iterations',
                         type=int,
                         help='If specified, tests will run <number> times.')

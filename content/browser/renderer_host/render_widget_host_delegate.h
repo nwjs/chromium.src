@@ -23,6 +23,7 @@
 #include "third_party/blink/public/common/page/drag_operation.h"
 #include "third_party/blink/public/mojom/frame/lifecycle.mojom.h"
 #include "third_party/blink/public/mojom/input/input_handler.mojom-shared.h"
+#include "third_party/blink/public/mojom/manifest/application_context.mojom.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
 #include "ui/base/mojom/window_show_state.mojom-forward.h"
 #include "ui/base/ui_base_types.h"
@@ -241,6 +242,11 @@ class CONTENT_EXPORT RenderWidgetHostDelegate {
   // to frame-based widgets. Other widgets are always kBrowser.
   virtual blink::mojom::DisplayMode GetDisplayMode() const;
 
+  // Returns how the top-level browsing context is presented to the user (a
+  // standalone web application window vs ordinary browser UI). Only applies to
+  // frame-based widgets; other widgets are always kNone.
+  virtual blink::mojom::ApplicationContext GetApplicationContext() const;
+
   // Returns the window show state.
   virtual ui::mojom::WindowShowState GetWindowShowState();
 
@@ -383,7 +389,7 @@ class CONTENT_EXPORT RenderWidgetHostDelegate {
 
   // Show the newly created widget with the specified bounds.
   // The widget is identified by the route_id passed to CreateNewWidget.
-  virtual void ShowCreatedWidget(int process_id,
+  virtual void ShowCreatedWidget(ChildProcessId process_id,
                                  int widget_route_id,
                                  const gfx::Rect& initial_rect_in_dips,
                                  const gfx::Rect& initial_anchor_rect_in_dips) {

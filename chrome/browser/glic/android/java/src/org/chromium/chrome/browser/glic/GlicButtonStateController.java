@@ -64,6 +64,12 @@ public class GlicButtonStateController
     private boolean mIsPanelOpen;
     private int mBrowserControlsShowingToken = TokenHolder.INVALID_TOKEN;
 
+    private static @Nullable Boolean sIsPanelOpenForTesting;
+
+    public static void setPanelOpenForTesting(@Nullable Boolean isOpen) {
+        sIsPanelOpenForTesting = isOpen;
+    }
+
     /**
      * Constructs a new GlicButtonStateController.
      *
@@ -112,21 +118,24 @@ public class GlicButtonStateController
         }
     }
 
-    /** Updates the button state based on the current active task. */
+    /** Updates the button state based on the current active tasks. */
     public void updateButtonState() {
         if (mCurrentActorService == null) {
             updateButtonStateAndControls(ButtonState.DEFAULT);
             return;
         }
 
-        ActorTask task = mCurrentActorService.getCurrentActiveTask();
-        int newButtonState;
-        if (task != null) {
-            newButtonState = mapTaskStateToButtonState(task.getState());
+        List<ActorTask> tasks = mCurrentActorService.getActiveTasks();
+        int newButtonState = ButtonState.DEFAULT;
+
+        if (tasks != null && !tasks.isEmpty()) {
+            for (ActorTask task : tasks) {
+                int taskButtonState = mapTaskStateToButtonState(task.getState());
+                // Priority: NEEDS_REVIEW > DONE > WORKING > DEFAULT.
+                newButtonState = getHigherPriorityState(newButtonState, taskButtonState);
+            }
         } else if (mPersistDoneState) {
             newButtonState = ButtonState.DONE;
-        } else {
-            newButtonState = ButtonState.DEFAULT;
         }
 
         updateButtonStateAndControls(newButtonState);
@@ -147,6 +156,21 @@ public class GlicButtonStateController
             }
             mListener.onStateChanged(mButtonState, mIsPanelOpen);
         }
+    }
+
+    private @ButtonState int getHigherPriorityState(
+            @ButtonState int currentHighestState, @ButtonState int candidateState) {
+        if (currentHighestState == ButtonState.NEEDS_REVIEW
+                || candidateState == ButtonState.NEEDS_REVIEW) {
+            return ButtonState.NEEDS_REVIEW;
+        }
+        if (currentHighestState == ButtonState.DONE || candidateState == ButtonState.DONE) {
+            return ButtonState.DONE;
+        }
+        if (currentHighestState == ButtonState.WORKING || candidateState == ButtonState.WORKING) {
+            return ButtonState.WORKING;
+        }
+        return ButtonState.DEFAULT;
     }
 
     private void acquireBrowserControls() {
@@ -171,13 +195,18 @@ public class GlicButtonStateController
 
     private void updateIsPanelOpen() {
         if (mCurrentGlicService == null || mCurrentProfile == null) return;
-        ChromeAndroidTask task = mTaskSupplier.get();
-        if (task == null) return;
 
-        long browserWindowPtr = task.getNativeBrowserWindowPtr(mCurrentProfile, mActivity);
         boolean isOpen = false;
-        if (browserWindowPtr != 0 && !mActivity.isDestroyed()) {
-            isOpen = mCurrentGlicService.isPanelShowingForBrowser(browserWindowPtr);
+        if (sIsPanelOpenForTesting != null) {
+            isOpen = sIsPanelOpenForTesting;
+        } else {
+            ChromeAndroidTask task = mTaskSupplier.get();
+            if (task == null) return;
+
+            long browserWindowPtr = task.getNativeBrowserWindowPtr(mCurrentProfile, mActivity);
+            if (browserWindowPtr != 0 && !mActivity.isDestroyed()) {
+                isOpen = mCurrentGlicService.isPanelShowingForBrowser(browserWindowPtr);
+            }
         }
         if (mIsPanelOpen != isOpen) {
             mIsPanelOpen = isOpen;
@@ -216,7 +245,7 @@ public class GlicButtonStateController
         if (newState == ActorTaskState.FINISHED) {
             mPersistDoneState = true;
         }
-        updateButtonStateAndControls(mapTaskStateToButtonState(newState));
+        updateButtonState();
     }
 
     @Override
@@ -231,6 +260,9 @@ public class GlicButtonStateController
 
     /** Returns true if the panel is open. */
     public boolean isPanelOpen() {
+        if (sIsPanelOpenForTesting != null) {
+            return sIsPanelOpenForTesting;
+        }
         return mIsPanelOpen;
     }
 

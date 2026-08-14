@@ -4,7 +4,9 @@
 
 #include "partition_alloc/shim/allocator_shim_default_dispatch_to_partition_alloc.h"
 
+#include <array>
 #include <atomic>
+#include <bit>
 #include <cstddef>
 #include <cstring>
 #include <map>
@@ -17,7 +19,6 @@
 #include "partition_alloc/buildflags.h"
 #include "partition_alloc/memory_reclaimer.h"
 #include "partition_alloc/partition_alloc.h"
-#include "partition_alloc/partition_alloc_base/bits.h"
 #include "partition_alloc/partition_alloc_base/compiler_specific.h"
 #include "partition_alloc/partition_alloc_base/export_template.h"
 #include "partition_alloc/partition_alloc_base/no_destructor.h"
@@ -164,8 +165,10 @@ class MainPartitionConstructor {
   }
 };
 
-LeakySingleton<partition_alloc::PartitionRoot, MainPartitionConstructor>
-    g_roots[kNumPartitions] = {};
+std::array<
+    LeakySingleton<partition_alloc::PartitionRoot, MainPartitionConstructor>,
+    kNumPartitions>
+    g_roots = {};
 
 partition_alloc::PartitionRoot* Allocator(AllocToken alloc_token) {
 #if PA_BUILDFLAG(ENABLE_AUTO_PARTITIONING)
@@ -177,14 +180,13 @@ partition_alloc::PartitionRoot* Allocator(AllocToken alloc_token) {
 }
 
 // Original g_root_ if it was replaced by ConfigurePartitions().
-std::atomic<partition_alloc::PartitionRoot*> g_original_roots[kNumPartitions] =
-    {};
+std::array<std::atomic<partition_alloc::PartitionRoot*>, kNumPartitions>
+    g_original_roots = {};
 
 std::atomic<bool> g_roots_finalized = false;
 
 partition_alloc::PartitionRoot* OriginalAllocator(AllocToken alloc_token) {
-  return PA_UNSAFE_TODO(g_original_roots[alloc_token.value()])
-      .load(std::memory_order_relaxed);
+  return g_original_roots[alloc_token.value()].load(std::memory_order_relaxed);
 }
 
 bool AllocatorConfigurationFinalized() {
@@ -205,7 +207,7 @@ void* AllocateAlignedMemory(size_t alignment,
   // time.
   if (alignment <= partition_alloc::internal::kAlignment) {
     // This is mandated by |posix_memalign()| and friends, so should never fire.
-    PA_CHECK(partition_alloc::internal::base::bits::HasSingleBit(alignment));
+    PA_CHECK(std::has_single_bit(alignment));
     // TODO(bartekn): See if the compiler optimizes branches down the stack on
     // Mac, where PartitionPageSize() isn't constexpr.
     return Allocator(alloc_token)->Alloc<flags>(size);
@@ -507,7 +509,7 @@ PartitionAllocFunctionsInternal<base_alloc_flags, base_free_flags>::AlignedFree(
     void* object,
     void* context) {
   constexpr partition_alloc::FreeFlags kMaybeAlignedFreeForMemoryTool =
-#if defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
+#if PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR)
       partition_alloc::FreeFlags::kAlignedFreeForMemoryTool;
 #else
       partition_alloc::FreeFlags::kNone;
@@ -1054,21 +1056,21 @@ void ConfigurePartitions(
           ? partition_alloc::PartitionOptions::kEnabled
           : partition_alloc::PartitionOptions::kDisabled;
 
-  static partition_alloc::internal::base::NoDestructor<
-      partition_alloc::PartitionAllocator>
-      new_main_allocators[kNumPartitions] = {
-          partition_alloc::internal::base::NoDestructor<
-              partition_alloc::PartitionAllocator>([&opts] {
-            opts.thread_cache_index = 0;
-            return opts;
-          }())
+  static std::array<partition_alloc::internal::base::NoDestructor<
+                        partition_alloc::PartitionAllocator>,
+                    kNumPartitions>
+      new_main_allocators = {partition_alloc::internal::base::NoDestructor<
+                                 partition_alloc::PartitionAllocator>([&opts] {
+                               opts.thread_cache_index = 0;
+                               return opts;
+                             }())
 #if PA_BUILDFLAG(ENABLE_AUTO_PARTITIONING)
-              ,
-          partition_alloc::internal::base::NoDestructor<
-              partition_alloc::PartitionAllocator>([&opts] {
-            opts.thread_cache_index = 1;
-            return opts;
-          }())
+                                 ,
+                             partition_alloc::internal::base::NoDestructor<
+                                 partition_alloc::PartitionAllocator>([&opts] {
+                               opts.thread_cache_index = 1;
+                               return opts;
+                             }())
 #endif
       };
 

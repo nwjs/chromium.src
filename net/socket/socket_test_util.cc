@@ -24,6 +24,7 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
+#include "base/no_destructor.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
 #include "base/rand_util.h"
@@ -42,6 +43,7 @@
 #include "net/base/load_timing_info.h"
 #include "net/base/net_errors.h"
 #include "net/base/proxy_server.h"
+#include "net/cert/x509_util.h"
 #include "net/http/http_network_session.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_response_headers.h"
@@ -55,8 +57,12 @@
 #include "net/ssl/ssl_cert_request_info.h"
 #include "net/ssl/ssl_connection_status_flags.h"
 #include "net/ssl/ssl_info.h"
+#include "net/test/cert_builder.h"
+#include "net/test/cert_test_util.h"
+#include "net/test/test_data_directory.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/strings/ascii.h"
 
@@ -472,6 +478,13 @@ SSLSocketDataProvider::SSLSocketDataProvider(IoMode mode, int result)
                                 &ssl_info.connection_status);
   // Set to TLS_CHACHA20_POLY1305_SHA256
   SSLConnectionStatusSetCipherSuite(0x1301, &ssl_info.connection_status);
+  // Tests that go through the certificate error path need a certificate set,
+  // otherwise they trigger a CHECK.
+  if (IsCertificateError(result)) {
+    static base::NoDestructor<scoped_refptr<X509Certificate>> cert(
+        CertBuilder::CreateSimpleChain(1)[0]->GetX509Certificate());
+    ssl_info.cert = *cert;
+  }
 }
 
 SSLSocketDataProvider::SSLSocketDataProvider(MockConnectCompleter* completer)
@@ -1033,8 +1046,13 @@ std::unique_ptr<SSLClientSocket> MockClientSocketFactory::CreateSSLClientSocket(
               ssl_config.ech_config_list);
   }
   if (next_ssl_data->expected_trust_anchor_ids) {
-    EXPECT_EQ(*next_ssl_data->expected_trust_anchor_ids,
-              ssl_config.trust_anchor_ids);
+    EXPECT_TRUE(ssl_config.trust_anchor_ids.has_value());
+    if (ssl_config.trust_anchor_ids.has_value()) {
+      EXPECT_THAT(
+          x509_util::ParseTlsTrustAnchorIDs(*ssl_config.trust_anchor_ids),
+          testing::UnorderedElementsAreArray(
+              *next_ssl_data->expected_trust_anchor_ids));
+    }
   }
   if (next_ssl_data->expect_no_trust_anchor_ids) {
     EXPECT_EQ(std::nullopt, ssl_config.trust_anchor_ids);
@@ -2008,7 +2026,11 @@ int MockUDPClientSocket::ConnectAsync(const IPEndPoint& address,
   if (mode == SYNCHRONOUS) {
     return result;
   }
-  RunCallbackAsync(std::move(callback), result);
+  if (result == ERR_IO_PENDING) {
+    pending_connect_callback_ = std::move(callback);
+  } else {
+    RunCallbackAsync(std::move(callback), result);
+  }
   return ERR_IO_PENDING;
 }
 
@@ -2032,7 +2054,11 @@ int MockUDPClientSocket::ConnectUsingNetworkAsync(
   if (mode == SYNCHRONOUS) {
     return result;
   }
-  RunCallbackAsync(std::move(callback), result);
+  if (result == ERR_IO_PENDING) {
+    pending_connect_callback_ = std::move(callback);
+  } else {
+    RunCallbackAsync(std::move(callback), result);
+  }
   return ERR_IO_PENDING;
 }
 
@@ -2054,7 +2080,11 @@ int MockUDPClientSocket::ConnectUsingDefaultNetworkAsync(
   if (mode == SYNCHRONOUS) {
     return result;
   }
-  RunCallbackAsync(std::move(callback), result);
+  if (result == ERR_IO_PENDING) {
+    pending_connect_callback_ = std::move(callback);
+  } else {
+    RunCallbackAsync(std::move(callback), result);
+  }
   return ERR_IO_PENDING;
 }
 
@@ -2126,7 +2156,9 @@ void MockUDPClientSocket::OnWriteComplete(int rv) {
 }
 
 void MockUDPClientSocket::OnConnectComplete(const MockConnect& data) {
-  NOTIMPLEMENTED();
+  if (!pending_connect_callback_.is_null()) {
+    RunCallback(std::move(pending_connect_callback_), data.result);
+  }
 }
 
 void MockUDPClientSocket::OnDataProviderDestroyed() {
@@ -2338,7 +2370,6 @@ MockTransportClientSocketPool::MockTransportClientSocketPool(
     : TransportClientSocketPool(
           max_sockets,
           max_sockets_per_group,
-          SocketPoolAdditionalCapacity::Create(max_sockets),
           base::Seconds(10) /* unused_idle_socket_timeout */,
           ProxyChain::Direct(),
           false /* is_for_websockets */,
@@ -2648,9 +2679,9 @@ uint64_t GetTaggedBytes(int32_t expected_tag) {
 #endif
 
 void ValidateAdditionalCapacityForSocketPool(
-    base::RepeatingCallback<SocketPoolState()> request_socket,
+    base::RepeatingCallback<SocketPoolExpandability()> request_socket,
     base::RepeatingCallback<void()> wait_for_socket_initialization,
-    base::RepeatingCallback<SocketPoolState()> release_socket,
+    base::RepeatingCallback<SocketPoolExpandability()> release_socket,
     base::RepeatingCallback<size_t()> sockets_in_use) {
   size_t total_sockets_seen_at_capping_point = 0;
   size_t capping_points_seen = 0;
@@ -2661,7 +2692,7 @@ void ValidateAdditionalCapacityForSocketPool(
   size_t minimum_sockets_seen_at_uncapping_point = 512;
   size_t maximum_sockets_seen_at_uncapping_point = 0;
   for (size_t i = 0; i < 100; ++i) {
-    while (request_socket.Run() == SocketPoolState::kUncapped) {
+    while (request_socket.Run() == SocketPoolExpandability::kUncapped) {
       continue;
     }
     wait_for_socket_initialization.Run();
@@ -2673,7 +2704,7 @@ void ValidateAdditionalCapacityForSocketPool(
     if (maximum_sockets_seen_at_capping_point < sockets_in_use.Run()) {
       maximum_sockets_seen_at_capping_point = sockets_in_use.Run();
     }
-    while (release_socket.Run() == SocketPoolState::kCapped) {
+    while (release_socket.Run() == SocketPoolExpandability::kCapped) {
       continue;
     }
     total_sockets_seen_at_uncapping_point += sockets_in_use.Run();

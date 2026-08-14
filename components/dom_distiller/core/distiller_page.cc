@@ -21,6 +21,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/values.h"
+#include "build/build_config.h"
 #include "components/dom_distiller/core/dom_distiller_features.h"
 #include "components/dom_distiller/core/extraction_utils.h"
 #include "components/grit/components_resources.h"
@@ -33,78 +34,18 @@ namespace dom_distiller {
 
 namespace {
 
-// Counts the number of words in the text_content portion, used to record how
-// many words are present for a readability distillation. Note this won't work
-// as well on languages like Chinese where the space separation isn't the
-// same as in english.
-int CountWords(const std::string& text_content) {
-  int result = 0;
-  bool prev_char_whitespace = false;
-  for (const char& it : text_content) {
-    bool cur_char_whitespace = it == ' ';
-    if (prev_char_whitespace && !cur_char_whitespace) {
-      result++;
-    }
-    prev_char_whitespace = cur_char_whitespace;
-  }
-
-  return result + 1;
-}
-
-// Converts the js object returned by the readability distiller into the
-// DomDistillerResult expected by the distillation infra.
-bool ReadabilityDistillerResultToDomDistillerResult(
-    const base::Value& value,
-    proto::DomDistillerResult* result) {
-  if (!value.is_dict()) {
-    return false;
-  }
-
-  const base::DictValue* dict_value = value.GetIfDict();
-
-  if (auto* title = dict_value->FindString("title")) {
-    result->set_title(*title);
-  }
-  if (auto* content = dict_value->FindString("content")) {
-    auto* distilled_content = new proto::DistilledContent();
-    distilled_content->set_html(*content);
-    result->set_allocated_distilled_content(std::move(distilled_content));
-  }
-
-  if (auto* dir = dict_value->FindString("dir")) {
-    result->set_text_direction(*dir);
-  } else {
-    result->set_text_direction("auto");
-  }
-
-  if (auto* text_content = dict_value->FindString("textContent")) {
-    auto* statistics_info = new proto::StatisticsInfo();
-    statistics_info->set_word_count(CountWords(*text_content));
-    result->set_allocated_statistics_info(statistics_info);
-  }
-
-  return true;
-}
-
-// This enum is used to record histograms for OnDistillationDone results.
-// These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused.
-
-// LINT.IfChange(DistillationParseResult)
-enum class DistillationParseResult {
-  kSuccess = 0,
-  kParseFailure = 1,
-  kNoData = 2,
-  kContentTooShort = 3,
-  kMaxValue = kContentTooShort,
-};
-// LINT.ThenChange(//tools/metrics/histograms/metadata/accessibility/enums.xml:DistillationParseResult)
+#if BUILDFLAG(IS_ANDROID)
+constexpr int kDefaultMinContentLength = 100;
+#else
+constexpr int kDefaultMinContentLength = 0;
+#endif
 
 }  // namespace
 
 DistillerPageFactory::~DistillerPageFactory() = default;
 
-DistillerPage::DistillerPage() : ready_(true) {}
+DistillerPage::DistillerPage()
+    : ready_(true), min_content_length_(kDefaultMinContentLength) {}
 
 DistillerPage::~DistillerPage() = default;
 
@@ -141,8 +82,6 @@ void DistillerPage::OnDistillationDone(const GURL& page_url,
   std::unique_ptr<dom_distiller::proto::DomDistillerResult> distiller_result(
       new dom_distiller::proto::DomDistillerResult());
 
-  // Initialize variables to a default failure state.
-  bool found_content = false;
   DistillationParseResult result = DistillationParseResult::kParseFailure;
 
   if (!value || value->is_none()) {
@@ -163,7 +102,6 @@ void DistillerPage::OnDistillationDone(const GURL& page_url,
 
     if (parsed_successfully) {
       // Assume success unless a specific validation check fails.
-      found_content = true;
       result = DistillationParseResult::kSuccess;
 
       // Apply a content length check specifically for the Readability
@@ -180,7 +118,6 @@ void DistillerPage::OnDistillationDone(const GURL& page_url,
         // If content is too short, update the result state.
         if (!content_is_long_enough) {
           result = DistillationParseResult::kContentTooShort;
-          found_content = false;
         }
       }
     } else {
@@ -194,7 +131,7 @@ void DistillerPage::OnDistillationDone(const GURL& page_url,
 
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(std::move(distiller_page_callback_),
-                                std::move(distiller_result), found_content));
+                                std::move(distiller_result), result));
 }
 
 }  // namespace dom_distiller

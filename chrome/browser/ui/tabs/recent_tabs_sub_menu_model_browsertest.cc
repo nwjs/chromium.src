@@ -139,7 +139,7 @@ class RecentTabsSubMenuModelTest : public InProcessBrowserTest {
 
   virtual void Init() {
     auto* session_sync_service =
-        SessionSyncServiceFactory::GetForProfile(browser()->profile());
+        SessionSyncServiceFactory::GetForProfile(browser()->GetProfile());
 
     syncer::DataTypeActivationRequest activation_request;
     activation_request.cache_guid = "test_cache_guid";
@@ -183,7 +183,7 @@ class RecentTabsSubMenuModelTest : public InProcessBrowserTest {
   void RegisterRecentTabs(RecentTabsBuilderTestHelper* helper) {
     helper->ExportToSessionSync(sync_processor_.get());
     helper->VerifyExport(
-        SessionSyncServiceFactory::GetForProfile(browser()->profile())
+        SessionSyncServiceFactory::GetForProfile(browser()->GetProfile())
             ->GetOpenTabsUIDelegate());
   }
 
@@ -233,7 +233,7 @@ IN_PROC_BROWSER_TEST_F(RecentTabsSubMenuModelTest,
                        LogMenuMetricsForShowHistory) {
   Init();
   FakeIconDelegate fake_delegate;
-  AppMenuIconController app_menu_icon_controller(browser()->profile(),
+  AppMenuIconController app_menu_icon_controller(browser()->GetProfile(),
                                                  &fake_delegate);
   TestLogMetricsAppMenuModel app_menu_model(nullptr, browser(),
                                             &app_menu_icon_controller);
@@ -250,7 +250,7 @@ IN_PROC_BROWSER_TEST_F(RecentTabsSubMenuModelTest,
                        LogMenuMetricsForShowGroupedHistory) {
   Init();
   FakeIconDelegate fake_delegate;
-  AppMenuIconController app_menu_icon_controller(browser()->profile(),
+  AppMenuIconController app_menu_icon_controller(browser()->GetProfile(),
                                                  &fake_delegate);
   TestLogMetricsAppMenuModel app_menu_model(nullptr, browser(),
                                             &app_menu_icon_controller);
@@ -268,7 +268,7 @@ IN_PROC_BROWSER_TEST_F(RecentTabsSubMenuModelTest,
                        LogMenuMetricsForRecentTabsLoginForDeviceTabs) {
   Init();
   FakeIconDelegate fake_delegate;
-  AppMenuIconController app_menu_icon_controller(browser()->profile(),
+  AppMenuIconController app_menu_icon_controller(browser()->GetProfile(),
                                                  &fake_delegate);
   TestLogMetricsAppMenuModel app_menu_model(nullptr, browser(),
                                             &app_menu_icon_controller);
@@ -290,7 +290,7 @@ IN_PROC_BROWSER_TEST_F(RecentTabsSubMenuModelTest,
                        LogMenuMetricsForRecentTabsSeeDeviceTabs) {
   Init();
   FakeIconDelegate fake_delegate;
-  AppMenuIconController app_menu_icon_controller(browser()->profile(),
+  AppMenuIconController app_menu_icon_controller(browser()->GetProfile(),
                                                  &fake_delegate);
   TestLogMetricsAppMenuModel app_menu_model(nullptr, browser(),
                                             &app_menu_icon_controller);
@@ -336,7 +336,7 @@ IN_PROC_BROWSER_TEST_F(RecentTabsSubMenuModelTest,
   Init();
   DisableSync();
 
-  TabRestoreServiceFactory::GetForProfile(browser()->profile());
+  TabRestoreServiceFactory::GetForProfile(browser()->GetProfile());
 
   // Add 2 tabs and close them.
   content::WebContents* tab1 =
@@ -377,7 +377,7 @@ IN_PROC_BROWSER_TEST_F(RecentTabsSubMenuModelTest,
 
   DisableSync();
 
-  TabRestoreServiceFactory::GetForProfile(browser()->profile());
+  TabRestoreServiceFactory::GetForProfile(browser()->GetProfile());
 
   AddTabToBrowser(GURL("http://foo/1"));
   AddTabToBrowser(GURL("http://foo/2"));
@@ -444,7 +444,7 @@ IN_PROC_BROWSER_TEST_F(RecentTabsSubMenuModelSplitTest,
 
   DisableSync();
 
-  TabRestoreServiceFactory::GetForProfile(browser()->profile());
+  TabRestoreServiceFactory::GetForProfile(browser()->GetProfile());
 
   AddTabToBrowser(GURL("http://foo/1"));
   AddTabToBrowser(GURL("http://foo/2"));
@@ -701,7 +701,7 @@ IN_PROC_BROWSER_TEST_F(RecentTabsSubMenuModelSplitTest,
 
   DisableSync();
 
-  TabRestoreServiceFactory::GetForProfile(browser()->profile());
+  TabRestoreServiceFactory::GetForProfile(browser()->GetProfile());
 
   AddTabToBrowser(GURL("http://foo/1"));
   AddTabToBrowser(GURL("http://foo/2"));
@@ -757,7 +757,7 @@ IN_PROC_BROWSER_TEST_F(RecentTabsSubMenuModelTest,
   Init();
   DisableSync();
 
-  TabRestoreServiceFactory::GetForProfile(browser()->profile());
+  TabRestoreServiceFactory::GetForProfile(browser()->GetProfile());
 
   RecentTabsSubMenuModel model(nullptr, browser());
   TestRecentTabsMenuModelDelegate delegate(&model);
@@ -1027,10 +1027,10 @@ IN_PROC_BROWSER_TEST_F(RecentTabsSubMenuModelTest,
   Init();
   DisableSync();
   // Ensure the policy is explicitly false to start with.
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       prefs::kSavingBrowserHistoryDisabled, false);
 
-  TabRestoreServiceFactory::GetForProfile(browser()->profile());
+  TabRestoreServiceFactory::GetForProfile(browser()->GetProfile());
 
   // Close some tabs to generate "Recently closed" entries.
   content::WebContents* tab1 =
@@ -1068,7 +1068,7 @@ IN_PROC_BROWSER_TEST_F(RecentTabsSubMenuModelTest,
   }
 
   // Enable the policy mid-session.
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       prefs::kSavingBrowserHistoryDisabled, true);
 
   // The model delegate should have been notified of menu structure changes.
@@ -1083,7 +1083,7 @@ IN_PROC_BROWSER_TEST_F(RecentTabsSubMenuModelTest,
   VerifyModel(model, kDataDisabled);
 
   // Disable the policy again mid-session.
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       prefs::kSavingBrowserHistoryDisabled, false);
 
   // Expect recently closed tabs to remain empty since they were wiped when
@@ -1142,7 +1142,7 @@ IN_PROC_BROWSER_TEST_F(RecentTabsSubMenuModelTest, OtherDevicesAvailability) {
 
   // Signed in.
   signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(browser()->profile());
+      IdentityManagerFactory::GetForProfile(browser()->GetProfile());
   signin::MakePrimaryAccountAvailable(identity_manager, "test@gmail.com",
                                       signin::ConsentLevel::kSignin);
   VerifyModel(RecentTabsSubMenuModel(nullptr, browser()),
@@ -1150,7 +1150,7 @@ IN_PROC_BROWSER_TEST_F(RecentTabsSubMenuModelTest, OtherDevicesAvailability) {
 
   // History sync explicitly disabled: tabs from other devices are not shown.
   syncer::SyncService* sync_service =
-      SyncServiceFactory::GetForProfile(browser()->profile());
+      SyncServiceFactory::GetForProfile(browser()->GetProfile());
   sync_service->GetUserSettings()->SetSelectedType(
       syncer::UserSelectableType::kTabs, false);
   VerifyModel(RecentTabsSubMenuModel(nullptr, browser()),

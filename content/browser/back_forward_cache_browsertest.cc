@@ -1874,34 +1874,16 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
   }
 
   {
-    // 5) Navigating back to |url_1|, we shouldn't restore the focus to the
-    // text input, but |rfh_1| will be focused again as we will restore focus
-    // to main frame after navigation.
+    // 5) Navigating back to |url_1|, the focus on the <input> is preserved
+    // across BFCache, so no blur event should have been fired and the input
+    // should still be the active element.
     ASSERT_TRUE(HistoryGoBack(web_contents()));
 
     EXPECT_EQ(rfh_1, web_contents()->GetFocusedFrame());
     EXPECT_EQ(EvalJs(rfh_1, "focusCount").ExtractInt(), 1);
-    EXPECT_EQ(EvalJs(rfh_1, "blurCount").ExtractInt(), 1);
-  }
-
-  {
-    TextInputManagerTypeObserver type_observer(web_contents(),
-                                               ui::TEXT_INPUT_TYPE_TEXT);
-    TextInputManagerValueObserver value_observer(web_contents(), "A");
-    // 6) Press tab key to focus the <input> again. Note that we need to press
-    // the tab key twice here, because the last "tab focus" point was the
-    // <input> element. The first tab key press would focus on the UI/url bar,
-    // then the second tab key would go back to the <input>.
-    SimulateKeyPress(web_contents(), ui::DomKey::TAB, ui::DomCode::TAB,
-                     ui::VKEY_TAB, false, false, false, false);
-    SimulateKeyPress(web_contents(), ui::DomKey::TAB, ui::DomCode::TAB,
-                     ui::VKEY_TAB, false, false, false, false);
-    type_observer.Wait();
-    value_observer.Wait();
-
-    EXPECT_EQ(rfh_1, web_contents()->GetFocusedFrame());
-    EXPECT_EQ(EvalJs(rfh_1, "focusCount").ExtractInt(), 2);
-    EXPECT_EQ(EvalJs(rfh_1, "blurCount").ExtractInt(), 1);
+    EXPECT_EQ(EvalJs(rfh_1, "blurCount").ExtractInt(), 0);
+    EXPECT_TRUE(
+        EvalJs(rfh_1, "document.activeElement === input").ExtractBool());
   }
 }
 
@@ -1979,29 +1961,16 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
   }
 
   {
-    // 5) Navigating back to |url_1|, we shouldn't restore the focus to the
-    // text input in the subframe (we will focus on the main frame |rfh_a|
-    // instead).
+    // 5) Navigating back to |url_1|, the focus on the subframe <input> is
+    // preserved across BFCache, so no blur event should have been fired and
+    // the subframe should be the focused frame.
     ASSERT_TRUE(HistoryGoBack(web_contents()));
 
-    EXPECT_EQ(rfh_a, web_contents()->GetFocusedFrame());
-    EXPECT_EQ(EvalJs(rfh_subframe_a, "focusCount").ExtractInt(), 1);
-    EXPECT_EQ(EvalJs(rfh_subframe_a, "blurCount").ExtractInt(), 1);
-  }
-
-  {
-    TextInputManagerTypeObserver type_observer(web_contents(),
-                                               ui::TEXT_INPUT_TYPE_TEXT);
-    TextInputManagerValueObserver value_observer(web_contents(), "A");
-    // 6) Press tab key to focus the <input> again.
-    SimulateKeyPress(web_contents(), ui::DomKey::TAB, ui::DomCode::TAB,
-                     ui::VKEY_TAB, false, false, false, false);
-    type_observer.Wait();
-    value_observer.Wait();
-
     EXPECT_EQ(rfh_subframe_a, web_contents()->GetFocusedFrame());
-    EXPECT_EQ(EvalJs(rfh_subframe_a, "focusCount").ExtractInt(), 2);
-    EXPECT_EQ(EvalJs(rfh_subframe_a, "blurCount").ExtractInt(), 1);
+    EXPECT_EQ(EvalJs(rfh_subframe_a, "focusCount").ExtractInt(), 1);
+    EXPECT_EQ(EvalJs(rfh_subframe_a, "blurCount").ExtractInt(), 0);
+    EXPECT_TRUE(EvalJs(rfh_subframe_a, "document.activeElement === input")
+                    .ExtractBool());
   }
 }
 
@@ -3729,6 +3698,92 @@ IN_PROC_BROWSER_TEST_F(
 
   // 5) The history user activation on active page C must NOT be consumed.
   EXPECT_TRUE(rfh_c->IsHistoryUserActivationActive());
+}
+
+// Test that a nested Dedicated Worker created while the parent is waiting for
+// its script fetch is correctly frozen when the page enters the Back-Forward
+// Cache.
+IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
+                       BFCacheBypassViaUnfrozenNestedWorker) {
+  net::test_server::ControllableHttpResponse w2_response(embedded_test_server(),
+                                                         "/w2.js");
+
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  GURL url_a(embedded_test_server()->GetURL("a.com",
+                                            "/back_forward_cache/empty.html"));
+  GURL url_b(embedded_test_server()->GetURL("a.com", "/title1.html"));
+
+  // Navigate to A.
+  EXPECT_TRUE(NavigateToURL(shell(), url_a));
+  RenderFrameHostImpl* rfh_a = current_frame_host();
+  RenderFrameDeletedObserver deleted(rfh_a);
+
+  std::string w2_url = embedded_test_server()->GetURL("a.com", "/w2.js").spec();
+
+  // Create w1, which creates w2. Also set up a promise on A to listen for
+  // the message from w2 after we restore the page.
+  std::string js_script = R"(
+    window.receivedMsg = new Promise(resolve => {
+      const bc = new BroadcastChannel('bfcache_channel');
+      bc.onmessage = (e) => {
+        resolve(e.data);
+      };
+    });
+    const w1_code = `
+      const w2 = new Worker(')" +
+                          w2_url + R"(');
+    `;
+    const blob = new Blob([w1_code], {type: 'application/javascript'});
+    const w1 = new Worker(URL.createObjectURL(blob));
+    "done";
+  )";
+  EXPECT_TRUE(ExecJs(rfh_a, js_script));
+
+  // Wait for the request for w2.js to hit the server.
+  w2_response.WaitForRequest();
+
+  // Now w2 is pending fetch. Navigate to B to put A into BFCache.
+  EXPECT_TRUE(NavigateToURL(shell(), url_b));
+
+  // Ensure A is in BFCache.
+  EXPECT_FALSE(deleted.deleted());
+  EXPECT_TRUE(rfh_a->IsInBackForwardCache());
+
+  // In active page B, set up a BroadcastChannel to verify the message is not
+  // received.
+  RenderFrameHostImpl* rfh_b = current_frame_host();
+  EXPECT_TRUE(ExecJs(rfh_b, R"(
+    window.hasReceived = false;
+    const bc = new BroadcastChannel('bfcache_channel');
+    bc.onmessage = (e) => {
+      window.hasReceived = true;
+    };
+  )"));
+
+  // Now respond to the w2.js request.
+  w2_response.Send(
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Type: application/javascript\r\n"
+      "\r\n"
+      "const bc = new BroadcastChannel('bfcache_channel');\n"
+      "bc.postMessage('Hello from nested worker!');\n");
+  w2_response.Done();
+
+  // Allow any outstanding tasks to execute on the renderer.
+  EXPECT_TRUE(ExecJs(rfh_b, "true"));
+
+  // Since A is in BFCache, w2 should be frozen and NOT run or send messages.
+  EXPECT_FALSE(EvalJs(rfh_b, "window.hasReceived").ExtractBool());
+
+  // Go back to page A.
+  ASSERT_TRUE(HistoryGoBack(shell()->web_contents()));
+  ExpectRestored(FROM_HERE);
+
+  // Once page A is restored (and unfrozen), w2 should resume and send the
+  // message.
+  std::string result = EvalJs(rfh_a, "window.receivedMsg").ExtractString();
+  EXPECT_EQ("Hello from nested worker!", result);
 }
 
 // BEFORE ADDING A NEW TEST HERE

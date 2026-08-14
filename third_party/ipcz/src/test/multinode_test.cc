@@ -2,18 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
-#pragma allow_unsafe_libc_calls
-#endif
 
 #include "test/multinode_test.h"
 
 #include <cstring>
+
 #include <map>
 #include <optional>
 #include <string>
 #include <thread>
+#include "util/unsafe_buffers.h"
 
 #include "ipcz/ipcz.h"
 #include "reference_drivers/async_reference_driver.h"
@@ -152,7 +150,7 @@ class InProcessTestDriverBase : public TestDriver {
 class SyncTestDriver : public InProcessTestDriverBase {
  public:
   const IpczDriver& GetIpczDriver() const override {
-    return reference_drivers::kSyncReferenceDriver;
+    return reference_drivers::GetSyncReferenceDriver();
   }
 
   const char* GetName() const override { return internal::kSyncTestDriverName; }
@@ -185,9 +183,9 @@ class AsyncTestDriver : public InProcessTestDriverBase {
   const IpczDriver& GetIpczDriver() const override {
     if (mode_ == kForceBrokering ||
         mode_ == kForceBrokeringAndDelegateAllocation) {
-      return reference_drivers::kAsyncReferenceDriverWithForcedBrokering;
+      return reference_drivers::GetAsyncReferenceDriverWithForcedBrokering();
     }
-    return reference_drivers::kAsyncReferenceDriver;
+    return reference_drivers::GetAsyncReferenceDriver();
   }
 
   const char* GetName() const override { return name_; }
@@ -267,7 +265,7 @@ class ChildProcessTestNodeController : public TestNode::TestNodeController {
 class MultiprocessTestDriver : public TestDriver {
  public:
   const IpczDriver& GetIpczDriver() const override {
-    return reference_drivers::kMultiprocessReferenceDriver;
+    return reference_drivers::GetMultiprocessReferenceDriver();
   }
 
   const char* GetName() const override {
@@ -414,7 +412,10 @@ IpczHandle TestNode::BoxBlob(std::string_view contents) {
   result = GetDriver().MapSharedMemory(memory, IPCZ_NO_FLAGS, nullptr, &base,
                                        &mapping);
   ABSL_ASSERT(result == IPCZ_RESULT_OK);
-  memcpy(const_cast<void*>(base), contents.data(), contents.size());
+  // SAFETY: We just allocated memory of contents.size() available starting from
+  // base.
+  IPCZ_UNSAFE_BUFFERS(
+      memcpy(const_cast<void*>(base), contents.data(), contents.size()));
   GetDriver().Close(mapping, IPCZ_NO_FLAGS, nullptr);
 
   IpczHandle box;

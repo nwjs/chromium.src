@@ -24,13 +24,13 @@ constexpr char kLnaPath[] =
     "?Access-Control-Allow-Origin: *";
 
 constexpr char kWorkerHtmlPath[] =
-    "/local_network_access/request-from-worker-as-public-address.html";
+    "/local_network_access/request-from-worker.html";
 
 constexpr char kSharedWorkerHtmlPath[] =
-    "/local_network_access/fetch-from-shared-worker-as-public-address.html";
+    "/local_network_access/fetch-from-shared-worker.html";
 
 constexpr char kServiceWorkerHtmlPath[] =
-    "/local_network_access/request-from-service-worker-as-public-address.html";
+    "/local_network_access/request-from-service-worker.html";
 
 class LocalNetworkAccessPoliciesBrowserTest
     : public LocalNetworkAccessBrowserTestBase {};
@@ -44,10 +44,8 @@ IN_PROC_BROWSER_TEST_F(LocalNetworkAccessPoliciesBrowserTest,
   UpdateProviderPolicy(policies);
 
   ASSERT_TRUE(content::NavigateToURL(
-      web_contents(),
-      https_server().GetURL(
-          "a.com",
-          "/local_network_access/no-favicon-treat-as-public-address.html")));
+      web_contents(), https_public_server().GetURL(
+                          "a.com", "/local_network_access/no-favicon.html")));
 
   // Enable auto-denial of LNA permission request.
   bubble_factory()->set_response_type(
@@ -69,7 +67,7 @@ IN_PROC_BROWSER_TEST_F(LocalNetworkAccessPoliciesBrowserTest,
             std::optional<base::Value>(true));
   UpdateProviderPolicy(policies);
   ASSERT_TRUE(content::NavigateToURL(
-      web_contents(), https_server().GetURL("a.com", kWorkerHtmlPath)));
+      web_contents(), https_public_server().GetURL("a.com", kWorkerHtmlPath)));
 
   GURL fetch_url = https_server().GetURL("b.com", kLnaPath);
   std::string_view script_template = "fetch_from_worker($1);";
@@ -90,7 +88,8 @@ IN_PROC_BROWSER_TEST_F(LocalNetworkAccessPoliciesBrowserTest,
             std::optional<base::Value>(true));
   UpdateProviderPolicy(policies);
   ASSERT_TRUE(content::NavigateToURL(
-      web_contents(), https_server().GetURL("a.com", kServiceWorkerHtmlPath)));
+      web_contents(),
+      https_public_server().GetURL("a.com", kServiceWorkerHtmlPath)));
 
   EXPECT_EQ("ready", content::EvalJs(web_contents(), "setup();"));
   GURL fetch_url = https_server().GetURL("b.com", kLnaPath);
@@ -110,7 +109,8 @@ IN_PROC_BROWSER_TEST_F(LocalNetworkAccessPoliciesBrowserTest,
   UpdateProviderPolicy(policies);
 
   ASSERT_TRUE(content::NavigateToURL(
-      web_contents(), https_server().GetURL("a.com", kSharedWorkerHtmlPath)));
+      web_contents(),
+      https_public_server().GetURL("a.com", kSharedWorkerHtmlPath)));
 
   // Enable auto-deny of LNA permission request.
   bubble_factory()->set_response_type(
@@ -136,11 +136,10 @@ IN_PROC_BROWSER_TEST_F(LocalNetworkAccessPoliciesBrowserTest,
   GURL initial_url =
       https_server().GetURL("a.com", "/local_network_access/no-favicon.html");
   GURL nav_url = https_server().GetURL("c.com", "/defaultresponse");
-  GURL iframe_url = https_server().GetURL(
-      "b.com",
-      "/local_network_access/"
-      "client-redirect-treat-as-public-address.html?url=" +
-          nav_url.spec());
+  GURL iframe_url = https_public_server().GetURL("b.com",
+                                                 "/local_network_access/"
+                                                 "client-redirect.html?url=" +
+                                                     nav_url.spec());
   ASSERT_TRUE(content::NavigateToURL(web_contents(), initial_url));
 
   content::TestNavigationManager iframe_url_nav_manager(web_contents(),
@@ -172,10 +171,8 @@ IN_PROC_BROWSER_TEST_F(LocalNetworkAccessPoliciesBrowserTest,
   UpdateProviderPolicy(policies);
 
   ASSERT_TRUE(content::NavigateToURL(
-      web_contents(),
-      https_server().GetURL(
-          "a.com",
-          "/local_network_access/no-favicon-treat-as-public-address.html")));
+      web_contents(), https_public_server().GetURL(
+                          "a.com", "/local_network_access/no-favicon.html")));
 
   // LNA fetch should pass.
   ASSERT_EQ(true,
@@ -200,10 +197,8 @@ IN_PROC_BROWSER_TEST_F(LocalNetworkAccessPoliciesBrowserTest,
   UpdateProviderPolicy(policies);
 
   ASSERT_TRUE(content::NavigateToURL(
-      web_contents(),
-      https_server().GetURL(
-          "a.com",
-          "/local_network_access/no-favicon-treat-as-public-address.html")));
+      web_contents(), https_public_server().GetURL(
+                          "a.com", "/local_network_access/no-favicon.html")));
 
   // Enable auto-accept of LNA permission request, although it should not be
   // checked.
@@ -238,10 +233,8 @@ class LocalNetworkAccessPoliciesIPOverrideBrowserTest
 IN_PROC_BROWSER_TEST_F(LocalNetworkAccessPoliciesIPOverrideBrowserTest,
                        LocalNetworkAccessIPOverrides) {
   ASSERT_TRUE(content::NavigateToURL(
-      web_contents(),
-      https_server().GetURL(
-          "a.com",
-          "/local_network_access/no-favicon-treat-as-public-address.html")));
+      web_contents(), https_public_server().GetURL(
+                          "a.com", "/local_network_access/no-favicon.html")));
 
   bubble_factory()->set_response_type(
       permissions::PermissionRequestManager::AutoResponseType::DENY_ALL);
@@ -389,7 +382,7 @@ class LocalNetworkAccessHttpCommandLineOverrideBrowserTest
 
     command_line->AppendSwitchASCII(
         network::switches::kUnsafelyTreatInsecureOriginAsSecure,
-        embedded_test_server()->GetURL("a.com", "/").spec());
+        https_public_server().GetURL("a.com", "/").spec());
   }
 };
 
@@ -403,10 +396,8 @@ IN_PROC_BROWSER_TEST_F(LocalNetworkAccessHttpCommandLineOverrideBrowserTest,
   UpdateProviderPolicy(policies);
 
   ASSERT_TRUE(content::NavigateToURL(
-      web_contents(),
-      embedded_test_server()->GetURL(
-          "a.com",
-          "/local_network_access/no-favicon-treat-as-public-address.html")));
+      web_contents(), https_public_server().GetURL(
+                          "a.com", "/local_network_access/no-favicon.html")));
 
   // LNA fetch should pass.
   ASSERT_EQ(true,
@@ -428,7 +419,7 @@ class LocalNetworkAccessHttpPolicyOverrideBrowserTest
     policy::PolicyMap policies;
     base::ListValue secureList;
     secureList.Append(
-        base::Value(embedded_test_server()->GetURL("a.com", "/").spec()));
+        base::Value(https_public_server().GetURL("a.com", "/").spec()));
     SetPolicy(&policies,
               policy::key::kOverrideSecurityRestrictionsOnInsecureOrigin,
               base::Value(std::move(secureList)));
@@ -443,10 +434,8 @@ class LocalNetworkAccessHttpPolicyOverrideBrowserTest
 IN_PROC_BROWSER_TEST_F(LocalNetworkAccessHttpPolicyOverrideBrowserTest,
                        LocalNetworkAccessAllowedForHttpUrlsPolicy) {
   ASSERT_TRUE(content::NavigateToURL(
-      web_contents(),
-      embedded_test_server()->GetURL(
-          "a.com",
-          "/local_network_access/no-favicon-treat-as-public-address.html")));
+      web_contents(), https_public_server().GetURL(
+                          "a.com", "/local_network_access/no-favicon.html")));
 
   // LNA fetch should pass.
   ASSERT_EQ(true,

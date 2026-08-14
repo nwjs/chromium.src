@@ -69,6 +69,7 @@ chromium-metrics-reviews@google.com.
   <variant name="Lens"/>
   <variant name="NewTabPage"/>
   <variant name="Omnibox"/>
+  <variant name="OmniboxEverywhere"/>
   <variant name="Unknown"/>
 </variants>
 
@@ -99,7 +100,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualSearch.AddedTabContextRecencyRanking.{ContextualSearchSource}"
-    units="rank" expires_after="2026-10-25">
+    units="rank" expires_after="2027-01-03">
   <owner>hujasonx@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -246,7 +247,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualSearch.ContextMenuEntry.Clicked.{ContextualSearchSource}"
-    enum="BooleanOccurred" expires_after="2026-10-25">
+    enum="BooleanOccurred" expires_after="2027-01-03">
   <owner>hujasonx@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -464,7 +465,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualSearch.Query.FileCount.FunnelMetrics.{ContextualSearchFunnel}.{ContextualSearchSource}"
-    units="count" expires_after="2026-10-25">
+    units="count" expires_after="2027-01-03">
   <owner>hujasonx@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -755,7 +756,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualSearch.Session.File.Browser.UploadSuccessCount.{ContextualSearchFileTypes}.{ContextualSearchSource}"
-    units="count" expires_after="2026-10-25">
+    units="count" expires_after="2027-01-03">
   <owner>hujasonx@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -801,6 +802,13 @@ chromium-metrics-reviews@google.com.
   <token key="ErrorType">
     <variant name="AbortedError"/>
     <variant name="BrowserProcessingError"/>
+    <variant name="BrowserProcessingFileEmptyError"/>
+    <variant name="BrowserProcessingFileTooLargeError"/>
+    <variant name="BrowserProcessingFileUploadNotAllowedError"/>
+    <variant name="BrowserProcessingMaxFilesExceededError"/>
+    <variant name="BrowserProcessingMaxImagesExceededError"/>
+    <variant name="BrowserProcessingMaxPdfsExceededError"/>
+    <variant name="BrowserProcessingUnsupportedFileTypeError"/>
     <variant name="ImageProcessingError"/>
     <variant name="NetworkError"/>
     <variant name="ServerError"/>
@@ -824,6 +832,13 @@ chromium-metrics-reviews@google.com.
   <token key="ErrorType">
     <variant name="AbortedError"/>
     <variant name="BrowserProcessingError"/>
+    <variant name="BrowserProcessingFileEmptyError"/>
+    <variant name="BrowserProcessingFileTooLargeError"/>
+    <variant name="BrowserProcessingFileUploadNotAllowedError"/>
+    <variant name="BrowserProcessingMaxFilesExceededError"/>
+    <variant name="BrowserProcessingMaxImagesExceededError"/>
+    <variant name="BrowserProcessingMaxPdfsExceededError"/>
+    <variant name="BrowserProcessingUnsupportedFileTypeError"/>
     <variant name="ImageProcessingError"/>
     <variant name="NetworkError"/>
     <variant name="ServerError"/>
@@ -876,7 +891,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualSearch.Session.QueryCount.{ContextualSearchSource}"
-    units="count" expires_after="2026-10-25">
+    units="count" expires_after="2027-01-03">
   <owner>hujasonx@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -1123,7 +1138,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="{ContextualSearchSource}.AimEntrypoint.{PopupType}.ContextualElement.Clicked"
-    enum="ContextType" expires_after="2026-11-12">
+    enum="ContextType" expires_after="2027-01-17">
   <owner>mfacey@chromium.org</owner>
   <owner>mahmadi@chromium.org</owner>
   <owner>khalidpeer@chromium.org</owner>
@@ -1141,7 +1156,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="{ContextualSearchSource}.AimEntrypoint.{PopupType}.ContextualElement.Shown"
-    enum="ContextType" expires_after="2026-11-12">
+    enum="ContextType" expires_after="2027-01-17">
   <owner>mfacey@chromium.org</owner>
   <owner>mahmadi@chromium.org</owner>
   <owner>khalidpeer@chromium.org</owner>

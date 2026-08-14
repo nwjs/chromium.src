@@ -263,7 +263,7 @@ class BackgroundFetchBrowserTest : public InProcessBrowserTest {
     https_server_->AddDefaultHandlers(GetChromeTestDataDir());
     ASSERT_TRUE(https_server_->Start());
 
-    Profile* profile = browser()->profile();
+    Profile* profile = browser()->GetProfile();
 
     download_observer_ = std::make_unique<WaitableDownloadLoggerObserver>();
 
@@ -279,7 +279,7 @@ class BackgroundFetchBrowserTest : public InProcessBrowserTest {
     SetUpBrowser(browser());
 
     delegate_ = static_cast<BackgroundFetchDelegateImpl*>(
-        active_browser_->profile()->GetBackgroundFetchDelegate());
+        active_browser_->GetProfile()->GetBackgroundFetchDelegate());
     DCHECK(delegate_);
 
     offline_content_provider_observer_->set_delegate(delegate_);
@@ -301,7 +301,7 @@ class BackgroundFetchBrowserTest : public InProcessBrowserTest {
 
   void TearDownOnMainThread() override {
     OfflineContentAggregatorFactory::GetInstance()
-        ->GetForKey(active_browser_->profile()->GetProfileKey())
+        ->GetForKey(active_browser_->GetProfile()->GetProfileKey())
         ->RemoveObserver(offline_content_provider_observer_.get());
 
     download_service_->GetLogger()->RemoveObserver(download_observer_.get());
@@ -390,7 +390,7 @@ class BackgroundFetchBrowserTest : public InProcessBrowserTest {
   gfx::Size GetIconDisplaySize() {
     gfx::Size out_display_size;
     base::RunLoop run_loop;
-    browser()->profile()->GetBackgroundFetchDelegate()->GetIconDisplaySize(
+    browser()->GetProfile()->GetBackgroundFetchDelegate()->GetIconDisplaySize(
         base::BindOnce(&BackgroundFetchBrowserTest::DidGetIconDisplaySize,
                        base::Unretained(this), run_loop.QuitClosure(),
                        &out_display_size));
@@ -441,7 +441,7 @@ class BackgroundFetchBrowserTest : public InProcessBrowserTest {
 
   void SetPermission(ContentSettingsType content_type, ContentSetting setting) {
     auto* settings_map =
-        HostContentSettingsMapFactory::GetForProfile(browser()->profile());
+        HostContentSettingsMapFactory::GetForProfile(browser()->GetProfile());
     DCHECK(settings_map);
 
     ContentSettingsPattern host_pattern =
@@ -848,7 +848,7 @@ IN_PROC_BROWSER_TEST_F(BackgroundFetchBrowserTest,
 IN_PROC_BROWSER_TEST_F(BackgroundFetchBrowserTest,
                        DISABLED_FetchFromServiceWorkerWithAsk) {
   auto* settings_map =
-      HostContentSettingsMapFactory::GetForProfile(browser()->profile());
+      HostContentSettingsMapFactory::GetForProfile(browser()->GetProfile());
   DCHECK(settings_map);
 
   SetPermission(ContentSettingsType::AUTOMATIC_DOWNLOADS, CONTENT_SETTING_ASK);

@@ -57,9 +57,13 @@ bool OmniboxPopupSelection::IsControlPresentOnMatch(
   const auto& match = result.match_at(line);
 
   switch (state) {
-    case NORMAL:
-      // `NULL_RESULT_MESSAGE` cannot be focused.
-      return match.type != AutocompleteMatchType::NULL_RESULT_MESSAGE;
+    case NORMAL: {
+      // `NULL_RESULT_MESSAGE` cannot be focused, except for IPH suggestions
+      // that contain links (such as the disclaimer or setting promo) which
+      // need to be navigable by screen readers.
+      return match.type != AutocompleteMatchType::NULL_RESULT_MESSAGE ||
+             (match.IsIphSuggestion() && !match.iph_link_url.is_empty());
+    }
     case KEYWORD_MODE:
       return !match.associated_keyword.empty();
     case FOCUSED_BUTTON_ACTION: {
@@ -73,6 +77,8 @@ bool OmniboxPopupSelection::IsControlPresentOnMatch(
       return match.SupportsDeletion();
     case FOCUSED_IPH_LINK:
       return match.IsIphSuggestion() && !match.iph_link_url.is_empty();
+    case CTRL_ENTER:
+      return false;
     default:
       break;
   }

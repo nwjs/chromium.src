@@ -4,7 +4,6 @@
 
 #include "chrome/browser/ui/views/frame/multi_contents_view_delegate.h"
 
-#include "base/memory/weak_ptr.h"
 #include "chrome/browser/sessions/session_service.h"
 #include "chrome/browser/sessions/session_service_factory.h"
 #include "chrome/browser/ui/browser.h"
@@ -71,7 +70,7 @@ void MultiContentsViewDelegateImpl::ResizeWebContents(double start_ratio,
         tab_strip_model_->GetActiveTab()->GetSplit().value();
 
     SessionService* const session_service =
-        SessionServiceFactory::GetForProfile(browser_->profile());
+        SessionServiceFactory::GetForProfile(browser_->GetProfile());
 
     if (!session_service) {
       return;

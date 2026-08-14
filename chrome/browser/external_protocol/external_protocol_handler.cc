@@ -33,39 +33,18 @@
 #include "components/url_matcher/url_matcher.h"
 #include "components/url_matcher/url_util.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/weak_document_ptr.h"
+#include "content/public/browser/web_contents.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom.h"
+#include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/sharing/click_to_call/click_to_call_ui_controller.h"  // nogncheck
-#include "chrome/browser/sharing/click_to_call/click_to_call_utils.h"  // nogncheck
-#endif
-
 #if BUILDFLAG(IS_ANDROID)
 #include "components/navigation_interception/intercept_navigation_delegate.h"
 #else
-#include "chrome/browser/ui/browser.h"               // nogncheck
-#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"  // nogncheck
-#include "components/url_formatter/elide_url.h"
-#include "components/web_modal/web_contents_modal_dialog_manager.h"
-#endif
-
-#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-#include "chrome/browser/safe_browsing/safe_browsing_service.h"
-#endif
-
-#include "content/public/browser/web_contents.h"
-#include "ui/base/page_transition_types.h"
-
-#if BUILDFLAG(IS_ANDROID)
-#include "components/navigation_interception/intercept_navigation_delegate.h"
-#else
-#include "chrome/browser/ui/browser.h"               // nogncheck
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"  // nogncheck
@@ -263,19 +242,6 @@ void OnDefaultSchemeClientWorkerFinished(
   // happen if it is selected (since this is invoked by the external protocol
   // handling flow).
   bool chrome_is_default_handler = state == shell_integration::IS_DEFAULT;
-
-  // On ChromeOS, Click to Call is integrated into the external protocol dialog.
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
-  if (web_contents && ShouldOfferClickToCallForURL(
-                          web_contents->GetBrowserContext(), escaped_url)) {
-    // Handle tel links by opening the Click to Call dialog. This will call back
-    // into LaunchUrlWithoutSecurityCheck if the user selects a system handler.
-    ClickToCallUiController::ShowDialog(
-        web_contents, initiating_origin, std::move(initiator_document),
-        escaped_url, chrome_is_default_handler, program_name);
-    return;
-  }
-#endif
 
   if (chrome_is_default_handler) {
     if (delegate)

@@ -358,6 +358,19 @@ bool XSLTProcessor::TransformToString(Node* source_node,
   bool should_free_source_doc = false;
   if (xmlDocPtr source_doc =
           XmlDocPtrFromNode(source_node, should_free_source_doc)) {
+    xmlNodePtr root_element = xmlDocGetRootElement(source_doc);
+    if (root_element && root_element->name &&
+        xmlStrEqual(root_element->name, (const xmlChar*)"alert")) {
+      const char* ns_href =
+          (root_element->ns && root_element->ns->href)
+              ? reinterpret_cast<const char*>(root_element->ns->href)
+              : "";
+      if (IsCAPAlertNamespace(ns_href)) {
+        UseCounter::Count(owner_document, WebFeature::kXmlCAPAlert);
+        UseCounter::Count(owner_document, WebFeature::kXmlCAPAlertWithXSLT);
+      }
+    }
+
     // The XML declaration would prevent parsing the result as a fragment,
     // and it's not needed even for documents, as the result of this
     // function is always immediately parsed.
@@ -374,7 +387,8 @@ bool XSLTProcessor::TransformToString(Node* source_node,
 
     xsltTransformContextPtr transform_context =
         xsltNewTransformContext(sheet, source_doc);
-    RegisterXSLTExtensions(transform_context);
+    RegisterXSLTExtensions(transform_context,
+                           source_node->GetExecutionContext());
 
     xsltSecurityPrefsPtr security_prefs = xsltNewSecurityPrefs();
     // Read permissions are checked by docLoaderFunc.

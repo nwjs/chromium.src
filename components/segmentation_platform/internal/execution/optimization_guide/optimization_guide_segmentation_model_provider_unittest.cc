@@ -15,7 +15,6 @@
 #include "components/optimization_guide/core/delivery/model_info.h"
 #include "components/optimization_guide/core/delivery/optimization_guide_model_provider.h"
 #include "components/optimization_guide/core/delivery/optimization_target_model_observer.h"
-#include "components/optimization_guide/core/delivery/test_model_info_builder.h"
 #include "components/optimization_guide/core/delivery/test_optimization_guide_model_provider.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/proto/models.pb.h"
@@ -102,7 +101,7 @@ class OptimizationGuideSegmentationModelProviderTest : public testing::Test {
         target);
   }
 
-  std::unique_ptr<optimization_guide::ModelInfo>
+  optimization_guide::ModelInfo
   CreateOptGuideModelInfoWithSegmentationMetadata() {
     proto::SegmentationModelMetadata metadata;
     std::string serialized_metadata;
@@ -113,9 +112,10 @@ class OptimizationGuideSegmentationModelProviderTest : public testing::Test {
     any->set_type_url(
         "type.googleapis.com/"
         "segmentation_platform.proto.SegmentationModelMetadata");
-    return optimization_guide::TestModelInfoBuilder()
-        .SetModelMetadata(any)
-        .Build();
+    return optimization_guide::ModelInfo{
+        .model_file_path = base::FilePath(FILE_PATH_LITERAL("model.tflite")),
+        .model_metadata = any,
+    };
   }
 
  protected:
@@ -214,7 +214,7 @@ TEST_F(OptimizationGuideSegmentationModelProviderTest, NotifyOnDeletedModel) {
 
   provider->InitAndFetchModel(model_updated_callback.Get());
 
-  std::unique_ptr<optimization_guide::ModelInfo> model_info =
+  optimization_guide::ModelInfo model_info =
       CreateOptGuideModelInfoWithSegmentationMetadata();
 
   auto* model_observer = model_observer_tracker_->GetObserverForTarget(
@@ -223,7 +223,7 @@ TEST_F(OptimizationGuideSegmentationModelProviderTest, NotifyOnDeletedModel) {
   // event should be propagated to the rest of Segmentation Platform.
   model_observer->OnModelUpdated(
       optimization_guide::proto::OPTIMIZATION_TARGET_SEGMENTATION_SHARE,
-      *model_info);
+      model_info);
 
   EXPECT_TRUE(provider->ModelAvailable());
   EXPECT_TRUE(updated_model_metadata.has_value());

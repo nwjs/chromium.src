@@ -9,17 +9,25 @@ import android.view.ViewGroup.LayoutParams;
 
 import androidx.annotation.Px;
 
+import com.google.errorprone.annotations.DoNotMock;
+
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.AnchorSide;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.HeightType;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiId;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs.SideUiSize;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest;
 import org.chromium.ui.base.ViewUtils;
 
 /** Minimum implementation of {@link SideUiContainer} to allow setting/getting width for tests. */
+@DoNotMock
 @NullMarked
 public final class TestSideUiContainer implements SideUiContainer {
     private static final int DEFAULT_MAX_WIDTH_DP = 412;
+
+    /** Height type for this container. */
+    public @HeightType int mHeightType = HeightType.TOOLBAR;
 
     /**
      * Whether the container has content to show.
@@ -28,11 +36,14 @@ public final class TestSideUiContainer implements SideUiContainer {
      */
     public boolean mHasContentToShow = true;
 
-    /** The last {@code availableWidth} received by {@link #determineShowableWidth}. */
+    /** The last {@code availableWidth} received by {@link #determineShowableSize}. */
     public @Nullable @Px Integer mLastAvailableWidth;
 
-    /** The last {@code windowWidth} received by {@link #determineShowableWidth}. */
+    /** The last {@code windowWidth} received by {@link #determineShowableSize}. */
     public @Nullable @Px Integer mLastWindowWidth;
+
+    /** The last {@code isFullscreen} received by {@link #determineShowableSize}. */
+    public boolean mLastIsFullscreen;
 
     /** Maximum width for this {@link SideUiContainer}. */
     public int mMaxWidthDp = DEFAULT_MAX_WIDTH_DP;
@@ -53,6 +64,15 @@ public final class TestSideUiContainer implements SideUiContainer {
      * the documentation of {@link #onWillAutoClose()} for details.
      */
     public boolean mRequestUiUpdateOnWillAutoClose;
+
+    /** Number of times {@link #onUiUpdateCompleted} is called. */
+    public int mNumOnUiUpdateCompletedReceived;
+
+    /** The last {@code oldWidth} received by {@link #onUiUpdateCompleted}. */
+    public @Nullable @Px Integer mLastOldWidth;
+
+    /** The last {@code newWidth} received by {@link #onUiUpdateCompleted}. */
+    public @Nullable @Px Integer mLastNewWidth;
 
     private final SideUiCoordinator mSideUiCoordinator;
     private final View mSideUiContainerView;
@@ -81,26 +101,24 @@ public final class TestSideUiContainer implements SideUiContainer {
     }
 
     @Override
-    public int determineShowableWidth(@Px int availableWidth, @Px int windowWidth) {
+    public SideUiSize determineShowableSize(
+            @Px int availableWidth, @Px int windowWidth, boolean isFullscreen) {
         assert availableWidth <= windowWidth;
         assert mMinWidthDp <= mMaxWidthDp;
         assert mMaxWidthDp <= windowWidth;
 
         mLastAvailableWidth = availableWidth;
         mLastWindowWidth = windowWidth;
+        mLastIsFullscreen = isFullscreen;
 
         @Px int minWidth = ViewUtils.dpToPx(mSideUiContainerView.getContext(), mMinWidthDp);
         @Px int maxWidth = ViewUtils.dpToPx(mSideUiContainerView.getContext(), mMaxWidthDp);
 
         if (availableWidth < minWidth) {
-            return 0;
+            return new SideUiSize(0, HeightType.NOT_APPLICABLE);
         }
 
-        if (availableWidth < maxWidth) {
-            return availableWidth;
-        }
-
-        return maxWidth;
+        return new SideUiSize(availableWidth < maxWidth ? availableWidth : maxWidth, mHeightType);
     }
 
     @Override
@@ -122,7 +140,15 @@ public final class TestSideUiContainer implements SideUiContainer {
     }
 
     @Override
-    public void onContainerResized(@Px int containerWidth) {}
+    public void onUiUpdateCompleted(
+            @Px int oldWidth,
+            @Px int newWidth,
+            @HeightType int oldHeightType,
+            @HeightType int newHeightType) {
+        mNumOnUiUpdateCompletedReceived++;
+        mLastOldWidth = oldWidth;
+        mLastNewWidth = newWidth;
+    }
 
     @Override
     public void onWillAutoClose() {

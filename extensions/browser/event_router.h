@@ -135,6 +135,7 @@ class EventRouter : public KeyedService,
     virtual void OnDidDispatchEventToProcess(const Event& event,
                                              int process_id) = 0;
     virtual void OnNonExtensionEventDispatched(const std::string& event_name) {}
+    virtual void OnWillBroadcastEvent(const Event& event) {}
   };
 
   // Gets the EventRouter for `browser_context`.
@@ -274,6 +275,9 @@ class EventRouter : public KeyedService,
   // Adds/removes test observers.
   void AddObserverForTesting(TestObserver* observer);
   void RemoveObserverForTesting(TestObserver* observer);
+  void AddEventListenerForTesting(const std::string& event_name,
+                                  content::RenderProcessHost* process,
+                                  const ExtensionId& extension_id);
 
   // If `add_lazy_listener` is true also add the lazy version of this listener.
   void AddFilteredEventListener(
@@ -296,6 +300,11 @@ class EventRouter : public KeyedService,
 
   // Returns true if there is at least one listener for the given event.
   bool HasEventListener(const std::string& event_name) const;
+
+  // Returns `true` if there is at least one listener for the given event
+  // outside `process_id`. `process_id` must be valid (`!process_id.is_null()`).
+  bool HasEventListenerOutsideProcess(const std::string& event_name,
+                                      content::ChildProcessId process_id) const;
 
   // Returns true if the extension is listening to the given event.
   // (virtual for testing only.)
@@ -363,6 +372,9 @@ class EventRouter : public KeyedService,
   bool HasLazyEventListenerWithFilterForTesting(const std::string& event_name,
                                                 const base::DictValue& filter);
 
+  // Flushes all pending `mojom::EventRouter` IPC messages across all receivers.
+  void FlushForTesting() { receivers_.FlushForTesting(); }
+
   void BindServiceWorkerEventDispatcher(
       int render_process_id,
       int worker_thread_id,
@@ -388,6 +400,10 @@ class EventRouter : public KeyedService,
   FRIEND_TEST_ALL_PREFIXES(EventRouterTest, DispatchPendingEvent_NullContext);
   FRIEND_TEST_ALL_PREFIXES(EventRouterDispatchTest, TestDispatch);
   FRIEND_TEST_ALL_PREFIXES(EventRouterDispatchTest, TestDispatchCallback);
+  FRIEND_TEST_ALL_PREFIXES(EventRouterDispatchTest,
+                           ActiveDispatchTargetRestrictsToWorker);
+  FRIEND_TEST_ALL_PREFIXES(EventRouterDispatchTest,
+                           ActiveDispatchTargetMissingFiresCannotDispatch);
   FRIEND_TEST_ALL_PREFIXES(EventRouterFilterTest,
                            AddFilteredLazyListenerForUnloadedExtension);
   FRIEND_TEST_ALL_PREFIXES(
@@ -705,6 +721,24 @@ struct Event {
 
   // If present, then the event will only be sent to this context type.
   const std::optional<mojom::ContextType> restrict_to_context_type;
+
+  // Identifies a single renderer-side target for `restrict_to_dispatch_target`.
+  struct DispatchTarget {
+    content::ChildProcessId render_process_id;
+    int worker_thread_id = kMainThreadId;
+    int64_t service_worker_version_id =
+        blink::mojom::kInvalidServiceWorkerVersionId;
+
+    bool IsLazy() const { return render_process_id.is_null(); }
+
+    friend bool operator==(const DispatchTarget&,
+                           const DispatchTarget&) = default;
+  };
+
+  // If set, the event is delivered only to the identified target. Only
+  // meaningful with extension-scoped dispatch (`DispatchEventToExtension()`).
+  // If no matching listener handles it, `cannot_dispatch_callback` fires.
+  std::optional<DispatchTarget> restrict_to_dispatch_target;
 
   // If not empty, the event is only sent to extensions with host permissions
   // for this url.

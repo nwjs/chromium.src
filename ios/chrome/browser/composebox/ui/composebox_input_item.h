@@ -8,6 +8,7 @@
 #import <UIKit/UIKit.h>
 
 #import "ios/chrome/browser/composebox/public/composebox_input_item_source.h"
+#import "url/gurl.h"
 
 namespace base {
 class UnguessableToken;
@@ -63,11 +64,15 @@ enum class ComposeboxInputItemType {
 @property(nonatomic, copy, readonly) NSString* assetID;
 // The source of the item.
 @property(nonatomic, assign) ComposeboxInputItemSource source;
-
+// Whether or not an animation was performed for this item. Only applied for tab
+// items when composebox is presented in the assistant sheet.
+@property(nonatomic, assign) BOOL performedAnimation;
 // The image provider for this item. Only set for image types.
 @property(nonatomic, strong) NSItemProvider* imageProvider;
 // The file URL for this item. Only set for PDF and raw file types.
 @property(nonatomic, strong) NSURL* fileURL;
+// The tab URL for this item. Only set for tab types.
+@property(nonatomic, assign) GURL tabURL;
 // The Drive item identifier. Only set for Drive types.
 @property(nonatomic, copy) NSString* driveIdentifier;
 // The Drive resource key. Only set for Drive types.

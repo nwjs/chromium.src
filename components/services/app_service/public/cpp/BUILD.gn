@@ -2,10 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Component for the core data structures and types used by App Service. Large
-# parts of the codebase are dependent on this target (via
-# //chromeos/crosapi/mojom), so this must have minimal deps to avoid circular
-# chains.
+# Component for the core data structures and types used by App Service.
 component("app_types") {
   output_name = "APP_TYPES"
   sources = [
@@ -50,6 +47,26 @@ component("app_types") {
     "//third_party/abseil-cpp:absl",
     "//ui/gfx",
   ]
+}
+
+component("app_service") {
+  defines = [ "IS_APP_SERVICE_IMPL" ]
+  sources = [
+    "app_service.cc",
+    "app_service.h",
+  ]
+  deps = [
+    ":app_types",
+    "//base",
+  ]
+
+  if (is_chromeos) {
+    sources += [
+      "app_service_registry.cc",
+      "app_service_registry.h",
+    ]
+    deps += [ "//components/account_id" ]
+  }
 }
 
 # This target is separate from //components/services/app_service because not all
@@ -305,12 +322,6 @@ source_set("app_shortcut_image") {
     "//skia",
     "//ui/gfx",
   ]
-
-  visibility = [ "//components/services/app_service/*" ]
-}
-
-source_set("crosapi_utils") {
-  sources = [ "crosapi_utils.h" ]
 
   visibility = [ "//components/services/app_service/*" ]
 }

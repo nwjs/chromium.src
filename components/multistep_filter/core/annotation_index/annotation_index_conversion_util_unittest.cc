@@ -11,19 +11,16 @@
 #include "components/multistep_filter/core/annotation_index/proto/annotation_index.pb.h"
 #include "components/multistep_filter/core/data_models/filter_annotation.h"
 #include "components/multistep_filter/core/data_models/filter_suggestion_candidate.h"
+#include "components/optimization_guide/proto/hints.pb.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
 namespace multistep_filter {
 namespace {
 
+using ::optimization_guide::proto::RequestContextMetadata;
+
 constexpr char kTestCandidateId[] = "12345678-1234-4678-a234-567812345678";
-
-TEST(AnnotationIndexConversionUtilTest, ToGetSupportedTasksRequest) {
-  GetSupportedTasksRequest request = ToGetSupportedTasksRequest("example.com");
-
-  EXPECT_EQ(request.domain(), "example.com");
-}
 
 TEST(AnnotationIndexConversionUtilTest, ToSupportedTasks) {
   GetSupportedTasksResponse response;
@@ -55,7 +52,7 @@ TEST(AnnotationIndexConversionUtilTest, ToExecutionCandidate) {
   EXPECT_EQ(candidate.task_attributes(1).value(), "500");
 }
 
-TEST(AnnotationIndexConversionUtilTest, ToGetTaskExecutionStrategiesRequest) {
+TEST(AnnotationIndexConversionUtilTest, ToRequestContextMetadata) {
   FilterAnnotation annotation1(
       base::Uuid::ParseLowercase("11111111-1111-1111-1111-111111111111"),
       "TASK1", "sub.example.com", base::Time::Now(),
@@ -66,18 +63,28 @@ TEST(AnnotationIndexConversionUtilTest, ToGetTaskExecutionStrategiesRequest) {
       {FilterAttribute("KEY2", "VAL2")});
   std::vector<FilterAnnotation> annotations = {annotation1, annotation2};
 
-  GetTaskExecutionStrategiesRequest request =
-      ToGetTaskExecutionStrategiesRequest(GURL("https://example.com/test"),
-                                          annotations);
+  RequestContextMetadata context_metadata =
+      ToRequestContextMetadata(annotations);
 
-  EXPECT_EQ(request.current_url(), "https://example.com/test");
-  ASSERT_EQ(request.candidates_size(), 2);
-  EXPECT_EQ(request.candidates(0).candidate_id(),
+  ASSERT_EQ(
+      context_metadata.filter_execution_metadata().execution_candidate_size(),
+      2);
+  EXPECT_EQ(context_metadata.filter_execution_metadata()
+                .execution_candidate(0)
+                .candidate_id(),
             "11111111-1111-1111-1111-111111111111");
-  EXPECT_EQ(request.candidates(0).task_type(), "TASK1");
-  EXPECT_EQ(request.candidates(1).candidate_id(),
+  EXPECT_EQ(context_metadata.filter_execution_metadata()
+                .execution_candidate(0)
+                .task_type(),
+            "TASK1");
+  EXPECT_EQ(context_metadata.filter_execution_metadata()
+                .execution_candidate(1)
+                .candidate_id(),
             "22222222-2222-2222-2222-222222222222");
-  EXPECT_EQ(request.candidates(1).task_type(), "TASK2");
+  EXPECT_EQ(context_metadata.filter_execution_metadata()
+                .execution_candidate(1)
+                .task_type(),
+            "TASK2");
 }
 
 TEST(AnnotationIndexConversionUtilTest, ToFilterSuggestionCandidates) {
@@ -118,13 +125,6 @@ TEST(AnnotationIndexConversionUtilTest, ToFilterSuggestionCandidates) {
   EXPECT_EQ(suggestion.attributes[0].label, u"Min Price");
   EXPECT_EQ(suggestion.attributes[1].key, "PRICE_MAX");
   EXPECT_EQ(suggestion.attributes[1].label, u"Max Price");
-}
-
-TEST(AnnotationIndexConversionUtilTest, ToExtractTaskAttributesRequest) {
-  ExtractTaskAttributesRequest request =
-      ToExtractTaskAttributesRequest(GURL("https://example.com/path?q=1"));
-
-  EXPECT_EQ(request.source().raw_url(), "https://example.com/path?q=1");
 }
 
 TEST(AnnotationIndexConversionUtilTest, ToFilterAnnotation) {

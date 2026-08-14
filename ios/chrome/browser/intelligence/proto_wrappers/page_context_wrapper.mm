@@ -12,7 +12,9 @@
 #import <utility>
 #import <vector>
 
+#import "base/apple/foundation_util.h"
 #import "base/barrier_closure.h"
+#import "base/base64.h"
 #import "base/check.h"
 #import "base/check_op.h"
 #import "base/feature_list.h"
@@ -35,6 +37,8 @@
 #import "components/autofill/ios/form_util/child_frame_registrar.h"
 #import "components/optimization_guide/core/page_content_proto_serializer.h"
 #import "components/optimization_guide/proto/features/common_quality_data.pb.h"
+#import "components/security_state/core/security_state.h"
+#import "components/security_state/ios/security_state_utils.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/annotated_page_content_extraction_utils.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/frame_grafter.h"
@@ -49,6 +53,7 @@
 #import "ios/web/public/js_messaging/web_frame.h"
 #import "ios/web/public/js_messaging/web_frames_manager.h"
 #import "ios/web/public/web_state.h"
+#import "net/base/schemeful_site.h"
 #import "url/gurl.h"
 #import "url/origin.h"
 #import "url/url_constants.h"
@@ -197,6 +202,11 @@ anchorElements.forEach((anchor) => {
 result.links = linksArray;
   )DELIM";
 
+// We match Blue*'s PDF size limit of 64 MB.
+// TODO(crbug.com/485311221): make this configurable per-provider, e.g.
+// via Gemini's configurable params, instead of hardcoding it here.
+const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
+
 }  // namespace
 
 @implementation PageContextWrapper {
@@ -225,6 +235,9 @@ result.links = linksArray;
   // Whether the PageContext is not extractable.
   BOOL _notExtractable;
 
+  // Whether the PageContext was blocked because it's an unsafe/insecure page.
+  BOOL _unsafePageBlocked;
+
   // The callback to execute once all async work is complete, whichs
   // relinquishes ownership of the PageContext proto to the callback's handler.
   base::OnceCallback<void(PageContextWrapperCallbackResponse)>
@@ -240,6 +253,10 @@ result.links = linksArray;
   // Configuration for page context extraction. Using optional avoids using
   // the constructor.
   std::optional<PageContextWrapperConfig> _config;
+
+  // The SchemefulSite of the main frame, captured synchronously at the start
+  // of extraction to prevent TOCTOU race conditions.
+  net::SchemefulSite _mainFrameSite;
 
   // Graft frames across origins.
   FrameGrafter _grafter;
@@ -272,11 +289,12 @@ result.links = linksArray;
     _asyncTasksToComplete = 0;
     _webState = webState->GetWeakPtr();
     _config = config;
+    _mainFrameSite = net::SchemefulSite(webState->GetLastCommittedURL());
     _completionCallback = std::move(completionCallback);
 
     // Create the PageContext proto/object.
     _pageContext = std::make_unique<optimization_guide::proto::PageContext>();
-    GURL url = _webState->GetVisibleURL();
+    GURL url = _webState->GetLastCommittedURL();
     if (url.SchemeIs(url::kDataScheme)) {
       _pageContext->set_url(kDataUrl);
     } else {
@@ -428,8 +446,17 @@ result.links = linksArray;
     return;
   }
 
-  if (!CanExtractPageContextForWebState(_webState.get())) {
+  if (!CanExtractPageContextForWebState(_webState.get(),
+                                        _shouldGetFullPagePDF)) {
     _notExtractable = YES;
+    [self asyncWorkCompletedForPageContext];
+    return;
+  }
+
+  if (_config->block_unsafe_pages() && _webState->GetNavigationManager() &&
+      security_state::GetSecurityLevelForWebState(_webState.get()) ==
+          security_state::SecurityLevel::DANGEROUS) {
+    _unsafePageBlocked = YES;
     [self asyncWorkCompletedForPageContext];
     return;
   }
@@ -474,8 +501,7 @@ result.links = linksArray;
     [_pageContextMetrics executionStartedForTask:PageContextTask::kPDF];
 
     _webState->CreateFullPagePdf(base::BindOnce(^(NSData* PDFData) {
-      [weakSelf encodeAndSetFullPagePDF:PDFData];
-      pageContextBarrier.Run();
+      [weakSelf encodeAndSetFullPagePDF:PDFData barrier:pageContextBarrier];
     }));
   }
 }
@@ -730,6 +756,14 @@ result.links = linksArray;
         continue;
       }
 
+      if (_config->include_same_site_only()) {
+        net::SchemefulSite childSite(webFrame->GetSecurityOrigin());
+        if (_mainFrameSite != childSite) {
+          annotatedPageContentBarrier.Run();
+          continue;
+        }
+      }
+
       [self extractPageContextForFrame:webFrame
                            isMainFrame:NO
                                  nonce:nonce
@@ -792,6 +826,14 @@ result.links = linksArray;
         continue;
       }
 
+      if (_config->include_same_site_only()) {
+        net::SchemefulSite childSite(webFrame->GetSecurityOrigin());
+        if (_mainFrameSite != childSite) {
+          annotatedPageContentBarrier.Run();
+          continue;
+        }
+      }
+
       webFrame->ExecuteJavaScript(
           script,
           base::BindOnce(
@@ -825,6 +867,9 @@ result.links = linksArray;
     response =
         base::unexpected(PageContextWrapperError::kPageNotExtractableError);
     completionStatus = PageContextCompletionStatus::kNotExtractable;
+  } else if (_unsafePageBlocked) {
+    response = base::unexpected(PageContextWrapperError::kPageUnsafeError);
+    completionStatus = PageContextCompletionStatus::kPageUnsafe;
   } else if (_forceDetachPageContext) {
     response = base::unexpected(PageContextWrapperError::kForceDetachError);
     completionStatus = PageContextCompletionStatus::kProtected;
@@ -855,7 +900,8 @@ result.links = linksArray;
 
     if (_config->graft_cross_origin_frame_content() && registrar) {
       ResolveCrossSiteFrameContent(
-          _grafter, registrar, _pageContext->mutable_annotated_page_content());
+          _grafter, registrar, _config->include_same_site_only(),
+          _pageContext->mutable_annotated_page_content());
     }
     response = base::ok(std::move(_pageContext));
     completionStatus = PageContextCompletionStatus::kSuccess;
@@ -934,21 +980,43 @@ result.links = linksArray;
 
 // If it exists, convert the PDF data to base64 encoded string and set it in
 // the PageContext proto.
-- (void)encodeAndSetFullPagePDF:(NSData*)PDFData {
-  if (!PDFData) {
-    [_pageContextMetrics
-        executionFinishedForTask:PageContextTask::kPDF
-            withCompletionStatus:PageContextCompletionStatus::kFailure];
-    DLOG(WARNING) << "Failed to fetch webpage PDF data.";
-    return;
-  }
-
-  NSString* base64String = [PDFData base64EncodedStringWithOptions:0];
-  _pageContext->set_pdf_data(base::SysNSStringToUTF8(base64String));
+- (void)setEncodedPDFData:(std::string)base64PDFData {
+  _pageContext->set_pdf_data(std::move(base64PDFData));
 
   [_pageContextMetrics
       executionFinishedForTask:PageContextTask::kPDF
           withCompletionStatus:PageContextCompletionStatus::kSuccess];
+}
+
+// If it exists, convert the PDF data to base64 encoded string and set it in
+// the PageContext proto.
+- (void)encodeAndSetFullPagePDF:(NSData*)PDFData
+                        barrier:(base::RepeatingClosure)barrier {
+  if (!PDFData || PDFData.length > kMaxPDFByteLimit) {
+    [_pageContextMetrics
+        executionFinishedForTask:PageContextTask::kPDF
+            withCompletionStatus:PageContextCompletionStatus::kFailure];
+    DLOG(WARNING)
+        << "Failed to fetch webpage PDF data (or size limit exceeded).";
+    barrier.Run();
+    return;
+  }
+
+  __weak PageContextWrapper* weakSelf = self;
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::TaskPriority::USER_VISIBLE},
+      base::BindOnce(
+          ^(NSData* data) {
+            return base::Base64Encode(base::apple::NSDataToSpan(data));
+          },
+          PDFData),
+      base::BindOnce(^(std::string base64_str) {
+        PageContextWrapper* strongSelf = weakSelf;
+        if (strongSelf) {
+          [strongSelf setEncodedPDFData:std::move(base64_str)];
+        }
+        barrier.Run();
+      }));
 }
 
 // Adds a frame's focus info to the flat array if it is focused.

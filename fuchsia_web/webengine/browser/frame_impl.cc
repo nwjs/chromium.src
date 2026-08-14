@@ -680,12 +680,12 @@ content::WebContents* FrameImpl::AddNewContents(
   }
 }
 
-void FrameImpl::WebContentsCreated(content::WebContents* source_contents,
-                                   int opener_render_process_id,
-                                   int opener_render_frame_id,
-                                   const std::string& frame_name,
-                                   const GURL& target_url,
-                                   content::WebContents* new_contents) {
+void FrameImpl::WebContentsCreated(
+    content::WebContents* source_contents,
+    const content::GlobalRenderFrameHostId& opener_id,
+    const std::string& frame_name,
+    const GURL& target_url,
+    content::WebContents* new_contents) {
   auto creation_info = std::make_unique<PopupFrameCreationInfoUserData>();
   creation_info->info.set_initial_url(target_url.spec());
   new_contents->SetUserData(kPopupCreationInfo, std::move(creation_info));
@@ -1646,6 +1646,7 @@ void FrameImpl::DidFirstVisuallyNonEmptyPaint() {
 void FrameImpl::ResourceLoadComplete(
     content::RenderFrameHost* render_frame_host,
     const content::GlobalRequestID& request_id,
+    const GURL& original_url,
     const blink::mojom::ResourceLoadInfo& resource_load_info) {
   int net_error = resource_load_info.net_error;
   if (net_error != net::OK) {

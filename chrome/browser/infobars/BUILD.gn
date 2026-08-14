@@ -37,7 +37,9 @@ source_set("infobars") {
   ]
 
   deps = [
+    "//chrome/app:generated_resources",
     "//chrome/browser/ui:ui_features",
+    "//components/strings:components_strings",
     "//ui/base",
   ]
 
@@ -115,7 +117,10 @@ if (!is_android) {
     }
 
     if (toolkit_views) {
-      deps += [ "//chrome/browser/ui/views/infobars" ]
+      deps += [
+        "//chrome/browser/ui/views/infobars",
+        "//chrome/browser/ui/views/site_data",
+      ]
     }
 
     if (enable_extensions_core) {

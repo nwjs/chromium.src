@@ -6,6 +6,9 @@
 
 #import <optional>
 
+#import "base/strings/sys_string_conversions.h"
+#import "components/url_formatter/elide_url.h"
+#import "ios/chrome/browser/composebox/menu/coordinator/composebox_menu_shared_tab.h"
 #import "ios/chrome/browser/composebox/menu/ui/composebox_menu_attachment_cell.h"
 #import "ios/chrome/browser/composebox/menu/ui/composebox_menu_attachment_view.h"
 #import "ios/chrome/browser/composebox/menu/ui/composebox_menu_header_view.h"
@@ -110,16 +113,15 @@ BOOL IsToolType(ComposeboxMenuItemType type) {
 UIImage* IconForTool(ComposeboxMode mode) {
   switch (mode) {
     case ComposeboxMode::kAIM:
-      return CustomSymbolWithPointSize(kMagnifyingglassSparkSymbol,
-                                       kSymbolActionPointSize);
+      return SymbolWithPointSize(SymbolMagnifyingglassSpark,
+                                 kSymbolActionPointSize);
     case ComposeboxMode::kImageGeneration:
       return GetBananaIcon(kSymbolActionPointSize);
     case ComposeboxMode::kDeepSearch:
-      return CustomSymbolWithPointSize(kDeepSearchSymbol,
-                                       kSymbolActionPointSize);
+      return SymbolWithPointSize(SymbolDeepSearch, kSymbolActionPointSize);
     case ComposeboxMode::kCanvas:
-      return CustomSymbolWithPointSize(kDocumentBadgeSpark,
-                                       kSymbolActionPointSize);
+      return SymbolWithPointSize(SymbolDocumentBadgeSpark,
+                                 kSymbolActionPointSize);
     case ComposeboxMode::kRegularSearch:
       return nil;
   }
@@ -145,13 +147,13 @@ ComposeboxMenuItemType MenuItemTypeForModel(ComposeboxModelOption option) {
 UIImage* IconForModel(ComposeboxModelOption option) {
   switch (option) {
     case ComposeboxModelOption::kRegular:
-      return DefaultSymbolWithPointSize(kBoltSymbol, kSymbolActionPointSize);
+      return SymbolWithPointSize(SymbolBolt, kSymbolActionPointSize);
     case ComposeboxModelOption::kAuto:
-      return DefaultSymbolWithPointSize(
-          kArrowTrianglehead2ClockwiseRotate90Symbol, kSymbolActionPointSize);
+      return SymbolWithPointSize(SymbolArrowTrianglehead2ClockwiseRotate90,
+                                 kSymbolActionPointSize);
     case ComposeboxModelOption::kThinking:
     case ComposeboxModelOption::kThinkingNoGenUI:
-      return DefaultSymbolWithPointSize(kClockSymbol, kSymbolActionPointSize);
+      return SymbolWithPointSize(SymbolClock, kSymbolActionPointSize);
     case ComposeboxModelOption::kNone:
       return nil;
   }
@@ -247,6 +249,36 @@ UIImage* IconForModel(ComposeboxModelOption option) {
                 items:attachmentsItems
            identifier:ComposeboxMenuSectionIdentifier::kAttachments];
     [sections addObject:attachmentsSection];
+  }
+
+  // Shared Tabs Section
+  if (_inputState.sharedTabs.count > 0) {
+    NSMutableArray<NSString*>* tabDomains = [[NSMutableArray alloc] init];
+    for (ComposeboxMenuSharedTab* tab in _inputState.sharedTabs) {
+      if (tab.URL.is_valid() && !tab.URL.host().empty()) {
+        std::u16string elidedHost = url_formatter::
+            FormatUrlForDisplayOmitSchemePathTrivialSubdomainsAndMobilePrefix(
+                tab.URL);
+        [tabDomains addObject:base::SysUTF16ToNSString(elidedHost)];
+      }
+    }
+    NSString* subtitle = [tabDomains componentsJoinedByString:@", "];
+
+    ComposeboxMenuItem* sharedTabsItem = [[ComposeboxMenuItem alloc]
+        initWithTitle:l10n_util::GetNSString(
+                          IDS_IOS_COMPOSEBOX_MENU_SHARED_TABS)
+             subtitle:subtitle
+                count:_inputState.sharedTabs.count
+                image:_inputState.sharedTabs.firstObject.favicon
+                 type:ComposeboxMenuItemType::kAttachmentSharedTabs
+             disabled:NO
+              favicon:_inputState.sharedTabs.firstObject.favicon];
+
+    ComposeboxMenuSection* sharedTabsSection = [[ComposeboxMenuSection alloc]
+        initWithTitle:nil
+                items:@[ sharedTabsItem ]
+           identifier:ComposeboxMenuSectionIdentifier::kSharedTabs];
+    [sections addObject:sharedTabsSection];
   }
 
   ComposeboxStrings* strings = _inputState.strings;
@@ -447,50 +479,48 @@ UIImage* IconForModel(ComposeboxModelOption option) {
   ComposeboxMenuItem* currentTabItem = [[ComposeboxMenuItem alloc]
       initWithTitle:l10n_util::GetNSString(
                         IDS_IOS_COMPOSEBOX_MENU_ADD_CURRENT_TAB_ACTION)
-              image:DefaultSymbolWithPointSize(kGlobeSymbol,
-                                               kSymbolActionPointSize)
+              image:SymbolWithPointSize(SymbolGlobe, kSymbolActionPointSize)
                type:ComposeboxMenuItemType::kCurrentTab
            disabled:[_inputState isAttachmentDisabled:
                                      ComposeboxAttachmentOption::kCurrentTab]
             favicon:_inputState.currentTabFavicon];
   ComposeboxMenuItem* tabsItem = [[ComposeboxMenuItem alloc]
       initWithTitle:l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_SELECT_TAB_ACTION)
-              image:DefaultSymbolWithPointSize(kNewTabGroupActionSymbol,
-                                               kSymbolActionPointSize)
+              image:SymbolWithPointSize(SymbolNewTabGroupAction,
+                                        kSymbolActionPointSize)
                type:ComposeboxMenuItemType::kAttachmentTabs
            disabled:[_inputState
                         isAttachmentDisabled:ComposeboxAttachmentOption::kTab]];
   ComposeboxMenuItem* cameraItem = [[ComposeboxMenuItem alloc]
       initWithTitle:l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_CAMERA_ACTION)
-              image:DefaultSymbolWithPointSize(kSystemCameraSymbol,
-                                               kSymbolActionPointSize)
+              image:SymbolWithPointSize(SymbolSystemCamera,
+                                        kSymbolActionPointSize)
                type:ComposeboxMenuItemType::kAttachmentCamera
            disabled:[_inputState isAttachmentDisabled:
                                      ComposeboxAttachmentOption::kCamera]];
   ComposeboxMenuItem* galleryItem = [[ComposeboxMenuItem alloc]
       initWithTitle:l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_GALLERY_ACTION)
-              image:DefaultSymbolWithPointSize(kPhotoOnRectangleAngled,
-                                               kSymbolActionPointSize)
+              image:SymbolWithPointSize(SymbolPhotoOnRectangleAngled,
+                                        kSymbolActionPointSize)
                type:ComposeboxMenuItemType::kAttachmentGallery
            disabled:[_inputState isAttachmentDisabled:
                                      ComposeboxAttachmentOption::kGallery]];
   ComposeboxMenuItem* filesItem = [[ComposeboxMenuItem alloc]
       initWithTitle:l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_FILES_ACTION)
-              image:DefaultSymbolWithPointSize(kFolderSymbol,
-                                               kSymbolActionPointSize)
+              image:SymbolWithPointSize(SymbolFolder, kSymbolActionPointSize)
                type:ComposeboxMenuItemType::kAttachmentFiles
            disabled:[_inputState isAttachmentDisabled:
                                      ComposeboxAttachmentOption::kFile]];
 
   NSMutableArray* attachmentItems =
-      [NSMutableArray arrayWithObjects:currentTabItem, tabsItem, cameraItem,
-                                       galleryItem, filesItem, nil];
+      [NSMutableArray arrayWithObjects:currentTabItem, tabsItem, galleryItem,
+                                       cameraItem, filesItem, nil];
   if (IsComposeboxDriveOptionEnabled()) {
     UIImage* driveSymbol =
-        DefaultSymbolWithPointSize(kFolderSymbol, kSymbolActionPointSize);
+        SymbolWithPointSize(SymbolFolder, kSymbolActionPointSize);
 #if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
     driveSymbol =
-        CustomSymbolWithPointSize(kGoogleDriveSymbol, kSymbolActionPointSize);
+        SymbolWithPointSize(SymbolGoogleDrive, kSymbolActionPointSize);
 #endif
     ComposeboxMenuItem* driveItem = [[ComposeboxMenuItem alloc]
         initWithTitle:l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_DRIVE_ACTION)
@@ -648,6 +678,14 @@ UIImage* IconForModel(ComposeboxModelOption option) {
   UIListContentConfiguration* configuration =
       [cell defaultContentConfiguration];
   configuration.text = item.title;
+  if (item.subtitle.length) {
+    configuration.secondaryText = item.subtitle;
+    configuration.secondaryTextProperties.color =
+        [UIColor colorNamed:kTextSecondaryColor];
+    configuration.secondaryTextProperties.numberOfLines = 1;
+    configuration.secondaryTextProperties.lineBreakMode =
+        NSLineBreakByTruncatingTail;
+  }
   configuration.image = item.image;
   cell.accessibilityLabel = item.title;
   cell.isAccessibilityElement = YES;
@@ -691,15 +729,22 @@ UIImage* IconForModel(ComposeboxModelOption option) {
     isSelected = YES;
   }
 
+  NSMutableArray<UICellAccessory*>* accessories = [[NSMutableArray alloc] init];
   if (isSelected) {
-    UICellAccessoryCheckmark* checkmark =
-        [[UICellAccessoryCheckmark alloc] init];
-    cell.accessories = @[ checkmark ];
+    [accessories addObject:[[UICellAccessoryCheckmark alloc] init]];
     cell.accessibilityTraits |= UIAccessibilityTraitSelected;
   } else {
-    cell.accessories = @[];
     cell.accessibilityTraits &= ~UIAccessibilityTraitSelected;
   }
+
+  if (item.type == ComposeboxMenuItemType::kAttachmentSharedTabs) {
+    [accessories addObject:[[UICellAccessoryDisclosureIndicator alloc] init]];
+    UICellAccessoryLabel* labelAccessory = [[UICellAccessoryLabel alloc]
+        initWithText:[NSString
+                         stringWithFormat:@"%lu", (unsigned long)item.count]];
+    [accessories addObject:labelAccessory];
+  }
+  cell.accessories = accessories;
   cell.accessibilityIdentifier =
       AccessibilityIdentifierForMenuItemType(item.type);
 }

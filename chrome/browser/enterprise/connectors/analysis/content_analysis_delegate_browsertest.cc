@@ -29,6 +29,8 @@
 #include "chrome/browser/safe_browsing/cloud_content_scanning/cloud_binary_upload_service.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/common/chrome_paths.h"
 #include "components/enterprise/browser/identifiers/profile_id_service.h"
 #include "components/enterprise/buildflags/buildflags.h"
@@ -185,6 +187,7 @@ class FakeBinaryUploadService : public CloudBinaryUploadServiceBase {
         case AnalysisConnector::FILE_DOWNLOADED:
         case AnalysisConnector::FILE_TRANSFER:
         case AnalysisConnector::DATA_COPIED:
+        case AnalysisConnector::NETWORK_REQUEST:
           NOTREACHED();
       }
     }
@@ -245,11 +248,12 @@ class MinimalFakeContentAnalysisDelegate : public ContentAnalysisDelegate {
       base::RepeatingClosure quit_closure,
       content::WebContents* web_contents,
       ContentAnalysisDelegate::Data data,
-      ContentAnalysisDelegate::CompletionCallback callback)
+      ContentAnalysisDelegate::CompletionCallback callback,
+      DeepScanAccessPoint access_point)
       : ContentAnalysisDelegate(web_contents,
                                 std::move(data),
                                 std::move(callback),
-                                DeepScanAccessPoint::UPLOAD),
+                                access_point),
         quit_closure_(quit_closure) {}
 
   ~MinimalFakeContentAnalysisDelegate() override { quit_closure_.Run(); }
@@ -258,9 +262,11 @@ class MinimalFakeContentAnalysisDelegate : public ContentAnalysisDelegate {
       base::RepeatingClosure quit_closure,
       content::WebContents* web_contents,
       ContentAnalysisDelegate::Data data,
-      ContentAnalysisDelegate::CompletionCallback callback) {
+      ContentAnalysisDelegate::CompletionCallback callback,
+      DeepScanAccessPoint access_point) {
     return std::make_unique<MinimalFakeContentAnalysisDelegate>(
-        quit_closure, web_contents, std::move(data), std::move(callback));
+        quit_closure, web_contents, std::move(data), std::move(callback),
+        access_point);
   }
 
  private:
@@ -296,7 +302,7 @@ class ContentAnalysisDelegateBrowserTestBase
     if (machine_scope_) {
       SetDMTokenForTesting(policy::DMToken::CreateValidToken(kBrowserDMToken));
     } else {
-      test::SetProfileDMToken(browser()->profile(), kProfileDMToken);
+      test::SetProfileDMToken(browser()->GetProfile(), kProfileDMToken);
     }
 #endif
 
@@ -311,12 +317,12 @@ class ContentAnalysisDelegateBrowserTestBase
       "block_until_verdict": 1
     })";
     enterprise_connectors::test::SetAnalysisConnector(
-        browser()->profile()->GetPrefs(), FILE_ATTACHED,
+        browser()->GetProfile()->GetPrefs(), FILE_ATTACHED,
         kBlockingScansForDlpAndMalware, machine_scope_);
     enterprise_connectors::test::SetAnalysisConnector(
-        browser()->profile()->GetPrefs(), BULK_DATA_ENTRY,
+        browser()->GetProfile()->GetPrefs(), BULK_DATA_ENTRY,
         kBlockingScansForDlpAndMalware, machine_scope_);
-    test::SetOnSecurityEventReporting(browser()->profile()->GetPrefs(),
+    test::SetOnSecurityEventReporting(browser()->GetProfile()->GetPrefs(),
                                       /*enabled*/ true,
                                       /*enabled_event_names*/ {},
                                       /*enabled_opt_in_events*/ {},
@@ -334,10 +340,10 @@ class ContentAnalysisDelegateBrowserTestBase
         machine_scope() ? kBrowserDMToken : kProfileDMToken);
 #endif
     if (machine_scope_) {
-      RealtimeReportingClientFactory::GetForProfile(browser()->profile())
+      RealtimeReportingClientFactory::GetForProfile(browser()->GetProfile())
           ->SetBrowserCloudPolicyClientForTesting(client_.get());
     } else {
-      RealtimeReportingClientFactory::GetForProfile(browser()->profile())
+      RealtimeReportingClientFactory::GetForProfile(browser()->GetProfile())
 #if BUILDFLAG(IS_CHROMEOS)
           ->SetBrowserCloudPolicyClientForTesting(client_.get());
 #else
@@ -348,7 +354,7 @@ class ContentAnalysisDelegateBrowserTestBase
         std::make_unique<signin::IdentityTestEnvironment>();
     identity_test_environment_->MakePrimaryAccountAvailable(
         kUserName, signin::ConsentLevel::kSignin);
-    RealtimeReportingClientFactory::GetForProfile(browser()->profile())
+    RealtimeReportingClientFactory::GetForProfile(browser()->GetProfile())
         ->SetIdentityManagerForTesting(
             identity_test_environment_->identity_manager());
   }
@@ -364,14 +370,14 @@ class ContentAnalysisDelegateBrowserTestBase
 
   std::string GetProfileIdentifier() const {
 #if BUILDFLAG(IS_CHROMEOS)
-    return browser()->profile()->GetPath().AsUTF8Unsafe();
+    return browser()->GetProfile()->GetPath().AsUTF8Unsafe();
 #else
     if (machine_scope_) {
-      return browser()->profile()->GetPath().AsUTF8Unsafe();
+      return browser()->GetProfile()->GetPath().AsUTF8Unsafe();
     }
     auto* profile_id_service =
         enterprise::ProfileIdServiceFactory::GetForProfile(
-            browser()->profile());
+            browser()->GetProfile());
     if (profile_id_service && profile_id_service->GetProfileId().has_value()) {
       return profile_id_service->GetProfileId().value();
     }
@@ -407,7 +413,7 @@ class ContentAnalysisDelegateBrowserTest
     return content::ClipboardEndpoint(
         ui::DataTransferEndpoint(GURL("https://source.com")),
         base::BindLambdaForTesting([this]() {
-          return static_cast<content::BrowserContext*>(browser()->profile());
+          return static_cast<content::BrowserContext*>(browser()->GetProfile());
         }),
         *browser()
              ->tab_strip_model()
@@ -420,7 +426,7 @@ class ContentAnalysisDelegateBrowserTest
         ui::DataTransferEndpoint(GURL("https://source.com")),
         base::BindLambdaForTesting([this]() {
           return static_cast<content::BrowserContext*>(
-              browser()->profile()->GetPrimaryOTRProfile(
+              browser()->GetProfile()->GetPrimaryOTRProfile(
                   /*create_if_needed*/ true));
         }),
         *browser()
@@ -457,7 +463,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBrowserTest, Unauthorized) {
   data.text.emplace_back(text());
   data.paths.emplace_back(FILE_PATH_LITERAL("/tmp/foo.doc"));
   ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(
-      browser()->profile(), GURL(kTestUrl), &data, FILE_ATTACHED));
+      browser()->GetProfile(), GURL(kTestUrl), &data, FILE_ATTACHED));
 
   // Nothing should be reported for unauthorized users.
   test::EventReportValidator validator(client());
@@ -580,7 +586,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBrowserTest, Texts) {
   data.reason = ContentAnalysisRequest::CLIPBOARD_PASTE;
   data.clipboard_source = MakeClipboardSource("https://source.com/");
   ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(
-      browser()->profile(), GURL(kTestUrl), &data, BULK_DATA_ENTRY));
+      browser()->GetProfile(), GURL(kTestUrl), &data, BULK_DATA_ENTRY));
 
   // Start test.
   ContentAnalysisDelegate::CreateForWebContents(
@@ -701,7 +707,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBrowserTest,
   data.text.emplace_back(text());
   data.reason = ContentAnalysisRequest::CLIPBOARD_PASTE;
   ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(
-      browser()->profile(), GURL(kTestUrl), &data, BULK_DATA_ENTRY));
+      browser()->GetProfile(), GURL(kTestUrl), &data, BULK_DATA_ENTRY));
 
   // Start test.
   ContentAnalysisDelegate::CreateForWebContents(
@@ -776,7 +782,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBrowserTest, AllowTextAndImage) {
   data.reason = ContentAnalysisRequest::CLIPBOARD_PASTE;
   data.clipboard_source = MakeClipboardSource("https://source.com/");
   ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(
-      browser()->profile(), GURL(kTestUrl), &data, BULK_DATA_ENTRY));
+      browser()->GetProfile(), GURL(kTestUrl), &data, BULK_DATA_ENTRY));
 
   // Start test.
   ContentAnalysisDelegate::CreateForWebContents(
@@ -893,7 +899,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBrowserTest,
   data.reason = ContentAnalysisRequest::CLIPBOARD_PASTE;
   data.clipboard_source = MakeClipboardSource("https://source.com/");
   ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(
-      browser()->profile(), GURL(kTestUrl), &data, BULK_DATA_ENTRY));
+      browser()->GetProfile(), GURL(kTestUrl), &data, BULK_DATA_ENTRY));
 
   // Start test.
   ContentAnalysisDelegate::CreateForWebContents(
@@ -1012,7 +1018,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBrowserTest,
   data.text.emplace_back(text());
   data.reason = ContentAnalysisRequest::CLIPBOARD_PASTE;
   ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(
-      browser()->profile(), GURL(kTestUrl), &data, BULK_DATA_ENTRY));
+      browser()->GetProfile(), GURL(kTestUrl), &data, BULK_DATA_ENTRY));
 
   // Start test.
   ContentAnalysisDelegate::CreateForWebContents(
@@ -1067,7 +1073,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBrowserTest, Throttled) {
   std::vector<std::string> expected_scan_ids = {kScanId1, kScanId2, kScanId3};
 
   ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(
-      browser()->profile(), GURL(kTestUrl), &data, FILE_ATTACHED));
+      browser()->GetProfile(), GURL(kTestUrl), &data, FILE_ATTACHED));
 
   // The malware verdict means an event should be reported.
   test::EventReportValidator validator(client());
@@ -1227,7 +1233,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBlockingSettingBrowserTest,
     "block_password_protected": %s
   })";
   enterprise_connectors::test::SetAnalysisConnector(
-      browser()->profile()->GetPrefs(), FILE_ATTACHED,
+      browser()->GetProfile()->GetPrefs(), FILE_ATTACHED,
       base::StringPrintf(kPasswordProtectedPref,
                          base::ToString(setting_param())),
       machine_scope());
@@ -1248,7 +1254,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBlockingSettingBrowserTest,
   data.paths.emplace_back(test_zip);
   data.reason = ContentAnalysisRequest::DRAG_AND_DROP;
   ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(
-      browser()->profile(), GURL(kTestUrl), &data, FILE_ATTACHED));
+      browser()->GetProfile(), GURL(kTestUrl), &data, FILE_ATTACHED));
 
   // The file should be reported as unscanned.
   test::EventReportValidator validator(client());
@@ -1348,7 +1354,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBlockingSettingBrowserTest,
     "block_large_files": %s
   })";
   enterprise_connectors::test::SetAnalysisConnector(
-      browser()->profile()->GetPrefs(), FILE_ATTACHED,
+      browser()->GetProfile()->GetPrefs(), FILE_ATTACHED,
       base::StringPrintf(kBlockLargeFilesPref, base::ToString(setting_param())),
       machine_scope());
 
@@ -1373,7 +1379,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBlockingSettingBrowserTest,
   file.WriteAtCurrentPos(base::as_byte_span(chunk));
 
   ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(
-      browser()->profile(), GURL(kTestUrl), &data, FILE_ATTACHED));
+      browser()->GetProfile(), GURL(kTestUrl), &data, FILE_ATTACHED));
 
   // The file should be reported as unscanned.
   base::RunLoop reporting_run_loop;
@@ -1476,7 +1482,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBlockingSettingBrowserTest,
     "block_large_files": %s
   })";
   enterprise_connectors::test::SetAnalysisConnector(
-      browser()->profile()->GetPrefs(), PRINT,
+      browser()->GetProfile()->GetPrefs(), PRINT,
       base::StringPrintf(kBlockLargePagesPref, base::ToString(setting_param())),
       machine_scope());
 
@@ -1495,7 +1501,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBlockingSettingBrowserTest,
   std::ranges::fill(base::span(page.mapping), 'a');
   data.page = std::move(page.region);
 
-  ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(browser()->profile(),
+  ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(browser()->GetProfile(),
                                                  GURL(kTestUrl), &data, PRINT));
 
   // The page should be reported as unscanned.
@@ -1581,7 +1587,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBlockingSettingBrowserTest,
     "block_until_verdict": %s
   })";
   enterprise_connectors::test::SetAnalysisConnector(
-      browser()->profile()->GetPrefs(), FILE_ATTACHED,
+      browser()->GetProfile()->GetPrefs(), FILE_ATTACHED,
       base::StringPrintf(kBlockUntilVerdictPref, int_setting_value()),
       machine_scope());
 
@@ -1599,7 +1605,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBlockingSettingBrowserTest,
 
   CreateFilesForTest({"foo.doc"}, {"foo content"}, &data);
   ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(
-      browser()->profile(), GURL(kTestUrl), &data, FILE_ATTACHED));
+      browser()->GetProfile(), GURL(kTestUrl), &data, FILE_ATTACHED));
 
   // The file should be reported as malware and sensitive content.
   bool called = false;
@@ -1768,7 +1774,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBlockingSettingBrowserTest,
     "block_until_verdict": %s
   })";
   enterprise_connectors::test::SetAnalysisConnector(
-      browser()->profile()->GetPrefs(), BULK_DATA_ENTRY,
+      browser()->GetProfile()->GetPrefs(), BULK_DATA_ENTRY,
       base::StringPrintf(kBlockUntilVerdictPref, int_setting_value()),
       machine_scope());
 
@@ -1785,7 +1791,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBlockingSettingBrowserTest,
   data.reason = ContentAnalysisRequest::CLIPBOARD_PASTE;
   data.clipboard_source = MakeClipboardSource("about:blank");
   ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(
-      browser()->profile(), GURL(kTestUrl), &data, BULK_DATA_ENTRY));
+      browser()->GetProfile(), GURL(kTestUrl), &data, BULK_DATA_ENTRY));
 
   EXPECT_EQ(data.settings.block_until_verdict != BlockUntilVerdict::kNoBlock,
             setting_param());
@@ -1934,7 +1940,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateDefaultActionSettingBrowserTest,
     "default_action": "%s"
   })";
   enterprise_connectors::test::SetAnalysisConnector(
-      browser()->profile()->GetPrefs(), BULK_DATA_ENTRY,
+      browser()->GetProfile()->GetPrefs(), BULK_DATA_ENTRY,
       base::StringPrintf(kDefaultActionPref, default_action_setting_value()),
       /*machine_scope=*/true);
 
@@ -1949,7 +1955,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateDefaultActionSettingBrowserTest,
   ContentAnalysisDelegate::Data data;
   data.text.emplace_back(text());
   ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(
-      browser()->profile(), GURL(kTestUrl), &data, BULK_DATA_ENTRY));
+      browser()->GetProfile(), GURL(kTestUrl), &data, BULK_DATA_ENTRY));
   ContentAnalysisResponse text_response;
   FakeBinaryUploadServiceStorage()->SetResponseForText(upload_result(),
                                                        text_response);
@@ -2002,7 +2008,7 @@ class ContentAnalysisDelegateUnauthorizedBrowserTest
     if (machine_scope()) {
       SetDMTokenForTesting(policy::DMToken::CreateValidToken(dm_token()));
     } else {
-      test::SetProfileDMToken(browser()->profile(), dm_token());
+      test::SetProfileDMToken(browser()->GetProfile(), dm_token());
     }
 #endif
 
@@ -2020,7 +2026,7 @@ class ContentAnalysisDelegateUnauthorizedBrowserTest
         blocking_scan() ? 1 : 0);
 
     enterprise_connectors::test::SetAnalysisConnector(
-        browser()->profile()->GetPrefs(),
+        browser()->GetProfile()->GetPrefs(),
         file_scan ? FILE_ATTACHED : BULK_DATA_ENTRY, pref, machine_scope());
     file_scan_ = file_scan;
   }
@@ -2080,7 +2086,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateUnauthorizedBrowserTest, Paste) {
   data.text.emplace_back(text());
   data.reason = ContentAnalysisRequest::CLIPBOARD_PASTE;
   ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(
-      browser()->profile(), GURL(kTestUrl), &data, BULK_DATA_ENTRY));
+      browser()->GetProfile(), GURL(kTestUrl), &data, BULK_DATA_ENTRY));
 
   ContentAnalysisDelegate::CreateForWebContents(
       browser()->tab_strip_model()->GetActiveWebContents(), std::move(data),
@@ -2141,7 +2147,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateUnauthorizedBrowserTest, Files) {
   CreateFilesForTest({"file1.doc", "file2.doc"}, {"content1", "content2"},
                      &data);
   ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(
-      browser()->profile(), GURL(kTestUrl), &data, FILE_ATTACHED));
+      browser()->GetProfile(), GURL(kTestUrl), &data, FILE_ATTACHED));
 
   ContentAnalysisDelegate::CreateForWebContents(
       browser()->tab_strip_model()->GetActiveWebContents(), std::move(data),
@@ -2203,7 +2209,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateFilesBrowserTest, FilesUpload) {
   CreateFilesForTest({"ok.doc", "bad.exe"},
                      {"ok file content", "bad file content"}, &data);
   ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(
-      browser()->profile(), GURL(kTestUrl), &data, FILE_ATTACHED));
+      browser()->GetProfile(), GURL(kTestUrl), &data, FILE_ATTACHED));
 
   // The malware verdict means an event should be reported.
   test::EventReportValidator validator(client());
@@ -2326,7 +2332,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateFilesBrowserTest,
   CreateFilesForTest({"fine.exe"}, {"fine file content"}, &data, "sub");
 
   ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(
-      browser()->profile(), GURL(kTestUrl), &data, FILE_ATTACHED));
+      browser()->GetProfile(), GURL(kTestUrl), &data, FILE_ATTACHED));
 
   // The malware verdict means an event should be reported.
   test::EventReportValidator validator(client());
@@ -2451,4 +2457,60 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateFilesBrowserTest,
   content_analysis_run_loop.Run();
 }
 
+
+IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBrowserTest, UaFOnWebContentsDestroyed) {
+  base::ScopedAllowBlockingForTesting allow_blocking;
+
+  EnableUploadsScanningAndReporting();
+
+  base::RunLoop content_analysis_run_loop;
+  ContentAnalysisDelegate::SetFactoryForTesting(
+      base::BindRepeating(&MinimalFakeContentAnalysisDelegate::Create,
+                          content_analysis_run_loop.QuitClosure()));
+
+  FakeBinaryUploadServiceStorage()->SetAuthorized(true);
+  FakeBinaryUploadServiceStorage()->SetShouldAutomaticallyAuthorize(true);
+
+  // Set up a successful response so `RunCallback()` is executed with success.
+  ContentAnalysisResponse response;
+  response.set_request_token("upload_token_0");
+  auto* result = response.add_results();
+  result->set_tag("dlp");
+  result->set_status(ContentAnalysisResponse::Result::SUCCESS);
+  ContentAnalysisDelegate::Data data;
+  CreateFilesForTest({"foo.doc"}, {"foo content"}, &data);
+  ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(
+      browser()->GetProfile(), GURL(kTestUrl), &data, FILE_ATTACHED));
+
+  FakeBinaryUploadServiceStorage()->SetResponseForFile(
+      created_file_paths()[0].AsUTF8Unsafe(), ScanRequestUploadResult::kSuccess, response);
+  FakeBinaryUploadServiceStorage()->SetExpectedFinalAction(
+      "upload_token_0", ContentAnalysisAcknowledgement::ALLOW); // Dummy action expectation
+
+  bool called = false;
+  base::RunLoop run_loop;
+  base::RepeatingClosure quit_closure = run_loop.QuitClosure();
+
+  content::WebContents* contents = browser()->tab_strip_model()->GetActiveWebContents();
+
+  ContentAnalysisDelegate::CreateForWebContents(
+      contents, std::move(data),
+      base::BindLambdaForTesting(
+          [this, contents, &quit_closure, &called](
+              const ContentAnalysisDelegate::Data& data,
+              ContentAnalysisDelegate::Result& result) {
+            called = true;
+            // Close the WebContents during the callback execution.
+            // This destroys the web contents, triggering ContentAnalysisDialogController::WebContentsDestroyed()
+            // which deletes the ContentAnalysisDelegate instance we are currently inside.
+            int index = browser()->tab_strip_model()->GetIndexOfWebContents(contents);
+            browser()->tab_strip_model()->CloseWebContentsAt(index, TabCloseTypes::CLOSE_USER_GESTURE);
+            quit_closure.Run();
+          }),
+      DeepScanAccessPoint::UPLOAD);
+
+  run_loop.Run();
+
+  EXPECT_TRUE(called);
+}
 }  // namespace enterprise_connectors

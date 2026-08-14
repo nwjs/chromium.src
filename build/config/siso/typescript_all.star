@@ -21,10 +21,6 @@ __input_deps = {
 }
 
 def __step_config(ctx, step_config):
-    if runtime.os == "windows":
-        # TODO: b/515026786 - Re-enable typescript rules on Windows after fixing massive lstat performance issue.
-        return step_config
-
     remote_run = config.get(ctx, "googlechrome")
     step_config["input_deps"].update(typescript_all.input_deps)
 
@@ -50,7 +46,20 @@ def __step_config(ctx, step_config):
             "third_party/node/node.py",
             "third_party/node/node_modules:node_modules",
         ],
+        "ui/webui/resources/tools/minify_js.py": [
+            "third_party/node/node_modules:node_modules",
+        ],
+        "ui/webui/resources/tools/stylelint.py": [
+            "third_party/node/node_modules:node_modules",
+        ],
+        "ui/webui/resources/tools/eslint_ts.py": [
+            "third_party/node/node_modules:node_modules",
+            "third_party/node/node_modules/eslint/bin/eslint",
+        ],
     })
+
+    # Do not attach Starlark handlers for local builds to avoid overhead
+    # from redundant tsconfig dependency scanning (tsc.scandeps).
     step_config["rules"].extend([
         {
             "name": "typescript/ts_library",
@@ -64,7 +73,7 @@ def __step_config(ctx, step_config):
             },
             "remote": remote_run,
             "timeout": "2m",
-            "handler": "typescript_ts_library",
+            "handler": "typescript_ts_library" if remote_run else None,
             "output_local": True,
             "input_root_absolute_path": use_input_root_absolute_path,
             # Only runs on Linux workers.
@@ -81,8 +90,38 @@ def __step_config(ctx, step_config):
             },
             "remote": remote_run,
             "timeout": "2m",
-            "handler": "typescript_ts_definitions",
+            "handler": "typescript_ts_definitions" if remote_run else None,
             "input_root_absolute_path": use_input_root_absolute_path,
+            # Only runs on Linux workers.
+            "remote_command": "python3",
+        },
+        {
+            "name": "webui/minify_js",
+            "command_prefix": platform.python_bin + " ../../ui/webui/resources/tools/minify_js.py",
+            "remote": remote_run,
+            "timeout": "2m",
+            # Only runs on Linux workers.
+            "remote_command": "python3",
+        },
+        {
+            "name": "webui/stylelint",
+            "command_prefix": platform.python_bin + " ../../ui/webui/resources/tools/stylelint.py",
+            "remote": remote_run,
+            "timeout": "2m",
+            # Only runs on Linux workers.
+            "remote_command": "python3",
+        },
+        {
+            "name": "webui/eslint_ts",
+            "command_prefix": platform.python_bin + " ../../ui/webui/resources/tools/eslint_ts.py",
+            "indirect_inputs": {
+                "includes": [
+                    "*.ts",
+                ],
+            },
+            "remote": remote_run,
+            "timeout": "2m",
+            "handler": "webui_eslint_ts" if remote_run else None,
             # Only runs on Linux workers.
             "remote_command": "python3",
         },
@@ -91,14 +130,14 @@ def __step_config(ctx, step_config):
 
 # TODO: crbug.com/1478909 - Specify typescript inputs in GN config.
 def __filegroups(ctx):
-    if runtime.os == "windows":
-        return {}
     return {
         "third_party/node/node_modules:node_modules": {
             "type": "glob",
             "includes": [
+                "*.cjs",
                 "*.js",
                 "*.json",
+                "*.mjs",
                 "*.ts",
                 "tsc",
             ],
@@ -199,17 +238,28 @@ def _ts_definitions(ctx, cmd):
     print("_ts_definitions: tsconfig=%s, deps=%s" % (tsconfig, deps))
     ctx.actions.fix(inputs = cmd.inputs + deps)
 
-_handlers = {
-    True: {},
-    False: {
-        "typescript_ts_library": _ts_library,
-        "typescript_ts_definitions": _ts_definitions,
-    },
-}[runtime.os == "windows"]
+def _webui_eslint_ts(ctx, cmd):
+    tsconfig_path = None
+    for i, arg in enumerate(cmd.args):
+        if arg == "--tsconfig":
+            tsconfig_path = cmd.args[i + 1]
+            break
+    if not tsconfig_path:
+        return
+    tsconfig_path = ctx.fs.canonpath(tsconfig_path)
+    tsconfig = {}
+    if ctx.fs.exists(tsconfig_path):
+        tsconfig = json.decode(str(ctx.fs.read(tsconfig_path)))
+    deps = tsc.scandeps(ctx, tsconfig_path, tsconfig)
+    ctx.actions.fix(inputs = cmd.inputs + deps)
 
 typescript_all = module(
     "typescript_all",
-    handlers = _handlers,
+    handlers = {
+        "typescript_ts_library": _ts_library,
+        "typescript_ts_definitions": _ts_definitions,
+        "webui_eslint_ts": _webui_eslint_ts,
+    },
     step_config = __step_config,
     filegroups = __filegroups,
     input_deps = __input_deps,

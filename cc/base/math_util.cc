@@ -12,6 +12,7 @@
 #include <xmmintrin.h>
 #endif
 
+#include "base/containers/span.h"
 #include "base/numerics/angle_conversions.h"
 #include "base/trace_event/traced_value.h"
 #include "base/values.h"
@@ -319,6 +320,26 @@ gfx::Rect MathUtil::ProjectEnclosingClippedRect(const gfx::Transform& transform,
     return gfx::Rect();
 
   return gfx::ToEnclosingRect(projected_rect);
+}
+
+gfx::Rect MathUtil::ProjectEnclosingClippedRectIgnoringError(
+    const gfx::Transform& transform,
+    const gfx::Rect& src_rect,
+    float ignore_error) {
+  if (transform.IsIdentityOrIntegerTranslation()) {
+    return src_rect + gfx::ToFlooredVector2d(transform.To2dTranslation());
+  }
+
+  gfx::RectF projected_rect =
+      ProjectClippedRect(transform, gfx::RectF(src_rect));
+
+  if (std::isnan(projected_rect.x()) || std::isnan(projected_rect.y()) ||
+      std::isnan(projected_rect.right()) ||
+      std::isnan(projected_rect.bottom())) {
+    return gfx::Rect();
+  }
+
+  return gfx::ToEnclosingRectIgnoringError(projected_rect, ignore_error);
 }
 
 gfx::RectF MathUtil::ProjectClippedRect(const gfx::Transform& transform,

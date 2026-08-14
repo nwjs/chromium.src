@@ -18,12 +18,14 @@
 #include "base/test/bind.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
+#include "chrome/browser/ui/accelerator_utils.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
@@ -59,6 +61,10 @@
 #include "content/public/test/test_navigation_observer.h"
 #include "ui/aura/client/drag_drop_client.h"
 #include "ui/aura/client/drag_drop_client_observer.h"
+#include "ui/base/clipboard//clipboard_monitor.h"
+#include "ui/base/clipboard//clipboard_observer.h"
+#include "ui/base/clipboard/clipboard.h"
+#include "ui/base/clipboard/clipboard_buffer.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/interaction/element_identifier.h"
@@ -159,6 +165,44 @@ class OnDemandHttpResponse : public net::test_server::BasicHttpResponse {
   base::WeakPtrFactory<OnDemandHttpResponse> weak_ptr_factory_{this};
 };
 
+class ClipboardTextObserver
+    : public ui::test::ObservationStateObserver<std::u16string,
+                                                ui::ClipboardMonitor,
+                                                ui::ClipboardObserver> {
+ public:
+  explicit ClipboardTextObserver(ui::ClipboardMonitor* clipboard_monitor)
+      : ObservationStateObserver<std::u16string,
+                                 ui::ClipboardMonitor,
+                                 ui::ClipboardObserver>(clipboard_monitor) {
+    PollClipboard();
+  }
+  ~ClipboardTextObserver() override = default;
+
+  // ObservationStateObserver:
+  std::u16string GetStateObserverInitialState() const override {
+    return std::u16string();
+  }
+
+  // ClipboardObserver:
+  void OnClipboardDataChanged() override { PollClipboard(); }
+
+ private:
+  void PollClipboard() {
+    ui::Clipboard* clipboard = ui::Clipboard::GetForCurrentThread();
+    clipboard->ReadText(ui::ClipboardBuffer::kCopyPaste,
+                        /*data_dst=*/std::nullopt,
+                        base::BindOnce(&ClipboardTextObserver::GotClipboard,
+                                       weak_ptr_factory_.GetWeakPtr()));
+  }
+
+  void GotClipboard(std::u16string result) {
+    OnStateObserverStateChanged(std::move(result));
+  }
+
+  base::WeakPtrFactory<ClipboardTextObserver> weak_ptr_factory_{this};
+};
+
+DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(ClipboardTextObserver, kClipboardText);
 
 }  // namespace
 
@@ -184,7 +228,7 @@ class WebUIToolbarPixelInteractiveUiTest : public InteractiveBrowserTest {
   void SetUpOnMainThread() override {
     InteractiveBrowserTest::SetUpOnMainThread();
     // Force the color mode to light to avoid flakiness.
-    ThemeServiceFactory::GetForProfile(browser()->profile())
+    ThemeServiceFactory::GetForProfile(browser()->GetProfile())
         ->SetBrowserColorScheme(ThemeService::BrowserColorScheme::kLight);
   }
 
@@ -202,7 +246,7 @@ class WebUIToolbarPixelInteractiveUiTest : public InteractiveBrowserTest {
     // The WebView should be using the light color mode for regular windows,
     // and dark color mode for incognito windows.
     ASSERT_EQ(web_view->GetWidget()->GetColorMode(),
-              browser->profile()->IsIncognitoProfile()
+              browser->GetProfile()->IsIncognitoProfile()
                   ? ui::ColorProviderKey::ColorMode::kDark
                   : ui::ColorProviderKey::ColorMode::kLight);
 
@@ -224,14 +268,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarPixelInteractiveUiTest, Basic) {
   BasicPixelTest(browser(), "Basic");
 }
 
-// TODO(crbug.com/513510081): Flaky on linux-win-cross-rel.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_IncognitoBasic DISABLED_IncognitoBasic
-#else
-#define MAYBE_IncognitoBasic IncognitoBasic
-#endif
-IN_PROC_BROWSER_TEST_F(WebUIToolbarPixelInteractiveUiTest,
-                       MAYBE_IncognitoBasic) {
+IN_PROC_BROWSER_TEST_F(WebUIToolbarPixelInteractiveUiTest, IncognitoBasic) {
   BasicPixelTest(CreateIncognitoBrowser(), "IncognitoBasic");
 }
 
@@ -1074,6 +1111,10 @@ class TestDragDropClient : public aura::client::DragDropClient {
     if (!urls.empty()) {
       dragged_url_ = urls[0].url;
     }
+    std::optional<std::u16string> text = data->GetString();
+    if (text) {
+      dragged_text_ = *text;
+    }
     for (auto& observer : observers_) {
       observer.OnDragStarted();
     }
@@ -1097,10 +1138,12 @@ class TestDragDropClient : public aura::client::DragDropClient {
 
   bool drag_triggered() const { return drag_triggered_; }
   const GURL& dragged_url() const { return dragged_url_; }
+  const std::u16string& dragged_text() const { return dragged_text_; }
 
  private:
   bool drag_triggered_ = false;
   GURL dragged_url_;
+  std::u16string dragged_text_;
   raw_ptr<aura::Window> root_window_;
   raw_ptr<aura::client::DragDropClient> client_;
   base::ObserverList<aura::client::DragDropClientObserver>::Unchecked
@@ -1135,6 +1178,66 @@ class WebUIToolbarViewsLocationBarInteractiveUiTest
  protected:
   const WebContentsInteractionTestUtil::DeepQuery kLocationIconDeepQuery = {
       "toolbar-app", "#location-bar", "location-icon"};
+  const WebContentsInteractionTestUtil::DeepQuery kOmniboxDeepQuery = {
+      "toolbar-app", "#location-bar", "#omnibox"};
+  const WebContentsInteractionTestUtil::DeepQuery kTextInputDeepQuery = {
+      "toolbar-app", "#location-bar", "#omnibox", "#textInput"};
+  const WebContentsInteractionTestUtil::DeepQuery kTextSpanDeepQuery = {
+      "toolbar-app", "#location-bar", "#omnibox", "#textContainer", "span"};
+
+  enum class kClipboardOp {
+    kCopy,
+    kCut,
+  };
+
+  MultiStep RunClipboardSetTest(kClipboardOp op,
+                                const GURL& initial_url,
+                                const std::string& wait_value_sub,
+                                const std::string& select_js,
+                                const std::string& wait_copy_text_js,
+                                const std::u16string& expected_clipboard_text) {
+    ui::Accelerator accelerator;
+    EXPECT_TRUE(
+        AcceleratorProviderForBrowser(browser())->GetAcceleratorForCommandId(
+            op == kClipboardOp::kCopy ? IDC_COPY : IDC_CUT, &accelerator));
+    return Steps(
+        WaitForToolbarLoaded(), NavigateWebContents(TabId(), initial_url),
+        WaitForJsResultAt(WebUIToolbarId(), kTextInputDeepQuery,
+                          base::StringPrintf("el => el.value.includes('%s')",
+                                             wait_value_sub.c_str())),
+        FocusWebContents(WebUIToolbarId()),
+        ExecuteJsAt(WebUIToolbarId(), kTextInputDeepQuery, select_js),
+        WaitForJsResultAt(WebUIToolbarId(), kOmniboxDeepQuery,
+                          wait_copy_text_js),
+        // Note: earlier version used execCommand, but that causes issues
+        // the impl uses execCommand, too, and it complains about re-entry.
+        // The key press is asynchronous, however, so we may need to wait a bit
+        // for the text to show up in the clipboard.
+        SendAccelerator(WebUIToolbarId(), accelerator),
+        ObserveState(kClipboardText,
+                     []() { return ui::ClipboardMonitor::GetInstance(); }),
+        WaitForState(kClipboardText, expected_clipboard_text),
+        StopObservingState(kClipboardText));
+  }
+
+#if defined(USE_AURA)
+  MultiStep SetupDragDropClient() {
+    return Steps(Do(base::BindLambdaForTesting([this]() {
+      auto* root_window = BrowserView::GetBrowserViewForBrowser(browser())
+                              ->GetWidget()
+                              ->GetNativeWindow()
+                              ->GetRootWindow();
+      drag_drop_client_ = std::make_unique<TestDragDropClient>(root_window);
+    })));
+  }
+
+  MultiStep ResetDragDropClient() {
+    return Steps(Do(
+        base::BindLambdaForTesting([this]() { drag_drop_client_.reset(); })));
+  }
+
+  std::unique_ptr<TestDragDropClient> drag_drop_client_;
+#endif
 
  private:
   base::test::ScopedFeatureList feature_list_;
@@ -1188,15 +1291,391 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarViewsLocationBarInteractiveUiTest,
 #endif  // defined(USE_AURA) && !BUILDFLAG(IS_CHROMEOS)
 }
 
+#if defined(USE_AURA) && !BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_DragTextFromWebUIOmnibox DragTextFromWebUIOmnibox
+#define MAYBE_DragUrlFromWebUIOmnibox DragUrlFromWebUIOmnibox
+#define MAYBE_DragJavascriptFromWebUIOmnibox DragJavascriptFromWebUIOmnibox
+#define MAYBE_DragChromeUrlFromWebUIOmnibox DragChromeUrlFromWebUIOmnibox
+#define MAYBE_DragPartialUrlFromWebUIOmnibox DragPartialUrlFromWebUIOmnibox
+#else
+#define MAYBE_DragTextFromWebUIOmnibox DISABLED_DragTextFromWebUIOmnibox
+#define MAYBE_DragUrlFromWebUIOmnibox DISABLED_DragUrlFromWebUIOmnibox
+#define MAYBE_DragJavascriptFromWebUIOmnibox \
+  DISABLED_DragJavascriptFromWebUIOmnibox
+#define MAYBE_DragChromeUrlFromWebUIOmnibox \
+  DISABLED_DragChromeUrlFromWebUIOmnibox
+#define MAYBE_DragPartialUrlFromWebUIOmnibox \
+  DISABLED_DragPartialUrlFromWebUIOmnibox
+#endif
+
+IN_PROC_BROWSER_TEST_F(WebUIToolbarViewsLocationBarInteractiveUiTest,
+                       MAYBE_DragTextFromWebUIOmnibox) {
+#if defined(USE_AURA) && !BUILDFLAG(IS_CHROMEOS)
+  const GURL initial_url = embedded_test_server()->GetURL("/title1.html");
+
+  RunTestSequence(
+      WaitForToolbarLoaded(), NavigateWebContents(TabId(), initial_url),
+
+      // Wait until Mojo has successfully populated 'title1' inside `#textInput`
+      WaitForJsResultAt(WebUIToolbarId(), kTextInputDeepQuery,
+                        "el => el.value.includes('title1')"),
+
+      ExecuteJsAt(WebUIToolbarId(), kTextInputDeepQuery,
+                  R"(
+                    (el) => {
+                      el.focus();
+                      el.value = 'title1';
+                      el.select();
+                    }
+                  )"),
+
+      // Wait for the asynchronous C++ AdjustOmniboxTextForCopy to resolve and
+      // populate adjustedCopyResult.
+      WaitForJsResultAt(
+          WebUIToolbarId(), kOmniboxDeepQuery,
+          "el => el.adjustedCopyResult?.adjustedText === 'title1' && "
+          "el.adjustedCopyResult?.pageTitle === null"),
+
+      SetupDragDropClient(),
+
+      // Move mouse to the span element that actually renders the text.
+      // Kombucha will find its screen bounds and click its center.
+      // Since #textInput is on top, this hits the selection perfectly.
+      MoveMouseTo(WebUIToolbarId(), kTextSpanDeepQuery),
+
+      // Drag to a sibling Views-level element to trigger the move.
+      DragMouseTo(kReloadButtonElementId),
+
+      PollUntil(base::BindLambdaForTesting([&]() {
+                  return drag_drop_client_->drag_triggered() &&
+                         drag_drop_client_->dragged_text() == u"title1" &&
+                         drag_drop_client_->dragged_url().is_empty();
+                }),
+                "Drag was triggered with correct plain text"),
+
+      ResetDragDropClient());
+#endif
+}
+
+IN_PROC_BROWSER_TEST_F(WebUIToolbarViewsLocationBarInteractiveUiTest,
+                       MAYBE_DragUrlFromWebUIOmnibox) {
+#if defined(USE_AURA) && !BUILDFLAG(IS_CHROMEOS)
+  const GURL initial_url = embedded_test_server()->GetURL("/title2.html");
+
+  RunTestSequence(
+      WaitForToolbarLoaded(), NavigateWebContents(TabId(), initial_url),
+      WaitForWebContentsReady(TabId(), initial_url),
+
+      // Wait until Mojo has successfully populated 'title2' inside `#textInput`
+      WaitForJsResultAt(WebUIToolbarId(), kTextInputDeepQuery,
+                        "el => el.value.includes('title2')"),
+
+      ExecuteJsAt(WebUIToolbarId(), kTextInputDeepQuery,
+                  R"(
+                    (el) => {
+                      el.focus();
+                      el.select();
+                    }
+                  )"),
+
+      // Wait for the asynchronous C++ AdjustOmniboxTextForCopy to resolve and
+      // populate adjustedCopyResult.
+      WaitForJsResultAt(
+          WebUIToolbarId(), kOmniboxDeepQuery,
+          "el => el.adjustedCopyResult !== null && "
+          "el.adjustedCopyResult.pageTitle === 'Title Of Awesomeness'"),
+
+      Do(base::BindLambdaForTesting([&]() {
+        EXPECT_EQ(
+            browser()->tab_strip_model()->GetActiveWebContents()->GetTitle(),
+            u"Title Of Awesomeness");
+      })),
+
+      SetupDragDropClient(),
+
+      // Move mouse to the span element that actually renders the text.
+      MoveMouseTo(WebUIToolbarId(), kTextSpanDeepQuery),
+
+      // Drag to a sibling Views-level element to trigger the move.
+      DragMouseTo(kReloadButtonElementId),
+
+      PollUntil(base::BindLambdaForTesting([&]() {
+                  return drag_drop_client_->drag_triggered() &&
+                         drag_drop_client_->dragged_url() == initial_url &&
+                         drag_drop_client_->dragged_text() ==
+                             base::UTF8ToUTF16(initial_url.spec());
+                }),
+                "Drag was triggered with correct URL and plain text"),
+
+      ResetDragDropClient());
+#endif
+}
+
+IN_PROC_BROWSER_TEST_F(WebUIToolbarViewsLocationBarInteractiveUiTest,
+                       MAYBE_DragJavascriptFromWebUIOmnibox) {
+#if defined(USE_AURA) && !BUILDFLAG(IS_CHROMEOS)
+  const GURL initial_url = embedded_test_server()->GetURL("/title1.html");
+  const std::string js_to_drag = "javascript:alert(1)";
+
+  RunTestSequence(
+      WaitForToolbarLoaded(), NavigateWebContents(TabId(), initial_url),
+
+      // Wait until Mojo has successfully populated 'title1' inside `#textInput`
+      WaitForJsResultAt(WebUIToolbarId(), kTextInputDeepQuery,
+                        "el => el.value.includes('title1')"),
+
+      ExecuteJsAt(WebUIToolbarId(), kTextInputDeepQuery,
+                  base::StringPrintf(R"(
+                    (el) => {
+                      el.focus();
+                      el.value = '%s';
+                      el.select();
+                    }
+                  )",
+                                     js_to_drag.c_str())),
+
+      // Wait for the asynchronous C++ AdjustOmniboxTextForCopy to resolve and
+      // populate adjustedCopyResult.
+      WaitForJsResultAt(WebUIToolbarId(), kOmniboxDeepQuery,
+                        "el => el.adjustedCopyResult !== null"),
+
+      SetupDragDropClient(),
+
+      // Move mouse to the span element that actually renders the text.
+      MoveMouseTo(WebUIToolbarId(), kTextSpanDeepQuery),
+
+      // Drag to a sibling Views-level element to trigger the move.
+      DragMouseTo(kReloadButtonElementId),
+
+      PollUntil(base::BindLambdaForTesting([&]() {
+                  return drag_drop_client_->drag_triggered() &&
+                         drag_drop_client_->dragged_text() ==
+                             base::UTF8ToUTF16(js_to_drag) &&
+                         drag_drop_client_->dragged_url().is_empty();
+                }),
+                "Drag was triggered with javascript as plain text only"),
+
+      ResetDragDropClient());
+#endif
+}
+
+IN_PROC_BROWSER_TEST_F(WebUIToolbarViewsLocationBarInteractiveUiTest,
+                       MAYBE_DragChromeUrlFromWebUIOmnibox) {
+#if defined(USE_AURA) && !BUILDFLAG(IS_CHROMEOS)
+  const GURL initial_url("chrome://version/");
+  const std::string chrome_url_to_drag = "chrome://version/";
+
+  RunTestSequence(
+      WaitForToolbarLoaded(), NavigateWebContents(TabId(), initial_url),
+
+      // Wait until Mojo has successfully populated 'version' inside
+      // `#textInput`
+      WaitForJsResultAt(WebUIToolbarId(), kTextInputDeepQuery,
+                        "el => el.value.includes('version')"),
+
+      ExecuteJsAt(WebUIToolbarId(), kTextInputDeepQuery,
+                  R"(
+                    (el) => {
+                      el.focus();
+                      el.select();
+                    }
+                  )"),
+
+      // Wait for the asynchronous C++ AdjustOmniboxTextForCopy to resolve and
+      // populate adjustedCopyResult.
+      WaitForJsResultAt(WebUIToolbarId(), kOmniboxDeepQuery,
+                        "el => el.adjustedCopyResult !== null && "
+                        "el.adjustedCopyResult.pageTitle !== null"),
+
+      SetupDragDropClient(),
+
+      // Move mouse to the span element that actually renders the text.
+      MoveMouseTo(WebUIToolbarId(), kTextSpanDeepQuery),
+
+      // Drag to a sibling Views-level element to trigger the move.
+      DragMouseTo(kReloadButtonElementId),
+
+      // Verify that chrome:// URL is dragged as a URL.
+      PollUntil(base::BindLambdaForTesting([&]() {
+                  return drag_drop_client_->drag_triggered() &&
+                         drag_drop_client_->dragged_text() ==
+                             base::UTF8ToUTF16(chrome_url_to_drag) &&
+                         drag_drop_client_->dragged_url() ==
+                             GURL(chrome_url_to_drag);
+                }),
+                "Drag was triggered with chrome URL"),
+
+      ResetDragDropClient());
+#endif
+}
+
+IN_PROC_BROWSER_TEST_F(WebUIToolbarViewsLocationBarInteractiveUiTest,
+                       MAYBE_DragPartialUrlFromWebUIOmnibox) {
+#if defined(USE_AURA) && !BUILDFLAG(IS_CHROMEOS)
+  const GURL initial_url =
+      embedded_test_server()->GetURL("a.test", "/title1.html");
+
+  RunTestSequence(
+      WaitForToolbarLoaded(), NavigateWebContents(TabId(), initial_url),
+
+      // Wait until Mojo has successfully populated 'title1' inside `#textInput`
+      WaitForJsResultAt(WebUIToolbarId(), kTextInputDeepQuery,
+                        "el => el.value.includes('title1')"),
+
+      // Select a partial range starting at 0, dynamically finding the slash.
+      ExecuteJsAt(WebUIToolbarId(), kTextInputDeepQuery,
+                  R"(
+                    (el) => {
+                      el.focus();
+                      const slashIndex = el.value.indexOf('/');
+                      const selectEnd = slashIndex !== -1 ? slashIndex + 1 : el.value.length;
+                      el.setSelectionRange(0, selectEnd);
+                    }
+                  )"),
+
+      // Wait for the Mojo IPC to resolve and populate the adjusted copy text.
+      WaitForJsResultAt(WebUIToolbarId(), kOmniboxDeepQuery,
+                        "el => el.adjustedCopyResult !== null"),
+
+      SetupDragDropClient(),
+
+      // Move mouse to the span element that actually renders the text.
+      MoveMouseTo(WebUIToolbarId(), kTextSpanDeepQuery),
+
+      // Drag to a sibling Views-level element to trigger the move.
+      DragMouseTo(kReloadButtonElementId),
+
+      // Verify that the adjusted URL is dragged.
+      PollUntil(
+          base::BindLambdaForTesting([&]() {
+            if (drag_drop_client_->drag_triggered()) {
+              LOG(INFO) << "DIAGNOSTIC: drag_triggered=true, text="
+                        << drag_drop_client_->dragged_text()
+                        << ", url=" << drag_drop_client_->dragged_url().spec();
+            }
+            return drag_drop_client_->drag_triggered() &&
+                   drag_drop_client_->dragged_url() ==
+                       initial_url.GetWithEmptyPath() &&
+                   drag_drop_client_->dragged_text() ==
+                       base::UTF8ToUTF16(initial_url.GetWithEmptyPath().spec());
+          }),
+          "Drag was triggered with partial selection adjusted to full GURL and "
+          "plain text"),
+
+      ResetDragDropClient());
+#endif
+}
+
+#if defined(USE_AURA) && !BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_CopyTextFromWebUIOmnibox CopyTextFromWebUIOmnibox
+#define MAYBE_CopyUrlFromWebUIOmnibox CopyUrlFromWebUIOmnibox
+#define MAYBE_CutUrlFromWebUIOmnibox CutUrlFromWebUIOmnibox
+#define MAYBE_CopyJavascriptFromWebUIOmnibox CopyJavascriptFromWebUIOmnibox
+#define MAYBE_CopyChromeUrlFromWebUIOmnibox CopyChromeUrlFromWebUIOmnibox
+#define MAYBE_CopyPartialUrlFromWebUIOmnibox CopyPartialUrlFromWebUIOmnibox
+#else
+#define MAYBE_CopyTextFromWebUIOmnibox DISABLED_CopyTextFromWebUIOmnibox
+#define MAYBE_CopyUrlFromWebUIOmnibox DISABLED_CopyUrlFromWebUIOmnibox
+#define MAYBE_CutUrlFromWebUIOmnibox DISABLED_CutUrlFromWebUIOmnibox
+#define MAYBE_CopyJavascriptFromWebUIOmnibox \
+  DISABLED_CopyJavascriptFromWebUIOmnibox
+#define MAYBE_CopyChromeUrlFromWebUIOmnibox \
+  DISABLED_CopyChromeUrlFromWebUIOmnibox
+#define MAYBE_CopyPartialUrlFromWebUIOmnibox \
+  DISABLED_CopyPartialUrlFromWebUIOmnibox
+#endif
+
+IN_PROC_BROWSER_TEST_F(WebUIToolbarViewsLocationBarInteractiveUiTest,
+                       MAYBE_CopyTextFromWebUIOmnibox) {
+#if defined(USE_AURA) && !BUILDFLAG(IS_CHROMEOS)
+  RunTestSequence(RunClipboardSetTest(
+      kClipboardOp::kCopy, embedded_test_server()->GetURL("/title1.html"),
+      "title1", "(el) => { el.focus(); el.value = 'title1'; el.select(); }",
+      "el => el.adjustedCopyResult?.adjustedText === 'title1'", u"title1"));
+#endif
+}
+
+IN_PROC_BROWSER_TEST_F(WebUIToolbarViewsLocationBarInteractiveUiTest,
+                       MAYBE_CopyUrlFromWebUIOmnibox) {
+#if defined(USE_AURA) && !BUILDFLAG(IS_CHROMEOS)
+  const GURL initial_url = embedded_test_server()->GetURL("/title1.html");
+  RunTestSequence(RunClipboardSetTest(kClipboardOp::kCopy, initial_url,
+                                      "title1",
+                                      "(el) => { el.focus(); el.select(); }",
+                                      "el => el.adjustedCopyResult !== null",
+                                      base::UTF8ToUTF16(initial_url.spec())));
+#endif
+}
+
+IN_PROC_BROWSER_TEST_F(WebUIToolbarViewsLocationBarInteractiveUiTest,
+                       MAYBE_CutUrlFromWebUIOmnibox) {
+#if defined(USE_AURA) && !BUILDFLAG(IS_CHROMEOS)
+  const GURL initial_url = embedded_test_server()->GetURL("/title1.html");
+  RunTestSequence(RunClipboardSetTest(kClipboardOp::kCut, initial_url, "title1",
+                                      "(el) => { el.focus(); el.select(); }",
+                                      "el => el.adjustedCopyResult !== null",
+                                      base::UTF8ToUTF16(initial_url.spec())),
+                  WaitForJsResultAt(WebUIToolbarId(), kTextInputDeepQuery,
+                                    "el => el.value === ''"));
+#endif
+}
+
+IN_PROC_BROWSER_TEST_F(WebUIToolbarViewsLocationBarInteractiveUiTest,
+                       MAYBE_CopyJavascriptFromWebUIOmnibox) {
+#if defined(USE_AURA) && !BUILDFLAG(IS_CHROMEOS)
+  const std::string js_to_copy = "javascript:alert(1)";
+  RunTestSequence(RunClipboardSetTest(
+      kClipboardOp::kCopy, embedded_test_server()->GetURL("/title1.html"),
+      "title1",
+      base::StringPrintf(
+          "(el) => { el.focus(); el.value = '%s'; el.select(); }",
+          js_to_copy.c_str()),
+      "el => el.adjustedCopyResult !== null", base::UTF8ToUTF16(js_to_copy)));
+#endif
+}
+
+IN_PROC_BROWSER_TEST_F(WebUIToolbarViewsLocationBarInteractiveUiTest,
+                       MAYBE_CopyChromeUrlFromWebUIOmnibox) {
+#if defined(USE_AURA) && !BUILDFLAG(IS_CHROMEOS)
+  const std::string chrome_url_to_copy = "chrome://version/";
+  RunTestSequence(RunClipboardSetTest(kClipboardOp::kCopy,
+                                      GURL("chrome://version/"), "version",
+                                      "(el) => { el.focus(); el.select(); }",
+                                      "el => el.adjustedCopyResult !== null",
+                                      base::UTF8ToUTF16(chrome_url_to_copy)));
+#endif
+}
+
+IN_PROC_BROWSER_TEST_F(WebUIToolbarViewsLocationBarInteractiveUiTest,
+                       MAYBE_CopyPartialUrlFromWebUIOmnibox) {
+#if defined(USE_AURA) && !BUILDFLAG(IS_CHROMEOS)
+  const GURL initial_url =
+      embedded_test_server()->GetURL("a.test", "/title1.html");
+  RunTestSequence(RunClipboardSetTest(
+      kClipboardOp::kCopy, initial_url, "title1",
+      R"(
+        (el) => {
+          el.focus();
+          const slashIndex = el.value.indexOf('/');
+          const selectEnd = slashIndex !== -1 ? slashIndex + 1 : el.value.length;
+          el.setSelectionRange(0, selectEnd);
+        }
+      )",
+      "el => el.adjustedCopyResult !== null",
+      base::UTF8ToUTF16(initial_url.GetWithEmptyPath().spec())));
+#endif
+}
+
 class WebUIToolbarFocusInteractiveUiTestBase
     : public WebUIAndViewsToolbarInteractiveUiTestBase {
  public:
   void SetUpOnMainThread() override {
     WebUIAndViewsToolbarInteractiveUiTestBase::SetUpOnMainThread();
     // Enable/pin home and split-tabs buttons so they can be focused.
-    browser()->profile()->GetPrefs()->SetBoolean(prefs::kShowHomeButton, true);
-    browser()->profile()->GetPrefs()->SetBoolean(prefs::kPinSplitTabButton,
-                                                 true);
+    browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kShowHomeButton,
+                                                    true);
+    browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kPinSplitTabButton,
+                                                    true);
     // Wait for the toolbar to load.
     ASSERT_TRUE(base::test::RunUntil([browser = browser()]() {
       InitialWebUIManager* manager = InitialWebUIManager::From(browser);
@@ -1480,7 +1959,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarFocusFullInteractiveUiTest,
       // Pin an action so that WebUIPinnedToolbarActions has at least one action
       // and is visible!
       Do(base::BindLambdaForTesting([this]() {
-        PinnedToolbarActionsModel::Get(browser()->profile())
+        PinnedToolbarActionsModel::Get(browser()->GetProfile())
             ->UpdatePinnedState(kActionCopyUrl, true);
       })),
 

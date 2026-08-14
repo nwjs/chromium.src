@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "base/test/metrics/histogram_tester.h"
+#include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/send_tab_to_self/send_tab_to_self_client_service.h"
 #include "chrome/browser/send_tab_to_self/send_tab_to_self_client_service_factory.h"
@@ -25,6 +26,10 @@
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/ozone_buildflags.h"
 #include "ui/gfx/scoped_animation_duration_scale_mode.h"
+
+#if BUILDFLAG(IS_OZONE)
+#include "ui/ozone/public/ozone_platform.h"
+#endif
 
 namespace send_tab_to_self {
 
@@ -51,7 +56,8 @@ class SendTabToSelfToolbarIconControllerInteractiveUiTest
 
   SendTabToSelfToolbarIconController* controller() {
     return static_cast<SendTabToSelfToolbarIconController*>(
-        SendTabToSelfClientServiceFactory::GetForProfile(browser()->profile())
+        SendTabToSelfClientServiceFactory::GetForProfile(
+            browser()->GetProfile())
             ->GetReceivingUiHandler());
   }
 
@@ -64,7 +70,7 @@ class SendTabToSelfToolbarIconControllerInteractiveUiTest
       FakeSendTabToSelfModel* model =
           static_cast<StubSendTabToSelfSyncService*>(
               SendTabToSelfSyncServiceFactory::GetForProfile(
-                  browser()->profile()))
+                  browser()->GetProfile()))
               ->GetFakeSendTabToSelfModel();
       model->SetLocalCacheGuid(kLocalCacheGuid);
       GURL url_1("https://www.example-a.com");
@@ -119,6 +125,11 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfToolbarIconControllerInteractiveUiTest,
 
 IN_PROC_BROWSER_TEST_F(SendTabToSelfToolbarIconControllerInteractiveUiTest,
                        AutoOpenPendingEntriesAsBackgroundTabsOnActivation) {
+#if BUILDFLAG(IS_OZONE)
+  if (::ui::OzonePlatform::RunningOnWaylandForTest()) {
+    GTEST_SKIP() << "Linux window activation issues on Wayland";
+  }
+#endif
   base::HistogramTester histogram_tester;
 
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kIncognitoTab);
@@ -135,10 +146,6 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfToolbarIconControllerInteractiveUiTest,
       InstrumentNextTab(kIncognitoTab, AnyBrowser()),
       Do([this]() { CreateIncognitoBrowser(); }),
       InAnyContext(WaitForShow(kIncognitoTab)),
-#if BUILDFLAG(SUPPORTS_OZONE_WAYLAND)
-      SetOnIncompatibleAction(OnIncompatibleAction::kSkipTest,
-                              "Linux window activation issues."),
-#endif  // BUILDFLAG(SUPPORTS_OZONE_WAYLAND)
       InSameContextAs(kIncognitoTab, ActivateSurface(kBrowserViewElementId)),
 
       // Switch context to the original browser and verify that it is inactive.

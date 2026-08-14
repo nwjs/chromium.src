@@ -20,7 +20,7 @@ blink::mojom::CustomContextMenuItemPtr MenuItemBuild(
   auto result = blink::mojom::CustomContextMenuItem::New();
   if (item.accelerator.has_value()) {
     auto accelerator = blink::mojom::Accelerator::New();
-    accelerator->key_code = item.accelerator->key_code;
+    accelerator->key_code = static_cast<uint16_t>(item.accelerator->key_code);
     accelerator->modifiers = item.accelerator->modifiers;
     result->accelerator = std::move(accelerator);
   }
@@ -83,9 +83,6 @@ UntrustworthyContextMenuParams ContextMenuParamsBuilder::Build(
     params.custom_items.push_back(MenuItemBuild(item));
 
   params.link_text = base::UTF8ToUTF16(data.link_text);
-
-  if (data.impression)
-    params.impression = data.impression;
 
   params.form_control_type = data.form_control_type;
   params.is_content_editable_for_autofill =

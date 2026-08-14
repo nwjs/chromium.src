@@ -33,6 +33,8 @@ import org.chromium.chrome.browser.signin.services.BadgeConfig;
 import org.chromium.chrome.browser.signin.services.DisplayableProfileData;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.ProfileDataCache;
+import org.chromium.chrome.browser.subscription_eligibility.SubscriptionEligibilityService;
+import org.chromium.chrome.browser.subscription_eligibility.SubscriptionEligibilityServiceFactory;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.sync.settings.SyncSettingsUtils;
 import org.chromium.chrome.browser.tab.Tab;
@@ -59,6 +61,7 @@ import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.signin.SigninFeatureMap;
+import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.identitymanager.PrimaryAccountChangeEvent;
@@ -169,7 +172,8 @@ public class IdentityDiscController
                                                 FeatureConstants.IDENTITY_DISC_FEATURE,
                                                 R.string.iph_identity_disc_text,
                                                 R.string.iph_identity_disc_accessibility_text))
-                                .setIsIdentityDisc(true)
+                                .setIdentityDiscConfig(
+                                        /* isIdentityDisc= */ true, /* hasAiTierRing= */ false)
                                 .build());
     }
 
@@ -230,6 +234,10 @@ public class IdentityDiscController
                 .setContentDescription(contentDescription)
                 .setSupportsTinting(shouldSupportTinting)
                 .setHasErrorBadge(mIdentityError != UserActionableError.NONE)
+                .setIdentityDiscConfig(
+                        /* isIdentityDisc= */ true,
+                        /* hasAiTierRing= */ SigninFeatureMap.isEnabled(
+                                SigninFeatures.ENABLE_AI_SUBSCRIPTION_AVATAR_RING))
                 .setButtonVariant(AdaptiveToolbarButtonVariant.UNKNOWN)
                 .setOnLongClickListener(null)
                 .build();
@@ -246,9 +254,29 @@ public class IdentityDiscController
         IdentityManager identityManager =
                 IdentityServicesProvider.get().getIdentityManager(profile);
         assert identityManager != null;
-        mProfileDataCache =
-                ProfileDataCache.createWithoutBadge(
-                        mContext, identityManager, R.dimen.toolbar_identity_disc_size);
+
+        if (SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_AI_SUBSCRIPTION_AVATAR_RING)) {
+            SubscriptionEligibilityService subscriptionEligibilityService =
+                    SubscriptionEligibilityServiceFactory.getForProfile(profile);
+
+            int aiTierRingThicknessPx =
+                    mContext.getResources()
+                            .getDimensionPixelSize(R.dimen.ai_tier_ring_thickness_identity_disc);
+            int aiTierImageSizePx =
+                    mContext.getResources()
+                            .getDimensionPixelSize(R.dimen.toolbar_identity_disc_size_with_ring);
+            mProfileDataCache =
+                    ProfileDataCache.createWithAiTierRing(
+                            mContext,
+                            identityManager,
+                            subscriptionEligibilityService,
+                            aiTierImageSizePx,
+                            aiTierRingThicknessPx);
+        } else {
+            mProfileDataCache =
+                    ProfileDataCache.createWithoutBadge(
+                            mContext, identityManager, R.dimen.toolbar_identity_disc_size);
+        }
         mProfileDataCache.addObserver(this);
     }
 
@@ -258,7 +286,22 @@ public class IdentityDiscController
      */
     private Drawable getProfileImage(@Nullable DisplayableProfileData profileData) {
         if (profileData == null) {
-            return AppCompatResources.getDrawable(mContext, R.drawable.account_circle);
+            Drawable accountCircle =
+                    AppCompatResources.getDrawable(mContext, R.drawable.account_circle);
+            if (SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_AI_SUBSCRIPTION_AVATAR_RING)) {
+                int aiTierRingThicknessPx =
+                        mContext.getResources()
+                                .getDimensionPixelSize(
+                                        R.dimen.ai_tier_ring_thickness_identity_disc);
+                int aiTierImageSizePx =
+                        mContext.getResources()
+                                .getDimensionPixelSize(
+                                        R.dimen.toolbar_identity_disc_size_with_ring);
+
+                return ProfileDataCache.getPlaceholderImageWithAiTierRingPadding(
+                        mContext, accountCircle, aiTierImageSizePx, aiTierRingThicknessPx);
+            }
+            return accountCircle;
         }
         return profileData.getImage();
     }
@@ -309,6 +352,7 @@ public class IdentityDiscController
                 notifyObservers(true);
                 break;
             case PrimaryAccountChangeEvent.Type.CLEARED:
+                mIdentityError = UserActionableError.NONE;
                 resetIdentityDiscCache();
                 notifyObservers(false);
                 break;

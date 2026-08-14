@@ -16,6 +16,8 @@
 #include "base/check.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
+#include "base/i18n/language_tag.h"
+#include "base/i18n/tag_converters.h"
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/field_trial.h"
@@ -93,8 +95,10 @@ using content::BrowserThread;
 using extensions::mojom::ManifestLocation;
 
 namespace extensions {
-
 namespace {
+
+using ::base::i18n::LanguageTag;
+using ::base::i18n::LanguageTagConverter;
 
 #if BUILDFLAG(IS_CHROMEOS)
 
@@ -346,24 +350,36 @@ void ExternalProviderImpl::RetrieveExtensionsFromPrefs(
     const base::ListValue* supported_locales =
         extension_dict.FindList(kSupportedLocales);
     if (supported_locales) {
-      std::vector<std::string> browser_locales = l10n_util::GetParentLocales(
-          g_browser_process->GetApplicationLocale());
+      std::vector<LanguageTag> browser_tags;
+      for (std::optional<LanguageTag> tag =
+               LanguageTagConverter::GetInstance().FromString(
+                   g_browser_process->GetApplicationLocale());
+           tag; tag = tag->GetParentTag()) {
+        browser_tags.push_back(*tag);
+      }
 
       bool locale_supported = false;
       for (const base::Value& locale : *supported_locales) {
         const std::string* current_locale = locale.GetIfString();
-        if (current_locale && l10n_util::IsValidLocaleSyntax(*current_locale)) {
-          std::string normalized_locale =
-              l10n_util::NormalizeLocale(*current_locale);
-          if (std::ranges::contains(browser_locales, normalized_locale)) {
-            locale_supported = true;
-            break;
-          }
-        } else {
+        if (!current_locale) {
           LOG(WARNING) << "Unrecognized locale '"
-                       << (current_locale ? *current_locale : "(Not a string)")
+                       << "(Not a string)"
                        << "' found as supported locale for extension: "
                        << extension_id;
+          continue;
+        }
+        std::optional<LanguageTag> current_tag =
+            LanguageTagConverter::GetInstance().FromString(*current_locale);
+        if (!current_tag) {
+          LOG(WARNING) << "Unrecognized locale '" << *current_locale
+                       << "' found as supported locale for extension: "
+                       << extension_id;
+          continue;
+        }
+
+        if (std::ranges::contains(browser_tags, *current_tag)) {
+          locale_supported = true;
+          break;
         }
       }
 

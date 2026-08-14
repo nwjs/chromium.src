@@ -10,6 +10,7 @@
 #include "mojo/public/cpp/bindings/pending_remote.h"
 
 class Profile;
+class OmniboxEverywhereService;
 
 namespace content {
 class WebContents;
@@ -21,7 +22,6 @@ class ComposeboxEverywhereHandler : public ComposeboxHandler {
  public:
   ComposeboxEverywhereHandler(
       mojo::PendingReceiver<composebox::mojom::PageHandler> pending_handler,
-      mojo::PendingRemote<composebox::mojom::Page> pending_page,
       mojo::PendingReceiver<searchbox::mojom::PageHandler>
           pending_searchbox_handler,
       mojo::PendingRemote<searchbox::mojom::Page> pending_searchbox_page,
@@ -35,6 +35,15 @@ class ComposeboxEverywhereHandler : public ComposeboxHandler {
       delete;
 
   ~ComposeboxEverywhereHandler() override;
+
+  // searchbox::mojom::PageHandler:
+  void OnDriveUploadClicked(OnDriveUploadClickedCallback callback) override;
+
+  // ContextualSearchboxHandler:
+  void CleanupDrivePicker() override;
+
+ private:
+  raw_ptr<OmniboxEverywhereService> service_;
 };
 
 #endif  // CHROME_BROWSER_UI_WEBUI_OMNIBOX_EVERYWHERE_COMPOSEBOX_EVERYWHERE_HANDLER_H_

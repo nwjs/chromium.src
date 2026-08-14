@@ -474,10 +474,6 @@ InterfaceBundle* CastWebContentsImpl::local_interfaces() {
   return &local_interfaces_;
 }
 
-bool CastWebContentsImpl::is_websql_enabled() {
-  return params_->enable_websql;
-}
-
 bool CastWebContentsImpl::is_mixer_audio_enabled() {
   return params_->enable_mixer_audio;
 }
@@ -894,6 +890,7 @@ void CastWebContentsImpl::NotifyPageState() {
 void CastWebContentsImpl::ResourceLoadComplete(
     content::RenderFrameHost* render_frame_host,
     const content::GlobalRequestID& request_id,
+    const GURL& original_url,
     const blink::mojom::ResourceLoadInfo& resource_load_info) {
   if (!web_contents_ ||
       render_frame_host != web_contents_->GetPrimaryMainFrame()) {
@@ -907,7 +904,7 @@ void CastWebContentsImpl::ResourceLoadComplete(
       metrics::CastMetricsHelper::GetInstance();
   metrics_helper->RecordApplicationEventWithValue(
       "Cast.Platform.ResourceRequestError", net_error);
-  LOG(ERROR) << "Resource \"" << resource_load_info.original_url << "\""
+  LOG(ERROR) << "Resource \"" << original_url << "\""
              << " failed to load with net_error=" << net_error
              << ", description=" << net::ErrorToShortString(net_error);
   shell::CastBrowserProcess::GetInstance()->connectivity_checker()->Check();

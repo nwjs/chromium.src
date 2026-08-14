@@ -13,8 +13,12 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
+#include "chrome/common/readaloud/read_aloud.mojom.h"
 #include "components/dom_distiller/core/task_tracker.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "content/public/browser/web_contents_observer.h"
+#include "mojo/public/cpp/bindings/receiver.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "url/gurl.h"
 
 namespace content {
@@ -25,9 +29,26 @@ class Profile;
 
 namespace readaloud {
 
-// Central lifecycle and state orchestrator for Read Aloud.
-class ReadAloudService : public KeyedService,
-                         public dom_distiller::ViewRequestDelegate {
+class ReadAloudPlaybackSession;
+
+// Central lifecycle and state orchestrator for the Read Aloud feature in
+// Chrome, which allows users to listen to web page content.
+//
+// Manages Read Aloud audio playback of distilled web page content by
+// coordinating page distillation (via `DomDistillerService`), audio synthesis
+// in the utility process, and UI state synchronization via `Delegate`.
+//
+// Instantiated per-Profile by `ReadAloudServiceFactory`. Observes the target
+// `content::WebContents` during active playback, starting when the user
+// requests playback (e.g., tapping "Listen to this page" or the Play button in
+// the UI) until playback is `Stop()`ped or the tab is closed. It continues
+// tracking the specific `WebContents` on which `Play()` was called even if the
+// user switches focus to a different tab.
+class ReadAloudService
+    : public KeyedService,
+      public dom_distiller::ViewRequestDelegate,
+      public read_aloud::mojom::ReadAloudPlaybackControllerClient,
+      public content::WebContentsObserver {
  public:
   // TODO(b/522830940): Share this enum with Java using java_cpp_enum.
   enum class PlaybackState {
@@ -129,7 +150,7 @@ class ReadAloudService : public KeyedService,
 
   // Playback control commands called by the UI (via the JNI bridge).
   // Starts or resumes audio playback.
-  void Play();
+  void Play(content::WebContents* new_web_contents);
 
   // Pauses the current audio playback.
   void Pause();
@@ -170,6 +191,15 @@ class ReadAloudService : public KeyedService,
   // Initiates an asynchronous check to determine if the URL is readable.
   void CheckReadability(const GURL& url);
 
+  // Methods called by ReadAloudPlaybackSession:
+  void OnSessionSuspended();
+  void OnSessionResumed();
+
+  bool IsPlaybackPaused() const;
+
+  // content::WebContentsObserver:
+  void WebContentsDestroyed() override;
+  void PrimaryPageChanged(content::Page& page) override;
 
   // KeyedService:
   void Shutdown() override;
@@ -182,16 +212,48 @@ class ReadAloudService : public KeyedService,
       const dom_distiller::DistilledArticleProto* article_proto) override;
   void OnArticleUpdated(
       dom_distiller::ArticleDistillationUpdate article_update) override;
+  void OnDistillationFailed(
+      dom_distiller::DistillationParseResult reason) override;
 
   dom_distiller::ViewerHandle* GetViewerHandleForTesting() const {
     return viewer_handle_.get();
   }
 
+  // Initializes the connection to the utility process.
+  void Initialize();
+
  private:
+  // read_aloud::mojom::ReadAloudPlaybackControllerClient (called by Utility):
+  void OnPlaybackStateChanged(read_aloud::mojom::PlaybackState state) override;
+  void OnPlaybackDurationChanged(base::TimeDelta duration) override;
+  void OnWordBoundaryReached(uint32_t segment_index,
+                             uint32_t character_offset,
+                             base::TimeDelta audio_timestamp) override;
+  void RequestSpeechSynthesis(
+      const std::u16string& text_chunk,
+      uint64_t sequence_id,
+      read_aloud::mojom::ReadAloudPlaybackControllerClient::
+          RequestSpeechSynthesisCallback callback) override;
+
+  void EnsureServiceConnected();
+  void OnUtilityDisconnect();
+  PlaybackState GetCurrentPlaybackState() const;
+
   raw_ptr<Profile> profile_;
   std::unique_ptr<dom_distiller::ViewerHandle> viewer_handle_;
   std::unique_ptr<Delegate> delegate_;
   base::TimeTicks distillation_start_time_;
+
+  // Connection to the Utility process Factory.
+  mojo::Remote<read_aloud::mojom::ReadAloudPlaybackControllerFactory>
+      player_factory_;
+
+  // Connections to the Utility process Controller.
+  mojo::Remote<read_aloud::mojom::ReadAloudPlaybackController> utility_player_;
+  mojo::Receiver<read_aloud::mojom::ReadAloudPlaybackControllerClient>
+      utility_observer_receiver_{this};
+
+  std::unique_ptr<ReadAloudPlaybackSession> active_session_;
 
   base::WeakPtrFactory<ReadAloudService> weak_factory_{this};
 };

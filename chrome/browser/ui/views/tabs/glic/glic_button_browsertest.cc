@@ -56,7 +56,8 @@ class GlicButtonTest : public InProcessBrowserTest {
   }
 
   GlicKeyedService* glic_service() {
-    return GlicKeyedServiceFactory::GetGlicKeyedService(browser()->profile());
+    return GlicKeyedServiceFactory::GetGlicKeyedService(
+        browser()->GetProfile());
   }
 
   void WaitForGlicPanelShow() {
@@ -70,7 +71,7 @@ class GlicButtonTest : public InProcessBrowserTest {
 };
 
 IN_PROC_BROWSER_TEST_F(GlicButtonTest, ContextMenuPinned) {
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       glic::prefs::kGlicPinnedToTabstrip, true);
 
   glic_button()->ShowContextMenuForViewImpl(glic_button(), gfx::Point(),
@@ -79,7 +80,7 @@ IN_PROC_BROWSER_TEST_F(GlicButtonTest, ContextMenuPinned) {
 }
 
 IN_PROC_BROWSER_TEST_F(GlicButtonTest, ContextMenuUnpinned) {
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       glic::prefs::kGlicPinnedToTabstrip, false);
 
   glic_button()->ShowContextMenuForViewImpl(glic_button(), gfx::Point(),
@@ -88,7 +89,7 @@ IN_PROC_BROWSER_TEST_F(GlicButtonTest, ContextMenuUnpinned) {
 }
 
 IN_PROC_BROWSER_TEST_F(GlicButtonTest, UnpinCommand) {
-  PrefService* profile_prefs = browser()->profile()->GetPrefs();
+  PrefService* profile_prefs = browser()->GetProfile()->GetPrefs();
   profile_prefs->SetBoolean(glic::prefs::kGlicPinnedToTabstrip, true);
 
   glic_button()->ExecuteCommand(IDC_GLIC_TOGGLE_PIN, ui::EF_NONE);
@@ -145,7 +146,7 @@ class GlicButtonPrewarmDelayedTest : public GlicButtonTest {
     mock_client_ptr_ = mock_client.get();
     private_ai::PrivateAiService* service =
         private_ai::PrivateAiServiceFactory::GetForProfile(
-            browser()->profile());
+            browser()->GetProfile());
     ASSERT_TRUE(service);
     service->SetClientForTesting(std::move(mock_client));
   }
@@ -154,7 +155,7 @@ class GlicButtonPrewarmDelayedTest : public GlicButtonTest {
     mock_client_ptr_ = nullptr;
     private_ai::PrivateAiService* service =
         private_ai::PrivateAiServiceFactory::GetForProfile(
-            browser()->profile());
+            browser()->GetProfile());
     if (service) {
       service->SetClientForTesting(nullptr);
     }
@@ -210,7 +211,7 @@ class GlicButtonPrewarmCancelledTest : public GlicButtonTest {
     mock_client_ptr_ = mock_client.get();
     private_ai::PrivateAiService* service =
         private_ai::PrivateAiServiceFactory::GetForProfile(
-            browser()->profile());
+            browser()->GetProfile());
     ASSERT_TRUE(service);
     service->SetClientForTesting(std::move(mock_client));
   }
@@ -219,7 +220,7 @@ class GlicButtonPrewarmCancelledTest : public GlicButtonTest {
     mock_client_ptr_ = nullptr;
     private_ai::PrivateAiService* service =
         private_ai::PrivateAiServiceFactory::GetForProfile(
-            browser()->profile());
+            browser()->GetProfile());
     if (service) {
       service->SetClientForTesting(nullptr);
     }

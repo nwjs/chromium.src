@@ -11,6 +11,7 @@
 #import "base/check_op.h"
 #import "base/command_line.h"
 #import "base/ios/ios_util.h"
+#import "base/metrics/user_metrics.h"
 #import "base/not_fatal_until.h"
 #import "base/notreached.h"
 #import "base/strings/sys_string_conversions.h"
@@ -132,9 +133,7 @@ const CGFloat kVerticalOffset = 1;
     self.smartQuotesType = UITextSmartQuotesTypeNo;
     self.dataDetectorTypes = UIDataDetectorTypeNone;
     self.allowsEditingTextAttributes = NO;
-    if (@available(iOS 18, *)) {
-      self.writingToolsBehavior = UIWritingToolsBehaviorNone;
-    }
+    self.writingToolsBehavior = UIWritingToolsBehaviorNone;
     [self updateOmniboxTypingAttributes];
 
     // Disable drag on iPhone because there's nowhere to drag to
@@ -797,6 +796,8 @@ const CGFloat kVerticalOffset = 1;
 }
 
 - (void)forwardKeyCommandShiftReturn:(UIKeyCommand*)command {
+  base::RecordAction(
+      base::UserMetricsAction("IOS.Omnibox.PhysicalKeyboardShiftReturn"));
   _insertingNewline = YES;
   [self insertText:@"\n"];
   _insertingNewline = NO;

@@ -95,6 +95,18 @@ source_set("layout_provider_impl") {
   ]
 }
 
+source_set("screen_sharing_util") {
+  sources = [
+    "screen_sharing_util.cc",
+    "screen_sharing_util.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//content/public/browser",
+  ]
+}
+
 source_set("file_system_access_test_support") {
   testonly = true
   sources = [
@@ -105,4 +117,60 @@ source_set("file_system_access_test_support") {
     "//ui/shell_dialogs",
     "//url",
   ]
+}
+source_set("confirm_bubble") {
+  sources = [
+    "confirm_bubble_views.cc",
+    "confirm_bubble_views.h",
+  ]
+  deps = [
+    ":layout_provider",
+    "//chrome/browser/ui:confirm_bubble",
+    "//components/constrained_window",
+    "//components/strings:components_strings",
+    "//components/vector_icons",
+    "//ui/accessibility",
+    "//ui/base",
+    "//ui/base/mojom",
+    "//ui/views",
+  ]
+}
+
+source_set("status_bubble") {
+  public = [ "status_bubble_views.h" ]
+  sources = [ "status_bubble_views.cc" ]
+  deps = [
+    ":views",
+    "//base",
+    "//cc/paint",
+    "//chrome/browser/ui:status_bubble",
+    "//chrome/browser/ui/color:color_headers",
+    "//components/url_formatter",
+    "//skia",
+    "//ui/base",
+    "//ui/display",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/views",
+  ]
+}
+
+if (is_win) {
+  source_set("uninstall_browser_prompt") {
+    public = [ "uninstall_view.h" ]
+    sources = [ "uninstall_view.cc" ]
+    deps = [
+      ":layout_provider",
+      "//base",
+      "//chrome/app:branded_strings",
+      "//chrome/app:generated_resources",
+      "//chrome/browser/ui:uninstall_browser_prompt",
+      "//chrome/common:constants",
+      "//content/public/common",
+      "//ui/base",
+      "//ui/gfx",
+      "//ui/gfx/geometry",
+      "//ui/views",
+    ]
+  }
 }

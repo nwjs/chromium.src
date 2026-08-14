@@ -31,6 +31,7 @@ class IOBuffer;
 namespace disk_cache {
 
 class EvictionCandidateAggregator;
+class BackendCleanupTracker;
 class SqlAsyncTaskManager;
 
 // SqlPersistentStoreBackendShard` manages a single shard of the cache,
@@ -42,9 +43,11 @@ class SqlPersistentStore::BackendShard {
       ShardId shard_id,
       const base::FilePath& path,
       net::CacheType type,
+      bool shared_cache_enabled,
       scoped_refptr<SqlReadCacheMemoryMonitor> read_cache_memory_monitor,
       scoped_refptr<base::SequencedTaskRunner> background_task_runner,
-      SqlAsyncTaskManager& async_task_manager);
+      SqlAsyncTaskManager& async_task_manager,
+      scoped_refptr<BackendCleanupTracker> cleanup_tracker);
   ~BackendShard();
 
   // Kicks off the asynchronous initialization of the backend.
@@ -101,6 +104,10 @@ class SqlPersistentStore::BackendShard {
                      int64_t body_end,
                      bool sparse_reading,
                      SqlPersistentStore::ReadResultOrErrorCallback callback);
+  void MoveBlobsToSharedCache(const CacheEntryKey& key,
+                              ResId res_id,
+                              SqlSharedCacheResourceId shared_cache_resource_id,
+                              ErrorCallback callback);
 
   void GetEntryAvailableRange(const CacheEntryKey& key,
                               ResId res_id,
@@ -238,6 +245,7 @@ class SqlPersistentStore::BackendShard {
 
   const raw_ref<SqlAsyncTaskManager> async_task_manager_;
   SqlTrackedSequenceBound<Backend> backend_;
+  scoped_refptr<BackendCleanupTracker> cleanup_tracker_;
 
   // The in-memory summary of the store's status.
   StoreStatus store_status_;

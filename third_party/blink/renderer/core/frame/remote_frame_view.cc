@@ -192,7 +192,7 @@ gfx::Rect RemoteFrameView::ComputeCompositingRect() const {
   TransformState local_root_transform_state(
       TransformState::kApplyTransformDirection);
   local_root_transform_state.Move(
-      owner_layout_object->PhysicalContentBoxOffset());
+      owner_layout_object->PhysicalContentBoxRect().offset);
   owner_layout_object->MapLocalToAncestor(nullptr, local_root_transform_state,
                                           kTraverseDocumentBoundaries);
   gfx::Transform matrix =
@@ -266,7 +266,7 @@ void RemoteFrameView::UpdateCompositingScaleFactor() {
   TransformState local_root_transform_state(
       TransformState::kApplyTransformDirection);
   local_root_transform_state.Move(
-      owner_layout_object->PhysicalContentBoxOffset());
+      owner_layout_object->PhysicalContentBoxRect().offset);
   owner_layout_object->MapLocalToAncestor(nullptr, local_root_transform_state,
                                           kTraverseDocumentBoundaries);
 
@@ -314,8 +314,13 @@ void RemoteFrameView::Dispose() {
 }
 
 void RemoteFrameView::SetFrameRect(const gfx::Rect& rect) {
+  const std::optional<gfx::Size> old_frozen_size = frozen_size_;
   UpdateFrozenSize();
+  const bool frame_rect_changed = FrameRect() != rect;
   EmbeddedContentView::SetFrameRect(rect);
+  if (frame_rect_changed || old_frozen_size != frozen_size_) {
+    UpdateCompositingRect();
+  }
   if (needs_frame_rect_propagation_)
     PropagateFrameRects();
 }

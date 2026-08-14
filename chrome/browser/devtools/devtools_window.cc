@@ -126,6 +126,7 @@
 using blink::WebInputEvent;
 using content::BrowserThread;
 using content::DevToolsAgentHost;
+using content::GlobalRenderFrameHostId;
 using content::WebContents;
 
 namespace {
@@ -734,8 +735,7 @@ void DevToolsWindow::OpenDevToolsWindow(
   std::string type = agent_host->GetType();
 
   bool is_worker = type == DevToolsAgentHost::kTypeServiceWorker ||
-                   type == DevToolsAgentHost::kTypeSharedWorker ||
-                   type == DevToolsAgentHost::kTypeSharedStorageWorklet;
+                   type == DevToolsAgentHost::kTypeSharedWorker;
 
   if (!agent_host->GetFrontendURL().empty()) {
     DevToolsWindow::OpenExternalFrontend(profile, agent_host->GetFrontendURL(),
@@ -809,8 +809,7 @@ void DevToolsWindow::OpenExternalFrontend(
                     /* browser_connection */ false, opened_by);
   } else {
     bool is_worker = type == DevToolsAgentHost::kTypeServiceWorker ||
-                     type == DevToolsAgentHost::kTypeSharedWorker ||
-                     type == DevToolsAgentHost::kTypeSharedStorageWorklet;
+                     type == DevToolsAgentHost::kTypeSharedWorker;
 
     FrontendType frontend_type =
         is_worker ? kFrontendRemoteWorker
@@ -1625,13 +1624,13 @@ WebContents* DevToolsWindow::AddNewContents(
   return nullptr;
 }
 
-void DevToolsWindow::WebContentsCreated(WebContents* source_contents,
-                                        int opener_render_process_id,
-                                        int opener_render_frame_id,
-                                        const std::string& frame_name,
-                                        const GURL& target_url,
-                                        WebContents* new_contents,
-                                        const std::u16string& nw_window_manifest) {
+void DevToolsWindow::WebContentsCreated(
+    WebContents* source_contents,
+    const GlobalRenderFrameHostId& opener_id,
+    const std::string& frame_name,
+    const GURL& target_url,
+    WebContents* new_contents,
+    const std::u16string& nw_window_manifest) {
   if (target_url.SchemeIs(content::kChromeDevToolsScheme) &&
       target_url.GetPath().rfind("device_mode_emulation_frame.html") !=
           std::string::npos) {
@@ -1754,7 +1753,12 @@ void DevToolsWindow::Inspect(scoped_refptr<content::DevToolsAgentHost> host) {
 }
 
 void DevToolsWindow::SetInspectedPageBounds(const gfx::Rect& rect) {
-  DevToolsContentsResizingStrategy strategy(rect);
+  devtools::DockSide dock_side = devtools::DockSide::kNone;
+  if (is_docked_) {
+    dock_side = DevToolsSettings::GetDockSide(profile_);
+  }
+
+  DevToolsContentsResizingStrategy strategy(dock_side, rect);
   if (contents_resizing_strategy_.Equals(strategy)) {
     return;
   }
@@ -1836,14 +1840,16 @@ int DevToolsWindow::GetDockStateForLogging() {
     return kUndocked;
   }
 
-  gfx::Rect inspected_page_bounds = contents_resizing_strategy_.bounds();
-  if (inspected_page_bounds.x() > 0) {
-    return kLeft;
+  switch (contents_resizing_strategy_.dock_side()) {
+    case devtools::DockSide::kLeft:
+      return kLeft;
+    case devtools::DockSide::kBottom:
+      return kBottom;
+    case devtools::DockSide::kRight:
+      return kRight;
+    case devtools::DockSide::kNone:
+      return kUndocked;
   }
-  gfx::Rect devtools_bounds =
-      main_web_contents_->GetRenderWidgetHostView()->GetViewBounds();
-  return inspected_page_bounds.width() == devtools_bounds.width() ? kBottom
-                                                                  : kRight;
 }
 
 int DevToolsWindow::GetOpenedByForLogging() {
@@ -1881,8 +1887,8 @@ void DevToolsWindow::OpenInNewTab(const GURL& url) {
     NOTIMPLEMENTED();
 #else
     chrome::ScopedTabbedBrowserDisplayer displayer(profile_);
-    chrome::AddSelectedTabWithURL(displayer.browser(), fixed_url,
-                                  ui::PAGE_TRANSITION_LINK);
+    chrome::AddSelectedTabWithURL(displayer.browser_window_interface(),
+                                  fixed_url, ui::PAGE_TRANSITION_LINK);
 #endif
   }
 }
@@ -2007,7 +2013,7 @@ void DevToolsWindow::Close() {
         GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
             inspected_web_contents);
     if (browser) {
-      browser->GetBrowserForMigrationOnly()->window()->Close();
+      browser->GetWindow()->Close();
     }
   }
 }

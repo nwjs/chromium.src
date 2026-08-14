@@ -79,7 +79,7 @@ class DefaultBrowserManagerWinBrowserTest : public InProcessBrowserTest {
     InProcessBrowserTest::SetUpOnMainThread();
     display_service_tester_ =
         std::make_unique<NotificationDisplayServiceTester>(
-            browser()->profile());
+            browser()->GetProfile());
   }
 
   void TearDownOnMainThread() override {
@@ -97,7 +97,7 @@ class DefaultBrowserManagerWinBrowserTest : public InProcessBrowserTest {
               return std::make_unique<DefaultBrowserManager>(
                   &browser_process, std::move(fake_shell_delegate),
                   base::BindLambdaForTesting(
-                      [&]() { return browser()->profile(); }));
+                      [&]() { return browser()->GetProfile(); }));
             }));
   }
 

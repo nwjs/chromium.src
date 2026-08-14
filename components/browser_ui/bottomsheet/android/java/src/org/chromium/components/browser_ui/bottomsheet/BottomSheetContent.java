@@ -189,6 +189,14 @@ public interface BottomSheetContent {
     }
 
     /**
+     * @return Whether this content covers the bottom controls (e.g. bottom navigation bar)
+     *         from the bottom of the screen with zero bottom margin, even when unscrimmed.
+     */
+    default boolean coversBottomControls() {
+        return false;
+    }
+
+    /**
      * Returns whether this sheet content has a solid background color. Return false when the sheet
      * is showing complex content like tab content / a page preview.
      */
@@ -299,11 +307,15 @@ public interface BottomSheetContent {
     default void onBackPressed() {}
 
     /**
-     * Returns the content description for the bottom sheet. This is generally the name of the
-     * feature/content that is showing. It can be a dynamic string. 'Swipe down to close.' will be
-     * automatically appended after the content description.
+     * @deprecated Container-level content descriptions on the bottom sheet cause screen readers
+     *     (like TalkBack) to mask and skip non-interactive descendant views. Use {@link
+     *     #getSheetFullHeightAccessibilityStringId()} or {@link
+     *     #getSheetHalfHeightAccessibilityStringId()} for accessibility pane titles instead.
      */
-    @Nullable String getSheetContentDescription(Context context);
+    @Deprecated
+    default @Nullable String getSheetContentDescription(Context context) {
+        return null;
+    }
 
     /**
      * @return The resource id of the string announced when the sheet is opened at half height. This
@@ -325,6 +337,21 @@ public interface BottomSheetContent {
      */
     @StringRes
     int getSheetClosedAccessibilityStringId();
+
+    /**
+     * @return The resource id of the string announced when the sheet is hidden. This is typically
+     *     the name of your feature followed by 'hidden' (e.g. 'Tab bottom sheet hidden').
+     *     <p><b>Important note on screen reader deduplication:</b> By default, this falls back to
+     *     {@link #getSheetClosedAccessibilityStringId()}, which is also announced when entering the
+     *     peeking state. If your bottom sheet supports peeking and can be dismissed from peek to
+     *     hidden, you <b>must</b> override this method to return a distinct string ID from your
+     *     closed/peek string. Otherwise, Android screen readers (e.g., TalkBack) will treat the
+     *     consecutive identical strings as duplicate announcements and silently drop the speech
+     *     when transitioning from peek to hidden.
+     */
+    default @StringRes int getSheetHiddenAccessibilityStringId() {
+        return getSheetClosedAccessibilityStringId();
+    }
 
     /**
      * @param nextContent The content that is requesting to be shown.
@@ -375,6 +402,14 @@ public interface BottomSheetContent {
      *     If false, it will return to its opening state.
      */
     default boolean shouldRestoreStateOnUnsuppress() {
+        return true;
+    }
+
+    /**
+     * @return Whether this content supports rendering specifically configured for large form factor
+     *     devices (e.g., width constraints, specific background styling).
+     */
+    default boolean supportsLargeFormFactor() {
         return true;
     }
 }

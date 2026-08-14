@@ -223,8 +223,17 @@ void LogManualFallbackEntryThroughExpandIcon(ManualFillDataType data_type,
 #pragma mark - FormInputAccessoryConsumer
 
 - (void)showAccessorySuggestions:(NSArray<FormSuggestion*>*)suggestions {
+  BOOL hasSuggestions = suggestions.count > 0;
+  if (suggestions.count == 1 &&
+      suggestions.firstObject.type ==
+          autofill::SuggestionType::kAutocompleteAtMemoryButton) {
+    // If the only suggestion is kAutocompleteAtMemoryButton, the manual fill
+    // buttons should be shown.
+    hasSuggestions = NO;
+  }
+
   [self.formInputAccessoryView
-      showGroup:[self hasSingleManualFillButton:suggestions.count > 0]
+      showGroup:[self hasSingleManualFillButton:hasSuggestions]
                     ? FormInputAccessoryViewSubitemGroup::kExpandButton
                     : FormInputAccessoryViewSubitemGroup::kManualFillButtons];
 
@@ -394,11 +403,10 @@ void LogManualFallbackEntryThroughExpandIcon(ManualFillDataType data_type,
 // popover).
 UIImage* GetManualFillSymbol() {
   if ([ManualFillUtil shouldUsePopover]) {
-    return DefaultSymbolWithPointSize(kListBulletSymbol,
-                                      kManualFillSymbolPointSize);
+    return SymbolWithPointSize(SymbolListBullet, kManualFillSymbolPointSize);
   }
 
-  return DefaultSymbolWithPointSize(kExpandSymbol, kSymbolActionPointSize);
+  return SymbolWithPointSize(SymbolExpand, kSymbolActionPointSize);
 }
 
 // Creates formInputAccessoryView if not done yet.
@@ -428,9 +436,8 @@ UIImage* GetManualFillSymbol() {
       ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET;
 
   UIImage* closeButtonSymbol =
-      DefaultSymbolWithPointSize(kKeyboardDownSymbol, kSymbolActionPointSize);
+      SymbolWithPointSize(SymbolKeyboardDown, kSymbolActionPointSize);
 
-  // TODO(crbug.com/522326512): Verify this parameter.
   UIImage* atMemorySymbol = CustomSymbolWithPointSize(
       kMagnifyingglassSparkSymbol, kSymbolActionPointSize);
 
@@ -438,12 +445,12 @@ UIImage* GetManualFillSymbol() {
             setUpWithLeadingView:self.leadingView
               navigationDelegate:self.navigationDelegate
                 manualFillSymbol:GetManualFillSymbol()
-        passwordManualFillSymbol:CustomSymbolWithPointSize(
-                                     kPasswordSymbol, kSymbolActionPointSize)
-      creditCardManualFillSymbol:DefaultSymbolWithPointSize(
-                                     kCreditCardSymbol, kSymbolActionPointSize)
-         addressManualFillSymbol:CustomSymbolWithPointSize(
-                                     kLocationSymbol, kSymbolActionPointSize)
+        passwordManualFillSymbol:SymbolWithPointSize(SymbolPassword,
+                                                     kSymbolActionPointSize)
+      creditCardManualFillSymbol:SymbolWithPointSize(SymbolCreditCard,
+                                                     kSymbolActionPointSize)
+         addressManualFillSymbol:SymbolWithPointSize(SymbolLocation,
+                                                     kSymbolActionPointSize)
         atMemoryManualFillSymbol:atMemorySymbol
                closeButtonSymbol:closeButtonSymbol
               isTabletFormFactor:isTabletFormFactor];
@@ -705,6 +712,24 @@ UIImage* GetManualFillSymbol() {
 
 - (void)openEditForSuggestion:(FormSuggestion*)suggestion {
   [self.contextMenuHandler openEditForSuggestion:suggestion];
+}
+
+- (NSString*)formSuggestionView:(FormSuggestionView*)formSuggestionView
+          usernameForSuggestion:(FormSuggestion*)suggestion {
+  return [self.formInputAccessoryViewControllerDelegate
+      formInputAccessoryViewController:self
+                 usernameForSuggestion:suggestion];
+}
+
+- (BOOL)formSuggestionView:(FormSuggestionView*)formSuggestionView
+            shouldShowRPId:(NSString*)rpId {
+  return [self.formInputAccessoryViewControllerDelegate
+      formInputAccessoryViewController:self
+                        shouldShowRPId:rpId];
+}
+
+- (BOOL)isPersonalContextSuggestion:(FormSuggestion*)suggestion {
+  return [self.contextMenuHandler isPersonalContextSuggestion:suggestion];
 }
 
 @end

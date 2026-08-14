@@ -54,7 +54,6 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.test.ChromeActivityTestRule;
-import org.chromium.chrome.test.ChromeBrowserTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
@@ -70,6 +69,7 @@ import org.chromium.components.webapps.AppDetailsDelegate;
 import org.chromium.components.webapps.bottomsheet.PwaInstallBottomSheetView;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.content_public.browser.test.NativeLibraryTestUtils;
 import org.chromium.content_public.browser.test.util.TouchCommon;
 import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.net.test.EmbeddedTestServer;
@@ -91,8 +91,6 @@ public class AppBannerManagerTest {
 
     @Rule
     public CustomTabActivityTestRule mCustomTabActivityTestRule = new CustomTabActivityTestRule();
-
-    @Rule public ChromeBrowserTestRule mChromeBrowserTestRule = new ChromeBrowserTestRule();
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
 
@@ -174,6 +172,7 @@ public class AppBannerManagerTest {
 
     @Before
     public void setUp() throws Exception {
+        NativeLibraryTestUtils.loadNativeLibraryAndInitBrowserProcess();
         AppBannerManager.setIsSupported(true);
         ShortcutHelper.setDelegateForTests(
                 new ShortcutHelper.Delegate() {
@@ -365,6 +364,9 @@ public class AppBannerManagerTest {
         clickButton(rule.getActivity(), ButtonType.NEGATIVE);
         waitUntilNoDialogsShowing(tab);
         tapAndWaitForModalBanner(tab);
+
+        clickButton(rule.getActivity(), ButtonType.NEGATIVE);
+        waitUntilNoDialogsShowing(tab);
     }
 
     private void triggerBottomSheet(
@@ -659,6 +661,10 @@ public class AppBannerManagerTest {
                         WEB_APP_MANIFEST_WITH_UNSUPPORTED_PLATFORM,
                         "call_stashed_prompt_on_click"),
                 false);
+
+        // Explicitly dismiss the banner before test completion.
+        clickButton(mTabbedActivityTestRule.getActivity(), ButtonType.NEGATIVE);
+        waitUntilNoDialogsShowing(mTabbedActivityTestRule.getActivityTab());
 
         Assert.assertEquals(
                 0, RecordHistogram.getHistogramTotalCountForTesting(INSTALL_PATH_HISTOGRAM_NAME));

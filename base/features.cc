@@ -81,6 +81,15 @@ BASE_FEATURE_PARAM(int,
                    &kLowEndMemoryExperiment,
                    LOW_MEMORY_DEVICE_THRESHOLD_MB);
 
+// Controls whether lock acquisition times are recorded and reported by a
+// given thread.
+BASE_FEATURE(kRecordLockAcquisitionTime, FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(std::string,
+                   kRecordLockAcquisitionTimeAllowedThreads,
+                   &kRecordLockAcquisitionTime,
+                   "RecordLockAcquisitionTimeAllowedThreads",
+                   "CrBrowserMain,CrRendererMain");
+
 BASE_FEATURE(kReducePPMs, FEATURE_ENABLED_BY_DEFAULT);
 
 // Apply base::ScopedBestEffortExecutionFence to registered task queues as well
@@ -157,6 +166,9 @@ BASE_FEATURE(kRebindServiceBatchApi, FEATURE_DISABLED_BY_DEFAULT);
 // Use shared service connection to rebind a service binding to update the LRU
 // in the ProcessList of OomAdjuster.
 BASE_FEATURE(kUseSharedRebindServiceConnection, FEATURE_ENABLED_BY_DEFAULT);
+
+// Kill switch for Android VirtualKeyboard API geometry and inset fixes.
+BASE_FEATURE(kVirtualKeyboardGeometryAndInsetFixes, FEATURE_ENABLED_BY_DEFAULT);
 
 // Use madvise MADV_WILLNEED to prefetch the native library. This replaces the
 // default mechanism of pre-reading the memory from a forked process.

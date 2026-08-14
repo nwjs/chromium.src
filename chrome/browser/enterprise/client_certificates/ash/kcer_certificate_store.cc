@@ -4,18 +4,22 @@
 
 #include "chrome/browser/enterprise/client_certificates/ash/kcer_certificate_store.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "base/barrier_closure.h"
 #include "base/base64.h"
 #include "base/check.h"
+#include "base/containers/flat_map.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/values.h"
 #include "chrome/browser/ash/kcer/kcer_factory_ash.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
@@ -25,6 +29,7 @@
 #include "components/enterprise/client_certificates/core/ash/kcer_private_key_factory.h"
 #include "components/enterprise/client_certificates/core/client_identity.h"
 #include "components/enterprise/client_certificates/core/constants.h"
+#include "components/enterprise/client_certificates/core/metrics_util.h"
 #include "components/enterprise/client_certificates/core/private_key.h"
 #include "components/enterprise/client_certificates/core/store_error.h"
 #include "components/prefs/pref_service.h"
@@ -142,9 +147,8 @@ void KcerCertificateStore::OnCertImported(
     base::OnceCallback<void(std::optional<StoreError>)> callback,
     base::expected<void, kcer::Error> result) {
   if (!result.has_value()) {
-    // TODO(crbug.com/517117656): Convert this log into a histogram.
-    LOG(ERROR) << "Failed to import certificate via Kcer (error: "
-               << static_cast<int>(result.error()) << ").";
+    // Track how often certificate import fails at an aggregate level.
+    RecordKcerCertificateImportError(result.error());
     std::move(callback).Run(StoreError::kSaveKeyFailed);
     return;
   }
@@ -271,14 +275,76 @@ void KcerCertificateStore::DeleteIdentities(
         kcer::PrivateKeyHandle(kcer::Token::kUser, std::move(spki)),
         base::BindOnce([](base::expected<void, kcer::Error> result) {
           if (!result.has_value()) {
-            // TODO(crbug.com/517117656): Convert this log into a histogram.
-            LOG(WARNING) << "Failed to remove key/certs from Kcer (error: "
-                         << static_cast<int>(result.error()) << ").";
+            // Track how often key/cert removal fails at an aggregate level.
+            RecordKcerKeyRemovalError(result.error());
           }
         }));
   }
 
-  std::move(callback).Run(std::nullopt);
+  // The sweep removes every browser enterprise client certificate key, so it
+  // only runs when a permanent managed identity is being deleted (currently
+  // only when the policy is disabled). Deleting only the temporary identity
+  // (e.g. cleanup after failed provisioning) must leave any existing permanent
+  // key intact.
+  const bool sweep_browser_enterprise_keys =
+      std::ranges::contains(identity_names, kManagedProfileIdentityName) ||
+      std::ranges::contains(identity_names, kManagedBrowserIdentityName);
+  if (!kcer_ || !sweep_browser_enterprise_keys) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+
+  // Beyond the SPKI-targeted removals in the loop above, sweep every key tagged
+  // as a browser enterprise client certificate key. This catches the managed
+  // key itself as well as any orphans left behind by an interrupted
+  // provisioning flow. The callback runs once the sweep completes.
+  kcer_->ListKeys(
+      {kcer::Token::kUser},
+      base::BindOnce(
+          &KcerCertificateStore::OnBrowserEnterpriseKeysListedForDeletion,
+          weak_factory_.GetWeakPtr(),
+          base::BindOnce(std::move(callback), std::optional<StoreError>())));
+}
+
+void KcerCertificateStore::OnBrowserEnterpriseKeysListedForDeletion(
+    base::OnceClosure done_closure,
+    std::vector<kcer::PublicKey> keys,
+    base::flat_map<kcer::Token, kcer::Error> errors) {
+  if (!kcer_ || keys.empty()) {
+    std::move(done_closure).Run();
+    return;
+  }
+
+  // Check each key's tag in parallel; `done_closure` runs after the last check.
+  base::RepeatingClosure barrier =
+      base::BarrierClosure(keys.size(), std::move(done_closure));
+  for (const kcer::PublicKey& key : keys) {
+    kcer::PublicKeySpki spki = key.GetSpki();
+    kcer_->GetBrowserEnterpriseClientCertTag(
+        kcer::PrivateKeyHandle(kcer::Token::kUser, spki),
+        base::BindOnce(
+            &KcerCertificateStore::OnBrowserEnterpriseTagCheckedForDeletion,
+            weak_factory_.GetWeakPtr(), std::move(spki), barrier));
+  }
+}
+
+void KcerCertificateStore::OnBrowserEnterpriseTagCheckedForDeletion(
+    kcer::PublicKeySpki spki,
+    base::RepeatingClosure done_closure,
+    base::expected<bool, kcer::Error> tag_present) {
+  // Only remove keys confirmed as browser enterprise client certificate keys;
+  // leave the key alone on a read error.
+  if (kcer_ && tag_present.has_value() && tag_present.value()) {
+    kcer_->RemoveKeyAndCerts(
+        kcer::PrivateKeyHandle(kcer::Token::kUser, std::move(spki)),
+        base::BindOnce([](base::expected<void, kcer::Error> result) {
+          if (!result.has_value()) {
+            // Track how often key/cert removal fails at an aggregate level.
+            RecordKcerKeyRemovalError(result.error());
+          }
+        }));
+  }
+  done_closure.Run();
 }
 
 }  // namespace client_certificates

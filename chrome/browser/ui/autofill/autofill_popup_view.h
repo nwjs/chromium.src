@@ -11,6 +11,7 @@
 #include <string>
 
 #include "base/memory/weak_ptr.h"
+#include "base/time/time.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/ui/tabbed_pane_enums.h"
 #include "components/autofill/core/common/aliases.h"
@@ -18,7 +19,7 @@
 
 namespace autofill {
 
-class AutofillSuggestionController;
+class AutofillPopupController;
 
 // The interface for creating and controlling a platform-dependent
 // AutofillPopupView.
@@ -31,6 +32,13 @@ class AutofillPopupView {
   struct SearchBarConfig {
     std::u16string placeholder;
     std::u16string no_results_message;
+  };
+
+  // Configuration for sub-popup behavior.
+  struct SubPopupConfig {
+    // The delay before closing the sub-popup if either a sub-popup suggestion
+    // nor the control cell of the anchor suggestion is selected.
+    base::TimeDelta no_selection_hide_delay;
   };
 
   // Configuration for displaying a tabbed pane within the Autofill popup.
@@ -57,10 +65,13 @@ class AutofillPopupView {
   // present.
   // `tabbed_pane_config` will be used to create a popup with a tabbed pane,
   // if present.
+  // `sub_popup_config` will be used to configure sub-popup behavior, if
+  // present.
   static base::WeakPtr<AutofillPopupView> Create(
-      base::WeakPtr<AutofillSuggestionController> controller,
+      base::WeakPtr<AutofillPopupController> controller,
       std::optional<const SearchBarConfig> search_bar_config = std::nullopt,
-      std::optional<const TabbedPaneConfig> tabbed_pane_config = std::nullopt);
+      std::optional<const TabbedPaneConfig> tabbed_pane_config = std::nullopt,
+      std::optional<const SubPopupConfig> sub_popup_config = std::nullopt);
 
   // Attempts to display the Autofill popup and fills it with data from the
   // controller. Returns whether the popup was shown.
@@ -96,7 +107,11 @@ class AutofillPopupView {
   // The child's lifetime depends on its parent, i.e. when the parent dies
   // the child dies also.
   virtual base::WeakPtr<AutofillPopupView> CreateSubPopupView(
-      base::WeakPtr<AutofillSuggestionController> sub_controller) = 0;
+      base::WeakPtr<AutofillPopupController> sub_controller) = 0;
+
+  // Returns the index of the suggestion on which the currently open sub-popup
+  // of this view is anchored.
+  virtual std::optional<size_t> GetIndexOfSubPopupAnchorSuggestion() const = 0;
 
   // Indicates whether any of the view elements currently has focus.
   virtual bool HasFocus() const = 0;

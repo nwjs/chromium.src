@@ -11,7 +11,6 @@ import android.animation.AnimatorListenerAdapter;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
-import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.util.FloatProperty;
@@ -264,6 +263,7 @@ public class StripLayoutTab extends StripLayoutView {
      * @param context An Android context for accessing system resources.
      * @param id The id of the {@link Tab} to visually represent.
      * @param clickHandler Handles clicks on this {@link StripLayoutTab}.
+     * @param longClickHandler Handles long clicks on this {@link StripLayoutTab}.
      * @param keyboardFocusHandler Handles keyboard focus gain/loss on this {@link StripLayoutTab}.
      * @param accessibilityFocusHandler Handles accessibility focus on this {@link StripLayoutTab}.
      * @param loadTrackerCallback The {@link TabLoadTrackerCallback} to be notified of loading state
@@ -277,6 +277,7 @@ public class StripLayoutTab extends StripLayoutView {
             Context context,
             int id,
             StripLayoutViewOnClickHandler clickHandler,
+            @Nullable StripLayoutViewOnLongClickHandler longClickHandler,
             StripLayoutViewOnKeyboardFocusHandler keyboardFocusHandler,
             StripLayoutViewOnAccessibilityFocusHandler accessibilityFocusHandler,
             TabLoadTrackerCallback loadTrackerCallback,
@@ -284,7 +285,13 @@ public class StripLayoutTab extends StripLayoutView {
             boolean incognito,
             boolean isPinned,
             @MediaState int mediaState) {
-        super(incognito, clickHandler, keyboardFocusHandler, accessibilityFocusHandler, context);
+        super(
+                incognito,
+                clickHandler,
+                longClickHandler,
+                keyboardFocusHandler,
+                accessibilityFocusHandler,
+                context);
         mTabId = id;
         mMediaState = mediaState;
         mIsPinned = isPinned;
@@ -305,26 +312,18 @@ public class StripLayoutTab extends StripLayoutView {
                         R.drawable.tab_close_button_bg,
                         /* clickSlopDp= */ 0f,
                         /* hasLongClickAction= */ true);
+        mCloseButton.setOnLongClickHandler(longClickHandler);
 
-        @ColorRes int iconTintRes = R.color.default_icon_color_tint_list;
-        @ColorRes int bgHoverTintRes = R.color.tab_strip_button_bg_hover_tint;
         @ColorRes
-        int bgPeripheralPressedTintRes = R.color.tab_strip_button_bg_peripheral_pressed_tint;
-
-        if (incognito) {
-            iconTintRes = R.color.default_icon_color_light;
-            bgHoverTintRes = R.color.tab_strip_button_bg_incognito_hover_tint;
-            bgPeripheralPressedTintRes =
-                    R.color.tab_strip_button_bg_incognito_peripheral_pressed_tint;
-        }
-
-        // Only set color for hover and peripheral-pressed bg.
+        int iconTintRes =
+                incognito ? R.color.default_icon_color_light : R.color.default_icon_color_tint_list;
+        @ColorRes
+        int bgTintRes =
+                incognito
+                        ? R.color.tab_strip_close_bg_incognito_tint_list
+                        : R.color.tab_strip_close_bg_tint_list;
         mCloseButton.setTint(context.getColor(iconTintRes));
-        mCloseButton.setBackgroundTint(
-                Color.TRANSPARENT,
-                mContext.getColor(bgHoverTintRes),
-                Color.TRANSPARENT,
-                mContext.getColor(bgPeripheralPressedTintRes));
+        mCloseButton.setBackgroundTint(context.getColorStateList(bgTintRes));
 
         mCloseButtonSize = getCloseButtonSize();
         resetCloseRect();
@@ -602,6 +601,15 @@ public class StripLayoutTab extends StripLayoutView {
         if (isCollapsed() || isDying()) return;
         super.getVirtualViews(views);
         if (mShowingCloseButton || mIsSelected) mCloseButton.getVirtualViews(views);
+    }
+
+    @Override
+    public int getVirtualViewPriority() {
+        // Pinned tabs are foregrounded, meaning they show above all other views, so HIGH priority.
+        if (mIsPinned) return VirtualViewPriority.HIGH;
+        // Shows beneath the foregrounded buttons when scrolling offscreen, beneath groups when the
+        // group is collapsed, and beneath the tab's close button, so LOW priority.
+        return VirtualViewPriority.LOW;
     }
 
     /**

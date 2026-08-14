@@ -153,11 +153,9 @@ class CORE_EXPORT LayoutView : public LayoutBlockFlow {
                                MapCoordinatesFlags) const override;
 
   PhysicalRect ViewRect() const override;
-  PhysicalRect OverflowClipRect(const PhysicalOffset& location,
-                                OverlayScrollbarClipBehavior =
-                                    kIgnoreOverlayScrollbarSize) const override;
-  PhysicalRect OverflowClipRectForScrollNode(
-      const PhysicalOffset& location) const override;
+  using LayoutBlockFlow::OverflowClipRect;
+  PhysicalRect OverflowClipRect(OverlayScrollbarClipBehavior) const override;
+  PhysicalRect OverflowClipRectForScrollNode() const override;
 
   // If either direction has a non-auto mode, the other must as well.
   void SetAutosizeScrollbarModes(mojom::blink::ScrollbarMode h_mode,
@@ -244,6 +242,10 @@ class CORE_EXPORT LayoutView : public LayoutBlockFlow {
     return layout_list_item_count_;
   }
 
+  // This should be called when the style of any LayoutObject changes to have
+  // ruby annotations or text-emphasis marks.
+  void SetContainsAnnotations();
+
   // Return true if re-laying out the specified node (as a cached layout result)
   // with a new initial containing block size. Subsequent calls for the same
   // node within the same lifecycle update will return false.
@@ -295,7 +297,7 @@ class CORE_EXPORT LayoutView : public LayoutBlockFlow {
   // attachment backgrounds.
   PhysicalRect BackgroundRect() const {
     NOT_DESTROYED();
-    return OverflowClipRect(PhysicalOffset());
+    return OverflowClipRect();
   }
 
   // The previous BackgroundRect after the previous paint invalidation.
@@ -367,8 +369,7 @@ class CORE_EXPORT LayoutView : public LayoutBlockFlow {
     return false;
   }
 
-  PhysicalRect OverflowClipRectInternal(const PhysicalOffset& location,
-                                        OverlayScrollbarClipBehavior,
+  PhysicalRect OverflowClipRectInternal(OverlayScrollbarClipBehavior,
                                         bool for_scroll_node) const;
 
   // The page area (content area) size of the first page, when printing. This
@@ -425,6 +426,15 @@ class CORE_EXPORT LayoutView : public LayoutBlockFlow {
 
   int vertical_scrollbar_width_for_viewport_units_ = 0;
   int horizontal_scrollbar_height_for_viewport_units_ = 0;
+
+  // True if the document contains any ruby annotations or emphasis marks.
+  // The flag enables annotation space computation for all IFCs.
+  //
+  // TODO(layout-dev): We may want to make the flag precise.
+  // * The flag should become `false` if the document no longer contains
+  //   annotations.
+  // * The flag should be moved to flow-roots for better scoping.
+  bool contains_annotations_ = false;
 };
 
 template <>

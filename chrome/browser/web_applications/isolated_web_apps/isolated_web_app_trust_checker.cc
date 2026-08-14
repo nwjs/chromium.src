@@ -19,7 +19,6 @@
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_features.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/isolated_web_apps/policy/isolated_web_app_external_install_options.h"
-#include "chrome/browser/web_applications/isolated_web_apps/runtime_data/chrome_iwa_runtime_data_provider.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_filter.h"
 #include "chrome/browser/web_applications/web_app_install_utils.h"
@@ -28,6 +27,7 @@
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/web_package/signed_web_bundles/signed_web_bundle_id.h"
+#include "components/webapps/isolated_web_apps/public/iwa_runtime_data_provider.h"
 #include "components/webapps/isolated_web_apps/types/source.h"
 #include "content/public/common/content_features.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
@@ -36,6 +36,7 @@
 #include "chrome/browser/ash/app_mode/isolated_web_app/kiosk_iwa_policy_util.h"
 #include "chrome/common/chromeos/extensions/chromeos_system_extension_info.h"  // nogncheck
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
+#include "components/webapps/isolated_web_apps/key_distribution/iwa_key_distribution_info_provider.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 namespace web_app {
@@ -77,7 +78,12 @@ base::expected<void, std::string> IsTrustedForShimlessRma(
 base::expected<void, std::string> IsTrustedForIwaPolicy(
     Profile& profile,
     const web_package::SignedWebBundleId& web_bundle_id) {
-  if (!ChromeIwaRuntimeDataProvider::GetInstance().IsManagedInstallPermitted(
+#if BUILDFLAG(IS_CHROMEOS)
+  if (base::FeatureList::IsEnabled(kIsolatedWebAppBypassManagedAllowlist)) {
+    return base::ok();
+  }
+#endif
+  if (!IwaRuntimeDataProvider::GetInstance().IsManagedInstallPermitted(
           web_bundle_id.id())) {
     return base::unexpected(
         "IWA with WebAppManagement::Type::kIwaPolicy must be on the managed "
@@ -101,7 +107,7 @@ base::expected<void, std::string> IsTrustedForIwaPolicy(
 
 base::expected<void, std::string> IsTrustedForUserInstall(
     const web_package::SignedWebBundleId& web_bundle_id) {
-  if (!ChromeIwaRuntimeDataProvider::GetInstance().GetUserInstallAllowlistData(
+  if (!IwaRuntimeDataProvider::GetInstance().GetUserInstallAllowlistData(
           web_bundle_id.id())) {
     return base::unexpected(
         "IWA with WebAppManagement::Type::kIwaUserInstalled must be on the "
@@ -113,7 +119,7 @@ base::expected<void, std::string> IsTrustedForUserInstall(
 
 base::expected<void, std::string> CheckAgainstBlocklist(
     const web_package::SignedWebBundleId& web_bundle_id) {
-  if (ChromeIwaRuntimeDataProvider::GetInstance().IsBundleBlocklisted(
+  if (IwaRuntimeDataProvider::GetInstance().IsBundleBlocklisted(
           web_bundle_id.id())) {
     return base::unexpected("IWA is blocklisted.");
   }

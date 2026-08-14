@@ -82,7 +82,7 @@ chromium-metrics-reviews@google.com.
   <int value="23" label="User migrated into enhanced security settings bundle"/>
   <int value="24" label="Saved Skill"/>
   <int value="25" label="Deleted Skill"/>
-  <int value="26" label="Showed Autofill AI Wallet error message on fetch"/>
+  <int value="26" label="Showed Autofill AI error message on fetch"/>
   <int value="27" label="Translate"/>
   <int value="28"
       label="Showed Autofill AI Wallet error message (update or migrate
@@ -104,8 +104,15 @@ chromium-metrics-reviews@google.com.
   <int value="43" label="Tab strip switch to horizontal delayed toast"/>
   <int value="44" label="Tab strip switch to vertical delayed toast"/>
   <int value="45" label="Showed Autofill AI prefetch error message"/>
+  <int value="46" label="Enterprise copy audit monitored toast"/>
+  <int value="47" label="Enterprise copy kept in managed chrome toast"/>
   <int value="48" label="Dictation error"/>
   <int value="49" label="Dictation stopped"/>
+  <int value="50" label="Glic selection affordance hidden for site"/>
+  <int value="51" label="Enterprise copy warning toast"/>
+  <int value="52" label="Enterprise copy blocked toast"/>
+  <int value="53" label="Indigo delete uploaded photo error"/>
+  <int value="54" label="Indigo delete uploaded photo success"/>
 </enum>
 
 <!-- LINT.ThenChange(/chrome/browser/ui/toasts/api/toast_id.h:ToastId) -->

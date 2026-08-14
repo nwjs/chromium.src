@@ -35,6 +35,10 @@
 #include "ui/native_theme/native_theme.h"
 #include "ui/native_theme/overlay_scrollbar_constants.h"
 
+#if BUILDFLAG(IS_ANDROID)
+#include "base/android/device_info.h"
+#endif
+
 namespace blink {
 
 namespace {
@@ -55,7 +59,10 @@ constexpr base::FeatureParam<double> kFadeDurationScalingFactor{
 bool ShouldUseDesktopOverlayScrollbars() {
 #if BUILDFLAG(IS_ANDROID)
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kEnableDesktopAndroidScrollbars);
+             switches::kEnableDesktopAndroidScrollbars) &&
+         // This feature is not ready for non-desktop devices. See
+         // crbug.com/522529331.
+         base::android::device_info::is_desktop();
 #else
   return ui::NativeTheme::GetInstanceForWeb()->use_overlay_scrollbar();
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -502,16 +509,12 @@ cc::LayerTreeSettings GenerateLayerTreeSettings(
     //  - If we are not running in a WebView, where 4444 isn't supported.
     //  - If we are not using vulkan, since some GPU drivers don't support
     //    using RGBA4444 as color buffer.
-    //  - If we are not using Skia's Graphite-Dawn backend, since dawn does not
-    //  support RGBA_4444 formats.
     // TODO(crbug.com/398868042): Instead of Graphite/Vulkan feature checks, add
     // appropriate shared image capability and check for its support.
     if (!cmd.HasSwitch(switches::kDisableRGBA4444Textures) &&
         base::SysInfo::AmountOfTotalPhysicalMemory().InMiB() <= 512 &&
-        !::features::IsUsingVulkan() &&
-        !::features::IsSkiaGraphiteEnabled(
-            base::CommandLine::ForCurrentProcess())) {
-      settings.use_rgba_4444 = true;
+        !::features::IsUsingVulkan()) {
+      settings.prefer_rgba_4444 = true;
 
       // TODO(crbug.com/40042400): Determine whether this is actually necessary;
       // its purpose was to support unpremultiply-and-dither, but it ended up
@@ -522,7 +525,7 @@ cc::LayerTreeSettings GenerateLayerTreeSettings(
 
   if (cmd.HasSwitch(switches::kEnableRGBA4444Textures) &&
       !cmd.HasSwitch(switches::kDisableRGBA4444Textures)) {
-    settings.use_rgba_4444 = true;
+    settings.prefer_rgba_4444 = true;
   }
 
   settings.max_staging_buffer_usage_in_bytes = 32 * 1024 * 1024;  // 32MB
@@ -553,9 +556,6 @@ cc::LayerTreeSettings GenerateLayerTreeSettings(
 
   settings.enable_unbounded_element =
       RuntimeEnabledFeatures::UnboundedElementEnabled();
-
-  settings.enable_scroll_performance_timing =
-      RuntimeEnabledFeatures::ScrollPerformanceTimingEnabled();
 
   settings.disable_frame_rate_limit =
       cmd.HasSwitch(::switches::kDisableFrameRateLimit);

@@ -40,7 +40,6 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.compositor.LayerTitleCache;
 import org.chromium.chrome.browser.compositor.layouts.LayoutUpdateHost;
-import org.chromium.chrome.browser.compositor.layouts.components.CompositorButton;
 import org.chromium.chrome.browser.compositor.layouts.components.CompositorButton.ButtonType;
 import org.chromium.chrome.browser.compositor.layouts.components.CompositorButton.TooltipHandler;
 import org.chromium.chrome.browser.compositor.layouts.components.TintedCompositorButton;
@@ -52,6 +51,7 @@ import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutTab;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutTrailingButtonsCoordinator;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutView.StripLayoutViewOnClickHandler;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutView.StripLayoutViewOnKeyboardFocusHandler;
+import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutView.StripLayoutViewOnLongClickHandler;
 import org.chromium.chrome.browser.compositor.overlays.strip.TabLoadTracker.TabLoadTrackerCallback;
 import org.chromium.chrome.browser.layouts.scene_layer.SceneLayer;
 import org.chromium.chrome.browser.tab.MediaState;
@@ -70,6 +70,7 @@ public class TabStripSceneLayerTest {
     @Mock private SceneLayer mSceneLayer;
     @Mock private TooltipHandler mTooltipHandler;
     @Mock private StripLayoutViewOnClickHandler mOnClickHandler;
+    @Mock private StripLayoutViewOnLongClickHandler mOnLongClickHandler;
     @Mock private StripLayoutViewOnKeyboardFocusHandler mKeyboardFocusHandler;
     @Mock private TabLoadTrackerCallback mTabLoadTrackerCallback;
     @Mock private LayoutUpdateHost mLayoutUpdateHost;
@@ -83,7 +84,7 @@ public class TabStripSceneLayerTest {
     private static final float DP_TO_PX = 1.f;
 
     private TintedCompositorTextButton mGlicButton;
-    private CompositorButton mModelSelectorButton;
+    private TintedCompositorButton mModelSelectorButton;
     private TintedCompositorButton mNewTabButton;
     private Context mContext;
     private TabStripSceneLayer mTabStripSceneLayer;
@@ -175,6 +176,7 @@ public class TabStripSceneLayerTest {
                                 mContext,
                                 1,
                                 mOnClickHandler,
+                                mOnLongClickHandler,
                                 mKeyboardFocusHandler,
                                 /* accessibilityFocusHandler= */ null,
                                 mTabLoadTrackerCallback,
@@ -189,7 +191,7 @@ public class TabStripSceneLayerTest {
         when(mStripLayoutHelperManager.getActiveStripLayoutHelper()).thenReturn(mStripLayoutHelper);
         when(mStripLayoutHelper.getTabSearchButton()).thenReturn(mTabSearchButton);
         when(mTrailingButtonsCoordinator.getGlicButton()).thenReturn(mGlicButton);
-        when(mStripLayoutHelperManager.getModelSelectorButton()).thenReturn(mModelSelectorButton);
+        when(mTrailingButtonsCoordinator.getModelSelectorButton()).thenReturn(mModelSelectorButton);
         when(mStripLayoutHelperManager.getContext()).thenReturn(mContext);
         when(mStripLayoutTab.getCloseButton()).thenReturn(mCloseButton);
         when(mStripGroupTitle.getKeyboardFocusRingColor())

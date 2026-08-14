@@ -113,13 +113,13 @@ class LensSearchControllerUnificationBrowserTest : public InProcessBrowserTest {
   MockAimEligibilityService* GetMockAimService() {
     return static_cast<MockAimEligibilityService*>(
         AimEligibilityServiceFactory::GetInstance()->GetForProfile(
-            browser()->profile()));
+            browser()->GetProfile()));
   }
 
   MockContextualTasksUiServiceForAuth* GetMockUiService() {
     return static_cast<MockContextualTasksUiServiceForAuth*>(
         contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
-            browser()->profile()));
+            browser()->GetProfile()));
   }
 
  protected:
@@ -379,7 +379,7 @@ IN_PROC_BROWSER_TEST_F(LensSearchControllerUnificationSignOutDisabledTest,
 IN_PROC_BROWSER_TEST_F(LensSearchControllerUnificationBrowserTest,
                        IsWebUIEnabledInIncognito_WithUnificationEnabled) {
   Browser* incognito_browser = CreateIncognitoBrowser();
-  Profile* incognito_profile = incognito_browser->profile();
+  Profile* incognito_profile = incognito_browser->GetProfile();
   EXPECT_TRUE(incognito_profile->IsOffTheRecord());
 
   ContextualTasksUIConfig config;
@@ -403,7 +403,7 @@ class LensSearchControllerUnificationDisabledTest
 IN_PROC_BROWSER_TEST_F(LensSearchControllerUnificationDisabledTest,
                        IsWebUIEnabledInIncognito_WithUnificationDisabled) {
   Browser* incognito_browser = CreateIncognitoBrowser();
-  Profile* incognito_profile = incognito_browser->profile();
+  Profile* incognito_profile = incognito_browser->GetProfile();
   EXPECT_TRUE(incognito_profile->IsOffTheRecord());
 
   ContextualTasksUIConfig config;

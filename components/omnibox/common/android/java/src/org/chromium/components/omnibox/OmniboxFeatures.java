@@ -88,6 +88,11 @@ public class OmniboxFeatures {
                     OmniboxFeatureList.OMNIBOX_TOUCH_DOWN_TRIGGER_FOR_PREFETCH,
                     FeatureState.ENABLED_IN_PROD);
 
+    public static final CachedFlag sOmniboxSearchPrefetchOnEnterKeyDown =
+            newFlag(
+                    OmniboxFeatureList.OMNIBOX_SEARCH_PREFETCH_ON_ENTER_KEY_DOWN,
+                    FeatureState.DISABLED);
+
     public static final CachedFlag sUrlBarWithoutLigatures =
             newFlag(OmniboxFeatureList.URL_BAR_WITHOUT_LIGATURES, FeatureState.ENABLED_IN_PROD);
 
@@ -117,6 +122,9 @@ public class OmniboxFeatures {
             newFlag(
                     OmniboxFeatureList.OMNIBOX_FUSEBOX_ASYNC_INFLATION,
                     FeatureState.ENABLED_IN_TEST);
+
+    public static final CachedFlag sOmniboxAimImageDownscaling =
+            newFlag(OmniboxFeatureList.OMNIBOX_AIM_IMAGE_DOWNSCALING, FeatureState.ENABLED_IN_TEST);
 
     public static final CachedFlag sJumpStartOmnibox =
             newFlag(OmniboxFeatureList.JUMP_START_OMNIBOX, FeatureState.ENABLED_IN_TEST);
@@ -173,7 +181,7 @@ public class OmniboxFeatures {
             newBooleanParam(sOmniboxMultimodalInput, "show_ntp_plus_button", false);
 
     public static final CachedFlag sAndroidDesktopAimGate =
-            newFlag(OmniboxFeatureList.ANDROID_DESKTOP_AIM_GATE, FeatureState.ENABLED_IN_TEST);
+            newFlag(OmniboxFeatureList.ANDROID_DESKTOP_AIM_GATE, FeatureState.ENABLED_IN_PROD);
 
     public static final CachedFlag sMultilineEditField =
             newFlag(OmniboxFeatureList.MULTILINE_EDIT_FIELD, FeatureState.ENABLED_IN_PROD);
@@ -184,10 +192,9 @@ public class OmniboxFeatures {
     public static final CachedFlag sAIMSuppressVerbatimMatch =
             newFlag(OmniboxFeatureList.AIM_SUPPRESS_VERBATIM_MATCH, FeatureState.ENABLED_IN_PROD);
 
-    public static final CachedFlag sOmniboxItemDecoration =
-            newFlag(OmniboxFeatureList.OMNIBOX_ITEM_DECORATION, FeatureState.ENABLED_IN_TEST);
-
-    public static final CachedFlag sExactMatchFavicons =
+    // Shows the preview match's favicon in the status view. Originally and incorrectly called exact
+    // match. The feature string remains exact, but java code should be updated to the right name.
+    public static final CachedFlag sPreviewMatchFavicons =
             newFlag(OmniboxFeatureList.EXACT_MATCH_FAVICONS, FeatureState.ENABLED_IN_TEST);
 
     public static final CachedFlag sServeJavaCachedZeroSuggest =
@@ -197,6 +204,11 @@ public class OmniboxFeatures {
 
     public static final CachedFlag sResetSuggestionsScroll =
             newFlag(OmniboxFeatureList.RESET_SUGGESTIONS_SCROLL, FeatureState.DISABLED);
+
+    public static final CachedFlag sOmniboxListMenuContextMenu =
+            newFlag(
+                    OmniboxFeatureList.OMNIBOX_LIST_MENU_CONTEXT_MENU,
+                    FeatureState.ENABLED_IN_PROD);
 
     public static final IntCachedFeatureParam sGeolocationRequestTimeoutMinutes =
             newIntParam(

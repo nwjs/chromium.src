@@ -13,11 +13,13 @@
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/observer_list.h"
 #include "base/scoped_observation.h"
 #include "base/supports_user_data.h"
 #include "base/types/expected.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/actor_task_delegate.h"
+#include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/page_content_annotations/multi_source_page_context_fetcher.h"
 #include "chrome/browser/profiles/profile_observer.h"
 #include "chrome/common/actor/action_result.h"
@@ -89,13 +91,17 @@ class ActorKeyedService : public KeyedService,
   TaskId CreateTaskWithOptions(const TaskSourceInfo& source_info,
                                const EnterprisePolicyChecker* policy_checker,
                                webui::mojom::TaskOptionsPtr options,
-                               base::WeakPtr<ActorTaskDelegate> delegate);
+                               base::WeakPtr<ActorTaskDelegate> delegate,
+                               std::optional<glic::mojom::InvocationSource>
+                                   initial_invocation_source = std::nullopt);
   TaskId CreateTaskForTesting(
       std::unique_ptr<actor::ui::UiEventDispatcher> ui_event_dispatcher,
       const TaskSourceInfo& source_info,
       const EnterprisePolicyChecker* policy_checker,
       webui::mojom::TaskOptionsPtr options,
-      base::WeakPtr<ActorTaskDelegate> delegate);
+      base::WeakPtr<ActorTaskDelegate> delegate,
+      std::optional<glic::mojom::InvocationSource> initial_invocation_source =
+          std::nullopt);
 
   // Executes the given ToolRequest actions using the execution engine for the
   // given task id.
@@ -181,6 +187,30 @@ class ActorKeyedService : public KeyedService,
   // download::AllDownloadItemNotifier::Observer
   void OnProfileInitializationComplete(Profile* profile) override;
 
+#if BUILDFLAG(IS_ANDROID)
+  class BackgroundActuationObserver : public base::CheckedObserver {
+   public:
+    virtual void OnBackgroundTabPrepared(
+        tabs::TabInterface* tab,
+        const std::string& glic_trigger_message_id) = 0;
+    virtual void OnBackgroundSetupFailed(
+        const std::string& glic_trigger_message_id) = 0;
+  };
+
+  void AddObserver(BackgroundActuationObserver* observer);
+  void RemoveObserver(BackgroundActuationObserver* observer);
+  void NotifyBackgroundTabReady(tabs::TabInterface* tab,
+                                const std::string& glic_trigger_message_id);
+  void NotifyBackgroundSetupFailed(const std::string& glic_trigger_message_id);
+
+  using EnsureForegroundServiceStartedCallback =
+      base::RepeatingCallback<void(const std::string&)>;
+  base::CallbackListSubscription AddForegroundServiceStartedCallback(
+      EnsureForegroundServiceStartedCallback callback);
+  void EnsureForegroundServiceStarted(
+      const std::string& glic_trigger_message_id);
+#endif
+
   base::WeakPtr<ActorKeyedService> GetWeakPtr();
 
  private:
@@ -189,7 +219,8 @@ class ActorKeyedService : public KeyedService,
       const TaskSourceInfo& source_info,
       const EnterprisePolicyChecker* policy_checker,
       webui::mojom::TaskOptionsPtr options,
-      base::WeakPtr<ActorTaskDelegate> delegate);
+      base::WeakPtr<ActorTaskDelegate> delegate,
+      std::optional<glic::mojom::InvocationSource> initial_invocation_source);
 
   // The callback used for ExecutorEngine::Act.
   void OnActionsFinished(
@@ -222,6 +253,12 @@ class ActorKeyedService : public KeyedService,
 
   base::RepeatingCallbackList<void(ActorTask&)>
       task_state_change_callback_list_;
+
+#if BUILDFLAG(IS_ANDROID)
+  base::RepeatingCallbackList<void(const std::string&)>
+      ensure_foreground_service_started_callbacks_;
+  base::ObserverList<BackgroundActuationObserver> observers_;
+#endif
 
   // Owns this.
   raw_ptr<Profile> profile_;

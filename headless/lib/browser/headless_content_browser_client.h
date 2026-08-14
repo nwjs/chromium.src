@@ -77,14 +77,8 @@ class HeadlessContentBrowserClient : public content::ContentBrowserClient {
   bool ShouldEnableStrictSiteIsolation() override;
   bool ShouldAllowProcessPerSiteForMultipleMainFrames(
       content::BrowserContext* context) override;
-
-  // Returns whether |api_origin| on |top_frame_origin| can perform
-  // |operation| within the interest group API.
-  bool IsInterestGroupAPIAllowed(content::BrowserContext* browser_context,
-                                 content::RenderFrameHost* render_frame_host,
-                                 content::InterestGroupApiOperation operation,
-                                 const url::Origin& top_frame_origin,
-                                 const url::Origin& api_origin) override;
+  std::unique_ptr<content::DigitalIdentityProvider>
+  CreateDigitalIdentityProvider() override;
 
   bool IsPrivacySandboxReportingDestinationAttested(
       content::BrowserContext* browser_context,

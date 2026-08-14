@@ -62,10 +62,7 @@ if (!is_cronet_build && is_android) {
   java_cpp_enum("java_enum_srcjar") {
     # External code should depend on ":metrics_java" instead.
     visibility = [ ":*" ]
-    sources = [
-      "metrics_reporting_level.h",
-      "stability_metrics_helper.h",
-    ]
+    sources = [ "stability_metrics_helper.h" ]
   }
 
   android_library("metrics_java") {
@@ -97,11 +94,6 @@ source_set("client_info") {
     "//build/config/compiler:wexit_time_destructors",
     "//build/config/compiler:wglobal_constructors",
   ]
-}
-
-# Used by the Chrome installer, which doesn't need the whole metrics library.
-source_set("metrics_reporting_level") {
-  sources = [ "metrics_reporting_level.h" ]
 }
 
 # Used by the Chrome installer, which doesn't need the whole metrics library.
@@ -242,6 +234,7 @@ if (!is_cronet_build || is_ios) {
       "metrics_log_store.h",
       "metrics_log_uploader.h",
       "metrics_logs_event_manager.h",
+      "metrics_profile_pref_names.h",
       "metrics_provider.h",
       "metrics_reporting_choice_service.h",
       "metrics_reporting_default_state.h",
@@ -265,6 +258,7 @@ if (!is_cronet_build || is_ios) {
       "server_urls.h",
       "stability_metrics_helper.h",
       "stability_metrics_provider.h",
+      "startup_visibility.h",
       "ukm_demographic_metrics_provider.h",
       "unsent_log_store.h",
       "unsent_log_store_metrics.h",
@@ -282,7 +276,7 @@ if (!is_cronet_build || is_ios) {
       "//components/country_codes",
       "//components/metrics:client_info",
       "//components/metrics:metrics_pref_names",
-      "//components/metrics:metrics_reporting_level",
+      "//components/metrics/private_metrics:private_metrics_recorders",
       "//components/regional_capabilities:country_id",
       "//components/variations",
       "//third_party/metrics_proto",
@@ -297,8 +291,10 @@ if (!is_cronet_build || is_ios) {
       "//base:build_time",
       "//base:i18n",
       "//build:branding_buildflags",
+      "//build:ios_buildflags",
       "//components/background_task_scheduler",
       "//components/keyed_service/core",
+      "//components/metrics/private_metrics:private_metrics_features",
       "//components/metrics/public/mojom:call_stack_mojo_bindings",
       "//components/metrics/public/mojom:histogram_fetcher_mojo_bindings",
       "//components/network_time",
@@ -627,6 +623,7 @@ if (!is_cronet_build) {
       "library_support/histogram_manager_unittest.cc",
       "log_decoder_unittest.cc",
       "metrics_data_validation_unittest.cc",
+      "metrics_features_unittest.cc",
       "metrics_log_store_unittest.cc",
       "metrics_log_unittest.cc",
       "metrics_reporting_choice_service_unittest.cc",
@@ -665,6 +662,7 @@ if (!is_cronet_build) {
       "//build:branding_buildflags",
       "//components/component_updater:test_support",
       "//components/encrypted_messages:encrypted_message_proto",
+      "//components/metrics/debug:unit_tests",
       "//components/metrics/mapping:unit_tests",
       "//components/metrics/private_metrics",
       "//components/metrics/public/mojom:call_stack_mojo_bindings",

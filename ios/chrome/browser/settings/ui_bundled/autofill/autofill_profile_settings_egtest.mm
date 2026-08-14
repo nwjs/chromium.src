@@ -45,7 +45,6 @@ using chrome_test_util::SettingsDoneButton;
 using chrome_test_util::SettingsMenuBackButton;
 using chrome_test_util::SettingsToolbarAddButton;
 using chrome_test_util::SettingsToolbarEditButton;
-using chrome_test_util::TabGridEditButton;
 using policy_test_utils::SetPolicy;
 
 namespace {
@@ -94,7 +93,6 @@ NSString* TravelSectionTitle() {
 id<GREYMatcher> NavigationBarEditButton() {
   return grey_allOf(
       ButtonWithAccessibilityLabelId(IDS_IOS_NAVIGATION_BAR_EDIT_BUTTON),
-      grey_not(TabGridEditButton()),
       grey_not(grey_accessibilityTrait(UIAccessibilityTraitNotEnabled)), nil);
 }
 
@@ -173,8 +171,6 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
                               testDeleteLastEntityInSectionRemovesSection)] ||
       [self isRunningTest:@selector(testSimultaneousRowAndSectionDeletion)]) {
     config.features_enabled.push_back(
-        autofill::features::kAutofillAiCreateEntityDataManager);
-    config.features_enabled.push_back(
         autofill::features::kAutofillAiWithDataSchema);
   }
 
@@ -194,8 +190,6 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
       [self isRunningTest:@selector(testToggleToolbarAddButtonBySwitch)]) {
     config.features_disabled.push_back(
         autofill::features::kAutofillAiWithDataSchema);
-    config.features_disabled.push_back(
-        autofill::features::kAutofillAiCreateEntityDataManager);
   }
 
   return config;
@@ -1283,8 +1277,11 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
       performAction:grey_tap()];
 
   // Verify that the detail text is "On".
-  id<GREYMatcher> labelMatcher = grey_accessibilityLabel(
-      l10n_util::GetNSString(IDS_SETTINGS_AUTOFILL_AI_PAGE_TITLE));
+  id<GREYMatcher> labelMatcher = grey_accessibilityLabel(l10n_util::GetNSString(
+      base::FeatureList::IsEnabled(
+          autofill::features::kAutofillAiOnlineModelToggleNewTitle)
+          ? IDS_SETTINGS_AUTOFILL_AI_PAGE_TITLE_V2
+          : IDS_SETTINGS_AUTOFILL_AI_PAGE_TITLE));
   id<GREYMatcher> valueOnMatcher =
       grey_accessibilityValue(l10n_util::GetNSString(IDS_IOS_SETTING_ON));
   [[EarlGrey

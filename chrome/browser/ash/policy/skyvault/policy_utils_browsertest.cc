@@ -6,7 +6,9 @@
 
 #include <tuple>
 
+#include "base/check_deref.h"
 #include "base/test/scoped_feature_list.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/policy/policy_test_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_features.h"
@@ -58,7 +60,8 @@ class LocalUserFilesPolicyUtilsBrowserTest
 
 IN_PROC_BROWSER_TEST_P(LocalUserFilesPolicyUtilsBrowserTest, CheckPolicyValue) {
   // Before setting the policy, local files should always be allowed.
-  ASSERT_TRUE(LocalUserFilesAllowed());
+  ASSERT_TRUE(
+      LocalUserFilesAllowed(CHECK_DEREF(g_browser_process->local_state())));
 
   // Set the policy.
   bool allowed = PolicyValue();
@@ -66,9 +69,12 @@ IN_PROC_BROWSER_TEST_P(LocalUserFilesPolicyUtilsBrowserTest, CheckPolicyValue) {
 
   if (!EnableSkyvault()) {
     // Policy value doesn't matter.
-    ASSERT_TRUE(LocalUserFilesAllowed());
+    ASSERT_TRUE(
+        LocalUserFilesAllowed(CHECK_DEREF(g_browser_process->local_state())));
   } else {
-    ASSERT_EQ(LocalUserFilesAllowed(), allowed);
+    ASSERT_EQ(
+        LocalUserFilesAllowed(CHECK_DEREF(g_browser_process->local_state())),
+        allowed);
   }
 }
 
@@ -91,19 +97,19 @@ class DownloadsDestinationUtilsTest : public policy::PolicyTest {
 
 IN_PROC_BROWSER_TEST_F(DownloadsDestinationUtilsTest, DownloadsDestination) {
   EXPECT_EQ(FileSaveDestination::kNotSpecified,
-            GetDownloadsDestination(browser()->profile()));
+            GetDownloadsDestination(browser()->GetProfile()));
 
   SetDownloadsPolicy("");
   EXPECT_EQ(FileSaveDestination::kDownloads,
-            GetDownloadsDestination(browser()->profile()));
+            GetDownloadsDestination(browser()->GetProfile()));
 
   SetDownloadsPolicy(kGoogleDrivePolicyVariableName);
   EXPECT_EQ(FileSaveDestination::kGoogleDrive,
-            GetDownloadsDestination(browser()->profile()));
+            GetDownloadsDestination(browser()->GetProfile()));
 
   SetDownloadsPolicy(kOneDrivePolicyVariableName);
   EXPECT_EQ(FileSaveDestination::kOneDrive,
-            GetDownloadsDestination(browser()->profile()));
+            GetDownloadsDestination(browser()->GetProfile()));
 }
 
 class ScreenCaptureDestinationUtilsTest : public policy::PolicyTest {
@@ -121,19 +127,19 @@ class ScreenCaptureDestinationUtilsTest : public policy::PolicyTest {
 IN_PROC_BROWSER_TEST_F(ScreenCaptureDestinationUtilsTest,
                        ScreenCaptureDestination) {
   EXPECT_EQ(FileSaveDestination::kNotSpecified,
-            GetScreenCaptureDestination(browser()->profile()));
+            GetScreenCaptureDestination(browser()->GetProfile()));
 
   SetScreenCapturePolicy("");
   EXPECT_EQ(FileSaveDestination::kDownloads,
-            GetScreenCaptureDestination(browser()->profile()));
+            GetScreenCaptureDestination(browser()->GetProfile()));
 
   SetScreenCapturePolicy(kGoogleDrivePolicyVariableName);
   EXPECT_EQ(FileSaveDestination::kGoogleDrive,
-            GetScreenCaptureDestination(browser()->profile()));
+            GetScreenCaptureDestination(browser()->GetProfile()));
 
   SetScreenCapturePolicy(kOneDrivePolicyVariableName);
   EXPECT_EQ(FileSaveDestination::kOneDrive,
-            GetScreenCaptureDestination(browser()->profile()));
+            GetScreenCaptureDestination(browser()->GetProfile()));
 }
 
 class DownloadsDestinationUtilsTestWithSkyvault
@@ -144,13 +150,13 @@ class DownloadsDestinationUtilsTestWithSkyvault
 
 IN_PROC_BROWSER_TEST_F(DownloadsDestinationUtilsTestWithSkyvault,
                        DownloadToTemp) {
-  EXPECT_EQ(false, DownloadToTemp(browser()->profile()));
+  EXPECT_EQ(false, DownloadToTemp(browser()->GetProfile()));
 
   SetDownloadsPolicy(kGoogleDrivePolicyVariableName);
-  EXPECT_EQ(false, DownloadToTemp(browser()->profile()));
+  EXPECT_EQ(false, DownloadToTemp(browser()->GetProfile()));
 
   SetDownloadsPolicy(kOneDrivePolicyVariableName);
-  EXPECT_EQ(true, DownloadToTemp(browser()->profile()));
+  EXPECT_EQ(true, DownloadToTemp(browser()->GetProfile()));
 }
 
 }  // namespace policy::local_user_files

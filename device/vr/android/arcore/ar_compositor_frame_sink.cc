@@ -32,7 +32,7 @@ class ArCoreHostDisplayClient : public viz::HostDisplayClient {
       : HostDisplayClient(gfx::kNullAcceleratedWidget),
         main_thread_task_runner_(main_thread_task_runner),
         root_window_(root_window) {
-    // TODO(crbug.com/40758616): Ideally, we'd DCHECK here, but the UTs
+    // Ideally, we'd DCHECK(root_window_) here, but the unit tests
     // don't create a root_window.
   }
 
@@ -221,7 +221,6 @@ void ArCompositorFrameSink::RequestBeginFrame(base::TimeDelta interval,
                                   next_begin_frame_id_++,
                                   base::TimeTicks::Now(), deadline, interval,
                                   viz::BeginFrameArgs::NORMAL),
-      true,
       base::BindOnce(&ArCompositorFrameSink::OnFrameSubmitAck,
                      base::Unretained(this)));
   can_issue_new_begin_frame_ = false;
@@ -464,9 +463,6 @@ viz::CompositorFrame ArCompositorFrameSink::CreateFrame(WebXrFrame* xr_frame,
 
     viz::TransferableResource::MetadataOverride render_resource_overrides = {
         .is_overlay_candidate = false,
-        .origin = frame_type == FrameType::kHasWebGlContent
-                      ? kBottomLeft_GrSurfaceOrigin
-                      : kTopLeft_GrSurfaceOrigin,
     };
 
     auto renderer_resource = viz::TransferableResource::Make(
@@ -514,7 +510,6 @@ viz::CompositorFrame ArCompositorFrameSink::CreateFrame(WebXrFrame* xr_frame,
 
   viz::TransferableResource::MetadataOverride camera_resource_overrides = {
       .is_overlay_candidate = false,
-      .origin = kBottomLeft_GrSurfaceOrigin,
   };
 
   // Additionally append to the resource_list

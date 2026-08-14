@@ -488,6 +488,8 @@ try_.orchestrator_builder(
         "chromium.add_one_test_shard": 10,
         # crbug/940930
         "chromium.enable_cleandead": 100,
+        # go/rts-project-proposal
+        "chromium_rts.filter_file_analysis": 100,
         "luci.buildbucket.run_in_turboci": 100,
     },
     main_list_view = "try",
@@ -1131,6 +1133,8 @@ try_.orchestrator_builder(
         "chromium.add_one_test_shard": 10,
         # crbug/940930
         "chromium.enable_cleandead": 100,
+        # go/rts-project-proposal
+        "chromium_rts.filter_file_analysis": 100,
         "luci.buildbucket.run_in_turboci": 100,
     },
     main_list_view = "try",
@@ -1176,7 +1180,7 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         "luci.buildbucket.run_in_turboci": 100,
         # go/rts-project-proposal
-        "chromium_rts.filter_file_analysis": 10,
+        "chromium_rts.filter_file_analysis": 100,
     },
     main_list_view = "try",
     # TODO(crbug.com/40241638): Use orchestrator pool once overloaded test pools
@@ -1600,10 +1604,11 @@ gpu.try_.optional_tests_builder(
 gpu.try_.optional_tests_builder(
     name = "gpu-fyi-cq-android-arm64",
     branch_selector = branches.selector.ANDROID_BRANCHES,
-    description_html = "Runs GPU tests on Pixel 6 devices. Only automatically added to CLs that touch GPU-related files.",
+    description_html = "Runs GPU tests on Pixel 6/10 devices. Only automatically added to CLs that touch GPU-related files.",
     mirrors = [
         "ci/GPU FYI Android arm64 Builder",
         "ci/Android FYI Release (Pixel 6)",
+        "ci/Android FYI Release (Pixel 10)",
     ],
     builder_config_settings = builder_config.try_settings(
         retry_failed_shards = False,

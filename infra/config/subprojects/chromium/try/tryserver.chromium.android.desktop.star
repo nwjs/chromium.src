@@ -140,8 +140,10 @@ try_.orchestrator_builder(
     experiments = {
         # crbug.com/40617829
         "chromium.enable_cleandead": 100,
+        # TODO(https://crbug.com/521401232): Increase to 100
+        "luci.buildbucket.run_in_turboci": 100,
         # go/rts-project-proposal
-        "chromium_rts.filter_file_analysis": 10,
+        "chromium_rts.filter_file_analysis": 100,
     },
     main_list_view = "try",
     use_clang_coverage = True,

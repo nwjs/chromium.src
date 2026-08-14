@@ -9,6 +9,7 @@
 #include <stdio.h>
 
 #include <algorithm>
+#include <array>
 #include <fstream>
 #include <initializer_list>
 #include <memory>
@@ -20,6 +21,7 @@
 #include "base/base_paths.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/environment.h"
 #include "base/features.h"
 #include "base/files/file.h"
@@ -3368,6 +3370,66 @@ TEST_F(FileUtilTest, CreateAndOpenTemporaryFileInDir) {
 #endif
 }
 
+TEST_F(FileUtilTest, CreateAndOpenTemporaryFileInDirWithNamePrefix) {
+  const FilePath::StringType kPrefix = FILE_PATH_LITERAL("TestPrefix");
+
+  FilePath empty_prefix_path;
+  File empty_prefix_file = CreateAndOpenTemporaryFileInDir(
+      temp_dir_.GetPath(), &empty_prefix_path, /*additional_flags=*/0, {});
+  ASSERT_TRUE(empty_prefix_file.IsValid());
+  EXPECT_FALSE(empty_prefix_path.empty());
+  EXPECT_TRUE(PathExists(empty_prefix_path));
+
+  FilePath prefixed_path;
+  File prefixed_file = CreateAndOpenTemporaryFileInDir(
+      temp_dir_.GetPath(), &prefixed_path, /*additional_flags=*/0, kPrefix);
+  ASSERT_TRUE(prefixed_file.IsValid());
+  EXPECT_FALSE(prefixed_path.empty());
+  EXPECT_TRUE(PathExists(prefixed_path));
+
+#if BUILDFLAG(IS_WIN)
+  auto guid_from_path = [](const FilePath& path,
+                           size_t prefix_length) -> FilePath::StringType {
+    constexpr FilePath::StringViewType kTmpSuffix = FILE_PATH_LITERAL(".tmp");
+    const FilePath::StringType basename = path.BaseName().value();
+    EXPECT_TRUE(EndsWith(basename, kTmpSuffix, CompareCase::SENSITIVE));
+    const FilePath::StringType stem =
+        basename.substr(0, basename.size() - kTmpSuffix.size());
+    return stem.substr(prefix_length);
+  };
+
+  EXPECT_TRUE(Uuid::ParseCaseInsensitive(
+                  WideToUTF8(guid_from_path(empty_prefix_path, 0)))
+                  .is_valid());
+
+  const FilePath::StringType prefixed_basename =
+      prefixed_path.BaseName().value();
+  EXPECT_TRUE(StartsWith(prefixed_basename, kPrefix, CompareCase::SENSITIVE));
+  EXPECT_TRUE(Uuid::ParseCaseInsensitive(
+                  WideToUTF8(guid_from_path(prefixed_path, kPrefix.size())))
+                  .is_valid());
+#else
+  const FilePath::StringType platform_prefix =
+      FormatTemporaryFileName({}, true).value();
+
+  const FilePath::StringType empty_basename =
+      empty_prefix_path.BaseName().value();
+  EXPECT_TRUE(
+      StartsWith(empty_basename, platform_prefix, CompareCase::SENSITIVE));
+  EXPECT_EQ(empty_basename.size(), platform_prefix.size() + 6u);
+
+  FilePath::StringType prefixed_name_start =
+      FormatTemporaryFileName(kPrefix, true).value();
+  prefixed_name_start.push_back('.');
+
+  const FilePath::StringType prefixed_basename =
+      prefixed_path.BaseName().value();
+  EXPECT_TRUE(StartsWith(prefixed_basename, prefixed_name_start,
+                         CompareCase::SENSITIVE));
+  EXPECT_EQ(prefixed_basename.size(), prefixed_name_start.size() + 6u);
+#endif
+}
+
 #if BUILDFLAG(IS_WIN)
 TEST_F(FileUtilTest, CreateAndOpenTemporaryFileInDirWithFlags) {
   // Create a temporary file with flags that allow sharing for read and delete.
@@ -3387,6 +3449,57 @@ TEST_F(FileUtilTest, CreateAndOpenTemporaryFileInDirWithFlags) {
   EXPECT_TRUE(file2.IsValid());
 }
 #endif
+
+TEST_F(FileUtilTest, GetNamePrefixForTemporaryFile) {
+  const FilePath::StringType kPrefix1 = FILE_PATH_LITERAL("LocalState");
+  const FilePath::StringType kPrefix2 = FILE_PATH_LITERAL("User.Preferences");
+
+  FilePath no_prefix_path;
+  File no_prefix_file =
+      CreateAndOpenTemporaryFileInDir(temp_dir_.GetPath(), &no_prefix_path);
+  ASSERT_TRUE(no_prefix_file.IsValid());
+  EXPECT_FALSE(no_prefix_path.empty());
+  EXPECT_EQ(GetNamePrefixForTemporaryFile(no_prefix_path), std::nullopt);
+
+  FilePath empty_prefix_path;
+  File empty_prefix_file = CreateAndOpenTemporaryFileInDir(
+      temp_dir_.GetPath(), &empty_prefix_path, /*additional_flags=*/0, {});
+  ASSERT_TRUE(empty_prefix_file.IsValid());
+  EXPECT_FALSE(empty_prefix_path.empty());
+  EXPECT_EQ(GetNamePrefixForTemporaryFile(empty_prefix_path), std::nullopt);
+
+  FilePath prefix_path1;
+  File prefix_file1 = CreateAndOpenTemporaryFileInDir(
+      temp_dir_.GetPath(), &prefix_path1, /*additional_flags=*/0, kPrefix1);
+  ASSERT_TRUE(prefix_file1.IsValid());
+  EXPECT_FALSE(prefix_path1.empty());
+  EXPECT_EQ(GetNamePrefixForTemporaryFile(prefix_path1), kPrefix1);
+
+  FilePath prefix_path2;
+  File prefix_file2 = CreateAndOpenTemporaryFileInDir(
+      temp_dir_.GetPath(), &prefix_path2, /*additional_flags=*/0, kPrefix2);
+  ASSERT_TRUE(prefix_file2.IsValid());
+  EXPECT_FALSE(prefix_path2.empty());
+  EXPECT_EQ(GetNamePrefixForTemporaryFile(prefix_path2), kPrefix2);
+
+  const FilePath invalid_non_temp_path =
+      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("not-a-temp-file"));
+  EXPECT_EQ(GetNamePrefixForTemporaryFile(invalid_non_temp_path), std::nullopt);
+#if BUILDFLAG(IS_WIN)
+  const FilePath invalid_temp_path =
+      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("prefix-not-a-guid.tmp"));
+  const FilePath invalid_suffix_path = temp_dir_.GetPath().Append(
+      FILE_PATH_LITERAL("prefix550e8400-e29b-41d4-a716-446655440000.not_tmp"));
+#else
+  const FilePath invalid_temp_path =
+      temp_dir_.GetPath().Append(FormatTemporaryFileName(
+          FILE_PATH_LITERAL("missing-random-suffix"), true));
+  const FilePath invalid_suffix_path = temp_dir_.GetPath().Append(
+      FormatTemporaryFileName(FILE_PATH_LITERAL("prefix.1234567"), true));
+#endif
+  EXPECT_EQ(GetNamePrefixForTemporaryFile(invalid_temp_path), std::nullopt);
+  EXPECT_EQ(GetNamePrefixForTemporaryFile(invalid_suffix_path), std::nullopt);
+}
 
 TEST_F(FileUtilTest, CreateTemporaryFileTest) {
   std::array<FilePath, 3> temp_files;
@@ -5215,7 +5328,9 @@ TEST(ScopedFD, ScopedFDDoesClose) {
   ASSERT_EQ(0, pipe(fds));
   const int write_end = fds[1];
   ScopedFD read_end_closer(fds[0]);
-  { ScopedFD write_end_closer(fds[1]); }
+  {
+    ScopedFD write_end_closer(fds[1]);
+  }
   // This is the only thread. This file descriptor should no longer be valid.
   int ret = close(write_end);
   EXPECT_EQ(-1, ret);
@@ -5438,6 +5553,36 @@ TEST_F(FileUtilTest, CreatingFileWithSameNameAfterDelete) {
   // `first_file`.
   ASSERT_EQ(second_file.GetLength(), 0);
 }
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+TEST_F(FileUtilTest, IsReservedNameOnWindows) {
+  static constexpr auto kAllowedBasenames =
+      std::to_array<const base::FilePath::CharType*>({
+          FILE_PATH_LITERAL("a"),
+          FILE_PATH_LITERAL("a.txt"),
+          FILE_PATH_LITERAL("a b.txt"),
+          FILE_PATH_LITERAL("a-b.txt"),
+          FILE_PATH_LITERAL("My Computer"),
+      });
+
+  static constexpr auto kDisallowedBasenames =
+      std::to_array<const base::FilePath::CharType*>({
+          FILE_PATH_LITERAL("con"),
+          FILE_PATH_LITERAL("con.zip"),
+          FILE_PATH_LITERAL("NUL"),
+          FILE_PATH_LITERAL("NUL.zip"),
+          FILE_PATH_LITERAL("desktop.ini"),
+      });
+
+  for (const base::FilePath::CharType* basename : kAllowedBasenames) {
+    EXPECT_FALSE(IsReservedNameOnWindows(basename)) << basename;
+  }
+
+  for (const base::FilePath::CharType* basename : kDisallowedBasenames) {
+    EXPECT_TRUE(IsReservedNameOnWindows(basename)) << basename;
+  }
+}
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
 
 }  // namespace
 

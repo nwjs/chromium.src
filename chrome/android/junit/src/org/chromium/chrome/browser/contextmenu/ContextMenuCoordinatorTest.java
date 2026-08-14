@@ -102,7 +102,12 @@ public class ContextMenuCoordinatorTest {
     public void setUpTest() {
         mActivityScenarioRule.getScenario().onActivity((activity) -> mActivity = activity);
         mCoordinator =
-                new ContextMenuCoordinator(mActivity, TOP_CONTENT_OFFSET_PX, mNativeDelegate);
+                new ContextMenuCoordinator(
+                        mActivity,
+                        TOP_CONTENT_OFFSET_PX,
+                        mNativeDelegate,
+                        /* isCustomItemPresent= */ false,
+                        /* leftSideUiWidthSupplier= */ () -> 0);
         Profile.setProfileFromWebContentsForTesting(mProfile);
         ContextMenuHeaderCoordinator.setDisableForTesting(true);
         ContextMenuDialog.setForceEmptyForTesting(true);
@@ -355,7 +360,8 @@ public class ContextMenuCoordinatorTest {
                 null,
                 webContentView,
                 new Rect(0, 0, 0, 0),
-                null);
+                /* onDismissCallback= */ null,
+                /* flyoutExtraPaddingY= */ 0);
     }
 
     private ContextMenuDialog displayContextMenuDialogAtLocation(

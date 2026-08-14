@@ -2,12 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "ui/accessibility/platform/inspect/ax_transform_mac.h"
+
+#include <optional>
 
 #include "base/apple/foundation_util.h"
 #include "base/strings/sys_string_conversions.h"
@@ -56,14 +53,14 @@ base::Value AXNSObjectToBaseValue(id value, const AXTreeIndexerMac* indexer) {
     return base::Value(number.intValue);
   }
 
-  // NSRange, NSSize
-  if (NSValue* ns_value = base::apple::ObjCCast<NSValue>(value)) {
-    if (0 == strcmp(ns_value.objCType, @encode(NSRange))) {
-      return base::Value(AXNSRangeToBaseValue(ns_value.rangeValue));
-    }
-    if (0 == strcmp(ns_value.objCType, @encode(NSSize))) {
-      return base::Value(AXNSSizeToBaseValue(ns_value.sizeValue));
-    }
+  // NSRange
+  if (std::optional<NSRange> range = ui::NSValueGetRange(value)) {
+    return base::Value(AXNSRangeToBaseValue(range.value()));
+  }
+
+  // NSSize
+  if (std::optional<NSSize> size = ui::NSValueGetSize(value)) {
+    return base::Value(AXNSSizeToBaseValue(size.value()));
   }
 
   // NSAttributedString
@@ -242,10 +239,11 @@ base::Value NSAttributedStringToBaseValue(NSAttributedString* attr_string,
 
 base::Value CGColorRefToBaseValue(CGColorRef color) {
   const CGFloat* color_components = CGColorGetComponents(color);
-  return base::Value(base::SysNSStringToUTF16(
-      [NSString stringWithFormat:@"CGColor(%1.2f, %1.2f, %1.2f, %1.2f)",
-                                 color_components[0], color_components[1],
-                                 color_components[2], color_components[3]]));
+  return base::Value(base::SysNSStringToUTF16([NSString
+      stringWithFormat:@"CGColor(%1.2f, %1.2f, %1.2f, %1.2f)",
+                       color_components[0], UNSAFE_TODO(color_components[1]),
+                       UNSAFE_TODO(color_components[2]),
+                       UNSAFE_TODO(color_components[3])]));
 }
 
 base::Value AXNilToBaseValue() {

@@ -5,13 +5,11 @@
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt_base_view.h"
 
 #include "base/functional/callback_helpers.h"
-#include "chrome/browser/platform_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_widget_sublevel.h"
-#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/contents_web_view.h"
 #include "chrome/browser/ui/views/permissions/permission_prompt_observer.h"
 #include "chrome/browser/ui/views/sub_apps_permission_explanation.h"
@@ -22,11 +20,9 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "third_party/blink/public/common/features_generated.h"
 #include "ui/base/interaction/element_identifier.h"
-#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
-#include "ui/base/ui_base_features.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/paint_vector_icon.h"
@@ -131,7 +127,15 @@ EmbeddedPermissionPromptBaseView::EmbeddedPermissionPromptBaseView(
 
   // Convert the position into screen coordinates.
   auto* content_view = GetContentsWebView(GetNativeWindow());
-  views::View::ConvertRectToScreen(content_view, &element_rect_);
+  if (content_view) {
+    views::View::ConvertRectToScreen(content_view, &element_rect_);
+  } else if (web_contents) {
+    // Set default coordinates for `omnibox` (does not have `context_view`),
+    // or other surfaces without a `permission` html element based on web
+    // contents.
+    element_rect_.Offset(
+        web_contents->GetContainerBounds().origin().OffsetFromOrigin());
+  }
 }
 
 EmbeddedPermissionPromptBaseView::~EmbeddedPermissionPromptBaseView() {
@@ -460,6 +464,7 @@ gfx::Rect EmbeddedPermissionPromptBaseView::GetBubbleBounds() {
   gfx::Rect container_bounds = web_contents->GetContainerBounds();
   gfx::Rect prompt_bounds;
 
+  // TODO(crbug.com/537445211): Clean up dead `kNearElement` experiment logic.
   if (GetPromptPosition() == PermissionElementPromptPosition::kNearElement) {
     // First, attempt to position the prompt below the PEPC, if it would not
     // overflow the container bounds.
@@ -498,18 +503,30 @@ gfx::Rect EmbeddedPermissionPromptBaseView::GetBubbleBounds() {
     if (container_bounds.Contains(prompt_bounds)) {
       return prompt_bounds;
     }
-    // Otherwise, default to kWindowMiddle placement logic.
+
+    // Clamp top-left position so prompt doesn't bleed off-screen,
+    // avoiding switching to `kWindowMiddle` or shrinking width/height
+    // which triggers container layout recursion.
+    if (prompt_bounds.x() < container_bounds.x()) {
+      prompt_bounds.set_x(container_bounds.x());
+    }
+    if (prompt_bounds.y() < container_bounds.y()) {
+      prompt_bounds.set_y(container_bounds.y());
+    }
+    return prompt_bounds;
   }
 
-  // At this point we're either in the kWindowMiddle case or the kNearElement
-  // case after failing to place the prompt near the element.
+  // `kWindowMiddle` case:
   prompt_bounds = gfx::Rect(
       container_bounds.CenterPoint().x() - default_bounds.width() / 2,
       container_bounds.CenterPoint().y() - default_bounds.height() / 2,
       default_bounds.width(), default_bounds.height());
 
-  // Do not allow the prompt to be positioned above the container bounds as it
-  // can overlap and potentially obfuscate browser UI.
+  // Do not allow the prompt to be positioned above or to the left of the
+  // container bounds as it can overlap and potentially obfuscate browser UI.
+  if (prompt_bounds.x() < container_bounds.x()) {
+    prompt_bounds.set_x(container_bounds.x());
+  }
   if (prompt_bounds.y() < container_bounds.y()) {
     prompt_bounds.set_y(container_bounds.y());
   }

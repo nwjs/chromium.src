@@ -4,8 +4,6 @@
 
 source_set("logging") {
   sources = [
-    "filter_acceptance_metrics_logger.cc",
-    "filter_acceptance_metrics_logger.h",
     "log_entry.cc",
     "log_entry.h",
     "multistep_filter_log_router.h",
@@ -14,27 +12,42 @@ source_set("logging") {
     "multistep_filter_logger.cc",
     "multistep_filter_logger.h",
     "multistep_filter_metrics.h",
+    "multistep_filter_metrics_tracker.cc",
+    "multistep_filter_metrics_tracker.h",
+    "multistep_filter_metrics_util.cc",
+    "multistep_filter_metrics_util.h",
   ]
-  public_deps = [ "//components/multistep_filter/core/data_models" ]
+  public_deps = [
+    "//components/multistep_filter/core/data_models",
+    "//components/multistep_filter/core/verification",
+  ]
   deps = [
     "//base",
     "//components/keyed_service/core",
+    "//components/multistep_filter/core:features",
+    "//components/multistep_filter/core:util",
+    "//components/multistep_filter/core/prefs",
+    "//services/metrics/public/cpp:metrics_cpp",
+    "//services/metrics/public/cpp:ukm_builders",
   ]
 }
 
 source_set("unit_tests") {
   testonly = true
   sources = [
-    "filter_acceptance_metrics_logger_unittest.cc",
     "log_entry_unittest.cc",
     "multistep_filter_log_router_impl_unittest.cc",
     "multistep_filter_logger_unittest.cc",
+    "multistep_filter_metrics_tracker_unittest.cc",
   ]
   deps = [
     ":logging",
     "//base",
     "//base/test:test_support",
     "//components/multistep_filter/core/data_models",
+    "//components/multistep_filter/core/prefs",
+    "//components/ukm:test_support",
+    "//services/metrics/public/cpp:ukm_builders",
     "//testing/gmock",
     "//testing/gtest",
   ]

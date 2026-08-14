@@ -42,9 +42,7 @@ void AppWindowContentsImpl::Initialize(content::BrowserContext* context,
   content::WebContents::CreateParams create_params(
                                                    //NWJS#5163: fix regression
        context, nw::PinningRenderer() ? creator_frame->GetSiteInstance() : content::SiteInstance::CreateForURL(context, url_));
-  create_params.opener_render_process_id =
-      creator_frame->GetProcess()->GetDeprecatedID();
-  create_params.opener_render_frame_id = creator_frame->GetRoutingID();
+  create_params.opener_id = creator_frame->GetGlobalId();
   web_contents_ = content::WebContents::Create(create_params);
 
   static_cast<content::WebContentsImpl*>(web_contents_.get())->SetSkipBlockingParser(skip_blocking_parser || new_site);

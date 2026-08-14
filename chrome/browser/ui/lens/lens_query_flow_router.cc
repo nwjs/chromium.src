@@ -741,7 +741,10 @@ void LensQueryFlowRouter::OpenContextualTasksPanel(
   contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
       web_contents()->GetBrowserContext())
       ->StartTaskUiInSidePanel(browser_window_interface(), tab_interface(), url,
-                               std::move(pending_session_handle_), entry_point);
+                               std::move(pending_session_handle_),
+                               contextual_tasks::StartTaskUiOptions{
+                                   .entry_point = entry_point,
+                               });
   // Notify the overlay controller that the side panel was opened so it can
   // update its UI state.
   lens_overlay_controller()->NotifyResultsPanelOpened();
@@ -880,26 +883,20 @@ LensQueryFlowRouter::CreateContextualInputData(
       lens_search_contextualization_controller()
           ->GetCurrentPageContextEligibility();
 
-  if (upload_mode == ContextUploadMode::kViewportOnly) {
+  if (upload_mode == ContextUploadMode::kViewportOnly ||
+      !ShouldPopulateFullPageContext()) {
+    contextual_input_data->primary_content_type = lens::MimeType::kImage;
     contextual_input_data->tab_session_id = std::nullopt;
     contextual_input_data->page_url = GURL();
     contextual_input_data->page_title = std::nullopt;
     contextual_input_data->context_input = std::vector<lens::ContextualInput>();
   } else {
-    if (ShouldPopulateFullPageContext()) {
-      contextual_input_data->tab_session_id =
-          sessions::SessionTabHelper::IdForTab(web_contents());
-      contextual_input_data->page_url = page_url;
-      contextual_input_data->page_title = page_title;
-      contextual_input_data->context_input =
-          ConvertPageContentToContextualInput(underlying_page_contents);
-    } else {
-      contextual_input_data->tab_session_id = std::nullopt;
-      contextual_input_data->page_url = GURL();
-      contextual_input_data->page_title = std::nullopt;
-      contextual_input_data->context_input =
-          std::vector<lens::ContextualInput>();
-    }
+    contextual_input_data->tab_session_id =
+        sessions::SessionTabHelper::IdForTab(web_contents());
+    contextual_input_data->page_url = page_url;
+    contextual_input_data->page_title = page_title;
+    contextual_input_data->context_input =
+        ConvertPageContentToContextualInput(underlying_page_contents);
   }
 
   return contextual_input_data;

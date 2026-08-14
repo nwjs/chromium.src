@@ -135,7 +135,7 @@ enum class RawPtrTraits : unsigned {
   // Forces RawPtrNoOpImpl regardless of the compile-time raw_ptr
   // implementation.
   //
-  // Don't use directly, use kUnprotectedInRelease instead.
+  // Don't use directly, use UnprotectedInRelease instead.
   kNoOpImpl = (1 << 6),
 
   // Marks the pointer as unprotected-in-release: it gets no protection in
@@ -148,7 +148,7 @@ enum class RawPtrTraits : unsigned {
   // is instrumented, so the instrumentation (e.g. BRP-ASan) can tell that the
   // field is *not* protected in a release build and report accordingly.
   //
-  // Don't use directly, use kUnprotectedInRelease instead.
+  // Don't use directly, use UnprotectedInRelease instead.
   kIsUnprotectedInRelease = (1 << 7),
 
   // *** ForTest traits below ***
@@ -1146,6 +1146,20 @@ struct RemovePointer<raw_ptr<T, Traits>> {
 template <typename T>
 using RemovePointerT = typename RemovePointer<T>::type;
 
+// Like `raw_ptr<RemovePointerT<T>>` but handles the case where T might
+// not be a pointer type without introducing another layer of indirection.
+template <typename T, RawPtrTraits Traits>
+struct RawPtrIfPtr {
+  using type = T;
+};
+template <typename T, RawPtrTraits Traits>
+  requires(!std::is_same_v<T, RemovePointerT<T>>)
+struct RawPtrIfPtr<T, Traits> {
+  using type = raw_ptr<RemovePointerT<T>, Traits>;
+};
+template <typename T, RawPtrTraits Traits = RawPtrTraits::kEmpty>
+using RawPtrIfPtrT = typename RawPtrIfPtr<T, Traits>::type;
+
 }  // namespace base
 
 using base::raw_ptr;
@@ -1237,7 +1251,7 @@ constexpr inline auto CtnExperimental = base::RawPtrTraits::kMayDangle;
 //   - flag on (debug/dcheck and BRP-ASan): stays instrumented so dangling
 //     pointer detection still covers it, while the instrumentation can tell
 //     that the field is unprotected in a release build.
-constexpr inline auto kUnprotectedInRelease =
+constexpr inline auto UnprotectedInRelease =
     base::RawPtrTraits::kIsUnprotectedInRelease;
 
 // Public verson used in callbacks arguments when it is known that they might

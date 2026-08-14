@@ -69,6 +69,8 @@ public class NotificationConstants {
     static final String EXTRA_SUSPICIOUS_NOTIFICATION_COUNT = "suspicious_notification_count";
 
     public static final String EXTRA_ACTOR_TASK_ID = "org.chromium.chrome.browser.actor.TASK_ID";
+    public static final String EXTRA_ACTOR_TASK_STATE =
+            "org.chromium.chrome.browser.actor.TASK_STATE";
     public static final String EXTRA_ACTOR_PAUSE_RESUME_SOURCE =
             "org.chromium.chrome.browser.actor.PAUSE_RESUME_SOURCE";
 
@@ -172,6 +174,9 @@ public class NotificationConstants {
      * Hub.
      */
     public static final int NOTIFICATION_ID_SAFETY_HUB_UNSUBSCRIBED_NOTIFICATIONS = 19;
+
+    /** Unique identifier for GracefulShutdownService process priority hold notifications. */
+    public static final int NOTIFICATION_ID_GRACEFUL_SHUTDOWN = 20;
 
     // Separator used to separate the notification origin from additional data such as the developer
     // specified tag. This and the prefix following it need to be the same as the one specified in

@@ -9,6 +9,7 @@
 #include "components/safe_browsing/core/browser/db/database_manager.h"
 #include "components/safe_browsing/core/browser/db/util.h"
 #include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
+#include "components/safe_browsing/core/browser/db/v5_get_hash_protocol_manager.h"
 #include "components/safe_browsing/core/browser/safe_browsing_lookup_mechanism.h"
 #include "components/safe_browsing/core/common/utils.h"
 
@@ -19,10 +20,13 @@ HashRealTimeMechanism::HashRealTimeMechanism(
     const SBThreatTypeSet& threat_types,
     scoped_refptr<SafeBrowsingDatabaseManager> database_manager,
     scoped_refptr<base::SequencedTaskRunner> ui_task_runner,
-    base::WeakPtr<HashRealTimeService> lookup_service_on_ui)
+    base::WeakPtr<HashRealTimeService> lookup_service_on_ui,
+    base::WeakPtr<safe_browsing::V5GetHashProtocolManager>
+        v5_get_hash_protocol_manager)
     : SafeBrowsingLookupMechanism(url, threat_types, database_manager),
       ui_task_runner_(ui_task_runner),
-      lookup_service_on_ui_(lookup_service_on_ui) {}
+      lookup_service_on_ui_(lookup_service_on_ui),
+      v5_get_hash_protocol_manager_(v5_get_hash_protocol_manager) {}
 
 HashRealTimeMechanism::~HashRealTimeMechanism() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -114,7 +118,7 @@ void HashRealTimeMechanism::OnLookupResponse(
   }
   DCHECK(threat_type.has_value());
   CompleteCheck(std::make_unique<CompleteCheckResult>(
-      url_, threat_type.value(), ThreatMetadata(),
+      url_, threat_type.value(),
       /*threat_source=*/ThreatSource::NATIVE_PVER5_REAL_TIME,
       /*url_real_time_lookup_response=*/nullptr));
   // NOTE: Calling CompleteCheck results in the synchronous destruction of this
@@ -127,15 +131,16 @@ void HashRealTimeMechanism::PerformHashBasedCheck(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   hash_database_mechanism_ = std::make_unique<DatabaseManagerMechanism>(
-      url, threat_types_, database_manager_, CheckBrowseUrlType::kHashDatabase,
-      /*check_allowlist=*/false);
+      url, threat_types_, database_manager_,
+      /*check_type=*/CheckBrowseUrlType::kHashDatabase,
+      /*check_allowlist=*/false, v5_get_hash_protocol_manager_);
   auto result = hash_database_mechanism_->StartCheck(
       base::BindOnce(&HashRealTimeMechanism::OnHashDatabaseCompleteCheckResult,
                      weak_factory_.GetWeakPtr(), fallback_trigger));
   if (result.is_safe_synchronously) {
     // No match found in the database, so conclude this is safe.
     OnHashDatabaseCompleteCheckResultInternal(
-        SBThreatType::SB_THREAT_TYPE_SAFE, ThreatMetadata(),
+        SBThreatType::SB_THREAT_TYPE_SAFE,
         /*threat_source=*/result.threat_source, fallback_trigger);
     // NOTE: Calling OnHashDatabaseCompleteCheckResultInternal results in the
     // synchronous destruction of this object, so there is nothing safe to do
@@ -147,8 +152,7 @@ void HashRealTimeMechanism::OnHashDatabaseCompleteCheckResult(
     HashDatabaseFallbackTrigger fallback_trigger,
     std::unique_ptr<SafeBrowsingLookupMechanism::CompleteCheckResult> result) {
   OnHashDatabaseCompleteCheckResultInternal(
-      result->threat_type, result->metadata, result->threat_source,
-      fallback_trigger);
+      result->threat_type, result->threat_source, fallback_trigger);
   // NOTE: Calling OnHashDatabaseCompleteCheckResultInternal results in the
   // synchronous destruction of this object, so there is nothing safe to do here
   // but return.
@@ -156,14 +160,13 @@ void HashRealTimeMechanism::OnHashDatabaseCompleteCheckResult(
 
 void HashRealTimeMechanism::OnHashDatabaseCompleteCheckResultInternal(
     SBThreatType threat_type,
-    const ThreatMetadata& metadata,
     std::optional<ThreatSource> threat_source,
     HashDatabaseFallbackTrigger fallback_trigger) {
   CHECK(fallback_trigger == HashDatabaseFallbackTrigger::kAllowlistMatch ||
         fallback_trigger == HashDatabaseFallbackTrigger::kOriginalCheckFailed);
   LogHashDatabaseFallbackResult("HPRT", fallback_trigger, threat_type);
   CompleteCheck(std::make_unique<CompleteCheckResult>(
-      url_, threat_type, metadata, threat_source,
+      url_, threat_type, threat_source,
       /*url_real_time_lookup_response=*/nullptr));
   // NOTE: Calling CompleteCheck results in the synchronous destruction of this
   // object, so there is nothing safe to do here but return.

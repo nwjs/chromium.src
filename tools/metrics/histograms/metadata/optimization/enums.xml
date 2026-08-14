@@ -505,6 +505,10 @@ struct.unpack('>L', hashlib.md5(version.encode('utf-8')).digest()[4:8])[0]
     There was no on-device feature usage so the model has not been downloaded
     yet.
   </int>
+  <int value="19" label="Insufficient disk space to build caches">
+    The device does not have enough disk space to build caches for the on-device
+    model.
+  </int>
 </enum>
 
 <!-- LINT.ThenChange(//components/optimization_guide/core/model_execution/on_device_capability.h:OnDeviceModelEligibilityReason) -->
@@ -535,6 +539,10 @@ struct.unpack('>L', hashlib.md5(version.encode('utf-8')).digest()[4:8])[0]
   <int value="7" label="No on-device feature used">
     The client is eligible for downloading and installing the model, but there
     was no on-device feature used so the model is not installed yet.
+  </int>
+  <int value="8" label="Insufficient disk space to build caches">
+    The device does not have enough disk space to build caches for the on-device
+    model.
   </int>
 </enum>
 
@@ -892,6 +900,13 @@ struct.unpack('>L', hashlib.md5(version.encode('utf-8')).digest()[4:8])[0]
   <int value="124" label="BUY_NOW_PAY_LATER_BLOCKLIST_AFFIRM_ANDROID"/>
   <int value="125" label="BUY_NOW_PAY_LATER_BLOCKLIST_ZIP_ANDROID"/>
   <int value="126" label="BUY_NOW_PAY_LATER_BLOCKLIST_KLARNA_ANDROID"/>
+  <int value="127" label="CURINOS_CREDIT_CARD_FLIGHT_BENEFITS"/>
+  <int value="128" label="CURINOS_CREDIT_CARD_HOTEL_BENEFITS"/>
+  <int value="129" label="CURINOS_CREDIT_CARD_CAR_RENTAL_BENEFITS"/>
+  <int value="130" label="FILTER_TASKS_SUPPORTED"/>
+  <int value="131" label="FILTER_EXTRACT_ATTRIBUTES"/>
+  <int value="132" label="AUTOFILL_AT_MEMORY_BLOCKED"/>
+  <int value="133" label="FILTER_EXECUTION_STRATEGY"/>
 </enum>
 
 <enum name="PageContentAnnotationsStorageStatus">

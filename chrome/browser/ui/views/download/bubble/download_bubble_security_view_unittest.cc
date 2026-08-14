@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/views/download/bubble/download_bubble_security_view.h"
 
 #include "base/command_line.h"
-#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/download/bubble/download_bubble_ui_controller.h"
 #include "chrome/browser/download/chrome_download_manager_delegate.h"
 #include "chrome/browser/download/download_core_service.h"
@@ -15,21 +14,16 @@
 #include "chrome/browser/download/download_ui_model.h"
 #include "chrome/browser/download/mock_download_core_service.h"
 #include "chrome/browser/download/offline_item_utils.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/download/download_bubble_contents_view_info.h"
-#include "chrome/browser/ui/download/download_bubble_info.h"
 #include "chrome/browser/ui/download/download_bubble_security_view_info.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/download/bubble/download_bubble_contents_view.h"
 #include "chrome/browser/ui/views/download/bubble/download_bubble_navigation_handler.h"
 #include "chrome/browser/ui/views/download/bubble/download_bubble_row_view.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/test/base/test_browser_window.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "chrome/test/views/chrome_views_test_base.h"
 #include "components/download/public/common/mock_download_item.h"
-#include "components/safe_browsing/core/common/features.h"
 #include "content/public/browser/download_item_utils.h"
 #include "content/public/test/mock_download_manager.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -37,7 +31,6 @@
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/color/color_id.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
-#include "ui/views/vector_icons.h"
 #include "ui/views/view.h"
 #include "ui/views/window/dialog_client_view.h"
 
@@ -161,11 +154,6 @@ class DownloadBubbleSecurityViewTest : public ChromeViewsTestBase {
     profile_ = testing_profile_manager_.CreateTestingProfile("testing_profile");
     EXPECT_CALL(*manager_.get(), GetBrowserContext())
         .WillRepeatedly(testing::Return(profile_.get()));
-    auto window = std::make_unique<TestBrowserWindow>();
-    Browser::CreateParams params(profile_, true);
-    params.type = Browser::TYPE_NORMAL;
-    params.window = window.release();
-    browser_ = Browser::DeprecatedCreateOwnedForTesting(params);
 
     security_view_info_ = std::make_unique<DownloadBubbleSecurityViewInfo>();
     anchor_widget_ =
@@ -182,21 +170,17 @@ class DownloadBubbleSecurityViewTest : public ChromeViewsTestBase {
         std::move(bubble_delegate),
         views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET);
     bubble_delegate_->GetWidget()->Show();
-    bubble_controller_ =
-        std::make_unique<DownloadBubbleUIController>(browser_.get());
     security_view_ = bubble_delegate_->SetContentsView(
         std::make_unique<DownloadBubbleSecurityView>(
             security_view_delegate_.get(), *security_view_info_,
             bubble_navigator_->GetWeakPtr(), bubble_delegate_));
 
     DownloadCoreServiceFactory::GetInstance()->SetTestingFactory(
-        browser_->profile(),
-        base::BindRepeating(&BuildMockDownloadCoreService));
+        profile_, base::BindRepeating(&BuildMockDownloadCoreService));
     MockDownloadCoreService* mock_dcs = static_cast<MockDownloadCoreService*>(
-        DownloadCoreServiceFactory::GetForBrowserContext(browser_->profile()));
+        DownloadCoreServiceFactory::GetForBrowserContext(profile_));
     ON_CALL(*mock_dcs, IsDownloadUiEnabled()).WillByDefault(Return(true));
-    delegate_ =
-        std::make_unique<ChromeDownloadManagerDelegate>(browser_->profile());
+    delegate_ = std::make_unique<ChromeDownloadManagerDelegate>(profile_);
     ON_CALL(*mock_dcs, GetDownloadManagerDelegate())
         .WillByDefault(Return(delegate_.get()));
 
@@ -211,17 +195,11 @@ class DownloadBubbleSecurityViewTest : public ChromeViewsTestBase {
     content::DownloadItemUtils::AttachInfoForTesting(&download_item2_, profile_,
                                                      nullptr);
 
-    const int bubble_width = ChromeLayoutProvider::Get()->GetDistanceMetric(
-        views::DISTANCE_BUBBLE_PREFERRED_WIDTH);
-    std::vector<DownloadUIModel::DownloadUIModelPtr> models;
-    models.push_back(DownloadItemModel::Wrap(&download_item1_));
-    models.push_back(DownloadItemModel::Wrap(&download_item2_));
-    row1_model_ = models[0].get();
-    row2_model_ = models[1].get();
-    info_ = std::make_unique<DownloadBubbleRowListViewInfo>(std::move(models));
-    row_list_view_ = std::make_unique<DownloadBubbleRowListView>(
-        browser_->AsWeakPtr(), bubble_controller_->GetWeakPtr(),
-        bubble_navigator_->GetWeakPtr(), bubble_width, *info_);
+    models_.clear();
+    models_.push_back(DownloadItemModel::Wrap(&download_item1_));
+    models_.push_back(DownloadItemModel::Wrap(&download_item2_));
+    row1_model_ = models_[0].get();
+    row2_model_ = models_[1].get();
 
     // Give both items a valid default security subpage
     ON_CALL(download_item1_, GetDangerType())
@@ -268,22 +246,19 @@ class DownloadBubbleSecurityViewTest : public ChromeViewsTestBase {
       security_view_delegate_;
   raw_ptr<views::BubbleDialogDelegate, DanglingUntriaged> bubble_delegate_ =
       nullptr;
-  std::unique_ptr<DownloadBubbleUIController> bubble_controller_;
   raw_ptr<DownloadBubbleSecurityView, DanglingUntriaged> security_view_ =
       nullptr;
   std::unique_ptr<views::Widget> anchor_widget_;
   std::unique_ptr<DownloadBubbleSecurityViewInfo> security_view_info_;
   std::unique_ptr<MockDownloadBubbleNavigationHandler> bubble_navigator_;
 
-  std::unique_ptr<DownloadBubbleRowListViewInfo> info_;
-  std::unique_ptr<DownloadBubbleRowListView> row_list_view_;
+  std::vector<DownloadUIModel::DownloadUIModelPtr> models_;
   raw_ptr<DownloadUIModel> row1_model_;
   raw_ptr<DownloadUIModel> row2_model_;
 
   std::unique_ptr<testing::NiceMock<content::MockDownloadManager>> manager_;
   TestingProfileManager testing_profile_manager_;
   raw_ptr<Profile> profile_ = nullptr;
-  std::unique_ptr<Browser> browser_;
 };
 
 TEST_F(DownloadBubbleSecurityViewTest,

@@ -18,6 +18,7 @@ source_set("scene_agent") {
     "//ios/chrome/app/profile",
     "//ios/chrome/browser/authentication/age_mismatch_signout/ui:prompt_mode",
     "//ios/chrome/browser/authentication/ui_bundled/signin:signin_headers",
+    "//ios/chrome/browser/scoped_ui_blocker/ui_bundled",
     "//ios/chrome/browser/shared/coordinator/scene:observing_scene_agent",
     "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
     "//ios/chrome/browser/shared/coordinator/scene/state",
@@ -53,7 +54,6 @@ source_set("coordinator") {
     "//ios/chrome/browser/authentication/age_mismatch_signout/ui:prompt_mode",
     "//ios/chrome/browser/authentication/age_mismatch_signout/ui/resources",
     "//ios/chrome/browser/authentication/ui_bundled/signin:constants",
-    "//ios/chrome/browser/scoped_ui_blocker/ui_bundled",
     "//ios/chrome/browser/shared/coordinator/alert",
     "//ios/chrome/browser/shared/coordinator/chrome_coordinator",
     "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
@@ -70,7 +70,6 @@ source_set("coordinator") {
     "//ios/chrome/browser/signin/model/avatar",
     "//ios/chrome/common/ui/promo_style",
     "//ios/web/common:web_view_creation_util",
-    "//ios/web/web_state:web_view_internal_creation_util",
   ]
 }
 
@@ -98,6 +97,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/authentication/age_mismatch_signout/ui",
     "//ios/chrome/browser/authentication/age_mismatch_signout/ui:constants",
     "//ios/chrome/browser/authentication/ui_bundled/signin:constants",
+    "//ios/chrome/browser/scoped_ui_blocker/ui_bundled:protocols",
     "//ios/chrome/browser/shared/coordinator/layout_guide:layout_guide_scene_agent",
     "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
     "//ios/chrome/browser/shared/coordinator/scene:scene_testing",
@@ -132,6 +132,7 @@ source_set("eg2_tests") {
     "//components/signin/internal/identity_manager:capabilities",
     "//components/signin/public/base",
     "//ios/chrome/app/strings",
+    "//ios/chrome/browser/authentication/account_menu/public",
     "//ios/chrome/browser/authentication/age_mismatch_signout/ui:constants",
     "//ios/chrome/browser/authentication/test:eg_test_support+eg2",
     "//ios/chrome/browser/authentication/ui_bundled/signin:constants",

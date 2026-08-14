@@ -70,7 +70,6 @@ UIColor* AccountParticleDiscBadgeBackgroundColor(UIUserInterfaceStyle style) {
     self.accessibilityIdentifier = kNTPFeedHeaderIdentityDisc;
     self.pointerInteractionEnabled = YES;
 
-    __weak __typeof(self) weakSelf = self;
     self.pointerStyleProvider = ^UIPointerStyle*(
         UIButton* button, UIPointerEffect* proposedEffect,
         UIPointerShape* proposedShape) {
@@ -86,11 +85,11 @@ UIColor* AccountParticleDiscBadgeBackgroundColor(UIUserInterfaceStyle style) {
     // Initialize with signed out state by default.
     [self setSignedOutAccountImage];
 
-    [self registerForTraitChanges:@[ UITraitUserInterfaceStyle.class ]
-                      withHandler:^(id<UITraitEnvironment> traitEnvironment,
-                                    UITraitCollection* previousCollection) {
-                        [weakSelf updateBadgeBackgroundColor];
-                      }];
+    [self registerForTraitChanges:@[
+      NewTabPageTrait.class, NewTabPageImageBackgroundTrait.class,
+      UITraitUserInterfaceStyle.class
+    ]
+                       withAction:@selector(updateIdentityDiscState)];
   }
   return self;
 }
@@ -112,8 +111,8 @@ UIColor* AccountParticleDiscBadgeBackgroundColor(UIUserInterfaceStyle style) {
 #pragma mark - UserAccountImageUpdateDelegate
 
 - (void)setSignedOutAccountImage {
-  _identityDiscImage = DefaultSymbolTemplateWithPointSize(
-      kPersonCropCircleSymbol, ntp_home::kSignedOutIdentityIconSize);
+  _identityDiscImage = SymbolTemplateWithPointSize(
+      SymbolPersonCropCircle, ntp_home::kSignedOutIdentityIconSize);
 
   _isSignedIn = NO;
 
@@ -158,15 +157,6 @@ UIColor* AccountParticleDiscBadgeBackgroundColor(UIUserInterfaceStyle style) {
   if (email.length > 0) {
     [self updateIdentityDiscAccessibilityLabelWithName:name email:email];
   }
-}
-
-- (void)updateConfigurationWithPalette:(NewTabPageColorPalette*)colorPalette {
-  if (_isSignedIn) {
-    [self updateIdentityDiscState];
-    return;
-  }
-
-  [self updateIdentityDiscStateWithPalette:colorPalette];
 }
 
 - (void)updateIdentityDiscConstraints {
@@ -216,6 +206,7 @@ UIColor* AccountParticleDiscBadgeBackgroundColor(UIUserInterfaceStyle style) {
     self.imageView.layer.cornerRadius = image.size.width / 2;
     self.imageView.layer.masksToBounds = YES;
     self.layer.cornerRadius = image.size.width;
+    [self updateBadgeBackgroundColor];
     return;
   }
 
@@ -284,8 +275,8 @@ UIColor* AccountParticleDiscBadgeBackgroundColor(UIUserInterfaceStyle style) {
 // constraints.
 - (void)setIdentityDiscErrorBadge {
   _accountDiscParticleBadgeImageView = [[UIImageView alloc]
-      initWithImage:DefaultSymbolWithPointSize(kErrorCircleFillSymbol,
-                                               kErrorSymbolPointSize)];
+      initWithImage:SymbolWithPointSize(SymbolErrorCircleFill,
+                                        kErrorSymbolPointSize)];
   _accountDiscParticleBadgeImageView.translatesAutoresizingMaskIntoConstraints =
       NO;
   _accountDiscParticleBadgeImageView.tintColor =

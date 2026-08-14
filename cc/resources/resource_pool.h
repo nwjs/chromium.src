@@ -121,9 +121,6 @@ class CC_EXPORT ResourcePool : public base::trace_event::MemoryDumpProvider {
     scoped_refptr<gpu::ClientSharedImage> shared_image() {
       return shared_image_;
     }
-    const gfx::Size& size() const { return size_; }
-    const viz::SharedImageFormat& format() const { return format_; }
-    const gfx::ColorSpace& color_space() const { return color_space_; }
 
     // If this field is set to false, the backing's SharedImage is in the
     // process of being created on a worker thread and should not be accessed on
@@ -148,6 +145,11 @@ class CC_EXPORT ResourcePool : public base::trace_event::MemoryDumpProvider {
     bool is_using_raw_draw = false;
 
    private:
+    friend class OneCopyRasterBufferProvider;
+    const gfx::Size& size() const { return size_; }
+    const viz::SharedImageFormat& format() const { return format_; }
+    const gfx::ColorSpace& color_space() const { return color_space_; }
+
     scoped_refptr<gpu::ClientSharedImage> shared_image_;
     const gfx::Size size_;
     const viz::SharedImageFormat format_;
@@ -483,10 +485,7 @@ class CC_EXPORT ResourcePool : public base::trace_event::MemoryDumpProvider {
   const base::TimeDelta resource_expiration_delay_;
   const bool disallow_non_exact_reuse_ = false;
   const int tracing_id_;
-  const std::string total_memory_track_name_;
-  const std::string in_use_memory_track_name_;
-  perfetto::CounterTrack total_memory_track_;
-  perfetto::CounterTrack in_use_memory_track_;
+  base::trace_event::TrackRegistration<perfetto::NamedTrack> tracing_track_;
 
   size_t next_resource_unique_id_ = 1;
   size_t max_memory_usage_bytes_ = 0;

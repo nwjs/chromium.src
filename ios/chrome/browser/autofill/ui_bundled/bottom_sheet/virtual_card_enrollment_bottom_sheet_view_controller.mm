@@ -45,10 +45,10 @@ CGFloat const kCreditCardCellHeight = 64;
 }  // namespace
 
 @interface VirtualCardEnrollmentBottomSheetViewController () <
+    ConfirmationAlertActionHandler,
     UITableViewDataSource,
     UITableViewDelegate,
-    UITextViewDelegate,
-    ConfirmationAlertActionHandler>
+    UITextViewDelegate>
 @end
 
 @implementation VirtualCardEnrollmentBottomSheetViewController {
@@ -205,12 +205,12 @@ CGFloat const kCreditCardCellHeight = 64;
 // UIUserInterfaceStyle (light/dark mode).
 - (UIImage*)googlePayBadgeImage {
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  NSString* symbol = base::FeatureList::IsEnabled(
-                         autofill::features::kAutofillEnableGradientGoogleLogos)
-                         ? kGooglePayV2Symbol
-                         : kGooglePaySymbol;
-  return MakeSymbolMulticolor(CustomSymbolWithPointSize(
-      symbol, kCreditCardCellHeight - 2 * kLogoPadding));
+  Symbol symbol = base::FeatureList::IsEnabled(
+                      autofill::features::kAutofillEnableGradientGoogleLogos)
+                      ? SymbolGooglePayV2
+                      : SymbolGooglePay;
+  return MakeSymbolMulticolor(
+      SymbolWithPointSize(symbol, kCreditCardCellHeight - 2 * kLogoPadding));
 #else
   return NativeImage(IDR_AUTOFILL_GOOGLE_PAY);
 #endif

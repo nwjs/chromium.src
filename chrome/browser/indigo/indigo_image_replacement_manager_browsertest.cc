@@ -7,8 +7,10 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/raw_ptr.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/metrics/user_action_tester.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
@@ -296,7 +298,7 @@ class IndigoImageReplacementManagerBrowserTest : public InProcessBrowserTest {
     ASSERT_TRUE(embedded_test_server()->Start());
     identity_test_env_adaptor_ =
         std::make_unique<IdentityTestEnvironmentProfileAdaptor>(
-            browser()->profile());
+            browser()->GetProfile());
     identity_test_env_adaptor_->identity_test_env()
         ->SetAutomaticIssueOfAccessTokens(true);
     identity_test_env_adaptor_->identity_test_env()
@@ -804,12 +806,117 @@ IN_PROC_BROWSER_TEST_F(IndigoImageReplacementManagerBrowserTest,
   auto* controller = IndigoPageActionController::From(tab);
   ASSERT_TRUE(controller);
 
-  controller->OnDeleteOriginalPhoto(nullptr);
+  controller->DeleteOriginalPhoto();
 
   fake_api_.WaitForDeleteRequest();
   fake_api_.SendDeleteSuccessResponse();
 
   mock_replacement.WaitForDisconnect();
+}
+
+IN_PROC_BROWSER_TEST_F(IndigoImageReplacementManagerBrowserTest,
+                       DeleteOriginalPhotoShowsSuccessToast) {
+  GURL test_url = embedded_test_server()->GetURL("/empty.html");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), test_url));
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  auto* tab = tabs::TabInterface::GetFromContents(web_contents);
+  ASSERT_TRUE(tab);
+  auto* controller = IndigoPageActionController::From(tab);
+  ASSERT_TRUE(controller);
+
+  base::UserActionTester user_action_tester;
+
+  controller->DeleteOriginalPhoto();
+
+  fake_api_.WaitForDeleteRequest();
+  EXPECT_EQ(
+      user_action_tester.GetActionCount("Indigo.DeleteOriginalPhoto.Trigger"),
+      1);
+
+  fake_api_.SendDeleteSuccessResponse();
+
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    ToastController* const toast_controller =
+        ToastController::MaybeGetForWebContents(web_contents);
+    return toast_controller && toast_controller->IsShowingToast();
+  }));
+
+  ToastController* const toast_controller =
+      ToastController::MaybeGetForWebContents(web_contents);
+  EXPECT_EQ(toast_controller->GetCurrentToastId(),
+            ToastId::kIndigoDeleteSuccess);
+
+  EXPECT_EQ(
+      user_action_tester.GetActionCount("Indigo.DeleteOriginalPhoto.Complete"),
+      1);
+}
+
+IN_PROC_BROWSER_TEST_F(IndigoImageReplacementManagerBrowserTest,
+                       DeleteOriginalPhotoGuardsAgainstMultipleCalls) {
+  GURL test_url = embedded_test_server()->GetURL("/empty.html");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), test_url));
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  auto* tab = tabs::TabInterface::GetFromContents(web_contents);
+  ASSERT_TRUE(tab);
+  auto* controller = IndigoPageActionController::From(tab);
+  ASSERT_TRUE(controller);
+
+  // Trigger twice in rapid succession.
+  controller->DeleteOriginalPhoto();
+  controller->DeleteOriginalPhoto();
+
+  fake_api_.WaitForDeleteRequest(0);
+  EXPECT_FALSE(fake_api_.HasReceivedDeleteRequest(1));
+
+  fake_api_.SendDeleteSuccessResponse(0);
+
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    ToastController* const toast_controller =
+        ToastController::MaybeGetForWebContents(web_contents);
+    return toast_controller && toast_controller->IsShowingToast();
+  }));
+
+  ToastController* const toast_controller =
+      ToastController::MaybeGetForWebContents(web_contents);
+  EXPECT_EQ(toast_controller->GetCurrentToastId(),
+            ToastId::kIndigoDeleteSuccess);
+
+  EXPECT_FALSE(fake_api_.HasReceivedDeleteRequest(1));
+}
+
+IN_PROC_BROWSER_TEST_F(IndigoImageReplacementManagerBrowserTest,
+                       DeleteOriginalPhotoShowsErrorToast) {
+  GURL test_url = embedded_test_server()->GetURL("/empty.html");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), test_url));
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  auto* tab = tabs::TabInterface::GetFromContents(web_contents);
+  ASSERT_TRUE(tab);
+  auto* controller = IndigoPageActionController::From(tab);
+  ASSERT_TRUE(controller);
+
+  controller->DeleteOriginalPhoto();
+
+  fake_api_.WaitForDeleteRequest();
+  fake_api_.SendDeleteErrorResponse();
+
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    ToastController* const toast_controller =
+        ToastController::MaybeGetForWebContents(web_contents);
+    return toast_controller && toast_controller->IsShowingToast();
+  }));
+
+  ToastController* const toast_controller =
+      ToastController::MaybeGetForWebContents(web_contents);
+  EXPECT_EQ(toast_controller->GetCurrentToastId(), ToastId::kIndigoDeleteError);
 }
 
 IN_PROC_BROWSER_TEST_F(IndigoImageReplacementManagerBrowserTest,

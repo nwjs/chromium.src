@@ -91,12 +91,9 @@ const char kIgnoreCertificateErrorsSPKIListValue[] =
 GlicE2ETest::GlicE2ETest(
     const std::vector<base::test::FeatureRef>& additional_enabled_features,
     const std::vector<base::test::FeatureRef>& additional_disabled_features) {
-  // TODO(crbug.com/440578183): ZeroStateSuggestionsV2 is enabled here
-  // due to the associated bug and should be removed here once fixed.
   std::vector<base::test::FeatureRef> enabled = {
       features::kGlic, features::kGlicKeyboardShortcutNewBadge,
-      features::kGlicRollout, kContextualCueing,
-      mojom::features::kZeroStateSuggestionsV2};
+      features::kGlicRollout, kContextualCueing};
   enabled.insert(enabled.end(), additional_enabled_features.begin(),
                  additional_enabled_features.end());
 
@@ -219,17 +216,18 @@ void GlicE2ETest::LoginTestAccountOrForceFakeSignin() {
     CHECK(test_account.has_value());
     sign_in_functions.TurnOnSync(*test_account, 0);
   } else {
-    SigninWithPrimaryAccount(browser()->profile());
-    SetGlicCapability(browser()->profile(), true);
+    SigninWithPrimaryAccount(browser()->GetProfile());
+    SetGlicCapability(browser()->GetProfile(), true);
   }
 }
 
 void GlicE2ETest::SetFRECompletion() {
-  ::glic::SetFRECompletion(browser()->profile(), prefs::FreStatus::kCompleted);
+  ::glic::SetFRECompletion(browser()->GetProfile(),
+                           prefs::FreStatus::kCompleted);
 }
 
 void GlicE2ETest::SetUserEnabledActuationOnWeb(bool enabled) {
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       glic::prefs::kGlicUserEnabledActuationOnWeb, enabled);
 }
 
@@ -436,7 +434,8 @@ ui::ElementIdentifier GetGlicViewElementId() {
 void GlicE2ETest::OnActiveInstanceChanged(GlicInstance* new_instance) {
   host_observation_.Reset();
   if (new_instance) {
-    host_observation_.Observe(&new_instance->host());
+    host_observation_.Observe(
+        &static_cast<GlicInstanceImpl*>(new_instance)->host());
   }
 }
 

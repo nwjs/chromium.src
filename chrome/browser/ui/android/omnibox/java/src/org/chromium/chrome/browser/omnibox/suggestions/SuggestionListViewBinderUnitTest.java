@@ -8,6 +8,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.assertThat;
 
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
@@ -15,6 +16,7 @@ import android.app.Activity;
 import android.graphics.drawable.ColorDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 
 import androidx.core.content.ContextCompat;
 
@@ -30,8 +32,12 @@ import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.omnibox.R;
+import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
+import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionListViewBinder.SuggestionListViewHolder;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
+import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
+import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -52,6 +58,7 @@ public class SuggestionListViewBinderUnitTest {
     private OmniboxSuggestionsContainer mContainer;
     private OmniboxSuggestionsDropdown mDropdown;
     private ModelList mSuggestionModels;
+    private OmniboxResourceProvider mResourceProvider;
     private final Activity mActivity = Robolectric.buildActivity(Activity.class).setup().get();
 
     @Before
@@ -61,15 +68,19 @@ public class SuggestionListViewBinderUnitTest {
                 new PropertyModel.Builder(SuggestionListProperties.ALL_KEYS)
                         .with(SuggestionListProperties.SUGGESTION_MODELS, mSuggestionModels)
                         .build();
+
         mContainer =
                 (OmniboxSuggestionsContainer)
                         LayoutInflater.from(mActivity)
                                 .inflate(R.layout.suggestions_result_container, /* root= */ null);
         mDropdown = spy(mContainer.findViewById(R.id.omnibox_suggestions_dropdown));
+
+        mResourceProvider = new OmniboxResourceProvider(mActivity, BrandedColorScheme.APP_DEFAULT);
+
         PropertyModelChangeProcessor.create(
                 mListModel,
                 new SuggestionListViewHolder(mContainer, mDropdown),
-                SuggestionListViewBinder::bind);
+                new SuggestionListViewBinder(mResourceProvider));
     }
 
     @Test
@@ -142,6 +153,7 @@ public class SuggestionListViewBinderUnitTest {
     @Test
     public void suggestionsContainerNotVisible_colorScheme() {
         mListModel.set(SuggestionListProperties.IS_LARGE_SCREEN, true);
+        mResourceProvider.setBrandedColorScheme(BrandedColorScheme.APP_DEFAULT);
         mListModel.set(SuggestionListProperties.COLOR_SCHEME, BrandedColorScheme.APP_DEFAULT);
         mListModel.set(SuggestionListProperties.CONTAINER_ALWAYS_VISIBLE, false);
         assertEquals(0, ((ColorDrawable) mContainer.getBackground()).getAlpha());
@@ -149,6 +161,7 @@ public class SuggestionListViewBinderUnitTest {
 
     @Test
     public void suggestionsContainerVisible_incognitoColorScheme() {
+        mResourceProvider.setBrandedColorScheme(BrandedColorScheme.INCOGNITO);
         mListModel.set(SuggestionListProperties.COLOR_SCHEME, BrandedColorScheme.INCOGNITO);
         mListModel.set(SuggestionListProperties.CONTAINER_ALWAYS_VISIBLE, true);
 
@@ -160,6 +173,7 @@ public class SuggestionListViewBinderUnitTest {
 
     @Test
     public void suggestionsContainerVisible_nonIncognitoColorScheme() {
+        mResourceProvider.setBrandedColorScheme(BrandedColorScheme.APP_DEFAULT);
         mListModel.set(SuggestionListProperties.COLOR_SCHEME, BrandedColorScheme.APP_DEFAULT);
         mListModel.set(SuggestionListProperties.CONTAINER_ALWAYS_VISIBLE, true);
 
@@ -167,6 +181,23 @@ public class SuggestionListViewBinderUnitTest {
         ColorDrawable background = (ColorDrawable) mContainer.getBackground();
         assertEquals(
                 ContextCompat.getColor(mActivity, R.color.omnibox_suggestion_dropdown_bg),
+                background.getColor());
+    }
+
+    @Test
+    public void suggestionsContainerVisible_popoverLayoutMode() {
+        mListModel.set(
+                SuggestionListProperties.FUSEBOX_LAYOUT_MODE,
+                FuseboxLayoutMode.SUGGESTIONS_POPOVER);
+        mResourceProvider.setBrandedColorScheme(BrandedColorScheme.INCOGNITO);
+        mListModel.set(SuggestionListProperties.COLOR_SCHEME, BrandedColorScheme.INCOGNITO);
+        mListModel.set(SuggestionListProperties.CONTAINER_ALWAYS_VISIBLE, true);
+
+        assertThat(mContainer.getBackground(), instanceOf(ColorDrawable.class));
+        ColorDrawable background = (ColorDrawable) mContainer.getBackground();
+        assertEquals(
+                OmniboxResourceProvider.getPopoverSuggestionBackgroundColor(
+                        mActivity, BrandedColorScheme.INCOGNITO),
                 background.getColor());
     }
 
@@ -185,5 +216,24 @@ public class SuggestionListViewBinderUnitTest {
 
         mListModel.set(SuggestionListProperties.ALLOW_PARKING_AT_SENTINEL, false);
         verify(mDropdown).setAllowParkingAtSentinel(false);
+    }
+
+    @Test
+    public void applyMarginForLeftSideBarProperty_updatesContainerMargin() {
+        int widthPx = ViewUtils.dpToPx(mActivity, VerticalTabUtils.SIDE_UI_CONTAINER_WIDTH_DP);
+        int collapsedWidthPx =
+                ViewUtils.dpToPx(mActivity, VerticalTabUtils.SIDE_UI_CONTAINER_COLLAPSED_WIDTH_DP);
+
+        mListModel.set(SuggestionListProperties.APPLY_MARGIN_FOR_LEFT_SIDE_BAR, true);
+        mListModel.set(SuggestionListProperties.LEFT_SIDE_BAR_MARGIN_PX, widthPx);
+        ViewGroup.MarginLayoutParams layoutParams =
+                (ViewGroup.MarginLayoutParams) mContainer.getLayoutParams();
+        assertNotNull(layoutParams);
+        assertEquals(widthPx, layoutParams.leftMargin);
+
+        mListModel.set(SuggestionListProperties.LEFT_SIDE_BAR_MARGIN_PX, collapsedWidthPx);
+        layoutParams = (ViewGroup.MarginLayoutParams) mContainer.getLayoutParams();
+        assertNotNull(layoutParams);
+        assertEquals(collapsedWidthPx, layoutParams.leftMargin);
     }
 }

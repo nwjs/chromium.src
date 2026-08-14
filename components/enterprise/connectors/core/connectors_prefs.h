@@ -36,6 +36,9 @@ extern const char kOnPrintPref[];
 // Pref that maps to the "OnTextCopiedEnterpriseConnector" policy.
 extern const char kOnTextCopiedPref[];
 
+// Pref that maps to the "OnNetworkRequestEnterpriseConnector" policy.
+extern const char kOnNetworkRequestPref[];
+
 #if BUILDFLAG(IS_CHROMEOS)
 // Pref that maps to the "OnFileTransferEnterpriseConnector" policy.
 extern const char kOnFileTransferPref[];
@@ -57,6 +60,7 @@ extern const char kOnFileDownloadedScopePref[];
 extern const char kOnBulkDataEntryScopePref[];
 extern const char kOnPrintScopePref[];
 extern const char kOnTextCopiedScopePref[];
+extern const char kOnNetworkRequestScopePref[];
 #if BUILDFLAG(IS_CHROMEOS)
 extern const char kOnFileTransferScopePref[];
 #endif
@@ -67,14 +71,20 @@ inline constexpr const char kWatermarkStyleOutlineOpacityPref[] =
     "policy.watermark_style.outline_opacity";
 inline constexpr const char kWatermarkStyleFontSizePref[] =
     "policy.watermark_style.font_size";
+inline constexpr const char kWatermarkStyleTimestampTimezonePref[] =
+    "policy.watermark_style.timestamp_timezone";
 inline constexpr const char kWatermarkStyleFillOpacityFieldName[] =
     "fill_opacity";
 inline constexpr const char kWatermarkStyleOutlineOpacityFieldName[] =
     "outline_opacity";
 inline constexpr const char kWatermarkStyleFontSizeFieldName[] = "font_size";
+inline constexpr const char kWatermarkStyleTimestampTimezoneFieldName[] =
+    "timestamp_timezone";
 inline constexpr int kWatermarkStyleFillOpacityDefault = 4;
 inline constexpr int kWatermarkStyleOutlineOpacityDefault = 6;
 inline constexpr int kWatermarkStyleFontSizeDefault = 24;
+inline constexpr const char kWatermarkStyleTimestampTimezoneDefault[] =
+    "user_device";
 
 inline constexpr char kEnterpriseRealTimeUrlCheckScope[] =
     "safebrowsing.enterprise_real_time_url_check_scope";

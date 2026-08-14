@@ -20,7 +20,6 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
@@ -58,9 +57,7 @@
 namespace web_app {
 
 WebAppBrowserTestBase::WebAppBrowserTestBase()
-    : WebAppBrowserTestBase({},
-                            {omnibox::internal::kWebUIOmniboxPopup,
-                             omnibox::internal::kWebUIOmniboxAimPopup}) {}
+    : WebAppBrowserTestBase({}, {}) {}
 
 WebAppBrowserTestBase::WebAppBrowserTestBase(
     const std::vector<base::test::FeatureRef>& enabled_features,
@@ -364,7 +361,7 @@ void WebAppBrowserTestBase::SetUpCommandLine(base::CommandLine* command_line) {
 
 void WebAppBrowserTestBase::PreRunTestOnMainThread() {
   WebAppBrowserTestBaseParent::PreRunTestOnMainThread();
-  browser_profile_ = browser()->profile()->GetWeakPtr();
+  browser_profile_ = browser()->GetProfile()->GetWeakPtr();
 }
 
 void WebAppBrowserTestBase::SetUpOnMainThread() {
@@ -379,7 +376,7 @@ void WebAppBrowserTestBase::SetUpOnMainThread() {
   cert_verifier_.mock_cert_verifier()->set_default_result(net::OK);
 
   web_app::test::WaitUntilReady(
-      web_app::WebAppProvider::GetForTest(browser()->profile()));
+      web_app::WebAppProvider::GetForTest(browser()->GetProfile()));
 }
 
 }  // namespace web_app

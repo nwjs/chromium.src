@@ -33,6 +33,7 @@ import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestrator;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestratorFactory;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
@@ -313,7 +314,12 @@ public abstract class TabOverflowMenuCoordinator<T>
         menuHolder.show();
 
         mHierarchicalMenuController.setupFlyoutController(
-                /* flyoutHandler= */ this, menuHolder, /* drillDownOverrideValue= */ null);
+                /* flyoutHandler= */ this,
+                menuHolder,
+                menuHolder::setOnScrollChangeListener,
+                /* drillDownOverrideValue= */ null);
+        mHierarchicalMenuController.setupBackPressBehaviorForPopupWindow(
+                menuHolder.getContentView(), this::dismiss);
     }
 
     /**
@@ -421,6 +427,18 @@ public abstract class TabOverflowMenuCoordinator<T>
         }
     }
 
+    /** Forces the underlying main menu popup window to update its layout position. */
+    protected void updateMenuLayout() {
+        FlyoutController<TabOverflowMenuHolder<T>> controller =
+                mHierarchicalMenuController.getFlyoutController();
+        if (controller != null && controller.getMainPopup() != null) {
+            AnchoredPopupWindow menuWindow = controller.getMainPopup().getMenuWindow();
+            if (menuWindow != null) {
+                menuWindow.onRectChanged();
+            }
+        }
+    }
+
     public @Nullable ModelList getModelListForTesting() {
         FlyoutController<TabOverflowMenuHolder<T>> controller =
                 mHierarchicalMenuController.getFlyoutController();
@@ -472,9 +490,15 @@ public abstract class TabOverflowMenuCoordinator<T>
         }
         List<ListItem> submenuItems = new ArrayList<>();
         if (allowMoveToNewWindow) {
+            Profile profile = mTabModelSupplier.get().getProfile();
+            boolean isIncognitoForced = profile != null && IncognitoUtils.isIncognitoModeForced(profile);
             submenuItems.add(
                     new ListItemBuilder()
-                            .withTitleRes(R.string.menu_new_window)
+                            .withTitleRes(
+                                    isIncognitoForced
+                                            ? R.string.menu_new_incognito_window
+                                            : R.string.menu_new_window)
+                            .withStartIconRes(isIncognitoForced ? R.drawable.ic_domain : 0)
                             .withIsIncognito(isIncognito)
                             .withClickListener(v -> moveToNewWindow(id))
                             .build());
@@ -561,7 +585,10 @@ public abstract class TabOverflowMenuCoordinator<T>
 
     @Override
     public TabOverflowMenuHolder<T> createAndShowFlyoutPopup(
-            List<ListItem> items, View view, Runnable dismissRunnable) {
+            List<ListItem> items,
+            View view,
+            Runnable dismissRunnable,
+            View.OnScrollChangeListener scrollListener) {
         ModelList modelList = new ModelList();
         modelList.addAll(items);
 
@@ -598,6 +625,7 @@ public abstract class TabOverflowMenuCoordinator<T>
                         mActivity,
                         /* isFlyout= */ true);
 
+        menuHolder.setOnScrollChangeListener(scrollListener);
         menuHolder.show();
         return menuHolder;
     }

@@ -115,6 +115,7 @@ void ExpectIdleHistogramBucketCount(const char* histogram,
   // Release the histogram tester.
   chrome_test_util::GREYAssertErrorNil(
       [MetricsAppInterface releaseHistogramTester]);
+  [ChromeEarlGrey removeUserDefaultsObjectForKey:@"InactiveTabsTestMode"];
   [super tearDownHelper];
 }
 
@@ -693,6 +694,8 @@ void ExpectIdleHistogramBucketCount(const char* histogram,
   ExpectIdleHistogramCount(kUMATabSwitcherIdleRegularTabGridPageHistogram, 1);
   ExpectIdleHistogramBucketCount(kUMATabSwitcherIdleRegularTabGridPageHistogram,
                                  1, NO);
+  [ChromeEarlGrey
+      removeUserDefaultsObjectForKey:kInactiveTabsUserEducationShownOnceKey];
 }
 
 // Tests switching back and forth between the normal and incognito BVCs.

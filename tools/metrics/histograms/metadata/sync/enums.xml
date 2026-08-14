@@ -381,7 +381,7 @@ chromium-metrics-reviews@google.com.
   <int value="107" label="CrossDeviceTipsHomeModuleEnabled"/>
   <int value="108" label="CrossDeviceMagicStackHomeModuleEnabled"/>
   <int value="109" label="ShowAiModeOmniboxButton"/>
-  <int value="110" label="AutofillAiSyncedOptInStatus"/>
+  <int value="110" label="(obsolete) AutofillAiSyncedOptInStatus"/>
   <int value="111" label="iOSPromoReminder"/>
   <int value="112" label="AutofillAiReauthBeforeViewingSensitiveData"/>
   <int value="113" label="(obsolete) DriveDisclaimerAccepted"/>
@@ -393,6 +393,7 @@ chromium-metrics-reviews@google.com.
   <int value="119" label="AutofillGmailOtpFillingEnabled"/>
   <int value="120" label="AutofillGmailOtpFillingActivationDismissalTimestamp"/>
   <int value="121" label="DriveConsentState"/>
+  <int value="122" label="AutofillAiPrivateInferenceOptInStatus"/>
 <!-- LINT.ThenChange(/components/sync_preferences/common_syncable_prefs_database.cc:CommonSyncablePref)-->
 
 <!-- LINT.IfChange(ChromeSyncablePref) -->
@@ -804,7 +805,7 @@ chromium-metrics-reviews@google.com.
   <int value="100369" label="PinContextualTaskButton"/>
   <int value="100370" label="AccessibilityReadAnythingOmniboxChipIgnoredCount"/>
   <int value="100371" label="AccessibilityReadAnythingLineFocus"/>
-  <int value="100372" label="ProjectsPanelEntrypointEnabled"/>
+  <int value="100372" label="OrganizerPanelEntrypointEnabled"/>
   <int value="100373" label="iOSTabGroupsPromoLastImpressionTimestamp"/>
   <int value="100374" label="iOSTabGroupsPromoImpressionsCounter"/>
   <int value="100375" label="iOSTabGroupsPromoOptOut"/>
@@ -819,6 +820,8 @@ chromium-metrics-reviews@google.com.
   <int value="100383"
       label="ProfileContentSettingsPartitionedExceptionsInlineCueMenu"/>
   <int value="100384" label="ProfileDefaultContentSettingValuesInlineCueMenu"/>
+  <int value="100385" label="ExtensionsPinnedByDefault"/>
+  <int value="100386" label="AudioFocusEnforcementEnabled"/>
 <!-- LINT.ThenChange(/chrome/browser/sync/prefs/chrome_syncable_prefs_database.cc:ChromeSyncablePref)-->
 
 <!-- LINT.IfChange(IosSyncablePref) -->
@@ -840,6 +843,10 @@ chromium-metrics-reviews@google.com.
   <int value="200014" label="LevelUpCompletedTasks"/>
   <int value="200015" label="LevelUpHighestLevel"/>
   <int value="200016" label="LevelUpUIEnabled"/>
+  <int value="200017" label="LevelUpTabsDeclutteredStat"/>
+  <int value="200018" label="LevelUpTypingSavedStat"/>
+  <int value="200019" label="LevelUpPasswordsVerifiedStat"/>
+  <int value="200020" label="LevelUpPhotoSearchesPerformedStat"/>
 <!-- LINT.ThenChange(/ios/chrome/browser/sync/model/prefs/ios_chrome_syncable_prefs_database.cc:IosSyncablePref)-->
 
 </enum>
@@ -1049,6 +1056,9 @@ chromium-metrics-reviews@google.com.
   <int value="78" label="Themes (iOS)"/>
   <int value="79" label="(Obsolete) Accessibility Annotation"/>
   <int value="80" label="Themes (Android)"/>
+  <int value="81" label="Encrypted Tab Context Container"/>
+  <int value="82" label="Encrypted Tab Context Item"/>
+  <int value="83" label="Notebook"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/sync/base/data_type.h:SyncDataTypes) -->
@@ -1488,6 +1498,18 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Unknown reason"/>
 </enum>
 
+<!-- LINT.IfChange(SyncMetadataConsistency) -->
+
+<enum name="SyncMetadataConsistency">
+  <int value="0" label="Metadata consistent"/>
+  <int value="1" label="Cache GUID mismatch"/>
+  <int value="2" label="Data type ID mismatch"/>
+  <int value="3" label="Empty persisted authenticated Gaia ID"/>
+  <int value="4" label="Authenticated Gaia ID mismatch"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/sync/model/client_tag_based_data_type_processor.cc:SyncMetadataConsistency) -->
+
 <!-- LINT.IfChange(SyncModelError) -->
 
 <enum name="SyncModelError">
@@ -1679,6 +1701,7 @@ chromium-metrics-reviews@google.com.
   <int value="190" label="kAutofillValuableMetadataFailedToLoadMetadata"/>
   <int value="191" label="kDataTypeControllerInFailedState"/>
   <int value="192" label="kBookmarksLocalCountExceededLimitAfterInitialMerge"/>
+  <int value="193" label="kTabContextContainerFailedToDeserializeSpecifics"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/sync/model/model_error.h:Type) -->

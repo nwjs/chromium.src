@@ -21,45 +21,46 @@
 
 namespace blink {
 
+class Document;
 class Image;
 class ImagePaintTimingDetector;
-class ImageRecord;
 class ImageResourceContent;
 class LayoutBoxModelObject;
 class LayoutObject;
-class LocalFrameView;
-class Node;
-class PropertyTreeStateOrAlias;
 class MediaTiming;
+class Node;
+class PaintTiming;
+class PropertyTreeStateOrAlias;
+class StyleFetchedImage;
+class StyleImage;
 class TextPaintTimingDetector;
-class TextRecord;
 class StyleImage;
 
-// PaintTimingDetector receives signals regarding text and image paints and
-// orchestrates the functionality of more specific paint detectors
-// (ImagePaintTimingDetector and TextPaintTimingDetector), to ensure proper
-// registration and emission of LCP entries. The class has a dual role, both
-// ensuring the emission of web-exposed LCP entries, as well as sending that
-// signal towards browser metrics - UKM, UMA and potentially other forms of
-// logging implemented by chrome/.
+// `PaintTimingDetector` receives signals when text and image elements are
+// painted and forwards those signals to more specific paint detectors
+// (`ImagePaintTimingDetector` and `TextPaintTimingDetector`), which are
+// responsible for tracking paint and presentation time for contentful image and
+// text elements. This information is used for various performance metrics,
+// including Largest Contentful Paint (LCP), Interaction Contentful Paint (ICP),
+// and (text) ElementTiming.
 //
-// See also:
-// https://bit.ly/lcp-explainer
+// See also https://www.w3.org/TR/paint-timing/
 class CORE_EXPORT PaintTimingDetector
-    : public GarbageCollected<PaintTimingDetector>,
-      public LargestContentfulPaintCalculator::Delegate {
+    : public GarbageCollected<PaintTimingDetector> {
   friend class ImagePaintTimingDetectorTest;
   friend class TextPaintTimingDetectorTest;
 
  public:
-  PaintTimingDetector(LocalFrameView*);
+  static PaintTimingDetector& From(Document&);
+
+  explicit PaintTimingDetector(PaintTiming*);
 
   // Returns true if the image might ultimately be a candidate for largest
   // paint, otherwise false. When this method is called we do not know the
   // largest status for certain, because we need to wait for presentation.
   // Hence the "maybe" return value.
   static bool NotifyBackgroundImagePaint(
-      const Node&,
+      Node&,
       const Image&,
       const StyleImage&,
       const PropertyTreeStateOrAlias& current_paint_chunk_properties,
@@ -84,18 +85,10 @@ class CORE_EXPORT PaintTimingDetector
   // is attributable to an interaction.
   static void NotifyInteractionTriggeredVideoSrcChange(const LayoutObject&);
 
-  // LargestContentfulPaintCalculator::Delegate:
-  void EmitLcpPerformanceEntry(const DOMPaintTimingInfo& paint_timing_info,
-                               uint64_t paint_size,
-                               base::TimeTicks load_time,
-                               const AtomicString& id,
-                               const String& url,
-                               Element* element) override;
-  void OnLcpMetricsForReportingChanged() override;
-  bool IsHardNavigation() const override { return true; }
-  void Trace(Visitor* visitor) const override;
+  void Trace(Visitor* visitor) const;
 
   void NotifyImageFinished(const LayoutObject&, const MediaTiming*);
+  void NotifyBackgroundImageFinished(const StyleFetchedImage*);
   void NotifyImageRemoved(const LayoutObject&, const ImageResourceContent*);
   void NotifyPaintFinished();
   void NotifyInputEvent(WebInputEvent::Type);
@@ -119,10 +112,7 @@ class CORE_EXPORT PaintTimingDetector
     DCHECK(image_paint_timing_detector_);
     return *image_paint_timing_detector_;
   }
-  LargestContentfulPaintCalculator* GetLargestContentfulPaintCalculator();
-
-  void OnFramePresented(const HeapVector<Member<ImageRecord>>& image_records,
-                        const HeapVector<Member<TextRecord>>& text_records);
+  PaintTiming& GetPaintTiming() { return *paint_timing_; }
 
   // Reports the largest image and text candidates painted under non-nested 0
   // opacity layer.
@@ -137,19 +127,22 @@ class CORE_EXPORT PaintTimingDetector
   // Method called to stop recording the Largest Contentful Paint.
   void OnInputOrScroll();
 
+  // Returns the `LocalDOMWindow` associated with the relevant document, or
+  // nullptr if the associated frame is detached.
   LocalDOMWindow* DomWindow() const;
 
-  Member<LocalFrameView> frame_view_;
+  // Returns the `LocalFrame` associated with the relevant document. Must not be
+  // called after frame detach.
+  LocalFrame& GetFrame() const;
+
+  // The `PaintTiming` that this detector belongs to.
+  const Member<PaintTiming> paint_timing_;
+
   // This member lives forever because it is also used for Text Element
   // Timing.
-  Member<TextPaintTimingDetector> text_paint_timing_detector_;
+  const Member<TextPaintTimingDetector> text_paint_timing_detector_;
   // This member lives forever, to detect LCP entries for soft navigations.
-  Member<ImagePaintTimingDetector> image_paint_timing_detector_;
-
-  // This member lives for as long as the largest contentful paint is being
-  // computed. However, it is initialized lazily, so it may be nullptr because
-  // it has not yet been initialized or because we have stopped computing LCP.
-  Member<LargestContentfulPaintCalculator> largest_contentful_paint_calculator_;
+  const Member<ImagePaintTimingDetector> image_paint_timing_detector_;
 
   // Set when first notified about an input or scroll event.
   bool did_notify_first_input_or_scroll_ = false;

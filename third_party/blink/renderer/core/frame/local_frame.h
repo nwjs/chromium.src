@@ -120,8 +120,8 @@ class SharedURLLoaderFactory;
 namespace blink {
 
 class AdTracker;
+class ScriptInitiationMonitor;
 class AssociatedInterfaceProvider;
-class AttributionSrcLoader;
 class AuditsIssue;
 class BackgroundColorPaintImageGenerator;
 class BoxShadowPaintImageGenerator;
@@ -134,6 +134,7 @@ class Editor;
 class Element;
 class EventHandler;
 class EventHandlerRegistry;
+class EventTarget;
 class FrameConsole;
 class FrameOverlay;
 class FrameSelection;
@@ -163,22 +164,22 @@ class StyleEnvironmentVariables;
 class SystemClipboard;
 class TextFragmentHandler;
 class TextSuggestionController;
+class URLLoader;
 class VirtualKeyboardOverlayChangedObserver;
 class WebAutofillClient;
 class WebContentSettingsClient;
 class WebInputEventAttribution;
 class WebPluginContainerImpl;
 class WebPrescientNetworking;
-class URLLoader;
+class WindowControlsOverlayChangedDelegate;
+enum class BackForwardCacheAware;
+enum class MediaValueChange;
 struct BlinkTransferableMessage;
 struct WebScriptSource;
-class WindowControlsOverlayChangedDelegate;
 
 namespace v8_compile_hints {
 class V8LocalCompileHintsProducer;
 }  // namespace v8_compile_hints
-
-enum class BackForwardCacheAware;
 
 extern template class CORE_EXTERN_TEMPLATE_EXPORT Supplement<LocalFrame>;
 
@@ -540,11 +541,10 @@ class CORE_EXPORT LocalFrame final
   }
   IdlenessDetector* GetIdlenessDetector() { return idleness_detector_.Get(); }
   AdTracker* GetAdTracker() { return ad_tracker_.Get(); }
+  ScriptInitiationMonitor* GetScriptInitiationMonitor() const;
+  ScriptInitiationMonitor* GetOrCreateScriptInitiationMonitor();
   void SetAdTrackerForTesting(AdTracker* ad_tracker);
   LCPScriptObserver* GetScriptObserver() { return script_observer_.Get(); }
-  AttributionSrcLoader* GetAttributionSrcLoader() {
-    return attribution_src_loader_.Get();
-  }
 
   enum class LazyLoadImageSetting { kDisabled, kEnabledExplicit };
   // Returns the enabled state of lazyloading of images.
@@ -864,9 +864,15 @@ class CORE_EXPORT LocalFrame final
   // to FrameFirstPaint.
   void OnFirstPaint(bool text_painted, bool image_painted);
 
-  // Invoked on first contentful paint on this frame.
-  void OnFirstContentfulPaint(const base::TimeTicks& paint_time,
-                              const base::TimeTicks& navigation_time);
+  // Invoked on first contentful paint on this frame. `presentation_time` is the
+  // renderer-side presentation timestamp of the first contentful paint.
+  void OnFirstContentfulPaint(const base::TimeTicks& presentation_time);
+
+  // Invoked when the outermost main frame's largest contentful paint candidate
+  // changed. May be invoked multiple times as larger elements paint.
+  // `presentation_time` is the renderer-side presentation timestamp of the
+  // current largest contentful paint candidate.
+  void OnLargestContentfulPaint(const base::TimeTicks& presentation_time);
 
   void WriteIntoTrace(perfetto::TracedValue ctx) const;
 
@@ -970,9 +976,6 @@ class CORE_EXPORT LocalFrame final
 
   bool AllowStorageAccessSyncAndNotify(
       blink::WebContentSettingsClient::StorageType storage_type);
-
-  // TODO(crbug.com/351354996): Remove this after the refactor is completed.
-  void NotifyFrameVisibilityChanged(mojom::blink::FrameVisibility visibility);
 
   void AddVisibilityObserver(FrameVisibilityObserver* observer);
   void RemoveVisibilityObserver(FrameVisibilityObserver* observer);
@@ -1120,9 +1123,9 @@ class CORE_EXPORT LocalFrame final
   Member<PerformanceMonitor> performance_monitor_;
 
   Member<AdTracker> ad_tracker_;
+  Member<ScriptInitiationMonitor> script_initiation_monitor_;
   Member<IdlenessDetector> idleness_detector_;
   base::OnceClosureList network_idle_callbacks_;
-  Member<AttributionSrcLoader> attribution_src_loader_;
   Member<InspectorIssueReporter> inspector_issue_reporter_;
   Member<InspectorTraceEvents> inspector_trace_events_;
   // Access content_capture_manager_ through GetOrResetContentCaptureManager()

@@ -91,14 +91,7 @@ class AppMenuItemViewBinder {
                 iconSupplier.get();
             }
         } else if (key == AppMenuItemProperties.CLICK_HANDLER) {
-            view.setOnTouchListener(
-                    new OnPeripheralClickListener(
-                            view,
-                            triggeringMotion ->
-                                    model.get(AppMenuItemProperties.CLICK_HANDLER)
-                                            .onItemClick(model, triggeringMotion)));
-            view.setOnClickListener(
-                    v -> model.get(AppMenuItemProperties.CLICK_HANDLER).onItemClick(model));
+            setupClickHandler(view, model);
         } else if (key == AppMenuItemProperties.HOVER_LISTENER) {
             view.setOnHoverListener(model.get(AppMenuItemProperties.HOVER_LISTENER));
         } else if (key == AppMenuItemProperties.HAS_HOVER_BACKGROUND) {
@@ -120,6 +113,26 @@ class AppMenuItemViewBinder {
     }
 
     /* package */ static void bindTitleButtonItem(PropertyModel model, View view, PropertyKey key) {
+        if (key == AppMenuItemProperties.CLICK_HANDLER) {
+            View titleContainer = view.findViewById(R.id.menu_item_container);
+            if (titleContainer != null) {
+                // Route click and touch listeners directly to the title container so that the
+                // primary text container and secondary action buttons act as independent focus and
+                // click targets for keyboard, D-pad, and touch navigation.
+                setupClickHandler(titleContainer, model);
+                return;
+            }
+        } else if (key == AppMenuItemProperties.ENABLED) {
+            boolean enabled = model.get(AppMenuItemProperties.ENABLED);
+            view.setEnabled(enabled);
+            View titleContainer = view.findViewById(R.id.menu_item_container);
+            if (titleContainer != null) {
+                titleContainer.setEnabled(enabled);
+                titleContainer.setFocusable(enabled);
+                return;
+            }
+        }
+        // All other properties are handled by the standard binder.
         bindStandardItem(model, view, key);
 
         if (key == AppMenuItemProperties.ADDITIONAL_ICONS) {
@@ -180,7 +193,7 @@ class AppMenuItemViewBinder {
                 int[] attrs = {android.R.attr.paddingEnd};
                 @SuppressLint("ResourceType")
                 TypedArray ta =
-                        view.getContext().obtainStyledAttributes(R.style.AppMenuItem, attrs);
+                        view.getContext().obtainStyledAttributes(R.style.OverflowMenuItem, attrs);
                 int paddingEnd = ta.getDimensionPixelSize(0, 0);
                 titleContainer.setPaddingRelative(
                         titleContainer.getPaddingStart(),
@@ -194,20 +207,6 @@ class AppMenuItemViewBinder {
 
     /* package */ static void bindIconRowItem(PropertyModel model, View view, PropertyKey key) {
         if (key == AppMenuItemProperties.ADDITIONAL_ICONS) {
-            // Obtain from the current theme a typed array containing all the attributes.
-            TypedArray typedArray =
-                    view.getContext().getTheme().obtainStyledAttributes(R.styleable.AppMenuIconRow);
-            int drawableResId =
-                    typedArray.getResourceId(
-                            R.styleable.AppMenuIconRow_overflowMenuActionBarBgDrawable, 0);
-
-            typedArray.recycle();
-
-            // Set the background by resolving it from the current theme.
-            if (drawableResId != 0) {
-                view.setBackgroundResource(drawableResId);
-            }
-
             ModelList iconList = model.get(AppMenuItemProperties.ADDITIONAL_ICONS);
 
             AppMenuClickHandler appMenuClickHandler =
@@ -259,12 +258,12 @@ class AppMenuItemViewBinder {
     }
 
     /* package */ static @Px int getIconRowItemPixelHeight(Context context, PropertyModel model) {
-        TypedArray a =
-                context.obtainStyledAttributes(
-                        new int[] {R.attr.minInteractTargetSize, R.attr.appMenuIconRowPadding});
+        TypedArray a = context.obtainStyledAttributes(new int[] {R.attr.minInteractTargetSize});
         int itemRowHeight = a.getDimensionPixelSize(0, 0);
-        int iconRowPadding = a.getDimensionPixelSize(1, 0);
         a.recycle();
+        int iconRowPadding =
+                context.getResources()
+                        .getDimensionPixelSize(R.dimen.overflow_menu_icon_row_padding);
 
         return itemRowHeight + 2 * iconRowPadding;
     }
@@ -392,6 +391,25 @@ class AppMenuItemViewBinder {
         }
 
         setupMenuButton(button, model, appMenuClickHandler);
+    }
+
+    /**
+     * Binds click and peripheral touch listeners to the view using the model's click handler.
+     *
+     * @param view The view to receive touch and click events.
+     * @param model The property model containing the {@link AppMenuItemProperties#CLICK_HANDLER}.
+     */
+    /* package */ static void setupClickHandler(View view, PropertyModel model) {
+        AppMenuClickHandler clickHandler = model.get(AppMenuItemProperties.CLICK_HANDLER);
+        // OnPeripheralClickListener intercepts mouse and trackpad peripheral click events to pass
+        // MotionEventInfo (e.g. click coordinates and input device source) to the click handler.
+        // The standard OnClickListener handles touchscreen taps, keyboard activation (Enter/Space),
+        // and accessibility events.
+        view.setOnTouchListener(
+                new OnPeripheralClickListener(
+                        view,
+                        triggeringMotion -> clickHandler.onItemClick(model, triggeringMotion)));
+        view.setOnClickListener(v -> clickHandler.onItemClick(model));
     }
 
     private static void setupMenuButton(

@@ -2,15 +2,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/config/ozone.gni")
 import("//chrome/common/features.gni")
 
 # No absolute !is_android wrapper for the whole file.
 
 source_set("browser_ui") {
   sources = [
-    "glic_actor_nudge_delegate.h",
     "glic_nudge_controller.h",
-    "glic_nudge_delegate.h",
+    "glic_split_button_controller.h",
     "glic_split_button_delegate.h",
   ]
 
@@ -28,13 +28,11 @@ source_set("browser_ui") {
 
   if (!is_android) {
     sources += [
-      "anchored_nudge_controller.h",
       "glic_actor_nudge_controller.h",
       "glic_actor_task_icon_manager.h",
       "glic_actor_task_icon_manager_factory.h",
       "glic_button_controller.h",
       "glic_iph_controller.h",
-      "glic_nudge_controller_desktop.h",
       "glic_selection_widget.h",
       "glic_tab_indicator_helper.h",
       "glic_vector_icon_manager.h",
@@ -48,37 +46,32 @@ source_set("browser_ui") {
       "//ui/base/unowned_user_data",
     ]
   } else {
-    sources += [
-      "glic_nudge_controller_android.h",
-      "glic_nudge_delegate_android.h",
-      "glic_toast.h",
-    ]
+    sources += [ "glic_toast.h" ]
     deps += [ "//components/messages/android" ]
   }
 }
 
 source_set("impl") {
   sources = [
-    "glic_actor_nudge_delegate.cc",
     "glic_nudge_controller.cc",
-    "glic_nudge_delegate.cc",
+    "glic_nudge_controller_impl.cc",
+    "glic_nudge_controller_impl.h",
+    "glic_split_button_controller.cc",
+    "glic_split_button_delegate.cc",
   ]
   if (!is_android) {
     sources += [
-      "anchored_nudge_controller.cc",
       "glic_actor_nudge_controller.cc",
       "glic_actor_task_icon_manager.cc",
       "glic_actor_task_icon_manager_factory.cc",
       "glic_button_controller.cc",
       "glic_iph_controller.cc",
-      "glic_nudge_controller_desktop.cc",
       "glic_selection_widget.cc",
       "glic_tab_indicator_helper.cc",
       "glic_vector_icon_manager.cc",
     ]
   } else {
     sources += [
-      "glic_nudge_controller_android.cc",
       "glic_nudge_delegate_android.cc",
       "glic_toast.cc",
     ]
@@ -264,6 +257,7 @@ if (!is_android) {
       "//chrome/common:chrome_features",
       "//chrome/common:non_code_constants",
       "//chrome/test:test_support_ui",
+      "//chrome/test/user_education:impl",
       "//content/test:test_support",
       "//testing/gmock",
       "//testing/gtest",
@@ -276,6 +270,9 @@ if (!is_android) {
       "//ui/views:test_support",
       "//url",
     ]
+    if (use_ozone) {
+      deps += [ "//ui/ozone" ]
+    }
   }
 
   source_set("browser_tests") {

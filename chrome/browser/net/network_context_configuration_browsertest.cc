@@ -332,35 +332,36 @@ class NetworkContextConfigurationBrowserTest
   content::StoragePartition* GetStoragePartitionForContextType(
       NetworkContextType network_context_type) {
     const auto kOnDiskConfig = content::StoragePartitionConfig::Create(
-        browser()->profile(), "foo", /*partition_name=*/"",
+        browser()->GetProfile(), "foo", /*partition_name=*/"",
         /*in_memory=*/false);
     const auto kInMemoryConfig = content::StoragePartitionConfig::Create(
-        browser()->profile(), "foo", /*partition_name=*/"", /*in_memory=*/true);
+        browser()->GetProfile(), "foo", /*partition_name=*/"",
+        /*in_memory=*/true);
 
     switch (network_context_type) {
       case NetworkContextType::kSystem:
       case NetworkContextType::kSafeBrowsing:
         NOTREACHED() << "Network context has no storage partition";
       case NetworkContextType::kProfile:
-        return browser()->profile()->GetDefaultStoragePartition();
+        return browser()->GetProfile()->GetDefaultStoragePartition();
       case NetworkContextType::kIncognitoProfile:
         DCHECK(incognito_);
-        return incognito_->profile()->GetDefaultStoragePartition();
+        return incognito_->GetProfile()->GetDefaultStoragePartition();
       case NetworkContextType::kOnDiskApp:
-        return browser()->profile()->GetStoragePartition(kOnDiskConfig);
+        return browser()->GetProfile()->GetStoragePartition(kOnDiskConfig);
       case NetworkContextType::kInMemoryApp:
-        return browser()->profile()->GetStoragePartition(kInMemoryConfig);
+        return browser()->GetProfile()->GetStoragePartition(kInMemoryConfig);
       case NetworkContextType::kOnDiskAppWithIncognitoProfile: {
         DCHECK(incognito_);
         // Note: Even though we are requesting an on-disk config, the function
         // will return an in-memory config because incognito profiles are not
         // supposed to to use on-disk storage.
         const auto kIncognitoConfig = content::StoragePartitionConfig::Create(
-            incognito_->profile(), "foo", /*partition_name=*/"",
+            incognito_->GetProfile(), "foo", /*partition_name=*/"",
             /*in_memory=*/false);
         DCHECK(kIncognitoConfig.in_memory());
 
-        return incognito_->profile()->GetStoragePartition(kIncognitoConfig);
+        return incognito_->GetProfile()->GetStoragePartition(kIncognitoConfig);
       }
     }
     NOTREACHED();
@@ -378,7 +379,7 @@ class NetworkContextConfigurationBrowserTest
             ->GetURLLoaderFactory();
       case NetworkContextType::kSafeBrowsing:
         return g_browser_process->safe_browsing_service()
-            ->GetURLLoaderFactory(browser()->profile())
+            ->GetURLLoaderFactory(browser()->GetProfile())
             .get();
       case NetworkContextType::kProfile:
       case NetworkContextType::kIncognitoProfile:
@@ -404,7 +405,7 @@ class NetworkContextConfigurationBrowserTest
             ->GetContext();
       case NetworkContextType::kSafeBrowsing:
         return g_browser_process->safe_browsing_service()->GetNetworkContext(
-            browser()->profile());
+            browser()->GetProfile());
       case NetworkContextType::kProfile:
       case NetworkContextType::kIncognitoProfile:
       case NetworkContextType::kOnDiskApp:
@@ -457,13 +458,13 @@ class NetworkContextConfigurationBrowserTest
       case NetworkContextType::kProfile:
       case NetworkContextType::kInMemoryApp:
       case NetworkContextType::kOnDiskApp:
-        return browser()->profile()->GetPrefs();
+        return browser()->GetProfile()->GetPrefs();
       case NetworkContextType::kIncognitoProfile:
       case NetworkContextType::kOnDiskAppWithIncognitoProfile:
         // Incognito actually uses the non-incognito prefs, so this should end
         // up being the same pref store as in the KProfile case.
         return browser()
-            ->profile()
+            ->GetProfile()
             ->GetPrimaryOTRProfile(/*create_if_needed=*/true)
             ->GetPrefs();
     }
@@ -488,13 +489,14 @@ class NetworkContextConfigurationBrowserTest
       case NetworkContextType::kProfile:
       case NetworkContextType::kInMemoryApp:
       case NetworkContextType::kOnDiskApp:
-        ProfileNetworkContextServiceFactory::GetForContext(browser()->profile())
+        ProfileNetworkContextServiceFactory::GetForContext(
+            browser()->GetProfile())
             ->FlushProxyConfigMonitorForTesting();
         break;
       case NetworkContextType::kIncognitoProfile:
       case NetworkContextType::kOnDiskAppWithIncognitoProfile:
         ProfileNetworkContextServiceFactory::GetForContext(
-            browser()->profile()->GetPrimaryOTRProfile(
+            browser()->GetProfile()->GetPrimaryOTRProfile(
                 /*create_if_needed=*/true))
             ->FlushProxyConfigMonitorForTesting();
         break;
@@ -643,11 +645,11 @@ class NetworkContextConfigurationBrowserTest
       case NetworkContextType::kProfile:
       case NetworkContextType::kInMemoryApp:
       case NetworkContextType::kOnDiskApp:
-        return browser()->profile();
+        return browser()->GetProfile();
       case NetworkContextType::kIncognitoProfile:
       case NetworkContextType::kOnDiskAppWithIncognitoProfile:
         DCHECK(incognito_);
-        return incognito_->profile();
+        return incognito_->GetProfile();
     }
   }
 
@@ -1026,7 +1028,7 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest, PRE_DiskCache) {
   GURL test_url = embedded_test_server()->GetURL(kCacheRandomPath);
   url::Origin test_origin = url::Origin::Create(test_url);
   base::ScopedAllowBlockingForTesting allow_blocking;
-  base::FilePath save_url_file_path = browser()->profile()->GetPath().Append(
+  base::FilePath save_url_file_path = browser()->GetProfile()->GetPath().Append(
       FILE_PATH_LITERAL("url_for_test.txt"));
 
   // Make a request whose response should be cached.
@@ -1080,7 +1082,7 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest,
 
   // Load URL from the above test body to disk.
   base::ScopedAllowBlockingForTesting allow_blocking;
-  base::FilePath save_url_file_path = browser()->profile()->GetPath().Append(
+  base::FilePath save_url_file_path = browser()->GetProfile()->GetPath().Append(
       FILE_PATH_LITERAL("url_for_test.txt"));
   std::string file_data;
   ASSERT_TRUE(ReadFileToString(save_url_file_path, &file_data));
@@ -1239,7 +1241,7 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest, PRE_Hsts) {
   // Write the URL with HSTS information to a file, so it can be loaded in the
   // next test. Have to use a file for this, since the server's port is random.
   base::ScopedAllowBlockingForTesting allow_blocking;
-  base::FilePath save_url_file_path = browser()->profile()->GetPath().Append(
+  base::FilePath save_url_file_path = browser()->GetProfile()->GetPath().Append(
       FILE_PATH_LITERAL("url_for_test.txt"));
   std::string file_data = start_url.spec();
   ASSERT_TRUE(base::WriteFile(save_url_file_path, file_data));
@@ -1257,7 +1259,7 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest, Hsts) {
     return;
   }
   base::ScopedAllowBlockingForTesting allow_blocking;
-  base::FilePath save_url_file_path = browser()->profile()->GetPath().Append(
+  base::FilePath save_url_file_path = browser()->GetProfile()->GetPath().Append(
       FILE_PATH_LITERAL("url_for_test.txt"));
   std::string file_data;
   ASSERT_TRUE(ReadFileToString(save_url_file_path, &file_data));
@@ -1353,8 +1355,8 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest,
 
   // Change AcceptLanguages preferences, and check that headers are updated.
   // First, A single language.
-  browser()->profile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
-                                              "zu");
+  browser()->GetProfile()->GetPrefs()->SetString(
+      language::prefs::kAcceptLanguages, "zu");
   FlushNetworkInterface();
   std::string accept_language2, user_agent2;
   ASSERT_TRUE(FetchHeaderEcho("accept-language", &accept_language2));
@@ -1363,8 +1365,8 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest,
   EXPECT_EQ(embedder_support::GetUserAgent(), user_agent2);
 
   // Second, a single language with locale.
-  browser()->profile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
-                                              "zu-ZA");
+  browser()->GetProfile()->GetPrefs()->SetString(
+      language::prefs::kAcceptLanguages, "zu-ZA");
   FlushNetworkInterface();
   std::string accept_language3, user_agent3;
   ASSERT_TRUE(FetchHeaderEcho("accept-language", &accept_language3));
@@ -1374,8 +1376,8 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest,
 
   // Third, a list with multiple languages. Incognito mode should return only
   // the first language's default set of languages.
-  browser()->profile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
-                                              "ar,am,en-GB,ru,zu");
+  browser()->GetProfile()->GetPrefs()->SetString(
+      language::prefs::kAcceptLanguages, "ar,am,en-GB,ru,zu");
   FlushNetworkInterface();
   std::string accept_language4;
   std::string user_agent4;
@@ -1585,7 +1587,7 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest,
   EXPECT_TRUE(GetCookies(https_server()->base_url()).empty());
 
   // Add exception, third party cookies should be allowed now.
-  CookieSettingsFactory::GetForProfile(browser()->profile())
+  CookieSettingsFactory::GetForProfile(browser()->GetProfile())
       ->SetCookieSetting(https_server()->base_url(), CONTENT_SETTING_ALLOW);
   // Set a third-party cookie. It should actually get set this time.
   SetCookie(CookieType::kThirdParty, CookiePersistenceType::kSession,
@@ -1606,7 +1608,7 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest,
   if (system)
     return;
 
-  CookieSettingsFactory::GetForProfile(browser()->profile())
+  CookieSettingsFactory::GetForProfile(browser()->GetProfile())
       ->SetDefaultCookieSetting(CONTENT_SETTING_BLOCK);
   FlushNetworkInterface();
   SetCookie(CookieType::kFirstParty, CookiePersistenceType::kSession,
@@ -1633,7 +1635,7 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest, CookieSettings) {
   EXPECT_TRUE(GetCookies(embedded_test_server()->base_url()).empty());
 
   // Set default setting to allow, cookies should be set now.
-  CookieSettingsFactory::GetForProfile(browser()->profile())
+  CookieSettingsFactory::GetForProfile(browser()->GetProfile())
       ->SetDefaultCookieSetting(CONTENT_SETTING_ALLOW);
   FlushNetworkInterface();
   SetCookie(CookieType::kFirstParty, CookiePersistenceType::kSession,
@@ -1889,26 +1891,15 @@ class WaitingHandshakeClient : public network::mojom::WebSocketHandshakeClient {
 class NetworkContextConfigurationProxySettingsBrowserTest
     : public NetworkContextConfigurationHttpPacBrowserTest {
  public:
-  const size_t kDefaultMaxConnectionsPerProxy = 64;
+  const size_t kDefaultMaxConnectionsPerProxy = 128;
 
   NetworkContextConfigurationProxySettingsBrowserTest() {
-    // Enable `kTcpSocketPoolProxyLimit`, and set to match
-    // `kDefaultMaxConnectionsPerProxy` to prevent changes via field trials.
     // Disable `kPermitTcpSocketPoolConnectBackupJobs`, as backup jobs
     // cause extra connections without opening new WebSockets, breaking tests.
     // Disable `kTcpSocketPoolLimitRandomization`, as randomization makes size
     // expectations impossible to test.
     scoped_feature_list_.InitWithFeaturesAndParameters(
-        /*enabled_features=*/
-        {
-            {net::features::kTcpSocketPoolProxyLimit,
-             {
-                 {"TcpSocketPoolProxyLimitNormal",
-                  base::NumberToString(kDefaultMaxConnectionsPerProxy)},
-                 {"TcpSocketPoolProxyLimitWebSocket",
-                  base::NumberToString(kDefaultMaxConnectionsPerProxy)},
-             }},
-        },
+        /*enabled_features=*/{},
         /*disabled_features=*/{
             net::features::kPermitTcpSocketPoolConnectBackupJobs,
             net::features::kTcpSocketPoolLimitRandomization,

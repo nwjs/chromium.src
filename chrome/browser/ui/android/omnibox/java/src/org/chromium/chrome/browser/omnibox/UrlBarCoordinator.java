@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.omnibox;
 
 import android.content.Context;
 import android.view.ActionMode;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnKeyListener;
 import android.view.View.OnLongClickListener;
@@ -239,6 +240,16 @@ public class UrlBarCoordinator
         mMediator.setAccessibilityWarning(warning);
     }
 
+    /** Set the state of "Always Show AI Mode" option. */
+    public void setShowAiMode(boolean showAiMode) {
+        mModel.set(UrlBarProperties.IS_AI_MODE_PREF_ENABLED, showAiMode);
+    }
+
+    /** Set the callback when "Always Show AI Mode" is toggled. */
+    public void setShowAiModeCallback(@Nullable Callback<Boolean> callback) {
+        mModel.set(UrlBarProperties.AI_MODE_PREF_TOGGLE_CALLBACK, callback);
+    }
+
     /**
      * Clears text selection, which also has the side effect of dismissing the Android selection
      * handles and context menu if showing.
@@ -462,5 +473,14 @@ public class UrlBarCoordinator
         // reparenting and the target post-reparenting focus is false, there is no apparent change
         // from the View's point of view, but the mediator still needs to know.
         onUrlFocusChangeInternal(new UrlBarFocusChangeInfo(postReparentingFocus, View.FOCUS_DOWN));
+    }
+
+    public void maybeAcceptInlineSuggestion(KeyEvent event) {
+        mUrlBar.maybeAcceptInlineSuggestion(event);
+    }
+
+    /** Returns whether the url bar has inline autocomplete text. */
+    public boolean hasAutocomplete() {
+        return mUrlBar.hasAutocomplete();
     }
 }

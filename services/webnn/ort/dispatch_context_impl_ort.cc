@@ -6,6 +6,7 @@
 
 #include "base/containers/flat_map.h"
 #include "base/logging.h"
+#include "services/webnn/error.h"
 #include "services/webnn/gpu_task_scheduler.h"
 #include "services/webnn/ort/graph_impl_ort.h"
 #include "services/webnn/ort/ort_data_type.h"
@@ -25,7 +26,6 @@ DispatchContextImplOrt::Create(
     mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
     mojo::ScopedDataPipeProducerHandle read_tensor_producer,
     scoped_refptr<Environment> env,
-    scoped_refptr<SessionOptions> session_options,
     std::unique_ptr<GpuTaskScheduler> gpu_task_scheduler,
     scoped_refptr<gpu::MemoryTracker> memory_tracker,
     scoped_refptr<base::SingleThreadTaskRunner> owning_task_runner,
@@ -35,16 +35,17 @@ DispatchContextImplOrt::Create(
     EpDeviceInfo target_device) {
   DCHECK(owning_task_runner->RunsTasksInCurrentSequence());
 
+  // Create the session options on the target EP device.
+  auto session_options = ort::SessionOptions::Create(target_device, env);
+
   auto task_runner = owning_task_runner;
   OrtHardwareDeviceType device_type = WebnnToOrtDeviceType(options->device);
   const EpWorkarounds ep_workarounds = env->GetEpWorkarounds(device_type);
-  bool dequantize_linear_input_support_int32 = Environment::IsEpDevice(
-      session_options->first_selected_device(), {kOpenVINOExecutionProvider});
 
   std::unique_ptr<WebNNContextImpl, OnTaskRunnerDeleter> context_impl(
       new DispatchContextImplOrt(
           std::move(receiver), std::move(context_provider),
-          std::move(ep_workarounds), dequantize_linear_input_support_int32,
+          std::move(ep_workarounds),
           std::move(options), std::move(session_options),
           std::move(write_tensor_consumer), std::move(read_tensor_producer),
           std::move(env), std::move(gpu_task_scheduler),
@@ -59,7 +60,6 @@ DispatchContextImplOrt::DispatchContextImplOrt(
     mojo::PendingReceiver<mojom::WebNNContext> receiver,
     base::WeakPtr<WebNNContextProviderImpl> context_provider,
     const EpWorkarounds& ep_workarounds,
-    bool dequantize_linear_input_support_int32,
     mojom::CreateContextOptionsPtr options,
     scoped_refptr<SessionOptions> session_options,
     mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
@@ -74,7 +74,6 @@ DispatchContextImplOrt::DispatchContextImplOrt(
     : ContextImplOrt(std::move(receiver),
                      std::move(context_provider),
                      ep_workarounds,
-                     dequantize_linear_input_support_int32,
                      std::move(options),
                      std::move(session_options),
                      std::move(write_tensor_consumer),
@@ -101,6 +100,16 @@ void DispatchContextImplOrt::BindModelLoader(
     mojo::PendingReceiver<mojom::WebNNModelLoader> receiver) {
   model_loader_receiver_.reset();
   model_loader_receiver_.Bind(std::move(receiver));
+}
+
+void DispatchContextImplOrt::CreateGraphBuilder(
+    mojo::PendingReceiver<mojom::WebNNGraphBuilder> /*receiver*/) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // A dispatch context only exists when the Compiler process is enabled, so
+  // graph building must go through the Compiler process. A compromised
+  // renderer could try to bypass it by sending CreateGraphBuilder directly
+  // to this context; reject it unconditionally.
+  ReportBadMessageAndDisconnect(kBadMessageGraphBuilderBypassesCompiler);
 }
 
 void DispatchContextImplOrt::RequestCompilerContext(
@@ -143,7 +152,6 @@ void DispatchContextImplOrt::RequestCompilerContext(
 
 void DispatchContextImplOrt::LoadCompiledGraph(
     mojom::CompiledGraphPtr compiled_graph,
-    mojo::PendingReceiver<mojom::WebNNGraph> graph_receiver,
     LoadCompiledGraphCallback callback) {
   // Split CompiledOperandDescriptor maps into separate binding name maps
   // and descriptor maps for ComputeResourceInfo and session creation.
@@ -182,8 +190,8 @@ void DispatchContextImplOrt::LoadCompiledGraph(
       base::PassKey<DispatchContextImplOrt>());
 
   auto result = GraphImplOrt::CreateSessionFromCompiledGraph(
-      std::move(graph_receiver), *this, std::move(compute_resource_info),
-      session_options(), env(), std::move(compiled_graph->compiled_model_data),
+      *this, std::move(compute_resource_info), session_options(), env(),
+      std::move(compiled_graph->compiled_model_data),
       std::move(input_binding_names), std::move(output_binding_names));
 
   if (!result.has_value()) {

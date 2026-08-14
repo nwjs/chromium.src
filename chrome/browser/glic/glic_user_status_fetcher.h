@@ -21,11 +21,11 @@
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "url/gurl.h"
 
-namespace glic {
+namespace optimization_guide::prefs {
+enum class GeminiSettingsPolicyState;
+}  // namespace optimization_guide::prefs
 
-namespace prefs {
-enum class SettingsPolicyState;
-}
+namespace glic {
 
 // This class, GlicUserStatusFetcher, is responsible for asynchronously fetching
 // the Glic user status from a Google-owned API. The response is processed in a
@@ -128,9 +128,10 @@ class GlicUserStatusFetcher : public signin::IdentityManager::Observer {
   // was not yet available, and it should be retried when it becomes available.
   bool is_user_status_waiting_for_refresh_token_ = false;
 
-  // Stores the previous value of `prefs::kGeminiSettings` to detect
-  // transitions.
-  glic::prefs::SettingsPolicyState cached_gemini_settings_value_;
+  // Stores the previous value of `optimization_guide::prefs::kGeminiSettings`
+  // to detect transitions.
+  optimization_guide::prefs::GeminiSettingsPolicyState
+      cached_gemini_settings_value_;
 
   // Used to find the account managed status of the primary account.
   // A finder will exist only if the status is pending.

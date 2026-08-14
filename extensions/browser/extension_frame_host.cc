@@ -294,7 +294,7 @@ void ExtensionFrameHost::OpenChannelToTab(
 void ExtensionFrameHost::RequestSync(mojom::RequestParamsPtr params,
                                      RequestSyncCallback callback) {
   content::RenderFrameHost* render_frame_host =
-      receivers_.GetCurrentTargetFrame();
+      &receivers_.CurrentTargetFrame();
   base::ListValue list_value;
   bool success = false;
   std::string error;
@@ -314,7 +314,7 @@ bool ExtensionFrameHost::RequestSync(mojom::RequestParamsPtr params,
   //  if (!response->GetAsList(list_value))
   //  return false;
   content::RenderFrameHost* render_frame_host =
-      receivers_.GetCurrentTargetFrame();
+      &receivers_.CurrentTargetFrame();
   ExtensionWebContentsObserver::GetForWebContents(web_contents_)
       ->dispatcher()
     ->DispatchSync(std::move(params), success, list_value, error,

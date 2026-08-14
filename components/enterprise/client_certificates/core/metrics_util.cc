@@ -104,6 +104,16 @@ void LogProvisioningContext(const std::string& logging_context,
       base::TimeTicks::Now() - context.start_time);
 }
 
+void LogManagedIdentityDeletion(const std::string& logging_context,
+                                bool success) {
+  static constexpr char kManagedIdentityDeletionHistogram[] =
+      "Enterprise.ClientCertificate.%s.Provisioning.Cleanup.Success";
+  base::UmaHistogramBoolean(
+      base::StringPrintf(kManagedIdentityDeletionHistogram,
+                         logging_context.c_str()),
+      success);
+}
+
 void LogPrivateKeyCreationSource(const std::string& logging_context,
                                  PrivateKeySource source) {
   static constexpr char kCreatePrivateKeySourceHistogram[] =
@@ -132,5 +142,27 @@ void RecordClankKeySecurityLevel(BrowserKey::SecurityLevel security_level) {
                                 security_level);
 }
 #endif  // BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_CHROMEOS)
+void RecordKcerHardwareKeyGenerationError(kcer::Error error) {
+  base::UmaHistogramEnumeration(
+      "Enterprise.ClientCertificate.Ash.HardwareKeyGenerationError", error);
+}
+
+void RecordKcerKeyTaggingError(kcer::Error error) {
+  base::UmaHistogramEnumeration(
+      "Enterprise.ClientCertificate.Ash.KeyTaggingError", error);
+}
+
+void RecordKcerCertificateImportError(kcer::Error error) {
+  base::UmaHistogramEnumeration(
+      "Enterprise.ClientCertificate.Ash.CertificateImportError", error);
+}
+
+void RecordKcerKeyRemovalError(kcer::Error error) {
+  base::UmaHistogramEnumeration(
+      "Enterprise.ClientCertificate.Ash.KeyRemovalError", error);
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 }  // namespace client_certificates

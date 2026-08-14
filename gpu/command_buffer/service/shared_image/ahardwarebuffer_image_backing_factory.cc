@@ -349,7 +349,7 @@ class AHardwareBufferImageBacking : public AndroidImageBacking {
     if (dawn_context) {
       wgpu::AHardwareBufferProperties ahb_properties;
       if (dawn_context->GetDevice().GetAHardwareBufferProperties(
-              ahb, &ahb_properties)) {
+              ahb, &ahb_properties) == wgpu::Status::Success) {
         const auto& dawn_ycbcr_info = ahb_properties.yCbCrInfo;
         if (dawn_ycbcr_info.externalFormat) {
           uint32_t format_features = VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
@@ -562,7 +562,10 @@ void AHardwareBufferImageBacking::SetClearedRect(
 
 void AHardwareBufferImageBacking::Update(
     std::unique_ptr<gfx::GpuFence> in_fence) {
-  DCHECK(!in_fence);
+  if (in_fence) {
+    gfx::GpuFenceHandle handle = in_fence->GetGpuFenceHandle().Clone();
+    write_sync_fd_ = handle.Release();
+  }
 }
 
 base::android::ScopedHardwareBufferHandle

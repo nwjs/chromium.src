@@ -17,6 +17,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/synchronization/lock.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/unguessable_token.h"
 #include "gpu/vulkan/vulkan_implementation.h"
 #include "ui/gfx/buffer_types.h"
@@ -28,6 +29,7 @@ namespace ui {
 
 class FlatlandSysmemBufferCollection;
 class FlatlandSurfaceFactory;
+class FlatlandSysmemBufferManagerTest;
 
 class FlatlandSysmemBufferManager {
  public:
@@ -56,15 +58,14 @@ class FlatlandSysmemBufferManager {
   // TODO(crbug.com/42050538): Instead of an additional
   // |register_with_flatland_allocator| bool, we can rely on |usage| to decide
   // if the buffers should be registered with Flatland or not.
-  scoped_refptr<FlatlandSysmemBufferCollection> ImportSysmemBufferCollection(
-      VkDevice vk_device,
-      zx::eventpair service_handle,
-      zx::channel sysmem_token,
-      gfx::Size size,
-      viz::SharedImageFormat format,
-      gfx::BufferUsage usage,
-      size_t min_buffer_count,
-      bool register_with_flatland_allocator);
+  void ImportSysmemBufferCollection(VkDevice vk_device,
+                                    zx::eventpair service_handle,
+                                    zx::channel sysmem_token,
+                                    gfx::Size size,
+                                    viz::SharedImageFormat format,
+                                    gfx::BufferUsage usage,
+                                    size_t min_buffer_count,
+                                    bool register_with_flatland_allocator);
 
   // Returns `SysmemBufferCollection` that corresponds to the specified
   // buffer collection `handle`, which should be the other end of the eventpair
@@ -81,14 +82,26 @@ class FlatlandSysmemBufferManager {
   }
 
  private:
+  friend class FlatlandSysmemBufferManagerTest;
+
   void RegisterCollection(
       scoped_refptr<FlatlandSysmemBufferCollection> collection);
+
+  // Registers a buffer collection with `flatland_allocator_`. May be called
+  // from any thread; the FIDL call is dispatched on the thread that bound the
+  // allocator in Initialize().
+  void RegisterWithFlatlandAllocator(
+      fuchsia::ui::composition::RegisterBufferCollectionArgs args);
 
   void OnCollectionReleased(zx_koid_t id);
 
   const raw_ptr<FlatlandSurfaceFactory> flatland_surface_factory_;
   fuchsia::sysmem2::AllocatorSyncPtr sysmem_allocator_;
+
+  // `flatland_allocator_` is bound in Initialize() and may only be used on
+  // `allocator_task_runner_`.
   fuchsia::ui::composition::AllocatorPtr flatland_allocator_;
+  scoped_refptr<base::SingleThreadTaskRunner> allocator_task_runner_;
 
   base::small_map<
       std::unordered_map<zx_koid_t,

@@ -379,6 +379,79 @@ TEST_F(InputStateModelTest, UpdateToolFromUrl_ThreadChangedResetsTool) {
   EXPECT_FALSE(state_model->get_state_for_testing().is_canvas_query_submitted);
 }
 
+TEST_F(InputStateModelTest, UserRemovedTool_PreventsStaleUrlReactivatingTool) {
+  omnibox::SearchboxConfig config;
+  auto* canvas_config = config.add_tool_configs();
+  canvas_config->set_tool(omnibox::ToolMode::TOOL_MODE_CANVAS);
+  auto* canvas_param = canvas_config->add_aim_url_params();
+  canvas_param->set_param_key("rc");
+  canvas_param->set_param_value("1");
+
+  GURL canvas_url("https://example.com/?rc=1&mtid=123");
+  auto state_model = std::make_unique<InputStateModel>(
+      session_handle_, config, canvas_url, /*is_off_the_record=*/false,
+      /*browser_identity_matches_aim_identity=*/true);
+
+  EXPECT_EQ(state_model->get_state_for_testing().active_tool,
+            omnibox::ToolMode::TOOL_MODE_CANVAS);
+
+  // User explicitly removes/exits Canvas.
+  state_model->setActiveTool(omnibox::ToolMode::TOOL_MODE_UNSPECIFIED);
+  EXPECT_EQ(state_model->get_state_for_testing().active_tool,
+            omnibox::ToolMode::TOOL_MODE_UNSPECIFIED);
+
+  // `UpdateStateFromUrl` with the stale canvas URL on the same thread
+  // (e.g. after submitting a query).
+  state_model->UpdateStateFromUrl(canvas_url);
+
+  // Assert: Tool remains `UNSPECIFIED` and `is_canvas_query_submitted` is false
+  // because the user has removed the tool (as recorded by
+  // `user_removed_tools_`).
+  EXPECT_EQ(state_model->get_state_for_testing().active_tool,
+            omnibox::ToolMode::TOOL_MODE_UNSPECIFIED);
+  EXPECT_FALSE(state_model->get_state_for_testing().is_canvas_query_submitted);
+
+  // Navigating to a new thread resets the removed tools set.
+  GURL new_thread_canvas_url("https://example.com/?rc=1&mtid=456");
+  state_model->UpdateStateFromUrl(new_thread_canvas_url);
+  EXPECT_EQ(state_model->get_state_for_testing().active_tool,
+            omnibox::ToolMode::TOOL_MODE_CANVAS);
+}
+
+TEST_F(
+    InputStateModelTest,
+    SetActiveTool_UnspecifiedWhenAlreadyUnspecified_DoesNotRecordRemovedTool) {
+  omnibox::SearchboxConfig config;
+  auto* canvas_config = config.add_tool_configs();
+  canvas_config->set_tool(omnibox::ToolMode::TOOL_MODE_CANVAS);
+  auto* canvas_param = canvas_config->add_aim_url_params();
+  canvas_param->set_param_key("rc");
+  canvas_param->set_param_value("1");
+
+  // Initial state has `active_tool` == `TOOL_MODE_UNSPECIFIED`.
+  GURL normal_url("https://example.com/?mtid=123");
+  auto state_model = std::make_unique<InputStateModel>(
+      session_handle_, config, normal_url, /*is_off_the_record=*/false,
+      /*browser_identity_matches_aim_identity=*/true);
+
+  EXPECT_EQ(state_model->get_state_for_testing().active_tool,
+            omnibox::ToolMode::TOOL_MODE_UNSPECIFIED);
+
+  // Calling `setActiveTool(TOOL_MODE_UNSPECIFIED)` when tool is already
+  // `UNSPECIFIED` should not record Canvas as removed.
+  state_model->setActiveTool(omnibox::ToolMode::TOOL_MODE_UNSPECIFIED);
+
+  // `UpdateStateFromUrl` with a Canvas URL on the same thread should properly
+  // match Canvas.
+  GURL canvas_url("https://example.com/?rc=1&mtid=123");
+  state_model->UpdateStateFromUrl(canvas_url);
+
+  // Assert: Canvas is parsed and active because Canvas was not in
+  // `user_removed_tools_`.
+  EXPECT_EQ(state_model->get_state_for_testing().active_tool,
+            omnibox::ToolMode::TOOL_MODE_CANVAS);
+}
+
 TEST_F(InputStateModelTest, RegularModelAllowsAllToolsAndInputsWithEmptyLists) {
   omnibox::SearchboxConfig config;
 
@@ -1594,6 +1667,51 @@ TEST_F(InputStateModelTest, PrefChangesDynamicallyUpdateInputTypes) {
               testing::UnorderedElementsAre(
                   omnibox::INPUT_TYPE_LENS_IMAGE, omnibox::INPUT_TYPE_LENS_FILE,
                   omnibox::INPUT_TYPE_BROWSER_TAB, omnibox::INPUT_TYPE_DRIVE));
+}
+
+TEST_F(InputStateModelTest, CopyConstructorCopiesAllRelevantFields) {
+  omnibox::SearchboxConfig config;
+  config.add_input_type_configs()->set_input_type(
+      omnibox::InputType::INPUT_TYPE_LENS_IMAGE);
+  config.add_input_type_configs()->set_input_type(
+      omnibox::InputType::INPUT_TYPE_BROWSER_TAB);
+
+  auto* tool_config = config.add_tool_configs();
+  tool_config->set_tool(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN);
+  tool_config->mutable_rule()->set_allow_all_input_types(true);
+
+  auto original_model = std::make_unique<InputStateModel>(
+      session_handle_, config, active_url_, /*is_off_the_record=*/false,
+      /*browser_identity_matches_aim_identity=*/true);
+  original_model->Initialize();
+
+  original_model->SetSmartTabSharingActive(true);
+  original_model->SetPermanentlyDisabledTools(
+      {omnibox::ToolMode::TOOL_MODE_IMAGE_GEN});
+  original_model->SetPermanentlyDisabledInputTypes(
+      {omnibox::InputType::INPUT_TYPE_LENS_IMAGE});
+
+  EXPECT_TRUE(original_model->IsSmartTabSharingActive());
+  EXPECT_THAT(original_model->GetInputState().disabled_tools,
+              testing::Contains(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN));
+  EXPECT_THAT(original_model->GetInputState().disabled_input_types,
+              testing::Contains(omnibox::InputType::INPUT_TYPE_LENS_IMAGE));
+
+  InputStateModel copied_model(*original_model, session_handle_);
+
+  EXPECT_TRUE(copied_model.IsSmartTabSharingActive());
+  EXPECT_THAT(copied_model.GetInputState().disabled_tools,
+              testing::Contains(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN));
+  EXPECT_THAT(copied_model.GetInputState().disabled_input_types,
+              testing::Contains(omnibox::InputType::INPUT_TYPE_LENS_IMAGE));
+
+  copied_model.OnContextChanged();
+
+  EXPECT_TRUE(copied_model.IsSmartTabSharingActive());
+  EXPECT_THAT(copied_model.GetInputState().disabled_tools,
+              testing::Contains(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN));
+  EXPECT_THAT(copied_model.GetInputState().disabled_input_types,
+              testing::Contains(omnibox::InputType::INPUT_TYPE_LENS_IMAGE));
 }
 
 }  // namespace contextual_search

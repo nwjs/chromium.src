@@ -22,14 +22,11 @@
 #include "components/optimization_guide/public/mojom/model_broker.mojom.h"
 #include "components/viz/host/gpu_client.h"
 #include "components/vrp_flags/buildflags.h"
-#include "content/browser/attribution_reporting/attribution_internals.mojom.h"
-#include "content/browser/attribution_reporting/attribution_internals_ui.h"
 #include "content/browser/background_fetch/background_fetch_service_impl.h"
 #include "content/browser/bad_message.h"
 #include "content/browser/bluetooth/web_bluetooth_service_impl.h"
 #include "content/browser/browser_context_impl.h"
 #include "content/browser/browser_main_loop.h"
-#include "content/browser/browsing_topics/browsing_topics_document_host.h"
 #include "content/browser/contacts/contacts_manager_impl.h"
 #include "content/browser/content_index/content_index_service_impl.h"
 #include "content/browser/cookie_store/cookie_store_manager.h"
@@ -40,7 +37,6 @@
 #include "content/browser/image_capture/image_capture_impl.h"
 #include "content/browser/indexed_db/indexed_db_internals.mojom.h"
 #include "content/browser/indexed_db/indexed_db_internals_ui.h"
-#include "content/browser/interest_group/ad_auction_service_impl.h"
 #include "content/browser/keyboard_lock/keyboard_lock_service_impl.h"
 #include "content/browser/loader/content_security_notifier.h"
 #include "content/browser/media/media_web_contents_observer.h"
@@ -50,8 +46,6 @@
 #include "content/browser/picture_in_picture/picture_in_picture_service_impl.h"
 #include "content/browser/preloading/anchor_element_interaction_host_impl.h"
 #include "content/browser/preloading/speculation_rules/speculation_host_impl.h"
-#include "content/browser/private_aggregation/private_aggregation_internals.mojom.h"
-#include "content/browser/private_aggregation/private_aggregation_internals_ui.h"
 #include "content/browser/process_internals/process_internals.mojom.h"
 #include "content/browser/process_internals/process_internals_ui.h"
 #include "content/browser/quota/quota_context.h"
@@ -68,7 +62,6 @@
 #include "content/browser/security/cpsp/child_process_security_policy_impl.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_host.h"
-#include "content/browser/shared_storage/shared_storage_worklet_host.h"
 #include "content/browser/speech/speech_recognition_dispatcher_host.h"
 #include "content/browser/storage_access/storage_access_handle.h"
 #include "content/browser/tracing/traces_internals/traces_internals.mojom.h"
@@ -81,6 +74,7 @@
 #include "content/browser/worker_host/shared_worker_connector_impl.h"
 #include "content/browser/worker_host/shared_worker_host.h"
 #include "content/browser/xr/service/vr_service_impl.h"
+#include "content/common/features.h"
 #include "content/common/input/input_injector.mojom.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
@@ -206,7 +200,7 @@
 #include "third_party/blink/public/mojom/webaudio/audio_context_manager.mojom.h"
 #include "third_party/blink/public/mojom/webauthn/authenticator.mojom.h"
 #include "third_party/blink/public/mojom/webid/digital_identity_request.mojom.h"
-#include "third_party/blink/public/mojom/webid/federated_auth_request.mojom.h"
+#include "third_party/blink/public/mojom/webid/federated_request.mojom.h"
 #include "third_party/blink/public/mojom/webrtc/rtc_logging.mojom.h"
 #include "third_party/blink/public/mojom/websockets/websocket_connector.mojom.h"
 #include "third_party/blink/public/mojom/webtransport/web_transport_connector.mojom.h"
@@ -329,8 +323,7 @@ void BindWebNNContextProviderForRenderFrame(
 template <typename WorkerHost>
 bool IsWebNNPermissionsPolicyBlocked(WorkerHost* host) {
   if constexpr (std::is_same_v<WorkerHost, DedicatedWorkerHost>) {
-    auto* ancestor_render_frame_host =
-        RenderFrameHostImpl::FromID(host->GetAncestorRenderFrameHostId());
+    auto* ancestor_render_frame_host = host->GetAncestorRenderFrameHost();
     return !ancestor_render_frame_host ||
            !ancestor_render_frame_host->IsFeatureEnabled(
                network::mojom::PermissionsPolicyFeature::kWebNN);
@@ -382,7 +375,27 @@ void BindWebNNWeightsFileCreatorForRenderFrame(
   }
 
   const bool is_incognito = host->GetBrowserContext()->IsOffTheRecord();
-  webnn::WeightsFileCreatorImpl::Create(std::move(receiver), is_incognito);
+  webnn::WeightsFileCreatorImpl::Create(
+      std::move(receiver), host->GetLastCommittedOrigin(), is_incognito);
+}
+
+template <typename WorkerHost>
+url::Origin GetWebNNWorkerOrigin(WorkerHost* host);
+
+template <>
+url::Origin GetWebNNWorkerOrigin<DedicatedWorkerHost>(
+    DedicatedWorkerHost* host) {
+  return host->GetWorkerStorageKey().origin();
+}
+
+template <>
+url::Origin GetWebNNWorkerOrigin<SharedWorkerHost>(SharedWorkerHost* host) {
+  return host->GetWorkerStorageKey().origin();
+}
+
+template <>
+url::Origin GetWebNNWorkerOrigin<ServiceWorkerHost>(ServiceWorkerHost* host) {
+  return host->GetBucketStorageKey().origin();
 }
 
 template <typename WorkerHost>
@@ -399,7 +412,8 @@ void BindWebNNWeightsFileCreatorForWorker(
 
   const bool is_incognito =
       host->GetProcessHost()->GetBrowserContext()->IsOffTheRecord();
-  webnn::WeightsFileCreatorImpl::Create(std::move(receiver), is_incognito);
+  webnn::WeightsFileCreatorImpl::Create(
+      std::move(receiver), GetWebNNWorkerOrigin(host), is_incognito);
 }
 
 #if BUILDFLAG(IS_MAC)
@@ -884,12 +898,6 @@ void PopulateBinderMapWithContext(
         }));
   }
 
-  if (base::FeatureList::IsEnabled(network::features::kBrowsingTopics) &&
-      base::FeatureList::IsEnabled(
-          blink::features::kBrowsingTopicsDocumentAPI)) {
-    map->Add<blink::mojom::BrowsingTopicsDocumentService>(
-        &BrowsingTopicsDocumentHost::CreateMojoService);
-  }
   map->Add<blink::mojom::DeclarativePerformanceObserverHost>(
       base::BindRepeating(&DeclarativePerformanceObserver::Bind));
 #if !BUILDFLAG(IS_ANDROID)
@@ -934,9 +942,9 @@ void PopulateBinderMapWithContext(
       [](RenderFrameHost* host,
          mojo::PendingReceiver<blink::mojom::ContentSecurityNotifier>
              receiver) {
-        mojo::MakeSelfOwnedReceiver(
-            std::make_unique<ContentSecurityNotifier>(host->GetGlobalId()),
-            std::move(receiver));
+        mojo::MakeSelfOwnedReceiver(std::make_unique<ContentSecurityNotifier>(
+                                        host->GetWeakDocumentPtr()),
+                                    std::move(receiver));
       }));
 
   map->Add<blink::mojom::DedicatedWorkerHostFactory>(
@@ -960,8 +968,22 @@ void PopulateBinderMapWithContext(
         &BindRenderFrameHostImpl<&RenderFrameHostImpl::GetFontAccessManager>);
   }
 
-  map->Add<device::mojom::GamepadHapticsManager>(
-      &device::GamepadHapticsManager::Create);
+  map->Add<device::mojom::GamepadHapticsManager>(base::BindRepeating(
+      [](RenderFrameHost* host,
+         mojo::PendingReceiver<device::mojom::GamepadHapticsManager> receiver) {
+        if (!host->IsFeatureEnabled(
+                network::mojom::PermissionsPolicyFeature::kGamepad)) {
+          if (base::FeatureList::IsEnabled(
+                  features::kEnforceGamepadPermissionsPolicy)) {
+            bad_message::ReceivedBadMessage(
+                host->GetProcess(),
+                bad_message::BadMessageReason::
+                    BIBI_BIND_GAMEPAD_HAPTICS_MANAGER_BLOCKED_BY_PERMISSIONS_POLICY);
+            return;
+          }
+        }
+        device::GamepadHapticsManager::Create(host, std::move(receiver));
+      }));
 
   map->Add<blink::mojom::GeolocationService>(
       &BindRenderFrameHostImpl<&RenderFrameHostImpl::GetGeolocationService>);
@@ -1075,7 +1097,22 @@ void PopulateBinderMapWithContext(
       base::ThreadPool::CreateSequencedTaskRunner(
           {base::MayBlock(), base::TaskPriority::USER_VISIBLE}));
 
-  map->Add<device::mojom::GamepadMonitor>(&device::GamepadMonitor::Create);
+  map->Add<device::mojom::GamepadMonitor>(base::BindRepeating(
+      [](RenderFrameHost* host,
+         mojo::PendingReceiver<device::mojom::GamepadMonitor> receiver) {
+        if (!host->IsFeatureEnabled(
+                network::mojom::PermissionsPolicyFeature::kGamepad)) {
+          if (base::FeatureList::IsEnabled(
+                  features::kEnforceGamepadPermissionsPolicy)) {
+            bad_message::ReceivedBadMessage(
+                host->GetProcess(),
+                bad_message::BadMessageReason::
+                    BIBI_BIND_GAMEPAD_MONITOR_BLOCKED_BY_PERMISSIONS_POLICY);
+            return;
+          }
+        }
+        device::GamepadMonitor::Create(host, std::move(receiver));
+      }));
 
   map->Add<blink::mojom::WebSensorProvider>(
       &BindRenderFrameHostImpl<&RenderFrameHostImpl::GetSensorProvider>);
@@ -1250,14 +1287,16 @@ void PopulateBinderMapWithContext(
   map->Add<device::mojom::NFC>(
       &BindRenderFrameHostImpl<&RenderFrameHostImpl::BindNFCReceiver>);
 #else
-  map->Add<blink::mojom::HidService>(
-      &BindRenderFrameHostImpl<&RenderFrameHostImpl::GetHidService>);
-
   map->Add<blink::mojom::InstalledAppProvider>(
       &BindRenderFrameHostImpl<
           &RenderFrameHostImpl::CreateInstalledAppProvider>);
 #endif  // BUILDFLAG(IS_ANDROID) || (BUILDFLAG(IS_IOS) &&
         // !BUILDFLAG(IS_IOS_TVOS))
+
+#if !BUILDFLAG(IS_IOS)
+  map->Add<blink::mojom::HidService>(
+      &BindRenderFrameHostImpl<&RenderFrameHostImpl::GetHidService>);
+#endif  // !BUILDFLAG(IS_IOS)
 
   map->Add<blink::mojom::SerialService>(
       &BindRenderFrameHostImpl<&RenderFrameHostImpl::BindSerialService>);
@@ -1337,10 +1376,6 @@ void PopulateBinderMapWithContext(
       &ContentIndexServiceImpl::CreateForFrame);
   map->Add<blink::mojom::KeyboardLockService>(
       &KeyboardLockServiceImpl::CreateMojoService);
-  if (base::FeatureList::IsEnabled(network::features::kInterestGroupStorage)) {
-    map->Add<blink::mojom::AdAuctionService>(
-        &AdAuctionServiceImpl::CreateMojoService);
-  }
   map->Add<blink::mojom::MediaSessionService>(&MediaSessionServiceImpl::Create);
   map->Add<blink::mojom::PictureInPictureService>(
       &PictureInPictureServiceImpl::Create);
@@ -1351,11 +1386,6 @@ void PopulateBinderMapWithContext(
   map->Add<device::mojom::VRService>(
       &EmptyBinderForFrame<device::mojom::VRService>);
 #endif
-  RegisterWebUIControllerInterfaceBinder<
-      private_aggregation_internals::mojom::Factory,
-      PrivateAggregationInternalsUI>(map);
-  RegisterWebUIControllerInterfaceBinder<attribution_internals::mojom::Factory,
-                                         AttributionInternalsUI>(map);
   RegisterWebUIControllerInterfaceBinder<storage::mojom::IdbInternalsHandler,
                                          indexed_db::IndexedDBInternalsUI>(map);
   RegisterWebUIControllerInterfaceBinder<::mojom::ProcessInternalsHandler,
@@ -1392,9 +1422,6 @@ void PopulateBinderMapWithContext(
   map->Add<blink::mojom::DigitalIdentityRequest>(
       &BindRenderFrameHostImpl<
           &RenderFrameHostImpl::BindDigitalIdentityRequestReceiver>);
-  map->Add<blink::mojom::FederatedAuthRequest>(
-      &BindRenderFrameHostImpl<
-          &RenderFrameHostImpl::BindFederatedAuthRequestReceiver>);
   map->Add<blink::mojom::FederatedRequestService>(
       &BindRenderFrameHostImpl<
           &RenderFrameHostImpl::BindFederatedRequestServiceReceiver>);
@@ -1772,36 +1799,6 @@ void PopulateBinderMap(SharedWorkerHost* host, mojo::BinderMap* map) {
   PopulateSharedWorkerBinders(host, map);
 }
 
-// Shared storage worklets
-SharedStorageWorkletHost* GetContextForHost(SharedStorageWorkletHost* host) {
-  return host;
-}
-
-void PopulateSharedStorageWorkletBinders(SharedStorageWorkletHost* host,
-                                         mojo::BinderMap* map) {
-  // Ignore requests to bind UkmRecorderFactory and FeatureObserver, since there
-  // is no current plan to support them for worklets and the renderer always
-  // tries to bind them. TODO(crbug.com/366293454).
-  map->Add<ukm::mojom::UkmRecorderFactory>(base::DoNothing());
-  map->Add<blink::mojom::FeatureObserver>(base::DoNothing());
-
-  // SharedStorageWorkletHost binders
-  // base::Unretained(host) is safe because the map is owned by
-  // |SharedStorageWorkletHost::broker_|.
-  map->Add<blink::mojom::LockManager>(base::BindRepeating(
-      &SharedStorageWorkletHost::GetLockManager, base::Unretained(host)));
-  map->Add<blink::mojom::ReportingServiceProxy>(
-      base::BindRepeating(&CreateReportingServiceProxyForSharedStorageWorklet,
-                          base::Unretained(host)));
-}
-
-void PopulateBinderMapWithContext(
-    SharedStorageWorkletHost* host,
-    mojo::BinderMapWithContext<SharedStorageWorkletHost*>* map) {}
-
-void PopulateBinderMap(SharedStorageWorkletHost* host, mojo::BinderMap* map) {
-  PopulateSharedStorageWorkletBinders(host, map);
-}
 
 // Service workers
 ServiceWorkerVersionInfo GetContextForHost(ServiceWorkerHost* host) {

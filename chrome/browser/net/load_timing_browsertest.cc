@@ -153,11 +153,11 @@ IN_PROC_BROWSER_TEST_F(LoadTimingBrowserTest, DISABLED_HTTPS) {
 IN_PROC_BROWSER_TEST_F(LoadTimingBrowserTest, Proxy) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
-  browser()->profile()->GetPrefs()->SetDict(
+  browser()->GetProfile()->GetPrefs()->SetDict(
       proxy_config::prefs::kProxy,
       ProxyConfigDictionary::CreateFixedServers(
           embedded_test_server()->host_port_pair().ToString(), std::string()));
-  ProfileNetworkContextServiceFactory::GetForContext(browser()->profile())
+  ProfileNetworkContextServiceFactory::GetForContext(browser()->GetProfile())
       ->FlushProxyConfigMonitorForTesting();
 
   // This request will fail if it doesn't go through proxy.

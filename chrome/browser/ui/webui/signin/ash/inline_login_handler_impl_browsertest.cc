@@ -36,12 +36,13 @@
 #include "components/account_manager_core/account_manager_facade.h"
 #include "components/account_manager_core/chromeos/account_manager.h"
 #include "components/account_manager_core/mock_account_manager_facade.h"
+#include "components/session_manager/core/session.h"
+#include "components/session_manager/core/session_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/signin/public/identity_manager/primary_account_mutator.h"
 #include "components/supervised_user/core/common/pref_names.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
 #include "components/user_manager/known_user.h"
-#include "components/user_manager/user_manager.h"
 #include "components/user_manager/user_type.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
@@ -399,7 +400,7 @@ class InlineLoginHandlerTest
     return browser()->tab_strip_model()->GetActiveWebContents();
   }
 
-  Profile* profile() { return browser()->profile(); }
+  Profile* profile() { return browser()->GetProfile(); }
 
   content::TestWebUI* web_ui() { return &web_ui_; }
 
@@ -415,7 +416,9 @@ class InlineLoginHandlerTest
   }
 
   const AccountId& primary_account_id() {
-    return user_manager::UserManager::Get()->GetPrimaryUser()->GetAccountId();
+    return session_manager::SessionManager::Get()
+        ->GetPrimarySession()
+        ->account_id();
   }
 
  private:

@@ -8,6 +8,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
@@ -29,10 +30,10 @@
 #include "chrome/browser/signin/test_signin_client_builder.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_features.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
+#include "components/optimization_guide/core/feature_registry/feature_registration.h"
 #include "components/prefs/pref_service.h"
 #include "components/profile_metrics/state.h"
 #include "components/signin/public/base/consent_level.h"
@@ -54,10 +55,10 @@
 #include "ui/gfx/image/image_unittest_util.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/glic/glic_pref_names.h"
-#include "chrome/browser/glic/public/glic_enabling.h"
-#include "chrome/browser/glic/test_support/glic_test_environment.h"
-#include "chrome/browser/glic/test_support/glic_test_util.h"
+#include "chrome/browser/glic/glic_pref_names.h"       // nogncheck
+#include "chrome/browser/glic/public/glic_enabling.h"  // nogncheck
+#include "chrome/browser/glic/test_support/glic_test_environment.h"  // nogncheck
+#include "chrome/browser/glic/test_support/glic_test_util.h"  // nogncheck
 #endif
 
 using ::testing::Return;
@@ -451,8 +452,9 @@ class GAIAInfoUpdateServiceWithGlicEnablingTest
 
     // Enable enterprise policy for glic control
     pref_service_.SetInteger(
-        ::prefs::kGeminiSettings,
-        static_cast<int>(glic::prefs::SettingsPolicyState::kEnabled));
+        optimization_guide::prefs::kGeminiSettings,
+        std::to_underlying(
+            optimization_guide::prefs::GeminiSettingsPolicyState::kEnabled));
   }
 
  private:

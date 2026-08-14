@@ -46,7 +46,8 @@ class ContextualCueingHelper
   void DidFinishNavigation(
       content::NavigationHandle* navigation_handle) override;
   void PrimaryMainDocumentElementAvailable() override;
-  void OnFirstContentfulPaintInPrimaryMainFrame() override;
+  void OnFirstContentfulPaintInPrimaryMainFrame(
+      base::TimeTicks presentation_time) override;
   void DocumentOnLoadCompletedInPrimaryMainFrame() override;
   void WebContentsDestroyed() override;
 
@@ -105,10 +106,6 @@ class ContextualCueingHelper
 
   // Not owned and guaranteed to outlive `this`.
   raw_ptr<ContextualCueingService> contextual_cueing_service_ = nullptr;
-
-#if BUILDFLAG(IS_ANDROID)
-  std::unique_ptr<glic::GlicNudgeController> glic_nudge_controller_;
-#endif
 
   base::WeakPtrFactory<ContextualCueingHelper> weak_ptr_factory_{this};
 

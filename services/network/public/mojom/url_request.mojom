@@ -9,7 +9,6 @@ import "mojo/public/mojom/base/file_path.mojom";
 import "mojo/public/mojom/base/time.mojom";
 import "mojo/public/mojom/base/unguessable_token.mojom";
 import "services/network/public/mojom/accept_ch_frame_observer.mojom";
-import "services/network/public/mojom/attribution.mojom";
 import "services/network/public/mojom/chunked_data_pipe_getter.mojom";
 import "services/network/public/mojom/client_security_state.mojom";
 import "services/network/public/mojom/cookie_access_observer.mojom";
@@ -407,11 +406,6 @@ struct URLRequest {
   // https://github.com/patcg-individual-drafts/topics
   bool browsing_topics;
 
-  // True if this is an ad auction request eligible for attaching the
-  // `Sec-Ad-Auction-Fetch` request header and processing the
-  // `X-Ad-Auction-Result` response header.
-  // https://github.com/WICG/turtledove/blob/main/FLEDGE_browser_bidding_and_auction_API.md#step-3-get-response-blobs-to-browser
-  bool ad_auction_headers;
 
   // True if the request should send the `Sec-Shared-Storage-Writable` request
   // header.
@@ -595,19 +589,6 @@ struct URLRequest {
   // assumption, the browser process has already determined that this access is
   // ok.
   StorageAccessApiStatus storage_access_api_status;
-
-  // Indicates whether web or OS-level Attribution Reporting is supported.
-  AttributionSupport attribution_reporting_support;
-
-  // Indicates the value of the request's `Attribution-Reporting-Eligible`
-  // header; how this header is interpreted depends on the context in which
-  // the request is made.
-  AttributionReportingEligibility attribution_reporting_eligibility =
-      AttributionReportingEligibility.kUnset;
-
-  // When applicable, indicates the token of an Attribution Reporting API
-  // eligible navigation request to which the current request is associated.
-  mojo_base.mojom.UnguessableToken? attribution_reporting_src_token;
 
   // When applicable, i.e. `keepalive` is true, indicates a fetch keepalive
   // request.

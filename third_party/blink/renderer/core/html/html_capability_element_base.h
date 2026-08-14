@@ -156,10 +156,6 @@ class CORE_EXPORT HTMLCapabilityElementBase
     return pending_request_created_.has_value();
   }
 
-  // Called on activation of an <install> element with attributes that fail
-  // installability checks.
-  void HandleInstallDataError();
-
  private:
   // TODO(crbug.com/1315595): remove this friend class once migration
   // to blink_unittests_v2 completes.
@@ -206,10 +202,18 @@ class CORE_EXPORT HTMLCapabilityElementBase
                            InvalidUrlMakesElementInvalid);
   FRIEND_TEST_ALL_PREFIXES(HTMLInstallElementTestBase,
                            InvalidManifestIdMakesElementInvalid);
+  FRIEND_TEST_ALL_PREFIXES(HTMLInstallElementTestBase,
+                           ActivationWithManifestDataError);
+  FRIEND_TEST_ALL_PREFIXES(HTMLInstallElementTestBase,
+                           ManifestIdOnlyMakesElementInvalid);
+  FRIEND_TEST_ALL_PREFIXES(HTMLInstallElementTestBase,
+                           InvalidManifestUrlMakesElementInvalid);
   FRIEND_TEST_ALL_PREFIXES(HTMLCapabilityElementBaseClickingEnabledTest,
                            UnclickableBeforeRegistered);
   FRIEND_TEST_ALL_PREFIXES(HTMLCapabilityElementBaseIntersectionTest,
                            IntersectionChanged);
+  FRIEND_TEST_ALL_PREFIXES(HTMLCapabilityElementBaseIntersectionTest,
+                           MovePEPCFromIframeAndDestroyIframe);
   FRIEND_TEST_ALL_PREFIXES(HTMLCapabilityElementBaseIntersectionTest,
                            IntersectionChangedDisableEnableDisable);
   FRIEND_TEST_ALL_PREFIXES(HTMLCapabilityElementBaseIntersectionTest,
@@ -280,11 +284,6 @@ class CORE_EXPORT HTMLCapabilityElementBase
 
     // The element's attribute changed.
     kAttributeChanged,
-
-    // The <install> element's install attempt failed due to data error.
-    // TODO(crbug.com/481519343): Move DataError out of invalidReason. Revisit
-    // how to best surface this for <install>.
-    kInstallDataError,
   };
 
   // Define the different states of visibility depending on IntersectionObserver

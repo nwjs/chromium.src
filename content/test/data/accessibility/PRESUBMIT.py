@@ -427,7 +427,10 @@ def CheckAccessibilityHtmlFileTest(input_api, output_api):
 
     def FileFilter(affected_file):
         return input_api.FilterSourceFile(
-            affected_file, files_to_check=[r"content/test/data/accessibility/.+\.(html|txt)"]
+            affected_file,
+            files_to_check=[
+                r"content/test/data/accessibility/(?!aria/apg-patterns-thirdparty/).+\.(html|txt)"
+            ],
         )
 
     html_files = {}  # Store HTML files and their base names
@@ -435,6 +438,8 @@ def CheckAccessibilityHtmlFileTest(input_api, output_api):
     problems = []
 
     for f in input_api.AffectedFiles(file_filter=FileFilter):
+        if f.Action() == 'D':
+            continue
         if f.LocalPath().endswith(".html"):
             html_files[input_api.os_path.basename(f.LocalPath())] = f.LocalPath()
         if f.LocalPath().endswith(".txt"):
@@ -563,7 +568,10 @@ def CheckAccessibilityHtmlExpectationsPair(input_api, output_api):
 
     def FileFilter(affected_file):
         return input_api.FilterSourceFile(
-            affected_file, files_to_check=[r"content/test/data/accessibility/(?!(mac|win)/).+\.(html|txt)"]
+            affected_file,
+            files_to_check=[
+                r"content/test/data/accessibility/(?!(mac|win|aria/apg-patterns-thirdparty)/).+\.(html|txt)"
+            ],
         )
 
     problems = []

@@ -8,7 +8,9 @@
 #include <utility>
 #include <vector>
 
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/test_mock_time_task_runner.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/viz/common/features.h"
@@ -43,6 +45,7 @@ TEST_F(FrameDeadlineDeciderTest, FeatureDisabledFallback) {
       features::kUseAndroidCustomFrameDeadlines);
 #endif
 
+  base::HistogramTester histogram_tester;
   FrameDeadlineDecider decider(true);
 
   auto deadlines = CreatePossibleDeadlines(
@@ -52,7 +55,235 @@ TEST_F(FrameDeadlineDeciderTest, FeatureDisabledFallback) {
 
   EXPECT_EQ(1u, decider.SelectDeadline(deadlines, k120HzVsyncInterval,
                                        k120HzAllowedBuffers, base::TimeTicks(),
-                                       std::nullopt));
+                                       std::nullopt,
+                                       /*is_handling_interaction=*/false));
+  histogram_tester.ExpectUniqueSample(
+      "Viz.FrameDeadlineDecider.SelectionReason",
+      FrameDeadlineDecider::SelectionReason::kPlatformPreferred, 1);
+}
+
+TEST_F(FrameDeadlineDeciderTest, SelectedSustainableDeadline_True) {
+  base::HistogramTester histogram_tester;
+  FrameDeadlineDecider decider(/*use_platform_preferred_deadlines=*/true);
+
+  // k120HzAllowedBuffers = 5, k120HzVsyncInterval = 8 ms.
+  // max_sustainable_delta = (5 * 8 ms) + 1 ms = 41 ms.
+  // 41 ms <= 41 ms -> sustainable (true).
+  auto deadlines = CreatePossibleDeadlines(
+      0, {PossibleDeadline(1, base::Milliseconds(8), base::Milliseconds(41))});
+
+  decider.SelectDeadline(deadlines, k120HzVsyncInterval, k120HzAllowedBuffers,
+                         base::TimeTicks(), std::nullopt,
+                         /*is_handling_interaction=*/false);
+
+  histogram_tester.ExpectUniqueSample(
+      "Viz.FrameDeadlineDecider.SelectedSustainableDeadline", true, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Viz.FrameDeadlineDecider.SelectionReason",
+      FrameDeadlineDecider::SelectionReason::kPlatformPreferred, 1);
+}
+
+TEST_F(FrameDeadlineDeciderTest, SelectedSustainableDeadline_False) {
+  base::HistogramTester histogram_tester;
+  FrameDeadlineDecider decider(/*use_platform_preferred_deadlines=*/true);
+
+  // k120HzAllowedBuffers = 5, k120HzVsyncInterval = 8 ms.
+  // max_sustainable_delta = (5 * 8 ms) + 1 ms = 41 ms.
+  // 42 ms > 41 ms -> unsustainable (false).
+  auto deadlines = CreatePossibleDeadlines(
+      0, {PossibleDeadline(1, base::Milliseconds(8), base::Milliseconds(42))});
+
+  decider.SelectDeadline(deadlines, k120HzVsyncInterval, k120HzAllowedBuffers,
+                         base::TimeTicks(), std::nullopt,
+                         /*is_handling_interaction=*/false);
+
+  histogram_tester.ExpectUniqueSample(
+      "Viz.FrameDeadlineDecider.SelectedSustainableDeadline", false, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Viz.FrameDeadlineDecider.SelectionReason",
+      FrameDeadlineDecider::SelectionReason::kPlatformPreferred, 1);
+}
+
+TEST_F(FrameDeadlineDeciderTest, OngoingInteractionSequenceRetention) {
+  base::HistogramTester histogram_tester;
+  FrameDeadlineDecider decider(/*use_platform_preferred_deadlines=*/false);
+  base::TimeTicks base_time = base::TimeTicks() + base::Milliseconds(1000);
+
+  auto deadlines = CreatePossibleDeadlines(
+      0, {PossibleDeadline(1, base::Milliseconds(8), base::Milliseconds(16)),
+          PossibleDeadline(2, base::Milliseconds(16), base::Milliseconds(24)),
+          PossibleDeadline(3, base::Milliseconds(32), base::Milliseconds(40))});
+
+  // Frame 1 (t=0ms): Start interactive sequence. Locked to 40ms delta (index
+  // 2).
+  EXPECT_EQ(
+      decider.SelectDeadline(deadlines, k120HzVsyncInterval,
+                             k120HzAllowedBuffers, base_time, std::nullopt,
+                             /*is_handling_interaction=*/true),
+      2u);
+  histogram_tester.ExpectBucketCount(
+      "Viz.FrameDeadlineDecider.SelectionReason",
+      FrameDeadlineDecider::SelectionReason::kChromePreferredNewSequence, 1);
+
+  // Frame 2 (t=150ms): Active interaction continues (> 50ms threshold).
+  // Because both previous and current frames are interactive, sequence is
+  // retained (locked to 40ms / index 2).
+  EXPECT_EQ(
+      decider.SelectDeadline(deadlines, k120HzVsyncInterval, 3,
+                             base_time + base::Milliseconds(150), std::nullopt,
+                             /*is_handling_interaction=*/true),
+      2u);
+  histogram_tester.ExpectBucketCount(
+      "Viz.FrameDeadlineDecider.SelectionReason",
+      FrameDeadlineDecider::SelectionReason::kOngoingSequence, 1);
+}
+
+TEST_F(FrameDeadlineDeciderTest, InteractionEndSequenceRetention) {
+  FrameDeadlineDecider decider(/*use_platform_preferred_deadlines=*/false);
+  base::TimeTicks base_time = base::TimeTicks() + base::Milliseconds(1000);
+
+  auto deadlines = CreatePossibleDeadlines(
+      0, {PossibleDeadline(1, base::Milliseconds(8), base::Milliseconds(16)),
+          PossibleDeadline(2, base::Milliseconds(16), base::Milliseconds(24)),
+          PossibleDeadline(3, base::Milliseconds(32), base::Milliseconds(40))});
+
+  // Frame 1 (t=0ms): Start interactive sequence. Locked to 40ms delta (index
+  // 2).
+  EXPECT_EQ(
+      decider.SelectDeadline(deadlines, k120HzVsyncInterval,
+                             k120HzAllowedBuffers, base_time, std::nullopt,
+                             /*is_handling_interaction=*/true),
+      2u);
+
+  // Frame 2 (t=20ms): Interaction ends (is_handling_interaction = false).
+  // Arrives within 50ms grace period (20ms <= 50ms), so sequence is retained
+  // for this frame (index 2).
+  EXPECT_EQ(
+      decider.SelectDeadline(deadlines, k120HzVsyncInterval, 3,
+                             base_time + base::Milliseconds(20), std::nullopt,
+                             /*is_handling_interaction=*/false),
+      2u);
+}
+
+TEST_F(FrameDeadlineDeciderTest, InteractionEndGracePeriodExpiration) {
+  FrameDeadlineDecider decider(/*use_platform_preferred_deadlines=*/false);
+  base::TimeTicks base_time = base::TimeTicks() + base::Milliseconds(1000);
+
+  auto deadlines = CreatePossibleDeadlines(
+      0, {PossibleDeadline(1, base::Milliseconds(8), base::Milliseconds(16)),
+          PossibleDeadline(2, base::Milliseconds(16), base::Milliseconds(24)),
+          PossibleDeadline(3, base::Milliseconds(32), base::Milliseconds(40))});
+
+  // Frame 1 (t=0ms): Start interactive sequence. Locked to 40ms delta (index
+  // 2).
+  EXPECT_EQ(
+      decider.SelectDeadline(deadlines, k120HzVsyncInterval,
+                             k120HzAllowedBuffers, base_time, std::nullopt,
+                             /*is_handling_interaction=*/true),
+      2u);
+
+  // Frame 2 (t=60ms): Interaction ends (is_handling_interaction = false) after
+  // 60ms gap (> 50ms threshold). Because interaction ended,
+  // max_non_interactive_idle_duration_ (50ms) applies. 60ms > 50ms, so sequence
+  // resets (recalculates for max_allowed_buffers = 3 -> 24ms / index 1).
+  EXPECT_EQ(
+      decider.SelectDeadline(deadlines, k120HzVsyncInterval, 3,
+                             base_time + base::Milliseconds(60), std::nullopt,
+                             /*is_handling_interaction=*/false),
+      1u);
+}
+
+TEST_F(FrameDeadlineDeciderTest, NonInteractiveToInteractiveTransitionTimeout) {
+  FrameDeadlineDecider decider(/*use_platform_preferred_deadlines=*/false);
+  base::TimeTicks base_time = base::TimeTicks() + base::Milliseconds(1000);
+
+  auto deadlines = CreatePossibleDeadlines(
+      0, {PossibleDeadline(1, base::Milliseconds(8), base::Milliseconds(16)),
+          PossibleDeadline(2, base::Milliseconds(16), base::Milliseconds(24)),
+          PossibleDeadline(3, base::Milliseconds(32), base::Milliseconds(40))});
+
+  // Frame 1 (t=0ms): Start non-interactive sequence. Locked to 40ms delta
+  // (index 2).
+  EXPECT_EQ(
+      decider.SelectDeadline(deadlines, k120HzVsyncInterval,
+                             k120HzAllowedBuffers, base_time, std::nullopt,
+                             /*is_handling_interaction=*/false),
+      2u);
+
+  // Frame 2 (t=80ms): Interactive gesture starts (is_handling_interaction =
+  // true) after 80ms gap. Because previous frame was non-interactive, the
+  // transition frame uses max_non_interactive_idle_duration_ (50ms). 80ms >
+  // 50ms, so preceding sequence resets and target deadline is recalculated for
+  // max_allowed_buffers = 3 (24ms / index 1).
+  EXPECT_EQ(
+      decider.SelectDeadline(deadlines, k120HzVsyncInterval, 3,
+                             base_time + base::Milliseconds(80), std::nullopt,
+                             /*is_handling_interaction=*/true),
+      1u);
+}
+
+TEST_F(FrameDeadlineDeciderTest,
+       NotifyMinSupportedVsyncIntervalCapsPresentationDelta) {
+  FrameDeadlineDecider decider(/*use_platform_preferred_deadlines=*/false);
+
+  auto deadlines_60hz = CreatePossibleDeadlines(
+      0, {PossibleDeadline(1, base::Milliseconds(8), base::Milliseconds(16)),
+          PossibleDeadline(2, base::Milliseconds(16), base::Milliseconds(32)),
+          PossibleDeadline(3, base::Milliseconds(32), base::Milliseconds(48)),
+          PossibleDeadline(4, base::Milliseconds(48), base::Milliseconds(64))});
+
+  // 1. Without NotifyMinSupportedVsyncInterval, target_present_delta (48ms)
+  // selects Index 2 (48ms).
+  EXPECT_EQ(decider.SelectDeadline(deadlines_60hz, base::Milliseconds(16),
+                                   /*max_allowed_buffers=*/3,
+                                   base::TimeTicks::Now(), std::nullopt,
+                                   /*is_handling_interaction=*/true),
+            2u);
+
+  decider.OnDisplayInvisible();
+
+  // 2. After NotifyMinSupportedVsyncInterval(8ms) [120 Hz peak -> presentation
+  // cap = 24ms], target_present_delta is capped to <= 24ms, selecting Index 0
+  // (16ms) instead of Index 2.
+  decider.NotifyMinSupportedVsyncInterval(base::Milliseconds(8));
+  EXPECT_EQ(decider.SelectDeadline(deadlines_60hz, base::Milliseconds(16),
+                                   /*max_allowed_buffers=*/3,
+                                   base::TimeTicks::Now(), std::nullopt,
+                                   /*is_handling_interaction=*/true),
+            0u);
+}
+
+TEST_F(FrameDeadlineDeciderTest,
+       NotifyMinSupportedVsyncIntervalUpdatedDuringSession) {
+  FrameDeadlineDecider decider(/*use_platform_preferred_deadlines=*/false);
+
+  auto deadlines_60hz = CreatePossibleDeadlines(
+      0, {PossibleDeadline(1, base::Milliseconds(8), base::Milliseconds(16)),
+          PossibleDeadline(2, base::Milliseconds(16), base::Milliseconds(32)),
+          PossibleDeadline(3, base::Milliseconds(32), base::Milliseconds(48)),
+          PossibleDeadline(4, base::Milliseconds(48), base::Milliseconds(64))});
+
+  // 1. Notify 16ms min supported vsync interval (60 Hz only display ->
+  // presentation cap = 48ms). Target present delta (48ms) <= presentation cap
+  // (48ms), so Index 2 (48ms) is selected.
+  decider.NotifyMinSupportedVsyncInterval(base::Milliseconds(16));
+  EXPECT_EQ(decider.SelectDeadline(deadlines_60hz, base::Milliseconds(16),
+                                   /*max_allowed_buffers=*/3,
+                                   base::TimeTicks::Now(), std::nullopt,
+                                   /*is_handling_interaction=*/true),
+            2u);
+
+  decider.OnDisplayInvisible();
+
+  // 2. Display capabilities change (e.g., external 120 Hz display connected,
+  // 8ms min vsync interval). Presentation cap is now 24ms. Target present delta
+  // is capped to <= 24ms, selecting Index 0 (16ms).
+  decider.NotifyMinSupportedVsyncInterval(base::Milliseconds(8));
+  EXPECT_EQ(decider.SelectDeadline(deadlines_60hz, base::Milliseconds(16),
+                                   /*max_allowed_buffers=*/3,
+                                   base::TimeTicks::Now(), std::nullopt,
+                                   /*is_handling_interaction=*/true),
+            0u);
 }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -95,7 +326,8 @@ TEST_F(AndroidFrameDeadlineDeciderTest, SingleFrameSequenceDefaultOffset) {
 
   EXPECT_EQ(2u, decider.SelectDeadline(deadlines, k120HzVsyncInterval,
                                        k120HzAllowedBuffers, base::TimeTicks(),
-                                       std::nullopt));
+                                       std::nullopt,
+                                       /*is_handling_interaction=*/false));
 }
 
 TEST_F(AndroidFrameDeadlineDeciderTest, SingleFrameSequenceNegativeOffset) {
@@ -131,7 +363,8 @@ TEST_F(AndroidFrameDeadlineDeciderTest, SingleFrameSequenceNegativeOffset) {
 
   EXPECT_EQ(2u, decider.SelectDeadline(deadlines, k120HzVsyncInterval,
                                        k120HzAllowedBuffers, base::TimeTicks(),
-                                       std::nullopt));
+                                       std::nullopt,
+                                       /*is_handling_interaction=*/false));
 }
 
 TEST_F(AndroidFrameDeadlineDeciderTest, SanityGuardFallback) {
@@ -140,6 +373,7 @@ TEST_F(AndroidFrameDeadlineDeciderTest, SanityGuardFallback) {
       features::kUseAndroidCustomFrameDeadlines,
       {{"presentation_offset", "-4"}});
 
+  base::HistogramTester histogram_tester;
   FrameDeadlineDecider decider(false);
 
   // Setup 120Hz deadlines.
@@ -160,7 +394,42 @@ TEST_F(AndroidFrameDeadlineDeciderTest, SanityGuardFallback) {
 
   EXPECT_EQ(1u, decider.SelectDeadline(deadlines, k120HzVsyncInterval,
                                        k120HzAllowedBuffers, base::TimeTicks(),
-                                       std::nullopt));
+                                       std::nullopt,
+                                       /*is_handling_interaction=*/false));
+  histogram_tester.ExpectUniqueSample(
+      "Viz.FrameDeadlineDecider.SelectionReason",
+      FrameDeadlineDecider::SelectionReason::kOsPreferredChromePreferredSooner,
+      1);
+}
+
+TEST_F(AndroidFrameDeadlineDeciderTest, SelectionReason_FallbackExceedsTarget) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      features::kUseAndroidCustomFrameDeadlines,
+      {{"presentation_offset", "-4"}});
+
+  base::HistogramTester histogram_tester;
+  FrameDeadlineDecider decider(false);
+
+  // Setup 120Hz deadlines.
+  // num_buffers = 4 + 1 = 5.
+  // Target present multiplier = max(1, 5 - 4) = 1.
+  // Target present delta = 1 * 8ms = 8ms.
+  // Preferred index = 0 (16ms).
+  // Custom target is index 0 (present = 16ms), which is > 8ms target.
+  // Falls back to OS preferred with kOsPreferredNoDeadlineWithinTarget.
+  auto deadlines = CreatePossibleDeadlines(
+      0, {PossibleDeadline(1, base::Milliseconds(8), base::Milliseconds(16))});
+
+  EXPECT_EQ(0u, decider.SelectDeadline(deadlines, k120HzVsyncInterval,
+                                       k120HzAllowedBuffers, base::TimeTicks(),
+                                       std::nullopt,
+                                       /*is_handling_interaction=*/false));
+
+  histogram_tester.ExpectUniqueSample(
+      "Viz.FrameDeadlineDecider.SelectionReason",
+      FrameDeadlineDecider::SelectionReason::kOsPreferredNoDeadlineWithinTarget,
+      1);
 }
 
 TEST_F(AndroidFrameDeadlineDeciderTest, BinarySearchLessThanOrEqualSelection) {
@@ -189,7 +458,8 @@ TEST_F(AndroidFrameDeadlineDeciderTest, BinarySearchLessThanOrEqualSelection) {
 
   EXPECT_EQ(1u, decider.SelectDeadline(deadlines, k120HzVsyncInterval,
                                        k120HzAllowedBuffers, base::TimeTicks(),
-                                       std::nullopt));
+                                       std::nullopt,
+                                       /*is_handling_interaction=*/false));
 }
 
 TEST_F(AndroidFrameDeadlineDeciderTest, SequenceLockingAndReset) {
@@ -199,6 +469,7 @@ TEST_F(AndroidFrameDeadlineDeciderTest, SequenceLockingAndReset) {
       {{"presentation_offset", "0"}});
 
   FrameDeadlineDecider decider(false);
+  base::TimeTicks base_time = base::TimeTicks() + base::Milliseconds(1000);
 
   // 1. Start sequence: max_pending_swaps = 4. Target = (4+1)*8 = 40ms.
   // Deadlines: [16ms (pref), 40ms]
@@ -210,11 +481,12 @@ TEST_F(AndroidFrameDeadlineDeciderTest, SequenceLockingAndReset) {
              PossibleDeadline(2, base::Milliseconds(32),
                               base::Milliseconds(40))  // Custom target
          });
-  EXPECT_EQ(1u, decider.SelectDeadline(deadlines_1, k120HzVsyncInterval,
-                                       k120HzAllowedBuffers, base::TimeTicks(),
-                                       std::nullopt));
+  EXPECT_EQ(
+      1u, decider.SelectDeadline(deadlines_1, k120HzVsyncInterval,
+                                 k120HzAllowedBuffers, base_time, std::nullopt,
+                                 /*is_handling_interaction=*/false));
 
-  // 2. Subsequent frame: max_pending_swaps = 2.
+  // 2. Subsequent frame 30ms later: max_pending_swaps = 2.
   // Recalculated target would be (2+1)*8 = 24ms.
   // Deadlines: [16ms (pref), 24ms, 40ms]
   // If locked, should select index 2 (40ms) because it is closest to previous
@@ -229,16 +501,17 @@ TEST_F(AndroidFrameDeadlineDeciderTest, SequenceLockingAndReset) {
                               base::Milliseconds(40))  // Lock target
          });
   EXPECT_EQ(2u, decider.SelectDeadline(deadlines_2, k120HzVsyncInterval, 3,
-                                       base::TimeTicks(), std::nullopt));
+                                       base_time + base::Milliseconds(30),
+                                       std::nullopt,
+                                       /*is_handling_interaction=*/false));
 
-  // 3. Go idle. This should reset the sequence.
-  decider.OnGoIdle();
-
-  // 4. New frame: max_pending_swaps = 2. Target = 24ms.
-  // Deadlines: [16ms (pref), 24ms, 40ms]
+  // 3. New frame 90ms after start (60ms gap > 50ms timeout).
+  // Target = 24ms. Deadlines: [16ms (pref), 24ms, 40ms]
   // Should recalculate and select index 1 (24ms).
   EXPECT_EQ(1u, decider.SelectDeadline(deadlines_2, k120HzVsyncInterval, 3,
-                                       base::TimeTicks(), std::nullopt));
+                                       base_time + base::Milliseconds(90),
+                                       std::nullopt,
+                                       /*is_handling_interaction=*/false));
 }
 
 TEST_F(AndroidFrameDeadlineDeciderTest,
@@ -275,7 +548,8 @@ TEST_F(AndroidFrameDeadlineDeciderTest,
   // is not reduced. Custom matches index 2 (present = 40ms).
   EXPECT_EQ(2u, decider.SelectDeadline(deadlines, k120HzVsyncInterval,
                                        k120HzAllowedBuffers, frame_time,
-                                       frame_time - base::Milliseconds(10)));
+                                       frame_time - base::Milliseconds(10),
+                                       /*is_handling_interaction=*/false));
 }
 
 TEST_F(AndroidFrameDeadlineDeciderTest,
@@ -316,7 +590,8 @@ TEST_F(AndroidFrameDeadlineDeciderTest,
   // Should select index 1.
   EXPECT_EQ(1u, decider.SelectDeadline(deadlines, k120HzVsyncInterval,
                                        k120HzAllowedBuffers, frame_time,
-                                       frame_time - base::Milliseconds(60)));
+                                       frame_time - base::Milliseconds(60),
+                                       /*is_handling_interaction=*/false));
 }
 
 TEST_F(AndroidFrameDeadlineDeciderTest,
@@ -357,7 +632,8 @@ TEST_F(AndroidFrameDeadlineDeciderTest,
                                        15,  // max_pending_swaps = 14 -> allowed
                                             // = 15 -> target = 15 * 8 = 120ms
                                        frame_time,
-                                       frame_time + base::Milliseconds(40)));
+                                       frame_time + base::Milliseconds(40),
+                                       /*is_handling_interaction=*/false));
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 

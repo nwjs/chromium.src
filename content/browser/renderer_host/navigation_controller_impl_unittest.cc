@@ -161,11 +161,6 @@ class MockPageBroadcast : public blink::mojom::PageBroadcast {
               (override));
 
   MOCK_METHOD(void,
-              SetPageAttributionSupport,
-              (network::mojom::AttributionSupport support),
-              (override));
-
-  MOCK_METHOD(void,
               SetSupportsDraggableRegions,
               (bool supports_draggable_regions),
               (override));
@@ -4021,15 +4016,14 @@ TEST_F(NavigationControllerTest, NoURLRewriteForSubframes) {
   controller_impl().NavigateFromFrameProxy(
       subframe_node->current_frame_host(), kSrcDoc,
       nullptr /* initiator_frame_token */,
-      ChildProcessHost::kInvalidUniqueID /* initiator_process_id */,
-      url::Origin::Create(kUrl2), /* initiator_base_url= */ std::nullopt,
-      true /* is_renderer_initiated */,
+      ChildProcessId() /* initiator_process_id */, url::Origin::Create(kUrl2),
+      /* initiator_base_url= */ std::nullopt, true /* is_renderer_initiated */,
       main_test_rfh()->CreateInitiatorStateFromCurrentFrame(), Referrer(),
       ui::PAGE_TRANSITION_LINK, false /* should_replace_current_entry */,
       blink::NavigationDownloadPolicy(), "GET", nullptr, "",
       network::mojom::SourceLocation::New(), nullptr,
-      false /* is_form_submission */, std::nullopt,
-      false /* has_user_gesture */, false /* started_by_ad */,
+      false /* is_form_submission */, false /* has_user_gesture */,
+      false /* started_by_ad */,
       base::TimeTicks::Now() /* actual_navigation_start_time */,
       base::TimeTicks::Now() /* navigation_start_time */);
 
@@ -4066,15 +4060,15 @@ TEST_F(NavigationControllerTest,
   const bool should_replace_current_entry = true;
   other_controller.NavigateFromFrameProxy(
       frame, other_contents_url, nullptr /* initiator_frame_token */,
-      ChildProcessHost::kInvalidUniqueID /* initiator_process_id */,
+      ChildProcessId() /* initiator_process_id */,
       url::Origin::Create(main_url), /* initiator_base_url= */ std::nullopt,
       true /* is_renderer_initiated */,
       main_test_rfh()->CreateInitiatorStateFromCurrentFrame(), Referrer(),
       ui::PAGE_TRANSITION_LINK, should_replace_current_entry,
       blink::NavigationDownloadPolicy(), "GET", nullptr, "",
       network::mojom::SourceLocation::New(), nullptr,
-      false /* is_form_submission */, std::nullopt,
-      false /* has_user_gesture */, false /* started_by_ad */,
+      false /* is_form_submission */, false /* has_user_gesture */,
+      false /* started_by_ad */,
       base::TimeTicks::Now() /* actual_navigation_start_time */,
       base::TimeTicks::Now() /* navigation_start_time */);
   NavigationRequest* request = node->navigation_request();
@@ -4452,15 +4446,14 @@ TEST_F(NavigationControllerFencedFrameTest, NoURLRewriteForFencedFrames) {
   fenced_frame_tree->controller().NavigateFromFrameProxy(
       fenced_frame_root, GURL(kTestRewriteURL),
       nullptr /* initiator_frame_token */,
-      ChildProcessHost::kInvalidUniqueID /* initiator_process_id */,
-      url::Origin::Create(kUrl2), /* initiator_base_url= */ std::nullopt,
-      true /* is_renderer_initiated */,
+      ChildProcessId() /* initiator_process_id */, url::Origin::Create(kUrl2),
+      /* initiator_base_url= */ std::nullopt, true /* is_renderer_initiated */,
       main_test_rfh()->CreateInitiatorStateFromCurrentFrame(), Referrer(),
       ui::PAGE_TRANSITION_LINK, false /* should_replace_current_entry */,
       blink::NavigationDownloadPolicy(), "GET", nullptr, "",
       network::mojom::SourceLocation::New(), nullptr,
-      false /* is_form_submission */, std::nullopt,
-      false /* has_user_gesture */, false /* started_by_ad */,
+      false /* is_form_submission */, false /* has_user_gesture */,
+      false /* started_by_ad */,
       base::TimeTicks::Now() /* actual_navigation_start_time */,
       base::TimeTicks::Now() /* navigation_start_time */);
 

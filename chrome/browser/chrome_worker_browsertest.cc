@@ -59,12 +59,12 @@ class ChromeWorkerBrowserTest : public InProcessBrowserTest {
     const std::string kCookie = "foo=bar";
 
     // Set up third-party cookie blocking.
-    browser()->profile()->GetPrefs()->SetInteger(
+    browser()->GetProfile()->GetPrefs()->SetInteger(
         prefs::kCookieControlsMode, static_cast<int>(cookie_controls_mode));
 
     // Make sure cookies are not set.
     ASSERT_TRUE(
-        GetCookies(browser()->profile(), embedded_test_server()->base_url())
+        GetCookies(browser()->GetProfile(), embedded_test_server()->base_url())
             .empty());
 
     // Request for the worker script should not send cookies.
@@ -78,7 +78,7 @@ class ChromeWorkerBrowserTest : public InProcessBrowserTest {
     }
 
     // Set a cookie.
-    ASSERT_TRUE(SetCookie(browser()->profile(),
+    ASSERT_TRUE(SetCookie(browser()->GetProfile(),
                           embedded_test_server()->base_url(), kCookie));
 
     // Request for the worker script should send the cookie regardless of the

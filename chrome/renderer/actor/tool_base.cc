@@ -25,6 +25,7 @@
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom.h"
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_element.h"
+#include "third_party/blink/public/web/web_form_control_element.h"
 #include "third_party/blink/public/web/web_frame_widget.h"
 #include "third_party/blink/public/web/web_hit_test_result.h"
 #include "third_party/blink/public/web/web_local_frame.h"
@@ -34,7 +35,9 @@
 #include "ui/gfx/geometry/vector2d_conversions.h"
 
 using base::UmaHistogramEnumeration;
+using blink::WebDocument;
 using blink::WebElement;
+using blink::WebFormControlElement;
 using blink::WebFrameWidget;
 using blink::WebHitTestResult;
 using blink::WebLocalFrame;
@@ -67,6 +70,83 @@ enum class TimeOfUseResult {
   kMaxValue = kNoValidApcNode,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/actor/enums.xml:TimeOfUseResult)
+
+WebElement GetElementOrNearestElementAncestor(WebNode node) {
+  // Hit testing can return text. Validation APIs live on elements. If the walk
+  // reaches the document instead, this returns null and validation is skipped.
+  while (!node.IsNull() && !node.IsElementNode()) {
+    node = node.ParentNode();
+  }
+  return node.DynamicTo<WebElement>();
+}
+
+bool HasEmptyClientRects(WebElement& element) {
+  // ClientRectsInWidget() reports this element's own CSS client rects. A
+  // structural zero-area wrapper can have none even when its descendants are
+  // visible, so descendants are checked separately below.
+  for (const gfx::Rect& rect : element.ClientRectsInWidget()) {
+    if (!rect.IsEmpty()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+std::optional<gfx::PointF> FindClickPointOnDescendantOfZeroAreaTarget(
+    WebWidget& target_widget,
+    const WebNode& target_node,
+    const gfx::Rect& allowed_click_bounds) {
+  WebElement target_element = target_node.DynamicTo<WebElement>();
+  if (target_element.IsNull()) {
+    return std::nullopt;
+  }
+
+  // This exception is only for structural wrappers with no client area of
+  // their own. A clipped or offscreen positive-area element must continue
+  // through the normal interaction-point path.
+  if (!HasEmptyClientRects(target_element)) {
+    return std::nullopt;
+  }
+
+  // Find a current visible descendant point inside the target's observed
+  // visible bounds whose live hit-test result remains in the target's flat
+  // tree.
+  const gfx::Rect viewport(target_widget.VisibleViewportSize());
+  WebNode descendant = target_node.NextInFlatTree(target_node);
+  while (!descendant.IsNull()) {
+    WebElement element = descendant.DynamicTo<WebElement>();
+    if (element.IsNull()) {
+      descendant = descendant.NextInFlatTree(target_node);
+      continue;
+    }
+    bool has_visible_geometry = false;
+    for (const gfx::Rect& rect : element.ClientRectsInWidget()) {
+      gfx::Rect visible_rect = rect;
+      visible_rect.Intersect(viewport);
+      if (visible_rect.IsEmpty()) {
+        continue;
+      }
+      has_visible_geometry = true;
+      const gfx::Point candidate = visible_rect.CenterPoint();
+      // The click must remain within the target bounds from the last APC
+      // snapshot.
+      if (!allowed_click_bounds.Contains(candidate)) {
+        continue;
+      }
+      WebNode live_hit = target_widget.HitTestResultAt(gfx::PointF(candidate))
+                             .GetNodeOrPseudoNode();
+      if (!live_hit.IsNull() && target_node.ContainsViaFlatTree(&live_hit)) {
+        return gfx::PointF(candidate);
+      }
+    }
+    // Once an element supplies visible geometry, do not search deeper in that
+    // branch. This keeps the search on the nearest rendered descendants.
+    descendant = has_visible_geometry
+                     ? descendant.NextSkippingChildrenInFlatTree(target_node)
+                     : descendant.NextInFlatTree(target_node);
+  }
+  return std::nullopt;
+}
 
 enum class WebElementAuthorBarrierReason {
   kNone = 0,
@@ -157,10 +237,8 @@ WebElementAuthorBarrierReason GetWebElementAuthorBarrierReason(
   // document-wide scan. That validation belongs in APC/higher layers; see the
   // prototype at crrev.com/c/8007486.
 
-  // Blink folds native modal background inertness, pointer-events:none,
-  // aria-hidden, and similar target availability into this cheap check.
-  // Modeless dialog elements stay interactive and are not barriers here.
-  if (element.IsEffectivelyDisabledOrInert()) {
+  // Direct activation uses accessibility-style clicks, so ARIA can block it.
+  if (element.InteractionDisallowedReason(/*check_aria=*/true).has_value()) {
     return WebElementAuthorBarrierReason::kInert;
   }
 
@@ -172,6 +250,26 @@ WebElementAuthorBarrierReason GetWebElementAuthorBarrierReason(
   }
 
   return WebElementAuthorBarrierReason::kNone;
+}
+
+WebElement GetHitElementInTargetDocument(WebElement hit_element,
+                                         const WebDocument& target_document) {
+  // A remote iframe hit already points to its element in the target document.
+  // A same-process hit points inside the iframe, so move up once to that
+  // element. Nested iframes are not supported here.
+  if (hit_element.GetDocument() != target_document) {
+    WebLocalFrame* frame = hit_element.GetDocument().GetFrame();
+    if (!frame) {
+      return WebElement();
+    }
+
+    hit_element = frame->FrameOwnerElement();
+    if (hit_element.IsNull() || hit_element.GetDocument() != target_document) {
+      return WebElement();
+    }
+  }
+
+  return hit_element;
 }
 
 WebElement GetFixedOrAbsolutePanel(WebElement hit_element) {
@@ -310,7 +408,25 @@ ToolBase::ResolveResult ToolBase::ResolveTarget(
     node_interaction_point = InteractionPointFromWebNode(frame_widget, node);
   }
 
-  if (!node_interaction_point.has_value()) {
+  if (!node_interaction_point &&
+      base::FeatureList::IsEnabled(
+          features::kGlicActorDomIdClicksOnZeroAreaTargets) &&
+      observed_target_ &&
+      observed_target_->node_attribute->dom_node_id ==
+          target.get_dom_node_id() &&
+      observed_target_->node_attribute->geometry) {
+    // Restrict fallback clicks to bounds observed for this target in the last
+    // APC snapshot.
+    const gfx::Rect& allowed_click_bounds =
+        observed_target_->node_attribute->geometry->visible_bounding_box;
+    WebWidget* target_widget = popup_handle
+                                   ? static_cast<WebWidget*>(popup)
+                                   : static_cast<WebWidget*>(frame_widget);
+    node_interaction_point = FindClickPointOnDescendantOfZeroAreaTarget(
+        *target_widget, node, allowed_click_bounds);
+  }
+
+  if (!node_interaction_point) {
     return base::unexpected(
         MakeResult(mojom::ActionResultCode::kElementOffscreen,
                    /*requires_page_stabilization=*/false,
@@ -366,6 +482,81 @@ ToolBase::ResolveResult ToolBase::ValidateAndResolveTarget(
   }
 
   return resolved_target.value();
+}
+
+std::optional<blink::WebElementInteractionDisallowedReason>
+ToolBase::GetInteractionDisallowedReason(
+    const ResolvedTarget& resolved_target,
+    bool check_aria,
+    bool reject_non_disabled_reasons) const {
+  WebElement validation_element =
+      GetTargetElementForValidation(resolved_target);
+  if (validation_element.IsNull()) {
+    return std::nullopt;
+  }
+
+  if (IsDisabledFormControlTarget(validation_element)) {
+    return blink::WebElementInteractionDisallowedReason::kDisabled;
+  }
+
+  if (!reject_non_disabled_reasons) {
+    return std::nullopt;
+  }
+
+  return GetInteractionDisallowedReason(validation_element, check_aria);
+}
+
+bool ToolBase::IsDisabledFormControlTarget(
+    const WebElement& validation_element) const {
+  if (validation_element.IsNull()) {
+    return false;
+  }
+
+  WebFormControlElement form_control =
+      validation_element.DynamicTo<WebFormControlElement>();
+  return !form_control.IsNull() && !form_control.IsEnabled();
+}
+
+std::optional<blink::WebElementInteractionDisallowedReason>
+ToolBase::GetInteractionDisallowedReason(const WebElement& validation_element,
+                                         bool check_aria) const {
+  if (validation_element.IsNull()) {
+    return std::nullopt;
+  }
+
+  return validation_element.InteractionDisallowedReason(check_aria);
+}
+
+WebElement ToolBase::GetTargetElementForValidation(
+    const ResolvedTarget& resolved_target) const {
+  if (target_->is_coordinate_dip() && observed_target_ &&
+      observed_target_->node_attribute->dom_node_id) {
+    WebNode observed_node = GetNodeFromIdIncludingPopup(
+        frame_.get(), *observed_target_->node_attribute->dom_node_id);
+
+    // Click and type coordinate targets both arrive here after hit testing.
+    // When TOCTOU matched the coordinate to an observed APC node, validate the
+    // observed element instead of an internal hit-test descendant.
+    // `ValidateTimeOfUse()` already proves this containment for normal
+    // coordinate targets. Recheck it here so this helper remains safe if
+    // callers use it before or after validation changes.
+    if (!observed_node.IsNull() &&
+        observed_node.ContainsViaFlatTree(&resolved_target.node)) {
+      return GetElementOrNearestElementAncestor(observed_node);
+    }
+  }
+
+  WebElement resolved_element =
+      GetElementOrNearestElementAncestor(resolved_target.node);
+  if (target_->is_coordinate_dip() && !resolved_element.IsNull() &&
+      resolved_target.node.IsInUserAgentShadowRoot()) {
+    WebElement shadow_host = resolved_element.OwnerShadowHost();
+    if (!shadow_host.IsNull()) {
+      return shadow_host;
+    }
+  }
+
+  return resolved_element;
 }
 
 bool ToolBase::EnsureTargetInView() {
@@ -626,17 +817,13 @@ mojom::ActionResultPtr ToolBase::ValidateTimeOfUse(
       const WebHitTestResult hit_test_result =
           widget->HitTestResultAt(resolved_target.widget_point);
       const WebElement hit_element = hit_test_result.GetElement();
-      // Direct activation only supports main-document targets covered by
-      // main-document panels. A hit inside a child document means the live
-      // occluder is embedded content, which the server rejects today.
-      if (hit_element.IsNull() ||
-          hit_element.GetDocument() != target_document) {
+      if (hit_element.IsNull()) {
         journal_->Log(task_id_, journal_name,
                       JournalDetailsBuilder()
                           .Add("target_id", target_element.GetDomNodeId())
                           .Add("target", NodeToDebugString(target_element))
-                          .AddError("Direct-activation hit test did not return "
-                                    "a top-document element")
+                          .AddError("Direct-activation hit test returned no "
+                                    "element")
                           .Build());
         UmaHistogramEnumeration(
             histogram_name,
@@ -648,15 +835,25 @@ mojom::ActionResultPtr ToolBase::ValidateTimeOfUse(
             "panel.");
       }
 
+      // If the hit is inside a same-process iframe, use its frame owner in the
+      // target document so we can test whether it belongs to the target
+      // subtree. Merely being in the same document is not enough; an unrelated
+      // element there may still be the occluding panel.
+      const WebElement hit_element_in_target_document =
+          GetHitElementInTargetDocument(hit_element, target_document);
+
       // If the live hit is the target or one of its flat-tree children, the
       // page no longer needs click-behind handling.
-      if (target_node.ContainsViaFlatTree(&hit_element)) {
+      if (!hit_element_in_target_document.IsNull() &&
+          target_node.ContainsViaFlatTree(&hit_element_in_target_document)) {
         journal_->Log(task_id_, journal_name,
                       JournalDetailsBuilder()
                           .Add("target_id", target_element.GetDomNodeId())
-                          .Add("hit_node_id", hit_element.GetDomNodeId())
+                          .Add("hit_node_id",
+                               hit_element_in_target_document.GetDomNodeId())
                           .Add("target", NodeToDebugString(target_element))
-                          .Add("hit_node", NodeToDebugString(hit_element))
+                          .Add("hit_node", NodeToDebugString(
+                                               hit_element_in_target_document))
                           .AddError("Direct-activation target is no longer "
                                     "occluded")
                           .Build());
@@ -670,16 +867,25 @@ mojom::ActionResultPtr ToolBase::ValidateTimeOfUse(
       }
 
       // Server-side APC selection already decided whether this occluder is a
-      // bypassable modeless panel. The client only revalidates that the live
-      // hit still resolves to a fixed/absolute panel before dispatch.
-      const WebElement panel = GetFixedOrAbsolutePanel(hit_element);
+      // bypassable modeless panel. The client revalidates that the live hit or
+      // its top-document iframe owner is inside a fixed/absolute panel.
+      const WebElement panel =
+          GetFixedOrAbsolutePanel(hit_element_in_target_document);
       if (panel.IsNull()) {
         JournalDetailsBuilder builder;
         builder.Add("target_id", target_element.GetDomNodeId())
             .Add("hit_node_id", hit_element.GetDomNodeId())
             .Add("target", NodeToDebugString(target_element))
-            .Add("hit_node", NodeToDebugString(hit_element))
-            .Add("status", "NoEligiblePanel")
+            .Add("hit_node", NodeToDebugString(hit_element));
+        if (!hit_element_in_target_document.IsNull() &&
+            hit_element.GetDocument() != target_document) {
+          builder
+              .Add("target_document_hit_node_id",
+                   hit_element_in_target_document.GetDomNodeId())
+              .Add("target_document_hit_node",
+                   NodeToDebugString(hit_element_in_target_document));
+        }
+        builder.Add("status", "NoEligiblePanel")
             .AddError(
                 "Direct-activation target is not covered by an eligible "
                 "fixed or absolute panel");

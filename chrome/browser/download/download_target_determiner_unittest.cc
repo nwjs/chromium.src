@@ -26,6 +26,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/test_future.h"
+#include "build/android_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/download/chrome_download_manager_delegate.h"
 #include "chrome/browser/download/download_confirmation_result.h"
@@ -240,6 +241,7 @@ class MockDownloadTargetDeterminerDelegate
                     ConfirmationCallback&));
 #if BUILDFLAG(IS_ANDROID)
   void RequestIncognitoWarningConfirmation(
+      content::WebContents* web_contents,
       IncognitoWarningConfirmationCallback cb) override {
     RequestIncognitoWarningConfirmation_(std::move(cb));
   }
@@ -929,7 +931,13 @@ TEST_F(DownloadTargetDeterminerTest,
 }
 
 // Test whether the last saved directory is used for 'Save As' downloads.
-TEST_F(DownloadTargetDeterminerTest, LastSavePath) {
+#if BUILDFLAG(IS_DESKTOP_ANDROID)
+// https://crbug.com/531834681
+#define MAYBE_LastSavePath DISABLED_LastSavePath
+#else
+#define MAYBE_LastSavePath LastSavePath
+#endif
+TEST_F(DownloadTargetDeterminerTest, MAYBE_LastSavePath) {
   const DownloadTestCase kLastSavePathTestCasesPre[] = {
       {// 0: If the last save path is empty, then the default download directory
        //    should be used.
@@ -1735,17 +1743,6 @@ TEST_F(DownloadTargetDeterminerTest, PromptAlways_NonTrustedExtension) {
        FILE_PATH_LITERAL("foo.crx"), DownloadItem::TARGET_DISPOSITION_PROMPT,
 
        EXPECT_CRDOWNLOAD},
-
-      {// 1: Automatic User Script - Shouldn't prompt for user script downloads
-       //    even if "Prompt for download" preference is set.
-       AUTOMATIC, download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS,
-       DownloadFileType::NOT_DANGEROUS, "http://example.com/foo.user.js", "",
-       FILE_PATH_LITERAL(""),
-
-       FILE_PATH_LITERAL("foo.user.js"),
-       DownloadItem::TARGET_DISPOSITION_PROMPT,
-
-       EXPECT_CRDOWNLOAD},
   };
 
   SetPromptForDownload(true);
@@ -1763,17 +1760,6 @@ TEST_F(DownloadTargetDeterminerTest, PromptAlways_TrustedExtension) {
        extensions::Extension::kMimeType, FILE_PATH_LITERAL(""),
 
        FILE_PATH_LITERAL("foo.crx"), DownloadItem::TARGET_DISPOSITION_OVERWRITE,
-
-       EXPECT_CRDOWNLOAD},
-
-      {// 1: Automatic User Script - Shouldn't prompt for user script downloads
-       //    even if "Prompt for download" preference is set.
-       AUTOMATIC, download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS,
-       DownloadFileType::NOT_DANGEROUS, "http://example.com/foo.user.js", "",
-       FILE_PATH_LITERAL(""),
-
-       FILE_PATH_LITERAL("foo.user.js"),
-       DownloadItem::TARGET_DISPOSITION_OVERWRITE,
 
        EXPECT_CRDOWNLOAD},
   };
@@ -2853,7 +2839,8 @@ TEST_F(DownloadTargetDeterminerTest, TestSanitizeEnvVariable) {
        DownloadItem::TARGET_DISPOSITION_PROMPT,
 
        EXPECT_CRDOWNLOAD},
-      {// 2: File name falling back to dangerous extensions after removing env var.
+      {// 2: File name falling back to dangerous extensions after removing env
+       // var.
        SAVE_AS, download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS,
        DownloadFileType::NOT_DANGEROUS, "http://example.com/foo2.lnk.%%",
        "application/octet-stream", FILE_PATH_LITERAL(""),
@@ -2862,7 +2849,8 @@ TEST_F(DownloadTargetDeterminerTest, TestSanitizeEnvVariable) {
        DownloadItem::TARGET_DISPOSITION_PROMPT,
 
        EXPECT_CRDOWNLOAD},
-      {// 3: Double extension bug leading to dangerous extensions after removing env var.
+      {// 3: Double extension bug leading to dangerous extensions after removing
+       // env var.
        SAVE_AS, download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS,
        DownloadFileType::NOT_DANGEROUS, "http://example.com/foo2.lnk %%",
        "application/octet-stream", FILE_PATH_LITERAL(""),
@@ -2871,8 +2859,9 @@ TEST_F(DownloadTargetDeterminerTest, TestSanitizeEnvVariable) {
        DownloadItem::TARGET_DISPOSITION_PROMPT,
 
        EXPECT_CRDOWNLOAD},
-      {// 4: Unicode char bug leading to dangerous extensions after removing env var.
-       // NOTE: The space before "%%" is a non-breaking space (U+00A0), not a normal space.
+      {// 4: Unicode char bug leading to dangerous extensions after removing env
+       // var. NOTE: The space before "%%" is a non-breaking space (U+00A0), not
+       // a normal space.
        SAVE_AS, download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS,
        DownloadFileType::NOT_DANGEROUS, "http://example.com/foo2.lnk %%",
        "application/octet-stream", FILE_PATH_LITERAL(""),
@@ -2905,7 +2894,7 @@ TEST_F(DownloadTargetDeterminerTest, TestSanitizeEnvVariable) {
        "http://example.com/photo.jpg%20%25%25.url", "text/plain",
        FILE_PATH_LITERAL(""),
 
-       FILE_PATH_LITERAL("photo.jpg.url"),
+       FILE_PATH_LITERAL("photo.jpg.download"),
        DownloadItem::TARGET_DISPOSITION_PROMPT,
 
        EXPECT_CRDOWNLOAD},

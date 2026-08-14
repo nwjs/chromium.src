@@ -6,8 +6,6 @@ package org.chromium.components.embedder_support.delegate;
 
 import static android.view.Display.INVALID_DISPLAY;
 
-import static org.chromium.build.NullUtil.assumeNonNull;
-
 import android.graphics.Bitmap;
 import android.graphics.Rect;
 import android.view.KeyEvent;
@@ -28,6 +26,8 @@ import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.navigation_controller.UserAgentOverrideOption;
 import org.chromium.content_public.common.ResourceRequestBody;
+import org.chromium.ui.base.WindowAndroid;
+import org.chromium.ui.base.WindowAndroid.KeyboardShortcutsDelegate;
 import org.chromium.ui.resources.dynamics.CaptureResult;
 import org.chromium.url.GURL;
 
@@ -99,6 +99,11 @@ public class WebContentsDelegateAndroid {
     }
 
     @CalledByNative
+    public boolean canDownload(GURL url, String requestMethod) {
+        return true;
+    }
+
+    @CalledByNative
     public void onUpdateTargetUrl(GURL url) {}
 
     @CalledByNative
@@ -110,6 +115,26 @@ public class WebContentsDelegateAndroid {
     public void handleKeyboardEvent(KeyEvent event) {
         // TODO(bulach): we probably want to re-inject the KeyEvent back into
         // the system. Investigate if this is at all possible.
+    }
+
+    @CalledByNative
+    public static boolean preHandleKeyboardEvent(WindowAndroid window, KeyEvent event) {
+        if (window == null) return false;
+        KeyboardShortcutsDelegate delegate = window.getKeyboardShortcutsDelegate();
+        if (delegate != null) {
+            return delegate.preHandleKeyboardEvent(event);
+        }
+        return false;
+    }
+
+    @CalledByNative
+    public static boolean handleKeyboardEventFallback(WindowAndroid window, KeyEvent event) {
+        if (window == null) return false;
+        KeyboardShortcutsDelegate delegate = window.getKeyboardShortcutsDelegate();
+        if (delegate != null) {
+            return delegate.handleKeyboardEvent(event);
+        }
+        return false;
     }
 
     /**
@@ -454,7 +479,6 @@ public class WebContentsDelegateAndroid {
             long nativeWebContentsDelegateAndroid) {
         WeakReference<WebContentsDelegateAndroid> reference =
                 sRefMap.get(nativeWebContentsDelegateAndroid);
-        assumeNonNull(reference);
-        return reference.get();
+        return reference == null ? null : reference.get();
     }
 }

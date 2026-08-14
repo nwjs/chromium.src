@@ -387,8 +387,10 @@ bool PolicyUIStatusTest::ReadStatusFor(
     (function() {
       function readStatus() {
         // Wait for the status box to appear in case page just loaded.
-        const statusSection = document.getElementById('status-section');
-        if (statusSection.hidden) {
+        const app = document.querySelector('policy-app');
+        const statusSection = app && app.shadowRoot ?
+            app.shadowRoot.querySelector('#status-section') : null;
+        if (!statusSection || statusSection.hidden) {
           return new Promise(resolve => {
             window.requestIdleCallback(resolve);
           }).then(readStatus);
@@ -441,33 +443,14 @@ bool PolicyUIStatusTest::ReloadPolicies() {
 }
 
 bool PolicyUIStatusTest::ReloadPolicies(content::WebContents* contents) {
-  const std::string javascript = R"JS(
-    (function() {
-      const reloadPoliciesBtn = document.getElementById('reload-policies');
-      reloadPoliciesBtn.click();
-      // Wait until reload button becomes enabled again, i.e. policies reloaded.
-      function waitForPoliciesToReload() {
-        if (reloadPoliciesBtn.disabled) {
-          return new Promise(resolve => {
-            window.requestIdleCallback(resolve);
-          }).then(waitForPoliciesToReload);
-        } else {
-          return true;
-        }
-      }
-      return new Promise(resolve => {
-        window.requestIdleCallback(resolve);
-      }).then(waitForPoliciesToReload);
-    })();
-  )JS";
-  return content::ExecJs(contents, javascript);
+  return content::ExecJs(contents, "reloadPolicies()");
 }
 
 #if !BUILDFLAG(IS_ANDROID)
 IN_PROC_BROWSER_TEST_F(PolicyUIStatusTest, CheckPolicyUiInGuestProfile) {
   // Verifies that the page opens in guest session.
   const Browser* policy_browser = OpenURLOffTheRecord(
-      browser()->profile(), GURL(chrome::kChromeUIPolicyURL));
+      browser()->GetProfile(), GURL(chrome::kChromeUIPolicyURL));
   ASSERT_TRUE(policy_browser);
   content::WebContents* contents =
       policy_browser->tab_strip_model()->GetActiveWebContents();
@@ -783,7 +766,7 @@ IN_PROC_BROWSER_TEST_P(PolicyUITest, ReportButtonWithProfileReporting) {
 
 #if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
 IN_PROC_BROWSER_TEST_P(PolicyUITest, ReportButtonOTRProfile) {
-  Browser* otr_browser = OpenURLOffTheRecord(browser()->profile(),
+  Browser* otr_browser = OpenURLOffTheRecord(browser()->GetProfile(),
                                              GURL(chrome::kChromeUIPolicyURL));
   ASSERT_TRUE(otr_browser);
   content::WebContents* otr_contents =
@@ -794,7 +777,7 @@ IN_PROC_BROWSER_TEST_P(PolicyUITest, ReportButtonOTRProfile) {
   EXPECT_EQ(
       nullptr,
       enterprise_reporting::CloudProfileReportingServiceFactory::GetForProfile(
-          otr_browser->profile()));
+          otr_browser->GetProfile()));
 
   // Turn on the reporting policy.
   policy::PolicyMap policy_map;
@@ -862,8 +845,17 @@ class PolicyPrecedenceUITest
 
   // Used to retrieve the contents of the policy precedence rows.
   const std::string kJavaScript =
-      "var precedence_row = getPrecedenceRowValue();"
-      "precedence_row.textContent;";
+      "new Promise(resolve => {"
+      "  const check = () => {"
+      "    const precedence_row = getPrecedenceRowValue();"
+      "    if (precedence_row && precedence_row.textContent.trim() !== '') {"
+      "      resolve(precedence_row.textContent.trim());"
+      "    } else {"
+      "      setTimeout(check, 50);"
+      "    }"
+      "  };"
+      "  check();"
+      "});";
 
  private:
   base::test::ScopedFeatureList feature_list_;

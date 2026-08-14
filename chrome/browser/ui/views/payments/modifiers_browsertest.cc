@@ -2,12 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <vector>
-
-#include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ui/views/payments/payment_request_browsertest_base.h"
 #include "chrome/browser/ui/views/payments/payment_request_dialog_view_ids.h"
-#include "components/web_modal/web_contents_modal_dialog_manager.h"
+#include "chrome/browser/ui/views/payments/payment_request_dialog_view_test_api.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -30,7 +27,7 @@ class PaymentRequestModifiersTest : public PaymentRequestBrowserTestBase {
   }
 
   size_t GetLineCount() {
-    auto* top = dialog_view()->view_stack_for_testing()->top();
+    auto* top = test_api(dialog_view()).view_stack()->top();
     const auto* content =
         top->GetViewByID(static_cast<int>(DialogViewID::CONTENT_VIEW));
     return content->children().size();

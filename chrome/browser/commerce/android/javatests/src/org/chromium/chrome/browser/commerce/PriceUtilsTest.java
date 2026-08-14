@@ -7,19 +7,17 @@ package org.chromium.chrome.browser.commerce;
 import androidx.test.filters.SmallTest;
 
 import org.junit.Assert;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.test.BaseJUnit4ClassRunner;
-import org.chromium.chrome.test.ChromeBrowserTestRule;
+import org.chromium.base.test.util.Batch;
 
 /** Test for {@link PriceUtils}. */
 @RunWith(BaseJUnit4ClassRunner.class)
+@Batch(Batch.UNIT_TESTS)
 public class PriceUtilsTest {
     private static final int MICROS_TO_UNITS = 1000000;
-
-    @Rule public ChromeBrowserTestRule mActivityTestRule = new ChromeBrowserTestRule();
 
     @Test
     @SmallTest

@@ -159,13 +159,7 @@ ParsingContext::ParsingContext(base::span<const FormFieldData> fields,
       pattern_file(pattern_file),
       active_features(active_features),
       regex_cache(GetAutofillRegexCache()),
-      log_manager(log_manager) {
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillEnableCacheForRegexMatching)) {
-    matches_cache.emplace(
-        features::kAutofillEnableCacheForRegexMatchingCacheSizeParam.Get());
-  }
-}
+      log_manager(log_manager) {}
 
 ParsingContext::ParsingContext(
     base::span<const std::unique_ptr<AutofillField>> fields,
@@ -180,13 +174,7 @@ ParsingContext::ParsingContext(
       pattern_file(pattern_file),
       active_features(active_features),
       regex_cache(GetAutofillRegexCache()),
-      log_manager(log_manager) {
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillEnableCacheForRegexMatching)) {
-    matches_cache.emplace(
-        features::kAutofillEnableCacheForRegexMatchingCacheSizeParam.Get());
-  }
-}
+      log_manager(log_manager) {}
 
 ParsingContext::~ParsingContext() = default;
 
@@ -197,9 +185,9 @@ bool FormFieldParser::MatchesRegexWithCache(
     std::u16string_view pattern,
     std::vector<std::u16string>* groups) {
   RegexMatchesCache::Key key;
-  if (!groups && context.matches_cache) {
+  if (!groups) {
     key = RegexMatchesCache::BuildKey(input, pattern);
-    std::optional<bool> cache_entry = context.matches_cache->Get(key);
+    std::optional<bool> cache_entry = context.matches_cache.Get(key);
     if (cache_entry.has_value()) {
       return cache_entry.value();
     }
@@ -207,8 +195,8 @@ bool FormFieldParser::MatchesRegexWithCache(
   const icu::RegexPattern* regex_pattern =
       context.regex_cache->GetRegexPattern(pattern);
   bool result = MatchesRegex(input, regex_pattern, groups);
-  if (!groups && context.matches_cache) {
-    context.matches_cache->Put(key, result);
+  if (!groups) {
+    context.matches_cache.Put(key, result);
   }
   return result;
 }
@@ -448,8 +436,7 @@ void FormFieldParser::ParseStandaloneEmailFields(
 }
 
 // static
-std::optional<FormFieldParser::MatchInfo>
-FormFieldParser::FieldMatchesMatchPatternRef(
+std::optional<MatchInfo> FormFieldParser::FieldMatchesMatchPatternRef(
     ParsingContext& context,
     const FormFieldData& field,
     std::string_view regex_name,
@@ -650,21 +637,10 @@ void FormFieldParser::AddClassification(
       /*parser_type=*/parser_type};
 
   FieldCandidates& candidates = field_candidates[match->field->global_id()];
-  candidates.AddFieldCandidate(
-      type,
-      [&] {
-        switch (match->match_info.matched_attribute) {
-          case MatchInfo::MatchAttribute::kName:
-            return MatchAttribute::kName;
-          case MatchInfo::MatchAttribute::kHighQualityLabel:
-          case MatchInfo::MatchAttribute::kLowQualityLabel:
-            return MatchAttribute::kLabel;
-        }
-      }(),
-      priority);
+  candidates.AddFieldCandidate(type, match->match_info, priority);
 }
 
-std::optional<FormFieldParser::MatchInfo> FormFieldParser::Match(
+std::optional<MatchInfo> FormFieldParser::Match(
     ParsingContext& context,
     const FormFieldData& field,
     std::u16string_view pattern,
@@ -677,7 +653,7 @@ std::optional<FormFieldParser::MatchInfo> FormFieldParser::Match(
   // matches distinguish between low and high quality. Since low quality label
   // matches are scored lower, they should be prioritized lower than name
   // matches. This is done via `low_quality_label_fallback`.
-  std::optional<FormFieldParser::MatchInfo> low_quality_label_fallback;
+  std::optional<MatchInfo> low_quality_label_fallback;
   for (MatchAttribute attribute : match_attributes) {
     switch (attribute) {
       case MatchAttribute::kLabel:
@@ -702,7 +678,7 @@ std::optional<FormFieldParser::MatchInfo> FormFieldParser::Match(
 }
 
 // static
-std::optional<FormFieldParser::MatchInfo> FormFieldParser::MatchInLabel(
+std::optional<MatchInfo> FormFieldParser::MatchInLabel(
     ParsingContext& context,
     const FormFieldData& field,
     std::u16string_view pattern,
@@ -752,7 +728,7 @@ std::optional<FormFieldParser::MatchInfo> FormFieldParser::MatchInLabel(
 }
 
 // static
-std::optional<FormFieldParser::MatchInfo> FormFieldParser::MatchInName(
+std::optional<MatchInfo> FormFieldParser::MatchInName(
     ParsingContext& context,
     const FormFieldData& field,
     std::u16string_view pattern,

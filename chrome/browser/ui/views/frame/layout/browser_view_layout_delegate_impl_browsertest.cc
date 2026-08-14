@@ -12,7 +12,6 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
-#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
@@ -25,7 +24,6 @@
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test.h"
-#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/views/test/views_test_utils.h"
@@ -122,9 +120,9 @@ class BrowserViewLayoutDelegateImplBrowsertest
 
   Browser* CreateAppBrowser() {
     const GURL kAppUrl("https://test.com");
-    const auto app_id = web_app::test::InstallDummyWebApp(browser()->profile(),
-                                                          "App Name", kAppUrl);
-    return web_app::LaunchWebAppBrowser(browser()->profile(), app_id);
+    const auto app_id = web_app::test::InstallDummyWebApp(
+        browser()->GetProfile(), "App Name", kAppUrl);
+    return web_app::LaunchWebAppBrowser(browser()->GetProfile(), app_id);
   }
 
  private:

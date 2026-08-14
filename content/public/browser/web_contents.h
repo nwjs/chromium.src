@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "base/callback_list.h"
 #include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/functional/function_ref.h"
@@ -31,6 +32,7 @@
 #include "cc/input/browser_controls_state.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/frame_tree_node_id.h"
+#include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/invalidate_type.h"
 #include "content/public/browser/page_navigator.h"
 #include "content/public/browser/prefetch_priority.h"
@@ -74,7 +76,7 @@ namespace base {
 class FilePath;
 }  // namespace base
 namespace perfetto {
-class NamedTrack;
+struct Track;
 }  // namespace perfetto
 
 namespace blink {
@@ -82,7 +84,6 @@ namespace web_pref {
 struct WebPreferences;
 }
 class WebInputEvent;
-struct Impression;
 struct UserAgentOverride;
 struct RendererPreferences;
 }  // namespace blink
@@ -117,6 +118,7 @@ class ColorProviderSource;
 }  // namespace ui
 
 namespace gfx {
+class Point;
 class PointF;
 class Rect;
 }  // namespace gfx
@@ -144,7 +146,6 @@ class UnownedInnerWebContentsClient;
 class WebContentsDelegate;
 class WebUI;
 struct DropData;
-struct GlobalRenderFrameHostId;
 struct MHTMLGenerationParams;
 class PreloadingAttempt;
 #if BUILDFLAG(IS_ANDROID)
@@ -201,11 +202,8 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
     // privileged process.
     scoped_refptr<SiteInstance> site_instance;
 
-    // The process id of the frame initiating the open.
-    int opener_render_process_id = content::ChildProcessHost::kInvalidUniqueID;
-
-    // The routing id of the frame initiating the open.
-    int opener_render_frame_id = IPC::mojom::kRoutingIdNone;
+    // The process and routing id of the frame initiating the open.
+    GlobalRenderFrameHostId opener_id;
 
     // If the opener is suppressed, then the new WebContents doesn't hold a
     // reference to its opener.
@@ -480,7 +478,7 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
 
   // Returns a tracing track to use as a grouping parent. Do not emit directly
   // events to this track.
-  virtual const perfetto::NamedTrack& GetTracingTrack() const = 0;
+  virtual const perfetto::Track& GetTracingTrack() const = 0;
 
   // Returns true if the WebContents is never user-visible and thus never need
   // to generate pixels for display.
@@ -1156,6 +1154,19 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   virtual const std::optional<gfx::Rect> GetTextSelectionBounds(
       RenderFrameHost* render_frame_host) const = 0;
 
+  // Returns the point of the focus selection in global screen coordinates in
+  // DIPs.
+  virtual const std::optional<gfx::Point> GetFocusSelectionPoint(
+      RenderFrameHost* render_frame_host) const = 0;
+
+  // Notifies when the selection bounds change. This is provided using a
+  // callback list instead of using WebContentsObserver due to performance
+  // concerns.
+  using FocusSelectionBoundsChangedCallback =
+      base::RepeatingCallback<void(RenderWidgetHostView*)>;
+  virtual base::CallbackListSubscription RegisterFocusSelectionBoundsChanged(
+      FocusSelectionBoundsChangedCallback callback) = 0;
+
   // Replaces the currently selected word or a word around the cursor.
   virtual void Replace(const std::u16string& word) = 0;
 
@@ -1163,9 +1174,7 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   virtual void ReplaceMisspelling(const std::u16string& word) = 0;
 
   // Let the renderer know that the menu has been closed.
-  virtual void NotifyContextMenuClosed(
-      const GURL& link_followed,
-      const std::optional<blink::Impression>&) = 0;
+  virtual void NotifyContextMenuClosed(const GURL& link_followed) = 0;
 
   // Executes custom context menu action that was provided from Blink.
   virtual void ExecuteCustomContextMenuCommand(int action,
@@ -1811,10 +1820,6 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   // TODO(crbug.com/40062641): Remove after bug is fixed.
   virtual void SetOwnerLocationForDebug(
       std::optional<base::Location> owner_location) = 0;
-
-  // Sends the attribution support state to all renderer processes for the
-  // current page.
-  virtual void UpdateAttributionSupportRenderer() = 0;
 
   // Return all currently streaming devices of `type` via `callback`.
   virtual void GetMediaCaptureRawDeviceIdsOpened(

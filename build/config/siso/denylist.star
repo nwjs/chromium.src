@@ -69,7 +69,6 @@ def __step_config(ctx, step_config):
         "third_party/devtools-frontend/src/scripts/build/build_inspector_overlay.py",
         "third_party/inspector_protocol/check_protocol_compatibility.py",
         "third_party/inspector_protocol/code_generator.py",
-        "third_party/inspector_protocol/concatenate_protocols.py",
         "third_party/libei/scanner.py",
         "third_party/lottie/minify_lottie.py",
         "third_party/perfetto/src/trace_processor/plugins/wattson/gen_wattson_curves.py",
@@ -82,7 +81,6 @@ def __step_config(ctx, step_config):
         "third_party/webgpu-cts/scripts/run_regenerate_internal_cts_html.py",
         "tools/grit/grit_info.py",
         "tools/grit/grit.py",
-        "tools/grit/pak_util.py",
         "tools/licenses/licenses.py",
 
         # merge_xml.py relies on expand_owners.py, which
@@ -95,11 +93,7 @@ def __step_config(ctx, step_config):
         "tools/polymer/css_to_wrapper.py",
         "tools/polymer/html_to_wrapper.py",
         "ui/webui/resources/tools/bundle_js.py",
-        "ui/webui/resources/tools/eslint_ts.py",
         "ui/webui/resources/tools/generate_code_cache.py",
-        "ui/webui/resources/tools/minify_js.py",
-        "ui/webui/resources/tools/stylelint.py",
-        "v8/third_party/inspector_protocol/check_protocol_compatibility.py",
         "v8/third_party/inspector_protocol/code_generator.py",
     ]
 
@@ -115,8 +109,6 @@ def __step_config(ctx, step_config):
         "third_party/devtools-frontend/src/front_end/core/i18n/generate-locales-js.js",
         "third_party/devtools-frontend/src/node_modules/rollup/dist/bin/rollup",
         "third_party/devtools-frontend/src/scripts/build/build_ai_skills.mjs",
-        "third_party/devtools-frontend/src/scripts/build/esbuild.js",
-        "third_party/devtools-frontend/src/scripts/build/generate_css_js_files.js",
         "third_party/devtools-frontend/src/scripts/build/generate_devtools_json.mjs",
         "third_party/devtools-frontend/src/scripts/build/generate_html_entrypoint.js",
         "third_party/devtools-frontend/src/scripts/component_docs/generate_docs.mjs",

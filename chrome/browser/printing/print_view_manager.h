@@ -180,6 +180,20 @@ class PrintViewManager : public PrintViewManagerBase,
   // print preview is not prevented by policies or user actions.
   virtual void PrintPreviewAllowedForTesting();
 
+  // Common check used by mojom::PrintManagerHost handlers to see if the current
+  // target RenderFrame matches `print_preview_rfh_`. Returns true if
+  // `print_preview_rfh_` is non-null and they match. This should only be called
+  // by IPC handlers where `print_preview_rfh_` has been set.
+  bool CheckTargetRenderFrameMatchesRFH();
+
+  // Common check used by mojom::PrintManagerHost handlers to see if the current
+  // target RenderFrame is invalid, and possibly killing it. Returns whether the
+  // RenderFrame is valid or not. If the caller is one of the "Scripted"
+  // methods, then `is_scripted` should be set to true. It identifies the type
+  // of IPC message the caller is handling for the purposes of providing the
+  // reason when killing a bad RenderFrame.
+  bool CheckForInvalidTargetRenderFrame(bool is_scripted);
+
   base::OnceClosure on_print_dialog_shown_callback_;
 
   // Current state of print preview for this view.

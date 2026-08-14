@@ -64,9 +64,9 @@ public class ColorPickerDialogRenderTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     Activity activity = mActivityTestRule.getActivity();
-                    ColorPickerDialogView dialog = new ColorPickerDialogView(activity);
-                    ColorPickerCoordinator colorPickerCoordinator =
-                            new ColorPickerCoordinator(activity, (i) -> {}, dialog);
+                    HtmlColorPickerDialogView dialog = new HtmlColorPickerDialogView(activity);
+                    HtmlColorPickerCoordinator colorPickerCoordinator =
+                            new HtmlColorPickerCoordinator(activity, (i) -> {}, dialog);
                     mView = dialog.getContentView();
                     mView.setBackgroundResource(R.color.default_bg_color_baseline);
                     colorPickerCoordinator.show(Color.RED);
@@ -83,5 +83,16 @@ public class ColorPickerDialogRenderTest {
     @Feature({"RenderTest"})
     public void testRender_ColorPickerDialog() throws IOException {
         mRenderTestRule.render(mView, "color_picker_dialog");
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"RenderTest"})
+    public void testRender_ColorPickerDialog_Advanced() throws IOException {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mView.findViewById(R.id.color_picker_view_switcher_button).performClick();
+                });
+        mRenderTestRule.render(mView, "color_picker_dialog_advanced");
     }
 }

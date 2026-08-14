@@ -342,7 +342,7 @@ IN_PROC_BROWSER_TEST_P(TranslateBubbleViewUITest, ClickOpenLanguageSettings) {
   GURL french_url = GURL(embedded_test_server()->GetURL("/french_page.html"));
   NavigateAndWaitForLanguageDetection(french_url, "fr");
 
-  if (browser()->profile()->IsIncognitoProfile()) {
+  if (browser()->GetProfile()->IsIncognitoProfile()) {
     RunTestSequence(
         views::InteractionSequenceViews::WithInitialView(
             GetCurrentTranslateBubble()),
@@ -434,7 +434,7 @@ IN_PROC_BROWSER_TEST_P(TranslateBubbleViewUITest, NetworkInterruption) {
   // which cannot intercepted by content::URLLoaderInterceptor.
   TranslateDownloadManager::GetInstance()->set_url_loader_factory(
       browser()
-          ->profile()
+          ->GetProfile()
           ->GetDefaultStoragePartition()
           ->GetURLLoaderFactoryForBrowserProcess());
 

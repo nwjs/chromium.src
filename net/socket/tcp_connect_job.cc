@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -33,10 +34,14 @@
 #include "net/base/trace_constants.h"
 #include "net/dns/public/host_resolver_results.h"
 #include "net/dns/public/secure_dns_policy.h"
+#include "net/http/http_server_properties.h"
 #include "net/log/net_log_event_type.h"
+#include "net/nqe/network_quality_estimator.h"
 #include "net/socket/socket_tag.h"
+#include "net/socket/ssl_client_socket.h"
 #include "net/socket/tcp_connect_job_connector.h"
 #include "net/socket/transport_connect_job.h"
+#include "net/ssl/ssl_config_service.h"
 #include "url/scheme_host_port.h"
 #include "url/url_constants.h"
 
@@ -59,6 +64,17 @@ HostPortPair ToLegacyDestinationEndpoint(
 bool IsDualRaceOptimisticDnsEnabled() {
   return base::FeatureList::IsEnabled(features::kOptimisticDnsForTcp) &&
          features::kUseStaleConnectorsForOptimisticDns.Get();
+}
+
+bool IsEchEnabled(SSLClientContext* ssl_client_context, std::string_view host) {
+  if (!ssl_client_context || !ssl_client_context->config().ech_enabled) {
+    return false;
+  }
+  if (!ssl_client_context->ssl_config_service()) {
+    return true;
+  }
+  return ssl_client_context->ssl_config_service()->GetEchMode(host) !=
+         EchMode::kDisabled;
 }
 
 // Returns true if the given `endpoint` is present in the provided `results`
@@ -97,7 +113,8 @@ TcpConnectJob::TcpConnectJob(
     const scoped_refptr<TransportSocketParams>& params,
     ConnectJob::Delegate* delegate,
     const NetLogWithSource* net_log,
-    std::optional<ServiceEndpointOverride> endpoint_result_override)
+    std::optional<ServiceEndpointOverride> endpoint_result_override,
+    bool disable_stale_dns)
     : ConnectJob(priority,
                  socket_tag,
                  ConnectionTimeout(),
@@ -107,7 +124,8 @@ TcpConnectJob::TcpConnectJob(
                  NetLogSourceType::TCP_CONNECT_JOB,
                  NetLogEventType::TCP_CONNECT_JOB_CONNECT),
       params_(params),
-      endpoint_override_(std::move(endpoint_result_override)) {
+      endpoint_override_(std::move(endpoint_result_override)),
+      disable_stale_dns_(disable_stale_dns) {
   fresh_state_.primary_connector = std::make_unique<Connector>(this, "first");
   DCHECK(base::FeatureList::IsEnabled(features::kHappyEyeballsV2));
   if (endpoint_override_) {
@@ -213,7 +231,8 @@ int TcpConnectJob::ConnectInternal() {
     HostResolver::ResolveHostParameters parameters;
     parameters.initial_priority = priority();
     parameters.secure_dns_policy = params_->secure_dns_policy();
-    if (base::FeatureList::IsEnabled(features::kOptimisticDnsForTcp)) {
+    if (base::FeatureList::IsEnabled(features::kOptimisticDnsForTcp) &&
+        !disable_stale_dns_) {
       parameters.cache_usage = HostResolver::ResolveHostParameters::CacheUsage::
           STALE_ALLOWED_WHILE_REFRESHING;
     }
@@ -255,7 +274,7 @@ int TcpConnectJob::DoServiceEndpointsUpdated(
   fresh_state_.current_endpoint_index = 0;
   stale_state_.current_endpoint_index = 0;
   if (IsDualRaceOptimisticDnsEnabled() &&
-      !dns_request_->IsStaleWhileRefreshing()) {
+      (!dns_request_ || !dns_request_->IsStaleWhileRefreshing())) {
     // If fresh endpoints are now available, the stale state should no longer
     // start any new connection attempts. Point its index to the end.
     stale_state_.current_endpoint_index = GetEndpointResults().size();
@@ -452,6 +471,70 @@ void TcpConnectJob::OnSlow(bool is_stale) {
       /*decrement_waiting_on_possible_async_deletion_count=*/false);
 }
 
+// static
+base::TimeDelta TcpConnectJob::GetIPv6FallbackTime(
+    const CommonConnectJobParams* common_connect_job_params,
+    const TransportSocketParams* params) {
+  base::TimeDelta fallback_time = kIPv6FallbackTime;
+
+  if (base::FeatureList::IsEnabled(features::kAdjustIPv6FallbackTime)) {
+    fallback_time = features::kIPv6FallbackTime.Get();
+  }
+
+  if (base::FeatureList::IsEnabled(features::kIPv6FallbackBasedOnRTT)) {
+    std::optional<base::TimeDelta> rtt =
+        [&]() -> std::optional<base::TimeDelta> {
+      // 1. Try to get destination-specific RTT from HttpServerProperties.
+      if (common_connect_job_params->http_server_properties) {
+        url::SchemeHostPort scheme_host_port;
+        if (std::holds_alternative<url::SchemeHostPort>(
+                params->destination())) {
+          scheme_host_port =
+              std::get<url::SchemeHostPort>(params->destination());
+        } else {
+          const auto& host_port_pair =
+              std::get<HostPortPair>(params->destination());
+          scheme_host_port = url::SchemeHostPort("https", host_port_pair.host(),
+                                                 host_port_pair.port());
+        }
+
+        const ServerNetworkStats* stats =
+            common_connect_job_params->http_server_properties
+                ->GetServerNetworkStats(scheme_host_port,
+                                        params->network_anonymization_key());
+        if (stats && !stats->srtt.is_zero()) {
+          return stats->srtt;
+        }
+      }
+
+      // 2. Fallback to global network RTT from NetworkQualityEstimator.
+      if (common_connect_job_params->network_quality_estimator) {
+        std::optional<base::TimeDelta> nqe_rtt =
+            common_connect_job_params->network_quality_estimator
+                ->GetTransportRTT();
+        if (nqe_rtt.has_value()) {
+          return nqe_rtt;
+        }
+      }
+
+      return std::nullopt;
+    }();
+
+    // 3. Calculate and clamp fallback time.
+    if (rtt.has_value()) {
+      base::TimeDelta rtt_based_fallback =
+          rtt.value() * features::kIPv6FallbackRTTMultiplier.Get();
+
+      rtt_based_fallback =
+          std::clamp(rtt_based_fallback, features::kIPv6FallbackMin.Get(),
+                     features::kIPv6FallbackMax.Get());
+      return rtt_based_fallback;
+    }
+  }
+
+  return fallback_time;
+}
+
 int TcpConnectJob::AdvanceConnectionState(ConnectionState& state,
                                           bool is_stale) {
   CHECK(!IsStateDone(state));
@@ -515,10 +598,8 @@ int TcpConnectJob::AdvanceConnectionState(ConnectionState& state,
       !state.ipv4_connector && !state.slow_timer.IsRunning() &&
       state.primary_connector &&
       state.primary_connector->current_address().has_value()) {
-    base::TimeDelta fallback_time = kIPv6FallbackTime;
-    if (base::FeatureList::IsEnabled(features::kAdjustIPv6FallbackTime)) {
-      fallback_time = features::kIPv6FallbackTime.Get();
-    }
+    base::TimeDelta fallback_time =
+        GetIPv6FallbackTime(common_connect_job_params(), params_.get());
 
     // If the connector was promoted from stale_state_, it may have already
     // been running for some time. We reduce the fallback timer by the time
@@ -785,10 +866,8 @@ void TcpConnectJob::UpdateSvcbOptional() {
   if (!scheme_host_port || scheme_host_port->scheme() != url::kHttpsScheme) {
     // This is not a SVCB-capable request at all.
     is_svcb_optional_ = true;
-  } else if (!common_connect_job_params()->ssl_client_context ||
-             !common_connect_job_params()
-                  ->ssl_client_context->config()
-                  .ech_enabled) {
+  } else if (!IsEchEnabled(common_connect_job_params()->ssl_client_context,
+                           scheme_host_port->host())) {
     // ECH is not supported for this request.
     is_svcb_optional_ = true;
   } else {
@@ -830,6 +909,40 @@ int TcpConnectJob::SetDone(int result, Connector* connector) {
     final_service_endpoint_ = connector->PassFinalServiceEndpoint();
     DCHECK(final_service_endpoint_);
     DCHECK(IsEndpointResultUsable(*final_service_endpoint_));
+
+    auto calculate_is_connected_via_stale_dns = [&]() -> bool {
+      // If `disable_stale_dns_` is true, we explicitly requested a fresh
+      // connection, so it cannot be stale.
+      if (disable_stale_dns_) {
+        return false;
+      }
+      if (features::kUseStaleConnectorsForOptimisticDns.Get()) {
+        // If the feature is enabled, stale connectors are completely isolated
+        // in `stale_state_`. If the winning connector is from `stale_state_`,
+        // it is guaranteed to be a connection to a stale endpoint.
+        return IsStaleConnector(*connector);
+      }
+      if (dns_request_) {
+        // If the request is actively returning stale results, the connection is
+        // currently considered stale.
+        if (dns_request_->IsStaleWhileRefreshing()) {
+          return true;
+        }
+        if (connector->current_address() &&
+            !IsEndpointInFreshList(*connector->current_address(),
+                                   dns_request_->GetEndpointResults())) {
+          // If fresh results have arrived but the connected endpoint is not in
+          // the fresh list, we must have raced and completed a connection to an
+          // IP that was present in the stale results but removed in the fresh
+          // results. This connection is stale.
+          return true;
+        }
+      }
+      return false;
+    };
+
+    CHECK(!is_connected_via_stale_dns_.has_value());
+    is_connected_via_stale_dns_ = calculate_is_connected_via_stale_dns();
   } else {
     // If there were no attempts, there were no usable addresses. Use `result`
     // in that case.
@@ -895,6 +1008,10 @@ void TcpConnectJob::NotifyDelegateIfDone(int result) {
     DCHECK(is_done_);
     NotifyDelegateOfCompletion(result);
   }
+}
+
+bool TcpConnectJob::IsConnectedViaStaleDns() const {
+  return is_connected_via_stale_dns_.value_or(false);
 }
 
 }  // namespace net

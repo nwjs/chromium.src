@@ -113,10 +113,10 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
 @interface ComposeboxInputPlateCoordinator () <
     ComposeboxInputPlateMediatorDelegate,
     ComposeboxInputPlateViewControllerDelegate,
-    ComposeboxPickerPresenterDelegate,
-    ComposeboxPickerPresenterDataSource,
     ComposeboxMenuCoordinatorDelegate,
     ComposeboxMenuCoordinatorInputPlateDelegate,
+    ComposeboxPickerPresenterDataSource,
+    ComposeboxPickerPresenterDelegate,
     LocationBarModelDelegateWebStateProvider,
     LocationBarURLLoader,
     OmniboxFocusDelegate,
@@ -182,7 +182,8 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
 
 - (void)start {
   _viewController =
-      [[ComposeboxInputPlateViewController alloc] initWithTheme:_theme];
+      [[ComposeboxInputPlateViewController alloc] initWithTheme:_theme
+                                                     entrypoint:_entrypoint];
   _viewController.delegate = self;
   _pickerPresenter = [[ComposeboxPickerPresenter alloc]
       initWithBaseViewController:_viewController
@@ -483,6 +484,11 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
     _menuCoorinator.inputPlateDelegate = self;
     _menuCoorinator.delegate = self;
     [_menuCoorinator start];
+
+    // Hide the input plate when the bottom sheet modal is open.
+    if (_entrypoint == ComposeboxEntrypoint::kCobrowse) {
+      _viewController.view.hidden = YES;
+    }
   }
 }
 
@@ -763,16 +769,37 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
 - (void)composeboxPickerPresenter:(ComposeboxPickerPresenter*)presenter
                     didPickImages:
                         (NSArray<ComposeboxPickerImageResult*>*)results {
-  if (results.count == 0) {
-    return;
+  // Gallery picker results (PHPickerViewController) return the complete set of
+  // selected gallery items. Reconcile preselected asset IDs so that any gallery
+  // photo deselected by the user is removed from attachments. Camera picker
+  // captures lack asset IDs and represent single new photos, so skip gallery
+  // reconciliation.
+  BOOL isCamera =
+      results.firstObject.source == ComposeboxInputItemSource::kCameraPicker;
+  NSArray<NSString*>* attachedAssetIDs = [_mediator attachedImageAssetIDs];
+  if (!isCamera && attachedAssetIDs.count > 0) {
+    NSMutableSet<NSString*>* returnedAssetIDs = [[NSMutableSet alloc] init];
+    for (ComposeboxPickerImageResult* result in results) {
+      if (result.assetID.length > 0) {
+        [returnedAssetIDs addObject:result.assetID];
+      }
+    }
+
+    for (NSString* assetID in attachedAssetIDs) {
+      if (![returnedAssetIDs containsObject:assetID]) {
+        [_mediator removeImageWithAssetID:assetID];
+      }
+    }
   }
 
-  [_metricsRecorder recordImagesAttached:results.count];
+  if (results.count > 0) {
+    [_metricsRecorder recordImagesAttached:results.count];
 
-  for (ComposeboxPickerImageResult* result in results) {
-    [_mediator processImageItemProvider:result.imageProvider
-                                assetID:result.assetID
-                                 source:result.source];
+    for (ComposeboxPickerImageResult* result in results) {
+      [_mediator processImageItemProvider:result.imageProvider
+                                  assetID:result.assetID
+                                   source:result.source];
+    }
   }
 }
 
@@ -865,7 +892,8 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
   for (ComposeboxPickerDriveResult* result in results) {
     [_mediator processDriveFileWithIdentifier:result.identifier
                                          name:result.fileName
-                                     mimeType:result.mimeType];
+                                     mimeType:result.mimeType
+                                         icon:result.icon];
   }
 }
 
@@ -879,6 +907,11 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
 - (NSUInteger)maxTabAttachmentCountForPresenter:
     (ComposeboxPickerPresenter*)presenter {
   return [_mediator maxTabAttachmentCount];
+}
+
+- (NSArray<NSString*>*)attachedImageAssetIDsForPresenter:
+    (ComposeboxPickerPresenter*)presenter {
+  return [_mediator attachedImageAssetIDs];
 }
 
 #pragma mark - ComposeboxMenuCoordinatorInputPlateDelegate
@@ -901,11 +934,26 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
   }
 }
 
+- (void)composeboxMenuCoordinator:(ComposeboxMenuCoordinator*)coordinator
+      didRemoveTabWithServerToken:(const base::UnguessableToken&)serverToken {
+  [_mediator removeSharedTabWithServerToken:serverToken];
+}
+
+- (ComposeboxUIInputState*)currentUIInputStateForMenuCoordinator:
+    (ComposeboxMenuCoordinator*)coordinator {
+  return [_mediator currentUIInputState];
+}
+
 #pragma mark - ComposeboxMenuCoordinatorDelegate
 
 - (void)composeboxMenuCoordinatorDidDismissMenu:
     (ComposeboxMenuCoordinator*)composeboxMenuCoordinator {
   [self hideComposeboxMenu];
+
+  // Show the input plate again after the bottom sheet modal is dismissed.
+  if (_entrypoint == ComposeboxEntrypoint::kCobrowse) {
+    _viewController.view.hidden = NO;
+  }
 }
 
 @end

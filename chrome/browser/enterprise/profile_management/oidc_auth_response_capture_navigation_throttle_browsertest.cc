@@ -126,7 +126,7 @@ class OidcAuthResponseCaptureNavigationThrottleTest
 
     OidcAuthenticationSigninInterceptorFactory::GetInstance()
         ->SetTestingFactory(
-            browser()->profile(),
+            browser()->GetProfile(),
             base::BindRepeating(
                 [](Profile* profile, content::BrowserContext* context)
                     -> std::unique_ptr<KeyedService> {
@@ -135,7 +135,7 @@ class OidcAuthResponseCaptureNavigationThrottleTest
                       profile,
                       std::make_unique<DiceWebSigninInterceptorDelegate>());
                 },
-                browser()->profile()));
+                browser()->GetProfile()));
 
     host_resolver()->AddRule("*", "127.0.0.1");
     embedded_test_server()->ServeFilesFromSourceDirectory("content/test/data");
@@ -145,7 +145,7 @@ class OidcAuthResponseCaptureNavigationThrottleTest
   MockOidcAuthenticationSigninInterceptor* GetMockOidcInterceptor() {
     return static_cast<MockOidcAuthenticationSigninInterceptor*>(
         OidcAuthenticationSigninInterceptorFactory::GetForProfile(
-            browser()->profile()));
+            browser()->GetProfile()));
   }
 
   void ValidateOidcTokens(ProfileManagementOidcTokens tokens,
@@ -170,6 +170,7 @@ class OidcAuthResponseCaptureNavigationThrottleTest
                       OidcInterceptionCallback oidc_callback) {
           ValidateOidcTokens(oidc_tokens, expected_oidc_tokens);
           std::move(oidc_callback).Run();
+          return true;
         });
   }
 
@@ -292,6 +293,29 @@ IN_PROC_BROWSER_TEST_F(OidcAuthResponseCaptureNavigationThrottleTest,
 }
 
 IN_PROC_BROWSER_TEST_F(OidcAuthResponseCaptureNavigationThrottleTest,
+                       HeaderInterceptionNoIntercept) {
+  content::MockNavigationHandle navigation_handle(
+      GURL(kHeaderInterceptionTestUrl), main_frame());
+  navigation_handle.set_response_headers(BuildExampleResponseHeader());
+
+  auto* oidc_interceptor = GetMockOidcInterceptor();
+  EXPECT_CALL(*oidc_interceptor,
+              MaybeInterceptOidcAuthentication(
+                  web_contents(), _, kExampleIdIssuer, kExampleIdSubject, _, _))
+      .WillOnce(testing::Return(false));
+
+  content::MockNavigationThrottleRegistry registry(
+      &navigation_handle,
+      content::MockNavigationThrottleRegistry::RegistrationMode::kHold);
+  OidcAuthResponseCaptureNavigationThrottle::MaybeCreateAndAdd(registry);
+  ASSERT_EQ(1u, registry.throttles().size());
+  auto* throttle = registry.throttles().back().get();
+
+  EXPECT_EQ(NavigationThrottle::PROCEED,
+            throttle->WillProcessResponse().action());
+}
+
+IN_PROC_BROWSER_TEST_F(OidcAuthResponseCaptureNavigationThrottleTest,
                        HeaderInterceptionInvalidUrl) {
   content::MockNavigationHandle navigation_handle(
       GURL("https://invalidurl/register"), main_frame());
@@ -356,9 +380,10 @@ IN_PROC_BROWSER_TEST_F(OidcAuthResponseCaptureNavigationThrottleTest,
 
 IN_PROC_BROWSER_TEST_F(OidcAuthResponseCaptureNavigationThrottleTest,
                        NoServiceForIncognito) {
-  TestNoServiceForInvalidProfile(browser()->profile()->GetOffTheRecordProfile(
-      Profile::OTRProfileID::CreateUniqueForTesting(),
-      /*create_if_needed=*/true));
+  TestNoServiceForInvalidProfile(
+      browser()->GetProfile()->GetOffTheRecordProfile(
+          Profile::OTRProfileID::CreateUniqueForTesting(),
+          /*create_if_needed=*/true));
 }
 
 IN_PROC_BROWSER_TEST_F(OidcAuthResponseCaptureNavigationThrottleTest,

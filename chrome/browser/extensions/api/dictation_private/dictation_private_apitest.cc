@@ -36,6 +36,10 @@ namespace extensions {
 
 namespace {
 
+// TODO(b/538580887): Update these tests to use a session like a real stream
+// provider would.
+// TODO(b/538580230): Add a test for UpdateAudioLevel once the above bug is
+// fixed.
 class ExtensionApiTestStreamProvider : public dictation::StreamProvider {
  public:
   ExtensionApiTestStreamProvider(
@@ -58,6 +62,11 @@ class ExtensionApiTestStreamProvider : public dictation::StreamProvider {
     context.inner_text = "Foo Bar";
     context.editable_content = "Existing content";
     details.context = std::move(context);
+
+    api::dictation_private::StartStreamFlags flags;
+    flags.eval_mode = dictation::kDictationEvalMode.Get();
+    flags.web_speech_api_backend = dictation::kWebSpeechApiBackend.Get();
+    details.flags = std::move(flags);
 
     base::ListValue event_args =
         api::dictation_private::OnStartStream::Create(details);
@@ -172,8 +181,8 @@ IN_PROC_BROWSER_TEST_F(DictationPrivateApiTest, Basic) {
       profile(), extension->id(), test_stream_id);
   multiplexer.RegisterStreamProvider(test_stream_id, &test_stream_provider);
 
-  auto target = std::make_unique<dictation::Target>(
-      content::GlobalDOMNodeId{content::WeakDocumentPtr()});
+  auto target = std::make_unique<dictation::Target>(dictation::TargetDetails(
+      content::GlobalDOMNodeId{content::WeakDocumentPtr()}));
   test_stream_provider.BindToTargetAndConnect(std::move(target));
 
   ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
@@ -215,5 +224,72 @@ IN_PROC_BROWSER_TEST_F(DictationPrivateApiTest, BlockedCannotAccessApi) {
 
   ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
 }
+
+// Tests for start stream flags bound to a base::FeatureParam
+class DictationPrivateApiStartStreamFlagsTest
+    : public DictationPrivateApiTest,
+      public testing::WithParamInterface<
+          std::pair<std::string, dictation::DictationMultiplexer::StreamId>> {
+ public:
+  DictationPrivateApiStartStreamFlagsTest() {
+    feature_list_.InitAndEnableFeatureWithParameters(
+        dictation::kDictation,
+        {{"use_component_extension", "false"}, {GetParam().first, "true"}});
+  }
+  ~DictationPrivateApiStartStreamFlagsTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_P(DictationPrivateApiStartStreamFlagsTest,
+                       StartStreamFlags) {
+  const dictation::DictationMultiplexer::StreamId test_stream_id =
+      GetParam().second;
+
+  ResultCatcher catcher;
+  ExtensionTestMessageListener ready_listener("ready");
+  ready_listener.set_failure_message("failed");
+
+  base::FilePath extension_path =
+      test_data_dir_.AppendASCII("dictation_private/allowed");
+  const Extension* extension = LoadExtension(extension_path);
+  ASSERT_TRUE(extension);
+
+  ASSERT_TRUE(ready_listener.WaitUntilSatisfied());
+
+  dictation::DictationKeyedService* service =
+      dictation::DictationKeyedService::Get(profile());
+  ASSERT_TRUE(service);
+  dictation::DictationMultiplexer& multiplexer = service->multiplexer();
+
+  ExtensionApiTestStreamProvider test_stream_provider(
+      profile(), extension->id(), test_stream_id);
+  multiplexer.RegisterStreamProvider(test_stream_id, &test_stream_provider);
+
+  auto target = std::make_unique<dictation::Target>(dictation::TargetDetails(
+      content::GlobalDOMNodeId{content::WeakDocumentPtr()}));
+  test_stream_provider.BindToTargetAndConnect(std::move(target));
+
+  ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
+
+  multiplexer.UnregisterStreamProvider(test_stream_id);
+}
+
+// Flag tests use stream IDs starting from 1001 and must be unique for each
+// flag since they correspond to checks in the testFlags function of
+// chrome/test/data/extensions/api_test/dictation_private/allowed/test.js
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    DictationPrivateApiStartStreamFlagsTest,
+    testing::Values(
+        std::make_pair("eval_mode",
+                       dictation::DictationMultiplexer::StreamId(1001)),
+        std::make_pair("web_speech_api_backend",
+                       dictation::DictationMultiplexer::StreamId(1002))),
+    [](const testing::TestParamInfo<
+        DictationPrivateApiStartStreamFlagsTest::ParamType>& info) {
+      return info.param.first;
+    });
 
 }  // namespace extensions

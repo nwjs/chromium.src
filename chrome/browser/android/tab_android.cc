@@ -33,6 +33,7 @@
 #include "chrome/browser/android/web_contents_theme_client.h"
 #include "chrome/browser/browser_about_handler.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/notifications/notification_permission_context.h"
 #include "chrome/browser/profiles/profile.h"
@@ -57,6 +58,7 @@
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/infobars/content/content_infobar_manager.h"
+#include "components/javascript_dialogs/tab_modal_dialog_manager.h"
 #include "components/no_state_prefetch/browser/no_state_prefetch_manager.h"
 #include "components/performance_manager/public/resource_attribution/page_context.h"
 #include "components/performance_manager/public/resource_attribution/queries.h"
@@ -76,6 +78,7 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
@@ -172,6 +175,10 @@ std::unique_ptr<TabAndroid> TabAndroid::CreateForTesting(
   night_mode::WebContentsThemeClient::CreateForWebContents(web_contents.get());
   auto tab = base::WrapUnique(new TabAndroid(profile, tab_id));
   tab->web_contents_ = std::move(web_contents);
+  if (tab->web_contents_) {
+    tabs::TabLookupFromWebContents::CreateForWebContents(
+        tab->web_contents_.get(), tab.get());
+  }
   return tab;
 }
 
@@ -230,7 +237,11 @@ bool TabAndroid::IsNativePage() const {
 
 bool TabAndroid::IsUserInteractable() const {
   JNIEnv* env = AttachCurrentThread();
-  return Java_TabImpl_isUserInteractable(env, GetJavaObject(env));
+  auto j_obj = GetJavaObject(env);
+  if (!j_obj) {
+    return false;
+  }
+  return Java_TabImpl_isUserInteractable(env, j_obj);
 }
 
 bool TabAndroid::IsOffscreenRendering() const {
@@ -518,48 +529,193 @@ void WillRemoveWebContentsFromTab(content::WebContents* contents,
     contents->SetDelegate(nullptr);
   }
 }
+
+// TODO(crbug.com/542647852): Move this to its own file.
+class TabWebContentsDestroyer : public content::WebContentsDelegate,
+                                public content::WebContentsObserver {
+ public:
+  explicit TabWebContentsDestroyer(
+      std::unique_ptr<content::WebContents> web_contents)
+      : content::WebContentsObserver(web_contents.get()),
+        web_contents_(std::move(web_contents)) {
+    web_contents_->SetDelegate(this);
+    // Cancel any pre-existing in-flight navigations before ClosePage() cancels
+    // NavigationRequests.
+    web_contents_->Stop();
+    web_contents_->ClosePage();
+    // 2 seconds was chosen to give sufficient time for unload handlers to run
+    // during window closure (see DEFAULT_SHUTDOWN_TIMEOUT_MS in
+    // GracefulShutdownServiceImpl which matches this duration).
+    // Fallback timer in case the renderer never responds.
+    base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&TabWebContentsDestroyer::Destroy,
+                       weak_ptr_factory_.GetWeakPtr()),
+        base::Seconds(2));
+  }
+
+  ~TabWebContentsDestroyer() override = default;
+
+  // content::WebContentsDelegate:
+  void CloseContents(content::WebContents* source) override {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(&TabWebContentsDestroyer::Destroy,
+                                  weak_ptr_factory_.GetWeakPtr()));
+  }
+
+  content::JavaScriptDialogManager* GetJavaScriptDialogManager(
+      content::WebContents* source) override {
+    return javascript_dialogs::TabModalDialogManager::FromWebContents(source);
+  }
+
+  // Ignore top-level navigation requests initiated during graceful shutdown
+  // (e.g. via window.location) to prevent canceled NavigationRequests from
+  // causing renderer bad message failures.
+  content::WebContents* OpenURLFromTab(
+      content::WebContents* source,
+      const content::OpenURLParams& params,
+      base::OnceCallback<void(content::NavigationHandle&)>
+          navigation_handle_callback) override {
+    return nullptr;
+  }
+
+  // Suppress JavaScript modal dialogs while WebContents is shutting down.
+  bool ShouldSuppressDialogs(content::WebContents* source) override {
+    return true;
+  }
+
+  // Intercept window/popup creation requests so CreateCustomWebContents is
+  // called to reject new windows during graceful shutdown.
+  bool IsWebContentsCreationOverridden(
+      content::RenderFrameHost* opener,
+      content::SiteInstance* source_site_instance,
+      content::mojom::WindowContainerType window_container_type,
+      const GURL& opener_url,
+      const std::string& frame_name,
+      const GURL& target_url) override {
+    return true;
+  }
+
+  // Reject creation of new WebContents/popups initiated during graceful
+  // shutdown.
+  content::WebContents* CreateCustomWebContents(
+      content::RenderFrameHost* opener,
+      content::SiteInstance* source_site_instance,
+      bool is_new_browsing_instance,
+      const GURL& opener_url,
+      const std::string& frame_name,
+      const GURL& target_url,
+      WindowOpenDisposition disposition,
+      const blink::mojom::WindowFeatures& window_features,
+      const content::StoragePartitionConfig& partition_config,
+      content::SessionStorageNamespace* session_storage_namespace) override {
+    return nullptr;
+  }
+
+  // content::WebContentsObserver:
+  void DidStartNavigation(
+      content::NavigationHandle* navigation_handle) override {
+    if (!web_contents_) {
+      return;
+    }
+    // Synchronously stopping the navigation is not safe as some other callers
+    // in the observer chain may try to access the navigation which we want to
+    // stop.
+    content::GetUIThreadTaskRunner({})->PostTask(
+        FROM_HERE, base::BindOnce(&TabWebContentsDestroyer::StopNavigation,
+                                  weak_ptr_factory_.GetWeakPtr()));
+  }
+
+  void PrimaryMainFrameRenderProcessGone(
+      base::TerminationStatus status) override {
+    Destroy();
+  }
+
+ private:
+  void StopNavigation() {
+    if (web_contents_) {
+      web_contents_->Stop();
+    }
+  }
+  void Destroy() {
+    Observe(nullptr);
+    if (web_contents_) {
+      if (auto* dialog_manager =
+              javascript_dialogs::TabModalDialogManager::FromWebContents(
+                  web_contents_.get())) {
+        dialog_manager->CancelDialogs(web_contents_.get(),
+                                      /*reset_state=*/true);
+      }
+    }
+    delete this;
+  }
+
+  std::unique_ptr<content::WebContents> web_contents_;
+  base::WeakPtrFactory<TabWebContentsDestroyer> weak_ptr_factory_{this};
+};
 }  // namespace
 
-void TabAndroid::DestroyWebContents() {
+tabs::TabDestroyStatus TabAndroid::DestroyWebContents() {
   WillRemoveWebContentsFromTab(web_contents(), /*clear_delegate=*/false);
 
-  // Terminate the renderer process if this is the last tab.
-  // If there's no unload listener, FastShutdownIfPossible kills the
-  // renderer process. Otherwise, we go with the slow path where renderer
-  // process shuts down itself when ref count becomes 0.
-  // This helps the render process exit quickly which avoids some issues
-  // during shutdown. See https://codereview.chromium.org/146693011/
-  // and http://crbug.com/41086630 for details.
   content::RenderProcessHost* process =
-      web_contents()->GetPrimaryMainFrame()->GetProcess();
-  if (process) {
-    process->FastShutdownIfPossible(1, false);
+      web_contents() ? web_contents()->GetPrimaryMainFrame()->GetProcess()
+                     : nullptr;
+  bool enable_graceful_shutdown = base::FeatureList::IsEnabled(
+      chrome::android::kTabAndroidGracefulShutdown);
+  bool fast_shutdown_succeeded =
+      process && process->FastShutdownIfPossible(1, false);
+
+  if (!fast_shutdown_succeeded && enable_graceful_shutdown && web_contents()) {
+    return DestroyWebContentsSlowShutdown();
   }
 
   tab_features_.reset();
   web_contents_.reset();
-
   synced_tab_delegate_->ResetWebContents();
+
+  return tabs::TabDestroyStatus::FAST_SHUTDOWN;
+}
+
+tabs::TabDestroyStatus TabAndroid::DestroyWebContentsSlowShutdownForTesting() {
+  WillRemoveWebContentsFromTab(web_contents(), /*clear_delegate=*/false);
+  return DestroyWebContentsSlowShutdown();
+}
+
+tabs::TabDestroyStatus TabAndroid::DestroyWebContentsSlowShutdown() {
+  std::unique_ptr<content::WebContents> contents =
+      ReleaseWebContentsInternal(/*keep_session_id=*/true,
+                                 /*clear_delegate=*/true);
+  new TabWebContentsDestroyer(std::move(contents));
+  return tabs::TabDestroyStatus::SLOW_SHUTDOWN;
 }
 
 void TabAndroid::ReleaseWebContents() {
-  WillRemoveWebContentsFromTab(web_contents(), /*clear_delegate=*/true);
+  ReleaseWebContentsInternal(/*keep_session_id=*/false,
+                             /*clear_delegate=*/true)
+      .release();
+}
 
-  // Ownership of |released_contents| is assumed by the code that initiated the
-  // release.
+std::unique_ptr<content::WebContents> TabAndroid::ReleaseWebContentsInternal(
+    bool keep_session_id,
+    bool clear_delegate) {
+  WillRemoveWebContentsFromTab(web_contents(), clear_delegate);
+
   tab_features_.reset();
-  content::WebContents* released_contents = web_contents_.release();
+  std::unique_ptr<content::WebContents> released_contents =
+      std::move(web_contents_);
   if (released_contents) {
     released_contents->SetOwnerLocationForDebug(std::nullopt);
+    released_contents->RemoveUserData(
+        tabs::TabLookupFromWebContents::UserDataKey());
   }
 
-  // Remove the link from the native WebContents to |this|, since the
-  // lifetimes of the two objects are no longer intertwined.
-  released_contents->RemoveUserData(
-      tabs::TabLookupFromWebContents::UserDataKey());
-  ClearSessionId();
+  if (!keep_session_id) {
+    ClearSessionId();
+  }
 
   synced_tab_delegate_->ResetWebContents();
+  return released_contents;
 }
 
 // static

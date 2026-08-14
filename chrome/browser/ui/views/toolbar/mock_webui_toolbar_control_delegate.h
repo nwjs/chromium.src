@@ -37,6 +37,7 @@ class MockWebUIToolbarControlDelegate
               (),
               (override));
   MOCK_METHOD(views::View*, GetView, (), (override));
+  MOCK_METHOD(content::WebContents*, GetWebContents, (), (override));
   MOCK_METHOD(void, AnnounceAlert, (const std::u16string&), (override));
   MOCK_METHOD(void, OnPreferredSizeChanged, (), (override));
   MOCK_METHOD(void,
@@ -91,6 +92,10 @@ class MockWebUIToolbarControlDelegate
       OnContentSettingChanged,
       (std::vector<toolbar_ui_api::mojom::ContentSettingImageStatePtr> state),
       (override));
+  MOCK_METHOD(void,
+              OnPageActionChanged,
+              (std::vector<toolbar_ui_api::mojom::PageActionStatePtr> state),
+              (override));
   MOCK_METHOD(const toolbar_ui_api::mojom::NavigationControlsState&,
               GetState,
               (),
@@ -102,6 +107,10 @@ class MockWebUIToolbarControlDelegate
   MOCK_METHOD(void,
               OnFocusRequested,
               (toolbar_ui_api::mojom::FocusRequestTarget target),
+              (override));
+  MOCK_METHOD(std::optional<GURL>,
+              ConsumeDroppedUrl,
+              (const gfx::PointF&),
               (override));
   webui_toolbar::IconTable& GetIconTable() override { return icon_table_; }
 

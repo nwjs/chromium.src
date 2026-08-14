@@ -13,6 +13,7 @@
 #include "third_party/blink/renderer/core/dom/document_lifecycle.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/scripted_animation_controller.h"
+#include "third_party/blink/renderer/core/event_interface_names.h"
 #include "third_party/blink/renderer/core/event_type_names.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -52,6 +53,17 @@ DocumentsVector GetAllDocuments(Frame* main_frame) {
   return documents;
 }
 
+void UpdateAnimationsForDocument(
+    Document* document,
+    bool can_throttle,
+    base::TimeTicks monotonic_animation_start_time) {
+  if (!document->View()) {
+    document->GetDocumentAnimations().UpdateAnimationTimingForAnimationFrame();
+  } else if (!can_throttle) {
+    document->View()->ServiceScrollAnimations(monotonic_animation_start_time);
+  }
+}
+
 }  // namespace
 
 PageAnimator::PageAnimator(Page& page)
@@ -88,17 +100,13 @@ void PageAnimator::ServiceScriptedAnimations(
   }
 
   TRACE_EVENT0("blink,rail", "PageAnimator::serviceScriptedAnimations");
-  for (const auto& [document, can_throttle] : documents) {
-    if (!document->View()) {
-      document->GetDocumentAnimations()
-          .UpdateAnimationTimingForAnimationFrame();
-    } else {
-      if (!can_throttle) {
-        document->View()->ServiceScrollAnimations(
-            monotonic_animation_start_time);
-      }
+  if (!RuntimeEnabledFeatures::EventTimingMatchingHTMLEnabled()) {
+    for (const auto& [document, can_throttle] : documents) {
+      UpdateAnimationsForDocument(document, can_throttle,
+                                  monotonic_animation_start_time);
     }
   }
+
   ControllersVector controllers{};
   for (const auto& document : documents) {
     controllers.emplace_back(document.first->GetScriptedAnimationController(),
@@ -165,93 +173,94 @@ void PageAnimator::ServiceScriptedAnimations(
         }
       };
 
-  // https://html.spec.whatwg.org/multipage/webappapis.html#event-loop-processing-model
-
-  // For each fully active Document doc in docs, run the reveal steps for doc.
-  // Not currently in spec but comes from monkeypatch in:
-  // https://drafts.csswg.org/css-view-transitions-2/#monkey-patch-to-html
-  if (RuntimeEnabledFeatures::PageRevealEventEnabled()) {
-    // The event will be dispatched if the filter returns true. The sequencing
-    // here is important:
-    // 1. Resolve the view transition based on @view-transition and set it to
-    //    the event. This happens in the filter so before the event is fired.
-    // 2. Dispatch the pagereveal event
-    // 3. Activate the view transition
-    auto page_reveal_event_filter =
-        BindRepeating([](const LocalDOMWindow* window, Event* event) {
-          PageRevealEvent* page_reveal = DynamicTo<PageRevealEvent>(event);
-          if (!page_reveal) {
-            return false;
+  // Unlike run_for_all_active_controllers_with_timing, this iterates over all
+  // controllers (not just active ones). We explicitly track timing: accumulate
+  // elapsed time for active controllers, and report to the frame scheduler for
+  // others.
+  const auto run_for_all_controllers_with_timing = [&](const auto& function) {
+    wtf_size_t active_controller_id = 0;
+    auto start_time = base::TimeTicks::Now();
+    for (wtf_size_t i = 0; i < controllers.size(); ++i) {
+      function(i);
+      auto end_time = base::TimeTicks::Now();
+      if (active_controller_id < active_controllers_ids.size() &&
+          i == active_controllers_ids[active_controller_id]) {
+        time_intervals[active_controller_id++] += end_time - start_time;
+      } else {
+        // For non active controllers (e.g. which can throttle)
+        // that's the only timing we need to measure.
+        if (const auto* window = controllers[i].first->GetWindow()) {
+          if (auto* frame = window->document()->GetFrame()) {
+            frame->GetFrameScheduler()->AddTaskTime(end_time - start_time);
           }
-
-          // pagereveal is only fired on Documents.
-          CHECK(window);
-          CHECK(window->document());
-          CHECK(!window->HasBeenRevealed());
-
-          if (auto* supplement =
-                  window->document()->GetViewTransitionsIfExists()) {
-            DOMViewTransition* view_transition =
-                supplement->ResolveCrossDocumentViewTransition();
-            page_reveal->SetViewTransition(view_transition);
-          }
-
-          return true;
-        });
-
-    run_for_all_active_controllers_with_timing([&](wtf_size_t i) {
-      LocalDOMWindow* window = active_controllers[i]->GetWindow();
-      bool pagereveal_dispatched =
-          active_controllers[i]->DispatchEvents(blink::BindRepeating(
-              page_reveal_event_filter, WrapPersistent(window)));
-
-      if (pagereveal_dispatched) {
-        window->SetHasBeenRevealed(true);
-        if (ViewTransition* transition =
-                ViewTransitionUtils::GetTransition(*window->document());
-            transition && transition->IsForNavigationOnNewDocument()) {
-          transition->ActivateFromSnapshot();
         }
       }
-    });
-  }
+      start_time = end_time;
+    }
+  };
 
-  // 6. For each fully active Document in docs, flush autofocus
-  // candidates for that Document if its browsing context is a top-level
-  // browsing context.
+  // https://html.spec.whatwg.org/multipage/webappapis.html#event-loop-processing-model
+
+  // 6. For each doc of docs, reveal doc.
+  //
+  // The event will be dispatched if the filter returns true. The sequencing
+  // here is important:
+  // 1. Resolve the view transition based on @view-transition and set it to
+  //    the event. This happens in the filter so before the event is fired.
+  // 2. Dispatch the pagereveal event
+  // 3. Activate the view transition
+  auto page_reveal_event_filter = BindRepeating([](const LocalDOMWindow* window,
+                                                   Event* event) {
+    PageRevealEvent* page_reveal = DynamicTo<PageRevealEvent>(event);
+    if (!page_reveal) {
+      return false;
+    }
+
+    // pagereveal is only fired on Documents.
+    CHECK(window);
+    CHECK(window->document());
+    CHECK(!window->HasBeenRevealed());
+
+    if (auto* supplement = window->document()->GetViewTransitionsIfExists()) {
+      DOMViewTransition* view_transition =
+          supplement->ResolveCrossDocumentViewTransition();
+      page_reveal->SetViewTransition(view_transition);
+    }
+
+    return true;
+  });
+
+  run_for_all_active_controllers_with_timing([&](wtf_size_t i) {
+    LocalDOMWindow* window = active_controllers[i]->GetWindow();
+    bool pagereveal_dispatched = active_controllers[i]->DispatchEvents(
+        blink::BindRepeating(page_reveal_event_filter, WrapPersistent(window)));
+
+    if (pagereveal_dispatched) {
+      window->SetHasBeenRevealed(true);
+      if (ViewTransition* transition =
+              ViewTransitionUtils::GetTransition(*window->document());
+          transition && transition->IsForNavigationOnNewDocument()) {
+        transition->ActivateFromSnapshot();
+      }
+    }
+  });
+
+  // 7. For each doc of docs, flush autofocus candidates for doc if its node
+  // navigable is a top-level traversable.
   run_for_all_active_controllers_with_timing([&](wtf_size_t i) {
     if (const auto* window = active_controllers[i]->GetWindow()) {
       window->document()->FlushAutofocusCandidates();
     }
   });
 
-  // 7. For each fully active Document in docs, run the resize steps
-  // for that Document, passing in now as the timestamp.
-  wtf_size_t active_controller_id = 0;
-  auto start_time = base::TimeTicks::Now();
-  for (wtf_size_t i = 0; i < controllers.size(); ++i) {
-    auto& [controller, can_throttle] = controllers[i];
-    controller->DispatchEvents(BindRepeating([](Event* event) {
+  // 8. For each doc of docs, run the resize steps for doc.
+  run_for_all_controllers_with_timing([&](wtf_size_t i) {
+    controllers[i].first->DispatchEvents(BindRepeating([](Event* event) {
       return event->type() == event_type_names::kResize;
     }));
-    auto end_time = base::TimeTicks::Now();
-    if (active_controller_id < active_controllers_ids.size() &&
-        i == active_controllers_ids[active_controller_id]) {
-      time_intervals[active_controller_id++] += end_time - start_time;
-    } else {
-      // For non active controllers (e.g. which can throttle)
-      // that's the only timing we need to measure.
-      if (const auto* window = controller->GetWindow()) {
-        if (auto* frame = window->document()->GetFrame()) {
-          frame->GetFrameScheduler()->AddTaskTime(end_time - start_time);
-        }
-      }
-    }
-    start_time = end_time;
-  }
+  });
 
-  // 8. For each fully active Document in docs, run the scroll steps
-  // for that Document, passing in now as the timestamp.
+  // 9. For each doc of docs, run the scroll steps for doc.
   run_for_all_active_controllers_with_timing([&](wtf_size_t i) {
     auto scope = SyncScrollAttemptHeuristic::GetScrollHandlerScope();
     active_controllers[i]->DispatchEvents(BindRepeating([](Event* event) {
@@ -262,20 +271,55 @@ void PageAnimator::ServiceScriptedAnimations(
     }));
   });
 
-  // 9. For each fully active Document in docs, evaluate media
-  // queries and report changes for that Document, passing in now as the
-  // timestamp
+  // 10. For each doc of docs, evaluate media queries and report changes for
+  // doc.
+  // CallMediaQueryListListeners handles legacy mql.addListener() callbacks,
+  // while DispatchEvents handles standard mql.addEventListener('change')
+  // events. Both must be dispatched in Step 10 per spec.
   run_for_all_active_controllers_with_timing([&](wtf_size_t i) {
     active_controllers[i]->CallMediaQueryListListeners();
+    if (RuntimeEnabledFeatures::EventTimingMatchingHTMLEnabled()) {
+      active_controllers[i]->DispatchEvents(BindRepeating([](Event* event) {
+        return event->InterfaceName() ==
+               event_interface_names::kMediaQueryListEvent;
+      }));
+    }
   });
 
-  // 10. For each fully active Document in docs, update animations and
-  // send events for that Document, passing in now as the timestamp.
-  run_for_all_active_controllers_with_timing(
-      [&](wtf_size_t i) { active_controllers[i]->DispatchEvents(); });
+  // 11. For each doc of docs, update animations and send events for doc,
+  // passing in relative high resolution time given frameTimestamp and doc's
+  // relevant global object as the timestamp.
+  if (!RuntimeEnabledFeatures::EventTimingMatchingHTMLEnabled()) {
+    run_for_all_active_controllers_with_timing(
+        [&](wtf_size_t i) { active_controllers[i]->DispatchEvents(); });
+  } else {
+    run_for_all_controllers_with_timing([&](wtf_size_t i) {
+      auto& [controller, can_throttle] = controllers[i];
+      LocalDOMWindow* window = controller->GetWindow();
+      Document* document = window ? window->document() : nullptr;
+      if (document) {
+        UpdateAnimationsForDocument(document, can_throttle, monotonic_time_now);
+      }
+      if (!can_throttle) {
+        // While the HTML spec mentions only animation events for this step,
+        // we are sending animation events as well as any event types not
+        // covered by the HTML steps (e.g., <dialog> 'close' events or text
+        // control 'select' and 'change' events).
+        controller->DispatchEvents(BindRepeating([](Event* event) {
+          return event->type() != event_type_names::kScroll &&
+                 event->type() != event_type_names::kScrollsnapchange &&
+                 event->type() != event_type_names::kScrollsnapchanging &&
+                 event->type() != event_type_names::kScrollend &&
+                 event->type() != event_type_names::kResize &&
+                 event->type() != event_type_names::kPagereveal &&
+                 event->InterfaceName() !=
+                     event_interface_names::kMediaQueryListEvent;
+        }));
+      }
+    });
+  }
 
-  // 11. For each fully active Document in docs, run the fullscreen
-  // steps for that Document, passing in now as the timestamp.
+  // 12. For each doc of docs, run the fullscreen steps for doc.
   run_for_all_active_controllers_with_timing(
       [&](wtf_size_t i) { active_controllers[i]->RunTasks(); });
 
@@ -285,8 +329,9 @@ void PageAnimator::ServiceScriptedAnimations(
     active_controllers[i]->ExecuteVideoFrameCallbacks();
   });
 
-  // 13. For each fully active Document in docs, run the animation
-  // frame callbacks for that Document, passing in now as the timestamp.
+  // 14. For each doc of docs, run the animation frame callbacks for doc,
+  // passing in the relative high resolution time given frameTimestamp and
+  // doc's relevant global object as the timestamp.
   run_for_all_active_controllers_with_timing([&](wtf_size_t i) {
     auto scope = SyncScrollAttemptHeuristic::GetRequestAnimationFrameScope();
     active_controllers[i]->ExecuteFrameCallbacks();
@@ -297,7 +342,7 @@ void PageAnimator::ServiceScriptedAnimations(
     if (animator && active_controllers[i]->HasFrameCallback()) {
       animator->SetNextFrameHasPendingRaf();
     }
-    // See LocalFrameView::RunPostLifecycleSteps() for 14.
+    // See LocalFrameView::RunPostLifecycleSteps() for 15 and 16.
     active_controllers[i]->ScheduleAnimationIfNeeded(
         cc::BeginMainFrameReason::kServiceScriptedAnimations);
   });

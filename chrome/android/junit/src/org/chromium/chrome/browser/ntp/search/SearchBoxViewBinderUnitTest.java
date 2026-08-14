@@ -16,6 +16,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
@@ -29,6 +30,7 @@ import android.view.View.OnClickListener;
 import androidx.annotation.ColorInt;
 import androidx.annotation.Px;
 import androidx.annotation.StyleRes;
+import androidx.core.widget.ImageViewCompat;
 import androidx.test.core.app.ApplicationProvider;
 
 import org.junit.Before;
@@ -56,6 +58,7 @@ public class SearchBoxViewBinderUnitTest {
 
     private Context mContext;
     private SearchBoxContainerView mSearchBoxLayout;
+    private View mSearchBoxView;
     private PropertyModel mPropertyModel;
 
     @Before
@@ -68,6 +71,7 @@ public class SearchBoxViewBinderUnitTest {
                 (SearchBoxContainerView)
                         LayoutInflater.from(mContext)
                                 .inflate(R.layout.fake_search_box_layout, null);
+        mSearchBoxView = mSearchBoxLayout.mSearchBoxView;
         mPropertyModel = new PropertyModel.Builder(SearchBoxProperties.ALL_KEYS).build();
         PropertyModelChangeProcessor.create(
                 mPropertyModel, mSearchBoxLayout, new SearchBoxViewBinder());
@@ -105,9 +109,17 @@ public class SearchBoxViewBinderUnitTest {
     }
 
     @Test
+    public void testApplyElevation() {
+        float expectedElevation =
+                mContext.getResources().getDimension(R.dimen.fake_search_box_elevation);
+        mPropertyModel.set(SearchBoxProperties.APPLY_ELEVATION, true);
+        assertEquals(expectedElevation, mSearchBoxView.getElevation(), 0.01f);
+    }
+
+    @Test
     public void testApplyWhiteBackground() {
         mPropertyModel.set(SearchBoxProperties.APPLY_WHITE_BACKGROUND, true);
-        Drawable background = mSearchBoxLayout.getBackground();
+        Drawable background = mSearchBoxView.getBackground();
         assertTrue(background instanceof GradientDrawable);
         assertEquals(Color.WHITE, ((GradientDrawable) background).getColor().getDefaultColor());
     }
@@ -117,6 +129,13 @@ public class SearchBoxViewBinderUnitTest {
         Drawable drawable = mContext.getDrawable(R.drawable.ic_search_24dp);
         mPropertyModel.set(SearchBoxProperties.DSE_ICON_DRAWABLE, drawable);
         assertEquals(drawable, mSearchBoxLayout.mDseIconView.getDrawable());
+    }
+
+    @Test
+    public void testSetDseIconTint() {
+        ColorStateList tint = ColorStateList.valueOf(Color.RED);
+        mPropertyModel.set(SearchBoxProperties.DSE_ICON_TINT, tint);
+        assertEquals(tint, ImageViewCompat.getImageTintList(mSearchBoxLayout.mDseIconView));
     }
 
     @Test
@@ -150,5 +169,21 @@ public class SearchBoxViewBinderUnitTest {
         mPropertyModel.set(SearchBoxProperties.PLUS_BUTTON_CLICK_CALLBACK, mOnClickListener);
         mSearchBoxLayout.mPlusButton.performClick();
         verify(mOnClickListener).onClick(mSearchBoxLayout.mPlusButton);
+    }
+
+    @Test
+    public void testSetAiChipVisibility() {
+        mPropertyModel.set(SearchBoxProperties.AI_CHIP_VISIBILITY, true);
+        assertEquals(View.VISIBLE, mSearchBoxLayout.mAiChip.getVisibility());
+
+        mPropertyModel.set(SearchBoxProperties.AI_CHIP_VISIBILITY, false);
+        assertEquals(View.GONE, mSearchBoxLayout.mAiChip.getVisibility());
+    }
+
+    @Test
+    public void testSetAiChipClickListener() {
+        mPropertyModel.set(SearchBoxProperties.AI_CHIP_CLICK_CALLBACK, mOnClickListener);
+        mSearchBoxLayout.mAiChip.performClick();
+        verify(mOnClickListener).onClick(mSearchBoxLayout.mAiChip);
     }
 }

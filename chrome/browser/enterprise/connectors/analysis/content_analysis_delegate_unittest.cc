@@ -23,6 +23,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
+#include "base/test/gtest_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
@@ -166,15 +167,13 @@ class BaseTest : public testing::Test {
         /*disabled_features=*/{});
   }
 
-  void ScanUpload(content::WebContents* web_contents,
-                  ContentAnalysisDelegate::Data data,
-                  ContentAnalysisDelegate::CompletionCallback callback) {
-    // The access point is only used for metrics and choosing the dialog text if
-    // one is shown, so its value doesn't affect the tests in this file and can
-    // always be the same.
-    ContentAnalysisDelegate::CreateForWebContents(web_contents, std::move(data),
-                                                  std::move(callback),
-                                                  DeepScanAccessPoint::UPLOAD);
+  void ScanUpload(
+      content::WebContents* web_contents,
+      ContentAnalysisDelegate::Data data,
+      ContentAnalysisDelegate::CompletionCallback callback,
+      DeepScanAccessPoint access_point = DeepScanAccessPoint::UPLOAD) {
+    ContentAnalysisDelegate::CreateForWebContents(
+        web_contents, std::move(data), std::move(callback), access_point);
   }
 
   void CreateFilesForTest(
@@ -686,10 +685,40 @@ TEST_F(ContentAnalysisDelegateAuditOnlyTest, StringDataAndReportSuccess) {
   EXPECT_EQ(1,
             test::FakeContentAnalysisDelegate::GetTotalAnalysisRequestsCount());
 
-  // FakeContentAnalysisDelegate is always constructed with UPLOAD; just
-  // verify a success histogram is recorded.
+  // FakeContentAnalysisDelegate is constructed with UPLOAD by default here;
+  // just verify a success histogram is recorded.
   histogram_tester_.ExpectTotalCount(
       "Enterprise.ContentAnalysis.Upload.Success.Duration", 1);
+  EXPECT_TRUE(called);
+}
+
+TEST_F(ContentAnalysisDelegateAuditOnlyTest, StringDataAndReportSuccess_Actor) {
+  base::HistogramTester histogram_tester_;
+
+  GURL url(kTestUrl);
+  ContentAnalysisDelegate::Data data;
+  ASSERT_TRUE(ContentAnalysisDelegate::IsEnabled(profile(), url, &data,
+                                                 BULK_DATA_ENTRY));
+
+  data.text.emplace_back(large_text());
+
+  bool called = false;
+  ScanUpload(
+      contents(), std::move(data),
+      base::BindOnce(
+          [](bool* called, const ContentAnalysisDelegate::Data& data,
+             ContentAnalysisDelegate::Result& result) { *called = true; },
+          &called),
+      enterprise_connectors::DeepScanAccessPoint::ACTOR);
+  RunUntilDone();
+  EXPECT_EQ(1,
+            test::FakeContentAnalysisDelegate::GetTotalAnalysisRequestsCount());
+
+  histogram_tester_.ExpectTotalCount(
+      "Enterprise.OnBulkDataEntry.Actor.DataSize", 1);
+  histogram_tester_.ExpectTotalCount("Enterprise.OnBulkDataEntry.DataSize", 1);
+  histogram_tester_.ExpectTotalCount(
+      "Enterprise.ContentAnalysis.Actor.Success.Duration", 1);
   EXPECT_TRUE(called);
 }
 
@@ -1802,5 +1831,99 @@ TEST_F(ContentAnalysisDelegateWithLocalClient, FailClosed) {
   EXPECT_TRUE(called);
 }
 #endif
+
+using ContentAnalysisDelegateDeleteTest = BaseTest;
+
+TEST_F(ContentAnalysisDelegateDeleteTest, RunsCallbackAndDeletes) {
+  bool callback_ran = false;
+  ContentAnalysisDelegate::Data data;
+  auto delegate = test::FakeContentAnalysisDelegate::Create(
+      run_loop_.QuitClosure(),
+      base::BindRepeating([](const std::string&, const base::FilePath&) {
+        return test::FakeContentAnalysisDelegate::SuccessfulResponse({"dlp"});
+      }),
+      kDmToken, contents(), std::move(data),
+      base::BindLambdaForTesting([&](const ContentAnalysisDelegate::Data& data,
+                                     ContentAnalysisDelegate::Result& result) {
+        callback_ran = true;
+      }),
+      DeepScanAccessPoint::COPY);
+
+  auto* delegate_ptr = delegate.release();
+  delegate_ptr->Delete();
+  RunUntilDone();
+
+  EXPECT_TRUE(callback_ran);
+}
+
+TEST_F(ContentAnalysisDelegateDeleteTest, DoesNotRunCallbackIfAlreadyRun) {
+  int callback_count = 0;
+  ContentAnalysisDelegate::Data data;
+  auto delegate = test::FakeContentAnalysisDelegate::Create(
+      run_loop_.QuitClosure(),
+      base::BindRepeating([](const std::string&, const base::FilePath&) {
+        return test::FakeContentAnalysisDelegate::SuccessfulResponse({"dlp"});
+      }),
+      kDmToken, contents(), std::move(data),
+      base::BindLambdaForTesting(
+          [&](const ContentAnalysisDelegate::Data& data,
+              ContentAnalysisDelegate::Result& result) { callback_count++; }),
+      DeepScanAccessPoint::COPY);
+
+  auto* delegate_ptr = delegate.release();
+  delegate_ptr->BypassWarnings(std::nullopt);
+
+  EXPECT_EQ(1, callback_count);
+
+  delegate_ptr->Delete();
+  RunUntilDone();
+
+  EXPECT_EQ(1, callback_count);
+}
+
+using ContentAnalysisDelegateUpdateFinalResultTest = BaseTest;
+
+class MinimalTestContentAnalysisDelegate : public ContentAnalysisDelegate {
+ public:
+  MinimalTestContentAnalysisDelegate(content::WebContents* web_contents,
+                                     Data data)
+      : ContentAnalysisDelegate(
+            web_contents,
+            std::move(data),
+            base::BindOnce([](const Data& data, Result& result) {}),
+            DeepScanAccessPoint::PASTE) {}
+};
+
+TEST_F(ContentAnalysisDelegateUpdateFinalResultTest, Precedence) {
+  ContentAnalysisDelegate::Data data;
+  data.url = GURL("https://example.com");
+
+  // Create a minimal delegate just to call UpdateFinalResult on it.
+  auto delegate = std::make_unique<MinimalTestContentAnalysisDelegate>(
+      contents(), std::move(data));
+
+  // Initial state should be SUCCESS.
+  EXPECT_EQ(FinalContentAnalysisResult::SUCCESS, delegate->final_result_);
+
+  // Overriding SUCCESS with KEPT_IN_MANAGED_CHROME should work.
+  delegate->UpdateFinalResult(
+      FinalContentAnalysisResult::KEPT_IN_MANAGED_CHROME, "dlp", {});
+  EXPECT_EQ(FinalContentAnalysisResult::KEPT_IN_MANAGED_CHROME,
+            delegate->final_result_);
+
+  // Overriding KEPT_IN_MANAGED_CHROME with FAILURE should work.
+  delegate->UpdateFinalResult(FinalContentAnalysisResult::FAILURE, "dlp", {});
+  EXPECT_EQ(FinalContentAnalysisResult::FAILURE, delegate->final_result_);
+
+  // Attempting to override FAILURE with WARNING should NOT work.
+  delegate->UpdateFinalResult(FinalContentAnalysisResult::WARNING, "dlp", {});
+  EXPECT_EQ(FinalContentAnalysisResult::FAILURE, delegate->final_result_);
+
+  // Attempting to override FAILURE with KEPT_IN_MANAGED_CHROME should
+  // NOT work.
+  delegate->UpdateFinalResult(
+      FinalContentAnalysisResult::KEPT_IN_MANAGED_CHROME, "dlp", {});
+  EXPECT_EQ(FinalContentAnalysisResult::FAILURE, delegate->final_result_);
+}
 
 }  // namespace enterprise_connectors

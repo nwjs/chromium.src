@@ -18,6 +18,7 @@
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/system/sys_info.h"
 #include "base/task/thread_pool.h"
@@ -458,32 +459,42 @@ void LocalStorageImpl::RunWhenConnected(base::OnceClosure callback) {
   std::move(callback).Run();
 }
 
-void LocalStorageImpl::InitiateConnection(bool in_memory_only) {
+void LocalStorageImpl::InitiateConnection(
+    bool in_memory_only,
+    bool destroy_existing_db_for_recovery) {
   CHECK_EQ(connection_state_, CONNECTION_IN_PROGRESS);
 
-  if (!storage_partition_directory_.empty() &&
-      storage_partition_directory_.IsAbsolute() && !in_memory_only) {
-    // We were given a subdirectory to write to, so use a disk-backed database.
-    in_memory_ = false;
-    database_ = AsyncDomStorageDatabase::Open(
-        StorageType::kLocalStorage, storage_partition_directory_,
-        memory_dump_id_,
-        base::BindOnce(&LocalStorageImpl::OnDatabaseOpened,
-                       weak_ptr_factory_.GetWeakPtr()));
-    return;
-  }
-
-  // We were not given a subdirectory. Use a memory backed database.
-  in_memory_ = true;
+  // Use an in-memory database unless we were given a usable (absolute)
+  // subdirectory and weren't asked to stay in memory.
+  in_memory_ = in_memory_only || storage_partition_directory_.empty() ||
+               !storage_partition_directory_.IsAbsolute();
+  const base::FilePath dir_to_open =
+      in_memory_ ? base::FilePath() : storage_partition_directory_;
+  // Recovery destroys the pre-existing on-disk database before reopening (which
+  // may itself be in-memory). An empty `dir_to_destroy` means no destroy.
+  const base::FilePath dir_to_destroy = destroy_existing_db_for_recovery
+                                            ? storage_partition_directory_
+                                            : base::FilePath();
   database_ = AsyncDomStorageDatabase::Open(
-      StorageType::kLocalStorage,
-      /*storage_partition_dir=*/base::FilePath(), memory_dump_id_,
+      StorageType::kLocalStorage, dir_to_open, memory_dump_id_, dir_to_destroy,
       base::BindOnce(&LocalStorageImpl::OnDatabaseOpened,
                      weak_ptr_factory_.GetWeakPtr()));
 }
 
-void LocalStorageImpl::OnDatabaseOpened(DbStatus status) {
-  if (!status.ok()) {
+void LocalStorageImpl::OnDatabaseOpened(
+    AsyncDomStorageDatabase::OpenOutcome outcome) {
+  // If this open destroyed a pre-existing database, log the destroy status and
+  // feed its outcome into the recovery histogram. In LocalStorage destroys only
+  // happen during recovery, so `recovery_state_` is always set here.
+  if (outcome.destroy_outcome) {
+    CHECK(recovery_state_);
+    outcome.destroy_outcome->status.Log(
+        "Storage.LocalStorage.DestroyDatabase",
+        outcome.destroy_outcome->destroyed_db_metrics_type);
+    recovery_state_->AddDestroyResult(outcome.destroy_outcome->status.ok());
+  }
+
+  if (!outcome.open_status.ok()) {
     // If we failed to open the database, try to delete and recreate the
     // database, or ultimately fallback to an in-memory database.
     DeleteAndRecreateDatabase(DomStorageRecoveryReason::kOpenFailure);
@@ -528,13 +539,16 @@ void LocalStorageImpl::OnConnectionFinished() {
 
 void LocalStorageImpl::DeleteAndRecreateDatabase(
     DomStorageRecoveryReason reason) {
+  CHECK(database_);
+  const DatabaseMetricsType metrics_type = database_->metrics_type();
+
   // Record the reason that initiated this recovery cycle. The first reason
   // wins: subsequent calls during the same recovery cycle (e.g. an open
   // failure after a destroy triggered by kCommitErrorThresholdExceeded) do not
   // overwrite it. So, the histogram correctly attributes the outcome to the
   // original reason.
   if (!recovery_state_) {
-    recovery_state_.emplace(reason, in_memory_);
+    recovery_state_.emplace(reason, metrics_type);
   }
 
   // We're about to set database_ to null, so delete the StorageAreaImpls
@@ -544,12 +558,9 @@ void LocalStorageImpl::DeleteAndRecreateDatabase(
   // Reset state to be in process of connecting. This will cause requests for
   // StorageAreas to be queued until the connection is complete.
   connection_state_ = CONNECTION_IN_PROGRESS;
-  RecordCommitErrorCountAtReset("LocalStorage", commit_error_count_);
+  RecordCommitErrorCountAtReset("LocalStorage", commit_error_count_,
+                                metrics_type);
   commit_error_count_ = 0;
-  // Capture `metrics_type` before resetting `database_` so `OnDBDestroyed`
-  // can log with the right histogram suffix.
-  CHECK(database_);
-  DatabaseMetricsType metrics_type = database_->metrics_type();
   database_.reset();
 
   bool recreate_in_memory = false;
@@ -567,30 +578,10 @@ void LocalStorageImpl::DeleteAndRecreateDatabase(
 
   tried_to_recreate_during_open_ = true;
 
-  // Destroy database, and try again.
-  if (!in_memory_) {
-    DomStorageDatabaseFactory::Destroy(
-        StorageType::kLocalStorage, storage_partition_directory_,
-        base::BindOnce(&LocalStorageImpl::OnDBDestroyed,
-                       weak_ptr_factory_.GetWeakPtr(), recreate_in_memory,
-                       metrics_type));
-  } else {
-    // No directory, so nothing to destroy. Retrying to recreate will probably
-    // fail, but try anyway.
-    InitiateConnection(recreate_in_memory);
-  }
-}
-
-void LocalStorageImpl::OnDBDestroyed(bool recreate_in_memory,
-                                     DatabaseMetricsType metrics_type,
-                                     DbStatus status) {
-  // Destroy is only invoked from the `!in_memory_` branch of
-  // `DeleteAndRecreateDatabase`, so the destroyed database must not be
-  // in-memory.
-  CHECK_NE(metrics_type, DatabaseMetricsType::kInMemory);
-  status.Log("Storage.LocalStorage.DestroyDatabase", metrics_type);
-  recovery_state_.value().AddDestroyResult(status.ok());
-  InitiateConnection(recreate_in_memory);
+  // `!in_memory_` means the old database was on-disk and must be destroyed
+  // before reopening.
+  InitiateConnection(recreate_in_memory,
+                     /*destroy_existing_db_for_recovery=*/!in_memory_);
 }
 
 LocalStorageImpl::StorageAreaHolder* LocalStorageImpl::GetOrCreateStorageArea(
@@ -679,22 +670,21 @@ void LocalStorageImpl::GetStatistics(size_t* total_cache_size,
 }
 
 void LocalStorageImpl::OnCommitResult(DbStatus status) {
+  CHECK_EQ(connection_state_, CONNECTION_FINISHED);
+  CHECK(database_);
   if (status.ok()) {
+    const DatabaseMetricsType metrics_type = database_->metrics_type();
     if (commit_error_count_ > 0 && tried_to_recover_from_commit_errors_) {
       base::UmaHistogramEnumeration(
-          "Storage.LocalStorage.Recovery.CommitErrorThresholdExceeded",
+          base::StrCat(
+              {"Storage.LocalStorage.Recovery.CommitErrorThresholdExceeded",
+               MaybeGetOnDiskExperimentalSuffix(metrics_type)}),
           DomStorageDatabaseRecoveryOutcome::
               kTransientErrorsAfterAttemptedRecovery);
     }
-    RecordCommitErrorCountAtReset("LocalStorage", commit_error_count_);
+    RecordCommitErrorCountAtReset("LocalStorage", commit_error_count_,
+                                  metrics_type);
     commit_error_count_ = 0;
-    return;
-  }
-
-  if (connection_state_ != CONNECTION_FINISHED) {
-    // Previous commit errors deleted and recreated the database below.  Ignore
-    // additional errors from the old database while waiting for the new
-    // database to open.
     return;
   }
 
@@ -705,7 +695,9 @@ void LocalStorageImpl::OnCommitResult(DbStatus status) {
       // are still having problems: there isn't really anything left to try, so
       // just ignore errors.
       base::UmaHistogramEnumeration(
-          "Storage.LocalStorage.Recovery.CommitErrorThresholdExceeded",
+          base::StrCat(
+              {"Storage.LocalStorage.Recovery.CommitErrorThresholdExceeded",
+               MaybeGetOnDiskExperimentalSuffix(database_->metrics_type())}),
           DomStorageDatabaseRecoveryOutcome::
               kOngoingErrorsAfterAttemptedRecovery);
       return;

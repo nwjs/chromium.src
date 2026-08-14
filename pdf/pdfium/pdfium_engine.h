@@ -19,6 +19,7 @@
 #include "base/containers/flat_map.h"
 #include "base/containers/span.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
@@ -183,6 +184,13 @@ class PDFiumEngine : public DocumentLoader::Client,
     // fit type is not XYZ.
     std::string xyz_params;
   };
+
+#if BUILDFLAG(ENABLE_PDF_INK2)
+  struct InkIdentifiers {
+    PDFLoadedWithInkTextAnnotations ink_text_annotations;
+    PDFLoadedWithV2InkAnnotations v2_ink_path;
+  };
+#endif
 
   // NOTE: `script_option` is ignored when PDF_ENABLE_V8 is not defined.
   PDFiumEngine(PDFiumEngineClient* client,
@@ -383,6 +391,16 @@ class PDFiumEngine : public DocumentLoader::Client,
   // otherwise, it may return false if pages are not yet available.
   virtual bool HasMeaningfulText() const;
 
+  // Returns true if the PDF contains JavaScript actions. This method should be
+  // called after the document is loaded; otherwise, it returns false if the
+  // document is not yet available.
+  virtual bool HasJavaScript() const;
+
+  // Returns true if the PDF requires a password to be opened. This method
+  // should be called after the document is loaded; otherwise, it returns
+  // `false` if the document is not yet available.
+  virtual bool IsPasswordProtected() const;
+
   // Returns a copy of the structure tree which describes the logical
   // organization of the PDF, if present.
   std::unique_ptr<AccessibilityStructureElement> GetStructureTree() const;
@@ -457,11 +475,10 @@ class PDFiumEngine : public DocumentLoader::Client,
   // `ApplyStroke()`. Virtual to support testing.
   virtual void DiscardStroke(int page_index, InkStrokeId id);
 
-  // Returns whether any of the pages contains a "V2" path created by Ink or
-  // unknown if unable to find any "V2" paths within `timeout`. Virtual to
-  // support testing.
-  virtual PDFLoadedWithV2InkAnnotations ContainsV2InkPath(
-      base::TimeDelta timeout) const;
+  // Scans the document to detect the presence of Ink annotations (Ink text
+  // annotations and "V2" Ink paths) within `timeout`. Virtual to support
+  // testing.
+  virtual InkIdentifiers ScanForInkAnnotations(base::TimeDelta timeout) const;
 
   // Loads "V2" Ink paths from a page in the PDF identified by `page_index`. The
   // `page_index` must be in bounds.
@@ -754,6 +771,7 @@ class PDFiumEngine : public DocumentLoader::Client,
 
   friend class FormFillerTest;
   friend class PDFiumDrawSelectionTestBase;
+  friend class PDFiumEnginePageMutationTest;
   friend class PDFiumEngineTabbingTest;
   friend class PDFiumEngineTest;
   friend class PDFiumFormFiller;
@@ -815,6 +833,15 @@ class PDFiumEngine : public DocumentLoader::Client,
   std::vector<gfx::Size> LoadPageSizes(
       const DocumentLayout::Options& layout_options);
 
+  // Cleans up active pages that were deferred from unloading. This is a
+  // best-effort cleanup; pages with active unload preventers will remain
+  // deferred.
+  void CleanUpDeferredPages();
+
+  // Defers page unloading and triggers CleanUpDeferredPages() when the returned
+  // runner goes out of scope.
+  base::ScopedClosureRunner CreateScopedDeferredPageUnload();
+
   void LoadBody();
 
   void LoadPages();
@@ -874,6 +901,9 @@ class PDFiumEngine : public DocumentLoader::Client,
   // Returns the current find selection, otherwise returns nullptr if there is
   // no find selection.
   const PDFiumRange* GetFindSelection() const;
+
+  // Clears find results and resets the search state variables.
+  void ClearFindResults();
 
   // Search a page ourself using ICU.
   void SearchUsingICU(const std::u16string& term,
@@ -1204,6 +1234,7 @@ class PDFiumEngine : public DocumentLoader::Client,
   // to false after the user finishes getting their password.
   bool getting_password_ = false;
   int password_tries_remaining_ = 0;
+  bool is_password_protected_ = false;
 
   // Needs to be above pages_, as destroying a page may call some methods of
   // form filler.
@@ -1233,11 +1264,19 @@ class PDFiumEngine : public DocumentLoader::Client,
   // The indexes of the pages pending download.
   std::vector<uint32_t> pending_pages_;
 
-  // During handling of input events we don't want to unload any pages in
-  // callbacks to us from PDFium, since the current page can change while PDFium
-  // code still has a pointer to it.
+  // Set to true to prevent unloading of pages during operations where the stack
+  // may hold raw pointers to them (e.g. during input event handling or text
+  // annotation loading). Managed via `CreateScopedDeferredPageUnload()`.
   bool defer_page_unload_ = false;
+
+  // Page indices that are deferred from unloading.
   std::vector<int> deferred_page_unloads_;
+
+  // If `defer_page_unload_` is true, or if there is an active page unload
+  // preventer, pages deleted in `LoadPageSizes()` cannot be destroyed
+  // immediately. They are moved here to defer their destruction until the
+  // deferrals/preventers are cleared.
+  std::vector<std::unique_ptr<PDFiumPage>> deferred_page_deletions_;
 
   // Used for text selection, but does not include text within form text areas.
   // There could be more than one range if selection spans more than one page.

@@ -67,14 +67,16 @@ extern const char kFocusHelpBubbleAcceleratorPromoRead[];
 // Th user clicked the extensions request access button in the toolbar.
 extern const char kExtensionsRequestAccessButtonClicked[];
 
-// The user has opened the cookie controls bubble.
-extern const char kCookieControlsBubbleShown[];
-
 // The user has accepted the Glic onboarding.
 extern const char kGlicOnboardingCompleted[];
 
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
+
+#if BUILDFLAG(IS_WIN)
+// The search promotion was accepted by the user.
+extern const char kSearchPromotionAccepted[];
+#endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_IOS)
 // The user has opened Chrome (cold start or from background).

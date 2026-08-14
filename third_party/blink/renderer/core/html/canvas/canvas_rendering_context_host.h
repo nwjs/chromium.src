@@ -18,8 +18,8 @@
 #include "third_party/blink/renderer/core/html/canvas/ukm_parameters.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/v8_external_memory_accounter.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_2d_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_child_paint_record.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/text/text_direction.h"
 #include "ui/gfx/geometry/rect.h"
@@ -33,7 +33,6 @@ class Layer;
 namespace blink {
 
 class CanvasRenderingContext;
-class CanvasResource;
 class CanvasResourceDispatcher;
 class ComputedStyle;
 class KURL;
@@ -70,7 +69,6 @@ class CORE_EXPORT CanvasRenderingContextHost
 
   virtual void PostFinalizeFrame(FlushReason) = 0;
   void NotifyCachesOfSwitchingFrame();
-  virtual bool PushFrame(scoped_refptr<CanvasResource>&& frame) = 0;
   virtual bool OriginClean() const = 0;
   virtual void SetOriginTainted() = 0;
   virtual CanvasRenderingContext* RenderingContext() const = 0;

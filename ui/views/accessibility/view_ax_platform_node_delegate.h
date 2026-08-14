@@ -88,6 +88,7 @@ class VIEWS_EXPORT ViewAXPlatformNodeDelegate
   gfx::NativeViewAccessible GetNativeViewAccessible() override;
   gfx::NativeViewAccessible GetParent() const override;
   bool IsLeaf() const override;
+  bool IsIgnored() const override;
   bool IsInvisibleOrIgnored() const override;
   bool IsFocused() const override;
   gfx::Rect GetBoundsRect(
@@ -110,7 +111,6 @@ class VIEWS_EXPORT ViewAXPlatformNodeDelegate
   bool AccessibilityPerformAction(const ui::AXActionData& data) override;
   bool ShouldIgnoreHoveredStateForTesting() override;
   bool IsOffscreen() const override;
-  std::u16string GetAuthorUniqueId() const override;
   bool IsMinimized() const override;
   bool IsReadOnlySupported() const override;
   bool IsReadOnlyOrDisabled() const override;

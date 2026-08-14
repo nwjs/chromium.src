@@ -12,6 +12,7 @@
 
 #include "base/android/jni_weak_ref.h"
 #include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/dcheck_is_on.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
@@ -134,6 +135,7 @@ class AndroidAutofillClient : public autofill::ContentAutofillClient,
   bool IsWalletPublicPassStorageEnabled() const final;
   bool IsAutocompleteEnabled() const final;
   bool IsPasswordManagerEnabled() const final;
+  bool UsesPlatformAutofill() const final;
   bool IsContextSecure() const final;
   autofill::autofill_metrics::FormInteractionsUkmLogger&
   GetFormInteractionsUkmLogger() final;

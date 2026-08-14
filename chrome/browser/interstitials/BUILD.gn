@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//components/enterprise/buildflags/buildflags.gni")
 import("//components/safe_browsing/buildflags.gni")
 import("//extensions/buildflags/buildflags.gni")
 
@@ -49,7 +50,10 @@ source_set("impl") {
   ]
 
   if (!is_android) {
-    deps += [ "//chrome/browser/ui" ]
+    deps += [
+      "//chrome/browser/ui",
+      "//chrome/browser/ui:chrome_pages",
+    ]
   }
 
   if (enable_extensions) {
@@ -76,4 +80,67 @@ source_set("test_support") {
     "//components/security_interstitials/core",
     "//content/test:test_support",
   ]
+}
+
+if (!is_android) {
+  # Separate from :test_support because this browser-test helper depends on
+  # //chrome/test:test_support, which transitively depends on :test_support
+  # via //chrome/browser:test_support; keeping it in its own leaf target that
+  # //chrome/browser:test_support does not depend on avoids that cycle.
+  source_set("idn_test_support") {
+    testonly = true
+
+    defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+    public = [ "security_interstitial_idn_test.h" ]
+
+    sources = [ "security_interstitial_idn_test.cc" ]
+
+    public_deps = [
+      "//components/security_interstitials/content:security_interstitial_page",
+    ]
+
+    deps = [
+      "//base",
+      "//chrome/browser/ui",
+      "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/test:test_support",
+      "//chrome/test:test_support_ui",
+      "//content/public/browser",
+      "//content/test:test_support",
+    ]
+  }
+}
+
+if (enterprise_cloud_content_analysis || is_android) {
+  source_set("unit_tests") {
+    testonly = true
+    sources = [ "enterprise_util_unittest.cc" ]
+    deps = [
+      ":interstitials",
+      "//chrome/browser/enterprise/connectors/reporting",
+      "//chrome/browser/enterprise/connectors/test:test_support",
+      "//chrome/browser/policy:test_support",
+      "//chrome/browser/profiles:profile",
+      "//chrome/browser/safe_browsing",
+      "//chrome/test:test_support",
+      "//components/enterprise/connectors/core:test_support",
+      "//components/policy/core/common:test_support",
+      "//components/safe_browsing/content/browser",
+      "//components/safe_browsing/core/browser:referrer_chain_provider",
+      "//components/safe_browsing/core/common:features",
+      "//content/test:test_support",
+      "//testing/gtest",
+    ]
+
+    # enterprise_util_unittest only touches the extensions
+    # SafeBrowsingPrivateEventRouter and TestExtensionEventObserver behind
+    # BUILDFLAG(ENABLE_EXTENSIONS).
+    if (enable_extensions) {
+      deps += [
+        "//chrome/browser/extensions",
+        "//chrome/browser/safe_browsing:test_support",
+      ]
+    }
+  }
 }

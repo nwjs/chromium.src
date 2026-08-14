@@ -631,9 +631,9 @@ void Verify206Response(const std::string& response, int start, int end) {
   int64_t range_start, range_end, object_size;
   ASSERT_TRUE(
       headers->GetContentRangeFor206(&range_start, &range_end, &object_size));
-  std::optional<base::ByteCount> content_length = headers->GetContentLength();
+  std::optional<base::ByteSize> content_length = headers->GetContentLength();
 
-  int length = end - start + 1;
+  uint64_t length = end - start + 1;
   ASSERT_EQ(length, content_length->InBytes());
   ASSERT_EQ(start, range_start);
   ASSERT_EQ(end, range_end);
@@ -12622,9 +12622,9 @@ TEST_P(HttpCacheHugeResourceTest,
 
   int64_t total_bytes_received = 0;
 
-  EXPECT_EQ(kTotalSize, http_transaction->GetResponseInfo()
-                            ->headers->GetContentLength()
-                            ->InBytes());
+  EXPECT_EQ(kTotalSize, static_cast<int64_t>(http_transaction->GetResponseInfo()
+                                                 ->headers->GetContentLength()
+                                                 ->InBytes()));
   do {
     // This test simulates reading gigabytes of data. Buffer size is set to 10MB
     // to reduce the number of reads and speed up the test.
@@ -12750,15 +12750,13 @@ TEST_F(HttpCacheTest, SetWebSocketHandshakeStreamCreateHelper) {
   EXPECT_FALSE(cache.network_layer()->last_transaction());
 
   info.url = GURL(kSimpleGET_Transaction.url);
+  trans->SetWebSocketHandshakeStreamCreateHelper(&create_helper);
+
   TestCompletionCallback callback;
   EXPECT_EQ(ERR_IO_PENDING,
             trans->Start(&info, callback.callback(), NetLogWithSource()));
 
   ASSERT_TRUE(cache.network_layer()->last_transaction());
-  EXPECT_FALSE(cache.network_layer()
-                   ->last_transaction()
-                   ->websocket_handshake_stream_create_helper());
-  trans->SetWebSocketHandshakeStreamCreateHelper(&create_helper);
   EXPECT_EQ(&create_helper, cache.network_layer()
                                 ->last_transaction()
                                 ->websocket_handshake_stream_create_helper());
@@ -17345,6 +17343,19 @@ TEST_F(HttpCacheTest, InvalidationFilterRevocation) {
   // Second request should be HIT again.
   RunTransactionTest(cache.http_cache(), kSimpleGET_Transaction);
   EXPECT_EQ(cache.network_layer()->transaction_count(), current_count);
+}
+
+// Tests that restarting a transaction cleanly resets
+// done_headers_create_new_entry_ to false, preventing a CHECK failure in
+// DoGetBackendComplete() (crbug.com/537817232).
+TEST_F(HttpCacheTest, RestartResetsDoneHeadersCreateNewEntry) {
+  MockHttpCache cache;
+
+  // First request populates the cache.
+  RunTransactionTest(cache.http_cache(), kSimpleGET_Transaction);
+
+  // Subsequent request that revalidates or restarts does not hit CHECK failure.
+  RunTransactionTest(cache.http_cache(), kSimpleGET_Transaction);
 }
 
 TEST_F(HttpCacheTest, SetMaxBytesBeforeInitWithoutForcedInit) {

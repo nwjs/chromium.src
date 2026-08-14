@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/config/ozone.gni")
 import("//chrome/common/features.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
 
@@ -15,10 +16,12 @@ source_set("selection") {
     "selection_overlay_untrusted_ui.h",
   ]
 
-  public_deps = [ "//chrome/browser/ui/lens" ]
+  public_deps = [
+    ":mojo_bindings",
+    "//chrome/browser/ui/lens",
+  ]
 
   deps = [
-    ":mojo_bindings",
     "//base",
     "//chrome/browser/actor",
     "//chrome/browser/glic",
@@ -64,6 +67,9 @@ source_set("interactive_ui_tests") {
     "//ui/base:ozone_buildflags",
     "//ui/base/interaction",
   ]
+  if (use_ozone) {
+    deps += [ "//ui/ozone" ]
+  }
 }
 
 source_set("browser_tests") {

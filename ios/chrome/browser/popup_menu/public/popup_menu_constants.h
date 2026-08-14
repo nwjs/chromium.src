@@ -103,10 +103,12 @@ extern NSString* const kToolsMenuMoveTabToGroupId;
 extern NSString* const kToolsMenuAddTabToGroupId;
 // Share This Page a11y identifier.
 extern NSString* const kToolsMenuShareId;
-// Sign in item accessibility Identifier.
-extern NSString* const kToolsMenuSigninId;
 // Identity item accessibility Identifier.
 extern NSString* const kToolsMenuIdentityId;
+
+// The identifier for the custom detent matching the preferred height of the
+// overflow menu on the NTP.
+extern NSString* const kOverflowMenuNTPPreferredHeightDetentId;
 
 // Alpha for the background color of the highlighted items.
 extern const CGFloat kSelectedItemBackgroundAlpha;

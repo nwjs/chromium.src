@@ -8,7 +8,6 @@
 #include "base/debug/dump_without_crashing.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
-#include "content/public/browser/render_process_host.h"
 #include "content/public/common/child_process_id.h"
 #include "extensions/browser/process_manager.h"
 #include "extensions/browser/service_worker/worker_id.h"
@@ -74,11 +73,14 @@ void ServiceWorkerState::SetRendererState(RendererState renderer_state) {
 }
 
 void ServiceWorkerState::Reset() {
+  const bool did_start_worker = browser_state_ == BrowserState::kActive;
+
   worker_id_.reset();
   browser_state_ = BrowserState::kNotActive;
   renderer_state_ = RendererState::kNotActive;
 
-  // NOTE: `worker_starting_` is intentionally NOT reset here.
+  // NOTE: `worker_starting_` is intentionally NOT reset here when the content
+  // layer may restart the worker.
   //
   // `Reset()` can be called when a worker stops, including when it stops in the
   // middle of a start attempt. In that case, `content::ServiceWorkerVersion`
@@ -93,6 +95,25 @@ void ServiceWorkerState::Reset() {
   //
   // The flag is correctly cleared only upon success (in
   // `NotifyObserversIfReady`) or failure (in `DidStartWorkerFail`).
+  //
+  // However, a worker can reach `kActive` on the browser side (the content
+  // start resolved as success) yet never become `IsReady()` when the
+  // renderer's `RendererDidStartServiceWorkerContext` is never called, hence
+  // never setting `renderer_state_` to `kActive`. Such a worker hits neither
+  // path: the success path is gated on `IsReady()`, and the failure path can no
+  // longer fire because the start already resolved as success. Nothing would
+  // clear `worker_starting_`, leaving the worker permanently non-startable by
+  // `ServiceWorkerTaskQueue::MaybeStartWorker` because `IsStarting()` stays
+  // true (see crbug.com/530077398), so clear it here.
+  //
+  // This does not reintroduce crbug.com/452178846:
+  // `browser_state_ == kActive` is only set from `DidStartWorkerForScope`, the
+  // extension's own `StartWorkerForScope` success callback. So once we observe
+  // `kActive`, that callback has already run and is no longer pending in the
+  // content layer's start requests.
+  if (did_start_worker) {
+    worker_starting_ = false;
+  }
 }
 
 bool ServiceWorkerState::IsStarting() const {
@@ -160,27 +181,15 @@ void ServiceWorkerState::DidStartWorkerForScope(
   const WorkerId worker_id = {extension_id, process_id, version_id, thread_id,
                               token};
 
+  // The content layer should not deliver this callback for a stale worker
+  // instance (see DidStartWorker() in service_worker_context_wrapper.cc).
+  // TODO(crbug.com/536945271): Remove this check if the dump is never hit in
+  // production.
   if (!service_worker_context_->IsLiveServiceWorkerWithToken(version_id,
                                                              token)) {
     // Drop the IPC message. It is from a stale worker instance.
-    return;
-  }
-
-  // HACK: The service worker layer might invoke this callback with an ID for a
-  // RenderProcessHost that has already terminated. This isn't the right fix for
-  // this, because it results in the internal state here stalling out - we'll
-  // wait on the browser side to be ready, which will never happen. This should
-  // be cleaned up on the next activation sequence, but this still isn't good.
-  // The proper fix here is that the service worker layer shouldn't be invoking
-  // this callback with stale processes.
-  // https://crbug.com/1335821.
-  if (!content::RenderProcessHost::FromID(worker_id.render_process_id)) {
-    // The IsLiveServiceWorkerWithToken() check above *should* have caught
-    // this instance.
+    // TODO(andreaorru): remove once it's verified it's never hit.
     base::debug::DumpWithoutCrashing();
-    // TODO(crbug.com/40913640): Investigate and fix.
-    LOG(ERROR) << "Received bad DidStartWorkerForScope() message. "
-                  "No corresponding RenderProcessHost.";
     return;
   }
 

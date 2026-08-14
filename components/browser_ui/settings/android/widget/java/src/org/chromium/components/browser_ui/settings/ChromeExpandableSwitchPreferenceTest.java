@@ -8,8 +8,10 @@ import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isChecked;
+import static androidx.test.espresso.matcher.ViewMatchers.isClickable;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayingAtLeast;
+import static androidx.test.espresso.matcher.ViewMatchers.isFocusable;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
@@ -20,6 +22,9 @@ import android.app.Activity;
 import android.view.View;
 import android.view.ViewStub;
 
+import androidx.core.view.ViewCompat;
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.test.espresso.UiController;
 import androidx.test.espresso.ViewAction;
@@ -161,6 +166,11 @@ public class ChromeExpandableSwitchPreferenceTest {
         // Verify that the preference is expanded.
         onView(withId(R.id.expandable_switch_expanded_area)).check(matches(isDisplayed()));
 
+        // Verify that the expanded area container is not focusable or clickable for accessibility.
+        onView(withId(R.id.expandable_switch_expanded_area))
+                .check(matches(not(isClickable())))
+                .check(matches(not(isFocusable())));
+
         // Click on the expanded area.
         onView(withId(R.id.expandable_switch_expanded_area)).perform(click());
 
@@ -235,5 +245,48 @@ public class ChromeExpandableSwitchPreferenceTest {
 
         // Switch should still be checked.
         onView(withId(android.R.id.switch_widget)).check(matches(isChecked()));
+    }
+
+    @Test
+    @LargeTest
+    public void testSwitchAccessibilityLabel() {
+        // Verify that the switch widget has the correct contentDescription.
+        onView(withId(android.R.id.switch_widget))
+                .check(
+                        (view, noViewFoundException) -> {
+                            if (noViewFoundException != null) {
+                                throw noViewFoundException;
+                            }
+                            CharSequence contentDescription = view.getContentDescription();
+                            Assert.assertNotNull(
+                                    "Content description should not be null", contentDescription);
+                            Assert.assertEquals(TITLE, contentDescription.toString());
+                        });
+    }
+
+    @Test
+    @LargeTest
+    public void testExpandedAreaAccessibility() {
+        // Expand programmatically.
+        ThreadUtils.runOnUiThreadBlocking(() -> mPreference.setExpanded(true));
+
+        // Check accessibility node info of expanded area.
+        onView(withId(R.id.expandable_switch_expanded_area))
+                .check(
+                        (view, noViewFoundException) -> {
+                            if (noViewFoundException != null) {
+                                throw noViewFoundException;
+                            }
+                            AccessibilityNodeInfoCompat info = AccessibilityNodeInfoCompat.obtain();
+                            ViewCompat.onInitializeAccessibilityNodeInfo(view, info);
+                            Assert.assertFalse(
+                                    "Expanded area should not be reported as clickable to"
+                                            + " accessibility",
+                                    info.isClickable());
+                            Assert.assertFalse(
+                                    "Expanded area should not have click action in accessibility",
+                                    info.getActionList()
+                                            .contains(AccessibilityActionCompat.ACTION_CLICK));
+                        });
     }
 }

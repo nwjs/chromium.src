@@ -146,6 +146,66 @@ class TestTraceAnalyzerLib(unittest.TestCase):
         self.assertEqual(node.dur_ms, 1.5)
         self.assertEqual(node.self_ms, 1.5)
 
+    def test_get_slice_signature(self):
+        # Test no args
+        sig = trace_analyzer_lib.get_slice_signature_raw("SimpleSlice", {})
+        self.assertEqual(sig, "SimpleSlice")
+
+        # Test RunTask formatting
+        args_run_task = {
+            "task.posted_from.file_name": "base/task.cc",
+            "task.posted_from.function_name": "DoWork"
+        }
+        sig = trace_analyzer_lib.get_slice_signature_raw(
+            "ThreadControllerImpl::RunTask", args_run_task)
+        self.assertEqual(
+            sig, "ThreadControllerImpl::RunTask ("
+            "file_name: base/task.cc, function_name: DoWork)")
+
+        # Test RunTask formatting with line number
+        args_run_task_line = {
+            "task.posted_from.file_name": "base/task.cc",
+            "task.posted_from.function_name": "DoWork",
+            "task.posted_from.line_number": "123"
+        }
+        sig = trace_analyzer_lib.get_slice_signature_raw(
+            "ThreadControllerImpl::RunTask", args_run_task_line)
+        self.assertEqual(
+            sig, "ThreadControllerImpl::RunTask ("
+            "file_name: base/task.cc, function_name: DoWork, line_number: 123)"
+        )
+
+        # Test IsSuitableForUrlInfo
+        args_url_info = {
+            "url_info.url": "https://google.com/",
+            "site_instance.site_instance_id": "42"
+        }
+        sig = trace_analyzer_lib.get_slice_signature_raw(
+            "IsSuitableForUrlInfo", args_url_info)
+        self.assertEqual(
+            sig, "IsSuitableForUrlInfo ("
+            "url: https://google.com/, site_instance_id: 42)")
+
+        # Test custom JSON expand config
+        custom_config = {"CustomSlice": ["my_arg", "actual_key"]}
+        args_custom = {"my_arg": "value1", "actual_key": "value2"}
+        sig = trace_analyzer_lib.get_slice_signature_raw(
+            "CustomSlice", args_custom, custom_config)
+        self.assertEqual(sig,
+                         "CustomSlice (my_arg: value1, actual_key: value2)")
+
+        # Test user config merging with default config
+        merge_config = {"DetermineSiteInstanceForURL": ["custom_arg"]}
+        args_merge = {
+            "url_info.url": "https://google.com/",
+            "custom_arg": "custom_val"
+        }
+        sig = trace_analyzer_lib.get_slice_signature_raw(
+            "DetermineSiteInstanceForURL", args_merge, merge_config)
+        self.assertEqual(
+            sig, "DetermineSiteInstanceForURL ("
+            "url: https://google.com/, custom_arg: custom_val)")
+
     @patch('trace_analyzer_lib.TraceSession')
     def test_extract_slice_hierarchies(self, mock_session_class):
         session = mock_session_class.return_value
@@ -251,9 +311,9 @@ class TestTraceAnalyzerLib(unittest.TestCase):
 
         # They should NOT be merged because they have different arguments!
         sig1 = ("IsSuitableForUrlInfo (url: https://google.com, "
-                "site_instance: 1)")
+                "site_instance_id: 1)")
         sig2 = ("IsSuitableForUrlInfo (url: https://youtube.com, "
-                "site_instance: 2)")
+                "site_instance_id: 2)")
         self.assertIn(sig1, agg_root.children)
         self.assertIn(sig2, agg_root.children)
         self.assertEqual(agg_root.children[sig1].count, 1)
@@ -296,7 +356,7 @@ class TestTraceAnalyzerLib(unittest.TestCase):
 
         def mock_query(sql):
             mock_result = MagicMock()
-            if "FROM slice WHERE name =" in sql:
+            if "s.name = 'Metric'" in sql:
                 mock_result.as_pandas_dataframe.return_value = df_metric
             elif "FROM process" in sql:
                 mock_result.as_pandas_dataframe.return_value = df_proc
@@ -340,7 +400,7 @@ class TestTraceAnalyzerLib(unittest.TestCase):
         def mock_query(sql):
             queries_run.append(sql)
             mock_result = MagicMock()
-            if "JOIN args a" in sql and "WHERE s.name = 'Metric'" in sql:
+            if "WHERE s.name = 'Metric'" in sql:
                 mock_result.as_pandas_dataframe.return_value = df_metric
             elif "FROM process" in sql:
                 mock_result.as_pandas_dataframe.return_value = df_proc
@@ -360,10 +420,114 @@ class TestTraceAnalyzerLib(unittest.TestCase):
 
         self.assertEqual(m_dur, 0.005)
         # Verify that the query joining args table was executed
-        metric_query = [q for q in queries_run if "JOIN args" in q]
+        metric_query = [
+            q for q in queries_run if "WHERE s.name = 'Metric'" in q
+        ]
         self.assertEqual(len(metric_query), 1)
         self.assertIn("a.key = 'mykey'", metric_query[0])
         self.assertIn("a.string_value LIKE 'myval'", metric_query[0])
+
+    @patch('trace_analyzer_lib.TraceProcessor')
+    def test_fetch_windowed_slices_with_boundary_filter(self, mock_tp_class):
+        mock_tp = mock_tp_class.return_value
+        df_metric = pd.DataFrame([{'ts': 1000, 'dur': 5000}])
+        df_slices = pd.DataFrame([{
+            'id': 10,
+            'name': 'SliceA',
+            'ts': 1200,
+            'dur': 2000,
+            'parent_id': None,
+            'thread_name': 'Thread1',
+            'process_name': 'Browser',
+            'upid': 1
+        }])
+        df_proc = pd.DataFrame([{'upid': 1, 'name': 'Browser'}])
+
+        queries_run = []
+
+        def mock_query(sql):
+            queries_run.append(sql)
+            mock_result = MagicMock()
+            if "WHERE s.name = 'Metric'" in sql:
+                mock_result.as_pandas_dataframe.return_value = df_metric
+            elif "FROM process" in sql:
+                mock_result.as_pandas_dataframe.return_value = df_proc
+            elif "FROM slice s" in sql:
+                mock_result.as_pandas_dataframe.return_value = df_slices
+            else:
+                mock_result.as_pandas_dataframe.return_value = pd.DataFrame()
+            return mock_result
+
+        mock_tp.query.side_effect = mock_query
+
+        session = trace_analyzer_lib.TraceSession("dummy.pb")
+        _, m_dur = trace_analyzer_lib.fetch_windowed_slices(
+            session,
+            "Metric",
+            boundary_target="BoundarySlice",
+            boundary_arg_key="boundkey",
+            boundary_arg_value="boundval")
+
+        self.assertEqual(m_dur, 0.005)
+        # Verify that the query contains boundary clause
+        metric_query = [
+            q for q in queries_run if "WHERE s.name = 'Metric'" in q
+        ]
+        self.assertEqual(len(metric_query), 1)
+        self.assertIn("EXISTS", metric_query[0])
+        self.assertIn("p.name = 'BoundarySlice'", metric_query[0])
+        self.assertIn("JOIN args pa ON p.arg_set_id = pa.arg_set_id",
+                      metric_query[0])
+        self.assertIn("pa.key = 'boundkey'", metric_query[0])
+        self.assertIn("pa.string_value LIKE 'boundval'", metric_query[0])
+
+    @patch('trace_analyzer_lib.TraceProcessor')
+    def test_fetch_windowed_slices_with_boundary_filter_no_args(
+            self, mock_tp_class):
+        mock_tp = mock_tp_class.return_value
+        df_metric = pd.DataFrame([{'ts': 1000, 'dur': 5000}])
+        df_slices = pd.DataFrame([{
+            'id': 10,
+            'name': 'SliceA',
+            'ts': 1200,
+            'dur': 2000,
+            'parent_id': None,
+            'thread_name': 'Thread1',
+            'process_name': 'Browser',
+            'upid': 1
+        }])
+        df_proc = pd.DataFrame([{'upid': 1, 'name': 'Browser'}])
+
+        queries_run = []
+
+        def mock_query(sql):
+            queries_run.append(sql)
+            mock_result = MagicMock()
+            if "WHERE s.name = 'Metric'" in sql:
+                mock_result.as_pandas_dataframe.return_value = df_metric
+            elif "FROM process" in sql:
+                mock_result.as_pandas_dataframe.return_value = df_proc
+            elif "FROM slice s" in sql:
+                mock_result.as_pandas_dataframe.return_value = df_slices
+            else:
+                mock_result.as_pandas_dataframe.return_value = pd.DataFrame()
+            return mock_result
+
+        mock_tp.query.side_effect = mock_query
+
+        session = trace_analyzer_lib.TraceSession("dummy.pb")
+        _, m_dur = trace_analyzer_lib.fetch_windowed_slices(
+            session, "Metric", boundary_target="BoundarySlice")
+
+        self.assertEqual(m_dur, 0.005)
+        # Verify that the query contains boundary clause but no args join
+        metric_query = [
+            q for q in queries_run if "WHERE s.name = 'Metric'" in q
+        ]
+        self.assertEqual(len(metric_query), 1)
+        self.assertIn("EXISTS", metric_query[0])
+        self.assertIn("p.name = 'BoundarySlice'", metric_query[0])
+        self.assertNotIn("JOIN args pa", metric_query[0])
 
     def test_build_paths_from_slices(self):
         slices = {
@@ -395,10 +559,44 @@ class TestTraceAnalyzerLib(unittest.TestCase):
         self.assertIn(root_path, paths)
         self.assertEqual(paths[root_path]['total'], 5.0)
         self.assertEqual(paths[root_path]['self'], 2.0)
+        self.assertEqual(paths[root_path]['count'], 1)
 
         self.assertIn(child_path, paths)
         self.assertEqual(paths[child_path]['total'], 3.0)
         self.assertEqual(paths[child_path]['self'], 3.0)
+        self.assertEqual(paths[child_path]['count'], 1)
+
+    def test_build_paths_from_slices_multiple_occurrences(self):
+        slices = {
+            1: {
+                'id': 1,
+                'name': 'Root',
+                'parent_id': None,
+                'thread_name': 'ThreadMain',
+                'process_name': 'Browser',
+                'o_dur': 1000000.0,
+                'self_o_dur': 1000000.0,
+                'children': []
+            },
+            2: {
+                'id': 2,
+                'name': 'Root',
+                'parent_id': None,
+                'thread_name': 'ThreadMain',
+                'process_name': 'Browser',
+                'o_dur': 2000000.0,
+                'self_o_dur': 2000000.0,
+                'children': []
+            }
+        }
+        paths = trace_analyzer_lib.build_paths_from_slices(slices)
+        root_path = ('Browser', 'ThreadMain', 'Root')
+
+        self.assertIn(root_path, paths)
+        self.assertEqual(paths[root_path]['total'], 3.0)
+        self.assertEqual(paths[root_path]['self'], 3.0)
+        self.assertEqual(paths[root_path]['count'], 2)
+
 
     def test_build_tree_from_paths(self):
         path_durs = {
@@ -484,7 +682,84 @@ class TestCliParsing(unittest.TestCase):
                                      'SliceA',
                                      arg_key='mykey',
                                      arg_value='myval',
-                                     aggregate=False)
+                                     aggregate=False,
+                                     boundary_target=None,
+                                     boundary_arg_key=None,
+                                     boundary_arg_value=None)
+
+    @patch('trace_analyzer_lib.extract_slice_hierarchies')
+    @patch('trace_analyzer_lib.TraceSession')
+    @patch('trace_comparator.write_output')
+    def test_comparator_passes_boundary_args_to_lib(self, _mock_write,
+                                                    mock_session_class,
+                                                    mock_extract):
+        mock_node = MagicMock()
+        mock_node.dur_ms = 10.0
+        mock_node.dur = 10000000.0
+        mock_node.self_time = 5000000.0
+        mock_node.self_ms = 5.0
+        mock_node.name = 'SliceA'
+        mock_node.children = []
+        mock_extract.return_value = [mock_node]
+
+        test_args = [
+            'trace_comparator.py', '--control', 'ctrl.pb', '--experiment',
+            'exp.pb', '--target', 'SliceA', '--mode', 'descendants',
+            '--arg-key', 'mykey', '--arg-value', 'myval', '--boundary-target',
+            'BoundA', '--boundary-arg-key', 'bkey', '--boundary-arg-value',
+            'bval', '--format', 'markdown', '--output', 'out.md'
+        ]
+        with patch('sys.argv', test_args):
+            trace_comparator.main()
+
+        self.assertEqual(mock_extract.call_count, 2)
+        mock_extract.assert_any_call(mock_session_class.return_value,
+                                     'SliceA',
+                                     arg_key='mykey',
+                                     arg_value='myval',
+                                     aggregate=False,
+                                     boundary_target='BoundA',
+                                     boundary_arg_key='bkey',
+                                     boundary_arg_value='bval')
+
+    @patch('trace_analyzer_lib.fetch_windowed_slices')
+    @patch('trace_analyzer_lib.TraceSession')
+    @patch('trace_comparator.write_output')
+    def test_comparator_passes_boundary_args_to_lib_window(
+            self, _mock_write, mock_session_class, mock_fetch):
+        mock_fetch.return_value = ({
+            1: {
+                'id': 1,
+                'name': 'Root',
+                'parent_id': None,
+                'thread_name': 'ThreadMain',
+                'process_name': 'Browser',
+                'o_dur': 5000000.0,
+                'self_o_dur': 5000000.0,
+                'children': []
+            }
+        }, 5.0)
+
+        test_args = [
+            'trace_comparator.py', '--control', 'ctrl.pb', '--experiment',
+            'exp.pb', '--target', 'MetricA', '--mode', 'window', '--arg-key',
+            'mykey', '--arg-value', 'myval', '--boundary-target', 'BoundA',
+            '--boundary-arg-key', 'bkey', '--boundary-arg-value', 'bval',
+            '--format', 'markdown', '--output', 'out.md'
+        ]
+        with patch('sys.argv', test_args):
+            trace_comparator.main()
+
+        self.assertEqual(mock_fetch.call_count, 2)
+        mock_fetch.assert_any_call(mock_session_class.return_value,
+                                   'MetricA',
+                                   threads=None,
+                                   processes=None,
+                                   arg_key='mykey',
+                                   arg_value='myval',
+                                   boundary_target='BoundA',
+                                   boundary_arg_key='bkey',
+                                   boundary_arg_value='bval')
 
 
 if __name__ == '__main__':

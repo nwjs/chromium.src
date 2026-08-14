@@ -64,11 +64,11 @@
           COVER_START_OFFSET + CSS_TRIGGER_END_PX,
           scroller);
 
-      const reset = () => {
+      const reset = async () => {
         const animation = target.getAnimations()[0];
         animation.pause();
         animation.currentTime = 0;
-        scroller.scrollTop = 0;
+        return setScrollTop(scroller, 0);
       }
 
       promise_test(async (test) => {
@@ -99,7 +99,7 @@
       }, "play behavior resumes a paused animation");
 
       promise_test(async (test) => {
-        reset();
+        await reset();
         const animation = target.getAnimations()[0];
         assert_equals(animation.playState, "paused", "initial state");
 
@@ -118,12 +118,13 @@
             "still finished after exit");
         assert_times_equal(animation.currentTime, CSS_ANIMATION_DURATION);
 
-        // Re-entering the activation range should restart the animation.
+        // Re-entering the activation range should NOT restart the animation.
         await enter(rangeBoundaries);
-        assert_equals(animation.playState, "running",
-            "triggered after re-enter");
-        assert_greater_than(animation.currentTime, 0);
-      }, "play behavior restarts a finished animation");
+        await waitForAnimationFrames(2);
+        assert_equals(animation.playState, "finished",
+            "still finished after re-enter");
+        assert_times_equal(animation.currentTime, CSS_ANIMATION_DURATION);
+      }, "play behavior does not restart a finished animation");
 </script>
   </body>
 </html>

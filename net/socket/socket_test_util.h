@@ -269,25 +269,15 @@ struct MockReadWrite {
   };
 
   // Default
-  MockReadWrite()
-      : mode(SYNCHRONOUS),
-        result(0),
-        sequence_number(0),
-        tos(0) {}
+  MockReadWrite() : mode(SYNCHRONOUS), result(0), sequence_number(0), tos(0) {}
 
   // Read/write failure (no data).
   MockReadWrite(IoMode io_mode, int result)
-      : mode(io_mode),
-        result(result),
-        sequence_number(0),
-        tos(0) {}
+      : mode(io_mode), result(result), sequence_number(0), tos(0) {}
 
   // Read/write failure (no data), with sequence information.
   MockReadWrite(IoMode io_mode, int result, int seq)
-      : mode(io_mode),
-        result(result),
-        sequence_number(seq),
-        tos(0) {}
+      : mode(io_mode), result(result), sequence_number(seq), tos(0) {}
 
   // Asynchronous read/write success.
   explicit MockReadWrite(ToStringView data)
@@ -676,9 +666,11 @@ struct SSLSocketDataProvider {
   std::optional<bool> expected_ignore_certificate_errors;
   std::optional<NetworkAnonymizationKey> expected_network_anonymization_key;
   std::optional<std::vector<uint8_t>> expected_ech_config_list;
-  // If not nullopt, expects a (possibly empty) trust anchors extension with the
-  // specified value.
-  std::optional<std::vector<uint8_t>> expected_trust_anchor_ids;
+  // If not nullopt, expects a (possibly empty) trust anchors extension with
+  // the specified value. Ordering of the TAIs is not checked since this is
+  // used to check TAIs sent from client to server, where ordering doesn't
+  // matter.
+  std::optional<std::vector<std::vector<uint8_t>>> expected_trust_anchor_ids;
   // Expects no trust anchors extension. This is a separate field to avoid a
   // confusing double-optional.
   bool expect_no_trust_anchor_ids = false;
@@ -1256,6 +1248,7 @@ class MockUDPClientSocket : public DatagramClientSocket, public AsyncSocket {
       pending_read_datagrams_callback_;
   size_t pending_max_packet_size_ = 0;
   CompletionOnceCallback pending_write_callback_;
+  CompletionOnceCallback pending_connect_callback_;
 
   NetLogWithSource net_log_;
 
@@ -1330,8 +1323,9 @@ class ClientSocketPoolTest {
         group_id, socket_params, std::nullopt /* proxy_annotation_tag */,
         priority, SocketTag(), respect_limits, request->callback(),
         ClientSocketPool::ProxyAuthCallback(), socket_pool, NetLogWithSource());
-    if (rv != ERR_IO_PENDING)
+    if (rv != ERR_IO_PENDING) {
       request_order_.push_back(request);
+    }
     return rv;
   }
 
@@ -1619,9 +1613,9 @@ uint64_t GetTaggedBytes(int32_t expected_tag);
 // and using that data to validate expected behavior. We take this walk
 // about 100 times as there is randomization in the transition points.
 void ValidateAdditionalCapacityForSocketPool(
-    base::RepeatingCallback<SocketPoolState()> request_socket,
+    base::RepeatingCallback<SocketPoolExpandability()> request_socket,
     base::RepeatingCallback<void()> wait_for_socket_initialization,
-    base::RepeatingCallback<SocketPoolState()> release_socket,
+    base::RepeatingCallback<SocketPoolExpandability()> release_socket,
     base::RepeatingCallback<size_t()> sockets_in_use);
 
 }  // namespace net

@@ -395,8 +395,16 @@ WebContents* TabModelJniBridge::GetWebContentsAt(int index) const {
 }
 
 TabAndroid* TabModelJniBridge::GetTabAt(int index) const {
-  JNIEnv* env = AttachCurrentThread();
+  JNIEnv* env = base::android::AttachCurrentThread();
   return Java_TabModelJniBridge_getTabAt(env, java_object_.get(env), index);
+}
+
+bool TabModelJniBridge::HasTab(TabAndroid* tab) const {
+  if (!tab) {
+    return false;
+  }
+  JNIEnv* env = base::android::AttachCurrentThread();
+  return Java_TabModelJniBridge_hasTab(env, java_object_.get(env), tab);
 }
 
 ScopedJavaLocalRef<jobject> TabModelJniBridge::GetJavaObject() const {
@@ -895,6 +903,15 @@ bool TabModelJniBridge::IsTabLaunchedInForeground(
   return Java_TabModelJniBridge_isTabLaunchedInForeground(
       env, static_cast<int>(type), is_new_tab_incognito,
       is_current_model_incognito);
+}
+
+// static
+TabModel* TabModelJniBridge::FromJavaObject(const JavaRef<jobject>& obj) {
+  if (!obj) {
+    return nullptr;
+  }
+  return reinterpret_cast<TabModel*>(
+      Java_TabModelJniBridge_getNativePtr(AttachCurrentThread(), obj));
 }
 
 TabModelJniBridge::~TabModelJniBridge() {

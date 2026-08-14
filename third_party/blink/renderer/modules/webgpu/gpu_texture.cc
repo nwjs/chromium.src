@@ -19,10 +19,9 @@
 #include "third_party/blink/renderer/modules/webgpu/gpu_texture_usage.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_texture_view.h"
 #include "third_party/blink/renderer/platform/graphics/accelerated_static_bitmap_image.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/webgpu_mailbox_texture.h"
-#include "third_party/blink/renderer/platform/graphics/gpu/webgpu_resource_provider_cache.h"
+#include "third_party/blink/renderer/platform/graphics/gpu/webgpu_shared_image_wrapper_cache.h"
 
 namespace blink {
 
@@ -359,11 +358,13 @@ uint32_t GPUTexture::usage() const {
   return static_cast<uint32_t>(GetHandle().GetUsage());
 }
 
-void GPUTexture::DissociateMailbox() {
+gpu::SyncToken GPUTexture::DissociateMailbox() {
+  gpu::SyncToken sync_token;
   if (mailbox_texture_) {
-    mailbox_texture_->Dissociate();
+    sync_token = mailbox_texture_->Dissociate();
     mailbox_texture_ = nullptr;
   }
+  return sync_token;
 }
 
 scoped_refptr<WebGPUMailboxTexture> GPUTexture::GetMailboxTexture() {

@@ -5,8 +5,10 @@
 #ifndef CHROME_BROWSER_UI_WEBUI_PASSWORD_MANAGER_PASSWORD_MANAGER_UI_HANDLER_H_
 #define CHROME_BROWSER_UI_WEBUI_PASSWORD_MANAGER_PASSWORD_MANAGER_UI_HANDLER_H_
 
+#include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/extensions/api/passwords_private/passwords_private_delegate.h"
+#include "chrome/browser/password_manager/password_change/password_change_from_checkup_delegate.h"
 #include "chrome/browser/ui/webui/password_manager/password_manager.mojom.h"
 #include "components/password_manager/core/browser/ui/saved_passwords_presenter.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -95,6 +97,8 @@ class PasswordManagerUIHandler
 
   void StartPasswordChange(int credential_id) override;
 
+  void StopPasswordChange() override;
+
   void GetPasswordManagerActionableError(
       GetPasswordManagerActionableErrorCallback callback) override;
 
@@ -113,12 +117,22 @@ class PasswordManagerUIHandler
   void GetPasswordsExportProgress(
       GetPasswordsExportProgressCallback callback) override;
 
+  void ImportPasswords(password_manager::mojom::PasswordStoreSet to_store,
+                       ImportPasswordsCallback callback) override;
+
+  void ContinueImport(const std::vector<int32_t>& selected_ids,
+                      ContinueImportCallback callback) override;
+
   // extensions::PasswordsPrivateDelegate::Observer:
   void OnPasswordsExportProgress(password_manager::ExportProgressStatus status,
                                  const std::string& folder_name) override;
 
  private:
   password_manager::SavedPasswordsPresenter* GetSavedPasswordsPresenter();
+
+  void OnPasswordAutomaticChangeStateUpdated(
+      int credential_id,
+      PasswordChangeFromCheckupDelegate::PasswordAutomaticChangeState state);
 
   raw_ptr<content::WebContents> web_contents_;
   scoped_refptr<extensions::PasswordsPrivateDelegate>
@@ -132,6 +146,8 @@ class PasswordManagerUIHandler
   // ensure the WebUI page is disconnected before other members are destroyed.
   mojo::Receiver<password_manager::mojom::PageHandler> receiver_;
   mojo::Remote<password_manager::mojom::Page> page_;
+
+  base::WeakPtrFactory<PasswordManagerUIHandler> weak_ptr_factory_{this};
 };
 
 #endif  // CHROME_BROWSER_UI_WEBUI_PASSWORD_MANAGER_PASSWORD_MANAGER_UI_HANDLER_H_

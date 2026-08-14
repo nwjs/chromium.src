@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import '/strings.m.js';
 import '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import '//resources/cr_elements/cr_icon/cr_icon.js';
 import '//resources/cr_elements/cr_lazy_render/cr_lazy_render_lit.js';
@@ -10,14 +11,16 @@ import type {CrActionMenuElement} from '//resources/cr_elements/cr_action_menu/c
 import type {CrLazyRenderLitElement} from '//resources/cr_elements/cr_lazy_render/cr_lazy_render_lit.js';
 import {WebUiListenerMixinLit} from '//resources/cr_elements/web_ui_listener_mixin_lit.js';
 import {assert} from '//resources/js/assert.js';
-import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
+import {loadTimeData} from '//resources/js/load_time_data.js';
+import {CrLitElement, nothing} from '//resources/lit/v3_0/lit.rollup.js';
 
 import type {ShowAtConfigPrefs} from '../content/read_anything_types.js';
 import {openMenu} from '../shared/common.js';
 
 import {getCss} from './action_menu.css.js';
 import {getHtml} from './grouped_action_menu.html.js';
-import type {MenuGroup} from './menu_util.js';
+import {SettingsItemType} from './menu_util.js';
+import type {MenuGroup, MenuStateItem} from './menu_util.js';
 
 export interface GroupedActionMenuElement {
   $: {
@@ -48,6 +51,7 @@ export class GroupedActionMenuElement extends GroupedActionMenuElementBase {
       label: {type: String},
       nonModal: {type: Boolean},
       closeOnClick: {type: Boolean},
+      webuiRoundedIconsEnabled_: {type: Boolean},
     };
   }
 
@@ -57,6 +61,8 @@ export class GroupedActionMenuElement extends GroupedActionMenuElementBase {
 
   // Initializing to random value, but this is set by the parent.
   accessor label: string = '';
+  protected accessor webuiRoundedIconsEnabled_: boolean =
+      loadTimeData.getBoolean('webuiRoundedIconsEnabled');
 
   open(anchor: HTMLElement, showAtConfig?: ShowAtConfigPrefs) {
     openMenu(
@@ -87,6 +93,51 @@ export class GroupedActionMenuElement extends GroupedActionMenuElementBase {
         .from(
             {length}, (_, itemIndex) => `group-${groupIndex}-item-${itemIndex}`)
         .join(' ');
+  }
+
+  protected getItemClass_(item: MenuStateItem<unknown>): string {
+    return item.itemType === SettingsItemType.EXPAND ?
+        'dropdown-item expand-item' :
+        'dropdown-item';
+  }
+
+  protected getItemRole_(item: MenuStateItem<unknown>): string {
+    return (item.itemType === SettingsItemType.EXPAND ||
+            item.itemType === SettingsItemType.ACTION) ?
+        'menuitem' :
+        'menuitemradio';
+  }
+
+  // Returns the aria-checked attribute for the menuitemradio role (radio item
+  // type). Returns nothing for menuitem roles (expand and action item types)
+  // since those don't require the attribute.
+  protected getItemAriaChecked_(item: MenuStateItem<unknown>): boolean|
+      typeof nothing {
+    if (item.itemType === SettingsItemType.EXPAND ||
+        item.itemType === SettingsItemType.ACTION) {
+      return nothing;
+    }
+    return item.selected ?? false;
+  }
+
+  protected getItemIcon_(item: MenuStateItem<unknown>): string|null {
+    if (item.itemType === SettingsItemType.EXPAND) {
+      return 'cr:expand-more';
+    }
+
+    if (item.itemType === SettingsItemType.ACTION) {
+      return null;
+    }
+
+    return this.webuiRoundedIconsEnabled_ ? 'read-anything-20:check-small' :
+                                            'read-anything-20:check-mark-old';
+  }
+
+  protected getItemIconClass_(item: MenuStateItem<unknown>): string {
+    if (item.itemType === SettingsItemType.EXPAND) {
+      return 'button-image expand-icon';
+    }
+    return `button-image check-mark check-mark-showing-${item.selected}`;
   }
 }
 

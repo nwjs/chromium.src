@@ -276,7 +276,7 @@ class CookieTracker : public WebContentsObserver {
           break;
         case ContextType::kFrame:
           o << " context=frame(";
-          o << "process_id=" << d.frame_id.child_id;
+          o << "process_id=" << d.frame_id.child_id.value();
           o << " frame_id=" << d.frame_id.route_id;
           o << ")";
           break;
@@ -317,7 +317,7 @@ class CookieTracker : public WebContentsObserver {
       cookie_accesses_.push_back({
           details.type,
           ContextType::kFrame,
-          {rfh->GetProcess()->GetDeprecatedID(), rfh->GetRoutingID()},
+          {rfh->GetProcess()->GetID(), rfh->GetRoutingID()},
           -1,
           details.url,
           details.first_party_url,
@@ -349,7 +349,7 @@ class CookieTracker : public WebContentsObserver {
     // Return bogus values which will never be returned by the code we are
     // testing. This ensures that if we return this value, the subsequent
     // comparison will fail.
-    return {-42, -42};
+    return {content::ChildProcessId(-42), -42};
   }
 
   int64_t navigation_id(size_t index) {
@@ -366,8 +366,7 @@ class CookieTracker : public WebContentsObserver {
   }
 
   void RenderFrameCreated(RenderFrameHost* rfh) override {
-    frame_ids_.emplace_back(rfh->GetProcess()->GetDeprecatedID(),
-                            rfh->GetRoutingID());
+    frame_ids_.emplace_back(rfh->GetProcess()->GetID(), rfh->GetRoutingID());
   }
 
  private:

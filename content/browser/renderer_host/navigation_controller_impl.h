@@ -186,7 +186,7 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
       RenderFrameHostImpl* render_frame_host,
       mojo::PendingAssociatedRemote<mojom::NavigationClient>* navigation_client,
       blink::LocalFrameToken initiator_frame_token,
-      int initiator_process_id,
+      ChildProcessId initiator_process_id,
       scoped_refptr<InitiatorNavigationState> initiator_navigation_state,
       base::TimeTicks actual_navigation_start);
 
@@ -227,7 +227,7 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
       RenderFrameHostImpl* render_frame_host,
       const GURL& url,
       const blink::LocalFrameToken* initiator_frame_token,
-      int initiator_process_id,
+      ChildProcessId initiator_process_id,
       const std::optional<url::Origin>& initiator_origin,
       const std::optional<GURL>& initiator_base_url,
       bool is_renderer_initiated,
@@ -242,7 +242,6 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
       network::mojom::SourceLocationPtr source_location,
       scoped_refptr<network::SharedURLLoaderFactory> blob_url_loader_factory,
       bool is_form_submission,
-      const std::optional<blink::Impression>& impression,
       bool has_user_gesture,
       bool started_by_ad,
       base::TimeTicks actual_navigation_start_time,
@@ -719,7 +718,7 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
       FrameTreeNode* frame,
       ReloadType reload_type,
       const std::optional<blink::LocalFrameToken>& initiator_frame_token,
-      int initiator_process_id,
+      ChildProcessId initiator_process_id,
       scoped_refptr<InitiatorNavigationState> initiator_navigation_state,
       std::optional<blink::scheduler::TaskAttributionId>
           soft_navigation_heuristics_task_id,
@@ -798,7 +797,7 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
       bool is_same_document_history_load,
       bool is_history_navigation_in_new_child_frame,
       const std::optional<blink::LocalFrameToken>& initiator_frame_token,
-      int initiator_process_id,
+      ChildProcessId initiator_process_id,
       scoped_refptr<InitiatorNavigationState> initiator_navigation_state,
       base::TimeTicks actual_navigation_start,
       std::optional<blink::scheduler::TaskAttributionId>

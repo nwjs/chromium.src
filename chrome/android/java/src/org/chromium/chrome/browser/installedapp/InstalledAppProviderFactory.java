@@ -19,12 +19,21 @@ public class InstalledAppProviderFactory
         implements InterfaceFactory<@Nullable InstalledAppProvider> {
     private final RenderFrameHost mRenderFrameHost;
 
+    // BadMessageReason::INSTALLED_APP_PROVIDER_FACTORY_INVALID_FRAME in
+    // content/browser/bad_message.h
+    private static final int INSTALLED_APP_PROVIDER_FACTORY_INVALID_FRAME = 365;
+
     public InstalledAppProviderFactory(RenderFrameHost renderFrameHost) {
         mRenderFrameHost = renderFrameHost;
     }
 
     @Override
-    public InstalledAppProvider createImpl() {
+    public @Nullable InstalledAppProvider createImpl() {
+        if (!mRenderFrameHost.isOutermostMainFrame()) {
+            mRenderFrameHost.terminateRendererDueToBadMessage(
+                    INSTALLED_APP_PROVIDER_FACTORY_INVALID_FRAME);
+            return null;
+        }
         Profile profile =
                 Profile.fromWebContents(WebContentsStatics.fromRenderFrameHost(mRenderFrameHost));
         assert profile != null;

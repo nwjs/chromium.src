@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import("//build/config/chromeos/args.gni")
+import("//components/spellcheck/spellcheck_build_features.gni")
 import("//extensions/buildflags/buildflags.gni")
 import("//pdf/features.gni")
 
@@ -66,16 +67,29 @@ if (!is_android) {
     deps = [
       ":site_isolation",
       "//chrome/browser:chrome_content_browser_client",
+      "//chrome/browser/subresource_filter:test_support",
       "//chrome/common:chrome_features",
       "//chrome/test:test_support",
       "//components/javascript_dialogs",
       "//components/page_load_metrics/browser:test_support",
+      "//components/subresource_filter/core/browser",
+      "//components/subresource_filter/core/common",
       "//content/test:test_support",
       "//net:test_support",
     ]
 
     if (enable_pdf) {
       deps += [ "//pdf:features" ]
+    }
+
+    if (enable_spellcheck) {
+      sources += [ "spellcheck_per_process_browsertest.cc" ]
+      deps += [
+        "//chrome/browser/spellchecker",
+        "//chrome/browser/spellchecker:browser_tests",
+        "//components/spellcheck/browser",
+        "//components/spellcheck/common",
+      ]
     }
   }
 

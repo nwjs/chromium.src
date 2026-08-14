@@ -6,6 +6,7 @@
 #include <string_view>
 
 #include "base/feature_list.h"
+#include "base/functional/callback_helpers.h"
 #include "base/json/json_reader.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
@@ -261,10 +262,17 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest,
 
 // Tests that an extension calling chrome.runtime.reload() repeatedly
 // will eventually be terminated.
-// TODO(https://crbug.com/493409291): Fix the failure.
-// TODO(https://crbug.com/494351936): Fix test failing on Android.
-IN_PROC_BROWSER_TEST_F(ExtensionApiTest,
-                       DISABLED_ExtensionTerminatedForRapidReloads) {
+IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ExtensionTerminatedForRapidReloads) {
+  // This tests an extension repeatedly calling reload and assumes that it will
+  // trigger a "rapid reload" threshold. Use a test clock for deterministic
+  // timing. Otherwise, it's possible that a reload legitimately takes long
+  // enough that it resets the count and the threshold.
+  base::SimpleTestTickClock clock;
+  ChromeRuntimeAPIDelegate::set_tick_clock_for_tests(&clock);
+  // Clean up test clock pointer when the test exits.
+  base::ScopedClosureRunner cleanup_clock(base::BindOnce(
+      []() { ChromeRuntimeAPIDelegate::set_tick_clock_for_tests(nullptr); }));
+
   ExtensionRegistry* registry = ExtensionRegistry::Get(profile());
   static constexpr char kManifest[] = R"(
       {
@@ -293,6 +301,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest,
   // reload itself that often without being terminated, the test fails
   // anyway.
   for (int i = 0; i < RuntimeAPI::kFastReloadCount + 1; i++) {
+    clock.Advance(base::Milliseconds(10));
     ExtensionTestMessageListener ready_listener_reload("ready");
     TestExtensionRegistryObserver unload_observer(registry, extension_id);
     BackgroundScriptExecutor::ExecuteScriptAsync(profile(), extension_id,
@@ -1385,6 +1394,70 @@ IN_PROC_BROWSER_TEST_F(RuntimeGetContextsSidePanelTest, GetSidePanelContext) {
                          expected_frame_url.c_str(), expected_origin.c_str());
   EXPECT_THAT(side_panel_contexts, base::test::IsJson(expected));
 }
+
+// Tests that the side panel extension context is fully loaded and registered
+// before the chrome.sidePanel.onOpened event is dispatched. This ensures
+// chrome.runtime.getContexts() correctly returns the side panel context when
+// called immediately inside the onOpened listener.
+IN_PROC_BROWSER_TEST_F(RuntimeGetContextsSidePanelTest,
+                       GetContextsFromOnOpenedEvent) {
+  TestExtensionDir test_dir;
+
+  test_dir.WriteManifest(R"({
+    "name": "Side Panel Context Test",
+    "version": "1",
+    "manifest_version": 3,
+    "permissions": ["sidePanel"],
+    "background": {"service_worker": "background.js"},
+    "action": {},
+    "side_panel": {"default_path": "sidepanel.html"}
+  })");
+
+  test_dir.WriteFile(FILE_PATH_LITERAL("sidepanel.html"), R"(
+    <!DOCTYPE html>
+    <html>
+    <body>Side Panel</body>
+    </html>
+  )");
+
+  test_dir.WriteFile(FILE_PATH_LITERAL("background.js"), R"(
+    // Explicitly open the side panel when the extension action is clicked
+    chrome.action.onClicked.addListener(async (tab) => {
+      await chrome.sidePanel.open({ windowId: tab.windowId });
+    });
+
+    chrome.sidePanel.onOpened.addListener(async () => {
+      const contexts = await chrome.runtime.getContexts({
+        contextTypes: [chrome.runtime.ContextType.SIDE_PANEL]
+      });
+
+      // Using succeed/fail prevents the C++ test from hanging if the count is
+      // wrong.
+      if (contexts.length === 1) {
+        chrome.test.succeed();
+      } else {
+        chrome.test.fail(`Expected 1 context, but got ${contexts.length}`);
+      }
+    });
+  )");
+
+  // ResultCatcher listens for chrome.test.succeed() or chrome.test.fail().
+  extensions::ResultCatcher catcher;
+
+  const Extension* extension = LoadExtension(test_dir.UnpackedPath());
+  ASSERT_TRUE(extension);
+
+  auto helper = ExtensionActionTestHelper::Create(browser());
+  ASSERT_TRUE(helper);
+
+  // Trigger the action.onClicked listener.
+  helper->Press(extension->id());
+
+  // Wait for the result. If it fails (e.g. the bug is present and returns 0),
+  // GetNextResult() returns false and prints the JS error message.
+  EXPECT_TRUE(catcher.GetNextResult()) << catcher.message();
+}
+
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 // Tests the behavior of `runtime.getContexts()` with a split-mode incognito

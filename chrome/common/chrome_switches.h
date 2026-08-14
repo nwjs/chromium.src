@@ -100,7 +100,6 @@ extern const char kEnableAudioDebugRecordingsFromExtension[];
 extern const char kEnableAutoReload[];
 extern const char kEnableBookmarkUndo[];
 extern const char kEnableDomainReliability[];
-extern const char kEnableDevToolsGreenDevUi[];
 #if BUILDFLAG(IS_CHROMEOS)
 extern const char kEnableDevToolsPwaHandler[];
 #endif
@@ -153,6 +152,7 @@ extern const char kNoFirstRun[];
 extern const char kNoPings[];
 extern const char kNoProxyServer[];
 extern const char kNoStartupWindow[];
+extern const char kNotebookHomeURL[];
 extern const char kOnTheFlyMhtmlHashComputation[];
 extern const char kOpenInNewWindow[];
 extern const char kFocus[];
@@ -280,6 +280,7 @@ extern const char kStartupForegroundLaunch[];
 extern const char kUninstall[];
 extern const char kUninstallAppId[];
 extern const char kIsolated[];
+extern const char kWaitForParentHandle[];
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW) && !defined(OFFICIAL_BUILD)

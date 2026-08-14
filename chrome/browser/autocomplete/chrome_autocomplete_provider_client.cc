@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/cstring_view.h"
@@ -42,6 +43,7 @@
 #include "chrome/browser/preloading/prefetch/search_prefetch/search_prefetch_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_key.h"
+#include "chrome/browser/search/search.h"
 #include "chrome/browser/search_engines/ai_mode_button_service_factory.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -80,6 +82,7 @@
 #include "components/omnibox/browser/tab_matcher.h"
 #include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/omnibox/common/omnibox_features.h"
+#include "components/optimization_guide/core/feature_registry/feature_registration.h"
 #include "components/prefs/pref_service.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/search_engines/ai_mode_button_service.h"
@@ -92,6 +95,7 @@
 #include "components/unified_consent/url_keyed_data_collection_consent_helper.h"
 #include "components/variations/service/variations_service.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/permission_controller_delegate.h"
 #include "content/public/browser/service_worker_context.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
@@ -100,6 +104,7 @@
 #include "net/base/url_util.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
+#include "third_party/blink/public/mojom/permissions/permission_status.mojom.h"
 #include "url/origin.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -328,6 +333,13 @@ ChromeAutocompleteProviderClient::GetTemplateURLService() const {
 GeolocationHeaderService*
 ChromeAutocompleteProviderClient::GetGeolocationHeaderService() const {
   return GeolocationHeaderServiceFactory::GetForProfile(profile_);
+}
+
+void ChromeAutocompleteProviderClient::ResetGeolocationPermissionToAsk(
+    const GURL& url) const {
+  if (auto* delegate = profile_->GetPermissionControllerDelegate()) {
+    delegate->ResetPermission(blink::PermissionType::GEOLOCATION, url, url);
+  }
 }
 
 DocumentSuggestionsService*
@@ -705,7 +717,8 @@ bool ChromeAutocompleteProviderClient::IsOmniboxNextAimPopupEnabled() const {
 
 bool ChromeAutocompleteProviderClient::IsGeminiStarterPackEnabled() const {
   return AutocompleteProviderClient::IsGeminiStarterPackEnabled() &&
-         profile_->GetPrefs()->GetInteger(prefs::kGeminiSettings) == 0;
+         profile_->GetPrefs()->GetInteger(
+             optimization_guide::prefs::kGeminiSettings) == 0;
 }
 
 base::CallbackListSubscription
@@ -725,6 +738,11 @@ ChromeAutocompleteProviderClient::GetLensSuggestInputsWhenReady(
 base::WeakPtr<AutocompleteProviderClient>
 ChromeAutocompleteProviderClient::GetWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
+}
+
+bool ChromeAutocompleteProviderClient::IsWebUiNtpEnabledForDesktopAndroid()
+    const {
+  return search::IsWebUiNtpEnabledForDesktopAndroid();
 }
 
 void ChromeAutocompleteProviderClient::OpenSharingHub() {
@@ -824,9 +842,11 @@ void ChromeAutocompleteProviderClient::OpenLensOverlay(bool show) {
   if (auto* lens_search_controller =
           GetLensSearchController(GetWebContents(web_contents_getter_))) {
     if (show) {
-      // Force showing the contextual search box in the Lens Overlay.
+      // Force showing the contextual search box in the Lens Overlay, unless
+      // kAskGLensChipRoute is enabled.
+      bool show_csb = !omnibox::kAskGLensChipRoute.Get();
       lens_search_controller->OpenLensOverlay(
-          lens::LensOverlayInvocationSource::kOmniboxPageAction, true);
+          lens::LensOverlayInvocationSource::kOmniboxPageAction, show_csb);
     } else {
       // TODO(crbug.com/402497756): For prototyping, reusing the existing
       // omnibox entry point. However, for production, create a new invocation
@@ -873,3 +893,14 @@ void ChromeAutocompleteProviderClient::PromptPageTranslation() {
   }
 #endif  // !BUILDFLAG(IS_ANDROID)
 }
+
+bool ChromeAutocompleteProviderClient::ShouldOpenComposeboxForAskG() const {
+#if !BUILDFLAG(IS_ANDROID)
+  return omnibox::IsAimPopupFeatureEnabled() && omnibox::kAskGComposeBox.Get();
+#else
+  return false;
+#endif
+}
+
+// This is implemented in OmniboxEditModelActionClient.
+void ChromeAutocompleteProviderClient::OpenComposeboxForAskG() {}

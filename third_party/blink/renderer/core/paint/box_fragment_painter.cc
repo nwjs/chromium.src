@@ -168,8 +168,19 @@ inline bool IsVisibleToHitTest(const FragmentItem& item,
 inline bool IsVisibleToHitTest(const PhysicalFragment& fragment,
                                const HitTestRequest& request) {
   const ComputedStyle& style = fragment.Style();
-  return IsVisibleToPaint(fragment, style) &&
-         IsVisibleToHitTest(style, request);
+  if (!IsVisibleToHitTest(style, request)) {
+    return false;
+  }
+  if (IsVisibleToPaint(fragment, style)) {
+    return true;
+  }
+  // Table parts that are not themselves visible can still contribute ink
+  // to visible descendants.
+  if (request.IsHitTestVisualOverflow() && fragment.IsTablePart())
+      [[unlikely]] {
+    return true;
+  }
+  return false;
 }
 
 // Hit tests inline ancestor elements of |fragment| who do not have their own
@@ -1159,7 +1170,9 @@ void BoxFragmentPainter::PaintBlockChildren(const PaintInfo& paint_info,
         // painted inline to maintain correct paint order with siblings.
         // They will be skipped in PaintLayerPainter::PaintChildren.
         MaybePaintReplacedNormalFlowInline(child_fragment, paint_info);
-      } else if (!child_fragment.IsFloating()) {
+      } else if (!child_fragment.IsFloating() &&
+                 !PaintLayerPainter::PaintedOutputInvisible(
+                     child_fragment.Style())) {
         // Self-painting-layer descendants are skipped by the layer-tree walk
         // during kTextClip, so visit them here to get their glyphs into the
         // mask. The mask is pure text geometry, so don't apply the
@@ -1370,7 +1383,6 @@ void BoxFragmentPainter::PaintBoxDecorationBackground(
     const PaintInfo& paint_info,
     const PhysicalOffset& paint_offset,
     bool suppress_box_decoration_background) {
-  // TODO(mstensho): Break dependency on LayoutObject functionality.
   const LayoutObject& layout_object = *box_fragment_.GetLayoutObject();
 
   if (IsA<LayoutView>(layout_object) ||
@@ -1937,7 +1949,7 @@ void BoxFragmentPainter::PaintBackground(
       // If there's no such thing, we have nothing to paint.
       return;
     }
-    style_to_use = document.GetLayoutView()->Style();
+    style_to_use = &document.GetLayoutView()->StyleRef();
     background_color_to_use =
         style_to_use->VisitedDependentColor(GetCSSPropertyBackgroundColor());
   }
@@ -2282,9 +2294,11 @@ void BoxFragmentPainter::PaintTextClipMask(const PaintInfo& paint_info,
                                            const gfx::Rect& mask_rect,
                                            const PhysicalOffset& paint_offset,
                                            bool object_has_multiple_boxes) {
-  PaintInfo mask_paint_info(paint_info.context, CullRect(mask_rect),
-                            PaintPhase::kTextClip,
-                            paint_info.DescendantPaintingBlocked());
+  PaintInfo mask_paint_info(
+      paint_info.context, CullRect(mask_rect), PaintPhase::kTextClip,
+      paint_info.DescendantPaintingBlocked(),
+      paint_info.IsPrivacyPreserving() ? PaintFlag::kPrivacyPreserving
+                                       : PaintFlag::kNoFlag);
   if (!object_has_multiple_boxes) {
     PaintObject(mask_paint_info, paint_offset);
     return;
@@ -2324,8 +2338,11 @@ PhysicalRect BoxFragmentPainter::AdjustRectForScrolledContent(
     const PhysicalRect& rect) const {
   const PhysicalBoxFragment& physical = GetPhysicalFragment();
 
+  // TODO(crbug.com/539155974): Properly snap to pixels.
   // Clip to the overflow area.
-  context.Clip(gfx::RectF(physical.OverflowClipRect(rect.offset)));
+  PhysicalRect clip_rect = physical.OverflowClipRect();
+  clip_rect.Move(rect.offset);
+  context.Clip(gfx::RectF(clip_rect));
 
   PhysicalRect scrolled_paint_rect = rect;
 
@@ -2427,10 +2444,13 @@ bool BoxFragmentPainter::NodeAtPoint(const HitTestContext& hit_test,
     // PaintLayer::HitTestFragmentsWithPhase() checked the fragments'
     // foreground rect for intersection if a layer is self painting,
     // so only do the overflow clip check here for non-self-painting layers.
-    if (!box_fragment_.HasSelfPaintingLayer() &&
-        !hit_test.location.Intersects(GetPhysicalFragment().OverflowClipRect(
-            physical_offset, kExcludeOverlayScrollbarSizeForHitTesting))) {
-      skip_children = true;
+    if (!box_fragment_.HasSelfPaintingLayer()) {
+      PhysicalRect clip_rect = GetPhysicalFragment().OverflowClipRect(
+          kExcludeOverlayScrollbarSizeForHitTesting);
+      clip_rect.Move(physical_offset);
+      if (!hit_test.location.Intersects(clip_rect)) {
+        skip_children = true;
+      }
     }
     // Also check border-radius and border-shape clipping.
     if (!skip_children && style.HasBorderShape()) {
@@ -2490,11 +2510,13 @@ bool BoxFragmentPainter::NodeAtPoint(const HitTestContext& hit_test,
   bool pointer_events_bounding_box = false;
   bool hit_test_self = fragment.IsInSelfHitTestingPhase(hit_test.phase);
   if (hit_test_self) {
-    // Table row and table section are never a hit target.
+    // Table row and table section are never a hit target for regular hit test,
+    // but they are targets when testing for occlusion.
     // SVG <text> is not a hit target except if 'pointer-events: bounding-box'.
     if (GetPhysicalFragment().IsTableRow() ||
         GetPhysicalFragment().IsTableSection()) {
-      hit_test_self = false;
+      hit_test_self =
+          hit_test.result->GetHitTestRequest().IsHitTestVisualOverflow();
     } else if (fragment.IsSvgText()) {
       pointer_events_bounding_box =
           fragment.Style().UsedPointerEvents() == EPointerEvents::kBoundingBox;

@@ -35,6 +35,8 @@ import sys
 import tempfile
 import time
 import urllib
+import urllib.error
+import urllib.request
 
 from update import (CDS_URL, CHROMIUM_DIR, CLANG_REVISION, LLVM_BUILD_DIR,
                     FORCE_HEAD_REVISION_FILENAME, FORCE_HEAD_REVISION_FILE,
@@ -245,27 +247,31 @@ def GitRevert(git_repository, commit):
              env=env)
 
 
+def FetchUrl(url, max_tries=5, delay_seconds=1):
+  """Fetch content from a URL. If the fetch fails, retry several times after a
+     short delay."""
+  for i in range(max_tries):
+    try:
+      with urllib.request.urlopen(url) as response:
+        return response.read()
+    except (ConnectionError, urllib.error.URLError) as e:
+      # If this was the last try or a permanent 404 client error, re-raise.
+      if i >= max_tries - 1 or (isinstance(e, urllib.error.HTTPError)
+                                and e.code == 404):
+        raise e
+
+      reason = getattr(e, 'reason', e)
+      print(f"Failed to fetch {url}: {reason} (attempt {i + 1}/{max_tries}). "
+            f"Retrying in {delay_seconds}s...")
+      time.sleep(delay_seconds)
+      delay_seconds *= 2
+
+
 def GetLatestCommit(url):
   """Get the latest commit hash from a git repository's JSON output. If the
      fetch fails, retry several times after a short delay."""
-  max_tries = 5
-  delay_seconds = 1
-  for i in range(max_tries):
-    try:
-      main = json.loads(
-          urllib.request.urlopen(url).read().decode("utf-8").replace(
-              ")]}'", ""))
-      return main['commit']
-    except urllib.error.URLError as e:
-      # If this was the last try then re-raise, otherwise loop again.
-      if i >= max_tries - 1:
-        raise e
-
-      print(
-          f"Failed to fetch latest commit: {e.reason} (attempt {i + 1}/{max_tries}). "
-          f"Retrying in {delay_seconds}s...")
-      time.sleep(delay_seconds)
-      delay_seconds *= 2
+  main = json.loads(FetchUrl(url).decode("utf-8").replace(")]}'", ""))
+  return main['commit']
 
 
 def GetLatestLLVMCommit():
@@ -819,6 +825,11 @@ def main():
 
   global CLANG_REVISION, PACKAGE_VERSION, LLVM_BUILD_DIR, STAMP_FILE, FORCE_HEAD_REVISION_FILE
 
+  # TODO(crbug.com/534655507): Remove in next Clang roll.
+  if args.llvm_force_head_revision:
+    global RELEASE_VERSION
+    RELEASE_VERSION = '24'
+
   if (args.pgo or args.thinlto) and not args.bootstrap:
     print('--pgo/--thinlto requires --bootstrap')
     return 1
@@ -920,7 +931,7 @@ def main():
   # while elsewhere it's called through the compiler driver, and we pass
   # -fuse-ld=lld there to make the compiler driver call the linker (by setting
   # LLVM_ENABLE_LLD).
-  cc, cxx, lld = None, None, None
+  cc, cxx, lld, libtool = None, None, None, None
   cmake_sysroot = None
 
   cflags = []
@@ -1106,6 +1117,10 @@ def main():
   if lit_excludes:
     test_env['LIT_FILTER_OUT'] = '|'.join(lit_excludes)
 
+  crash_diagnostics_dir = os.path.join(CHROMIUM_DIR, 'out', 'clang-crashreports')
+  cflags.append('-fcrash-diagnostics-dir=' + crash_diagnostics_dir)
+  cxxflags.append('-fcrash-diagnostics-dir=' + crash_diagnostics_dir)
+
   if args.bootstrap:
     print('Building bootstrap compiler')
     if os.path.exists(LLVM_BOOTSTRAP_DIR):
@@ -1183,6 +1198,8 @@ def main():
     else:
       cc = os.path.join(LLVM_BOOTSTRAP_INSTALL_DIR, 'bin', 'clang')
       cxx = os.path.join(LLVM_BOOTSTRAP_INSTALL_DIR, 'bin', 'clang++')
+      if sys.platform == 'darwin':
+        libtool = os.path.join(LLVM_BOOTSTRAP_INSTALL_DIR, 'bin', 'llvm-libtool-darwin')
 
     print('Bootstrap compiler installed.')
 
@@ -1212,6 +1229,7 @@ def main():
     if cc is not None:  instrument_args.append('-DCMAKE_C_COMPILER=' + cc)
     if cxx is not None: instrument_args.append('-DCMAKE_CXX_COMPILER=' + cxx)
     if lld is not None: instrument_args.append('-DCMAKE_LINKER=' + lld)
+    if libtool is not None: instrument_args.append('-DCMAKE_LIBTOOL=' + libtool)
 
     with timer.time('pgo cmake'):
       RunCommand(['cmake'] + instrument_args + [os.path.join(LLVM_DIR, 'llvm')],
@@ -1296,6 +1314,7 @@ def main():
   if cc is not None:  base_cmake_args.append('-DCMAKE_C_COMPILER=' + cc)
   if cxx is not None: base_cmake_args.append('-DCMAKE_CXX_COMPILER=' + cxx)
   if lld is not None: base_cmake_args.append('-DCMAKE_LINKER=' + lld)
+  if libtool is not None: base_cmake_args.append('-DCMAKE_LIBTOOL=' + libtool)
   final_install_dir = args.install_dir if args.install_dir else LLVM_BUILD_DIR
   cmake_args = base_cmake_args + [
       '-DCMAKE_C_FLAGS=' + ' '.join(cflags),

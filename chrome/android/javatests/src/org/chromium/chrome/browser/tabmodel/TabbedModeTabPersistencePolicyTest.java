@@ -40,6 +40,7 @@ import org.chromium.base.test.util.AdvancedMockContext;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -100,24 +101,28 @@ public class TabbedModeTabPersistencePolicyTest {
 
     @Before
     public void setUp() throws Exception {
-        TabWindowManagerSingleton.setTabModelSelectorFactoryForTesting(
-                new TabModelSelectorFactory() {
-                    @Override
-                    public TabModelSelector buildTabbedSelector(
-                            Context context,
-                            ModalDialogManager modalDialogManager,
-                            OneshotSupplier<ProfileProvider> profileProviderSupplier,
-                            TabCreatorManager tabCreatorManager,
-                            NextTabPolicySupplier nextTabPolicySupplier,
-                            @SupportedProfileType int supportedProfileType) {
-                        return new MockTabModelSelector(mProfile, mIncognitoProfile, 0, 0, null);
-                    }
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    TabWindowManagerSingleton.setTabModelSelectorFactoryForTesting(
+                            new TabModelSelectorFactory() {
+                                @Override
+                                public TabModelSelector buildTabbedSelector(
+                                        Context context,
+                                        ModalDialogManager modalDialogManager,
+                                        OneshotSupplier<ProfileProvider> profileProviderSupplier,
+                                        TabCreatorManager tabCreatorManager,
+                                        NextTabPolicySupplier nextTabPolicySupplier,
+                                        @SupportedProfileType int supportedProfileType) {
+                                    return new MockTabModelSelector(
+                                            mProfile, mIncognitoProfile, 0, 0, null);
+                                }
 
-                    @Override
-                    public Pair<TabModelSelector, Destroyable> buildHeadlessSelector(
-                            @WindowId int windowId, Profile profile) {
-                        return Pair.create(null, null);
-                    }
+                                @Override
+                                public Pair<TabModelSelector, Destroyable> buildHeadlessSelector(
+                                        @WindowId int windowId, Profile profile) {
+                                    return Pair.create(null, null);
+                                }
+                            });
                 });
         AdvancedMockContext appContext =
                 new AdvancedMockContext(
@@ -139,9 +144,9 @@ public class TabbedModeTabPersistencePolicyTest {
         when(mIncognitoProfile.isOffTheRecord()).thenReturn(true);
         PriceTrackingFeatures.setPriceAnnotationsEnabledForTesting(false);
 
+        when(mArchivedTabModelSelector.isTabStateInitialized()).thenReturn(true);
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    when(mArchivedTabModelSelector.isTabStateInitialized()).thenReturn(true);
                     TabWindowManagerSingleton.getInstance()
                             .setArchivedTabModelSelector(mArchivedTabModelSelector);
                 });
@@ -149,7 +154,9 @@ public class TabbedModeTabPersistencePolicyTest {
 
     @After
     public void tearDown() {
-        mMockDirectory.tearDown();
+        if (mMockDirectory != null) {
+            mMockDirectory.tearDown();
+        }
 
         for (Activity activity : ApplicationStatus.getRunningActivities()) {
             activity.finishAndRemoveTask();
@@ -158,8 +165,8 @@ public class TabbedModeTabPersistencePolicyTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     TabWindowManagerSingleton.getInstance().setArchivedTabModelSelector(null);
+                    TabWindowManagerSingleton.resetTabModelSelectorFactoryForTesting();
                 });
-        TabWindowManagerSingleton.resetTabModelSelectorFactoryForTesting();
     }
 
     private TabbedModeTabModelOrchestrator buildTestTabModelSelector(
@@ -279,6 +286,7 @@ public class TabbedModeTabPersistencePolicyTest {
     @Feature("TabPersistentStore")
     @EnableFeatures({ChromeFeatureList.SCHEDULE_WINDOW_CLEANING})
     @MediumTest
+    @DisabledTest(message = "crbug.com/533004361")
     public void testClearAllWindowsExceptFor() throws Throwable {
         File dir = TabStateDirectory.getOrCreateTabbedModeStateDirectory();
 
@@ -317,6 +325,7 @@ public class TabbedModeTabPersistencePolicyTest {
     @Feature("TabPersistentStore")
     @MediumTest
     @DisableFeatures({ChromeFeatureList.TAB_WINDOW_MANAGER_REPORT_INDICES_MISMATCH})
+    @DisabledTest(message = "crbug.com/533004361")
     public void testCleanupInstanceState() throws Throwable {
         assertNotNull(TabStateDirectory.getOrCreateBaseStateDirectory());
 

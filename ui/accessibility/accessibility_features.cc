@@ -181,7 +181,6 @@ CanvasAccessibilityMode GetCanvasAccessibilityMode() {
 }
 
 BASE_FEATURE(kEnableCollectAccessibilityHeuristicInCanvasUkm,
-             "EnableCollectAccessibilityHeuristicInCanvasUkm",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsCollectAccessibilityHeuristicInCanvasUkmEnabled() {
@@ -383,6 +382,18 @@ bool IsImprovedReadAloudEnabled() {
   return base::FeatureList::IsEnabled(::features::kImprovedReadAloud);
 }
 
+BASE_FEATURE(kReadAnythingImprovedUi, base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsReadAnythingImprovedUiEnabled() {
+  return base::FeatureList::IsEnabled(::features::kReadAnythingImprovedUi);
+}
+
+BASE_FEATURE(kPdfAccessibilityHeuristicEnhancements,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsPdfAccessibilityHeuristicEnhancementsEnabled() {
+  return base::FeatureList::IsEnabled(
+      ::features::kPdfAccessibilityHeuristicEnhancements);
+}
+
 BASE_FEATURE(kReadAnythingMenuShuffleExperiment,
              base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsReadAnythingMenuShuffleExperimentEnabled() {
@@ -424,6 +435,13 @@ bool IsReadAnythingReadAloudPhraseHighlightingEnabled() {
 BASE_FEATURE(kReadAnythingOmniboxChip, base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsReadAnythingOmniboxChipEnabled() {
   return base::FeatureList::IsEnabled(::features::kReadAnythingOmniboxChip);
+}
+
+BASE_FEATURE(kReadAnythingTranslateEntryPoint,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsReadAnythingTranslateEntryPointEnabled() {
+  return base::FeatureList::IsEnabled(
+      ::features::kReadAnythingTranslateEntryPoint);
 }
 
 BASE_FEATURE(kReadAnythingLineFocus, base::FEATURE_DISABLED_BY_DEFAULT);

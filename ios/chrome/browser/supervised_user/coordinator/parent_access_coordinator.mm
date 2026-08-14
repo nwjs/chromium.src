@@ -30,10 +30,10 @@
 #import "ui/base/l10n/l10n_util.h"
 
 @interface ParentAccessCoordinator () <
-    UIAdaptivePresentationControllerDelegate,
+    ParentAccessBottomSheetViewControllerPresentationDelegate,
     ParentAccessMediatorDelegate,
     ParentAccessTabHelperDelegate,
-    ParentAccessBottomSheetViewControllerPresentationDelegate>
+    UIAdaptivePresentationControllerDelegate>
 @end
 
 @implementation ParentAccessCoordinator {
@@ -104,10 +104,21 @@
 }
 
 - (void)stop {
+  UIViewController* presentingViewController =
+      _viewController.presentingViewController;
+  if (presentingViewController) {
+    [presentingViewController dismissViewControllerAnimated:YES
+                                                 completion:^{
+                                                   [self stopCompleted];
+                                                 }];
+  } else {
+    [self stopCompleted];
+  }
+}
+
+- (void)stopCompleted {
   [_mediator disconnect];
   _mediator = nil;
-  [_viewController.presentingViewController dismissViewControllerAnimated:YES
-                                                               completion:nil];
   _viewController = nil;
   _snackbarCommandsHandler = nil;
 }

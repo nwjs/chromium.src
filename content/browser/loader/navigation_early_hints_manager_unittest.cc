@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 
+#include "base/byte_size.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
 #include "base/test/bind.h"
@@ -187,13 +188,14 @@ TEST_F(NavigationEarlyHintsManagerTest, SimpleResponse) {
   // Set up a response which simulates coming from network.
   network::mojom::URLResponseHeadPtr head = CreatePreloadResponseHead();
   network::URLLoaderCompletionStatus status;
-  status.decoded_body_length = kPreloadBody.size();
+  status.decoded_body_length = base::ByteSize(kPreloadBody.size());
   status.error_code = net::OK;
   loader_factory().AddResponse(GURL(kPreloadPath), std::move(head),
                                kPreloadBody, status);
 
   loader_factory().SetInterceptor(base::BindLambdaForTesting(
       [&](const network::ResourceRequest& resource_request) {
+        EXPECT_TRUE(resource_request.is_outermost_main_frame);
         EXPECT_THAT(
             resource_request.headers.GetHeader(
                 net::HttpRequestHeaders::kAccept),
@@ -216,7 +218,7 @@ TEST_F(NavigationEarlyHintsManagerTest, EmptyBody) {
   // Set up an empty response which simulates coming from network.
   network::mojom::URLResponseHeadPtr head = CreatePreloadResponseHead();
   network::URLLoaderCompletionStatus status;
-  status.decoded_body_length = 0;
+  status.decoded_body_length = base::ByteSize(0);
   status.error_code = net::OK;
   loader_factory().AddResponse(GURL(kPreloadPath), std::move(head), "", status);
 
@@ -237,7 +239,7 @@ TEST_F(NavigationEarlyHintsManagerTest, ResponseExistsInDiskCache) {
   network::mojom::URLResponseHeadPtr head = CreatePreloadResponseHead();
   head->was_fetched_via_cache = true;
   network::URLLoaderCompletionStatus status;
-  status.decoded_body_length = kPreloadBody.size();
+  status.decoded_body_length = base::ByteSize(kPreloadBody.size());
   status.error_code = net::OK;
   loader_factory().AddResponse(GURL(kPreloadPath), std::move(head),
                                kPreloadBody, status);

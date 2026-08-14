@@ -704,6 +704,37 @@ suite('SpeechController', () => {
         assertTrue(speechController.isSpeechActive());
       });
 
+  test(
+      'onend ignored when speech is paused and resume speaks next segment',
+      async () => {
+        const text = 'First sentence. Second sentence.';
+        setContent(text, readAloudModel);
+
+        // Start playing speech.
+        const element = onPlayPauseToggle(text);
+        const spoken = await speech.whenCalled('speak');
+        spoken.onstart(new SpeechSynthesisEvent('start', {utterance: spoken}));
+
+        // Pause speech.
+        speechController.onPlayPauseToggle(element);
+        assertFalse(speechController.isSpeechActive());
+        speech.reset();
+
+        // Simulate an asynchronous onend event arriving after pause.
+        spoken.onend();
+
+        // No new utterance should be queued or spoken immediately.
+        assertEquals(0, speech.getCallCount('speak'));
+        assertEquals(1, readAloudModel.getCallCount('moveSpeechForward'));
+
+        // Resuming speech after onend should speak the next segment instead
+        // of calling resume() on a finished utterance.
+        speechController.onPlayPauseToggle(element);
+        assertEquals(0, speech.getCallCount('resume'));
+        await speech.whenCalled('speak');
+        assertTrue(speechController.isSpeechActive());
+      });
+
   test('onNextGranularityClick propagates change', () => {
     speechController.onNextGranularityClick();
     assertEquals(1, readAloudModel.getCallCount('moveSpeechForward'));
@@ -956,6 +987,48 @@ suite('SpeechController', () => {
     await speech.whenCalled('resume');
     assertFalse(onPlayingFromPosition);
   });
+
+  test(
+      'playFromContentPosition with invalid node plays from next node',
+      async () => {
+        const text = 'This text does not have the target node.';
+        setContent(text, readAloudModel);
+
+        const element = document.createElement('p');
+
+        // Create an image node (invalid for read aloud)
+        const invalidNode = document.createElement('img');
+        element.appendChild(invalidNode);
+
+        const readAloudNode = ReadAloudNode.create(invalidNode);
+        assertTrue(!!readAloudNode);
+
+        // Create a text node that comes after the image
+        const node = document.createTextNode(text);
+        element.appendChild(node);
+        document.body.appendChild(element);
+
+        const id = 2;
+        nodeStore.setDomNode(node, id);
+        const segments: Segment[] = [
+          {node: ReadAloudNode.create(node)!, start: 0, length: text.length},
+        ];
+        readAloudModel.setCurrentTextSegments(segments);
+
+        // Instead of giving up, it should find the text segment because it
+        // follows the invalid image node in the DOM.
+        speechController.onSelectionChange({
+          node: invalidNode,
+          offset: 0,
+          source: ContentPositionSource.SELECTION,
+        });
+
+        // Trigger play.
+        speechController.onPlayPauseToggle(element);
+
+        await speech.whenCalled('speak');
+        assertTrue(onPlayingFromPosition);
+      });
 
   test('clearReadAloudState clears currentContentPosition', async () => {
     const text = 'Clearing state test.';

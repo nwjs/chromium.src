@@ -277,6 +277,12 @@ inline constexpr char
     kIosMagicStackSegmentationShopCardImpressionsSinceFreshness[] =
         "ios.magic_stack_segmentation.shop_card_freshness";
 
+// Integer representing the number of impressions of LevelUp module since a
+// freshness signal.
+inline constexpr char
+    kIosMagicStackSegmentationLevelUpImpressionsSinceFreshness[] =
+        "ios.magic_stack_segmentation.level_up_freshness";
+
 // Integer representing the number of impressions of Shortcuts since a freshness
 // signal.
 inline constexpr char
@@ -501,6 +507,15 @@ inline constexpr char kLevelUpHighestLevel[] = "level_up.highest_level";
 
 // Whether the Level Up feature UI is enabled.
 inline constexpr char kLevelUpUIEnabled[] = "level_up.ui_enabled";
+
+// Stats tracked in the Level Up feature.
+inline constexpr char kLevelUpTabsDeclutteredStat[] =
+    "level_up.tabs_decluttered_stat";
+inline constexpr char kLevelUpTypingSavedStat[] = "level_up.typing_saved_stat";
+inline constexpr char kLevelUpPasswordsVerifiedStat[] =
+    "level_up.passwords_verified_stat";
+inline constexpr char kLevelUpPhotoSearchesPerformedStat[] =
+    "level_up.photo_searches_performed_stat";
 
 // Preference that holds a boolean indicating whether the suggestions on the NTP
 // are enabled.
@@ -939,6 +954,11 @@ inline constexpr char kCrossPlatformPromosIOS16thActiveDay[] =
 // A time pref to remember the last time the "active day" feature engagement
 // tracker event was fired.
 inline constexpr char kLastRecordedActiveDay[] = "ios.last_recorded_active_day";
+
+// Integer preference holding the number of active days recorded in the past
+// 28-day window during session metrics logging.
+inline constexpr char kLastRecordedActiveDaysInPast28Days[] =
+    "ios.last_recorded_active_days_in_past_28_days";
 
 }  // namespace prefs
 

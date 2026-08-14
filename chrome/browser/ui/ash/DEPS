@@ -10,10 +10,18 @@ include_rules = [
   # moved out of chrome/.
   "+chrome/browser/ash/browser_delegate/browser_controller.h",
   "+chrome/browser/ash/browser_delegate/browser_delegate.h",
-  "+chrome/browser/ash/browser_delegate/browser_type.h"
+  "+chrome/browser/ash/browser_delegate/browser_type.h",
 ]
 
 specific_include_rules = {
+  "projector_app_client_impl\\.cc": [
+    "+chrome/browser/ui/ash/account_manager",
+  ],
+
+  "projector_client_impl_browsertest\\.cc": [
+    "+chrome/browser/ui/ash/account_manager",
+  ],
+
   ".*test.*": [
     "+chrome/test",
     "+components/user_education/views",

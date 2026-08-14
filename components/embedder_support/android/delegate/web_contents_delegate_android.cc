@@ -18,7 +18,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/notimplemented.h"
 #include "base/trace_event/trace_event.h"
-#include "components/embedder_support/android/delegate/color_picker_bridge.h"
+#include "components/embedder_support/android/delegate/html_color_picker_bridge.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "content/public/browser/color_chooser.h"
 #include "content/public/browser/global_request_id.h"
@@ -39,6 +39,7 @@
 #include "ui/android/color_utils_android.h"
 #include "ui/android/resources/capture_result.h"
 #include "ui/android/view_android.h"
+#include "ui/android/window_android.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/android/java_bitmap.h"
 #include "ui/gfx/android/rect_jni_conversion.h"
@@ -94,7 +95,7 @@ WebContentsDelegateAndroid::OpenColorChooser(
     WebContents* source,
     SkColor color,
     const std::vector<blink::mojom::ColorSuggestionPtr>& suggestions) {
-  return std::make_unique<ColorPickerBridge>(source, color, suggestions);
+  return std::make_unique<HtmlColorPickerBridge>(source, color, suggestions);
 }
 
 // OpenURLFromTab() will be called when we're performing a browser-intiated
@@ -232,6 +233,25 @@ bool WebContentsDelegateAndroid::IsWebContentsCreationOverridden(
                                                                   java_gurl);
 }
 
+void WebContentsDelegateAndroid::CanDownload(
+    const GURL& url,
+    const std::string& request_method,
+    base::OnceCallback<void(bool)> callback) {
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
+  if (obj.is_null()) {
+    std::move(callback).Run(true);
+    return;
+  }
+  ScopedJavaLocalRef<jobject> j_gurl =
+      url::GURLAndroid::FromNativeGURL(env, url);
+  ScopedJavaLocalRef<jstring> j_method =
+      base::android::ConvertUTF8ToJavaString(env, request_method);
+  bool allowed =
+      Java_WebContentsDelegateAndroid_canDownload(env, obj, j_gurl, j_method);
+  std::move(callback).Run(allowed);
+}
+
 void WebContentsDelegateAndroid::CloseContents(WebContents* source) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
@@ -290,6 +310,24 @@ void WebContentsDelegateAndroid::UpdateTargetURL(WebContents* source,
       env, obj, url::GURLAndroid::FromNativeGURL(env, url));
 }
 
+content::KeyboardEventProcessingResult
+WebContentsDelegateAndroid::PreHandleKeyboardEvent(
+    WebContents* source,
+    const input::NativeWebKeyboardEvent& event) {
+  if (event.os_event.is_null()) {
+    return content::KeyboardEventProcessingResult::NOT_HANDLED;
+  }
+  ui::WindowAndroid* window = source->GetTopLevelNativeWindow();
+  if (window) {
+    JNIEnv* env = AttachCurrentThread();
+    if (Java_WebContentsDelegateAndroid_preHandleKeyboardEvent(
+            env, window->GetJavaObject(), event.os_event)) {
+      return content::KeyboardEventProcessingResult::HANDLED;
+    }
+  }
+  return content::KeyboardEventProcessingResult::NOT_HANDLED;
+}
+
 bool WebContentsDelegateAndroid::HandleKeyboardEvent(
     WebContents* source,
     const input::NativeWebKeyboardEvent& event) {
@@ -297,12 +335,19 @@ bool WebContentsDelegateAndroid::HandleKeyboardEvent(
   if (!key_event.is_null()) {
     JNIEnv* env = AttachCurrentThread();
     ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
-    if (obj.is_null()) {
-      return true;
+    if (!obj.is_null()) {
+      Java_WebContentsDelegateAndroid_handleKeyboardEvent(env, obj, key_event);
     }
-    Java_WebContentsDelegateAndroid_handleKeyboardEvent(env, obj, key_event);
+
+    ui::WindowAndroid* window = source->GetTopLevelNativeWindow();
+    if (window) {
+      if (Java_WebContentsDelegateAndroid_handleKeyboardEventFallback(
+              env, window->GetJavaObject(), event.os_event)) {
+        return true;
+      }
+    }
   }
-  return true;
+  return WebContentsDelegate::HandleKeyboardEvent(source, event);
 }
 
 bool WebContentsDelegateAndroid::TakeFocus(WebContents* source, bool reverse) {

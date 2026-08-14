@@ -463,9 +463,10 @@ DrawingBuffer::CreateOrRecycleSoftwareResource() {
           {format, size_, color_space, kBottomLeft_GrSurfaceOrigin,
            kPremul_SkAlphaType, gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY,
            "DrawingBufferBitmap"});
+  auto sync_token = shared_image->creation_sync_token();
+  shared_image_interface->VerifySyncToken(sync_token);
 
-  SoftwareResource resource = {std::move(shared_image),
-                               shared_image_interface->GenVerifiedSyncToken(),
+  SoftwareResource resource = {std::move(shared_image), sync_token,
                                sii_provider->GetWeakPtr()};
 
   return resource;
@@ -494,8 +495,6 @@ bool DrawingBuffer::PrepareTransferableResource(
         shared_image, viz::TransferableResource::ResourceSource::kDrawingBuffer,
         sync_token);
     out_resource->hdr_metadata = hdr_metadata_;
-    out_resource->is_low_latency_rendering = shared_image->usage().Has(
-        gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE);
   } else {
     // Populate the TransferableResource with a SharedImage for the software
     // compositor.
@@ -1079,6 +1078,7 @@ std::optional<gpu::SyncToken> DrawingBuffer::CopyToPlatformInternal(
     src_alpha_type = src_color_buffer->shared_image->alpha_type();
     produce_sync_token = src_color_buffer->produce_sync_token;
   } else {
+    CHECK(!back_buffer_discarded_);
     src_color_buffer = back_color_buffer_;
     src_alpha_type = src_color_buffer->shared_image->alpha_type();
     need_restore_access = true;

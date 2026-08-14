@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <iterator>
 
+#include "base/containers/span.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "components/sync/protocol/encryption.pb.h"
@@ -43,7 +44,7 @@ void FakeCryptographer::SelectDefaultEncryptionKey(
   default_key_name_ = key_name;
 }
 
-void FakeCryptographer::ClearDefaultEncryptionKey() {
+void FakeCryptographer::InvalidateDefaultEncryptionKey() {
   default_key_name_.clear();
 }
 

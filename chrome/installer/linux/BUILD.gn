@@ -11,7 +11,6 @@ import("//build/timestamp.gni")
 import("//build/util/lastchange.gni")
 import("//build/util/process_version.gni")
 import("//chrome/installer/installers.gni")
-import("//chrome/installer/linux/common/key.gni")
 import("//chrome/version.gni")
 import("//components/optimization_guide/features.gni")
 import("//services/on_device_model/on_device_model.gni")
@@ -219,9 +218,12 @@ strip_binary("strip_chrome_sandbox") {
   deps = [ "//sandbox/linux:chrome_sandbox" ]
 }
 
+# On ChromeOS, system services depend on real ANGLE libraries rather than dummy
+# stubs, so we route strip_binary dependencies to //third_party/angle even when
+# use_static_angle is true.
 strip_binary("strip_libEGL_shlib") {
   binary_input = "$root_out_dir/lib/libEGL.so"
-  if (use_static_angle) {
+  if (use_static_angle && !is_chromeos) {
     deps = [ "//ui/gl:dummy_libEGL" ]
   } else {
     deps = [ "//third_party/angle:libEGL" ]
@@ -230,7 +232,7 @@ strip_binary("strip_libEGL_shlib") {
 
 strip_binary("strip_libGLESv2_shlib") {
   binary_input = "$root_out_dir/lib/libGLESv2.so"
-  if (use_static_angle) {
+  if (use_static_angle && !is_chromeos) {
     deps = [ "//ui/gl:dummy_libGLESv2" ]
   } else {
     deps = [ "//third_party/angle:libGLESv2" ]
@@ -303,6 +305,7 @@ action("deb_repo_package") {
     "debian/control_repo.template",
     "debian/postinst_repo",
     "debian/postrm_repo",
+    "debian/repo_package.include",
   ]
 
   deps = [ ":installer_deps" ]
@@ -313,7 +316,7 @@ action("deb_repo_package") {
     package = "chromium-browser-repo"
   }
 
-  outputs = [ "$root_out_dir/${package}_${pgp_key_version}_${deb_arch}.deb" ]
+  outputs = [ "$root_out_dir/${package}_${deb_arch}.deb" ]
 
   args = [
     "-a",
@@ -476,7 +479,7 @@ group("installer_deps") {
     ":strip_libEGL_shlib",
     ":strip_libGLESv2_shlib",
   ]
-  if (use_static_angle) {
+  if (use_static_angle && !is_chromeos) {
     public_deps += [
       "//ui/gl:dummy_libEGL",
       "//ui/gl:dummy_libGLESv2",

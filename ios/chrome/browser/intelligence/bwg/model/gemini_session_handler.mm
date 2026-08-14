@@ -92,6 +92,8 @@ IOSGeminiFirstPromptSubmissionMethod ConvertInputTypeToHistogramEnum(
           kNanoBananaMakeThisImageLookLikeInstantFilm;
     case gemini::InputType::kEditMenuPrompt:
       return IOSGeminiFirstPromptSubmissionMethod::kEditMenuPrompt;
+    case gemini::InputType::kAppSwitcherSummarize:
+      return IOSGeminiFirstPromptSubmissionMethod::kAppSwitcherSummarize;
   }
 }
 
@@ -205,6 +207,9 @@ IOSGeminiSessionCancellationReason HistogramEnumFromGeminiCancelType(
                        serverID:(NSString*)serverID {
   [self updateSessionWithClientID:clientID serverID:serverID];
 
+  // Record that the Gemini Floaty has successfully appeared on screen.
+  RecordGeminiSessionOpened();
+
   // Start session timer.
   _sessionStartTime = base::TimeTicks::Now();
   // Reset first response flag for new session.
@@ -219,6 +224,11 @@ IOSGeminiSessionCancellationReason HistogramEnumFromGeminiCancelType(
 
 - (void)UIDidDisappearWithClientID:(NSString*)clientID
                           serverID:(NSString*)serverID {
+  // If the bottom sheet migration is enabled, the UI will be dismissed after
+  // `didRequestDismissal` is called, so we don't need to do any work here.
+  if (IsIOSGeminiBottomSheetMigrationEnabled()) {
+    return;
+  }
   [self dismissAndRecordMetrics];
 }
 
@@ -264,8 +274,12 @@ IOSGeminiSessionCancellationReason HistogramEnumFromGeminiCancelType(
               imagesAttachedCount:(NSUInteger)imagesAttachedCount
                    longPressImage:(BOOL)longPressImage
               pageContextAttached:(BOOL)pageContextAttached {
-  NSUInteger tabsAttachedCount =
-      self.attachedTabsCountProvider ? self.attachedTabsCountProvider() : 0;
+  NSUInteger tabsAttachedCount = 0;
+  if (IsGeminiMultiTabContextEnabled() && self.attachedTabsCountProvider) {
+    tabsAttachedCount = self.attachedTabsCountProvider();
+  } else {
+    tabsAttachedCount = pageContextAttached ? 1 : 0;
+  }
   BOOL usedMultiTab =
       self.isMultiTabUsedProvider ? self.isMultiTabUsedProvider() : NO;
 
@@ -369,6 +383,18 @@ IOSGeminiSessionCancellationReason HistogramEnumFromGeminiCancelType(
 - (void)didRequestToDetachTabWithID:(NSString*)tabID {
   if (self.tabDetachRequestCallback) {
     self.tabDetachRequestCallback(tabID);
+  }
+}
+
+- (void)didAttachTabWithID:(NSString*)tabID {
+  if (self.tabAttachedCallback) {
+    self.tabAttachedCallback(tabID);
+  }
+}
+
+- (void)didDetachTabWithID:(NSString*)tabID {
+  if (self.tabDetachedCallback) {
+    self.tabDetachedCallback(tabID);
   }
 }
 

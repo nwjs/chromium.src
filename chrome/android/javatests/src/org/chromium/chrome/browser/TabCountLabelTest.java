@@ -4,7 +4,7 @@
 
 package org.chromium.chrome.browser;
 
-import android.widget.ImageButton;
+import android.widget.ImageView;
 
 import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -15,6 +15,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Restriction;
@@ -24,12 +25,14 @@ import org.chromium.chrome.browser.ui.android.bars_common.TabSwitcherDrawable;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
+import org.chromium.chrome.test.util.BottomBarTestUtils;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.ui.base.DeviceFormFactor;
 
 /** Test suite for the tab count widget on the phone toolbar. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+@Batch(Batch.PER_CLASS)
 public class TabCountLabelTest {
     /** Check the tabCount string against an expected value. */
     @Rule
@@ -42,8 +45,9 @@ public class TabCountLabelTest {
     }
 
     private void tabCountLabelCheck(String stepName, String labelExpected) {
-        ImageButton tabSwitcherBtn =
-                mActivityTestRule.getActivity().findViewById(R.id.tab_switcher_button);
+        ImageView tabSwitcherBtn =
+                BottomBarTestUtils.findViewById(
+                        mActivityTestRule.getActivity(), R.id.tab_switcher_button);
         TabSwitcherDrawable drawable = (TabSwitcherDrawable) tabSwitcherBtn.getDrawable();
         String labelFromDrawable = drawable.getTextRenderedForTesting();
         Assert.assertEquals(

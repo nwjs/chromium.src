@@ -105,6 +105,10 @@ BASE_DECLARE_FEATURE(kDisablePasswordChangeFromNewPasswordFields);
 // Enables the Mojo JavaScript API for the password manager, replacing the
 // legacy passwordsPrivate extension API.
 BASE_DECLARE_FEATURE(kEnablePasswordManagerMojoApi);
+
+// Enables Phase 2 of the Mojo JavaScript API migration for the password
+// manager, replacing the legacy passwordsPrivate extension API.
+BASE_DECLARE_FEATURE(kEnablePasswordManagerMojoApiPhase2);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 // Cross domain credential data is not previewed by the manual fallback
@@ -224,13 +228,6 @@ BASE_DECLARE_FEATURE(kTriggerPasswordResyncWhenUndecryptablePasswordsDetected);
 // to which WebContents is attached. This helps to resolve the problem
 // that requestAnimationFrame() is not fired on a detached WebContents.
 BASE_DECLARE_FEATURE(kUseDetachedWidget);
-
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
-// Moves the "Use a passkey / Use a different passkey" to the context menu from
-// the autofill dropdown. This is now decoupled from
-// "PasswordManualFallbackAvailable" flag.
-BASE_DECLARE_FEATURE(kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu);
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 // Enables the "Use a passkey / Use a different passkey" in the password manual
 // fallback.

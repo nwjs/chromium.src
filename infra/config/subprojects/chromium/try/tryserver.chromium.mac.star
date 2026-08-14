@@ -116,18 +116,6 @@ try_.builder(
 )
 
 try_.builder(
-    name = "mac-osxbeta-rel",
-    mirrors = [
-        "ci/mac-osxbeta-rel",
-    ],
-    gn_args = "ci/mac-osxbeta-rel",
-    builderless = False,
-    os = os.MAC_BETA,
-    cpu = cpu.ARM64,
-    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
-)
-
-try_.builder(
     name = "mac-intel-on-arm64-rel",
     mirrors = [
         "ci/mac-intel-on-arm64-rel",
@@ -186,7 +174,7 @@ try_.orchestrator_builder(
     branch_selector = branches.selector.MAC_BRANCHES,
     mirrors = [
         "ci/mac-arm64-rel",
-        "ci/mac15-arm64-rel-tests",
+        "ci/mac26-arm64-rel-tests",
         "ci/GPU Mac arm64 Builder",
         "ci/Mac Retina Release (Apple M2)",
     ],
@@ -216,7 +204,7 @@ try_.orchestrator_builder(
         # crbug/940930
         "chromium.enable_cleandead": 100,
         # go/rts-project-proposal
-        "chromium_rts.filter_file_analysis": 10,
+        "chromium_rts.filter_file_analysis": 100,
         "luci.buildbucket.run_in_turboci": 100,
     },
     main_list_view = "try",
@@ -266,6 +254,8 @@ try_.orchestrator_builder(
         "chromium.add_one_test_shard": 10,
         # crbug.com/940930
         "chromium.enable_cleandead": 100,
+        # go/rts-project-proposal
+        "chromium_rts.filter_file_analysis": 100,
     },
     main_list_view = "try",
     use_clang_coverage = True,
@@ -398,7 +388,7 @@ try_.builder(
 )
 
 try_.builder(
-    name = "mac26-arm64-rel-tests",
+    name = "mac26-arm64-rel",
     branch_selector = branches.selector.MAC_BRANCHES,
     mirrors = [
         "ci/mac-arm64-rel",
@@ -465,6 +455,25 @@ try_.builder(
     mirrors = [
         "ci/Mac Builder",
         "ci/mac15-x64-rel-tests",
+    ],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/Mac Builder",
+            "release_try_builder",
+            "remoteexec",
+        ],
+    ),
+    cpu = cpu.ARM64,
+    contact_team_email = "bling-engprod@google.com",
+)
+
+try_.builder(
+    name = "mac26-x64-rel-tests",
+    branch_selector = branches.selector.MAC_BRANCHES,
+    description_html = "Runs default MacOS 26 tests on try.",
+    mirrors = [
+        "ci/Mac Builder",
+        "ci/mac26-x64-rel-tests",
     ],
     gn_args = gn_args.config(
         configs = [
@@ -594,7 +603,7 @@ try_.builder(
     name = "mac_chromium_dbg_ng",
     mirrors = [
         "ci/mac-arm64-dbg",
-        "ci/mac15-tests-dbg",
+        "ci/mac26-tests-dbg",
     ],
     gn_args = "ci/mac-arm64-dbg",
     cpu = cpu.ARM64,
@@ -733,7 +742,7 @@ try_.orchestrator_builder(
         # go/nplus1shardsproposal
         "chromium.add_one_test_shard": 10,
         # go/rts-project-proposal
-        "chromium_rts.filter_file_analysis": 10,
+        "chromium_rts.filter_file_analysis": 100,
     },
     main_list_view = "try",
     use_clang_coverage = True,
@@ -954,6 +963,9 @@ gpu.try_.optional_tests_builder(
     cq_settings = try_.cq_settings(
         location_filters = gpu.try_.optional_trybot_location_filters.MAC,
     ),
+    experiments = {
+        "luci.buildbucket.run_in_turboci": 3,
+    },
     main_list_view = "try",
     max_concurrent_builds = 7,
 )
@@ -981,6 +993,9 @@ gpu.try_.optional_tests_builder(
     cq_settings = try_.cq_settings(
         location_filters = gpu.try_.optional_trybot_location_filters.MAC,
     ),
+    experiments = {
+        "luci.buildbucket.run_in_turboci": 3,
+    },
     main_list_view = "try",
     max_concurrent_builds = 7,
 )

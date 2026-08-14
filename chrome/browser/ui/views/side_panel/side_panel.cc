@@ -174,8 +174,9 @@ class ContentParentView : public views::View, public views::ViewObserver {
     // View::ViewHierarchyChanged.
     // If the child is a WebView or paints to a layer, round its corners.
     if (views::IsViewClass<views::WebView>(child)) {
-      views::AsViewClass<views::WebView>(child)->holder()->SetCornerRadii(
-          GetRoundedCorners());
+      views::AsViewClass<views::WebView>(child)
+          ->holder()
+          ->SetNativeViewCornerRadii(GetRoundedCorners());
     }
     // Try to detect if the child is a views::View wrapper of a WebView. If so,
     // round its corners.
@@ -183,7 +184,7 @@ class ContentParentView : public views::View, public views::ViewObserver {
         views::IsViewClass<views::WebView>(child->children()[0])) {
       views::AsViewClass<views::WebView>(child->children()[0])
           ->holder()
-          ->SetCornerRadii(GetRoundedCorners());
+          ->SetNativeViewCornerRadii(GetRoundedCorners());
     }
     if (child->layer()) {
       child->layer()->SetIsFastRoundedCorner(true);
@@ -197,7 +198,7 @@ class ContentParentView : public views::View, public views::ViewObserver {
 
     // Native View Host doesn't always get reused, so ensure a nested Native
     // View's corners are always rounded.
-    web_view->holder()->SetCornerRadii(GetRoundedCorners());
+    web_view->holder()->SetNativeViewCornerRadii(GetRoundedCorners());
     // Temporary subscription. We only need to round the corners once.
     web_contents_attached_callback_ = {};
   }
@@ -251,32 +252,26 @@ void SetClipToVisibleAreaRecursive(views::View& view,
   if (!clip_to) {
     if (auto* const layer = view.layer()) {
       layer->SetClipRect(gfx::Rect());
-      if (!layer->rounded_corner_radii().IsEmpty()) {
-        layer->SetIsFastRoundedCorner(true);
-      }
     } else {
       view.SetClipPath(SkPath());
     }
     if (auto* const web_view = views::AsViewClass<views::WebView>(&view)) {
-      if (auto* const layer = web_view->holder()->GetUILayer()) {
-        layer->SetClipRect(gfx::Rect());
-        if (!layer->rounded_corner_radii().IsEmpty()) {
-          layer->SetIsFastRoundedCorner(true);
-        }
+      auto* holder = web_view->holder();
+      if (holder) {
+        holder->SetNativeViewClipRect(gfx::Rect());
       }
     }
   } else {
     gfx::Rect mirrored = view.GetMirroredRect(*clip_to);
     if (auto* const layer = view.layer()) {
       layer->SetClipRect(mirrored);
-      layer->SetIsFastRoundedCorner(false);
     } else {
       view.SetClipPath(SkPath::Rect(gfx::RectToSkRect(mirrored)));
     }
     if (auto* const web_view = views::AsViewClass<views::WebView>(&view)) {
-      if (auto* const layer = web_view->holder()->GetUILayer()) {
-        layer->SetClipRect(mirrored);
-        layer->SetIsFastRoundedCorner(false);
+      auto* holder = web_view->holder();
+      if (holder) {
+        holder->SetNativeViewClipRect(mirrored);
       }
     }
   }
@@ -377,7 +372,8 @@ void SidePanel::UpdateWidthOnEntryChanged() {
     return;
   }
 
-  PrefService* pref_service = browser_view_->browser()->profile()->GetPrefs();
+  PrefService* pref_service =
+      browser_view_->browser()->GetProfile()->GetPrefs();
   const base::DictValue& dict =
       pref_service->GetDict(prefs::kSidePanelIdToWidth);
   std::string panel_id = SidePanelEntryIdToString(current_entry.value());
@@ -549,7 +545,8 @@ void SidePanel::OnAnimationProgressed(
 
 void SidePanel::UpdateSidePanelWidthPref(const std::string& panel_id,
                                          int width) {
-  PrefService* pref_service = browser_view_->browser()->profile()->GetPrefs();
+  PrefService* pref_service =
+      browser_view_->browser()->GetProfile()->GetPrefs();
   ScopedDictPrefUpdate update(pref_service, prefs::kSidePanelIdToWidth);
   base::DictValue& dict = update.Get();
 

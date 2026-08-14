@@ -9,13 +9,10 @@
 
 #include "base/no_destructor.h"
 #include "build/build_config.h"
-#include "chrome/browser/themes/theme_service.h"
-#include "chrome/browser/themes/theme_service_factory.h"
-#include "chrome/browser/ui/views/frame/browser_frame_view_layout_linux.h"
+#include "chrome/browser/ui/browser_init_state.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view_linux.h"
 #include "chrome/browser/ui/views/frame/browser_native_widget_aura_linux.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/picture_in_picture_browser_frame_view.h"
 #include "chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
@@ -104,7 +101,7 @@ void BrowserDesktopWindowTreeHostLinux::AddAdditionalInitProperties(
     ui::PlatformWindowInitProperties* properties) {
   views::DesktopWindowTreeHostLinux::AddAdditionalInitProperties(params,
                                                                  properties);
-  auto* profile = browser_view_->browser()->profile();
+  auto* profile = browser_view_->browser()->GetProfile();
   const auto* linux_ui_theme = ui::LinuxUiTheme::GetForProfile(profile);
   properties->prefer_dark_theme =
       linux_ui_theme && linux_ui_theme->PreferDarkTheme();
@@ -141,11 +138,7 @@ void BrowserDesktopWindowTreeHostLinux::TabDraggingKindChanged(
         browser_widget_->tab_drag_kind() == TabDragKind::kAllTabs;
     bool is_dragging_window = tab_drag_kind == TabDragKind::kAllTabs;
     if (is_dragging_window != was_dragging_window) {
-      auto weak_this = weak_factory_.GetWeakPtr();
       x11_extension->SetOverrideRedirect(is_dragging_window);
-      if (!weak_this) {
-        return;
-      }
     }
   }
 
@@ -260,7 +253,9 @@ void BrowserDesktopWindowTreeHostLinux::Show(
   DesktopWindowTreeHostLinux::Show(show_state, restore_bounds);
 
   const std::string& startup_id =
-      browser_view_->browser()->create_params().startup_id;
+      BrowserInitState::From(browser_view_->browser())
+          ->create_params()
+          .startup_id;
   if (!startup_id.empty() && !SentStartupIds().contains(startup_id)) {
     platform_window()->NotifyStartupComplete(startup_id);
     SentStartupIds().insert(startup_id);

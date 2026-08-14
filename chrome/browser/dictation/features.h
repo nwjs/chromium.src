@@ -13,6 +13,10 @@ namespace dictation {
 // Enables the dictation feature.
 BASE_DECLARE_FEATURE(kDictation);
 
+// Runs dictation streams in "eval mode" which can be used to record inputs
+// usable for an eval.
+extern const base::FeatureParam<bool> kDictationEvalMode;
+
 // If true, uses the component extension for dictation. Can be set to false
 // which prevents installation of the component extension and relies on the user
 // or test installing a regular extension to handle communication via the
@@ -24,6 +28,16 @@ extern const base::FeatureParam<bool> kUseComponentExtension;
 // started. If false dictation context blocks stream creation and context is
 // provided in the StartStream message.
 extern const base::FeatureParam<bool> kSendContextAsync;
+
+// If true, partial transcription text will be included in the composition as it
+// comes in rather than only updating the composition for final text.
+extern const base::FeatureParam<bool> kShowPartials;
+
+// If true, uses the Web Speech API backend instead of the cloud backend.
+extern const base::FeatureParam<bool> kWebSpeechApiBackend;
+
+// If true, shows the overlay bubble that follows the caret.
+extern const base::FeatureParam<bool> kShowCaretBubble;
 
 }  // namespace dictation
 

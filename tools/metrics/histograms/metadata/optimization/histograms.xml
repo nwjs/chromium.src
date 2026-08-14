@@ -67,6 +67,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <variants name="LogAiDataRequestFeature">
+  <variant name="AtMemory" summary="At Memory"/>
   <variant name="BlingPrototyping" summary="Bling Prototyping"/>
   <variant name="Compose" summary="Compose"/>
   <variant name="ContextualTasksContext" summary="Contextual Tasks Context"/>
@@ -88,6 +89,8 @@ chromium-metrics-reviews@google.com.
       summary="Password Change Submission"/>
   <variant name="PermissionsAi" summary="Permissions AI"/>
   <variant name="ProductSpecifications" summary="Product Specifications"/>
+  <variant name="ReadAloudGenerateText" summary="Read Aloud Generate Text"/>
+  <variant name="ReadAloudSynthesize" summary="Read Aloud Synthesize"/>
   <variant name="ScamDetection" summary="Scam Detection"/>
   <variant name="TabOrganization" summary="Tab Organization"/>
   <variant name="WalletablePassExtraction" summary="Extract walletable pass"/>
@@ -101,8 +104,10 @@ chromium-metrics-reviews@google.com.
   <variant name="AnnotationReducerQueryClassifier"
       summary="User Query Classification"/>
   <variant name="BlingPrototyping" summary="Bling Prototyping"/>
+  <variant name="CardRecommendations" summary="Card Recommendations"/>
   <variant name="Compose" summary="Compose"/>
   <variant name="ContentAnnotation" summary="Content Annotation"/>
+  <variant name="ContextHub" summary="Context Hub"/>
   <variant name="ContextualCueing" summary="Contextual Cueing"/>
   <variant name="EnhancedCalendar" summary="Enhanced Calendar"/>
   <variant name="Finds" summary="Chrome finds"/>
@@ -118,6 +123,8 @@ chromium-metrics-reviews@google.com.
   <variant name="PermissionsAi" summary="Permissions AI"/>
   <variant name="PromptApi" summary="Prompt API"/>
   <variant name="ProofreaderApi" summary="Proofreader API"/>
+  <variant name="ReadAloudGenerateText" summary="Read Aloud Generate Text"/>
+  <variant name="ReadAloudSynthesize" summary="Read Aloud Synthesize"/>
   <variant name="ScamDetection" summary="Scam Detection"/>
   <variant name="Skills" summary="Skills"/>
   <variant name="SpeechRecognitionSmallExpertModel"
@@ -162,6 +169,8 @@ chromium-metrics-reviews@google.com.
       summary="Permissions: Use snapshot to decide on relevance for a
                Geolocation permission request"/>
   <variant name="LanguageDetection" summary="Language detection"/>
+  <variant name="ModelExecutionFeatureAiEmbeddings"
+      summary="Model Execution Feature: AI Embeddings"/>
   <variant name="ModelExecutionFeatureHistoryQueryIntent"
       summary="Model Execution Feature: History Query Intent"/>
   <variant name="ModelExecutionFeatureHistorySearch"
@@ -310,6 +319,9 @@ chromium-metrics-reviews@google.com.
       summary="This optimization provides information about whether
                triggering autofill on an iframe with a given origin is
                allowed."/>
+  <variant name="AutofillAtMemoryBlocked"
+      summary="This optimization provides information about whether a page is
+               blocked for the Autofill AtMemory feature."/>
   <variant name="AutofillSamplingRate"
       summary="This optimization provides information about a sampling rate
                of Autofill UKM metrics per origin based on origin popularity."/>
@@ -474,6 +486,15 @@ chromium-metrics-reviews@google.com.
   <variant name="FedCmClickthroughRate"
       summary="Provides information about FedCM API clickthrough rate
                aggregated across all users on the page."/>
+  <variant name="FilterExecutionStrategy"
+      summary="This optimization provides execution strategies for Magic
+               Filter candidate suggestions."/>
+  <variant name="FilterExtractAttributes"
+      summary="This optimization provides task attributes extracted from a
+               URL for Magic Filters."/>
+  <variant name="FilterTasksSupported"
+      summary="This optimization provides the supported tasks for a URL in
+               Magic Filters."/>
   <variant name="FindsPageTheme"
       summary="Provides information about the page theme for Finds."/>
   <variant name="FormsAnnotations"
@@ -680,6 +701,7 @@ chromium-metrics-reviews@google.com.
       summary="Batch update of hints for result links off the Google SRP"/>
   <variant name="BatchUpdateModels" summary="Batch update of models"/>
   <variant name="Bookmarks" summary="Batch update of hints for bookmarks"/>
+  <variant name="FilterExecution" summary="Requests for filter execution"/>
   <variant name="GlicZeroStateSuggestions"
       summary="Requests glic zero state suggestions"/>
   <variant name="Journeys" summary="Journeys surface"/>
@@ -704,7 +726,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.AIPageContent.ActiveRequestCount"
-    units="requests" expires_after="2026-10-25">
+    units="requests" expires_after="2027-01-17">
   <owner>alexmt@chromium.org</owner>
   <owner>khushalsagar@chromium.org</owner>
   <summary>
@@ -715,7 +737,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.AIPageContent.ExtractionConcurrency"
-    enum="AIPageContentExtractionConcurrency" expires_after="2026-10-25">
+    enum="AIPageContentExtractionConcurrency" expires_after="2026-12-27">
   <owner>alexmt@chromium.org</owner>
   <owner>khushalsagar@chromium.org</owner>
   <summary>
@@ -727,7 +749,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.AIPageContent.ExtractionsBetweenNavigations"
-    units="extractions" expires_after="2026-10-25">
+    units="extractions" expires_after="2026-12-27">
   <owner>alexmt@chromium.org</owner>
   <owner>khushalsagar@chromium.org</owner>
   <summary>
@@ -738,7 +760,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.AIPageContent.ExtractionsPerPage"
-    units="extractions" expires_after="2026-10-25">
+    units="extractions" expires_after="2026-12-27">
   <owner>alexmt@chromium.org</owner>
   <owner>khushalsagar@chromium.org</owner>
   <summary>
@@ -789,7 +811,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.AIPageContent.RendererLatency.{FrameType}"
-    units="ms" expires_after="2026-10-25">
+    units="ms" expires_after="2027-01-03">
   <owner>khushalsagar@chromium.org</owner>
   <owner>abigailbklein@google.com</owner>
   <summary>
@@ -832,7 +854,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.AIPageContent.TimeSinceLastExtraction"
-    units="ms" expires_after="2026-10-25">
+    units="ms" expires_after="2026-12-27">
   <owner>alexmt@chromium.org</owner>
   <owner>khushalsagar@chromium.org</owner>
   <summary>
@@ -843,7 +865,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.AIPageContent.TotalLatency" units="ms"
-    expires_after="2026-11-01">
+    expires_after="2027-01-03">
   <owner>khushalsagar@chromium.org</owner>
   <owner>abigailbklein@google.com</owner>
   <summary>
@@ -856,7 +878,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.AIPageContent.TotalLatency.{AIPageContentMode}.{CriticalPath}"
-    units="ms" expires_after="2026-11-01">
+    units="ms" expires_after="2027-01-03">
   <owner>khushalsagar@chromium.org</owner>
   <owner>abigailbklein@google.com</owner>
   <owner>gklassen@chromium.org</owner>
@@ -869,7 +891,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.AnnotatedPageContent.ComputeMetricsLatency"
-    units="microseconds" expires_after="2026-11-01">
+    units="microseconds" expires_after="2027-01-03">
   <owner>khushalsagar@chromium.org</owner>
   <owner>abigailbklein@google.com</owner>
   <summary>
@@ -915,7 +937,7 @@ chromium-metrics-reviews@google.com.
 <!-- LINT.IfChange(APCTotalWordCount) -->
 
 <histogram name="OptimizationGuide.AnnotatedPageContent.TotalWordCount"
-    units="words" expires_after="2026-11-01">
+    units="words" expires_after="2027-01-03">
   <owner>khushalsagar@chromium.org</owner>
   <owner>abigailbklein@google.com</owner>
   <summary>
@@ -2070,7 +2092,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PageContentAnnotations.BatchSuccess.{AnnotationType}"
-    enum="BooleanSuccess" expires_after="2026-10-25">
+    enum="BooleanSuccess" expires_after="2027-01-03">
   <owner>robertogden@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -2083,7 +2105,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PageContentAnnotations.CategoryClassifier.EducationScore"
-    units="%" expires_after="2026-11-15">
+    units="%" expires_after="2027-01-17">
   <owner>zekunjiang@google.com</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -2094,7 +2116,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PageContentAnnotations.CategoryClassifier.ShoppingScore"
-    units="%" expires_after="2026-11-15">
+    units="%" expires_after="2027-01-17">
   <owner>zekunjiang@google.com</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -2116,7 +2138,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PageContentAnnotations.JobExecutionTime.{AnnotationType}"
-    units="ms" expires_after="2026-10-25">
+    units="ms" expires_after="2027-01-03">
   <owner>robertogden@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -2214,7 +2236,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.PageContentCache.AddPageContentResult"
-    enum="BooleanSuccess" expires_after="2026-11-15">
+    enum="BooleanSuccess" expires_after="2027-01-17">
   <owner>ssid@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -2224,7 +2246,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.PageContentCache.AvgPageSize" units="KB"
-    expires_after="2026-11-15">
+    expires_after="2027-01-17">
   <owner>ssid@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -2234,7 +2256,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.PageContentCache.CachedTabsCount"
-    units="tabs" expires_after="2026-11-15">
+    units="tabs" expires_after="2027-01-17">
   <owner>ssid@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -2301,7 +2323,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PageContentCache.EligibleTabsCachedPercentage"
-    units="%" expires_after="2026-11-15">
+    units="%" expires_after="2027-01-17">
   <owner>ssid@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -2312,7 +2334,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.PageContentCache.ExtractionAndCachingStatus"
-    enum="PageContentExtractionAndCachingStatus" expires_after="2026-11-15">
+    enum="PageContentExtractionAndCachingStatus" expires_after="2027-01-17">
   <owner>ssid@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -2367,7 +2389,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.PageContentCache.NotCachedTabsCount"
-    units="tabs" expires_after="2026-11-15">
+    units="tabs" expires_after="2027-01-17">
   <owner>ssid@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -2390,7 +2412,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PageContentCache.RemovePageContentForTabResult"
-    enum="BooleanSuccess" expires_after="2026-11-15">
+    enum="BooleanSuccess" expires_after="2027-01-17">
   <owner>ssid@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -2400,7 +2422,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.PageContentCache.StaleCacheEntriesCount"
-    units="entries" expires_after="2026-11-15">
+    units="entries" expires_after="2027-01-17">
   <owner>ssid@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -2410,7 +2432,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.PageContentCache.TotalCacheSize" units="KB"
-    expires_after="2026-11-15">
+    expires_after="2027-01-17">
   <owner>ssid@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -2489,7 +2511,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PageContentExtraction.AutomaticOnLoad.ExtractionLatency"
-    units="ms" expires_after="2026-11-15">
+    units="ms" expires_after="2027-01-17">
   <owner>alexmt@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -2526,7 +2548,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PageContentExtraction.EnablementSourcePerNavigation"
-    enum="PageContentExtractionEnablementSource" expires_after="2026-11-05">
+    enum="PageContentExtractionEnablementSource" expires_after="2027-01-10">
   <owner>alexmt@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -2561,7 +2583,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PageContentExtraction.NavigationToReadyLatency.{NavigationType}"
-    units="ms" expires_after="2026-11-07">
+    units="ms" expires_after="2027-01-10">
   <owner>linnan@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -2578,7 +2600,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PageContentExtraction.ObserverCountPerNavigation"
-    units="count" expires_after="2026-11-05">
+    units="count" expires_after="2027-01-10">
   <owner>alexmt@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>

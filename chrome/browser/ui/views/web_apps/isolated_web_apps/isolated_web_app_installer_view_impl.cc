@@ -307,7 +307,7 @@ class UpdateSettingsPane : public views::BoxLayoutView {
         16, {ui::kColorIcon, ui::kColorIconDisabled});
     views::SetToggledImageFromVectorIconWithColor(
         button.get(),
-        features::IsRoundedIconsEnabled() ? kKeyboardArrowUpIcon
+        features::IsRoundedIconsEnabled() ? vector_icons::kKeyboardArrowUpIcon
                                           : kKeyboardArrowUpOldIcon,
         16, {ui::kColorIcon, ui::kColorIconDisabled});
 
@@ -441,11 +441,6 @@ class InstallerDialogView : public views::BoxLayoutView {
             gfx::Range(offset, offset + subtitle_param->get().length()),
             views::StyledLabel::RangeStyleInfo::CreateForLink(
                 *subtitle_link_callback));
-        // Fix for crbug.com/505281659: ChromeVox doesn't announce links in
-        // StyledLabel when role is the default kStaticText.
-        // TODO(crbug.com/510791136): Can be removed when the todo bug is fixed.
-        subtitle_label_->GetViewAccessibility().SetRole(
-            ax::mojom::Role::kParagraph);
       }
     } else {
       subtitle_label_->SetText(l10n_util::GetStringUTF16(subtitle_id));
@@ -521,8 +516,6 @@ class GetMetadataView : public InstallerDialogView {
       : InstallerDialogView(
             CreateImageModelFromVector(features::IsRoundedIconsEnabled()
                                            ? kFingerprintIcon
-                                       : features::IsRoundedIconsEnabled()
-                                           ? vector_icons::kFingerprintIcon
                                            : kFingerprintOldIcon,
                                        ui::kColorAccent),
             IDS_IWA_INSTALLER_VERIFICATION_TITLE,
@@ -553,8 +546,6 @@ class ShowMetadataView : public InstallerDialogView {
       : InstallerDialogView(
             CreateImageModelFromVector(features::IsRoundedIconsEnabled()
                                            ? kFingerprintIcon
-                                       : features::IsRoundedIconsEnabled()
-                                           ? vector_icons::kFingerprintIcon
                                            : kFingerprintOldIcon,
                                        ui::kColorAccent),
             // The title will be updated to the app name when available.
@@ -614,8 +605,6 @@ class InstallView : public InstallerDialogView {
       : InstallerDialogView(
             CreateImageModelFromVector(features::IsRoundedIconsEnabled()
                                            ? kFingerprintIcon
-                                       : features::IsRoundedIconsEnabled()
-                                           ? vector_icons::kFingerprintIcon
                                            : kFingerprintOldIcon,
                                        ui::kColorAccent),
             // The title will be updated to the app name when available.
@@ -646,8 +635,6 @@ class InstallSuccessView : public InstallerDialogView {
       : InstallerDialogView(
             CreateImageModelFromVector(features::IsRoundedIconsEnabled()
                                            ? kFingerprintIcon
-                                       : features::IsRoundedIconsEnabled()
-                                           ? vector_icons::kFingerprintIcon
                                            : kFingerprintOldIcon,
                                        ui::kColorAccent),
             // The title will be updated to the app name when available.

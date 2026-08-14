@@ -318,6 +318,10 @@ bool IOSurfaceImageBackingFactory::IsSupported(
     return false;
   }
 
+  if (!IsValidSize(size, max_texture_size_)) {
+    return false;
+  }
+
   // Creation from pixel data is not supported for multiplanar formats.
   if (format.is_multi_plane() && !pixel_data.empty()) {
     return false;
@@ -356,8 +360,7 @@ IOSurfaceImageBackingFactory::CreateSharedImageInternal(
   const auto size = si_info.size;
   const auto usage = si_info.usage;
 
-  if (!IsValidSize(size, max_texture_size_) ||
-      !IsPixelDataValid(format, size, pixel_data)) {
+  if (!IsPixelDataValid(format, size, pixel_data)) {
     return nullptr;
   }
 
@@ -414,6 +417,9 @@ IOSurfaceImageBackingFactory::CreateSharedImageGMBs(
     std::optional<gfx::BufferUsage> buffer_usage) {
   const auto format = si_info.format;
   const auto size = si_info.size;
+  const bool cpu_access = si_info.usage.HasAny(
+      SHARED_IMAGE_USAGE_CPU_READ | SHARED_IMAGE_USAGE_CPU_WRITE_ONLY |
+      SHARED_IMAGE_USAGE_CPU_ONLY_READ_WRITE | SHARED_IMAGE_USAGE_CPU_UPLOAD);
 
   if (handle.type != gfx::IO_SURFACE_BUFFER || !handle.io_surface()) {
     LOG(ERROR) << "Invalid IOSurface GpuMemoryBufferHandle.";
@@ -422,7 +428,8 @@ IOSurfaceImageBackingFactory::CreateSharedImageGMBs(
 
   auto io_surface = std::move(handle).io_surface();
   std::string validation_error;
-  if (!ValidateIOSurface(io_surface, format, size, &validation_error)) {
+  if (!ValidateIOSurface(io_surface, format, size, cpu_access,
+                         &validation_error)) {
     LOG(ERROR) << validation_error;
     return nullptr;
   }

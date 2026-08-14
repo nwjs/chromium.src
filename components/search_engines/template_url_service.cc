@@ -1188,18 +1188,21 @@ bool TemplateURLService::ResetPlayAPISearchEngine(
     }
   }
 
-  // 1.B) We can only have 1 Play API engine at a time. we have to remove the
-  // old one, if it exits. If it's the current default, we'll have to remove it
-  // first.
-  auto found = std::ranges::find_if(template_urls_, [](const auto& turl) {
-    return turl->GetRegulatoryExtensionType() ==
-           RegulatoryExtensionType::kAndroidEEA;
-  });
+  // 1.B) We can only have 1 Play API engine at a time. Collect and remove all
+  // old ones.
+  std::vector<TemplateURL*> old_play_api_engines;
+  for (const auto& turl : template_urls_) {
+    if (turl->GetRegulatoryExtensionType() ==
+        RegulatoryExtensionType::kAndroidEEA) {
+      old_play_api_engines.push_back(turl.get());
+    }
+  }
 
-  if (found != template_urls_.cend()) {
-    // There is already an old Play API engine. To proceed we'll need to remove
-    // it.
-    TemplateURL* old_play_api_engine = found->get();
+  base::UmaHistogramCounts100(
+      "Search.ChoiceDebug.PreexistingProgramTaggedEntries",
+      old_play_api_engines.size());
+
+  for (TemplateURL* old_play_api_engine : old_play_api_engines) {
     old_play_keyword = old_play_api_engine->keyword();
     if (old_play_api_engine == default_search_provider_) {
       // The DSE can't be removed from the loaded engines. We need to clear the
@@ -3033,6 +3036,10 @@ bool TemplateURLService::ApplyDefaultSearchChangeNoMetrics(
   // This may be deleted later. Use exclusively for pointer comparison to detect
   // a change.
   TemplateURL* previous_default_search_engine = default_search_provider_;
+  std::string previous_default_search_engine_guid =
+      previous_default_search_engine
+          ? previous_default_search_engine->sync_guid()
+          : "";
 
   Scoper scoper(this);
 
@@ -3112,6 +3119,24 @@ bool TemplateURLService::ApplyDefaultSearchChangeNoMetrics(
   if (default_search_provider_ == previous_default_search_engine) {
     // Default search engine hasn't changed.
     return false;
+  }
+
+  // We must fetch the previous DSE via its GUID rather than using the
+  // `previous_default_search_engine` pointer directly. This is because
+  // operations earlier in this function (like
+  // `UpdateDefaultProvidersCreatedByPolicy()`) may have deleted the engine
+  // from memory, leaving the original pointer dangling.
+  TemplateURL* previous_turl =
+      previous_default_search_engine_guid.empty()
+          ? nullptr
+          : GetTemplateURLForGUID(previous_default_search_engine_guid);
+  if (previous_turl &&
+      previous_turl->starter_pack_id() ==
+          template_url_starter_pack_data::StarterPackId::kNone &&
+      !IsPrepopulatedOrDefaultProviderByPolicy(previous_turl) &&
+      base::FeatureList::IsEnabled(
+          switches::kVisitCustomSearchOnUndefaulting)) {
+    UpdateTemplateURLVisitTime(previous_turl);
   }
 
   model_mutated_notification_pending_ = true;

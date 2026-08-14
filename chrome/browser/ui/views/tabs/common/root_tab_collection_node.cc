@@ -62,7 +62,7 @@ void RootTabCollectionNode::Reset() {
 
 base::CallbackListSubscription
 RootTabCollectionNode::RegisterOnChildrenAddedCallback(
-    base::RepeatingClosure callback) {
+    ChildrenAddedCallback callback) {
   return on_children_added_callback_list_.Add(std::move(callback));
 }
 
@@ -94,7 +94,7 @@ void RootTabCollectionNode::OnChildrenAdded(
         ->AddNewChild(GetPassKey(), child, position.index,
                       /*perform_initialization=*/insert_from_detached);
   }
-  on_children_added_callback_list_.Notify();
+  on_children_added_callback_list_.Notify(handles);
 }
 
 void RootTabCollectionNode::OnChildrenRemoved(
@@ -239,6 +239,16 @@ void RootTabCollectionNode::OnTabGroupFocusChanged(
 
   tab_strip_controller_->TabGroupFocusChanged(new_focused_group_id,
                                               old_focused_group_id);
+
+  // Child container views calculate their own child visibility dynamically
+  // during layout (via CalculateProposedLayout), so invalidating layout on
+  // child containers ensures their layout calculations re-run with the updated
+  // focus state.
+  for (auto& child : children_) {
+    if (child->view()) {
+      child->view()->InvalidateLayout();
+    }
+  }
 }
 
 void RootTabCollectionNode::NotifyTabSelectionChanged(
@@ -273,8 +283,4 @@ void RootTabCollectionNode::NotifyTabSelectionChanged(
   for (auto* node : nodes_to_notify) {
     node->NotifyTabSelectionChanged();
   }
-}
-
-void RootTabCollectionNode::NotifyOnChildrenAdded() {
-  on_children_added_callback_list_.Notify();
 }

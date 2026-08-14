@@ -12,7 +12,7 @@
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/test/scoped_feature_list.h"
+#include "base/test/with_feature_override.h"
 #include "build/build_config.h"
 #include "chrome/browser/extensions/api/extension_action/extension_action_api.h"
 #include "chrome/browser/extensions/api/extension_action/test_icon_image_observer.h"
@@ -23,6 +23,7 @@
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/version_info/channel.h"
 #include "content/public/browser/render_frame_host.h"
@@ -45,6 +46,7 @@
 #include "extensions/common/extension_features.h"
 #include "extensions/common/extension_id.h"
 #include "extensions/common/manifest_constants.h"
+#include "extensions/common/manifest_handlers/description_info.h"
 #include "extensions/test/extension_test_message_listener.h"
 #include "extensions/test/result_catcher.h"
 #include "extensions/test/test_extension_dir.h"
@@ -224,10 +226,24 @@ void FlushStateStore(Profile* profile) {
 
 }  // namespace
 
+class ExtensionActionSetBadgeTextApiTest
+    : public ExtensionApiTest,
+      public base::test::WithFeatureOverride {
+ public:
+  ExtensionActionSetBadgeTextApiTest()
+      : base::test::WithFeatureOverride(
+            extensions_features::kApiActionSetBadgeTextByteLimit) {}
+};
+
 // Test that the histogram for determining maximum badge text lengths counts
 // the length of the badge text in each successful call.
 // TODO(crbug.com/491158086, crbug.com/492555224): Remove this histogram test.
-IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ActionSetBadgeTextLengthHistogram) {
+IN_PROC_BROWSER_TEST_P(ExtensionActionSetBadgeTextApiTest,
+                       TextLengthHistogram) {
+  // Propagate kApiActionSetBadgeTextByteLimit feature state to extension
+  // background.
+  SetCustomArg(IsParamFeatureEnabled() ? "true" : "false");
+
   base::HistogramTester histogram;
 
   // Run extension which modifies the badge text a few times.
@@ -253,10 +269,15 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ActionSetBadgeTextLengthHistogram) {
   histogram.ExpectBucketCount("Extensions.Action.SetBadgeTextLength",
                               /*sample=*/4,
                               /*expected_count=*/0);
+  // Histogram always logs the call, even if it exceeds the limit and fails.
   histogram.ExpectBucketCount("Extensions.Action.SetBadgeTextLength",
                               /*sample=*/150,
                               /*expected_count=*/1);
 }
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         ExtensionActionSetBadgeTextApiTest,
+                         testing::Bool());
 
 // A class that allows for cross-origin navigations with embedded test server.
 class ExtensionActionAPITest : public ExtensionApiTest {
@@ -500,7 +521,7 @@ IN_PROC_BROWSER_TEST_P(MultiActionAPITest, TitleLocalization) {
   ASSERT_TRUE(action);
 
   EXPECT_EQ(base::WideToUTF8(L"Hreggvi\u00F0ur: l10n action"),
-            extension->description());
+            DescriptionInfo::GetDescription(*extension));
   EXPECT_EQ(base::WideToUTF8(L"Hreggvi\u00F0ur is my name"), extension->name());
   content::WebContents* web_contents = GetActiveWebContents();
   int tab_id = sessions::SessionTabHelper::IdForTab(web_contents).id();
@@ -1788,7 +1809,16 @@ IN_PROC_BROWSER_TEST_F(ExtensionActionAPITest, IsEnabledIgnoreDeclarative) {
   EXPECT_FALSE(script_result.GetBool());
 }
 
-using ActionAPITest = ExtensionApiTest;
+class ActionAPITest : public ExtensionApiTest {
+ public:
+  ActionAPITest() {
+    scoped_feature_list_.InitAndDisableFeature(
+        features::kExtensionsPinnedByDefault);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
 
 IN_PROC_BROWSER_TEST_F(ActionAPITest, TestGetUserSettings) {
   constexpr char kManifest[] =
@@ -2042,77 +2072,6 @@ IN_PROC_BROWSER_TEST_P(ActionAndBrowserActionAPITest,
   EXPECT_TRUE(run_script_and_wait_for_callback(kUnsetGlobalText).GetBool());
   EXPECT_EQ("", action->GetExplicitlySetBadgeText(tab_id1));
   EXPECT_EQ("", action->GetExplicitlySetBadgeText(tab_id2));
-}
-
-class ExtensionActionWithOpenPopupFeatureDisabledTest
-    : public ExtensionActionAPITest {
- public:
-  ExtensionActionWithOpenPopupFeatureDisabledTest() {
-    feature_list_.InitAndDisableFeature(
-        extensions_features::kApiActionOpenPopup);
-  }
-  ~ExtensionActionWithOpenPopupFeatureDisabledTest() override = default;
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-// Tests that the action.openPopup() API is available to policy-installed
-// extensions on even if the feature flag is disabled. Since this is controlled
-// through our features files (which are tested separately), this is more of a
-// smoke test than an end-to-end test.
-// TODO(crbug.com/40057101): Remove this test when the API is available
-// for all extensions on stable without a feature flag.
-IN_PROC_BROWSER_TEST_F(ExtensionActionWithOpenPopupFeatureDisabledTest,
-                       OpenPopupAvailabilityOnStableChannel) {
-  TestExtensionDir test_dir;
-  static constexpr char kManifest[] =
-      R"({
-           "name": "Test",
-           "manifest_version": 3,
-           "version": "0.1",
-           "background": {"service_worker": "background.js"},
-           "action": {}
-         })";
-  test_dir.WriteManifest(kManifest);
-  test_dir.WriteFile(FILE_PATH_LITERAL("background.js"),
-                     "chrome.test.sendMessage('ready');");
-
-  auto is_open_popup_defined = [this](const Extension& extension) {
-    static constexpr char kScript[] =
-        R"(chrome.test.sendScriptResult(!!chrome.action.openPopup);)";
-    return BackgroundScriptExecutor::ExecuteScript(
-        profile(), extension.id(), kScript,
-        BackgroundScriptExecutor::ResultCapture::kSendScriptResult);
-  };
-
-  // Technically, we don't need the "ready" listener here, but this ensures we
-  // don't cross streams with the policy extension loaded below (where we do
-  // need the listener).
-  ExtensionTestMessageListener non_policy_listener("ready");
-  const Extension* non_policy_extension =
-      LoadExtension(test_dir.UnpackedPath());
-  ASSERT_TRUE(non_policy_extension);
-  ASSERT_TRUE(non_policy_listener.WaitUntilSatisfied());
-
-  // Somewhat annoying: due to how our test helpers are written,
-  // `EXPECT_EQ(false, base::Value)` works, but EXPECT_FALSE(base::Value) does
-  // not.
-  EXPECT_EQ(false, is_open_popup_defined(*non_policy_extension));
-
-  // Unlike `LoadExtension()`, `InstallExtension()` doesn't wait for the service
-  // worker to be ready, so we need a few manual waiters.
-  base::FilePath packed_path = test_dir.Pack();
-  service_worker_test_utils::TestServiceWorkerContextObserver
-      registration_observer(profile());
-  ExtensionTestMessageListener policy_listener("ready");
-  const Extension* policy_extension = InstallExtension(
-      packed_path, 1, mojom::ManifestLocation::kExternalPolicyDownload);
-  ASSERT_TRUE(policy_extension);
-  ASSERT_TRUE(policy_listener.WaitUntilSatisfied());
-  registration_observer.WaitForRegistrationStored();
-
-  EXPECT_EQ(true, is_open_popup_defined(*policy_extension));
 }
 
 #if BUILDFLAG(IS_ANDROID)

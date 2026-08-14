@@ -47,6 +47,7 @@
 #include "components/surface_embed/common/surface_embed.mojom.h"
 #include "components/variations/service/variations_service.h"
 #include "content/public/browser/client_certificate_delegate.h"
+#include "content/public/browser/digital_identity_provider.h"
 #include "content/public/browser/login_delegate.h"
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/navigation_throttle_registry.h"
@@ -88,6 +89,7 @@
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-shared.h"
+#include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/switches.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
@@ -302,6 +304,39 @@ std::unique_ptr<PrefService> CreateLocalState() {
 bool AreIsolatedWebAppsEnabled() {
   return base::FeatureList::IsEnabled(features::kIsolatedWebApps);
 }
+
+// A dummy DigitalIdentityProvider that hangs (never invokes the callback) to
+// simulate the browser waiting for user interaction on the selection UI.
+// This is the default expectation for Digital Credential APIs in WPTs when
+// no user interaction is simulated.
+class ShellDigitalIdentityProvider : public content::DigitalIdentityProvider {
+ public:
+  ShellDigitalIdentityProvider() = default;
+  ~ShellDigitalIdentityProvider() override = default;
+
+  bool IsLastCommittedOriginLowRisk(
+      content::RenderFrameHost& render_frame_host) const override {
+    return false;
+  }
+
+  DigitalIdentityInterstitialAbortCallback ShowDigitalIdentityInterstitial(
+      content::WebContents& web_contents,
+      const url::Origin& origin,
+      content::DigitalIdentityInterstitialType interstitial_type,
+      DigitalIdentityInterstitialCallback callback) override {
+    return base::OnceClosure();
+  }
+
+  void Get(content::WebContents* web_contents,
+           const url::Origin& origin,
+           base::ValueView request,
+           DigitalIdentityCallback callback) override {}
+
+  void Create(content::WebContents* web_contents,
+              const url::Origin& origin,
+              base::ValueView request,
+              DigitalIdentityCallback callback) override {}
+};
 
 }  // namespace
 
@@ -626,17 +661,24 @@ void ShellContentBrowserClient::RegisterBrowserInterfaceBindersForFrame(
   map->Add<media::mojom::MediaFoundationPreferences>(
       &BindMediaFoundationPreferences);
 #endif  // BUILDFLAG(IS_WIN)
-  map->Add<surface_embed::mojom::SurfaceEmbedHost>(base::BindRepeating(
-      [](content::RenderFrameHost* render_frame_host,
-         mojo::PendingReceiver<surface_embed::mojom::SurfaceEmbedHost>
-             receiver) {
-        // Since ShellContentRenderClient can try to create a
-        // SurfaceEmbedWebPlugin on any page, we have to handle its binding on
-        // any page, so the renderer doesn't get killed. We don't want the
-        // operation to actually succeed in general, however, so we just let the
-        // pipe get closed by going out of scope unbound. Tests that need the
-        // functionality can override this method to provide it.
-      }));
+}
+
+void ShellContentBrowserClient::
+    RegisterAssociatedInterfaceBindersForRenderFrameHost(
+        RenderFrameHost&,
+        blink::AssociatedInterfaceRegistry& associated_registry) {
+  associated_registry.AddInterface<surface_embed::mojom::SurfaceEmbedHost>(
+      base::BindRepeating(
+          [](mojo::PendingAssociatedReceiver<
+              surface_embed::mojom::SurfaceEmbedHost> receiver) {
+            // Since ShellContentRenderClient can try to create a
+            // SurfaceEmbedWebPlugin on any page, we have to handle its binding
+            // on any page, so the renderer doesn't get killed. We don't want
+            // the operation to actually succeed in general, however, so we
+            // just let the endpoint get closed by going out of scope unbound.
+            // Tests that need the functionality can override this method to
+            // provide it.
+          }));
 }
 
 void ShellContentBrowserClient::OpenURL(
@@ -879,6 +921,11 @@ void ShellContentBrowserClient::OnWebContentsCreated(
 void ShellContentBrowserClient::CreateFeatureListAndFieldTrials() {
   GetSharedState().local_state = CreateLocalState();
   SetupFieldTrials();
+}
+
+std::unique_ptr<DigitalIdentityProvider>
+ShellContentBrowserClient::CreateDigitalIdentityProvider() {
+  return std::make_unique<ShellDigitalIdentityProvider>();
 }
 
 // Tests may install their own ShellContentBrowserClient, track the list here.

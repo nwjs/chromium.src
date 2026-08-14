@@ -25,12 +25,21 @@ dictionary DictationContext {
   DOMString editableContent;
 };
 
+dictionary StartStreamFlags {
+  // Starts the stream in "eval" mode, useful for recording inputs.
+  required boolean evalMode;
+  // If true, uses the Web Speech API backend instead of the cloud backend.
+  required boolean webSpeechApiBackend;
+};
+
 dictionary StartStreamDetails {
   // The unique identifier of the stream.
   required long streamId;
   // The context of the dictation session. May be omitted if context is passed
   // asynchronously in the ContextUpdate event instead.
   DictationContext context;
+  // Flags used to experimentally modify the behavior of the extension.
+  required StartStreamFlags flags;
 };
 
 callback OnStartStreamListener = undefined (StartStreamDetails details);
@@ -91,6 +100,10 @@ interface DictationPrivate {
 
   // Notifies the browser of stream state changes.
   static Promise<undefined> setStreamState(SetStreamStateDetails details);
+
+  // Updates the audio level of the stream. Valid values are between 0.0 and
+  // 1.0.
+  static Promise<undefined> updateAudioLevel(double audioLevel);
 
   // Fired to instruct the extension to start capturing microphone audio and
   // connecting to transcription service.

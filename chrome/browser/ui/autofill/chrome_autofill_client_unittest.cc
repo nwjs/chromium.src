@@ -14,13 +14,12 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/values_test_util.h"
 #include "base/values.h"
-#include "build/branding_buildflags.h"
 #include "build/build_config.h"
-#include "chrome/browser/autofill/at_memory_promo_tracker_factory.h"
+#include "chrome/browser/autofill/at_memory_cross_tab_copy_paste_tracker_factory.h"
 #include "chrome/browser/autofill/mock_autofill_agent.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/autofill/ui/ui_util.h"
-#include "chrome/browser/personal_context/personal_context_enablement_service_factory.h"
+#include "chrome/browser/personal_context/personal_context_eligibility_service_factory.h"
 #include "chrome/browser/ssl/chrome_security_state_tab_helper.h"
 #include "chrome/browser/ui/autofill/autofill_popup_controller_impl.h"
 #include "chrome/browser/ui/autofill/edit_address_profile_dialog_controller_impl.h"
@@ -38,7 +37,7 @@
 #include "components/autofill/content/browser/test_autofill_driver_injector.h"
 #include "components/autofill/content/browser/test_autofill_manager_injector.h"
 #include "components/autofill/content/browser/test_content_autofill_driver.h"
-#include "components/autofill/core/browser/at_memory_promo_tracker.h"
+#include "components/autofill/core/browser/at_memory_cross_tab_copy_paste_tracker.h"
 #include "components/autofill/core/browser/data_manager/test_personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile_test_api.h"
@@ -59,7 +58,7 @@
 #include "components/autofill/core/common/autofill_test_utils.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/feature_engagement/public/feature_constants.h"
-#include "components/personal_context/core/personal_context_enablement_service.h"
+#include "components/personal_context/core/personal_context_eligibility_service.h"
 #include "components/personal_context/core/personal_context_prefs.h"
 #include "components/personal_context/core/personal_context_types.h"
 #include "components/prefs/pref_service.h"
@@ -133,18 +132,23 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::UnorderedElementsAre;
 
-class MockPersonalContextEnablementService
-    : public personal_context::PersonalContextEnablementService {
+class MockPersonalContextEligibilityService
+    : public personal_context::PersonalContextEligibilityService {
  public:
-  MockPersonalContextEnablementService() = default;
-  ~MockPersonalContextEnablementService() override = default;
+  MockPersonalContextEligibilityService() = default;
+  ~MockPersonalContextEligibilityService() override = default;
 
   MOCK_METHOD(void, AddObserver, (Observer*), (override));
   MOCK_METHOD(void, RemoveObserver, (Observer*), (override));
-  MOCK_METHOD(personal_context::PersonalContextEnablementState,
-              GetEnablementState,
+  MOCK_METHOD(personal_context::PersonalContextEligibilityState,
+              GetEligibilityState,
               (),
               (override));
+  MOCK_METHOD(
+      std::optional<personal_context::PersonalContextNonEligibilityReason>,
+      GetNonEligibilityReason,
+      (),
+      (const, override));
 };
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -186,7 +190,7 @@ class TestChromeAutofillClient : public ChromeAutofillClient {
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
-  using ChromeAutofillClient::at_memory_promo_observer;
+  using ChromeAutofillClient::at_memory_copy_paste_observer;
 #endif
 };
 
@@ -212,16 +216,16 @@ class ChromeAutofillClientTest : public ChromeRenderViewHostTestHarness {
 #endif  // !BUILDFLAG(IS_ANDROID)
   }
 
-  void InitializePersonalContextEnablementService() {
-    personal_context_enablement_service_ =
-        static_cast<MockPersonalContextEnablementService*>(
-            PersonalContextEnablementServiceFactory::GetInstance()
+  void InitializePersonalContextEligibilityService() {
+    personal_context_eligibility_service_ =
+        static_cast<MockPersonalContextEligibilityService*>(
+            PersonalContextEligibilityServiceFactory::GetInstance()
                 ->SetTestingFactoryAndUse(
                     profile(),
                     base::BindRepeating([](content::BrowserContext* context)
                                             -> std::unique_ptr<KeyedService> {
                       return std::make_unique<
-                          MockPersonalContextEnablementService>();
+                          MockPersonalContextEligibilityService>();
                     })));
   }
 
@@ -244,7 +248,7 @@ class ChromeAutofillClientTest : public ChromeRenderViewHostTestHarness {
 #if !BUILDFLAG(IS_ANDROID)
     autofill_field_promo_controller_ = nullptr;
 #endif  // !BUILDFLAG(IS_ANDROID)
-    personal_context_enablement_service_ = nullptr;
+    personal_context_eligibility_service_ = nullptr;
     ChromeRenderViewHostTestHarness::TearDown();
   }
 
@@ -261,8 +265,9 @@ class ChromeAutofillClientTest : public ChromeRenderViewHostTestHarness {
     return ContentAutofillDriver::GetForRenderFrameHost(rfh);
   }
 
-  MockPersonalContextEnablementService* personal_context_enablement_service() {
-    return personal_context_enablement_service_;
+  MockPersonalContextEligibilityService*
+  personal_context_eligibility_service() {
+    return personal_context_eligibility_service_;
   }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -300,8 +305,8 @@ class ChromeAutofillClientTest : public ChromeRenderViewHostTestHarness {
 #if !BUILDFLAG(IS_ANDROID)
   raw_ptr<MockAutofillFieldPromoController> autofill_field_promo_controller_;
 #endif  // !BUILDFLAG(IS_ANDROID)
-  raw_ptr<MockPersonalContextEnablementService>
-      personal_context_enablement_service_;
+  raw_ptr<MockPersonalContextEligibilityService>
+      personal_context_eligibility_service_;
   TestAutofillClientInjector<TestChromeAutofillClient>
       test_autofill_client_injector_;
   base::OnceCallback<void()> setup_flags_;
@@ -453,10 +458,9 @@ TEST_F(ChromeAutofillClientTest,
       base::flat_set<EntityTypeName>({EntityTypeName::kVehicle}), {NAME_FULL});
 }
 
-// Test that some entities (such as passports) does not trigger AutofillAi
-// filling surveys.
+// Test that all entities trigger generalized Autofill AI filling surveys.
 TEST_F(ChromeAutofillClientTest,
-       TriggerUserAutofillAiFillingJourneySurvey_Passport_SurveyNotTriggered) {
+       TriggerUserAutofillAiFillingJourneySurvey_SuggestionAccepted) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(features::kAutofillAiFillingSurvey);
 
@@ -466,7 +470,15 @@ TEST_F(ChromeAutofillClientTest,
   EXPECT_CALL(*mock_hats_service, CanShowAnySurvey)
       .WillRepeatedly(Return(true));
 
-  EXPECT_CALL(*mock_hats_service, LaunchDelayedSurveyForWebContents).Times(0);
+  EXPECT_CALL(
+      *mock_hats_service,
+      LaunchDelayedSurveyForWebContents(
+          kHatsSurveyTriggerAutofillAiFilling, _, _,
+          Eq(SurveyBitsData({{"User accepted suggestion", true}})),
+          Eq(SurveyStringData({{"Entity type", "Passport"},
+                               {"Saved entities", "Passport"},
+                               {"Triggering field types", "PASSPORT_NUMBER"}})),
+          _, _, _, _, _));
 
   client()->TriggerAutofillAiFillingJourneySurvey(
       /*suggestion_accepted=*/true, EntityType(EntityTypeName::kPassport),
@@ -507,62 +519,6 @@ TEST_F(
       FieldTypeSet({FLIGHT_RESERVATION_FLIGHT_NUMBER}));
 }
 
-// Test that the Autofill AI save prompt survey calls the hats service with
-// the expected params.
-TEST_F(ChromeAutofillClientTest,
-       TriggerUserAutofillAiSavePromptSurvey_Accepted) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeaturesAndParameters(
-      /*enabled_features=*/{{features::kAutofillAiSavePromptSurvey,
-                             {{"autofill_ai_walletable_entity_save_prompt_"
-                               "survey_accepted_trigger_id",
-                               "12345"}}}},
-      /*disabled_features=*/{});
-  MockHatsService* mock_hats_service = static_cast<MockHatsService*>(
-      HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
-          profile(), base::BindRepeating(&BuildMockHatsService)));
-  EXPECT_CALL(*mock_hats_service, CanShowAnySurvey)
-      .WillRepeatedly(Return(true));
-
-  EXPECT_CALL(*mock_hats_service,
-              LaunchDelayedSurveyForWebContents(
-                  kHatsSurveyTriggerAutofillAiSavePrompt, _, _, _,
-                  Eq(SurveyStringData({{"Entity type", "Vehicle"},
-                                       {"Saved entities", "Vehicle"}})),
-                  _, _, _, Eq("12345"), _));
-
-  client()->TriggerAutofillAiSavePromptSurvey(
-      /*prompt_accepted=*/true, EntityType(EntityTypeName::kVehicle),
-      base::flat_set<EntityTypeName>({EntityTypeName::kVehicle}));
-}
-
-TEST_F(ChromeAutofillClientTest,
-       TriggerUserAutofillAiSavePromptSurvey_Declined) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeaturesAndParameters(
-      /*enabled_features=*/{{features::kAutofillAiSavePromptSurvey,
-                             {{"autofill_ai_walletable_entity_save_prompt_"
-                               "survey_declined_trigger_id",
-                               "12345"}}}},
-      /*disabled_features=*/{});
-
-  MockHatsService* mock_hats_service = static_cast<MockHatsService*>(
-      HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
-          profile(), base::BindRepeating(&BuildMockHatsService)));
-  EXPECT_CALL(*mock_hats_service, CanShowAnySurvey)
-      .WillRepeatedly(Return(true));
-
-  EXPECT_CALL(*mock_hats_service,
-              LaunchDelayedSurveyForWebContents(
-                  kHatsSurveyTriggerAutofillAiSavePrompt, _, _, _,
-                  Eq(SurveyStringData({{"Entity type", "Vehicle"},
-                                       {"Saved entities", "Vehicle"}})),
-                  _, _, _, Eq("12345"), _));
-
-  client()->TriggerAutofillAiSavePromptSurvey(
-      /*prompt_accepted=*/false, EntityType(EntityTypeName::kVehicle),
-      base::flat_set<EntityTypeName>({EntityTypeName::kVehicle}));
-}
 
 TEST_F(ChromeAutofillClientTest,
        TriggerUserPerceptionOfAutofillCreditCardSurvey) {
@@ -874,18 +830,17 @@ TEST_F(ChromeAutofillClientTestWithMockWindow,
 #endif  //  !BUILDFLAG(IS_ANDROID)
 
 #if (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-     BUILDFLAG(IS_CHROMEOS)) &&                                       \
-    BUILDFLAG(GOOGLE_CHROME_BRANDING)
+     BUILDFLAG(IS_CHROMEOS))
 
 // Tests that `ShowAutofillAtMemoryPromo` is propagated to the browser user
 // education service when AtMemory is enabled.
 TEST_F(ChromeAutofillClientTestWithMockWindow,
        ShowAutofillAtMemoryPromo_Enabled) {
   base::test::ScopedFeatureList feature_list(features::kAutofillAtMemory);
-  InitializePersonalContextEnablementService();
-  EXPECT_CALL(*personal_context_enablement_service(), GetEnablementState())
+  InitializePersonalContextEligibilityService();
+  EXPECT_CALL(*personal_context_eligibility_service(), GetEligibilityState())
       .WillRepeatedly(
-          Return(personal_context::PersonalContextEnablementState::kEnabled));
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
 
   MockBrowserUserEducationInterface mock_user_education(
       &mock_browser_window_interface());
@@ -905,9 +860,9 @@ TEST_F(ChromeAutofillClientTestWithMockWindow,
 TEST_F(ChromeAutofillClientTestWithMockWindow,
        ShowAutofillAtMemoryPromo_ServiceDisabled) {
   base::test::ScopedFeatureList feature_list(features::kAutofillAtMemory);
-  InitializePersonalContextEnablementService();
-  EXPECT_CALL(*personal_context_enablement_service(), GetEnablementState())
-      .WillRepeatedly(Return(personal_context::PersonalContextEnablementState::
+  InitializePersonalContextEligibilityService();
+  EXPECT_CALL(*personal_context_eligibility_service(), GetEligibilityState())
+      .WillRepeatedly(Return(personal_context::PersonalContextEligibilityState::
                                  kDisabledNotEligible));
 
   MockBrowserUserEducationInterface mock_user_education(
@@ -923,10 +878,10 @@ TEST_F(ChromeAutofillClientTestWithMockWindow,
        ShowAutofillAtMemoryPromo_FeatureDisabled) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndDisableFeature(features::kAutofillAtMemory);
-  InitializePersonalContextEnablementService();
-  EXPECT_CALL(*personal_context_enablement_service(), GetEnablementState())
+  InitializePersonalContextEligibilityService();
+  EXPECT_CALL(*personal_context_eligibility_service(), GetEligibilityState())
       .WillRepeatedly(
-          Return(personal_context::PersonalContextEnablementState::kEnabled));
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
 
   MockBrowserUserEducationInterface mock_user_education(
       &mock_browser_window_interface());
@@ -940,10 +895,10 @@ TEST_F(ChromeAutofillClientTestWithMockWindow,
 TEST_F(ChromeAutofillClientTestWithMockWindow,
        ShowAutofillAtMemoryPromo_PersonalContextToggleOff) {
   base::test::ScopedFeatureList feature_list(features::kAutofillAtMemory);
-  InitializePersonalContextEnablementService();
-  EXPECT_CALL(*personal_context_enablement_service(), GetEnablementState())
+  InitializePersonalContextEligibilityService();
+  EXPECT_CALL(*personal_context_eligibility_service(), GetEligibilityState())
       .WillRepeatedly(
-          Return(personal_context::PersonalContextEnablementState::kEnabled));
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
   profile()->GetPrefs()->SetBoolean(
       personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
       false);
@@ -955,15 +910,16 @@ TEST_F(ChromeAutofillClientTestWithMockWindow,
   client()->ShowAutofillAtMemoryPromo();
 }
 
-// Tests that `AtMemoryPromoObserver` does not track copy/paste signals and does
-// not trigger the promo for incognito profiles.
+// Tests that `AtMemoryCopyPasteObserver` does not track copy/paste signals and
+// does not trigger the promo for incognito profiles.
 TEST_F(ChromeAutofillClientTestWithMockWindow,
-       AtMemoryPromoObserver_IncognitoNoTracking) {
+       AtMemoryCopyPasteObserver_IncognitoNoTracking) {
   base::test::ScopedFeatureList feature_list(features::kAutofillAtMemory);
 
   // Verify that for regular profiles, the tracker exists.
   Profile* regular_profile = profile();
-  EXPECT_NE(AtMemoryPromoTrackerFactory::GetForBrowserContext(regular_profile),
+  EXPECT_NE(AtMemoryCrossTabCopyPasteTrackerFactory::GetForBrowserContext(
+                regular_profile),
             nullptr);
 
   // Create an `OffTheRecord` (incognito) profile.
@@ -972,9 +928,9 @@ TEST_F(ChromeAutofillClientTestWithMockWindow,
   ASSERT_TRUE(incognito_profile);
 
   // Verify that for incognito profile, the tracker factory returns nullptr.
-  EXPECT_EQ(
-      AtMemoryPromoTrackerFactory::GetForBrowserContext(incognito_profile),
-      nullptr);
+  EXPECT_EQ(AtMemoryCrossTabCopyPasteTrackerFactory::GetForBrowserContext(
+                incognito_profile),
+            nullptr);
 
   // Create web contents and client for the incognito profile.
   std::unique_ptr<content::WebContents> incognito_main_web_contents =
@@ -1024,20 +980,21 @@ TEST_F(ChromeAutofillClientTestWithMockWindow,
       sessions::SessionTabHelper::DelegateLookup());
 
   // Copy on the first tab, and paste on the second tab.
-  incognito_main_client->at_memory_promo_observer().OnTextCopiedToClipboard(
-      incognito_main_web_contents->GetPrimaryMainFrame(), u"some text");
-  incognito_secondary_client->at_memory_promo_observer().OnPaste();
+  incognito_main_client->at_memory_copy_paste_observer()
+      .OnTextCopiedToClipboard(
+          incognito_main_web_contents->GetPrimaryMainFrame(), u"some text");
+  incognito_secondary_client->at_memory_copy_paste_observer().OnPaste();
 }
 
-// Tests that `AtMemoryPromoObserver` tracks copy/paste signals and triggers the
-// promo for regular profiles.
+// Tests that `AtMemoryCopyPasteObserver` tracks copy/paste signals and
+// triggers the promo for regular profiles.
 TEST_F(ChromeAutofillClientTestWithMockWindow,
-       AtMemoryPromoObserver_RegularProfileTracking) {
+       AtMemoryCopyPasteObserver_RegularProfileTracking) {
   base::test::ScopedFeatureList feature_list(features::kAutofillAtMemory);
-  InitializePersonalContextEnablementService();
-  EXPECT_CALL(*personal_context_enablement_service(), GetEnablementState())
+  InitializePersonalContextEligibilityService();
+  EXPECT_CALL(*personal_context_eligibility_service(), GetEligibilityState())
       .WillRepeatedly(
-          Return(personal_context::PersonalContextEnablementState::kEnabled));
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
 
   // Setup a secondary `WebContents` for pasting (so the copy and paste are in
   // different tabs).
@@ -1079,54 +1036,31 @@ TEST_F(ChromeAutofillClientTestWithMockWindow,
       sessions::SessionTabHelper::DelegateLookup());
 
   // Copy on the first tab, and paste on the second tab.
-  client()->at_memory_promo_observer().OnTextCopiedToClipboard(
+  client()->at_memory_copy_paste_observer().OnTextCopiedToClipboard(
       web_contents()->GetPrimaryMainFrame(), u"some text");
-  secondary_client->at_memory_promo_observer().OnPaste();
+  secondary_client->at_memory_copy_paste_observer().OnPaste();
 }
 
 #endif  // (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_CHROMEOS)) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
-
-#if (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-     BUILDFLAG(IS_CHROMEOS)) &&                                       \
-    !BUILDFLAG(GOOGLE_CHROME_BRANDING)
-// Tests that `ShowAutofillAtMemoryPromo` is not propagated to the browser user
-// education service on non-branded builds even when all other conditions are
-// met.
-TEST_F(ChromeAutofillClientTestWithMockWindow,
-       ShowAutofillAtMemoryPromo_NonBrandedBuild) {
-  base::test::ScopedFeatureList feature_list(features::kAutofillAtMemory);
-  InitializePersonalContextEnablementService();
-  EXPECT_CALL(*personal_context_enablement_service(), GetEnablementState())
-      .WillRepeatedly(
-          Return(personal_context::PersonalContextEnablementState::kEnabled));
-
-  MockBrowserUserEducationInterface mock_user_education(
-      &mock_browser_window_interface());
-  EXPECT_CALL(mock_user_education, MaybeShowFeaturePromo).Times(0);
-
-  client()->ShowAutofillAtMemoryPromo();
-}
-#endif  // (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-        // BUILDFLAG(IS_CHROMEOS)) && !BUILDFLAG(GOOGLE_CHROME_BRANDING)
+        // BUILDFLAG(IS_CHROMEOS))
 
 // Tests that if there is no enablement service available to the profile, client
 // defaults to kDisabledNotEligible state.
-TEST_F(ChromeAutofillClientTest, GetPersonalContextEnablementState_NoService) {
+TEST_F(ChromeAutofillClientTest, GetPersonalContextEligibilityState_NoService) {
   EXPECT_EQ(
-      client()->GetPersonalContextEnablementState(),
-      personal_context::PersonalContextEnablementState::kDisabledNotEligible);
+      client()->GetPersonalContextEligibilityState(),
+      personal_context::PersonalContextEligibilityState::kDisabledNotEligible);
 }
 
 // Tests that the client correctly pipes the state from the enablement service.
-TEST_F(ChromeAutofillClientTest, GetPersonalContextEnablementState_HappyPath) {
-  InitializePersonalContextEnablementService();
+TEST_F(ChromeAutofillClientTest, GetPersonalContextEligibilityState_HappyPath) {
+  InitializePersonalContextEligibilityService();
 
-  EXPECT_CALL(*personal_context_enablement_service(), GetEnablementState())
+  EXPECT_CALL(*personal_context_eligibility_service(), GetEligibilityState())
       .WillRepeatedly(
-          Return(personal_context::PersonalContextEnablementState::kEnabled));
-  EXPECT_EQ(client()->GetPersonalContextEnablementState(),
-            personal_context::PersonalContextEnablementState::kEnabled);
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
+  EXPECT_EQ(client()->GetPersonalContextEligibilityState(),
+            personal_context::PersonalContextEligibilityState::kEligible);
 }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -1162,6 +1096,75 @@ TEST_F(ChromeAutofillClientTest, IsAutofillProfileEnabled_BlockedByPolicy) {
           R"([{"url_pattern": "https://example.com", "blocked_types": ["contact_info"]}])"));
 
   EXPECT_FALSE(client()->IsAutofillProfileEnabled());
+}
+// Tests that IsAutofillEnabled correctly returns false when all active autofill
+// types (including AI data types) are globally blocked by enterprise policy.
+TEST_F(ChromeAutofillClientTest, IsAutofillEnabled_BlockedByPolicy) {
+  base::test::ScopedFeatureList feature_list(
+      features::kAutofillEnableAutofillSettingsEnterprisePolicy);
+  NavigateAndCommit(GURL("https://example.com"));
+
+  // Disable profile and payments so IsAutofillEnabled depends on the AI types.
+  profile()->GetPrefs()->SetBoolean(prefs::kAutofillProfileEnabled, false);
+  profile()->GetPrefs()->SetBoolean(prefs::kAutofillCreditCardEnabled, false);
+
+  // Enable the AI types.
+  profile()->GetPrefs()->SetBoolean(prefs::kAutofillAiIdentityEntitiesEnabled,
+                                    true);
+  profile()->GetPrefs()->SetBoolean(prefs::kAutofillAiTravelEntitiesEnabled,
+                                    true);
+  profile()->GetPrefs()->SetBoolean(prefs::kAutofillAiShoppingEntitiesEnabled,
+                                    true);
+
+  EXPECT_TRUE(client()->IsAutofillEnabled());
+
+  // Block only identity docs.
+  profile()->GetPrefs()->Set(
+      prefs::kAutofillTypesBlocked,
+      base::test::ParseJson(
+          R"([{"url_pattern": "https://example.com", "blocked_types": ["identity_docs"]}])"));
+  // Still true because travel and shopping are enabled.
+  EXPECT_TRUE(client()->IsAutofillEnabled());
+
+  // Block identity docs and travel.
+  profile()->GetPrefs()->Set(
+      prefs::kAutofillTypesBlocked,
+      base::test::ParseJson(
+          R"([{"url_pattern": "https://example.com", "blocked_types": ["identity_docs", "travel"]}])"));
+  EXPECT_TRUE(client()->IsAutofillEnabled());
+
+  // Block all three.
+  profile()->GetPrefs()->Set(
+      prefs::kAutofillTypesBlocked,
+      base::test::ParseJson(
+          R"([{"url_pattern": "https://example.com", "blocked_types": ["identity_docs", "travel", "shopping"]}])"));
+  EXPECT_FALSE(client()->IsAutofillEnabled());
+}
+
+// Tests that IsAutofillEnabled does not consider AI data types when the
+// enterprise policy feature flag is disabled, strictly adhering to the original
+// behavior.
+TEST_F(ChromeAutofillClientTest,
+       IsAutofillEnabled_AiTypesGatedByEnterprisePolicyFeature) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      features::kAutofillEnableAutofillSettingsEnterprisePolicy);
+
+  // Disable profile and payments so IsAutofillEnabled depends on the AI types.
+  profile()->GetPrefs()->SetBoolean(prefs::kAutofillProfileEnabled, false);
+  profile()->GetPrefs()->SetBoolean(prefs::kAutofillCreditCardEnabled, false);
+
+  // Enable the AI types.
+  profile()->GetPrefs()->SetBoolean(prefs::kAutofillAiIdentityEntitiesEnabled,
+                                    true);
+  profile()->GetPrefs()->SetBoolean(prefs::kAutofillAiTravelEntitiesEnabled,
+                                    true);
+  profile()->GetPrefs()->SetBoolean(prefs::kAutofillAiShoppingEntitiesEnabled,
+                                    true);
+
+  // If the enterprise policy flag is OFF, IsAutofillEnabled does not check AI
+  // types.
+  EXPECT_FALSE(client()->IsAutofillEnabled());
 }
 
 }  // namespace

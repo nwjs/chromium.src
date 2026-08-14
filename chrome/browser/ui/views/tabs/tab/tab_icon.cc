@@ -7,6 +7,7 @@
 #include "base/check.h"
 #include "base/i18n/rtl.h"
 #include "base/memory/raw_ptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/time/default_tick_clock.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
@@ -18,6 +19,7 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/tabs/tab_data.h"
+#include "chrome/browser/ui/tabs/tab_favicon_theming.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/dotted_icon.h"
@@ -411,8 +413,8 @@ gfx::ImageSkia TabIcon::GetIconToPaint() {
     if (crashed_icon_.isNull()) {
       // Lazily create a themed sad tab icon.
       ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
-      crashed_icon_ =
-          ThemeFavicon(*rb.GetImageSkiaNamed(IDR_CRASH_SAD_FAVICON));
+      crashed_icon_ = tabs::ThemeFaviconForTab(
+          *rb.GetImageSkiaNamed(IDR_CRASH_SAD_FAVICON), *GetColorProvider());
     }
     return crashed_icon_;
   }
@@ -603,6 +605,11 @@ bool TabIcon::GetCrashed() const {
 }
 
 void TabIcon::UpdateThrobber() {
+  TRACE_EVENT0("ui", "TabIcon::UpdateThrobber");
+  base::ScopedUmaHistogramTimer timer(
+      "Tab.Icon.UpdateThrobber.Time",
+      base::ScopedUmaHistogramTimer::ScopedHistogramTiming::kMicrosecondTimes);
+
   // Since the loading animation can run for a long time, paint to a
   // separate layer when possible to reduce repaint overhead.
   bool should_paint_to_layer =
@@ -610,6 +617,11 @@ void TabIcon::UpdateThrobber() {
       (GetShowingLoadingAnimation() || favicon_size_animation_.is_animating() ||
        tab_discard_animation_.is_animating());
   if (should_paint_to_layer != !!layer()) {
+    TRACE_EVENT0("ui", "TabIcon::UpdateThrobber (Toggle Layer)");
+    std::optional<base::ScopedUmaHistogramTimer> not_cached_timer;
+    not_cached_timer.emplace("Tab.Icon.UpdateThrobber.Time.NotCached",
+                             base::ScopedUmaHistogramTimer::
+                                 ScopedHistogramTiming::kMicrosecondTimes);
     // Change layer mode. Promoting to a layer reduces composition cost
     // regardless of whether we use the compositor-driven throbber or not.
     if (should_paint_to_layer) {
@@ -695,32 +707,18 @@ void TabIcon::UpdateThrobber() {
   }
 }
 
-gfx::ImageSkia TabIcon::ThemeFavicon(const gfx::ImageSkia& source) {
-  const auto* cp = GetColorProvider();
-  return favicon::ThemeFavicon(
-      source, cp->GetColor(kColorToolbarButtonIcon),
-      cp->GetColor(kColorTabBackgroundActiveFrameActive),
-      cp->GetColor(kColorTabBackgroundInactiveFrameActive));
-}
-
-gfx::ImageSkia TabIcon::ThemeMonochromeFavicon(const gfx::ImageSkia& source) {
-  const auto* cp = GetColorProvider();
-  return favicon::ThemeMonochromeFavicon(
-      source, is_active_tab_
-                  ? cp->GetColor(kColorTabBackgroundActiveFrameActive)
-                  : cp->GetColor(kColorTabBackgroundInactiveFrameActive));
-}
-
 void TabIcon::UpdateThemedFavicon() {
   if (!GetWidget()) {
     return;
   }
 
   if (!GetNonDefaultFavicon() || should_themify_favicon_) {
-    themed_favicon_ = ThemeFavicon(favicon_.Rasterize(GetColorProvider()));
+    themed_favicon_ = tabs::ThemeFaviconForTab(
+        favicon_.Rasterize(GetColorProvider()), *GetColorProvider());
   } else if (is_monochrome_favicon_) {
-    themed_favicon_ =
-        ThemeMonochromeFavicon(favicon_.Rasterize(GetColorProvider()));
+    themed_favicon_ = tabs::ThemeMonochromeFaviconForTab(
+        favicon_.Rasterize(GetColorProvider()), *GetColorProvider(),
+        is_active_tab_);
   } else {
     themed_favicon_ = gfx::ImageSkia();
   }

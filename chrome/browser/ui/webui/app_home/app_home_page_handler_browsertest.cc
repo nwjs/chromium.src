@@ -225,7 +225,7 @@ class AppHomePageHandlerTest : public InProcessBrowserTest {
     return installed_app_id;
   }
 
-  Profile* profile() { return browser()->profile(); }
+  Profile* profile() { return browser()->GetProfile(); }
 
   void UninstallTestWebApp(const webapps::AppId& app_id) {
     web_app::test::UninstallWebApp(profile(), app_id);
@@ -596,7 +596,7 @@ IN_PROC_BROWSER_TEST_F(AppHomePageHandlerUpdateTest, HandlePageCalls) {
   std::unique_ptr<TestAppHomePageHandler> page_handler =
       GetAppHomePageHandler();
   web_app::WebAppProvider* provider =
-      web_app::WebAppProvider::GetForTest(browser()->profile());
+      web_app::WebAppProvider::GetForTest(browser()->GetProfile());
 
   EXPECT_CALL(page_, AddApp(MatchAppName("Web app for updating")))
       .Times(testing::AtLeast(1));
@@ -642,7 +642,7 @@ IN_PROC_BROWSER_TEST_F(AppHomePageHandlerUpdateTest, MigrationCalls) {
   std::unique_ptr<TestAppHomePageHandler> page_handler =
       GetAppHomePageHandler();
   web_app::WebAppProvider* provider =
-      web_app::WebAppProvider::GetForTest(browser()->profile());
+      web_app::WebAppProvider::GetForTest(browser()->GetProfile());
 
   EXPECT_CALL(page_, AddApp(MatchAppName("Migrate From")))
       .Times(testing::AtLeast(1));

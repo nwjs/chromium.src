@@ -89,6 +89,11 @@ public class ExtensionsToolbarCoordinatorImpl
                 public void showManageExtensionsIPH() {
                     showIphInternal();
                 }
+
+                @Override
+                public void showPinnedByDefaultIPH(String extensionId) {
+                    showPinnedByDefaultIphInternal(extensionId);
+                }
             };
     private final MenuButtonPinningDelegate mMenuButtonPinningDelegate =
             new MenuButtonPinningDelegate();
@@ -375,6 +380,71 @@ public class ExtensionsToolbarCoordinatorImpl
                         .build());
     }
 
+    private void showPinnedByDefaultIphInternal(String extensionId) {
+        if (mProfile.shutdownStarted()) {
+            return;
+        }
+
+        Activity activity = mWindowAndroid.getActivity().get();
+        if (activity == null) {
+            return;
+        }
+
+        View anchorView = mExtensionActionListCoordinator.getButtonViewForId(extensionId);
+        if (anchorView == null) {
+            return;
+        }
+
+        Handler handler = new Handler(Looper.getMainLooper());
+
+        if (anchorView.isShown()) {
+            showPinnedByDefaultIphInternalHelper(activity, anchorView, handler);
+        } else {
+            // Wait for it to be laid out and visible.
+            final View finalAnchor = anchorView;
+            anchorView.addOnLayoutChangeListener(
+                    new View.OnLayoutChangeListener() {
+                        @Override
+                        public void onLayoutChange(
+                                View v,
+                                int left,
+                                int top,
+                                int right,
+                                int bottom,
+                                int oldLeft,
+                                int oldTop,
+                                int oldRight,
+                                int oldBottom) {
+                            if (v.isShown()) {
+                                v.removeOnLayoutChangeListener(this);
+                                showPinnedByDefaultIphInternalHelper(
+                                        activity, finalAnchor, handler);
+                            }
+                        }
+                    });
+        }
+    }
+
+    private void showPinnedByDefaultIphInternalHelper(
+            Activity activity, View anchorView, Handler handler) {
+        UserEducationHelper userEducationHelper =
+                new UserEducationHelper(activity, mProfile, handler);
+
+        userEducationHelper.requestShowIph(
+                new IphCommandBuilder(
+                                anchorView.getContext().getResources(),
+                                FeatureConstants.IPH_EXTENSIONS_PINNED_BY_DEFAULT_FEATURE,
+                                R.string.extensions_pinned_by_default_iph_body,
+                                R.string.extensions_pinned_by_default_iph_body)
+                        .setAnchorView(anchorView)
+                        .setPreferredHorizontalOrientation(
+                                HorizontalOrientation.MAX_AVAILABLE_SPACE)
+                        .setHorizontalOverlapAnchor(true)
+                        .setRemoveArrow(true)
+                        .setInsetRect(new Rect())
+                        .build());
+    }
+
     private void saveMenuButtonPinState(boolean pinned) {
         mPrefService.setBoolean(Pref.PIN_EXTENSIONS_MENU_BUTTON, pinned);
         updateMenuButtonPinState();
@@ -428,7 +498,7 @@ public class ExtensionsToolbarCoordinatorImpl
     }
 
     @Override
-    public PoppedOutActionWidthConsumer getPoppedOutActionWidthConsumer() {
+    public ToolbarWidthConsumer getPoppedOutActionWidthConsumer() {
         return mPoppedOutActionWidthConsumer;
     }
 
@@ -448,9 +518,16 @@ public class ExtensionsToolbarCoordinatorImpl
     }
 
     private class PoppedOutActionWidthConsumer implements ToolbarWidthConsumer {
+        private boolean mHasSpaceToShow;
+
         @Override
         public boolean isVisible() {
             return mExtensionActionListCoordinator.hasPoppedOutAction();
+        }
+
+        @Override
+        public boolean hasSpaceToShow() {
+            return mHasSpaceToShow;
         }
 
         @Override
@@ -458,7 +535,9 @@ public class ExtensionsToolbarCoordinatorImpl
             // Do not update the UI here just yet. We will leave that to {@link
             // ActionListWidthConsumer}, which will be called but later because it has lower
             // priority.
-            return mExtensionActionListCoordinator.setCanShowPoppedOutAction(availableWidth);
+            int width = mExtensionActionListCoordinator.setCanShowPoppedOutAction(availableWidth);
+            mHasSpaceToShow = mExtensionActionListCoordinator.canShowPoppedOutAction();
+            return width;
         }
 
         @Override
@@ -469,12 +548,20 @@ public class ExtensionsToolbarCoordinatorImpl
     }
 
     private class RequestAccessButtonWidthConsumer implements ToolbarWidthConsumer {
+        private boolean mHasSpaceToShow;
+
         @Override
         public boolean isVisible() {
             return mToolbarModel.get(ExtensionsToolbarProperties.IS_REQUEST_ACCESS_BUTTON_VISIBLE);
         }
 
+        @Override
+        public boolean hasSpaceToShow() {
+            return mHasSpaceToShow;
+        }
+
         private void setHasSpaceToShow(boolean hasSpaceToShow) {
+            mHasSpaceToShow = hasSpaceToShow;
             int visibility = hasSpaceToShow ? View.VISIBLE : View.GONE;
             mContainer
                     .findViewById(R.id.extensions_request_access_button)
@@ -535,6 +622,11 @@ public class ExtensionsToolbarCoordinatorImpl
         }
 
         @Override
+        public boolean hasSpaceToShow() {
+            return mCanShowMenuIcon;
+        }
+
+        @Override
         public int updateVisibility(int availableWidth) {
             int puzzleButtonWidth =
                     mContainer.getResources().getDimensionPixelSize(R.dimen.toolbar_button_width);
@@ -553,6 +645,8 @@ public class ExtensionsToolbarCoordinatorImpl
     }
 
     private class ActionListWidthConsumer implements ToolbarWidthConsumer {
+        private boolean mHasSpaceToShow;
+
         @Override
         public boolean isVisible() {
             return mContainer.findViewById(R.id.extension_action_list).getVisibility()
@@ -560,8 +654,15 @@ public class ExtensionsToolbarCoordinatorImpl
         }
 
         @Override
+        public boolean hasSpaceToShow() {
+            return mHasSpaceToShow;
+        }
+
+        @Override
         public int updateVisibility(int availableWidth) {
-            return mExtensionActionListCoordinator.fitActionsWithinWidth(availableWidth);
+            int width = mExtensionActionListCoordinator.fitActionsWithinWidth(availableWidth);
+            mHasSpaceToShow = width > 0;
+            return width;
         }
 
         @Override

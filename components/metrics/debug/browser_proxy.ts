@@ -96,6 +96,20 @@ export interface FieldTrialState {
   restartRequired: boolean;
 }
 
+/**
+ * A feature that has runtime mutability enabled. Includes its name, whether it
+ * is currently enabled, the name of the field trial that controls it (if
+ * any), the group name of that field trial (if any), and whether the current
+ * state is controlled by a runtime override.
+ */
+export interface RuntimeMutableFeature {
+  name: string;
+  enabled: boolean;
+  fieldTrial: string;
+  fieldTrialGroup: string;
+  runtimeOverride: boolean;
+}
+
 export interface MetricsInternalsBrowserProxy {
   /**
    * Gets UMA log data. |includeLogProtoData| determines whether or not the
@@ -119,10 +133,27 @@ export interface MetricsInternalsBrowserProxy {
   fetchUmaSummary(): Promise<KeyValue[]>;
 
   /**
+   * Fetches a summary of UKM info.
+   */
+  fetchUkmSummary(): Promise<KeyValue[]>;
+
+  /**
+   * Gets UKM log data. |includeLogProtoData| determines whether or not the
+   * fetched data should also include the protos of the logs.
+   */
+  getUkmLogData(includeLogProtoData: boolean): Promise<string>;
+
+  /**
    * Fetches whether the logs observer being used is owned by the metrics
    * service or is owned by the page.
    */
   isUsingMetricsServiceObserver(): Promise<boolean>;
+
+  /**
+   * Fetches whether the UKM logs observer being used is owned by the UKM
+   * service or is owned by the page.
+   */
+  isUsingUkmServiceObserver(): Promise<boolean>;
 
   /**
    * Overrides the enroll state of a field trial which will be realized after a
@@ -147,6 +178,26 @@ export interface MetricsInternalsBrowserProxy {
    * Fetches the encryption public key.
    */
   fetchEncryptionPublicKey(): Promise<CwtKeyInfo>;
+
+  /**
+   * Fetches the current state of runtime mutable features.
+   */
+  fetchRuntimeMutableFeatures(): Promise<RuntimeMutableFeature[]>;
+
+  /**
+   * Returns true if background seed fetching is paused.
+   */
+  isSeedFetchingPaused(): Promise<boolean>;
+
+  /**
+   * Pauses or resumes background seed fetching.
+   */
+  setSeedFetchingPaused(paused: boolean): Promise<void>;
+
+  /**
+   * Uploads a variations seed to be processed.
+   */
+  uploadSeed(seed: Uint8Array): Promise<void>;
 
   /**
    * Restarts the browser.
@@ -174,8 +225,20 @@ export class MetricsInternalsBrowserProxyImpl implements
     return sendWithPromise('fetchUmaSummary');
   }
 
+  fetchUkmSummary(): Promise<KeyValue[]> {
+    return sendWithPromise('fetchUkmSummary');
+  }
+
+  getUkmLogData(includeLogProtoData: boolean): Promise<string> {
+    return sendWithPromise('fetchUkmLogsData', includeLogProtoData);
+  }
+
   isUsingMetricsServiceObserver(): Promise<boolean> {
     return sendWithPromise('isUsingMetricsServiceObserver');
+  }
+
+  isUsingUkmServiceObserver(): Promise<boolean> {
+    return sendWithPromise('isUsingUkmServiceObserver');
   }
 
   setTrialEnrollState(
@@ -195,6 +258,22 @@ export class MetricsInternalsBrowserProxyImpl implements
 
   fetchEncryptionPublicKey(): Promise<CwtKeyInfo> {
     return sendWithPromise('fetchEncryptionPublicKey');
+  }
+
+  fetchRuntimeMutableFeatures(): Promise<RuntimeMutableFeature[]> {
+    return sendWithPromise('fetchRuntimeMutableFeatures');
+  }
+
+  isSeedFetchingPaused(): Promise<boolean> {
+    return sendWithPromise('isSeedFetchingPaused');
+  }
+
+  setSeedFetchingPaused(paused: boolean): Promise<void> {
+    return sendWithPromise('setSeedFetchingPaused', paused);
+  }
+
+  uploadSeed(seed: Uint8Array): Promise<void> {
+    return sendWithPromise('uploadSeed', seed);
   }
 
   restart(): Promise<void> {

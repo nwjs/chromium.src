@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.compositor.overlays.strip;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -44,6 +45,8 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
+import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.MathUtils;
 import org.chromium.base.Token;
@@ -56,6 +59,7 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
+import org.chromium.chrome.browser.compositor.overlays.strip.TabContextMenuCoordinator.TabStripLayoutType;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
@@ -65,6 +69,8 @@ import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowApp
 import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestrator;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestratorFactory;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
+import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.MockTab;
 import org.chromium.chrome.browser.tab.Tab;
@@ -78,8 +84,8 @@ import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabRemover;
 import org.chromium.chrome.browser.tabmodel.TabUngrouper;
 import org.chromium.chrome.browser.tasks.tab_management.TabOverflowMenuCoordinator.OnItemClickedCallback;
-import org.chromium.chrome.browser.tasks.tab_management.color_picker.ColorPickerContainer;
-import org.chromium.chrome.browser.tasks.tab_management.color_picker.ColorPickerCoordinator;
+import org.chromium.chrome.browser.tasks.tab_management.color_picker.TabGroupColorPickerContainer;
+import org.chromium.chrome.browser.tasks.tab_management.color_picker.TabGroupColorPickerCoordinator;
 import org.chromium.chrome.test.util.browser.tabmodel.MockTabModel;
 import org.chromium.components.browser_ui.util.motion.MotionEventTestUtils;
 import org.chromium.components.browser_ui.widget.list_view.FakeListViewTouchTracker;
@@ -241,22 +247,7 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         when(mMultiInstanceManager.getInstanceInfo(ACTIVE))
                 .thenReturn(List.of(INSTANCE_INFO_1, INSTANCE_INFO_2));
         mSavedTabGroup.collaborationId = COLLABORATION_ID;
-        mOnItemClickedCallback =
-                TabGroupContextMenuCoordinator.getMenuItemClickedCallback(
-                        activity,
-                        () -> mTabModel,
-                        mMultiInstanceManager,
-                        mDataSharingTabManager,
-                        TabClosingSource.TABLET_TAB_STRIP);
-        mTabGroupContextMenuCoordinator =
-                TabGroupContextMenuCoordinator.createContextMenuCoordinator(
-                        mTabModel,
-                        mMultiInstanceManager,
-                        mWindowAndroid,
-                        mDataSharingTabManager,
-                        mReorderFunction,
-                        TabClosingSource.TABLET_TAB_STRIP);
-
+        initializeCoordinatorForTesting(TabStripLayoutType.HORIZONTAL);
         // Set group ids manually to bypass showMenu() call.
         mTabGroupContextMenuCoordinator.setGroupDataForTesting(TAB_GROUP_ID);
     }
@@ -264,6 +255,26 @@ public class TabGroupContextMenuCoordinatorUnitTest {
     @After
     public void tearDown() {
         mTabGroupContextMenuCoordinator.destroyMenuForTesting();
+    }
+
+    private void initializeCoordinatorForTesting(@TabStripLayoutType int layout) {
+        mOnItemClickedCallback =
+                TabGroupContextMenuCoordinator.getMenuItemClickedCallback(
+                        mActivity,
+                        () -> mTabModel,
+                        mMultiInstanceManager,
+                        mDataSharingTabManager,
+                        TabClosingSource.TABLET_TAB_STRIP,
+                        layout);
+        mTabGroupContextMenuCoordinator =
+                TabGroupContextMenuCoordinator.createContextMenuCoordinator(
+                        mTabModel,
+                        mMultiInstanceManager,
+                        mWindowAndroid,
+                        mDataSharingTabManager,
+                        mReorderFunction,
+                        TabClosingSource.TABLET_TAB_STRIP,
+                        layout);
     }
 
     @Test
@@ -416,8 +427,8 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         assertNotNull(groupTitleEditText);
 
         // Verify color picker.
-        ColorPickerCoordinator colorPickerCoordinator =
-                mTabGroupContextMenuCoordinator.getColorPickerCoordinatorForTesting();
+        TabGroupColorPickerCoordinator colorPickerCoordinator =
+                mTabGroupContextMenuCoordinator.getTabGroupColorPickerCoordinatorForTesting();
         assertNotNull(colorPickerCoordinator);
     }
 
@@ -645,6 +656,50 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         // Verify the previous title is deleted and is default to "N tabs"
         verify(mTabModel).deleteTabGroupTitle(TAB_GROUP_ID);
         assertEquals("1 tab", groupTitleEditText.getText().toString());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_VERTICAL_TABS)
+    @Config(qualifiers = "sw600dp")
+    @Feature("Vertical Tabs Tab Group Context Menu")
+    public void testKeyboardShowing_ForcesMenuLayoutUpdate() {
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.VERTICAL_TABS_ENABLED, true);
+        initializeCoordinatorForTesting(TabStripLayoutType.VERTICAL);
+        mTabGroupContextMenuCoordinator.setGroupDataForTesting(TAB_GROUP_ID);
+
+        mTabGroupContextMenuCoordinator.buildCustomView(mMenuView, /* isIncognito= */ false);
+        mTabGroupContextMenuCoordinator.showMenu(new RectProvider(), TAB_GROUP_ID);
+        assertTrue(
+                "Menu should be showing initially",
+                mTabGroupContextMenuCoordinator.isMenuShowing());
+
+        // Extract the internal listener that we defined/modified in the constructor.
+        KeyboardVisibilityDelegate.KeyboardVisibilityListener listener =
+                mTabGroupContextMenuCoordinator.getKeyboardVisibilityListenerForTesting();
+        assertNotNull("KeyboardVisibilityListener should not be null", listener);
+
+        // Clear all initialization/inflation tasks so the looper queue is completely empty.
+        ShadowLooper.getShadowMainLooper().runToEndOfTasks();
+        assertTrue(
+                "Looper must be idle before simulating the keyboard event",
+                ShadowLooper.getShadowMainLooper().isIdle());
+
+        // Simulate the keyboard surfacing (isShowing = true).
+        listener.keyboardVisibilityChanged(true);
+
+        // Check if a layout task was successfully scheduled on the looper.
+        assertFalse(
+                "The keyboard visibility change must schedule a layout task, making the looper"
+                    + " non-idle",
+                ShadowLooper.getShadowMainLooper().isIdle());
+
+        // Execute the posted layout task cleanly to finish the test cycle.
+        ShadowLooper.getShadowMainLooper().runToEndOfTasks();
+
+        assertTrue(
+                "Menu should remain displayable after layout update",
+                mTabGroupContextMenuCoordinator.isMenuShowing());
     }
 
     @Test
@@ -1165,7 +1220,7 @@ public class TabGroupContextMenuCoordinatorUnitTest {
 
     @Test
     @Feature("Tab Strip Group Context Menu")
-    public void testMenuWidthAndColorPicker_MainMenu() {
+    public void testMenuWidthAndTabGroupColorPicker_MainMenu() {
         mTabGroupContextMenuCoordinator.showMenu(new RectProvider(), TAB_GROUP_ID);
 
         // 1. Verify visibility of title editor and color picker.
@@ -1181,7 +1236,7 @@ public class TabGroupContextMenuCoordinatorUnitTest {
                 contentView.findViewById(R.id.color_picker_container).getVisibility());
 
         // 2. Verify menu width.
-        verifyMenuWidthAndColorPicker(contentView);
+        verifyMenuWidthAndTabGroupColorPicker(contentView);
     }
 
     @Test
@@ -1272,16 +1327,17 @@ public class TabGroupContextMenuCoordinatorUnitTest {
                 contentView.findViewById(R.id.color_picker_container).getVisibility());
 
         // 2. Verify menu width.
-        verifyMenuWidthAndColorPicker(contentView);
+        verifyMenuWidthAndTabGroupColorPicker(contentView);
     }
 
-    private void verifyMenuWidthAndColorPicker(View contentView) {
+    private void verifyMenuWidthAndTabGroupColorPicker(View contentView) {
         ListView listView = contentView.findViewById(R.id.tab_group_action_menu_list);
         // Hierarchy: ScrollView -> LinearLayout (container) -> FrameLayout -> ListView
         ViewGroup container = (ViewGroup) listView.getParent().getParent();
         int width = container.getLayoutParams().width;
 
-        ColorPickerContainer colorPicker = container.findViewById(R.id.color_picker_container);
+        TabGroupColorPickerContainer colorPicker =
+                container.findViewById(R.id.color_picker_container);
 
         int minWidthPx = mActivity.getResources().getDimensionPixelSize(R.dimen.list_menu_width);
         int maxWidthPx =

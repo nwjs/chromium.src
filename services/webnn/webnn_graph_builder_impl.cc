@@ -31,7 +31,6 @@
 #include "services/webnn/webnn_constant_operand.h"
 #include "services/webnn/webnn_graph_impl.h"
 #include "services/webnn/webnn_pending_constant_operand.h"
-#include "services/webnn/webnn_tensor_impl.h"
 #include "services/webnn/webnn_utils.h"
 #include "third_party/tflite/buildflags.h"
 
@@ -2957,21 +2956,15 @@ void WebNNGraphBuilderImpl::DidTransposePendingPermutations(
         constant_operands) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  mojo::PendingRemote<mojom::WebNNGraph> remote;
-  auto receiver = remote.InitWithNewPipeAndPassReceiver();
-
-  context_->BuildGraph(std::move(receiver), std::move(graph_info),
-                       std::move(compute_resource_info),
-                       std::move(constant_operands),
-                       /*constant_tensor_operands=*/{},
-                       base::BindOnce(&WebNNGraphBuilderImpl::DidCreateGraph,
-                                      weak_factory_.GetWeakPtr(),
-                                      std::move(callback), std::move(remote)));
+  context_->BuildGraph(
+      std::move(graph_info), std::move(compute_resource_info),
+      std::move(constant_operands),
+      base::BindOnce(&WebNNGraphBuilderImpl::DidCreateGraph,
+                     weak_factory_.GetWeakPtr(), std::move(callback)));
 }
 
 void WebNNGraphBuilderImpl::DidCreateGraph(
     CreateGraphCallback callback,
-    mojo::PendingRemote<mojom::WebNNGraph> remote,
     base::expected<GraphBuilderContext::GraphCreationResult, mojom::ErrorPtr>
         result) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -2986,8 +2979,7 @@ void WebNNGraphBuilderImpl::DidCreateGraph(
   }
 
   auto success = mojom::CreateGraphSuccess::New(
-      std::move(remote), result.value().graph_token,
-      std::move(result.value().devices));
+      result.value().graph_token, std::move(result.value().devices));
   std::move(callback).Run(std::move(success));
 }
 
@@ -3010,13 +3002,6 @@ WebNNGraphBuilderImpl::ValidateGraphImpl(
 
   // Can't exceed limit of OperandId type limit.
   if (graph_info.operands.size() >= UINT32_MAX) {
-    return std::nullopt;
-  }
-
-  // TODO(crbug.com/507879537): Constant tensor operands allow graph constants
-  // to be backed by MLTensors. No backend currently supports them, so reject
-  // graphs that use them until support is added.
-  if (!graph_info.id_to_constant_tensor_operand_map.empty()) {
     return std::nullopt;
   }
 

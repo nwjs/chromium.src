@@ -26,6 +26,7 @@
 #include "chrome/browser/gcm/gcm_profile_service_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/metrics/variations/google_groups_manager_factory.h"
+#include "chrome/browser/notebooks/notebooks_service_factory.h"
 #include "chrome/browser/password_manager/factories/account_password_store_factory.h"
 #include "chrome/browser/password_manager/factories/password_receiver_service_factory.h"
 #include "chrome/browser/password_manager/factories/password_sender_service_factory.h"
@@ -48,9 +49,7 @@
 #include "chrome/browser/sync/account_bookmark_sync_service_factory.h"
 #include "chrome/browser/sync/chrome_sync_client.h"
 #include "chrome/browser/sync/chrome_sync_controller_builder.h"
-#if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/sync/cross_device_theme_tracker_factory.h"
-#endif
 #include "chrome/browser/sync/data_type_store_service_factory.h"
 #include "chrome/browser/sync/device_info_sync_service_factory.h"
 #include "chrome/browser/sync/glue/extensions_activity_monitor.h"
@@ -58,6 +57,7 @@
 #include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
 #include "chrome/browser/sync/session_sync_service_factory.h"
 #include "chrome/browser/sync/sync_invalidations_service_factory.h"
+#include "chrome/browser/sync/tab_context_sync_service_factory.h"
 #include "chrome/browser/sync/user_event_service_factory.h"
 #include "chrome/browser/tab_group_sync/feature_utils.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
@@ -273,6 +273,8 @@ syncer::DataTypeController::TypeVector CreateCommonControllers(
       SendTabToSelfSyncServiceFactory::GetForProfile(profile));
   builder.SetSessionSyncService(
       SessionSyncServiceFactory::GetForProfile(profile));
+  builder.SetTabContextSyncService(
+      TabContextSyncServiceFactory::GetForProfile(profile));
   builder.SetSharingMessageBridge(
       SharingMessageBridgeFactory::GetForBrowserContext(profile));
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
@@ -289,6 +291,8 @@ syncer::DataTypeController::TypeVector CreateCommonControllers(
       skills::SkillsServiceFactory::GetForProfile(profile)
 #endif  // BUILDFLAG(IS_ANDROID)
   );
+  builder.SetNotebooksService(
+      notebooks::NotebooksServiceFactory::GetForProfile(profile));
 
   return builder.Build(/*disabled_types=*/{}, sync_service,
                        chrome::GetChannel());
@@ -361,10 +365,8 @@ syncer::DataTypeController::TypeVector CreateChromeControllers(
           : nullptr);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-#if !BUILDFLAG(IS_ANDROID)
   builder.SetCrossDeviceThemeTracker(
       CrossDeviceThemeTrackerFactory::GetForProfile(profile));
-#endif
 
   return builder.Build(sync_service);
 }
@@ -554,8 +556,8 @@ SyncServiceFactory::SyncServiceFactory()
   DependsOn(ConsentAuditorFactory::GetInstance());
 #if !BUILDFLAG(IS_ANDROID)
   DependsOn(contextual_tasks::ContextualTasksServiceFactory::GetInstance());
-  DependsOn(CrossDeviceThemeTrackerFactory::GetInstance());
 #endif  // !BUILDFLAG(IS_ANDROID)
+  DependsOn(CrossDeviceThemeTrackerFactory::GetInstance());
   DependsOn(DataTypeStoreServiceFactory::GetInstance());
   DependsOn(DeviceInfoSyncServiceFactory::GetInstance());
   DependsOn(data_sharing::DataSharingServiceFactory::GetInstance());
@@ -567,6 +569,7 @@ SyncServiceFactory::SyncServiceFactory()
   DependsOn(HistoryServiceFactory::GetInstance());
   DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(LocalOrSyncableBookmarkSyncServiceFactory::GetInstance());
+  DependsOn(notebooks::NotebooksServiceFactory::GetInstance());
 #if !BUILDFLAG(IS_ANDROID)
   DependsOn(PasskeyModelFactory::GetInstance());
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -585,6 +588,7 @@ SyncServiceFactory::SyncServiceFactory()
   DependsOn(SyncInvalidationsServiceFactory::GetInstance());
   DependsOn(supervised_user::FamilyLinkSettingsServiceFactory::GetInstance());
   DependsOn(SessionSyncServiceFactory::GetInstance());
+  DependsOn(TabContextSyncServiceFactory::GetInstance());
   DependsOn(TemplateURLServiceFactory::GetInstance());
 #if !BUILDFLAG(IS_ANDROID)
   DependsOn(ThemeServiceFactory::GetInstance());

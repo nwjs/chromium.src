@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/autofill/autofill_popup_view.h"
 #include "chrome/browser/ui/views/autofill/popup/password_favicon_loader.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_base_view.h"
+#include "chrome/browser/ui/views/autofill/popup/popup_interactive_row_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_search_bar_view.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
@@ -41,9 +42,7 @@ class TabbedPane;
 namespace autofill {
 
 class AutofillPopupController;
-class AutofillSuggestionController;
 class PopupBnplFootnoteView;
-class PopupPersonalContextNoticeView;
 class PopupSeparatorView;
 class PopupTitleView;
 class PopupWarningView;
@@ -92,12 +91,12 @@ class PopupViewViews : public PopupBaseView,
       kAutofillAccountNameEmailSuggestionElementId);
 
   using RowPointer = std::variant<PopupRowView*,
+                                  PopupInteractiveRowView*,
                                   PopupSeparatorView*,
                                   PopupTitleView*,
                                   PopupWarningView*,
                                   PopupLoadingView*,
-                                  PopupBnplFootnoteView*,
-                                  PopupPersonalContextNoticeView*>;
+                                  PopupBnplFootnoteView*>;
 
   // The maximum width of the popup.
   static constexpr int kAutofillPopupMaxWidth = 456;
@@ -119,7 +118,9 @@ class PopupViewViews : public PopupBaseView,
   // Constructor for creating sub-popups.
   PopupViewViews(base::WeakPtr<AutofillPopupController> controller,
                  base::WeakPtr<ExpandablePopupParentView> parent,
-                 views::Widget* parent_widget);
+                 views::Widget* parent_widget,
+                 std::optional<const AutofillPopupView::SubPopupConfig>
+                     sub_popup_config = std::nullopt);
 
   // Constructor for creating root level popups.
   // Providing `std::nullopt` to the `search_bar_config` results in creating a
@@ -131,7 +132,9 @@ class PopupViewViews : public PopupBaseView,
       std::optional<const AutofillPopupView::SearchBarConfig>
           search_bar_config = std::nullopt,
       std::optional<const AutofillPopupView::TabbedPaneConfig>
-          tabbed_pane_config = std::nullopt);
+          tabbed_pane_config = std::nullopt,
+      std::optional<const AutofillPopupView::SubPopupConfig> sub_popup_config =
+          std::nullopt);
   PopupViewViews(const PopupViewViews&) = delete;
   PopupViewViews& operator=(const PopupViewViews&) = delete;
   ~PopupViewViews() override;
@@ -155,7 +158,8 @@ class PopupViewViews : public PopupBaseView,
   std::optional<int32_t> GetAxUniqueId() override;
   void AxAnnounce(const std::u16string& text) override;
   base::WeakPtr<AutofillPopupView> CreateSubPopupView(
-      base::WeakPtr<AutofillSuggestionController> controller) override;
+      base::WeakPtr<AutofillPopupController> controller) override;
+  std::optional<size_t> GetIndexOfSubPopupAnchorSuggestion() const override;
   bool HasFocus() const override;
   base::WeakPtr<AutofillPopupView> GetWeakPtr() override;
 
@@ -216,21 +220,32 @@ class PopupViewViews : public PopupBaseView,
   // it to the user in the same message, separated by a comma.
   void MaybeAnnounceCurrentTabAndFootnote();
 
-  // Returns the `PopupRowView` at line number `index`. Assumes that there is
-  // such a view at that line number - otherwise the underlying variant will
-  // check false.
-  PopupRowView& GetPopupRowViewAt(size_t index) {
-    return *std::get<PopupRowView*>(rows_[index]);
+  // Returns the `PopupInteractiveRowView` at line number `index`. Assumes that
+  // there is such a view at that line number - otherwise the underlying variant
+  // will check false.
+  PopupInteractiveRowView& GetPopupInteractiveRowViewAt(size_t index) {
+    if (auto* row = std::get_if<PopupRowView*>(&rows_[index])) {
+      return **row;
+    }
+    return *std::get<PopupInteractiveRowView*>(rows_[index]);
   }
-  const PopupRowView& GetPopupRowViewAt(size_t index) const {
-    return *std::get<PopupRowView*>(rows_[index]);
+  const PopupInteractiveRowView& GetPopupInteractiveRowViewAt(
+      size_t index) const {
+    if (auto* row = std::get_if<PopupRowView*>(&rows_[index])) {
+      return **row;
+    }
+    return *std::get<PopupInteractiveRowView*>(rows_[index]);
   }
+
+  // Returns the `PopupRowView` if a row at the line number `index` is of
+  // `PopupRowView` type, otherwise null.
+  PopupRowView* MaybeGetPopupRowViewAt(size_t index);
 
   void UpdateAccessibleStates() const;
 
   // Returns whether the row at `index` exists, is a `PopupRowView` and is
   // selectable.
-  bool HasSelectablePopupRowViewAt(size_t index) const;
+  bool HasSelectablePopupInteractiveRowViewAt(size_t index) const;
 
   PopupBnplFootnoteView* GetBnplFootnoteView() const;
 
@@ -309,6 +324,9 @@ class PopupViewViews : public PopupBaseView,
   // the non-footer suggestions are scrolled independently).
   bool IsFooterScrollable() const;
 
+  int GetPopupMinWidth() const;
+  int GetPopupMaxWidth() const;
+
   bool CanShowDropdownInBounds(const gfx::Rect& bounds) const;
 
   // Opens a sub-popup on a new row (and closes the open one if any), or just
@@ -361,6 +379,8 @@ class PopupViewViews : public PopupBaseView,
       search_bar_config_;
   const std::optional<const AutofillPopupView::TabbedPaneConfig>
       tabbed_pane_config_;
+  const std::optional<const AutofillPopupView::SubPopupConfig>
+      sub_popup_config_;
   raw_ptr<PopupSearchBarView> search_bar_ = nullptr;
   raw_ptr<views::TabbedPane> tabbed_pane_ = nullptr;
   raw_ptr<views::BoxLayoutView> suggestions_container_ = nullptr;

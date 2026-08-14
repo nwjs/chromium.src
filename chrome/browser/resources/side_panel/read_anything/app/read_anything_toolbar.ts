@@ -5,11 +5,14 @@
 import './icons.html.js';
 import '../read_aloud/voice_selection_menu.js';
 import '../menus/simple_action_menu.js';
+import '../menus/appearance_menu.js';
+import '../menus/media_menu.js';
 import '../menus/color_menu.js';
 import '../menus/font_menu.js';
 import '../menus/line_focus_menu.js';
 import '../menus/line_spacing_menu.js';
 import '../menus/letter_spacing_menu.js';
+import '../menus/text_menu.js';
 import '../menus/highlight_menu.js';
 import '../menus/rate_menu.js';
 import '../menus/presentation_menu.js';
@@ -33,18 +36,21 @@ import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 
-import {DEFAULT_SETTINGS, SettingsOption, ToolbarEvent} from '../content/read_anything_types.js';
 import type {LineFocusMovement, LineFocusStyle, SettingsPrefs} from '../content/read_anything_types.js';
+import {DEFAULT_SETTINGS, SettingsOption, ToolbarEvent} from '../content/read_anything_types.js';
+import type {AppearanceMenuElement} from '../menus/appearance_menu.js';
 import type {ColorMenuElement} from '../menus/color_menu.js';
 import type {FontMenuElement} from '../menus/font_menu.js';
 import type {HighlightMenuElement} from '../menus/highlight_menu.js';
 import type {LetterSpacingMenuElement} from '../menus/letter_spacing_menu.js';
 import type {LineFocusMenuElement} from '../menus/line_focus_menu.js';
 import type {LineSpacingMenuElement} from '../menus/line_spacing_menu.js';
+import type {MediaMenuElement} from '../menus/media_menu.js';
 import type {ToolbarMenu} from '../menus/menu_util.js';
 import type {PresentationMenuElement} from '../menus/presentation_menu.js';
 import type {RateMenuElement} from '../menus/rate_menu.js';
 import type {SettingsMenuElement} from '../menus/settings_menu.js';
+import type {TextMenuElement} from '../menus/text_menu.js';
 import {getCurrentSpeechRate} from '../read_aloud/speech_presentation_rules.js';
 import type {VoiceSelectionMenuElement} from '../read_aloud/voice_selection_menu.js';
 import {minOverflowLengthToScroll, openMenu, spinnerDebounceTimeout} from '../shared/common.js';
@@ -58,10 +64,13 @@ import {getHtml} from './read_anything_toolbar.html.js';
 export interface ReadAnythingToolbarElement {
   $: {
     rateMenu: RateMenuElement,
+    appearanceMenu: AppearanceMenuElement,
+    mediaMenu: MediaMenuElement,
     colorMenu: ColorMenuElement,
     lineSpacingMenu: LineSpacingMenuElement,
     letterSpacingMenu: LetterSpacingMenuElement,
     fontMenu: FontMenuElement,
+    textMenu: TextMenuElement,
     fontSizeMenu: CrLazyRenderLitElement<CrActionMenuElement>,
     moreOptionsMenu: CrLazyRenderLitElement<CrActionMenuElement>,
     voiceSelectionMenu: VoiceSelectionMenuElement,
@@ -93,13 +102,25 @@ interface ToggleButton {
 export const moreOptionsClass = '.more-options-icon';
 
 // Link toggle button constants.
-export const LINKS_ENABLED_ICON = 'read-anything:links-enabled';
-export const LINKS_DISABLED_ICON = 'read-anything:links-disabled';
+export const LINKS_ENABLED_ICON =
+    loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+    'read-anything:link' :
+    'read-anything:links-enabled-old';
+export const LINKS_DISABLED_ICON =
+    loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+    'read-anything:link-off' :
+    'read-anything:links-disabled-old';
 export const LINK_TOGGLE_BUTTON_ID = 'link-toggle-button';
 
 // Images toggle button constants.
-export const IMAGES_ENABLED_ICON = 'read-anything:images-enabled';
-export const IMAGES_DISABLED_ICON = 'read-anything:images-disabled';
+export const IMAGES_ENABLED_ICON =
+    loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+    'read-anything:image' :
+    'read-anything:images-enabled-old';
+export const IMAGES_DISABLED_ICON =
+    loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+    'read-anything:hide-image' :
+    'read-anything:images-disabled-old';
 export const IMAGES_TOGGLE_BUTTON_ID = 'images-toggle-button';
 
 // Max number of paragraph elements inside an aria-live region for
@@ -152,8 +173,11 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
       isImmersiveMode: {type: Boolean},
       isReadAnythingPinned: {type: Boolean},
       isImmersiveEnabled_: {type: Boolean},
+      isLineFocusShowing: {type: Boolean},
       lineFocusStyle: {type: Object},
+      lineFocusEnabled: {type: Boolean},
       lineFocusMovement: {type: Number},
+      webuiRoundedIconsEnabled_: {type: Boolean},
     };
   }
 
@@ -179,7 +203,9 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
   accessor selectedVoice: SpeechSynthesisVoice|null = null;
   accessor pageLanguage: string = '';
   accessor isImmersiveMode: boolean = false;
+  accessor isLineFocusShowing: boolean = false;
   accessor lineFocusStyle: LineFocusStyle|null = null;
+  accessor lineFocusEnabled: boolean = false;
   accessor lineFocusMovement: LineFocusMovement|null = null;
   protected accessor hideSpinner_: boolean = true;
   protected accessor isImmersiveEnabled_: boolean = false;
@@ -199,6 +225,8 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     },
   ];
   protected accessor areFontsLoaded_: boolean = false;
+  protected accessor webuiRoundedIconsEnabled_: boolean =
+      loadTimeData.getBoolean('webuiRoundedIconsEnabled');
 
   // Member variables below
   private startTime_: number = Date.now();
@@ -398,7 +426,9 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
   private initializeMenuButtons_() {
     const fontSizeElement = {
       id: 'font-size',
-      icon: 'read-anything:font-size',
+      icon: loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+          'read-anything:format-size' :
+          'read-anything:font-size-old',
       ariaLabel: loadTimeData.getString('fontSizeTitle'),
       openMenu: (target: HTMLElement) =>
           openMenu(this.$.fontSizeMenu.get(), target),
@@ -413,26 +443,34 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
         fontSizeElement,
         {
           id: 'font',
-          icon: 'read-anything:font',
+          icon: loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+              'read-anything:font-download' :
+              'read-anything:font-old',
           ariaLabel: loadTimeData.getString('fontNameTitle'),
           openMenu: (target: HTMLElement) => this.$.fontMenu.open(target),
         },
         {
           id: 'color',
-          icon: 'read-anything:color',
+          icon: loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+              'read-anything:palette' :
+              'read-anything:color-old',
           ariaLabel: loadTimeData.getString('themeTitle'),
           openMenu: (target: HTMLElement) => this.$.colorMenu.open(target),
         },
         {
           id: 'line-spacing',
-          icon: 'read-anything:line-spacing',
+          icon: loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+              'read-anything:format-line-spacing' :
+              'read-anything:line-spacing-old',
           ariaLabel: loadTimeData.getString('lineSpacingTitle'),
           openMenu: (target: HTMLElement) =>
               this.$.lineSpacingMenu.open(target),
         },
         {
           id: 'letter-spacing',
-          icon: 'read-anything:letter-spacing',
+          icon: loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+              'read-anything:format-letter-spacing-2' :
+              'read-anything:letter-spacing-old',
           ariaLabel: loadTimeData.getString('letterSpacingTitle'),
           openMenu: (target: HTMLElement) =>
               this.$.letterSpacingMenu.open(target),
@@ -441,7 +479,9 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     if (chrome.readingMode.isLineFocusEnabled) {
       this.textStyleOptions_.push({
         id: 'line-focus',
-        icon: 'read-anything:line-focus',
+        icon: loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+            'read-anything:wb-incandescent' :
+            'read-anything:line-focus-old',
         ariaLabel: loadTimeData.getString('lineFocusLabel'),
         openMenu: (target: HTMLElement) => this.$.lineFocusMenu.open(target),
       });
@@ -530,8 +570,14 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
   }
 
   protected playPauseButtonIronIcon_() {
-    return this.isSpeechActive ? 'read-anything-20:pause' :
-                                 'read-anything-20:play';
+    if (this.isSpeechActive) {
+      return loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+          'read-anything-20:pause-circle-filled' :
+          'read-anything-20:pause-old';
+    }
+    return loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+        'read-anything-20:play-circle-filled' :
+        'read-anything-20:play-old';
   }
 
   protected onNextGranularityClick_() {
@@ -606,9 +652,17 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     const button = this.$.toolbarContainer.querySelector('#highlight');
     assert(button, 'no highlight button');
     if (turnOn) {
-      button.setAttribute('iron-icon', 'read-anything:highlight-on');
+      button.setAttribute(
+          'iron-icon',
+          loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+              'read-anything:ink-highlighter-move' :
+              'read-anything:highlight-on-old');
     } else {
-      button.setAttribute('iron-icon', 'read-anything:highlight-off');
+      button.setAttribute(
+          'iron-icon',
+          loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+              'read-anything:ink-highlighter' :
+              'read-anything:highlight-off-old');
     }
   }
 
@@ -752,6 +806,10 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     this.fire(ToolbarEvent.PLAY_PAUSE);
   }
 
+  protected onLineFocusOffClick_() {
+    this.fire(ToolbarEvent.LINE_FOCUS_TOGGLE, {data: false});
+  }
+
   protected onToolbarKeydown_(e: KeyboardEvent) {
     const toolbar = this.$.toolbarContainer;
     const buttons = Array.from(
@@ -811,6 +869,13 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     this.closeSubmenu_(event.detail.previousId);
   }
 
+  protected onTranslationRequested_() {
+    if (!chrome.readingMode.isReadAnythingTranslateEntryPointEnabled) {
+      return;
+    }
+    chrome.readingMode.onTranslationRequested();
+  }
+
   protected onOpenSettingsSubmenu_(event: CustomEvent<{
     id: SettingsOption,
     previousId: SettingsOption|null,
@@ -854,8 +919,11 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
 
   get settingsMenu_(): Partial<Record<SettingsOption, ToolbarMenu>> {
     return {
+      [SettingsOption.APPEARANCE]: this.$.appearanceMenu,
+      [SettingsOption.MEDIA]: this.$.mediaMenu,
       [SettingsOption.COLOR]: this.$.colorMenu,
       [SettingsOption.VOICE_HIGHLIGHT]: this.$.highlightMenu,
+      [SettingsOption.TEXT]: this.$.textMenu,
       [SettingsOption.FONT]: this.$.fontMenu,
       [SettingsOption.LETTER_SPACING]: this.$.letterSpacingMenu,
       [SettingsOption.LINE_FOCUS]: this.$.lineFocusMenu,

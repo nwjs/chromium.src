@@ -20,6 +20,9 @@
 // User tapped on the suggestion.
 - (void)didTapFormSuggestionLabel:(FormSuggestionLabel*)formSuggestionLabel;
 
+// Returns the display description for a suggestion.
+- (NSString*)displayDescriptionForSuggestion:(FormSuggestion*)suggestion;
+
 @end
 
 // Class for Autofill suggestion in the customized keyboard.

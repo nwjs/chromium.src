@@ -12,7 +12,10 @@ import static org.mockito.Mockito.when;
 
 import android.app.Activity;
 import android.transition.Transition;
+import android.view.InputDevice;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
+import android.view.PointerIcon;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
@@ -109,6 +112,7 @@ public class ActorOverlayCoordinatorTest {
                 new FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         mView = Mockito.spy(realView);
+        Mockito.when(mViewStub.getContext()).thenReturn(activity);
         Mockito.when(mViewStub.inflate()).thenReturn(mView);
 
         mTabObscuringHandler = new TabObscuringHandler();
@@ -148,11 +152,37 @@ public class ActorOverlayCoordinatorTest {
         mLayoutManagerSupplier.set(mLayoutManager);
     }
 
+    private void dispatchHover(ActorOverlayView view, int action, float x, float y) {
+        MotionEvent event = MotionEvent.obtain(0, 0, action, x, y, 0);
+        view.dispatchHoverEvent(event);
+        event.recycle();
+    }
+
+    private void dispatchTouch(ActorOverlayView view, int action, float x, float y) {
+        MotionEvent event = MotionEvent.obtain(0, 0, action, x, y, 0);
+        view.dispatchTouchEvent(event);
+        event.recycle();
+    }
+
+    private boolean hasStateHovered(int[] state) {
+        for (int attr : state) {
+            if (attr == android.R.attr.state_hovered) return true;
+        }
+        return false;
+    }
+
+    private boolean hasStatePressed(int[] state) {
+        for (int attr : state) {
+            if (attr == android.R.attr.state_pressed) return true;
+        }
+        return false;
+    }
+
     @Test
     public void testConstruction() {
         Assert.assertNotNull(mCoordinator.getMediator());
-        Assert.assertEquals(mView, mCoordinator.getView());
-        verify(mViewStub).inflate();
+        Assert.assertFalse(mCoordinator.isViewInflatedForTesting());
+        verify(mViewStub, Mockito.never()).inflate();
         Assert.assertTrue(mCurrentTabSupplier.hasObservers());
         verify(mBrowserControlsVisibilityManager).addObserver(any());
         verify(mLayoutManager).addObserver(any());
@@ -628,10 +658,15 @@ public class ActorOverlayCoordinatorTest {
         verify(mBrowserControlsVisibilityManager).addObserver(observerCaptor.capture());
 
         observerCaptor.getValue().onTopControlsHeightChanged(100, 0);
-        verify(mView).setMargins(0, 100, 0, 0);
-
         observerCaptor.getValue().onBottomControlsHeightChanged(50, 0);
-        verify(mView).setMargins(0, 100, 0, 50);
+
+        Assert.assertEquals(
+                100, mCoordinator.getModelForTesting().get(ActorOverlayProperties.TOP_MARGIN));
+        Assert.assertEquals(
+                50, mCoordinator.getModelForTesting().get(ActorOverlayProperties.BOTTOM_MARGIN));
+
+        mCoordinator.showOverlayForTesting(true);
+        verify(mView, Mockito.atLeastOnce()).setMargins(0, 100, 0, 50);
     }
 
     @Test
@@ -711,6 +746,141 @@ public class ActorOverlayCoordinatorTest {
     }
 
     @Test
+    public void testHoverStateWithTakeOverTaskButton() {
+        View button = mView.getTakeOverButton();
+        Assert.assertNotNull(button);
+        button.setVisibility(View.VISIBLE);
+
+        // Measure and layout so children have bounds.
+        mView.measure(
+                View.MeasureSpec.makeMeasureSpec(800, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(600, View.MeasureSpec.EXACTLY));
+        mView.layout(0, 0, 800, 600);
+
+        // Initially not hovered.
+        mView.setHovered(false);
+        button.setHovered(false);
+        mView.refreshDrawableState();
+        Assert.assertFalse(hasStateHovered(mView.getDrawableState()));
+
+        // Directly hovering over ActorOverlayView.
+        mView.setHovered(true);
+        mView.refreshDrawableState();
+        Assert.assertTrue(hasStateHovered(mView.getDrawableState()));
+
+        // Hovering over the take over button (ActorOverlayView itself is no longer hovered).
+        mView.setHovered(false);
+        float buttonX = button.getX() + button.getWidth() / 2f;
+        float buttonY = button.getY() + button.getHeight() / 2f;
+        dispatchHover(mView, MotionEvent.ACTION_HOVER_ENTER, buttonX, buttonY);
+        Assert.assertTrue(hasStateHovered(mView.getDrawableState()));
+
+        // Exiting hover completely.
+        dispatchHover(mView, MotionEvent.ACTION_HOVER_EXIT, -1f, -1f);
+        Assert.assertFalse(hasStateHovered(mView.getDrawableState()));
+    }
+
+    @Test
+    public void testHoverExitDuringMousePress() {
+        mView.measure(
+                View.MeasureSpec.makeMeasureSpec(800, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(600, View.MeasureSpec.EXACTLY));
+        mView.layout(0, 0, 800, 600);
+
+        dispatchHover(mView, MotionEvent.ACTION_HOVER_ENTER, 100f, 100f);
+        Assert.assertTrue(hasStateHovered(mView.getDrawableState()));
+
+        // ACTION_HOVER_EXIT inside view bounds (e.g. trackpad tap/click) should retain hover state.
+        dispatchHover(mView, MotionEvent.ACTION_HOVER_EXIT, 100f, 100f);
+        Assert.assertTrue(mView.isHovered());
+        Assert.assertTrue(hasStateHovered(mView.getDrawableState()));
+
+        // ACTION_HOVER_EXIT outside view bounds (e.g. mouse cursor moved away) should exit hover.
+        dispatchHover(mView, MotionEvent.ACTION_HOVER_EXIT, -10f, -10f);
+        Assert.assertFalse(mView.isHovered());
+        Assert.assertFalse(hasStateHovered(mView.getDrawableState()));
+    }
+
+    @Test
+    public void testClickAndDragOutClearsHover() {
+        mView.measure(
+                View.MeasureSpec.makeMeasureSpec(800, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(600, View.MeasureSpec.EXACTLY));
+        mView.layout(0, 0, 800, 600);
+
+        // Hover enter
+        dispatchHover(mView, MotionEvent.ACTION_HOVER_ENTER, 100f, 100f);
+        Assert.assertTrue(hasStateHovered(mView.getDrawableState()));
+
+        // Start click inside bounds (ACTION_HOVER_EXIT inside, then ACTION_DOWN)
+        dispatchHover(mView, MotionEvent.ACTION_HOVER_EXIT, 100f, 100f);
+        dispatchTouch(mView, MotionEvent.ACTION_DOWN, 100f, 100f);
+        Assert.assertTrue(hasStateHovered(mView.getDrawableState()));
+
+        // Drag out (ACTION_MOVE outside view bounds)
+        dispatchTouch(mView, MotionEvent.ACTION_MOVE, -10f, -10f);
+        Assert.assertTrue(hasStateHovered(mView.getDrawableState()));
+
+        // Release outside (ACTION_UP outside) -> should clear hover state.
+        dispatchTouch(mView, MotionEvent.ACTION_UP, -10f, -10f);
+        Assert.assertFalse(hasStateHovered(mView.getDrawableState()));
+    }
+
+    @Test
+    public void testPressedState() {
+        mView.setPressed(false);
+        mView.refreshDrawableState();
+        Assert.assertFalse(hasStatePressed(mView.getDrawableState()));
+
+        mView.setPressed(true);
+        mView.refreshDrawableState();
+        Assert.assertTrue(hasStatePressed(mView.getDrawableState()));
+
+        mView.setPressed(false);
+        mView.refreshDrawableState();
+        Assert.assertFalse(hasStatePressed(mView.getDrawableState()));
+    }
+
+    @Test
+    public void testInputInterception() {
+        MotionEvent.PointerProperties pp = new MotionEvent.PointerProperties();
+        pp.id = 0;
+        pp.toolType = MotionEvent.TOOL_TYPE_MOUSE;
+
+        MotionEvent.PointerCoords pc = new MotionEvent.PointerCoords();
+        pc.x = 100f;
+        pc.y = 100f;
+
+        MotionEvent mouseEvent =
+                MotionEvent.obtain(
+                        0,
+                        0,
+                        MotionEvent.ACTION_SCROLL,
+                        1,
+                        new MotionEvent.PointerProperties[] {pp},
+                        new MotionEvent.PointerCoords[] {pc},
+                        0,
+                        0,
+                        1.0f,
+                        1.0f,
+                        0,
+                        0,
+                        InputDevice.SOURCE_MOUSE,
+                        0);
+
+        Assert.assertTrue(mView.onGenericMotionEvent(mouseEvent));
+        mouseEvent.recycle();
+
+        PointerIcon expectedIcon =
+                PointerIcon.getSystemIcon(mView.getContext(), PointerIcon.TYPE_NO_DROP);
+        Assert.assertEquals(expectedIcon, mView.getPointerIcon());
+
+        PointerIcon expectedButtonIcon =
+                PointerIcon.getSystemIcon(mView.getContext(), PointerIcon.TYPE_HAND);
+        Assert.assertEquals(expectedButtonIcon, mView.getTakeOverButton().getPointerIcon());
+    }
+
+    @Test
     public void testSideUiIntegration() {
         ArgumentCaptor<SideUiObserver> observerCaptor =
                 ArgumentCaptor.forClass(SideUiObserver.class);
@@ -727,7 +897,11 @@ public class ActorOverlayCoordinatorTest {
         Assert.assertEquals(120, model.get(ActorOverlayProperties.LEFT_MARGIN));
         Assert.assertEquals(80, model.get(ActorOverlayProperties.RIGHT_MARGIN));
 
-        // Test onPreSideUiSpecsChange returns transition
+        // Test onPreSideUiSpecsChange returns null when view is not visible / not inflated
+        Assert.assertNull(observer.onPreSideUiSpecsChange(specs));
+
+        // Test onPreSideUiSpecsChange returns transition when visible
+        mCoordinator.showOverlayForTesting(true);
         Transition transition = observer.onPreSideUiSpecsChange(specs);
         Assert.assertNotNull(transition);
     }
@@ -749,6 +923,44 @@ public class ActorOverlayCoordinatorTest {
         PropertyModel model = coordinator.getModelForTesting();
         Assert.assertEquals(0, model.get(ActorOverlayProperties.LEFT_MARGIN));
         Assert.assertEquals(0, model.get(ActorOverlayProperties.RIGHT_MARGIN));
+    }
+
+    @Test
+    public void testModelChangesPriorToInflationDoNotNpeAndBindOnInflation() {
+        // Verify view is not inflated initially.
+        Assert.assertFalse(mCoordinator.isViewInflatedForTesting());
+        verify(mViewStub, Mockito.never()).inflate();
+
+        // Mutate various model properties while the view is uninflated.
+        PropertyModel model = mCoordinator.getModelForTesting();
+        model.set(ActorOverlayProperties.LEFT_MARGIN, 20);
+        model.set(ActorOverlayProperties.TOP_MARGIN, 30);
+        model.set(ActorOverlayProperties.RIGHT_MARGIN, 40);
+        model.set(ActorOverlayProperties.BOTTOM_MARGIN, 50);
+        model.set(ActorOverlayProperties.TAKE_OVER_TASK_BUTTON_VISIBLE, true);
+
+        // Verify properties are updated safely in the model without any NPE or ViewStub inflation.
+        Assert.assertEquals(20, model.get(ActorOverlayProperties.LEFT_MARGIN));
+        Assert.assertEquals(30, model.get(ActorOverlayProperties.TOP_MARGIN));
+        Assert.assertEquals(40, model.get(ActorOverlayProperties.RIGHT_MARGIN));
+        Assert.assertEquals(50, model.get(ActorOverlayProperties.BOTTOM_MARGIN));
+        Assert.assertTrue(model.get(ActorOverlayProperties.TAKE_OVER_TASK_BUTTON_VISIBLE));
+        Assert.assertFalse(mCoordinator.isViewInflatedForTesting());
+        verify(mViewStub, Mockito.never()).inflate();
+
+        // Transition VISIBLE to true, which should trigger lazy inflation and initial bind.
+        mCoordinator.showOverlayForTesting(true);
+
+        // Verify view is now inflated and all buffered properties are bound.
+        Assert.assertTrue(mCoordinator.isViewInflatedForTesting());
+        verify(mViewStub, Mockito.times(1)).inflate();
+        verify(mView, Mockito.atLeastOnce()).setMargins(20, 30, 40, 50);
+        View takeOverButton = mView.findViewById(R.id.take_over_task_button);
+        Assert.assertEquals(View.VISIBLE, takeOverButton.getVisibility());
+
+        // Verify subsequent updates while inflated propagate directly to the view.
+        model.set(ActorOverlayProperties.TAKE_OVER_TASK_BUTTON_VISIBLE, false);
+        Assert.assertEquals(View.GONE, takeOverButton.getVisibility());
     }
 
     @Test

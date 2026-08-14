@@ -35,7 +35,7 @@
 #import "ui/base/l10n/l10n_util_mac.h"
 
 @interface AutofillAIBaseMediator () <IOSAutofillEntityDataManagerObserver,
-                                     PrefObserverDelegate>
+                                      PrefObserverDelegate>
 @end
 
 @implementation AutofillAIBaseMediator {
@@ -48,11 +48,6 @@
 
   std::unique_ptr<PrefObserverBridge> _prefObserverBridge;
   PrefChangeRegistrar _prefChangeRegistrar;
-}
-
-- (instancetype)initWithEntityDataManager:
-    (autofill::EntityDataManager*)entityDataManager {
-  return [self initWithEntityDataManager:entityDataManager prefService:nullptr];
 }
 
 - (instancetype)initWithEntityDataManager:

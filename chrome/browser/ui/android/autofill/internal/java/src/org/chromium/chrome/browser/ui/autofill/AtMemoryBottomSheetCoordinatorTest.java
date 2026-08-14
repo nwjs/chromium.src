@@ -8,6 +8,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -23,6 +24,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.build.annotations.NullMarked;
@@ -108,5 +110,38 @@ public class AtMemoryBottomSheetCoordinatorTest {
         // the at.memory search. The list of suggestions are shown and the user clicks
         // the detail page button, then the flyout screen is shown. In that case, the
         // bottom sheet should be updated to show the flyout.
+    }
+
+    @Test
+    public void testExpand_WhenSheetStateFull_AndNotExpandInFullHeight() {
+        when(mBottomSheetController.getSheetState())
+                .thenReturn(BottomSheetController.SheetState.FULL);
+
+        mCoordinator.expand(/* expandInFullHeight= */ false);
+        ShadowLooper.idleMainLooper();
+
+        verify(mBottomSheetController, never()).expandSheet(eq(true));
+    }
+
+    @Test
+    public void testExpand_WhenSheetStateHalf_AndNotExpandInFullHeight() {
+        when(mBottomSheetController.getSheetState())
+                .thenReturn(BottomSheetController.SheetState.HALF);
+
+        mCoordinator.expand(/* expandInFullHeight= */ false);
+        ShadowLooper.idleMainLooper();
+
+        verify(mBottomSheetController).expandSheet(eq(true));
+    }
+
+    @Test
+    public void testExpand_WhenSheetStateFull_AndExpandInFullHeight() {
+        when(mBottomSheetController.getSheetState())
+                .thenReturn(BottomSheetController.SheetState.FULL);
+
+        mCoordinator.expand(/* expandInFullHeight= */ true);
+        ShadowLooper.idleMainLooper();
+
+        verify(mBottomSheetController).expandSheet(eq(true));
     }
 }

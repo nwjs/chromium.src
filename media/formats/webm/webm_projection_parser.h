@@ -38,14 +38,13 @@ class MEDIA_EXPORT WebMProjectionParser : public WebMParserClient {
   // WebMParserClient implementation.
   bool OnUInt(int id, int64_t val) override;
   bool OnFloat(int id, double val) override;
-  bool OnBinary(int id, const uint8_t* data, int size) override;
+  bool OnBinary(int id, base::span<const uint8_t> data) override;
 
   // private data
   const std::unique_ptr<MediaLog> media_log_;
   std::optional<int64_t> projection_type_;
   std::vector<uint8_t> projection_private_;
   std::optional<double> pose_yaw_;    // value must be [-180, 180]
-  std::optional<double> pose_pitch_;  // value must be [-90, 90]
   std::optional<double> pose_roll_;   // value must be [-180, 180]
 
   // Derived fields, used to store calculated projection type and

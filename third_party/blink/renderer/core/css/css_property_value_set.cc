@@ -22,6 +22,7 @@
  */
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
 
+#include "base/numerics/safe_conversions.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_identifier_value.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser.h"
@@ -41,8 +42,7 @@
 namespace blink {
 
 static AdditionalBytes
-AdditionalBytesForImmutableCSSPropertyValueSetWithPropertyCount(
-    unsigned count) {
+AdditionalBytesForImmutableCSSPropertyValueSetWithPropertyCount(size_t count) {
   return AdditionalBytes(sizeof(CSSPropertyValue) * count);
 }
 
@@ -111,7 +111,7 @@ ImmutableCSSPropertyValueSet::ImmutableCSSPropertyValueSet(
     CSSParserMode css_parser_mode,
     bool contains_query_hand)
     : CSSPropertyValueSet(css_parser_mode,
-                          properties.size(),
+                          base::checked_cast<unsigned>(properties.size()),
                           contains_query_hand) {
   const unsigned array_size = bits_.get<ArraySizeField>();
   if (array_size > 0) {
@@ -680,7 +680,8 @@ MutableCSSPropertyValueSet::SetResult
 MutableCSSPropertyValueSet::AddParsedProperties(
     base::span<CSSPropertyValue> properties) {
   SetResult changed = kUnchanged;
-  property_vector_.reserve(property_vector_.size() + properties.size());
+  property_vector_.reserve(base::checked_cast<wtf_size_t>(
+      property_vector_.size() + properties.size()));
   for (const CSSPropertyValue& property : properties) {
     changed = std::max(changed, SetLonghandProperty(property));
   }
@@ -824,17 +825,27 @@ bool CSSPropertyValueSet::ShorthandPropertyMatches(
 
 void MutableCSSPropertyValueSet::RemoveEquivalentProperties(
     const CSSPropertyValueSet* style) {
-  Vector<CSSPropertyID> properties_to_remove;
-  unsigned size = property_vector_.size();
-  for (unsigned i = 0; i < size; ++i) {
-    const CSSPropertyValue& property = PropertyAt(i);
-    if (style->PropertyMatches(property.PropertyID(), property.Value())) {
-      properties_to_remove.push_back(property.PropertyID());
+  base::span<CSSPropertyValue> properties(property_vector_);
+  unsigned old_size = property_vector_.size();
+  unsigned new_index = 0;
+  for (unsigned old_index = 0; old_index < old_size; ++old_index) {
+    const CSSPropertyValue& property = properties[old_index];
+    // Custom properties are unconditionally kept: PropertyMatches() compares by
+    // CSSPropertyID, which is kVariable for every custom property, so it cannot
+    // distinguish them by name. Skipping them here keeps that latent ambiguity
+    // out of this editing-only path.
+    if (property.PropertyID() != CSSPropertyID::kVariable &&
+        style->PropertyMatches(property.PropertyID(), property.Value())) {
+      if (property.PropertyID() == CSSPropertyID::kAll) {
+        bits_.set<HasAllField>(false);
+      }
+      continue;
     }
+    properties[new_index++] = property;
   }
-  // FIXME: This should use mass removal.
-  for (CSSPropertyID id : properties_to_remove) {
-    RemoveProperty(id);
+  if (new_index != old_size) {
+    property_vector_.Shrink(new_index);
+    InvalidateHashIfComputed();
   }
 }
 

@@ -8,8 +8,8 @@
 
 #include "base/functional/bind.h"
 #include "base/logging.h"
-#include "base/metrics/histogram_functions.h"
 #include "base/notimplemented.h"
+#include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
@@ -19,6 +19,7 @@
 #include "chrome/browser/ui/views/payments/contact_info_editor_view_controller.h"
 #include "chrome/browser/ui/views/payments/error_message_view_controller.h"
 #include "chrome/browser/ui/views/payments/order_summary_view_controller.h"
+#include "chrome/browser/ui/views/payments/payment_app_loading_view.h"
 #include "chrome/browser/ui/views/payments/payment_handler_web_flow_view_controller.h"
 #include "chrome/browser/ui/views/payments/payment_method_view_controller.h"
 #include "chrome/browser/ui/views/payments/payment_request_views_util.h"
@@ -86,9 +87,8 @@ std::unique_ptr<views::View> CreateViewAndInstallController(
 
 // static
 base::WeakPtr<PaymentRequestDialogView> PaymentRequestDialogView::Create(
-    base::WeakPtr<PaymentRequest> request,
-    base::WeakPtr<PaymentRequestDialogView::ObserverForTest> observer) {
-  return (new PaymentRequestDialogView(request, observer))
+    base::WeakPtr<PaymentRequest> request) {
+  return (new PaymentRequestDialogView(request, /*observer=*/nullptr))
       ->weak_ptr_factory_.GetWeakPtr();
 }
 
@@ -115,7 +115,9 @@ void PaymentRequestDialogView::OnDialogClosed() {
   }
   RemoveChildViewT(view_stack_.get());
   controller_map_.clear();
-  request_->OnUserCancelled();
+  if (request_) {
+    request_->OnUserCancelled();
+  }
 
   if (observer_for_testing_) {
     observer_for_testing_->OnDialogClosed();
@@ -134,6 +136,7 @@ bool PaymentRequestDialogView::ShouldShowCloseButton() const {
 
 void PaymentRequestDialogView::ShowDialog() {
   if (!DialogFitsInBrowserWindow()) {
+    VLOG(2) << "ShowDialog: Rejected because dialog does not fit";
     request_->SetWindowSizeCheckRejectionReason(
         JourneyLogger::WindowSizeCheckRejectionReason::kRejectedAtShow);
 
@@ -163,9 +166,20 @@ void PaymentRequestDialogView::ShowDialog() {
 
 void PaymentRequestDialogView::CloseDialog() {
   if (GetWidget()) {
-    // This calls PaymentRequestDialogView::Cancel() before closing.
-    // ViewHierarchyChanged() also gets called after Cancel().
-    GetWidget()->Close();
+    if (base::FeatureList::IsEnabled(
+            features::kPaymentRequestMandatoryPaymentAppUi)) {
+      // To avoid deleting the PaymentRequest and ChromePaymentRequestDelegate
+      // while their methods are on the call stack, we post a task to close the
+      // widget.
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE,
+          base::BindOnce(&views::Widget::Close, GetWidget()->GetWeakPtr(),
+                         /*force=*/false));
+    } else {
+      // This calls PaymentRequestDialogView::Cancel() before closing.
+      // ViewHierarchyChanged() also gets called after Cancel().
+      GetWidget()->Close();
+    }
   }
 }
 
@@ -180,6 +194,19 @@ void PaymentRequestDialogView::ShowErrorMessage() {
                             weak_ptr_factory_.GetWeakPtr()),
                         &controller_map_),
                     /* animate = */ false);
+
+  if (base::FeatureList::IsEnabled(
+          features::kPaymentRequestMandatoryPaymentAppUi)) {
+    is_showing_large_payment_handler_window_ = true;
+    int preferred_height =
+        view_stack_->top()->GetHeightForWidth(GetActualDialogWidth());
+
+    payment_handler_window_height_ = std::clamp(
+        preferred_height, kPreferredPaymentHandlerErrorMessageDialogHeight,
+        kPreferredPaymentHandlerDialogHeight);
+    ResizeDialogWindow();
+  }
+
   HideProcessingSpinner();
 
   if (observer_for_testing_) {
@@ -197,8 +224,29 @@ void PaymentRequestDialogView::ShowProcessingSpinner() {
   }
 }
 
+void PaymentRequestDialogView::ShowLoadingView() {
+  CHECK(request_->state()->selected_app());
+  loading_view_overlay_ = AddChildView(std::make_unique<PaymentAppLoadingView>(
+      request_->state()->selected_app()->icon_bitmap(),
+      GURL(request_->state()->selected_app()->GetId()),
+      request_->state()->GetTopOrigin(),
+      base::BindRepeating(&PaymentRequestDialogView::CloseDialog,
+                          weak_ptr_factory_.GetWeakPtr())));
+  // loading_view_overlay_ paints to a layer, and currently layers don't clip to
+  // the bounds of the window opaque layer. Until this is fixed, we have to set
+  // rounded corners directly here.
+  // TODO(crbug.com/358379367): Remove once layers obey the clip by default.
+  loading_view_overlay_->layer()->SetRoundedCornerRadius(
+      gfx::RoundedCornersF(GetCornerRadius()));
+
+  if (observer_for_testing_) {
+    observer_for_testing_->OnLoadingViewShown();
+  }
+}
+
 bool PaymentRequestDialogView::IsInteractive() const {
-  return !throbber_overlay_->GetVisible();
+  return !throbber_overlay_->GetVisible() &&
+         (!loading_view_overlay_ || !loading_view_overlay_->GetVisible());
 }
 
 void PaymentRequestDialogView::ShowPaymentHandlerScreen(
@@ -226,6 +274,7 @@ void PaymentRequestDialogView::ShowPaymentHandlerScreen(
   // Once we have resized the dialog, re-check that it still fits in the
   // available window space.
   if (!DialogFitsInBrowserWindow()) {
+    VLOG(2) << "ShowPaymentHandlerScreen: Rejected because dialog does not fit";
     request_->SetWindowSizeCheckRejectionReason(
         JourneyLogger::WindowSizeCheckRejectionReason::
             kRejectedAtPaymentHandlerTransition);
@@ -246,7 +295,12 @@ void PaymentRequestDialogView::ShowPaymentHandlerScreen(
       /* animate = */ !is_showing_large_payment_handler_window_ &&
           !request_->skipped_payment_request_ui());
   request_->OnPaymentHandlerOpenWindowCalled();
-  HideProcessingSpinner();
+  if (base::FeatureList::IsEnabled(
+          features::kPaymentRequestMandatoryPaymentAppUi)) {
+    HideLoadingView();
+  } else {
+    HideProcessingSpinner();
+  }
   if (observer_for_testing_) {
     observer_for_testing_->OnPaymentHandlerWindowOpened();
   }
@@ -553,6 +607,23 @@ void PaymentRequestDialogView::HideProcessingSpinner() {
   }
 }
 
+void PaymentRequestDialogView::HideLoadingView() {
+  if (loading_view_overlay_) {
+    loading_view_overlay_->Hide(
+        base::BindOnce(&PaymentRequestDialogView::RemoveLoadingView,
+                       weak_ptr_factory_.GetWeakPtr()));
+  }
+}
+
+void PaymentRequestDialogView::RemoveLoadingView() {
+  if (loading_view_overlay_) {
+    RemoveChildViewT(std::exchange(loading_view_overlay_, nullptr));
+    if (observer_for_testing_) {
+      observer_for_testing_->OnLoadingViewHidden();
+    }
+  }
+}
+
 Profile* PaymentRequestDialogView::GetProfile() {
   return Profile::FromBrowserContext(
       request_->web_contents()->GetBrowserContext());
@@ -756,25 +827,35 @@ void PaymentRequestDialogView::ResizeDialogWindow() {
 void PaymentRequestDialogView::CheckIfDialogFitsInBrowserWindow() {
   last_check_for_too_small_window_time_ = base::TimeTicks::Now();
   if (!DialogFitsInBrowserWindow()) {
+    VLOG(2) << "After browser resize: Rejected because dialog does not fit";
     request_->SetWindowSizeCheckRejectionReason(
         JourneyLogger::WindowSizeCheckRejectionReason::kRejectedAtResize);
     request_->OnInternalError(errors::kBrowserWindowTooSmall);
   }
+
+  if (observer_for_testing_) {
+    observer_for_testing_->OnDialogSizeCheckAfterBrowserResize();
+  }
 }
 
 bool PaymentRequestDialogView::DialogFitsInBrowserWindow() const {
+  VLOG(2) << "DialogFitsInBrowserWindow called";
   if (!base::FeatureList::IsEnabled(
           features::kPaymentRequestRejectTooSmallWindows)) {
+    VLOG(2) << "DialogFitsInBrowserWindow: Feature disabled, returning true";
     return true;
   }
 
   // This method may trigger from the timer after our PaymentRequest is no
   // longer valid but before we ourselves have been torn down.
   if (!request_) {
+    VLOG(2) << "DialogFitsInBrowserWindow: request_ is null, returning true";
     return true;
   }
 
   if (!request_->window_size_check_enabled()) {
+    VLOG(2) << "DialogFitsInBrowserWindow: Window size check disabled, "
+               "returning true";
     return true;
   }
 
@@ -789,28 +870,53 @@ bool PaymentRequestDialogView::DialogFitsInBrowserWindow() const {
     // exists, we can use it directly to do the size calculation.
     gfx::Size payment_request_size =
         CalculatePreferredSize(views::SizeBounds());
-    gfx::Rect dialog_bounds;
+    gfx::Point origin_in_browser;
     if (GetWidget()) {
-      dialog_bounds = GetWidget()->GetWindowBoundsInScreen();
-      gfx::Point origin_in_browser = views::View::ConvertPointFromScreen(
+      gfx::Rect dialog_bounds = GetWidget()->GetWindowBoundsInScreen();
+      origin_in_browser = views::View::ConvertPointFromScreen(
           browser_widget->GetRootView(), dialog_bounds.origin());
-      payment_request_size =
-          gfx::Size(origin_in_browser.x() + dialog_bounds.width(),
-                    origin_in_browser.y() + dialog_bounds.height());
+      payment_request_size = dialog_bounds.size();
+      VLOG(2) << "DialogFitsInBrowserWindow: Dialog widget exists. "
+              << "Dialog bounds: " << dialog_bounds.ToString()
+              << ", origin in browser: " << origin_in_browser.ToString();
+    } else {
+      VLOG(2) << "DialogFitsInBrowserWindow: Dialog widget does not exist. "
+              << "Preferred size: " << payment_request_size.ToString();
     }
 
+    gfx::Size unscaled_payment_request_size = payment_request_size;
     // Add a small buffer, as even if the Payment Request/Dialog can technically
     // fit in the window, it is a bad experience if it consumes the entire
     // window - the user should remain aware of the background context.
     payment_request_size = gfx::ScaleToRoundedSize(payment_request_size,
                                                    kMinimumWindowToDialogRatio);
+    gfx::Size scaled_dialog_size = payment_request_size;
+
+    // Offset the size by the position of the dialog within the browser window,
+    // to find the actual size the browser window needs to have to fit it.
+    payment_request_size.Enlarge(origin_in_browser.x(), origin_in_browser.y());
+
+    VLOG(2) << "DialogFitsInBrowserWindow: "
+            << "Browser bounds: " << browser_bounds.ToString()
+            << ", Dialog size (unscaled): "
+            << unscaled_payment_request_size.ToString()
+            << ", Dialog size (scaled): " << scaled_dialog_size.ToString()
+            << ", Required window size (scaled + offset): "
+            << payment_request_size.ToString();
 
     if (browser_bounds.width() < payment_request_size.width() ||
         browser_bounds.height() < payment_request_size.height()) {
+      VLOG(2)
+          << "DialogFitsInBrowserWindow: Dialog does NOT fit, returning false";
       return false;
     }
+  } else {
+    VLOG(2) << "DialogFitsInBrowserWindow: Browser widget is null, will return "
+               "true by default";
+    return true;
   }
 
+  VLOG(2) << "DialogFitsInBrowserWindow: Dialog fits, returning true";
   return true;
 }
 

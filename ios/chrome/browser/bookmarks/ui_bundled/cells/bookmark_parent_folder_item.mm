@@ -92,7 +92,7 @@
   // Slashed cloud view
   // TODO(crbug.com/40259682) Check with EGTest the cloud appears when expected.
   UIImage* cloudSlashedImage =
-      CustomSymbolWithPointSize(kCloudSlashSymbol, kCloudSlashSymbolPointSize);
+      SymbolWithPointSize(SymbolCloudSlash, kCloudSlashSymbolPointSize);
   self.cloudSlashedView = [[UIImageView alloc] initWithImage:cloudSlashedImage];
   self.cloudSlashedView.tintColor = CloudSlashTintColor();
   self.cloudSlashedView.hidden = YES;
@@ -136,7 +136,7 @@
 
 - (void)applyContentSizeCategoryStyles {
   if (UIContentSizeCategoryIsAccessibilityCategory(
-          UIScreen.mainScreen.traitCollection.preferredContentSizeCategory)) {
+          self.traitCollection.preferredContentSizeCategory)) {
     self.stackView.axis = UILayoutConstraintAxisVertical;
     self.stackView.alignment = UIStackViewAlignmentLeading;
     self.parentFolderNameLabel.textAlignment = NSTextAlignmentLeft;

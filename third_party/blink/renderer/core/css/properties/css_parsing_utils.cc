@@ -51,6 +51,7 @@
 #include "third_party/blink/renderer/core/css/css_numeric_literal_value.h"
 #include "third_party/blink/renderer/core/css/css_paint_value.h"
 #include "third_party/blink/renderer/core/css/css_palette_mix_value.h"
+#include "third_party/blink/renderer/core/css/css_param_value_pair.h"
 #include "third_party/blink/renderer/core/css/css_path_value.h"
 #include "third_party/blink/renderer/core/css/css_primitive_value.h"
 #include "third_party/blink/renderer/core/css/css_progress_value.h"
@@ -69,6 +70,7 @@
 #include "third_party/blink/renderer/core/css/css_string_value.h"
 #include "third_party/blink/renderer/core/css/css_superellipse_value.h"
 #include "third_party/blink/renderer/core/css/css_timing_function_value.h"
+#include "third_party/blink/renderer/core/css/css_unparsed_declaration_value.h"
 #include "third_party/blink/renderer/core/css/css_unset_value.h"
 #include "third_party/blink/renderer/core/css/css_uri_value.h"
 #include "third_party/blink/renderer/core/css/css_url_pattern_value.h"
@@ -960,6 +962,55 @@ bool IsImageSet(const CSSValueID id) {
   return id == CSSValueID::kWebkitImageSet || id == CSSValueID::kImageSet;
 }
 
+// Consumes a single param(<dashed-ident>, <declaration-value>?) function
+// from |stream|. Returns a CSSParamValuePair on success.
+CSSParamValuePair* ConsumeParam(CSSParserTokenStream& stream,
+                                const CSSParserContext& context,
+                                CSSParserLocalContext& local_context) {
+  if (stream.Peek().FunctionId() != CSSValueID::kParam) {
+    return nullptr;
+  }
+
+  CSSCustomIdentValue* name = nullptr;
+  CSSUnparsedDeclarationValue* value = nullptr;
+  {
+    CSSParserTokenStream::RestoringBlockGuard guard(stream);
+    stream.ConsumeWhitespace();
+
+    // Parse <dashed-ident>.
+    name = ConsumeDashedIdent(stream, context, local_context);
+    if (!name) {
+      return nullptr;
+    }
+
+    // Comma is required per
+    // https://github.com/w3c/csswg-drafts/issues/13767.
+    if (stream.Peek().GetType() != kCommaToken) {
+      return nullptr;
+    }
+    stream.Consume();
+
+    // Parse <declaration-value>? using existing variable parser
+    // infrastructure.
+    bool important = false;
+    CSSVariableData* data = CSSVariableParser::ConsumeUnparsedDeclaration(
+        stream,
+        /*allow_important_annotation=*/false,
+        /*is_animation_tainted=*/false,
+        /*must_contain_variable_reference=*/false,
+        /*restricted_value=*/false,
+        /*comma_ends_declaration=*/false, important, context);
+    if (!data) {
+      return nullptr;
+    }
+    value = MakeGarbageCollected<CSSUnparsedDeclarationValue>(data, &context);
+
+    guard.Release();
+  }
+  stream.ConsumeWhitespace();
+  return MakeGarbageCollected<CSSParamValuePair>(*name, *value);
+}
+
 }  // namespace
 
 void Complete4Sides(std::array<CSSValue*, 4>& side) {
@@ -1739,6 +1790,13 @@ cssvalue::CSSScopedKeywordValue* ConsumeScopedKeywordValue(
   }
   return MakeGarbageCollected<cssvalue::CSSScopedKeywordValue>(
       stream.ConsumeIncludingWhitespace().Id());
+}
+
+CSSValue* ConsumeLinkParameters(CSSParserTokenStream& stream,
+                                const CSSParserContext& context,
+                                CSSParserLocalContext& local_context) {
+  return ConsumeCommaSeparatedList(ConsumeParam, stream, context,
+                                   local_context);
 }
 
 CSSStringValue* ConsumeString(CSSParserTokenStream& stream) {
@@ -5144,6 +5202,7 @@ CSSValue* ConsumeBackgroundSize(CSSParserTokenStream& stream,
   if (!stream.AtEnd()) {
     if (stream.Peek().Id() == CSSValueID::kAuto) {  // `auto' is the default
       stream.ConsumeIncludingWhitespace();
+      vertical = CSSIdentifierValue::Create(CSSValueID::kAuto);
     } else {
       vertical = ConsumeLengthOrPercent(
           stream, context, local_context,
@@ -5155,6 +5214,22 @@ CSSValue* ConsumeBackgroundSize(CSSParserTokenStream& stream,
     vertical = horizontal;
   }
   if (!vertical) {
+    // No explicit second value for this layer (end of value, or a following
+    // comma / unrelated token). Legacy syntax preserves its historical behavior
+    // of returning the single value; modern syntax defaults the omitted second
+    // value to `auto`.
+    if (parsing_style == ParsingStyle::kLegacy) {
+      return horizontal;
+    }
+    vertical = CSSIdentifierValue::Create(CSSValueID::kAuto);
+  }
+  // Collapse to a single value only when both axes are `auto` (`auto auto` ->
+  // `auto`). Otherwise the pair must be preserved, so e.g. `1px` serializes as
+  // `1px auto`. https://github.com/w3c/csswg-drafts/issues/7802
+  auto* horizontal_ident = DynamicTo<CSSIdentifierValue>(horizontal);
+  auto* vertical_ident = DynamicTo<CSSIdentifierValue>(vertical);
+  if (horizontal_ident && horizontal_ident->GetValueID() == CSSValueID::kAuto &&
+      vertical_ident && vertical_ident->GetValueID() == CSSValueID::kAuto) {
     return horizontal;
   }
   return MakeGarbageCollected<CSSValuePair>(horizontal, vertical,
@@ -6683,11 +6758,11 @@ CSSValue* ParseFontLanguageOverrideString(CSSParserTokenStream& stream) {
   // https://bugzilla.mozilla.org/show_bug.cgi?id=1814408
   // we do not apply padding during parsing. Instead, 1–4 ASCII characters
   // are accepted as-is, this ensures consistency with shipped behavior.
-  size_t end = language_override.length() - 1;
-  while (end >= 0 && IsCSSSpace(language_override[end])) {
+  wtf_size_t end = language_override.length();
+  while (end > 0 && IsCSSSpace(language_override[end - 1])) {
     --end;
   }
-  language_override = language_override.substr(0, end + 1);
+  language_override = language_override.substr(0, end);
 
   // "All tags are four-character strings composed of a limited set of ASCII
   // characters" per
@@ -6768,9 +6843,10 @@ bool IsSupportedKeywordTech(CSSValueID keyword) {
       return true;
     case CSSValueID::kAvar2:
       return RuntimeEnabledFeatures::FontFormatAvar2Enabled();
+    case CSSValueID::kIncremental:
+      return RuntimeEnabledFeatures::IncrementalFontTransferEnabled();
     case CSSValueID::kFeaturesGraphite:
     case CSSValueID::kColorSVG:
-    case CSSValueID::kIncremental:
       return false;
     default:
       return false;

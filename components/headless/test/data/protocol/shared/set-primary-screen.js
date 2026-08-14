@@ -4,15 +4,22 @@
 //
 // META: --screen-info={800x600 label=1st}{800,600 800x600 label=2nd}
 
-(async function(testRunner) {
+(async function(/** @type {import('test_runner').TestRunner} */ testRunner) {
   const {dp} = await testRunner.startBlank(
       'Tests CDP Emulation.setPrimaryScreen() API.');
+
+  async function getScreenId(screenIndex) {
+    const {screenInfos} = (await dp.Emulation.getScreenInfos()).result;
+    return screenInfos[screenIndex].id;
+  }
+
+  const screenId = await getScreenId(1);
 
   testRunner.log(
       (await dp.Emulation.getScreenInfos()).result,
       'Screens before primary screen is changed: ');
 
-  const result = await dp.Emulation.setPrimaryScreen({screenId: '2'});
+  const result = await dp.Emulation.setPrimaryScreen({screenId});
   testRunner.log(result, 'Emulation.setPrimaryScreen result: ');
 
   testRunner.log(

@@ -8,7 +8,6 @@
 #include <optional>
 #include <string>
 
-#include "base/functional/callback_helpers.h"
 #include "base/test/scoped_run_loop_timeout.h"
 #include "chrome/browser/ui/page_action/test_support/mock_page_action_model.h"
 #include "chrome/browser/ui/views/page_action/test_support/mock_anchored_message_delegate.h"
@@ -20,14 +19,25 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/events/keycodes/keyboard_codes.h"
+#include "ui/events/test/event_generator.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/button/label_button.h"
+#include "ui/views/controls/button/menu_button.h"
 #include "ui/views/controls/focus_ring.h"
+#include "ui/views/controls/image_view.h"
 #include "ui/views/interaction/interactive_views_test.h"
+#include "ui/views/test/button_test_api.h"
 #include "ui/views/view.h"
+#include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/widget/widget_utils.h"
+
+#if BUILDFLAG(IS_MAC)
+#include "ui/views/controls/menu/menu_cocoa_watcher_mac.h"
+#endif
 
 namespace page_actions {
 
@@ -44,6 +54,11 @@ class AnchoredMessageBubbleViewTest
 
   void SetUp() override {
     InteractiveViewsTestMixin::SetUp();
+
+#if BUILDFLAG(IS_MAC)
+    views::MenuCocoaWatcherMac::SetNotificationFilterForTesting(
+        views::MacNotificationFilter::IgnoreAllNotifications);
+#endif
 
     anchor_widget_ =
         CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET,
@@ -66,22 +81,30 @@ class AnchoredMessageBubbleViewTest
     ON_CALL(model_, GetText()).WillByDefault(ReturnRef(test_text_));
     ON_CALL(model_, GetAccessibleName()).WillByDefault(ReturnRef(empty_text_));
     ON_CALL(model_, GetTooltipText()).WillByDefault(ReturnRef(empty_text_));
+
+    CreateAnchoredMessageWidget();
   }
 
   void TearDown() override {
+#if BUILDFLAG(IS_MAC)
+    views::MenuCocoaWatcherMac::SetNotificationFilterForTesting(
+        views::MacNotificationFilter::DontIgnoreNotifications);
+#endif
+    bubble_view_ = nullptr;
+    bubble_widget_.reset();
     anchor_widget_.reset();
     InteractiveViewsTestMixin::TearDown();
   }
 
-  std::unique_ptr<views::Widget> CreateAnchoredMessageWidget() {
+  void CreateAnchoredMessageWidget() {
     auto view = std::make_unique<AnchoredMessageBubbleView>(
         views::BubbleAnchor(anchor_widget_->GetContentsView()), model_,
         delegate_);
+    bubble_view_ = view.get();
     view->set_parent_window(anchor_widget_->GetNativeView());
-    std::unique_ptr<views::Widget> widget =
+    bubble_widget_ =
         views::BubbleDialogDelegate::CreateBubble(std::move(view).release());
-    widget->Show();
-    return widget;
+    bubble_widget_->Show();
   }
 
   auto CheckButtonTooltip(std::u16string expected_tooltip) {
@@ -113,6 +136,31 @@ class AnchoredMessageBubbleViewTest
         });
   }
 
+  static void CollectImageViews(views::View* view,
+                                std::vector<views::ImageView*>& out) {
+    if (auto* img = views::AsViewClass<views::ImageView>(view)) {
+      out.push_back(img);
+    }
+    for (views::View* child : view->children()) {
+      CollectImageViews(child, out);
+    }
+  }
+
+  auto CheckButtonVectorIcon(const gfx::VectorIcon* expected_icon) {
+    return CheckView(
+        AnchoredMessageBubbleView::kAnchoredMessageExpandButtonId,
+        [expected_icon](views::Button* button) {
+          std::vector<views::ImageView*> image_views;
+          CollectImageViews(button, image_views);
+          if (image_views.size() != 1) {
+            return false;
+          }
+          ui::ImageModel image_model = image_views[0]->GetImageModel();
+          return image_model.IsVectorIcon() &&
+                 image_model.GetVectorIcon().vector_icon() == expected_icon;
+        });
+  }
+
  protected:
   NiceMock<MockPageActionModel> model_;
   NiceMock<MockAnchoredMessageDelegate> delegate_;
@@ -130,6 +178,8 @@ class AnchoredMessageBubbleViewTest
 
   base::test::ScopedRunLoopTimeout timeout_{FROM_HERE, base::Seconds(10)};
   std::unique_ptr<views::Widget> anchor_widget_;
+  std::unique_ptr<views::Widget> bubble_widget_;
+  raw_ptr<AnchoredMessageBubbleView> bubble_view_ = nullptr;
 };
 
 TEST_F(AnchoredMessageBubbleViewTest, VisibilityReflectsModelOnCreation) {
@@ -138,7 +188,7 @@ TEST_F(AnchoredMessageBubbleViewTest, VisibilityReflectsModelOnCreation) {
   ON_CALL(model_, GetAnchoredMessageActionIconType())
       .WillByDefault(Return(AnchoredMessageActionIconType::kClose));
 
-  std::unique_ptr<views::Widget> widget = CreateAnchoredMessageWidget();
+  bubble_view_->UpdateContent(model_);
 
   RunTestSequence(
       EnsureNotPresent(AnchoredMessageBubbleView::kAnchoredMessageIconId),
@@ -151,8 +201,6 @@ TEST_F(AnchoredMessageBubbleViewTest, VisibilityReflectsModelOnCreation) {
                 }),
       EnsurePresent(AnchoredMessageBubbleView::kAnchoredMessageCloseIconId),
       EnsureNotPresent(AnchoredMessageBubbleView::kAnchoredMessageMenuIconId));
-
-  widget->CloseNow();
 }
 
 TEST_F(AnchoredMessageBubbleViewTest,
@@ -166,7 +214,7 @@ TEST_F(AnchoredMessageBubbleViewTest,
   ON_CALL(model_, GetAnchoredMessageActionIconType())
       .WillByDefault(Return(AnchoredMessageActionIconType::kClose));
 
-  std::unique_ptr<views::Widget> widget = CreateAnchoredMessageWidget();
+  bubble_view_->UpdateContent(model_);
 
   RunTestSequence(
       EnsurePresent(AnchoredMessageBubbleView::kAnchoredMessageIconId),
@@ -179,8 +227,6 @@ TEST_F(AnchoredMessageBubbleViewTest,
                 }),
       EnsurePresent(AnchoredMessageBubbleView::kAnchoredMessageCloseIconId),
       EnsureNotPresent(AnchoredMessageBubbleView::kAnchoredMessageMenuIconId));
-
-  widget->CloseNow();
 }
 
 TEST_F(AnchoredMessageBubbleViewTest,
@@ -197,7 +243,7 @@ TEST_F(AnchoredMessageBubbleViewTest,
   ON_CALL(model_, GetAnchoredMessageMenuModel())
       .WillByDefault(Return(&menu_model));
 
-  std::unique_ptr<views::Widget> widget = CreateAnchoredMessageWidget();
+  bubble_view_->UpdateContent(model_);
 
   RunTestSequence(
       EnsurePresent(AnchoredMessageBubbleView::kAnchoredMessageIconId),
@@ -210,8 +256,6 @@ TEST_F(AnchoredMessageBubbleViewTest,
                 }),
       EnsureNotPresent(AnchoredMessageBubbleView::kAnchoredMessageCloseIconId),
       EnsurePresent(AnchoredMessageBubbleView::kAnchoredMessageMenuIconId));
-
-  widget->CloseNow();
 }
 
 TEST_F(AnchoredMessageBubbleViewTest,
@@ -219,7 +263,7 @@ TEST_F(AnchoredMessageBubbleViewTest,
   ON_CALL(model_, GetAnchoredMessageActionIconType())
       .WillByDefault(Return(AnchoredMessageActionIconType::kMenu));
 
-  std::unique_ptr<views::Widget> widget = CreateAnchoredMessageWidget();
+  bubble_view_->UpdateContent(model_);
 
   RunTestSequence(
       EnsureNotPresent(AnchoredMessageBubbleView::kAnchoredMessageIconId),
@@ -232,15 +276,13 @@ TEST_F(AnchoredMessageBubbleViewTest,
                 }),
       EnsureNotPresent(AnchoredMessageBubbleView::kAnchoredMessageCloseIconId),
       EnsureNotPresent(AnchoredMessageBubbleView::kAnchoredMessageMenuIconId));
-
-  widget->CloseNow();
 }
 
 TEST_F(AnchoredMessageBubbleViewTest, UpdateContentChangesVisibility_ChipOnly) {
   ON_CALL(model_, GetText()).WillByDefault(ReturnRef(empty_text_));
   ON_CALL(model_, GetImage()).WillByDefault(ReturnRef(test_image_));
 
-  std::unique_ptr<views::Widget> widget = CreateAnchoredMessageWidget();
+  bubble_view_->UpdateContent(model_);
 
   RunTestSequence(
       EnsureNotPresent(AnchoredMessageBubbleView::kAnchoredMessageIconId),
@@ -253,8 +295,6 @@ TEST_F(AnchoredMessageBubbleViewTest, UpdateContentChangesVisibility_ChipOnly) {
                 }),
       EnsureNotPresent(AnchoredMessageBubbleView::kAnchoredMessageCloseIconId),
       EnsureNotPresent(AnchoredMessageBubbleView::kAnchoredMessageMenuIconId));
-
-  widget->CloseNow();
 }
 
 TEST_F(AnchoredMessageBubbleViewTest, CloseButtonIsFocusable) {
@@ -263,14 +303,12 @@ TEST_F(AnchoredMessageBubbleViewTest, CloseButtonIsFocusable) {
   ON_CALL(model_, GetAnchoredMessageActionIconType())
       .WillByDefault(Return(AnchoredMessageActionIconType::kClose));
 
-  std::unique_ptr<views::Widget> widget = CreateAnchoredMessageWidget();
+  bubble_view_->UpdateContent(model_);
 
   RunTestSequence(
       EnsurePresent(AnchoredMessageBubbleView::kAnchoredMessageCloseIconId),
       CheckView(AnchoredMessageBubbleView::kAnchoredMessageCloseIconId,
                 [](views::View* button) { return button->IsFocusable(); }));
-
-  widget->CloseNow();
 }
 
 TEST_F(AnchoredMessageBubbleViewTest, MenuButtonIsFocusable) {
@@ -282,14 +320,12 @@ TEST_F(AnchoredMessageBubbleViewTest, MenuButtonIsFocusable) {
   ON_CALL(model_, GetAnchoredMessageMenuModel())
       .WillByDefault(Return(&menu_model));
 
-  std::unique_ptr<views::Widget> widget = CreateAnchoredMessageWidget();
+  bubble_view_->UpdateContent(model_);
 
   RunTestSequence(
       EnsurePresent(AnchoredMessageBubbleView::kAnchoredMessageMenuIconId),
       CheckView(AnchoredMessageBubbleView::kAnchoredMessageMenuIconId,
                 [](views::View* button) { return button->IsFocusable(); }));
-
-  widget->CloseNow();
 }
 
 TEST_F(AnchoredMessageBubbleViewTest, ExpandButtonFocusRing) {
@@ -300,7 +336,7 @@ TEST_F(AnchoredMessageBubbleViewTest, ExpandButtonFocusRing) {
   ON_CALL(model_, GetAnchoredMessageExpandableContent())
       .WillByDefault(ReturnRef(expandable_content));
 
-  std::unique_ptr<views::Widget> widget = CreateAnchoredMessageWidget();
+  bubble_view_->UpdateContent(model_);
 
   RunTestSequence(
       EnsurePresent(AnchoredMessageBubbleView::kAnchoredMessageExpandButtonId),
@@ -314,8 +350,66 @@ TEST_F(AnchoredMessageBubbleViewTest, ExpandButtonFocusRing) {
                   EXPECT_TRUE(focus_ring->ShouldPaintForTesting());
                   return true;
                 }));
+}
 
-  widget->CloseNow();
+TEST_F(AnchoredMessageBubbleViewTest, ExpandButtonChevron) {
+  std::optional<AnchoredMessageExpandableContent> expandable_content =
+      std::make_optional<AnchoredMessageExpandableContent>();
+  expandable_content->items.push_back({test_image_, test_text_});
+  expandable_content->expand_button_style = ExpandButtonStyle::kChevron;
+
+  ON_CALL(model_, GetAnchoredMessageExpandableContent())
+      .WillByDefault(ReturnRef(expandable_content));
+
+  bubble_view_->UpdateContent(model_);
+
+  RunTestSequence(
+      EnsurePresent(AnchoredMessageBubbleView::kAnchoredMessageExpandButtonId),
+      CheckButtonVectorIcon(&vector_icons::kKeyboardArrowDownIcon),
+      // Press to expand
+      PressButton(AnchoredMessageBubbleView::kAnchoredMessageExpandButtonId),
+      CheckButtonVectorIcon(&vector_icons::kKeyboardArrowUpIcon),
+      // Press to collapse
+      PressButton(AnchoredMessageBubbleView::kAnchoredMessageExpandButtonId),
+      CheckButtonVectorIcon(&vector_icons::kKeyboardArrowDownIcon));
+}
+
+TEST_F(AnchoredMessageBubbleViewTest, ExpandButtonItemIcons) {
+  std::optional<AnchoredMessageExpandableContent> expandable_content =
+      std::make_optional<AnchoredMessageExpandableContent>();
+  expandable_content->items.push_back({test_image_, test_text_});
+  expandable_content->items.push_back({test_image_, u"Second item text"});
+  expandable_content->expand_button_style = ExpandButtonStyle::kItemIcons;
+
+  ON_CALL(model_, GetAnchoredMessageExpandableContent())
+      .WillByDefault(ReturnRef(expandable_content));
+
+  bubble_view_->UpdateContent(model_);
+
+  RunTestSequence(
+      EnsurePresent(AnchoredMessageBubbleView::kAnchoredMessageExpandButtonId),
+      CheckView(AnchoredMessageBubbleView::kAnchoredMessageExpandButtonId,
+                [this](views::Button* button) {
+                  std::vector<views::ImageView*> image_views;
+                  CollectImageViews(button, image_views);
+                  if (image_views.size() != 2) {
+                    return false;
+                  }
+                  return image_views[0]->GetImageModel() == test_image_ &&
+                         image_views[1]->GetImageModel() == test_image_;
+                }),
+      // Press to expand
+      PressButton(AnchoredMessageBubbleView::kAnchoredMessageExpandButtonId),
+      CheckView(AnchoredMessageBubbleView::kAnchoredMessageExpandButtonId,
+                [this](views::Button* button) {
+                  std::vector<views::ImageView*> image_views;
+                  CollectImageViews(button, image_views);
+                  if (image_views.size() != 2) {
+                    return false;
+                  }
+                  return image_views[0]->GetImageModel() == test_image_ &&
+                         image_views[1]->GetImageModel() == test_image_;
+                }));
 }
 
 TEST_F(AnchoredMessageBubbleViewTest, ExpandButtonTooltip) {
@@ -326,7 +420,7 @@ TEST_F(AnchoredMessageBubbleViewTest, ExpandButtonTooltip) {
   ON_CALL(model_, GetAnchoredMessageExpandableContent())
       .WillByDefault(ReturnRef(expandable_content));
 
-  std::unique_ptr<views::Widget> widget = CreateAnchoredMessageWidget();
+  bubble_view_->UpdateContent(model_);
 
   const std::u16string default_expand_tooltip =
       l10n_util::GetStringUTF16(IDS_ANCHORED_MESSAGE_EXPAND_BUTTON_TOOLTIP);
@@ -357,19 +451,17 @@ TEST_F(AnchoredMessageBubbleViewTest, ExpandButtonTooltip) {
       // Update with custom tooltips only (while expanded).
       // Since accessible_name is nullopt, it defaults to the new expand tooltip
       // ("Custom expand tooltip").
-      WithView(AnchoredMessageBubbleView::kAnchoredMessageBubbleId,
-               [this, &expandable_content, &custom_expand_tooltip,
-                &custom_collapse_tooltip](views::View* view) {
-                 auto* bubble_view =
-                     static_cast<AnchoredMessageBubbleView*>(view);
-                 expandable_content->expand_button_tooltip =
-                     custom_expand_tooltip;
-                 expandable_content->collapse_button_tooltip =
-                     custom_collapse_tooltip;
-                 expandable_content->expand_button_accessible_name =
-                     std::nullopt;
-                 bubble_view->UpdateContent(model_);
-               }),
+      WithView(
+          AnchoredMessageBubbleView::kAnchoredMessageBubbleId,
+          [this, &expandable_content, &custom_expand_tooltip,
+           &custom_collapse_tooltip](views::View* view) {
+            auto* bubble_view = static_cast<AnchoredMessageBubbleView*>(view);
+            expandable_content->expand_button_tooltip = custom_expand_tooltip;
+            expandable_content->collapse_button_tooltip =
+                custom_collapse_tooltip;
+            expandable_content->expand_button_accessible_name = std::nullopt;
+            bubble_view->UpdateContent(model_);
+          }),
 
       // Collapse and verify custom expand tooltip
       // Name ("Custom expand tooltip") == Tooltip ("Custom expand tooltip") ->
@@ -420,7 +512,59 @@ TEST_F(AnchoredMessageBubbleViewTest, ExpandButtonTooltip) {
       CheckAccessibility(custom_accessible_name,
                          base::UTF16ToUTF8(custom_collapse_tooltip),
                          /*expanded=*/true));
-
-  widget->CloseNow();
 }
+
+TEST_F(AnchoredMessageBubbleViewTest,
+       FocusRestoredToMenuButtonAfterMenuDismissed) {
+  ui::SimpleMenuModel menu_model(nullptr);
+  menu_model.AddItem(1, u"Item 1");
+  ON_CALL(model_, GetAnchoredMessageText())
+      .WillByDefault(ReturnRef(test_text_));
+  ON_CALL(model_, GetAnchoredMessageActionIconType())
+      .WillByDefault(Return(AnchoredMessageActionIconType::kMenu));
+  ON_CALL(model_, GetAnchoredMessageMenuModel())
+      .WillByDefault(Return(&menu_model));
+
+  EXPECT_CALL(delegate_, AnchoredMessageExpanded()).Times(1);
+  EXPECT_CALL(delegate_, AnchoredMessageCollapsed()).Times(1);
+
+  bubble_view_->UpdateContent(model_);
+
+  RunTestSequence(
+      EnsurePresent(AnchoredMessageBubbleView::kAnchoredMessageMenuIconId),
+      WithView(AnchoredMessageBubbleView::kAnchoredMessageMenuIconId,
+               [](views::View* button) {
+                 button->GetWidget()->Activate();
+                 button->RequestFocus();
+               }),
+      CheckView(AnchoredMessageBubbleView::kAnchoredMessageMenuIconId,
+                [](views::View* button) { return button->HasFocus(); }),
+      WithView(
+          AnchoredMessageBubbleView::kAnchoredMessageMenuIconId,
+          [](views::View* view) {
+            auto* button = static_cast<views::MenuButton*>(view);
+            auto event_generator = std::make_unique<ui::test::EventGenerator>(
+                views::GetRootWindow(view->GetWidget()));
+            base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+                FROM_HERE,
+                base::BindOnce(
+                    [](views::MenuButton* b) {
+                      views::test::ButtonTestApi(b).NotifyClick(ui::MouseEvent(
+                          ui::EventType::kMousePressed, gfx::PointF(),
+                          gfx::PointF(), base::TimeTicks::Now(),
+                          ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON));
+                    },
+                    button));
+            base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+                FROM_HERE,
+                base::BindOnce(
+                    [](std::unique_ptr<ui::test::EventGenerator> eg) {
+                      eg->PressAndReleaseKey(ui::VKEY_ESCAPE);
+                    },
+                    std::move(event_generator)));
+          }),
+      CheckView(AnchoredMessageBubbleView::kAnchoredMessageMenuIconId,
+                [](views::View* button) { return button->HasFocus(); }));
+}
+
 }  // namespace page_actions

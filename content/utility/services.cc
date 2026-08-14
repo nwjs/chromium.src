@@ -20,8 +20,8 @@
 #include "content/public/common/content_switches.h"
 #include "content/public/utility/content_utility_client.h"
 #include "content/public/utility/utility_thread.h"
-#include "content/services/auction_worklet/auction_worklet_service_impl.h"
-#include "content/services/auction_worklet/public/mojom/auction_worklet_service.mojom.h"
+#include "content/services/devtools_media_encoding_service/devtools_media_encoding_service_impl.h"
+#include "content/services/devtools_media_encoding_service/public/mojom/devtools_media_encoding_service.mojom.h"
 #include "device/vr/buildflags/buildflags.h"
 #include "media/base/media_switches.h"
 #include "media/gpu/buildflags.h"
@@ -196,11 +196,11 @@ auto RunNetworkService(
       /*delay_initialization_until_set_client=*/true);
 }
 
-auto RunAuctionWorkletService(
-    mojo::PendingReceiver<auction_worklet::mojom::AuctionWorkletService>
+auto RunDevToolsMediaEncodingService(
+    mojo::PendingReceiver<
+        devtools_media_encoding_service::mojom::DevToolsMediaEncodingService>
         receiver) {
-  return auction_worklet::AuctionWorkletServiceImpl::CreateForService(
-      std::move(receiver));
+  return std::make_unique<DevToolsMediaEncodingServiceImpl>(std::move(receiver));
 }
 
 auto RunAudio(mojo::PendingReceiver<audio::mojom::AudioService> receiver) {
@@ -400,7 +400,7 @@ void RegisterIOThreadServices(mojo::ServiceFactory& services) {
 }
 
 void RegisterMainThreadServices(mojo::ServiceFactory& services) {
-  services.Add(RunAuctionWorkletService);
+  services.Add(RunDevToolsMediaEncodingService);
   services.Add(RunAudio);
 
   services.Add(RunDataDecoder);

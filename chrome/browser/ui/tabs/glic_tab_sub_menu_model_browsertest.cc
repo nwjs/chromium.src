@@ -14,6 +14,7 @@
 #include "chrome/browser/glic/host/glic_features.mojom.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_instance.h"
+#include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/service/glic_instance_coordinator_impl.h"
 #include "chrome/browser/glic/service/glic_instance_impl.h"
@@ -108,7 +109,7 @@ class GlicTabSubMenuModelTest : public InProcessBrowserTest {
   void SetUpOnMainThread() override {
     InProcessBrowserTest::SetUpOnMainThread();
     GlicEnabling::SetBypassEnablementChecksForTesting(true);
-    glic::GlicKeyedService::Get(browser()->profile())
+    glic::GlicKeyedService::Get(browser()->GetProfile())
         ->enabling()
         .SetCompletedFre(glic::prefs::FreStatus::kCompleted);
     browser()->GetWindow()->Activate();
@@ -121,7 +122,7 @@ class GlicTabSubMenuModelTest : public InProcessBrowserTest {
 
  protected:
   GlicKeyedService* GetGlicKeyedService() {
-    GlicKeyedService* service = GlicKeyedService::Get(browser()->profile());
+    GlicKeyedService* service = GlicKeyedService::Get(browser()->GetProfile());
     EXPECT_TRUE(service);
     return service;
   }
@@ -140,7 +141,7 @@ class GlicTabSubMenuModelTest : public InProcessBrowserTest {
 
 IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest, GlicSubMenuOpens) {
   // Ensure Glic is enabled for the profile.
-  EXPECT_TRUE(GlicEnabling::IsReadyForProfile(browser()->profile()));
+  EXPECT_TRUE(GlicEnabling::IsReadyForProfile(browser()->GetProfile()));
 
   // Open the Tab Menu Model for the first tab. Ensure that
   // TabStripModel::CommandGlicShare is present in the menu.
@@ -177,7 +178,7 @@ IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest, GlicSubMenuOpens) {
 
 IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest, CreateNewChatWithSingleTab) {
   // Ensure Glic is enabled for the profile.
-  EXPECT_TRUE(GlicEnabling::IsReadyForProfile(browser()->profile()));
+  EXPECT_TRUE(GlicEnabling::IsReadyForProfile(browser()->GetProfile()));
 
   TabStripModel* tab_strip_model = browser()->tab_strip_model();
   ASSERT_GE(tab_strip_model->count(), 1);
@@ -224,7 +225,7 @@ IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest, CreateNewChatWithSingleTab) {
 
 IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest, CreateNewChatWithMultipleTabs) {
   // Ensure Glic is enabled for the profile.
-  EXPECT_TRUE(GlicEnabling::IsReadyForProfile(browser()->profile()));
+  EXPECT_TRUE(GlicEnabling::IsReadyForProfile(browser()->GetProfile()));
 
   ASSERT_TRUE(AddTabAtIndex(1, GURL("about:blank"), ui::PAGE_TRANSITION_LINK));
   ASSERT_TRUE(AddTabAtIndex(2, GURL("about:blank"), ui::PAGE_TRANSITION_LINK));
@@ -296,7 +297,7 @@ IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest, CreateNewChatWithMultipleTabs) {
 
 IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest, SwitchToRecentConversation) {
   // Ensure Glic is enabled for the profile.
-  EXPECT_TRUE(GlicEnabling::IsReadyForProfile(browser()->profile()));
+  EXPECT_TRUE(GlicEnabling::IsReadyForProfile(browser()->GetProfile()));
 
   auto* glic_instance_coordinator = GetGlicInstanceCoordinator();
   ASSERT_TRUE(glic_instance_coordinator);
@@ -436,7 +437,7 @@ class TestMenuDelegate : public ui::SimpleMenuModel::Delegate {
 IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest,
                        UnshareCommandHiddenWhenNothingIsPinned) {
   // Ensure Glic is enabled for the profile.
-  EXPECT_TRUE(GlicEnabling::IsReadyForProfile(browser()->profile()));
+  EXPECT_TRUE(GlicEnabling::IsReadyForProfile(browser()->GetProfile()));
 
   TabStripModel* tab_strip_model = browser()->tab_strip_model();
   ASSERT_GE(tab_strip_model->count(), 1);
@@ -463,7 +464,7 @@ IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest,
 
 IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest, UnshareCommandShown) {
   // Ensure Glic is enabled for the profile.
-  EXPECT_TRUE(GlicEnabling::IsReadyForProfile(browser()->profile()));
+  EXPECT_TRUE(GlicEnabling::IsReadyForProfile(browser()->GetProfile()));
 
   // Add a second tab so we have one pinned and one unpinned.
   ASSERT_TRUE(AddTabAtIndex(1, GURL("about:blank"), ui::PAGE_TRANSITION_LINK));
@@ -474,7 +475,7 @@ IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest, UnshareCommandShown) {
   // Select the first tab and pin it to a conversation.
   tab_strip_model->ActivateTabAt(0);
 
-  GlicKeyedService* service = GlicKeyedService::Get(browser()->profile());
+  GlicKeyedService* service = GlicKeyedService::Get(browser()->GetProfile());
   ASSERT_TRUE(service);
 
   tabs::TabInterface* tab = tab_strip_model->GetTabAtIndex(0);
@@ -483,7 +484,12 @@ IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest, UnshareCommandShown) {
   glic::GlicTabPinningWaiter waiter(&service->active_instance_sharing_manager(),
                                     handles_to_wait_for);
 
-  service->instance_coordinator().CreateNewConversationForTabs({tab});
+  glic::GlicInvokeOptions options(
+      glic::mojom::InvocationSource::kTabContextMenu);
+  options.target = glic::Target(*tab, glic::NewConversation());
+  options.tab_sharing = glic::TabSharingOptions(
+      {tab->GetHandle()}, glic::GlicPinTrigger::kContextMenu);
+  service->instance_coordinator().Invoke(std::move(options));
   waiter.Wait();
 
   // Select both tabs and open the context menu.
@@ -518,7 +524,7 @@ IN_PROC_BROWSER_TEST_F(
     GlicTabSubMenuModelTest,
     UnshareCommandShownForBackgroundTabInDifferentConversation) {
   // Ensure Glic is enabled for the profile.
-  EXPECT_TRUE(GlicEnabling::IsReadyForProfile(browser()->profile()));
+  EXPECT_TRUE(GlicEnabling::IsReadyForProfile(browser()->GetProfile()));
 
   // Add a second tab so we have one pinned and one unpinned.
   ASSERT_TRUE(AddTabAtIndex(1, GURL("about:blank"), ui::PAGE_TRANSITION_LINK));
@@ -529,7 +535,7 @@ IN_PROC_BROWSER_TEST_F(
   // Select the first tab and pin it to a new conversation.
   tab_strip_model->ActivateTabAt(0);
 
-  GlicKeyedService* service = GlicKeyedService::Get(browser()->profile());
+  GlicKeyedService* service = GlicKeyedService::Get(browser()->GetProfile());
   ASSERT_TRUE(service);
 
   tabs::TabInterface* tab0 = tab_strip_model->GetTabAtIndex(0);
@@ -539,7 +545,12 @@ IN_PROC_BROWSER_TEST_F(
     std::vector<tabs::TabHandle> handles_to_wait_for = {tab0->GetHandle()};
     glic::GlicTabPinningWaiter waiter(
         &service->active_instance_sharing_manager(), handles_to_wait_for);
-    service->instance_coordinator().CreateNewConversationForTabs({tab0});
+    glic::GlicInvokeOptions options(
+        glic::mojom::InvocationSource::kTabContextMenu);
+    options.target = glic::Target(*tab0, glic::NewConversation());
+    options.tab_sharing = glic::TabSharingOptions(
+        {tab0->GetHandle()}, glic::GlicPinTrigger::kContextMenu);
+    service->instance_coordinator().Invoke(std::move(options));
     waiter.Wait();
   }
 
@@ -549,7 +560,12 @@ IN_PROC_BROWSER_TEST_F(
     std::vector<tabs::TabHandle> handles_to_wait_for = {tab1->GetHandle()};
     glic::GlicTabPinningWaiter waiter(
         &service->active_instance_sharing_manager(), handles_to_wait_for);
-    service->instance_coordinator().CreateNewConversationForTabs({tab1});
+    glic::GlicInvokeOptions options(
+        glic::mojom::InvocationSource::kTabContextMenu);
+    options.target = glic::Target(*tab1, glic::NewConversation());
+    options.tab_sharing = glic::TabSharingOptions(
+        {tab1->GetHandle()}, glic::GlicPinTrigger::kContextMenu);
+    service->instance_coordinator().Invoke(std::move(options));
     waiter.Wait();
   }
 
@@ -574,7 +590,7 @@ IN_PROC_BROWSER_TEST_F(
 
 IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest, UnpinThenRepinTab) {
   // Ensure Glic is enabled for the profile.
-  EXPECT_TRUE(GlicEnabling::IsReadyForProfile(browser()->profile()));
+  EXPECT_TRUE(GlicEnabling::IsReadyForProfile(browser()->GetProfile()));
 
   TabStripModel* tab_strip_model = browser()->tab_strip_model();
   ASSERT_GE(tab_strip_model->count(), 1);
@@ -631,7 +647,7 @@ IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest, UnpinThenRepinTab) {
 IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest,
                        UnpinThenNavigateToOtherTabAndRemainsUnpinned) {
   // Ensure Glic is enabled for the profile.
-  EXPECT_TRUE(GlicEnabling::IsReadyForProfile(browser()->profile()));
+  EXPECT_TRUE(GlicEnabling::IsReadyForProfile(browser()->GetProfile()));
 
   TabStripModel* tab_strip_model = browser()->tab_strip_model();
   if (tab_strip_model->count() < 2) {
@@ -652,7 +668,12 @@ IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest,
     std::vector<tabs::TabHandle> handles_to_wait_for = {tab->GetHandle()};
     glic::GlicTabPinningWaiter waiter(
         &service->active_instance_sharing_manager(), handles_to_wait_for);
-    service->instance_coordinator().CreateNewConversationForTabs({tab});
+    glic::GlicInvokeOptions options(
+        glic::mojom::InvocationSource::kTabContextMenu);
+    options.target = glic::Target(*tab, glic::NewConversation());
+    options.tab_sharing = glic::TabSharingOptions(
+        {tab->GetHandle()}, glic::GlicPinTrigger::kContextMenu);
+    service->instance_coordinator().Invoke(std::move(options));
     waiter.Wait();
   }
   EXPECT_TRUE(

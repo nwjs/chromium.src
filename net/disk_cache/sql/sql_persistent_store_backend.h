@@ -9,9 +9,11 @@
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
+#include "base/types/expected.h"
 #include "net/disk_cache/sql/entry_write_buffer.h"
 #include "net/disk_cache/sql/eviction_candidate_aggregator.h"
 #include "net/disk_cache/sql/sql_persistent_store.h"
+#include "net/disk_cache/sql/sql_persistent_store_queries.h"
 #include "sql/database.h"
 #include "sql/meta_table.h"
 
@@ -27,11 +29,12 @@ class SqlReadCacheMemoryMonitor;
 // The `Backend` class encapsulates all direct interaction with the SQLite
 // database. It is designed to be owned by a `base::SequenceBound` and run on a
 // dedicated background sequence to avoid blocking the network IO thread.
-class SqlPersistentStore::Backend {
+class NET_EXPORT_PRIVATE SqlPersistentStore::Backend {
  public:
   Backend(ShardId shard_id,
           const base::FilePath& path,
           net::CacheType type,
+          bool shared_cache_enabled,
           scoped_refptr<SqlReadCacheMemoryMonitor> read_cache_memory_monitor);
 
   Backend(const Backend&) = delete;
@@ -105,6 +108,11 @@ class SqlPersistentStore::Backend {
                                   int64_t body_end,
                                   bool sparse_reading,
                                   base::TimeTicks start_time);
+  ErrorAndStoreStatus MoveBlobsToSharedCache(
+      const CacheEntryKey& key,
+      ResId res_id,
+      SqlSharedCacheResourceId shared_cache_resource_id,
+      base::TimeTicks start_time);
   RangeResult GetEntryAvailableRange(ResId res_id,
                                      int64_t offset,
                                      int len,
@@ -183,6 +191,9 @@ class SqlPersistentStore::Backend {
   bool MaybeRunIncrementalVacuum(
       scoped_refptr<base::RefCountedData<std::atomic_bool>> abort_flag);
 
+  // Closes the database.
+  void Close();
+
   void EnableStrictCorruptionCheckForTesting() {
     strict_corruption_check_enabled_ = true;
   }
@@ -225,6 +236,20 @@ class SqlPersistentStore::Backend {
     int64_t bytes_usage;
     base::Time last_used;
   };
+
+  // A helper function to record the time delay from posting a task to its
+  // execution.
+  void RecordPostingDelay(std::string_view method_name,
+                          base::TimeDelta posting_delay);
+
+  // Records timing and result histograms for a backend method. This logs the
+  // method's duration to ".SuccessTime" or ".FailureTime" histograms and the
+  // `Error` code to a ".Result" histogram.
+  void RecordTimeAndErrorResultHistogram(std::string_view method_name,
+                                         base::TimeDelta posting_delay,
+                                         base::TimeDelta time_delta,
+                                         Error error,
+                                         bool corruption_detected);
 
   void DatabaseErrorCallback(int error, sql::Statement* statement);
 
@@ -432,6 +457,13 @@ class SqlPersistentStore::Backend {
   // code if something is wrong.
   Error CheckDatabaseStatus();
 
+  // Checks or initializes the `shared_cache_enabled` metadata entry in the
+  // meta table. For new databases, writes the current `shared_cache_enabled_`
+  // value. For existing databases, verifies that the recorded value matches
+  // `shared_cache_enabled_` (returning Error::kSharedCacheEnabledMismatch on
+  // mismatch). Legacy databases without the key are treated as disabled.
+  Error CheckOrInitializeSharedCacheEnabledMetadata(bool is_new_db);
+
   void MaybeCrashIfCorrupted(bool corruption_detected);
   void OnCommitCallback(int pages);
   int GetFreelistCount();
@@ -439,12 +471,23 @@ class SqlPersistentStore::Backend {
       scoped_refptr<base::RefCountedData<std::atomic_bool>> abort_flag,
       int& pages_vacuumed);
 
+  Error MoveBlobsToSharedCacheInternal(
+      ResId res_id,
+      SqlSharedCacheResourceId shared_cache_resource_id);
+
   base::FilePath GetDatabaseFilePath() const;
+
+  base::cstring_view GetQuery(disk_cache_sql_queries::Query query) const {
+    return disk_cache_sql_queries::GetQuery(query, shared_cache_enabled_);
+  }
 
   const ShardId shard_id_;
   const base::FilePath path_;
   const net::CacheType type_;
+  const bool shared_cache_enabled_;
   const scoped_refptr<SqlReadCacheMemoryMonitor> read_cache_memory_monitor_;
+  // Cached value of `net::features::kSqlDiskCacheReduceUma`.
+  const bool reduce_uma_;
   sql::Database db_;
   sql::MetaTable meta_table_;
   std::optional<Error> db_init_status_;

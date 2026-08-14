@@ -4,11 +4,16 @@
 //
 // META: --screen-info={800x600}
 
-(async function(testRunner) {
+(async function(/** @type {import('test_runner').TestRunner} */ testRunner) {
   const {dp} = await testRunner.startBlank(
       'Tests CDP Emulation.updateScreen() API label handling.');
 
-  const screenId = '1';
+  async function getScreenId(index) {
+    const {screenInfos} = (await dp.Emulation.getScreenInfos()).result;
+    return screenInfos[index].id;
+  }
+
+  const screenId = await getScreenId(0);
 
   const {screenInfo} =
       (await dp.Emulation.updateScreen({screenId, label: 'FooBar'})).result;

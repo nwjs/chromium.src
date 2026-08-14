@@ -103,8 +103,12 @@ NSString* const kNotificationCenter = @"notification_center";
 NSString* const kBanners = @"banners";
 
 // Returns the width and height of a single pixel in point.
-CGFloat GetPixelLength() {
-  return 1.0 / [UIScreen mainScreen].scale;
+CGFloat GetPixelLength(UITraitCollection* traitCollection) {
+  CGFloat scale = traitCollection.displayScale;
+  if (scale == 0) {
+    scale = 2.0;
+  }
+  return 1.0 / scale;
 }
 
 // Returns the width of the alert.
@@ -158,13 +162,15 @@ void AddSeparatorToStackView(UIStackView* stackView) {
   separator.translatesAutoresizingMaskIntoConstraints = NO;
   [stackView addArrangedSubview:separator];
   if (stackView.axis == UILayoutConstraintAxisHorizontal) {
-    [separator.widthAnchor constraintEqualToConstant:GetPixelLength()].active =
-        YES;
+    [separator.widthAnchor
+        constraintEqualToConstant:GetPixelLength(stackView.traitCollection)]
+        .active = YES;
     AddSameConstraintsToSides(stackView, separator,
                               LayoutSides::kTop | LayoutSides::kBottom);
   } else {
-    [separator.heightAnchor constraintEqualToConstant:GetPixelLength()].active =
-        YES;
+    [separator.heightAnchor
+        constraintEqualToConstant:GetPixelLength(stackView.traitCollection)]
+        .active = YES;
     AddSameConstraintsToSides(stackView, separator,
                               LayoutSides::kTrailing | LayoutSides::kLeading);
   }
@@ -320,8 +326,8 @@ UIButton* GetButtonForAction(AlertAction* action) {
 
 }  // namespace
 
-@interface AlertViewController () <UITextFieldDelegate,
-                                   UIGestureRecognizerDelegate>
+@interface AlertViewController () <UIGestureRecognizerDelegate,
+                                   UITextFieldDelegate>
 
 // The actions for to this alert. `copy` for safety against mutable objects.
 @property(nonatomic, copy) NSArray<NSArray<AlertAction*>*>* actions;
@@ -506,8 +512,8 @@ UIButton* GetButtonForAction(AlertAction* action) {
     _spinner.translatesAutoresizingMaskIntoConstraints = NO;
 
     _checkmark = [[UIImageView alloc] init];
-    _checkmark.image = DefaultSymbolWithPointSize(kCheckmarkCircleFillSymbol,
-                                                  kConfirmationSymbolPointSize);
+    _checkmark.image = SymbolWithPointSize(SymbolCheckmarkCircleFill,
+                                           kConfirmationSymbolPointSize);
     _checkmark.tintColor = [UIColor systemGreenColor];
     _checkmark.translatesAutoresizingMaskIntoConstraints = NO;
 
@@ -714,7 +720,8 @@ UIButton* GetButtonForAction(AlertAction* action) {
       _textFieldStackHolder.layer.borderColor =
           [UIColor colorNamed:kSeparatorColor].CGColor;
     }];
-    _textFieldStackHolder.layer.borderWidth = GetPixelLength();
+    _textFieldStackHolder.layer.borderWidth =
+        GetPixelLength(self.traitCollection);
     _textFieldStackHolder.clipsToBounds = YES;
     _textFieldStackHolder.backgroundColor =
         [UIColor colorNamed:kSecondaryBackgroundColor];

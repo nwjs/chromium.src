@@ -4,12 +4,15 @@
 
 #include "chrome/browser/glic/widget/glic_side_panel_ui_android.h"
 
+#include "base/android/jni_android.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
 #include "base/scoped_observation.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "chrome/browser/file_select_helper.h"
+#include "chrome/browser/glic/common/panel_focus_dependent_hotkey_manager.h"
+#include "chrome/browser/glic/common/panel_visibility_dependent_hotkey_manager.h"
 #include "chrome/browser/glic/public/widget/glic_side_panel_coordinator_android.h"
 #include "chrome/browser/glic/service/metrics/glic_instance_metrics.h"
 #include "chrome/browser/glic/widget/conversions.h"
@@ -17,16 +20,16 @@
 #include "chrome/browser/ui/browser_window/public/browser_collection.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "components/input/native_web_keyboard_event.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/file_select_listener.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "printing/buildflags/buildflags.h"
+#include "ui/android/accelerator_manager_android.h"
 #include "ui/android/window_android.h"
 #include "ui/base/base_window.h"
-#include "ui/gfx/image/image.h"
-#include "ui/gfx/image/image_util.h"
-#include "ui/snapshot/snapshot.h"
+#include "ui/content_accelerators/accelerator_util.h"
 
 #if BUILDFLAG(ENABLE_PRINTING)
 #include "components/printing/browser/print_composite_client.h"
@@ -38,11 +41,27 @@ GlicSidePanelUi::GlicSidePanelUi(Profile* profile,
                                  base::WeakPtr<tabs::TabInterface> tab,
                                  GlicUiEmbedder::Delegate& delegate,
                                  GlicInstanceMetrics& instance_metrics)
-    : tab_(tab), delegate_(delegate), instance_metrics_(instance_metrics) {
+    : web_contents_delegate_android::WebContentsDelegateAndroid(
+          base::android::AttachCurrentThread(),
+          /*obj=*/nullptr),  // Null peer is safely handled and falls back to
+                             // base behavior.
+      tab_(tab),
+
+      delegate_(delegate),
+
+      instance_metrics_(instance_metrics),
+      profile_(profile) {
   auto* glic_side_panel_coordinator = GetGlicSidePanelCoordinator();
   if (!glic_side_panel_coordinator) {
     return;
   }
+
+  panel_visibility_dependent_hotkey_manager_ =
+      std::make_unique<PanelVisibilityDependentHotkeyManager>(
+          profile_, weak_ptr_factory_.GetWeakPtr());
+  panel_focus_dependent_hotkey_manager_ =
+      std::make_unique<PanelFocusDependentHotkeyManager>(
+          weak_ptr_factory_.GetWeakPtr());
 
   panel_visibility_subscription_ =
       glic_side_panel_coordinator->AddStateCallback(
@@ -90,6 +109,8 @@ void GlicSidePanelUi::Show(const ShowOptions& options) {
   panel_state_.kind = mojom::PanelStateKind::kAttached;
   delegate_->NotifyPanelStateChanged();
   delegate_->host().FloatingPanelCanAttachChanged(false);
+  panel_visibility_dependent_hotkey_manager_->InitializeAccelerators();
+  panel_focus_dependent_hotkey_manager_->InitializeAccelerators();
 
   glic_side_panel_coordinator->Show(ConvertToCoordinatorShowOptions(
       options, glic_side_panel_coordinator->SupportsPeek()));
@@ -162,48 +183,17 @@ void GlicSidePanelUi::SwitchConversation(
 
 void GlicSidePanelUi::CaptureScreenshot(
     glic::mojom::WebClientHandler::CaptureScreenshotCallback callback) {
-  gfx::NativeWindow native_window =
-      (tab_ && tab_->GetContents())
-          ? tab_->GetContents()->GetTopLevelNativeWindow()
-          : nullptr;
-
-  if (!native_window) {
-    std::move(callback).Run(mojom::CaptureScreenshotResult::NewErrorReason(
-        mojom::CaptureScreenshotErrorReason::kUnknown));
+  if (!tab_) {
+    std::move(callback).Run(nullptr);
     return;
   }
-
-  ui::GrabWindowSnapshot(
-      native_window, gfx::Rect(native_window->GetPhysicalBackingSize()),
-      base::BindOnce(&GlicSidePanelUi::OnScreenshotCaptured,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
-}
-
-void GlicSidePanelUi::OnScreenshotCaptured(
-    glic::mojom::WebClientHandler::CaptureScreenshotCallback callback,
-    gfx::Image snapshot) {
-  if (snapshot.IsEmpty()) {
-    std::move(callback).Run(mojom::CaptureScreenshotResult::NewErrorReason(
-        mojom::CaptureScreenshotErrorReason::kUnknown));
-    return;
+  if (!screenshot_capturer_) {
+    screenshot_capturer_ = GlicScreenshotCapturer::Create();
   }
-
-  auto jpeg_data = gfx::JPEG1xEncodedDataFromImage(snapshot, 100);
-  if (!jpeg_data || jpeg_data->empty()) {
-    std::move(callback).Run(mojom::CaptureScreenshotResult::NewErrorReason(
-        mojom::CaptureScreenshotErrorReason::kUnknown));
-    return;
-  }
-
-  mojom::ScreenshotPtr mojo_screenshot = mojom::Screenshot::New();
-  mojo_screenshot->width_pixels = snapshot.Width();
-  mojo_screenshot->height_pixels = snapshot.Height();
-  mojo_screenshot->mime_type = "image/jpeg";
-  mojo_screenshot->data = std::move(*jpeg_data);
-  mojo_screenshot->origin_annotations = mojom::ImageOriginAnnotations::New();
-
-  std::move(callback).Run(mojom::CaptureScreenshotResult::NewScreenshot(
-      std::move(mojo_screenshot)));
+  auto* browser_window = tab_->GetBrowserWindowInterface();
+  CHECK(browser_window);
+  screenshot_capturer_->CaptureScreenshot(
+      browser_window->GetWindow()->GetNativeWindow(), std::move(callback));
 }
 
 bool GlicSidePanelUi::IsShowing() const {
@@ -267,7 +257,8 @@ void GlicSidePanelUi::SidePanelStateChanged(
     delegate_->NotifyPanelStateChanged();
 
     // NOTE: `this` will be destroyed after this call.
-    delegate_->DidCloseFor(tab_.get(), MapStateToCloseReason(state));
+    delegate_->DidCloseFor(SidePanelEmbedderKey{*tab_},
+                           MapStateToCloseReason(state));
   }
 }
 
@@ -294,6 +285,28 @@ void GlicSidePanelUi::PrintCrossProcessSubframe(
     client->PrintCrossProcessSubframe(rect, document_cookie, subframe_host);
   }
 #endif
+}
+
+void GlicSidePanelUi::FocusIfOpen() {
+  if (IsShowing()) {
+    Focus();
+  }
+}
+
+bool GlicSidePanelUi::ActivateBrowser() {
+  if (!tab_) {
+    return false;
+  }
+  tab_->GetContents()->Focus();
+  return true;
+}
+
+void GlicSidePanelUi::Zoom(mojom::ZoomAction zoom_action) {
+  delegate_->host().Zoom(zoom_action);
+}
+
+BrowserWindowInterface* GlicSidePanelUi::GetBrowserWindowInterface() {
+  return tab_ ? tab_->GetBrowserWindowInterface() : nullptr;
 }
 
 }  // namespace glic

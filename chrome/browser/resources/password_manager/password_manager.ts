@@ -13,6 +13,7 @@ export {CrInputElement} from 'chrome://resources/cr_elements/cr_input/cr_input.j
 export {OpenWindowProxyImpl} from 'chrome://resources/js/open_window_proxy.js';
 export type {PluralStringProxy} from 'chrome://resources/js/plural_string_proxy.js';
 export {PluralStringProxyImpl} from 'chrome://resources/js/plural_string_proxy.js';
+export {CheckupListItemElement} from './checkup_list_item.js';
 export {BackupPasswordDetailsCardElement} from './credential_details/backup_password_details_card.js';
 export {CredentialFieldElement} from './credential_details/credential_field.js';
 export {CredentialNoteElement} from './credential_details/credential_note.js';
@@ -27,21 +28,22 @@ export {EditPasswordDialogElement} from './dialogs/edit_password_dialog.js';
 export {MovePasswordsDialogElement} from './dialogs/move_passwords_dialog.js';
 export {RemoveActorLoginPermissionDialogElement} from './dialogs/remove_actor_login_permission_dialog.js';
 export {FullDataResetElement} from './full_data_reset.js';
+export type {NotificationCard, NotificationCardsProxy} from './notification_cards/notification_cards_browser_proxy.js';
+export {NotificationCardsProxyImpl} from './notification_cards/notification_cards_browser_proxy.js';
 // <if expr="is_win or is_macosx">
 export {PasskeysBrowserProxyImpl} from './passkeys_browser_proxy.js';
 export type {PasskeysBrowserProxy} from './passkeys_browser_proxy.js';
 // </if>
+export {PasswordChangeDetailsElement} from './password_change_details.js';
 export {PasswordDetailsSectionElement} from './password_details_section.js';
 export {PasswordListItemElement} from './password_list_item.js';
 export {PasswordManagerAppElement} from './password_manager_app.js';
-export type {AccountStorageActiveStateChangedListener, BlockedSite, BlockedSitesListChangedListener, CredentialsChangedListener, PasswordCheckStatusChangedListener, PasswordManagerActionableErrorChangedListener, PasswordManagerAuthTimeoutListener, PasswordManagerProxy, PasswordsFileExportProgressListener, ShouldShowAccountStorageToggleChangedListener} from './password_manager_proxy.js';
-export {ExportPasswordsResult, ExportProgressStatus, PageCallbackRouter, PasswordCheckInteraction, PasswordManagerActionableError, PasswordManagerImpl, PasswordViewPageInteractions, toMojoActionableError} from './password_manager_proxy.js';
+export type {AccountStorageActiveStateChangedListener, BlockedSite, BlockedSitesListChangedListener, CredentialsChangedListener, ImportEntry, ImportResults, PasswordCheckStatusChangedListener, PasswordManagerActionableErrorChangedListener, PasswordManagerAuthTimeoutListener, PasswordManagerProxy, PasswordsFileExportProgressListener, ShouldShowAccountStorageToggleChangedListener} from './password_manager_proxy.js';
+export {ExportPasswordsResult, ExportProgressStatus, ImportEntryStatus, ImportResultsStatus, PageCallbackRouter, PasswordAutomaticChangeState, PasswordCheckInteraction, PasswordManagerActionableError, PasswordManagerImpl, PasswordViewPageInteractions, toMojoActionableError} from './password_manager_proxy.js';
 export {PasswordsExporterElement} from './passwords_exporter.js';
 export {PasswordsImporterElement} from './passwords_importer.js';
 export {PasswordsSectionElement} from './passwords_section.js';
 export {PrefToggleButtonElement} from './prefs/pref_toggle_button.js';
-export type {PromoCard, PromoCardsProxy} from './promo_cards/promo_cards_browser_proxy.js';
-export {PromoCardsProxyImpl} from './promo_cards/promo_cards_browser_proxy.js';
 export type {RouteObserverMixinInterface} from './router.js';
 export {CheckupSubpage, Page, Route, RouteObserverMixin, Router, UrlParam} from './router.js';
 export {PASSWORD_MANAGER_ACCOUNT_STORE_TOGGLE_ELEMENT_ID, SettingsSectionElement} from './settings_section.js';

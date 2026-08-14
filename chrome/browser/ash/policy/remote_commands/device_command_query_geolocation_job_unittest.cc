@@ -10,6 +10,8 @@
 #include <utility>
 
 #include "ash/constants/ash_features.h"
+#include "ash/constants/ash_pref_names.h"
+#include "base/check_deref.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/json/json_reader.h"
@@ -29,7 +31,6 @@
 #include "chrome/browser/ash/policy/server_backed_state/server_backed_state_keys_broker.h"
 #include "chrome/browser/ash/settings/device_settings_service.h"
 #include "chrome/browser/ash/settings/scoped_test_device_settings_service.h"
-#include "ash/constants/ash_pref_names.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/notifications/notification_display_service_tester.h"
@@ -61,8 +62,8 @@
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
-#include "ui/message_center/public/cpp/notification.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/message_center/public/cpp/notification.h"
 #include "url/gurl.h"
 
 namespace policy {
@@ -211,8 +212,10 @@ class DeviceCommandQueryGeolocationJobTest : public testing::Test {
 
   std::unique_ptr<DeviceCommandQueryGeolocationJob> CreateJob(
       base::TimeTicks issued_time,
-      const DeviceCloudPolicyManagerAsh* manager) {
-    auto job = std::make_unique<DeviceCommandQueryGeolocationJob>(manager);
+      const CloudPolicyStore* device_cloud_policy_store) {
+    auto job = std::make_unique<DeviceCommandQueryGeolocationJob>(
+        TestingBrowserProcess::GetGlobal()->local_state(),
+        device_cloud_policy_store);
     auto command_proto =
         GenerateCommandProto(base::TimeTicks::Now() - issued_time);
     EXPECT_TRUE(
@@ -253,7 +256,8 @@ TEST_F(DeviceCommandQueryGeolocationJobTest, ShowNotificationWhenPrefIsSet) {
       ash::prefs::kDeviceCommandQueryGeolocationReported, true);
 
   NotificationDisplayServiceTester tester(/*profile=*/nullptr);
-  DeviceCommandQueryGeolocationJob::ShowLocationReportedNotificationIfNeeded();
+  DeviceCommandQueryGeolocationJob::ShowLocationReportedNotificationIfNeeded(
+      TestingBrowserProcess::GetGlobal()->local_state());
 
   std::optional<message_center::Notification> notification =
       tester.GetNotification("device-located-disabled-device");
@@ -265,7 +269,8 @@ TEST_F(DeviceCommandQueryGeolocationJobTest, NoNotificationWhenPrefNotSet) {
       ash::prefs::kDeviceCommandQueryGeolocationReported, false);
 
   NotificationDisplayServiceTester tester(/*profile=*/nullptr);
-  DeviceCommandQueryGeolocationJob::ShowLocationReportedNotificationIfNeeded();
+  DeviceCommandQueryGeolocationJob::ShowLocationReportedNotificationIfNeeded(
+      TestingBrowserProcess::GetGlobal()->local_state());
 
   std::optional<message_center::Notification> notification =
       tester.GetNotification("device-located-disabled-device");
@@ -277,7 +282,8 @@ TEST_F(DeviceCommandQueryGeolocationJobTest, ClearPrefOnNotificationClose) {
       ash::prefs::kDeviceCommandQueryGeolocationReported, true);
 
   NotificationDisplayServiceTester tester(/*profile=*/nullptr);
-  DeviceCommandQueryGeolocationJob::ShowLocationReportedNotificationIfNeeded();
+  DeviceCommandQueryGeolocationJob::ShowLocationReportedNotificationIfNeeded(
+      TestingBrowserProcess::GetGlobal()->local_state());
 
   tester.RemoveNotification(
       NotificationHandler::Type::TRANSIENT,
@@ -292,7 +298,7 @@ TEST_F(DeviceCommandQueryGeolocationJobTest, ClearPrefOnNotificationClose) {
 TEST_F(DeviceCommandQueryGeolocationJobTest, CommandFailsIfNotDisabled) {
   SetDevicePolicy(em::DeviceState::DEVICE_MODE_NORMAL,
                   /*location_tracking_enabled=*/true);
-  auto job = CreateJob(test_start_time_, test_manager_.get());
+  auto job = CreateJob(test_start_time_, test_manager_->device_store());
   base::test::TestFuture<void> job_finished_future;
   EXPECT_TRUE(job->Run(base::Time::Now(), base::TimeTicks::Now(),
                        job_finished_future.GetCallback()));
@@ -324,7 +330,7 @@ TEST_F(DeviceCommandQueryGeolocationJobTest,
   const GURL geolocation_url = GetGeolocationUrl();
   AddMockResponse(geolocation_url, test_utils::kSimpleResponseBody);
 
-  auto job = CreateJob(test_start_time_, test_manager_.get());
+  auto job = CreateJob(test_start_time_, test_manager_->device_store());
   base::test::TestFuture<void> job_finished_future;
   EXPECT_TRUE(job->Run(base::Time::Now(), base::TimeTicks::Now(),
                        job_finished_future.GetCallback()));
@@ -356,7 +362,7 @@ TEST_F(DeviceCommandQueryGeolocationJobTest,
        CommandFailsIfLocationTrackingDisabled) {
   SetDevicePolicy(em::DeviceState::DEVICE_MODE_DISABLED,
                   /*location_tracking_enabled=*/false);
-  auto job = CreateJob(test_start_time_, test_manager_.get());
+  auto job = CreateJob(test_start_time_, test_manager_->device_store());
   base::test::TestFuture<void> job_finished_future;
   EXPECT_TRUE(job->Run(base::Time::Now(), base::TimeTicks::Now(),
                        job_finished_future.GetCallback()));
@@ -379,7 +385,7 @@ TEST_F(DeviceCommandQueryGeolocationJobTest,
 }
 
 TEST_F(DeviceCommandQueryGeolocationJobTest, CommandFailsForUnmanagedDevice) {
-  auto job = CreateJob(test_start_time_, /*manager=*/nullptr);
+  auto job = CreateJob(test_start_time_, /*device_cloud_policy_store=*/nullptr);
 
   base::test::TestFuture<void> job_finished_future;
   EXPECT_TRUE(job->Run(base::Time::Now(), base::TimeTicks::Now(),
@@ -408,7 +414,7 @@ TEST_F(DeviceCommandQueryGeolocationJobTest, GetLocationSuccess) {
   const double accuracy = 1200.4;
   const GURL geolocation_url = GetGeolocationUrl();
   AddMockResponse(geolocation_url, test_utils::kSimpleResponseBody);
-  auto job = CreateJob(test_start_time_, test_manager_.get());
+  auto job = CreateJob(test_start_time_, test_manager_->device_store());
   base::test::TestFuture<void> job_finished_future;
   EXPECT_TRUE(job->Run(base::Time::Now(), base::TimeTicks::Now(),
                        job_finished_future.GetCallback()));
@@ -436,7 +442,7 @@ TEST_F(DeviceCommandQueryGeolocationJobTest, GetLocationSuccess) {
 }
 
 TEST_F(DeviceCommandQueryGeolocationJobTest, GetLocationTimeout) {
-  auto job = CreateJob(test_start_time_, test_manager_.get());
+  auto job = CreateJob(test_start_time_, test_manager_->device_store());
   LOG(INFO) << "Not adding mock response for URL to simulate timeout: "
             << GetGeolocationUrl().spec();
   base::test::TestFuture<void> job_finished_future;
@@ -462,7 +468,7 @@ TEST_F(DeviceCommandQueryGeolocationJobTest, GetLocationTimeout) {
 TEST_F(DeviceCommandQueryGeolocationJobTest, GetLocationInvalidResponse) {
   const GURL geolocation_url = GetGeolocationUrl();
   AddMockResponse(geolocation_url, "{ \"invalid\": \"response\" }");
-  auto job = CreateJob(test_start_time_, test_manager_.get());
+  auto job = CreateJob(test_start_time_, test_manager_->device_store());
   base::test::TestFuture<void> job_finished_future;
   EXPECT_TRUE(job->Run(base::Time::Now(), base::TimeTicks::Now(),
                        job_finished_future.GetCallback()));
@@ -488,7 +494,7 @@ TEST_F(DeviceCommandQueryGeolocationJobTest, GetLocationServerError) {
   AddMockResponse(
       geolocation_url,
       "{\"error\":{\"code\":400, \"message\":\"Internal server error\"}}");
-  auto job = CreateJob(test_start_time_, test_manager_.get());
+  auto job = CreateJob(test_start_time_, test_manager_->device_store());
   base::test::TestFuture<void> job_finished_future;
   EXPECT_TRUE(job->Run(base::Time::Now(), base::TimeTicks::Now(),
                        job_finished_future.GetCallback()));
@@ -512,7 +518,7 @@ TEST_F(DeviceCommandQueryGeolocationJobTest, GetLocationServerError) {
 TEST_F(DeviceCommandQueryGeolocationJobTest, GetLocationTooManyRequests) {
   const GURL geolocation_url = GetGeolocationUrl();
   AddMockErrorResponse(geolocation_url, net::HTTP_TOO_MANY_REQUESTS);
-  auto job = CreateJob(test_start_time_, test_manager_.get());
+  auto job = CreateJob(test_start_time_, test_manager_->device_store());
   base::test::TestFuture<void> job_finished_future;
   EXPECT_TRUE(job->Run(base::Time::Now(), base::TimeTicks::Now(),
                        job_finished_future.GetCallback()));
@@ -538,7 +544,7 @@ TEST_F(DeviceCommandQueryGeolocationJobTest,
        GetLocationIncorrectLocationReturned) {
   const GURL geolocation_url = GetGeolocationUrl();
   AddMockResponse(geolocation_url, "{}");
-  auto job = CreateJob(test_start_time_, test_manager_.get());
+  auto job = CreateJob(test_start_time_, test_manager_->device_store());
   base::test::TestFuture<void> job_finished_future;
   EXPECT_TRUE(job->Run(base::Time::Now(), base::TimeTicks::Now(),
                        job_finished_future.GetCallback()));
@@ -562,8 +568,8 @@ TEST_F(DeviceCommandQueryGeolocationJobTest,
 
 // Make sure that the command is still valid 365-1 days after being issued.
 TEST_F(DeviceCommandQueryGeolocationJobTest, TestCommandLifetime) {
-  auto job =
-      CreateJob(test_start_time_ - kVeryOldCommandAge, test_manager_.get());
+  auto job = CreateJob(test_start_time_ - kVeryOldCommandAge,
+                       test_manager_->device_store());
 
   EXPECT_TRUE(
       job->Run(base::Time::Now(), base::TimeTicks::Now(), base::DoNothing()));
@@ -571,8 +577,8 @@ TEST_F(DeviceCommandQueryGeolocationJobTest, TestCommandLifetime) {
 
 // Make sure that the command is expired after 365 days.
 TEST_F(DeviceCommandQueryGeolocationJobTest, TestCommandExpired) {
-  auto job =
-      CreateJob(test_start_time_ - kExpiredCommandAge, test_manager_.get());
+  auto job = CreateJob(test_start_time_ - kExpiredCommandAge,
+                       test_manager_->device_store());
 
   EXPECT_FALSE(
       job->Run(base::Time::Now(), base::TimeTicks::Now(), base::DoNothing()));

@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
 #include "content/browser/accessibility/web_contents_accessibility_android.h"
 
 #include <algorithm>
@@ -46,6 +45,7 @@
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_node_id_forward.h"
 #include "ui/accessibility/ax_range.h"
+#include "ui/accessibility/ax_role_properties.h"
 #include "ui/accessibility/ax_selection.h"
 #include "ui/accessibility/platform/ax_android_constants.h"
 #include "ui/accessibility/platform/browser_accessibility.h"
@@ -541,26 +541,28 @@ ScopedJavaLocalRef<jobject> ToJavaStringRangesMap(
       ranges_count);
 }
 
-// If `node` is or is under an editable, returns the highest editable parent,
-// otherwise returns null.
-ui::AXNode* GetRootEditable(ui::AXNode* node) {
+// Climbs up the platform parent hierarchy of |node| and returns the enclosing
+// selection context boundary container (e.g. the atomic textbox or media player
+// widget), or nullptr if the node belongs to the main document scope.
+BrowserAccessibilityAndroid* GetSelectionContext(
+    BrowserAccessibilityAndroid* node) {
   while (node) {
-    if (node->data().IsAtomicTextField() ||
-        node->data().GetBoolAttribute(
-            ax::mojom::BoolAttribute::kNonAtomicTextFieldRoot)) {
+    if (node->IsSelectionContextBoundary()) {
       return node;
     }
-    node = node->parent();
+    node = static_cast<BrowserAccessibilityAndroid*>(node->PlatformGetParent());
   }
-  return node;
+  return nullptr;
 }
 
-// Selection is not valid if it is cross documents, or its start and end have
-// different root editable nodes.
-// These restrictions are primarily validated in `blink::AXSelection::IsValid()`
-// for atomic text fields and in `blink::AssertUserSelection` in general, and
-// are based on the behavior in `blink::SelectionAdjuster` class.
+// Returns true if the selection range from |start_position| to |end_position|
+// is valid. Selection is not valid if it crosses document boundaries (different
+// tree ids) or if its endpoints belong to different selection contexts (e.g.
+// spanning across different editables, or crossing into/out of form controls).
+// These restrictions are based on the behavior in Blink's `SelectionAdjuster`
+// class.
 bool IsSelectionValid(
+    BrowserAccessibilityManagerAndroid* root_manager,
     const ui::BrowserAccessibility::AXPosition& start_position,
     const ui::BrowserAccessibility::AXPosition& end_position) {
   CHECK(!start_position->IsNullPosition());
@@ -574,11 +576,13 @@ bool IsSelectionValid(
     return true;
   }
 
-  ui::AXNode* start_root_editable =
-      GetRootEditable(start_position->GetAnchor());
-  ui::AXNode* end_root_editable = GetRootEditable(end_position->GetAnchor());
-
-  return start_root_editable == end_root_editable;
+  // Ensure that both endpoints belong to the exact same selection context
+  // (e.g., both are in the main document, or both are inside the same text
+  // input or widget).
+  return GetSelectionContext(static_cast<BrowserAccessibilityAndroid*>(
+             root_manager->GetFromAXNode(start_position->GetAnchor()))) ==
+         GetSelectionContext(static_cast<BrowserAccessibilityAndroid*>(
+             root_manager->GetFromAXNode(end_position->GetAnchor())));
 }
 
 std::optional<ExtendedSelectionOffsetType> AsExtendedSelectionOffsetType(
@@ -1139,6 +1143,14 @@ void WebContentsAccessibilityAndroid::HandleEditableTextChanged(
       env, obj, unique_id, subType);
 }
 
+void WebContentsAccessibilityAndroid::HandleSpinButtonStepIntent(
+    int32_t unique_id) {
+  should_announce_full_text_ = true;
+  HandleEditableTextChanged(
+      unique_id, ANDROID_ACCESSIBILITY_EVENT_TEXT_CHANGE_TYPE_UNDEFINED);
+  should_announce_full_text_ = false;
+}
+
 void WebContentsAccessibilityAndroid::HandleActiveDescendantChanged(
     int32_t unique_id) {
   JNIEnv* env = AttachCurrentThread();
@@ -1572,7 +1584,8 @@ void WebContentsAccessibilityAndroid::
       node->IsFocusable(), node->IsFocused(), node->IsCollapsed(),
       node->IsExpanded(), node->HasNonEmptyValue(),
       !node->GetTextContentUTF16().empty(), node->IsSeekControl(),
-      node->IsFormDescendant());
+      node->IsFormDescendant(), !node->GetAndroidTooltipText().empty(),
+      tooltip_showing_node_id_ == unique_id);
 }
 
 void WebContentsAccessibilityAndroid::
@@ -2034,9 +2047,30 @@ bool WebContentsAccessibilityAndroid::PopulateAccessibilityEvent(
     case ANDROID_ACCESSIBILITY_EVENT_TEXT_CHANGED: {
       std::u16string before_text = node->GetTextChangeBeforeText();
       std::u16string text = node->GetTextContentUTF16();
+      int from_index = node->GetTextChangeFromIndex();
+      int added_count = node->GetTextChangeAddedCount();
+      int removed_count = node->GetTextChangeRemovedCount();
+
+      // Bypass text diff logic for custom spinbuttons, or for native
+      // spinbuttons when explicitly triggered by an increment/decrement intent
+      // (e.g. arrow keys). This forces TalkBack to announce the full string.
+      bool is_spin_button = node->GetRole() == ax::mojom::Role::kSpinButton;
+      bool is_native_spinbutton =
+          node->GetStringAttribute(ax::mojom::StringAttribute::kInputType) ==
+          "number";
+      bool is_custom_spinbutton = is_spin_button && !is_native_spinbutton;
+
+      if ((is_custom_spinbutton ||
+           (is_native_spinbutton && should_announce_full_text_)) &&
+          !text.empty()) {
+        before_text = std::u16string();
+        from_index = 0;
+        added_count = text.length();
+        removed_count = 0;
+      }
+
       Java_WebContentsAccessibilityImpl_setAccessibilityEventTextChangedAttrs(
-          env, obj, event, node->GetTextChangeFromIndex(),
-          node->GetTextChangeAddedCount(), node->GetTextChangeRemovedCount(),
+          env, obj, event, from_index, added_count, removed_count,
           base::android::ConvertUTF16ToJavaString(env, before_text),
           base::android::ConvertUTF16ToJavaString(env, text));
       break;
@@ -2231,7 +2265,7 @@ bool WebContentsAccessibilityAndroid::SetExtendedSelection(
     return false;
   }
 
-  if (!IsSelectionValid(start_position, end_position)) {
+  if (!IsSelectionValid(root_manager, start_position, end_position)) {
     return false;
   }
 
@@ -2288,6 +2322,34 @@ void WebContentsAccessibilityAndroid::ShowContextMenu(JNIEnv* env,
   if (node) {
     node->manager()->ShowContextMenu(*node);
   }
+}
+
+bool WebContentsAccessibilityAndroid::ShowTooltip(JNIEnv* env,
+                                                  int32_t unique_id) {
+  BrowserAccessibilityAndroid* node = GetAXFromUniqueID(unique_id);
+  if (node) {
+    node->manager()->ShowTooltip(*node);
+    tooltip_showing_node_id_ = unique_id;
+    return true;
+  }
+  return false;
+}
+
+bool WebContentsAccessibilityAndroid::HideTooltip(JNIEnv* env,
+                                                  int32_t unique_id) {
+  BrowserAccessibilityAndroid* node = GetAXFromUniqueID(unique_id);
+  if (node) {
+    node->manager()->HideTooltip(*node);
+    if (tooltip_showing_node_id_ == unique_id) {
+      tooltip_showing_node_id_ = 0;
+    }
+    return true;
+  }
+  return false;
+}
+
+void WebContentsAccessibilityAndroid::OnTooltipCleared() {
+  tooltip_showing_node_id_ = 0;
 }
 
 int32_t WebContentsAccessibilityAndroid::FindElementType(

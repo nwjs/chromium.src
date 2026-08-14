@@ -314,6 +314,8 @@ void DesktopWindowTreeHostPlatform::Init(const Widget::InitParams& params) {
         compositor(), begin_frame_source);
     compositor()->SetExternalBeginFrameControllerClientFactory(
         begin_frame_adapter_.get());
+    // Prevents deadlocks when sinks join after frames are displayed.
+    compositor()->set_wait_for_all_frame_sinks(false);
   }
 
   WindowTreeHost::OnAcceleratedWidgetAvailable();
@@ -555,11 +557,7 @@ bool DesktopWindowTreeHostPlatform::IsStackedAbove(aura::Window* window) {
 }
 
 void DesktopWindowTreeHostPlatform::CenterWindow(const gfx::Size& size) {
-  auto weak_ptr = weak_factory_.GetWeakPtr();
   gfx::Rect parent_bounds = GetWorkAreaBoundsInScreen();
-  if (!weak_ptr) {
-    return;
-  }
 
   // If |window_|'s transient parent bounds are big enough to contain |size|,
   // use them instead.

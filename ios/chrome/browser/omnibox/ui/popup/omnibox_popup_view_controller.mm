@@ -35,7 +35,6 @@
 #import "ios/chrome/browser/toolbar/legacy/ui_bundled/buttons/toolbar_configuration.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
-#import "ios/chrome/common/ui/util/device_util.h"
 #import "ios/chrome/common/ui/util/ui_util.h"
 #import "ui/base/device_form_factor.h"
 
@@ -67,9 +66,9 @@ const CGFloat kCloseButtonPadding = 16.0f;
 @interface OmniboxPopupViewController () <OmniboxPopupActionsRowDelegate,
                                           OmniboxPopupCarouselCellDelegate,
                                           OmniboxPopupRowDelegate,
+                                          SelfSizingTableViewDelegate,
                                           UITableViewDataSource,
-                                          UITableViewDelegate,
-                                          SelfSizingTableViewDelegate>
+                                          UITableViewDelegate>
 
 /// Index path of currently highlighted row. The rows can be highlighted by
 /// tapping and holding on them or by using arrow keys on a hardware keyboard.
@@ -839,6 +838,8 @@ const CGFloat kCloseButtonPadding = 16.0f;
   contentConfiguration.text = title;
   contentConfiguration.textProperties.font =
       [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
+  contentConfiguration.textProperties.color =
+      [UIColor colorNamed:kTextSecondaryColor];
   contentConfiguration.textProperties.transform =
       UIListContentTextTransformUppercase;
   contentConfiguration.directionalLayoutMargins = NSDirectionalEdgeInsetsMake(
@@ -1167,14 +1168,12 @@ const CGFloat kCloseButtonPadding = 16.0f;
       configurationWithPointSize:kCloseButtonSize
                           weight:UIImageSymbolWeightRegular
                            scale:UIImageSymbolScaleMedium];
-  UIImage* buttonImage =
-      SymbolWithPalette(DefaultSymbolWithConfiguration(kXMarkCircleFillSymbol,
-                                                       symbolConfiguration),
-                        @[
-                          [[UIColor tertiaryLabelColor]
-                              colorWithAlphaComponent:kCloseButtonAlpha],
-                          [UIColor tertiarySystemFillColor]
-                        ]);
+  UIImage* buttonImage = SymbolWithPalette(
+      SymbolWithConfiguration(SymbolXMarkCircleFill, symbolConfiguration), @[
+        [[UIColor tertiaryLabelColor]
+            colorWithAlphaComponent:kCloseButtonAlpha],
+        [UIColor tertiarySystemFillColor]
+      ]);
   [_closeButton setImage:buttonImage forState:UIControlStateNormal];
 
   [_closeButton addTarget:self

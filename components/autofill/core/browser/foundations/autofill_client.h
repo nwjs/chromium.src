@@ -99,13 +99,9 @@ namespace version_info {
 enum class Channel;
 }
 
-namespace accessibility_annotator {
-class AtMemoryQueryService;
-}
-
 namespace personal_context {
-enum class PersonalContextEnablementState;
-class PersonalContextEnablementService;
+enum class PersonalContextEligibilityState;
+class PersonalContextEligibilityService;
 }
 
 namespace subscription_eligibility {
@@ -121,6 +117,7 @@ namespace autofill {
 class ActorKeyMetricsRecorder;
 class AutofillManager;
 class AddressNormalizer;
+class AtMemoryQueryService;
 class AutocompleteHistoryManager;
 class AutofillAblationStudy;
 class AutofillAiManager;
@@ -154,8 +151,9 @@ struct Suggestion;
 enum class SuggestionHidingReason;
 enum class SuggestionType;
 class SingleFieldFillRouter;
+class TouchToFillAutofillDelegate;
 class ValuablesDataManager;
-class PersonalContextAccessManager;
+class AutofillAiPersonalContextAccessManager;
 class VotesUploader;
 class PasswordManagerAutofillHelperDelegate;
 class WalletPassAccessManager;
@@ -182,6 +180,7 @@ class AutofillClient {
  public:
   // Categories of Autofill data that can be blocked or allowed on specific GURL
   // patterns by enterprise policies.
+  // LINT.IfChange(AutofillPolicyDataCategory)
   enum class AutofillPolicyDataCategory {
     // Address, name, email, phone, and profile configuration details.
     kContactInfo,
@@ -195,6 +194,7 @@ class AutofillClient {
     // Autofill AI shopping details (e.g. orders, shipments).
     kShopping,
   };
+  // LINT.ThenChange(//components/autofill/core/browser/permissions/autofill_policy_service.cc:AutofillPolicyDataCategory,//components/autofill/core/browser/permissions/autofill_policy_service_unittest.cc:AutofillPolicyDataCategory)
 
   // Represents the user's possible decisions or outcomes in response to a
   // prompt related to address saving, updating, or migrating.
@@ -269,7 +269,8 @@ class AutofillClient {
   // Required arguments to create a dropdown showing autofill suggestions.
   struct PopupOpenArgs {
     PopupOpenArgs();
-    PopupOpenArgs(const gfx::RectF& element_bounds,
+    PopupOpenArgs(LocalFrameToken frame_token,
+                  const gfx::RectF& element_bounds,
                   base::i18n::TextDirection text_direction,
                   std::vector<Suggestion> suggestions,
                   AutofillSuggestionTriggerSource trigger_source,
@@ -282,6 +283,9 @@ class AutofillClient {
     PopupOpenArgs& operator=(const PopupOpenArgs&);
     PopupOpenArgs& operator=(PopupOpenArgs&&);
     ~PopupOpenArgs();
+    // The frame in which the popup is anchored. Typically this is the frame of
+    // the field on which the user triggered Autofill.
+    LocalFrameToken frame_token;
     // TODO(crbug.com/340817507): Update this member name since bounds can now
     // refer to the caret bounds and elements gives the idea of HTML elements
     // only.
@@ -435,10 +439,16 @@ class AutofillClient {
 
   // Returns true if Autofill suggestions should include the Personal Context
   // notice.
-  virtual bool ShouldShowPersonalContextAutofillNotice() const;
+  virtual bool ShouldShowPersonalContextAmbientAutofillNotice() const;
 
   // Marks the Personal Context notice as acknowledged.
-  virtual void MarkPersonalContextInAutofillNoticeAsAcknowledged();
+  virtual void MarkPersonalContextAmbientAutofillNoticeAsAcknowledged();
+
+  // Returns true if AtMemory UI should include the Personal Context notice.
+  virtual bool ShouldShowPersonalContextAtMemoryNotice() const;
+
+  // Marks the AtMemory Personal Context notice as acknowledged.
+  virtual void MarkPersonalContextAtMemoryNoticeAsAcknowledged();
 
   // Gets the AutocompleteHistoryManager instance associated with the client.
   virtual AutocompleteHistoryManager* GetAutocompleteHistoryManager() = 0;
@@ -458,10 +468,13 @@ class AutofillClient {
   // Autofill AI feature is unsupported.
   virtual AutofillAiManager* GetAutofillAiManager();
 
-  // Returns the `PersonalContextAccessManager` instance associated with the
-  // client. Returns `nullptr` if `kAutofillAmbientAutofill` is not enabled.
-  virtual PersonalContextAccessManager* GetPersonalContextAccessManager();
-  const PersonalContextAccessManager* GetPersonalContextAccessManager() const;
+  // Returns the `AutofillAiPersonalContextAccessManager` instance associated
+  // with the client. Returns `nullptr` if `kAutofillAmbientAutofill` is not
+  // enabled.
+  virtual AutofillAiPersonalContextAccessManager*
+  GetAutofillAiPersonalContextAccessManager();
+  const AutofillAiPersonalContextAccessManager*
+  GetAutofillAiPersonalContextAccessManager() const;
 
   // Returns the per-profile `AutofillAiModelCache`. Returns `nullptr` if the
   // `kAutofillAiServerModel` is not enabled.
@@ -488,18 +501,17 @@ class AutofillClient {
 
   // Returns the `AtMemoryQueryService` associated with the profile of
   // the window of this tab.
-  virtual accessibility_annotator::AtMemoryQueryService*
-  GetAtMemoryQueryService();
+  virtual AtMemoryQueryService* GetAtMemoryQueryService();
 
   // Returns the enablement state of the Accessibility Annotator.
   // TODO(crbug.com/524193567) Delete this method once all the invocations are
   // replaced by the calls to the central enablement util.
-  virtual personal_context::PersonalContextEnablementState
-  GetPersonalContextEnablementState() const;
+  virtual personal_context::PersonalContextEligibilityState
+  GetPersonalContextEligibilityState() const;
 
-  // Returns the Personal Context Enablement Service. May return nullptr.
-  virtual personal_context::PersonalContextEnablementService*
-  GetPersonalContextEnablementService() const;
+  // Returns the Personal Context Eligibility Service. May return nullptr.
+  virtual personal_context::PersonalContextEligibilityService*
+  GetPersonalContextEligibilityService() const;
 
   // Returns the `PasswordManagerDelegate` responsible to provide
   // password suggestions for the given `field_id`.
@@ -552,6 +564,9 @@ class AutofillClient {
 
   // Returns the last committed url of the primary main frame.
   virtual const GURL& GetLastCommittedPrimaryMainFrameURL() const = 0;
+
+  // Returns the title of the current page.
+  virtual std::u16string_view GetPageTitle() const = 0;
 
   // Returns the last committed origin of the primary main frame.
   virtual url::Origin GetLastCommittedPrimaryMainFrameOrigin() const = 0;
@@ -677,11 +692,6 @@ class AutofillClient {
       const base::flat_set<EntityTypeName>& saved_entities,
       const FieldTypeSet& triggering_field_types);
 
-  // Triggers a survey after the user sees an Autofill AI save prompt.
-  virtual void TriggerAutofillAiSavePromptSurvey(
-      bool prompt_accepted,
-      EntityType entity_type,
-      const base::flat_set<EntityTypeName>& saved_entities);
 
   // Returns whether there is an active actor task for this client's tab (if
   // one exists).
@@ -744,6 +754,14 @@ class AutofillClient {
       base::WeakPtr<AutofillSuggestionDelegate> delegate);
   virtual void HideAtMemoryBottomSheet() {}
 
+  // Shows the Personal Context ambient autofill notice. Returns whether the
+  // notice was successfully shown.
+  virtual bool ShowAmbientAutoFillNotice(
+      base::WeakPtr<TouchToFillAutofillDelegate> delegate);
+
+  // Hides the Personal Context ambient autofill notice.
+  virtual void HideAmbientAutoFillNotice();
+
   // The AutofillSnackbarController is used to show a snackbar notification
   // on Android.
   virtual AutofillSnackbarControllerImpl* GetAutofillSnackbarController();
@@ -776,7 +794,7 @@ class AutofillClient {
 
   // Returns true if the device supports any kind of re-auth through the
   // `GetDeviceAuthenticator()`.
-  bool SupportsDeviceReauth() const;
+  virtual bool SupportsDeviceReauth() const;
 
   // Attaches the IPH for `feature` to the `field`, on
   // platforms that it. If another IPH has been shown for the tab, the IPH is
@@ -839,11 +857,15 @@ class AutofillClient {
   // Notifies the user that an Autofill AI operation save to Wallet failed.
   virtual void ShowAutofillAiSaveToWalletFailureNotification();
 
-  // Notifies the user that operation to fetch data from Wallet failed.
-  virtual void ShowAutofillAiFetchFromWalletFailureNotification();
+  // Notifies the user that operation to fetch data failed.
+  virtual void ShowAutofillAiFetchEntityFailureNotification();
 
   // Notifies the user that prefetching Autofill AI entities failed.
   virtual void ShowAutofillAiPreFetchFailureNotification();
+
+  // Notifies the user that the page content will now be processed privately by
+  // default.
+  virtual void ShowAutofillAiPrivateInferenceNotice();
 
   virtual void ShowEmailVerifiedToast(const GURL& issuer);
 
@@ -882,6 +904,10 @@ class AutofillClient {
 
   // Returns the AutofillManager instance for the current frame/tab.
   virtual AutofillManager* GetAutofillManagerForPrimaryMainFrame();
+
+  // Returns whether the client uses platform-native autofill rather than
+  // Chrome's built-in autofill UI/logic.
+  virtual bool UsesPlatformAutofill() const = 0;
 };
 
 }  // namespace autofill

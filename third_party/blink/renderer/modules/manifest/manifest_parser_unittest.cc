@@ -3040,6 +3040,62 @@ TEST_F(ManifestParserTest, FileHandlerParseRules) {
     ASSERT_EQ(0u, file_handlers.size());
   }
 
+  // Extensions that contain format characters are invalid.
+  {
+    auto& manifest = ParseManifest(
+        R"({
+          "file_handlers": [
+            {
+              "name": "name",
+              "action": "/files",
+              "accept": {
+                "image/png": [
+                  ".png\u202E"
+                ]
+              }
+            }
+          ]
+        })");
+    auto& file_handlers = manifest->file_handlers;
+
+    ASSERT_EQ(2u, GetErrorCount());
+    EXPECT_EQ(
+        "property 'accept' file extension ignored, contains invalid "
+        "control or format characters.",
+        errors()[0]);
+    EXPECT_EQ("FileHandler ignored. Property 'accept' is invalid.",
+              errors()[1]);
+    ASSERT_EQ(0u, file_handlers.size());
+  }
+
+  // Extensions that contain control characters are invalid.
+  {
+    auto& manifest = ParseManifest(
+        R"({
+          "file_handlers": [
+            {
+              "name": "name",
+              "action": "/files",
+              "accept": {
+                "image/png": [
+                  ".png\u0001"
+                ]
+              }
+            }
+          ]
+        })");
+    auto& file_handlers = manifest->file_handlers;
+
+    ASSERT_EQ(2u, GetErrorCount());
+    EXPECT_EQ(
+        "property 'accept' file extension ignored, contains invalid "
+        "control or format characters.",
+        errors()[0]);
+    EXPECT_EQ("FileHandler ignored. Property 'accept' is invalid.",
+              errors()[1]);
+    ASSERT_EQ(0u, file_handlers.size());
+  }
+
   // Invalid MIME types and those with parameters are stripped.
   {
     auto& manifest = ParseManifest(
@@ -6919,9 +6975,6 @@ TEST_F(ManifestParserTest, VersionParseRules) {
 }
 
 TEST_F(ManifestParserTest, NameLocalizedParseRules) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kWebAppManifestLocalization);
-
   // Smoke test.
   {
     auto& manifest = ParseManifest(R"({
@@ -7210,9 +7263,6 @@ TEST_F(ManifestParserTest, NameLocalizedParseRules) {
 }
 
 TEST_F(ManifestParserTest, ShortNameLocalizedParseRules) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kWebAppManifestLocalization);
-
   // Smoke test.
   {
     auto& manifest = ParseManifest(R"({
@@ -7358,9 +7408,6 @@ TEST_F(ManifestParserTest, ShortNameLocalizedParseRules) {
 }
 
 TEST_F(ManifestParserTest, DescriptionLocalizedParseRules) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kWebAppManifestLocalization);
-
   // Smoke test.
   {
     auto& manifest = ParseManifest(R"({
@@ -7481,9 +7528,6 @@ TEST_F(ManifestParserTest, DescriptionLocalizedParseRules) {
 }
 
 TEST_F(ManifestParserTest, IconsLocalizedParseRules) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kWebAppManifestLocalization);
-
   // Smoke test: if one icon with valid src, it will be present in the list.
   {
     auto& manifest = ParseManifest(R"({
@@ -7855,9 +7899,6 @@ TEST_F(ManifestParserTest, IconsLocalizedParseRules) {
 }
 
 TEST_F(ManifestParserTest, ManifestLocalizationUseCounter) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kWebAppManifestLocalization);
-
   const auto kFeature = blink::mojom::WebDXFeature::kManifestLocalization;
   UseCounterImpl& use_counter = GetDocument().Loader()->GetUseCounter();
 

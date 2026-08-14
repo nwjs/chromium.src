@@ -36,15 +36,7 @@ inline constexpr char kAutofillAiIdentityEntitiesEnabled[] =
 // Otherwise, filling of these entities is disabled.
 inline constexpr char kAutofillAiShoppingEntitiesEnabled[] =
     "autofill.autofill_ai.shopping_entities_enabled";
-// Boolean that is true if Autofill AI synced pref is enabled.
-// This pref supersedes the non-synced pref `kAutofillAiOptInStatus`, which is
-// in the process of being deprecated. Users who have previously interacted with
-// `kAutofillAiOptInStatus` will have its current value migrated to
-// `kAutofillAiSyncedOptInStatus` at start-up time, this way users will not need
-// to opt-in into the feature twice.
-// TODO(crbug.com/459767753): Delete this pref as feature is obsolete.
-inline constexpr char kAutofillAiSyncedOptInStatus[] =
-    "autofill.autofill_ai.synced_opt_in_status";
+
 // A dictionary that contains (hashed) GAIA ids and their opt-in status for
 // Autofill AI.
 // Note that the feature AutofillAiAvailableByDefault is currently in the
@@ -53,6 +45,17 @@ inline constexpr char kAutofillAiSyncedOptInStatus[] =
 // logging (Enhanced Autofill) are.
 inline constexpr char kAutofillAiOptInStatus[] =
     "autofill.autofill_ai.opt_in_status";
+// Timestamp when the user acknowledged the private inference notice UI by
+// clicking Ok/Got it.
+inline constexpr char kAutofillAiPrivateInferenceNoticeAcknowledgedTimestamp[] =
+    "autofill.autofill_ai.private_inference_notice_acknowledged_timestamp";
+// Timestamp when the user first saw the private inference notice UI.
+inline constexpr char kAutofillAiPrivateInferenceNoticeFirstShownTimestamp[] =
+    "autofill.autofill_ai.private_inference_notice_first_shown_timestamp";
+// Boolean that is true if the user is opted-in to private inference in Autofill
+// AI.
+inline constexpr char kAutofillAiPrivateInferenceOptInStatus[] =
+    "autofill.autofill_ai.private_inference_opt_in_status";
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_IOS)
 // Boolean that is true if re-authentication is required before viewing Autofill
@@ -148,6 +151,7 @@ inline constexpr char kAutofillSyncTransportOptIn[] =
 inline constexpr char kAutofillTypesBlocked[] = "autofill.types_blocked";
 
 // Keys and values used in `kAutofillTypesBlocked` preference.
+inline constexpr char kAutofillBlockedTypesAllValue[] = "all";
 inline constexpr char kAutofillBlockedTypesUrlPatternKey[] = "url_pattern";
 inline constexpr char kAutofillBlockedTypesBlockedTypesKey[] = "blocked_types";
 
@@ -313,10 +317,8 @@ base::Time GetAutofillGmailOtpFillingActivationDismissalTimestamp(
     const PrefService* prefs);
 void SetAutofillGmailOtpFillingActivationDismissalTimestamp(PrefService* prefs,
                                                             base::Time time);
-
-bool IsAutofillAiSyncedOptInStatusEnabled(const PrefService* prefs);
-
-void SetAutofillAiSyncedOptInStatus(PrefService* prefs, bool enabled);
+void ClearAutofillGmailOtpFillingActivationDismissalTimestamp(
+    PrefService* prefs);
 
 bool IsAutofillAiReauthBeforeFillingEnabled(const PrefService* prefs);
 

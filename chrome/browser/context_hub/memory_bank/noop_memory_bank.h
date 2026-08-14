@@ -5,6 +5,9 @@
 #ifndef CHROME_BROWSER_CONTEXT_HUB_MEMORY_BANK_NOOP_MEMORY_BANK_H_
 #define CHROME_BROWSER_CONTEXT_HUB_MEMORY_BANK_NOOP_MEMORY_BANK_H_
 
+#include <string_view>
+
+#include "base/containers/span.h"
 #include "chrome/browser/context_hub/memory_bank/memory_bank.h"
 
 namespace context_hub {
@@ -15,21 +18,22 @@ namespace context_hub {
 class NoOpMemoryBank : public MemoryBank {
  public:
   NoOpMemoryBank();
-  ~NoOpMemoryBank() override;
-
   NoOpMemoryBank(const NoOpMemoryBank&) = delete;
   NoOpMemoryBank& operator=(const NoOpMemoryBank&) = delete;
+  ~NoOpMemoryBank() override;
 
   // MemoryBank:
   void SaveTab(const GURL& url,
-               const std::string& tab_title,
+               std::string_view tab_title,
+               std::string_view page_text,
                OperationCompleteCallback callback) override;
   void SaveTextSelection(const GURL& url,
-                         const std::string& tab_title,
-                         const std::string& selected_text,
+                         std::string_view tab_title,
+                         std::string_view selected_text,
                          OperationCompleteCallback callback) override;
   void GetAllEntries(GetAllEntriesCallback callback) const override;
-  void DeleteEntry(int64_t id, OperationCompleteCallback callback) override;
+  void DeleteEntries(base::span<const int64_t> ids,
+                     OperationCompleteCallback callback) override;
 };
 
 }  // namespace context_hub

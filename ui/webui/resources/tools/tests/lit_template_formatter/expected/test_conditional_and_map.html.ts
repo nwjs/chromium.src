@@ -14,13 +14,12 @@ export function getHtml(this: DummyTestElement) {
         ${this.items.map(item => html`
           <option class="searchable" value="${item.value}"
               ?selected="${this.isSelected_(item)}">
-             ${this.getName_(item)}
+            ${this.getName_(item)}
           </option>
         `)}
       </select>
     </div>
   ` : ''}
-</div>
-`;
+</div>`;
   // clang-format on
 }

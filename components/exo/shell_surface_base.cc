@@ -918,6 +918,10 @@ void ShellSurfaceBase::SetRestoreInfo(int32_t restore_session_id,
   // TODO(crbug.com/1327490): Rename restore info variables.
   // Restore information must be set before widget is created.
   DCHECK(!widget_);
+  SecurityDelegate* security = GetSecurityDelegate();
+  if (!security || !security->CanSetRestoreInfo()) {
+    return;
+  }
   restore_session_id_.emplace(restore_session_id);
   restore_window_id_.emplace(restore_window_id);
   ash::LoginUnlockThroughputRecorder* throughput_recorder =
@@ -928,6 +932,10 @@ void ShellSurfaceBase::SetRestoreInfo(int32_t restore_session_id,
 void ShellSurfaceBase::SetRestoreInfoWithWindowIdSource(
     int32_t restore_session_id,
     const std::string& restore_window_id_source) {
+  SecurityDelegate* security = GetSecurityDelegate();
+  if (!security || !security->CanSetRestoreInfo()) {
+    return;
+  }
   restore_session_id_.emplace(restore_session_id);
   if (!restore_window_id_source.empty())
     restore_window_id_source_.emplace(restore_window_id_source);
@@ -1691,15 +1699,17 @@ void ShellSurfaceBase::OnWindowActivated(ActivationReason reason,
 void ShellSurfaceBase::OnTooltipShown(aura::Window* target,
                                       std::u16string_view text,
                                       const gfx::Rect& bounds) {
-  if (root_surface()) {
-    root_surface()->OnTooltipShown(text, bounds);
+  if (!IsShellSurfaceWindow(target) || !root_surface()) {
+    return;
   }
+  root_surface()->OnTooltipShown(text, bounds);
 }
 
 void ShellSurfaceBase::OnTooltipHidden(aura::Window* target) {
-  if (root_surface()) {
-    root_surface()->OnTooltipHidden();
+  if (!IsShellSurfaceWindow(target) || !root_surface()) {
+    return;
   }
+  root_surface()->OnTooltipHidden();
 }
 
 // Returns true if surface is currently being resized.

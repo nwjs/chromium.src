@@ -26,7 +26,8 @@ namespace new_tab_footer {
 
 NewTabFooterController::NewTabFooterController(
     Profile* profile,
-    std::vector<ContentsContainerView*> contents_container_views)
+    const std::vector<raw_ptr<ContentsContainerView, DanglingUntriaged>>&
+        contents_container_views)
     : profile_(profile) {
   for (ContentsContainerView* contents_container_view :
        contents_container_views) {
@@ -145,7 +146,7 @@ void NewTabFooterController::ContentsViewFooterCotroller::
   const bool show_extension = ShouldShowExtensionFooter(url);
   const bool show = show_managed || show_extension;
   if (show) {
-    footer_->ShowUI(load_start_timestamp, url);
+    footer_->ShowUI(load_start_timestamp, url, web_contents()->GetWeakPtr());
   } else {
     footer_->CloseUI();
   }

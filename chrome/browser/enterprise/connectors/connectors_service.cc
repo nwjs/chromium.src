@@ -216,10 +216,14 @@ std::string ConnectorsService::GetManagementDomain() {
   std::optional<policy::PolicyScope> scope;
   for (const char* scope_pref :
        {enterprise_connectors::kEnterpriseRealTimeUrlCheckScope,
+#if !BUILDFLAG(IS_ANDROID)
         AnalysisConnectorScopePref(AnalysisConnector::FILE_ATTACHED),
+#endif
         AnalysisConnectorScopePref(AnalysisConnector::FILE_DOWNLOADED),
+#if !BUILDFLAG(IS_ANDROID)
         AnalysisConnectorScopePref(AnalysisConnector::BULK_DATA_ENTRY),
         AnalysisConnectorScopePref(AnalysisConnector::PRINT),
+#endif
         kOnSecurityEventScopePref}) {
     std::optional<DmToken> dm_token = GetDmToken(scope_pref);
     if (dm_token.has_value()) {
@@ -260,27 +264,17 @@ std::string ConnectorsService::GetManagementDomain() {
 #endif
 }
 
-std::string ConnectorsService::GetRealTimeUrlCheckIdentifier() const {
-  auto dm_token = GetDmToken(kEnterpriseRealTimeUrlCheckScope);
-  if (!dm_token) {
-    return std::string();
-  }
+bool ConnectorsService::IsProfileAffiliated() const {
+  return IsAffiliated(Profile::FromBrowserContext(context_));
+}
 
-  Profile* profile = Profile::FromBrowserContext(context_);
-  if (IsAffiliated(profile)) {
-    std::string result = GetDeviceClientId(profile);
-    std::string email = MaybeGetProfileEmail(profile);
-    if (!email.empty()) {
-      return base::StrCat({result, "\n", email});
-    }
-    return result;
-  }
+std::string ConnectorsService::GetProfileEmail() const {
+  return MaybeGetProfileEmail(Profile::FromBrowserContext(context_));
+}
 
-  if (dm_token->scope == policy::POLICY_SCOPE_MACHINE) {
-    return GetDeviceClientId(profile);
-  }
-
-  return MaybeGetProfileEmail(profile);
+std::string ConnectorsService::GetDeviceClientId() const {
+  return ::enterprise_connectors::GetDeviceClientId(
+      Profile::FromBrowserContext(context_));
 }
 
 std::optional<ConnectorsService::DmToken> ConnectorsService::GetDmToken(

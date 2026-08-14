@@ -447,7 +447,7 @@ content::WebContents* PrerenderInProcessBrowserTest::GetActiveWebContents()
 NoStatePrefetchManager*
 PrerenderInProcessBrowserTest::GetNoStatePrefetchManager() const {
   return NoStatePrefetchManagerFactory::GetForBrowserContext(
-      current_browser()->profile());
+      current_browser()->GetProfile());
 }
 
 TestNoStatePrefetchContents*
@@ -486,7 +486,7 @@ void PrerenderInProcessBrowserTest::CreatedBrowserMainParts(
 }
 
 void PrerenderInProcessBrowserTest::SetUpOnMainThread() {
-  current_browser()->profile()->GetPrefs()->SetBoolean(
+  current_browser()->GetProfile()->GetPrefs()->SetBoolean(
       prefs::kPromptForDownload, false);
   embedded_test_server()->RegisterRequestMonitor(base::BindRepeating(
       &PrerenderInProcessBrowserTest::MonitorResourceRequest,

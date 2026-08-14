@@ -4,7 +4,6 @@
 
 #include "chrome/browser/ui/views/bookmarks/saved_tab_groups/saved_tab_group_tabs_menu_model.h"
 
-#include <memory>
 #include <optional>
 #include <string>
 
@@ -26,9 +25,7 @@ namespace tab_groups {
 
 class SavedTabGroupTabsMenuModelBrowserTest : public InProcessBrowserTest {
  public:
-  SavedTabGroupTabsMenuModelBrowserTest() {
-    feature_list_.InitAndDisableFeature(tab_groups::kProjectsPanel);
-  }
+  SavedTabGroupTabsMenuModelBrowserTest() = default;
 
   int GetNextCommandId() { return next_command_id_++; }
 
@@ -63,10 +60,8 @@ class SavedTabGroupTabsMenuModelBrowserTest : public InProcessBrowserTest {
 
  protected:
   TabGroupSyncService* GetSyncService() {
-    return TabGroupSyncServiceFactory::GetForProfile(browser()->profile());
+    return TabGroupSyncServiceFactory::GetForProfile(browser()->GetProfile());
   }
-
-  base::test::ScopedFeatureList feature_list_;
 
  private:
   int next_command_id_ = 1;
@@ -126,33 +121,6 @@ IN_PROC_BROWSER_TEST_F(SavedTabGroupTabsMenuModelBrowserTest,
                   base::Unretained(this)));
 
   EXPECT_TRUE(IsPinItemPresent(&model));
-}
-
-class SavedTabGroupTabsMenuModelWithProjectsPanelEnabledBrowserTest
-    : public SavedTabGroupTabsMenuModelBrowserTest {
- public:
-  SavedTabGroupTabsMenuModelWithProjectsPanelEnabledBrowserTest() {
-    feature_list_.Reset();
-    feature_list_.InitAndEnableFeature(tab_groups::kProjectsPanel);
-  }
-};
-
-IN_PROC_BROWSER_TEST_F(
-    SavedTabGroupTabsMenuModelWithProjectsPanelEnabledBrowserTest,
-    PinUnpinOptionVisibility) {
-  SavedTabGroup group(u"Test Group", tab_groups::TabGroupColorId::kGrey, {},
-                      std::nullopt);
-  GetSyncService()->AddGroup(group);
-
-  // Pin/unpin should be hidden when the projects panel is enabled.
-  STGTabsMenuModel model(
-      browser(), TabGroupMenuContext::SAVED_TAB_GROUP_BUTTON_CONTEXT_MENU);
-  model.Build(group,
-              base::BindRepeating(
-                  &SavedTabGroupTabsMenuModelBrowserTest::GetNextCommandId,
-                  base::Unretained(this)));
-
-  EXPECT_FALSE(IsPinItemPresent(&model));
 }
 
 }  // namespace tab_groups

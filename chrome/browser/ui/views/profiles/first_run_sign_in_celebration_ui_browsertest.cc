@@ -6,7 +6,6 @@
 #include "base/check_deref.h"
 #include "base/functional/callback_helpers.h"
 #include "base/no_destructor.h"
-#include "base/run_loop.h"
 #include "base/strings/strcat.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/profiles/profile.h"
@@ -25,7 +24,6 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/base/page_transition_types.h"
 #include "ui/views/view_tracker.h"
 #include "url/gurl.h"
 
@@ -59,8 +57,6 @@ class SignInCelebrationStepControllerForTest
             &SignInCelebrationStepControllerForTest::OnCelebrationLoaded,
             weak_ptr_factory_.GetWeakPtr(), std::move(step_shown_callback)));
   }
-
-  void OnNavigateBackRequested() override { NOTREACHED(); }
 
   void OnCelebrationLoaded(StepSwitchFinishedCallback step_shown_callback) {
     auto* intro_ui = host()
@@ -100,7 +96,7 @@ class FirstRunSignInCelebrationPixelTest
     SignInWithAccount();
 
     auto* view = new ProfileManagementStepTestView(
-        ProfilePicker::Params::ForFirstRun(browser()->profile()->GetPath(),
+        ProfilePicker::Params::ForFirstRun(browser()->GetProfile()->GetPath(),
                                            base::DoNothing()),
         ProfileManagementFlowController::Step::kIntro,
         /*step_controller_factory=*/

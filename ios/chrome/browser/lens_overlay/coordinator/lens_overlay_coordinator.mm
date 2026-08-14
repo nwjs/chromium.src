@@ -24,13 +24,11 @@
 #import "ios/chrome/browser/lens/ui_bundled/lens_entrypoint.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_omnibox_client.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_omnibox_client_delegate.h"
-#import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_availability.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_mediator.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_mediator_delegate.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_tab_change_audience.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_result_page_mediator.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_configuration_factory.h"
-#import "ios/chrome/browser/lens_overlay/model/lens_overlay_entrypoint.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_metrics_recorder.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_overflow_menu_delegate.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_overflow_menu_factory.h"
@@ -38,6 +36,8 @@
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_snapshot_controller.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_tab_helper.h"
 #import "ios/chrome/browser/lens_overlay/model/snapshot_cover_view_controller.h"
+#import "ios/chrome/browser/lens_overlay/public/lens_overlay_availability.h"
+#import "ios/chrome/browser/lens_overlay/public/lens_overlay_entrypoint.h"
 #import "ios/chrome/browser/lens_overlay/ui/lens_overlay_consent_presenter.h"
 #import "ios/chrome/browser/lens_overlay/ui/lens_overlay_consent_view_controller.h"
 #import "ios/chrome/browser/lens_overlay/ui/lens_overlay_container_presenter.h"
@@ -1658,14 +1658,13 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
 
   // If the window was resized and the current width does not match the initial
   // snapshot width anymore, refrain from repositioning.
-  CGFloat currentWindowWidth =
-      self.browser->GetSceneState().window.frame.size.width;
+  CGFloat currentWindowWidth = sceneWindow.frame.size.width;
   CGFloat initialImageWidth = _selectionViewController.imageSize.width;
 
   // Factor in the native scale of the screen to compensate for the initial
   // rescale. This initial adjustment was necessary to meet the specifications
   // of the Lens API.
-  CGFloat screenScale = [UIScreen mainScreen].nativeScale;
+  CGFloat screenScale = sceneWindow.windowScene.screen.nativeScale;
 
   return currentWindowWidth * screenScale == initialImageWidth;
 }

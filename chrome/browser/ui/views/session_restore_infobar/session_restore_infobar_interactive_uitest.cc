@@ -66,7 +66,7 @@ class SessionRestoreInfobarInteractiveTest
   void CreateInfobar(Browser* browser, bool is_post_crash_launch) {
     auto* controller =
         session_restore_infobar::SessionRestoreInfobarController::From(browser);
-    controller->MaybeShowInfoBar(*browser->profile(), is_post_crash_launch);
+    controller->MaybeShowInfoBar(*browser->GetProfile(), is_post_crash_launch);
   }
 
  private:
@@ -91,7 +91,7 @@ class SessionRestoreInfobarDefaultTest : public InteractiveBrowserTest {
   void CreateInfobar(Browser* browser, bool is_post_crash_launch) {
     auto* controller =
         session_restore_infobar::SessionRestoreInfobarController::From(browser);
-    controller->MaybeShowInfoBar(*browser->profile(), is_post_crash_launch);
+    controller->MaybeShowInfoBar(*browser->GetProfile(), is_post_crash_launch);
   }
 
  private:
@@ -116,7 +116,7 @@ class SessionRestoreInfobarDefaultOffTest : public InteractiveBrowserTest {
   void CreateInfobar(Browser* browser, bool is_post_crash_launch) {
     auto* controller =
         session_restore_infobar::SessionRestoreInfobarController::From(browser);
-    controller->MaybeShowInfoBar(*browser->profile(), is_post_crash_launch);
+    controller->MaybeShowInfoBar(*browser->GetProfile(), is_post_crash_launch);
   }
 
  private:
@@ -173,7 +173,7 @@ IN_PROC_BROWSER_TEST_P(SessionRestoreInfobarInteractiveTest,
 // preferences are set to open the new tab page.
 IN_PROC_BROWSER_TEST_P(SessionRestoreInfobarInteractiveTest,
                        InfobarNotShownForOtherSettings) {
-  browser()->profile()->GetPrefs()->SetInteger(prefs::kRestoreOnStartup, 4);
+  browser()->GetProfile()->GetPrefs()->SetInteger(prefs::kRestoreOnStartup, 4);
 
   CreateInfobar(browser(), false);
   RunTestSequence(EnsureNotPresent(ConfirmInfoBar::kInfoBarElementId));
@@ -184,7 +184,7 @@ IN_PROC_BROWSER_TEST_P(SessionRestoreInfobarInteractiveTest,
 IN_PROC_BROWSER_TEST_P(SessionRestoreInfobarInteractiveTest,
                        InfoBarNotShownWhenClearOnExit) {
   HostContentSettingsMap* host_content_settings_map =
-      HostContentSettingsMapFactory::GetForProfile(browser()->profile());
+      HostContentSettingsMapFactory::GetForProfile(browser()->GetProfile());
   host_content_settings_map->SetDefaultContentSetting(
       ContentSettingsType::COOKIES, CONTENT_SETTING_BLOCK);
 
@@ -252,7 +252,7 @@ IN_PROC_BROWSER_TEST_P(SessionRestoreInfobarInteractiveTest,
   RunTestSequence(WaitForShow(ConfirmInfoBar::kInfoBarElementId),
                   // Change the pref to open the new tab page.
                   Do([this]() {
-                    browser()->profile()->GetPrefs()->SetInteger(
+                    browser()->GetProfile()->GetPrefs()->SetInteger(
                         prefs::kRestoreOnStartup, 4);
                   }),
                   WaitForHide(ConfirmInfoBar::kInfoBarElementId));
@@ -310,7 +310,7 @@ IN_PROC_BROWSER_TEST_P(SessionRestoreInfobarInteractiveTest,
   RunTestSequence(WaitForShow(ConfirmInfoBar::kInfoBarElementId),
                   // Change the pref to continue where you left off.
                   Do([this]() {
-                    browser()->profile()->GetPrefs()->SetInteger(
+                    browser()->GetProfile()->GetPrefs()->SetInteger(
                         prefs::kRestoreOnStartup, 1);
                   }),
                   // The infobar should be hidden after the pref change.

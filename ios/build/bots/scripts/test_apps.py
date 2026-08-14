@@ -284,6 +284,9 @@ class GTestsApp(object):
         f'__PLATFORMS__/{self.xcode_platform_dir_name}/Developer')
     dyld_library_paths.append(f'{platform_dev_path}/Library')
     dyld_framework_paths.append(f'{platform_dev_path}/Library/Frameworks')
+    if self.xcode_platform_dir_name == 'iPhoneSimulator.platform':
+      dyld_framework_paths.append(
+          f'{platform_dev_path}/Library/PrivateFrameworks')
 
     module_data = {
         'TestBundlePath': self.test_app_path,
@@ -356,9 +359,16 @@ class GTestsApp(object):
     if is_running_rosetta():
       cmd.extend(['arch', '-arch', 'arm64'])
     cmd.extend([
-        'xcodebuild', 'test-without-building', '-xctestrun',
-        self.fill_xctest_run(out_dir), '-destination', destination,
-        '-resultBundlePath', out_dir
+        'xcodebuild',
+        'test-without-building',
+        '-xctestrun',
+        self.fill_xctest_run(out_dir),
+        '-destination',
+        destination,
+        '-resultBundlePath',
+        out_dir,
+        '-collect-test-diagnostics',
+        'never',
     ])
     if clones > 1:
       cmd.extend([
@@ -415,6 +425,8 @@ class EgtestsApp(GTestsApp):
 
   def get_all_tests(self):
     """Gets all tests to run in this object."""
+    if not self.all_eg_test_names and self.initial_included_tests:
+      return list(self.initial_included_tests)
     all_tests = []
     for test_class, test_method in self.all_eg_test_names:
       test_name = '%s/%s' % (test_class, test_method)
@@ -671,11 +683,15 @@ class SimulatorXCTestUnitTestsApp(GTestsApp):
                     f'__PLATFORMS__/{self.xcode_platform_dir_name}/Developer/'
                     'usr/lib/libXCTestBundleInject.dylib',
                 'DYLD_LIBRARY_PATH':
+                    '__TESTHOST__/Frameworks:'
                     f'__PLATFORMS__/{self.xcode_platform_dir_name}/Developer/'
                     'Library',
                 'DYLD_FRAMEWORK_PATH':
+                    '__TESTHOST__/Frameworks:'
                     f'__PLATFORMS__/{self.xcode_platform_dir_name}/Developer/'
-                    'Library/Frameworks',
+                    'Library/Frameworks:'
+                    f'__PLATFORMS__/{self.xcode_platform_dir_name}/Developer/'
+                    'Library/PrivateFrameworks',
                 'XCInjectBundleInto': '__TESTHOST__/%s' % self.module_name
             }
         }

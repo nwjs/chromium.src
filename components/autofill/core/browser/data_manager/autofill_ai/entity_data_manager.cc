@@ -50,7 +50,7 @@ EntityDataManager::EntityDataManager(
     syncer::SyncService* sync_service,
     scoped_refptr<AutofillWebDataService> webdata_service,
     history::HistoryService* history_service,
-    PersonalContextAccessManager* pcontext_manager,
+    AutofillAiPersonalContextAccessManager* pcontext_manager,
     strike_database::StrikeDatabaseBase* strike_database,
     GeoIpCountryCode variation_country_code)
     : webdata_service_(std::move(webdata_service)),
@@ -227,6 +227,18 @@ base::optional_ref<const EntityInstance> EntityDataManager::GetEntityInstance(
   return *it;
 }
 
+void EntityDataManager::AddPersonalContextEntities(
+    base::span<const EntityInstance> entities) {
+  CHECK(std::ranges::all_of(entities, [](const EntityInstance& entity) {
+    return entity.record_type() == EntityInstance::RecordType::kPersonalContext;
+  }));
+  // insert() doesn't replace existing values. This suffices, because previously
+  // added entities are deduplicated afterwards.
+  entities_.insert(entities.begin(), entities.end());
+  DedupePersonalContextEntities();
+  NotifyEntityInstancesChanged();
+}
+
 base::optional_ref<EntityInstance> EntityDataManager::GetMutableEntityInstance(
     const EntityInstance::EntityId& guid) {
   auto it = entities_.find(guid);
@@ -256,27 +268,21 @@ void EntityDataManager::OnHistoryDeletions(
 }
 
 void EntityDataManager::OnPrefetchContextComplete(
-    const PersonalContextAccessManager& manager,
+    const AutofillAiPersonalContextAccessManager& manager,
     std::optional<base::span<const EntityInstance>> entities) {
   if (!entities.has_value() || entities->empty()) {
     return;
   }
-  CHECK(std::ranges::all_of(*entities, [](const EntityInstance& entity) {
-    return entity.record_type() == EntityInstance::RecordType::kPersonalContext;
-  }));
-  // insert() doesn't replace existing values. This suffices, because previously
-  entities_.insert(entities->begin(), entities->end());
-  DedupePersonalContextEntities();
-  NotifyEntityInstancesChanged();
+  AddPersonalContextEntities(*entities);
 }
 
 void EntityDataManager::OnMaskedEntityTypeEvicted(
-    const PersonalContextAccessManager& manager,
+    const AutofillAiPersonalContextAccessManager& manager,
     EntityType type) {
   base::EraseIf(entities_, [&](const EntityInstance& entity) {
     return entity.record_type() ==
                EntityInstance::RecordType::kPersonalContext &&
-           entity.type() == type;
+           entity.type() == type && !test_pcontext_entities_.contains(entity);
   });
   NotifyEntityInstancesChanged();
 }

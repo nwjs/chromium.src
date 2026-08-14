@@ -38,7 +38,9 @@ import org.mockito.MockitoAnnotations;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.pdf.PdfUtils.PdfToolbarAction;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.widget.ChromePopupWindow;
 import org.chromium.ui.widget.UiWidgetFactory;
@@ -129,6 +131,15 @@ public class PdfToolbarCoordinatorUnitTest {
         // Should revert to 99
         assertEquals("99", currentPage.getText().toString());
         assertFalse(currentPage.isFocused());
+
+        // Number overflow / excessively large input string
+        assertTrue(currentPage.requestFocus());
+        assertTrue(currentPage.isFocused());
+        currentPage.setText("7868768761");
+        currentPage.onEditorAction(android.view.inputmethod.EditorInfo.IME_ACTION_GO);
+        // Should revert to 99
+        assertEquals("99", currentPage.getText().toString());
+        assertFalse(currentPage.isFocused());
     }
 
     @Test
@@ -186,6 +197,89 @@ public class PdfToolbarCoordinatorUnitTest {
         // Should not throw and should clamp to the maximum zoom level (5.0f).
         zoomIncreaseButton.performClick();
         verify(mDelegate).changeZoomLevel(5.0f);
+    }
+
+    @Test
+    public void testZoomInClick_recordsMetric() {
+        var histogramWatcher = HistogramWatcher.newSingleRecordWatcher(
+                "Android.Pdf.ToolbarAction", PdfToolbarAction.ZOOM_IN);
+        View zoomIncreaseButton = mPdfPageView.findViewById(R.id.zoom_increase_button);
+        zoomIncreaseButton.performClick();
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    public void testZoomOutClick_recordsMetric() {
+        var histogramWatcher = HistogramWatcher.newSingleRecordWatcher(
+                "Android.Pdf.ToolbarAction", PdfToolbarAction.ZOOM_OUT);
+        View zoomDecreaseButton = mPdfPageView.findViewById(R.id.zoom_decrease_button);
+        zoomDecreaseButton.performClick();
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    public void testFitToPageToggle_recordsMetric() {
+        View fitToPageButton = mPdfPageView.findViewById(R.id.fit_to_page_button);
+
+        // First click (vertical)
+        var histogramWatcherVertical =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Pdf.ToolbarAction", PdfToolbarAction.FIT_TO_PAGE_VERTICAL);
+        fitToPageButton.performClick();
+        histogramWatcherVertical.assertExpected();
+
+        // Second click (horizontal)
+        var histogramWatcherHorizontal =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Pdf.ToolbarAction", PdfToolbarAction.FIT_TO_PAGE_HORIZONTAL);
+        fitToPageButton.performClick();
+        histogramWatcherHorizontal.assertExpected();
+    }
+
+    @Test
+    public void testFitToPageViaMenu_recordsMetric() {
+        PdfToolbar toolbar = mPdfPageView.findViewById(R.id.pdf_toolbar);
+        float density = mActivity.getResources().getDisplayMetrics().density;
+        // Layout narrow to hide fit-to-page button and show it in the menu
+        int widthPx = (int) (680 * density);
+        toolbar.layout(0, 0, widthPx, 56);
+
+        View moreMenuButton = mPdfPageView.findViewById(R.id.more_menu_button);
+        moreMenuButton.performClick();
+
+        View contentView = mSpyPopupWindow.getContentView();
+        android.widget.ListView listView = contentView.findViewById(R.id.menu_list);
+        View fitItemView = null;
+        for (int i = 0; i < listView.getAdapter().getCount(); i++) {
+            View itemView = listView.getAdapter().getView(i, null, listView);
+            TextView textView = itemView.findViewById(R.id.menu_item_text);
+            String text = textView.getText().toString();
+            if (text.equals(mActivity.getString(R.string.pdf_fit_height))
+                    || text.equals(mActivity.getString(R.string.pdf_fit_width))) {
+                fitItemView = itemView;
+                break;
+            }
+        }
+        org.junit.Assert.assertNotNull("Fit to page menu item should be found", fitItemView);
+
+        var histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Pdf.ToolbarAction", PdfToolbarAction.FIT_TO_PAGE_VERTICAL);
+        fitItemView.performClick();
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    public void testPageNumberEdit_recordsMetric() {
+        EditText currentPage = mPdfPageView.findViewById(R.id.current_page);
+        assertTrue(currentPage.requestFocus());
+        currentPage.setText("50");
+
+        var histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Pdf.ToolbarAction", PdfToolbarAction.PAGE_NAVIGATION);
+        currentPage.onEditorAction(android.view.inputmethod.EditorInfo.IME_ACTION_GO);
+        histogramWatcher.assertExpected();
     }
 
     @Test
@@ -494,5 +588,82 @@ public class PdfToolbarCoordinatorUnitTest {
         // 5. Narrow screen, Edit mode inactive -> Done button GONE
         mPdfToolbarCoordinator.setEditModeActive(false);
         assertEquals(View.GONE, doneButton.getVisibility());
+    }
+
+    @Test
+    public void testPrintButtonClick_recordsMetric() {
+        var histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Pdf.ToolbarAction", PdfToolbarAction.PRINT);
+        View printButton = mPdfPageView.findViewById(R.id.print_button);
+        printButton.performClick();
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    public void testTwoPagesPerRowToggle_viaMenu_recordsMetric() {
+        // Initial state is single page view (two page view inactive)
+        View moreMenuButton = mPdfPageView.findViewById(R.id.more_menu_button);
+        moreMenuButton.performClick();
+
+        View contentView = mSpyPopupWindow.getContentView();
+        android.widget.ListView listView = contentView.findViewById(R.id.menu_list);
+        View itemView = listView.getAdapter().getView(0, null, listView); // Two-page view item
+
+        // Click "Two-page view" -> toggles to true, should record TWO_PAGE_VIEW
+        var histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Pdf.ToolbarAction", PdfToolbarAction.TWO_PAGE_VIEW);
+        itemView.performClick();
+        histogramWatcher.assertExpected();
+
+        // Reset the spy for the next popup window creation
+        mSpyPopupWindow = spy(new ChromePopupWindow(mActivity));
+        when(mMockUiWidgetFactory.createPopupWindow(any())).thenReturn(mSpyPopupWindow);
+        doNothing()
+                .when(mSpyPopupWindow)
+                .showAtLocation(any(View.class), anyInt(), anyInt(), anyInt());
+
+        // Click more menu button again
+        moreMenuButton.performClick();
+
+        contentView = mSpyPopupWindow.getContentView();
+        listView = contentView.findViewById(R.id.menu_list);
+        itemView = listView.getAdapter().getView(0, null, listView); // Single page view item
+
+        // Click "Single page view" -> toggles to false, should record SINGLE_PAGE_VIEW
+        histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Pdf.ToolbarAction", PdfToolbarAction.SINGLE_PAGE_VIEW);
+        itemView.performClick();
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    public void testDocumentPropertiesClick_recordsMetric() {
+        View moreMenuButton = mPdfPageView.findViewById(R.id.more_menu_button);
+        moreMenuButton.performClick();
+
+        View contentView = mSpyPopupWindow.getContentView();
+        android.widget.ListView listView = contentView.findViewById(R.id.menu_list);
+        View propertiesItemView = null;
+        for (int i = 0; i < listView.getAdapter().getCount(); i++) {
+            View itemView = listView.getAdapter().getView(i, null, listView);
+            TextView textView = itemView.findViewById(R.id.menu_item_text);
+            if (textView.getText()
+                    .toString()
+                    .equals(mActivity.getString(R.string.pdf_document_properties))) {
+                propertiesItemView = itemView;
+                break;
+            }
+        }
+        org.junit.Assert.assertNotNull(
+                "Document properties menu item should be found", propertiesItemView);
+
+        var histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Pdf.ToolbarAction", PdfToolbarAction.DOCUMENT_PROPERTIES);
+        propertiesItemView.performClick();
+        histogramWatcher.assertExpected();
     }
 }

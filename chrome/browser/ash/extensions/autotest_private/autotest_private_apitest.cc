@@ -141,7 +141,7 @@ class AutotestPrivateApiTest : public ExtensionApiTest {
     ExtensionApiTest::SetUpOnMainThread();
     // Turn on testing mode so we don't kill the browser.
     AutotestPrivateAPI::GetFactoryInstance()
-        ->Get(browser()->profile())
+        ->Get(browser()->GetProfile())
         ->set_test_mode(true);
   }
 
@@ -209,7 +209,7 @@ IN_PROC_BROWSER_TEST_P(AutotestPrivateApiTestWithContextType,
 #endif
 IN_PROC_BROWSER_TEST_P(AutotestPrivateApiTestWithContextType,
                        MAYBE_AutotestPrivateArcEnabled) {
-  ArcAppListPrefs* const prefs = ArcAppListPrefs::Get(browser()->profile());
+  ArcAppListPrefs* const prefs = ArcAppListPrefs::Get(browser()->GetProfile());
   ASSERT_TRUE(prefs);
 
   arc::ArcSessionManager::Get()->SetArcSessionRunnerForTesting(
@@ -218,11 +218,12 @@ IN_PROC_BROWSER_TEST_P(AutotestPrivateApiTestWithContextType,
 
   // Having ARC Terms accepted automatically bypasses TOS stage.
   // Set it before |arc::SetArcPlayStoreEnabledForProfile|
-  browser()->profile()->GetPrefs()->SetBoolean(arc::prefs::kArcTermsAccepted,
-                                               true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(arc::prefs::kArcTermsAccepted,
+                                                  true);
   arc::SetArcPlayStoreEnabledForProfile(profile(), true);
   // Provisioning is completed.
-  browser()->profile()->GetPrefs()->SetBoolean(arc::prefs::kArcSignedIn, true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(arc::prefs::kArcSignedIn,
+                                                  true);
   // Start ARC
   arc::ArcSessionManager::Get()->StartArcForTesting();
 
@@ -331,7 +332,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 IN_PROC_BROWSER_TEST_P(AutotestPrivateHoldingSpaceApiTest,
                        HoldingSpaceAPITest) {
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
 
   ash::holding_space_prefs::SetPreviewsEnabled(prefs, false);
   ash::holding_space_prefs::MarkTimeOfFirstAdd(prefs);
@@ -376,7 +377,7 @@ class AutotestPrivateApiOverviewTest
     AutotestPrivateApiTest::SetUpOnMainThread();
 
     // Create one additional browser window to make total of 2 windows.
-    CreateBrowser(browser()->profile());
+    CreateBrowser(browser()->GetProfile());
 
     // Enters tablet overview mode.
     ash::ShellTestApi().SetTabletModeEnabledForTest(true);
@@ -753,11 +754,11 @@ IN_PROC_BROWSER_TEST_P(AutotestPrivateApiTestWithContextType,
       ash::personalization_app::mojom::AmbientTheme::kFloatOnBy;
   ash::personalization_app::mojom::AmbientTheme default_theme =
       ash::AmbientUiSettings::ReadFromPrefService(
-          *browser()->profile()->GetPrefs())
+          *browser()->GetProfile()->GetPrefs())
           .theme();
   ASSERT_NE(kTestTheme, default_theme);
   ash::AmbientUiSettings(kTestTheme)
-      .WriteToPrefService(*browser()->profile()->GetPrefs());
+      .WriteToPrefService(*browser()->GetProfile()->GetPrefs());
 
   base::ListValue suite_args;
   suite_args.Append(base::Value(ash::ambient::prefs::kAmbientUiSettings));
@@ -767,7 +768,7 @@ IN_PROC_BROWSER_TEST_P(AutotestPrivateApiTestWithContextType,
       << message_;
   // Value read back should be the default.
   EXPECT_EQ(ash::AmbientUiSettings::ReadFromPrefService(
-                *browser()->profile()->GetPrefs())
+                *browser()->GetProfile()->GetPrefs())
                 .theme(),
             default_theme);
 }
@@ -780,7 +781,7 @@ IN_PROC_BROWSER_TEST_P(AutotestPrivateApiTestWithContextType,
   ASSERT_TRUE(
       RunAutotestPrivateExtensionTest("setDeviceLanguage", std::move(args)))
       << message_;
-  std::string cur_locale = browser()->profile()->GetPrefs()->GetString(
+  std::string cur_locale = browser()->GetProfile()->GetPrefs()->GetString(
       language::prefs::kApplicationLocale);
   EXPECT_EQ(cur_locale, target_locale);
 }

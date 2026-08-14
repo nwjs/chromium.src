@@ -36,36 +36,42 @@ class ClickToolTest : public PlatformTest {
   base::test::TaskEnvironment task_environment_;
   std::unique_ptr<TestProfileIOS> profile_;
   std::unique_ptr<TestBrowser> browser_;
+
+  base::expected<std::unique_ptr<ClickTool>, ToolExecutionResult> CreateTool(
+      const optimization_guide::proto::ClickAction& action,
+      web::WebState* web_state) {
+    return ClickTool::Create(web_state->GetWeakPtr(), action);
+  }
+
+  std::unique_ptr<ClickTool> CreateAndValidateClickTool(
+      const optimization_guide::proto::ClickAction& action,
+      web::WebState* web_state) {
+    auto tool_result = CreateTool(action, web_state);
+    if (!tool_result.has_value()) {
+      ADD_FAILURE() << "Failed to create ClickTool: "
+                    << tool_result.error().code();
+      return nullptr;
+    }
+    std::unique_ptr<ClickTool> tool = std::move(tool_result).value();
+    base::test::TestFuture<ToolExecutionResult> future;
+    tool->Validate(future.GetCallback());
+    ToolExecutionResult result = future.Get();
+    if (!result.IsOk()) {
+      ADD_FAILURE() << "Validation failed: " << result.code();
+      return nullptr;
+    }
+    return tool;
+  }
 };
 
-TEST_F(ClickToolTest, Create_MissingTabId) {
-  optimization_guide::proto::Action action;
-  action.mutable_click()->mutable_target()->set_content_node_id(123);
-
-  base::expected<std::unique_ptr<ClickTool>, ToolExecutionResult> result =
-      ClickTool::Create(action.click(), profile_.get());
-
-  EXPECT_FALSE(result.has_value());
-  EXPECT_EQ(result.error().code(), mojom::ActionResultCode::kArgumentsInvalid);
-}
-
-TEST_F(ClickToolTest, Create_NoWebStateForTabId) {
-  optimization_guide::proto::Action action;
-  action.mutable_click()->set_tab_id(1);
-
-  base::expected<std::unique_ptr<ClickTool>, ToolExecutionResult> result =
-      ClickTool::Create(action.click(), profile_.get());
-  EXPECT_FALSE(result.has_value());
-  EXPECT_EQ(result.error().code(), mojom::ActionResultCode::kTabWentAway);
-}
-
-TEST_F(ClickToolTest, Create_MissingClickCount) {
+TEST_F(ClickToolTest, Validate_MissingClickCount) {
   optimization_guide::proto::Action action;
   action.mutable_click()->set_tab_id(1);
   action.mutable_click()->set_click_type(
       optimization_guide::proto::ClickAction::LEFT);
 
   auto web_state = std::make_unique<web::FakeWebState>();
+  web::WebState* web_state_ptr = web_state.get();
   web_state->SetBrowserState(profile_.get());
   int tab_id = web_state->GetUniqueIdentifier().identifier();
   browser_->GetWebStateList()->InsertWebState(
@@ -73,16 +79,22 @@ TEST_F(ClickToolTest, Create_MissingClickCount) {
       WebStateList::InsertionParams::AtIndex(0).Activate());
   action.mutable_click()->set_tab_id(tab_id);
 
-  base::expected<std::unique_ptr<ClickTool>, ToolExecutionResult> result =
-      ClickTool::Create(action.click(), profile_.get());
+  auto tool_result = CreateTool(action.click(), web_state_ptr);
+  ASSERT_TRUE(tool_result.has_value());
+  std::unique_ptr<ClickTool> tool = std::move(tool_result).value();
 
-  EXPECT_FALSE(result.has_value());
-  EXPECT_EQ(result.error().code(), mojom::ActionResultCode::kArgumentsInvalid);
+  base::test::TestFuture<ToolExecutionResult> future;
+  tool->Validate(future.GetCallback());
+  ToolExecutionResult result = future.Get();
+
+  EXPECT_FALSE(result.IsOk());
+  EXPECT_EQ(result.code(), mojom::ActionResultCode::kArgumentsInvalid);
 }
 
-TEST_F(ClickToolTest, Create_MissingClickType) {
+TEST_F(ClickToolTest, Validate_MissingClickType) {
   optimization_guide::proto::Action action;
   auto web_state = std::make_unique<web::FakeWebState>();
+  web::WebState* web_state_ptr = web_state.get();
   web_state->SetBrowserState(profile_.get());
   int tab_id = web_state->GetUniqueIdentifier().identifier();
   browser_->GetWebStateList()->InsertWebState(
@@ -93,16 +105,22 @@ TEST_F(ClickToolTest, Create_MissingClickType) {
   action.mutable_click()->set_click_count(
       optimization_guide::proto::ClickAction::SINGLE);
 
-  base::expected<std::unique_ptr<ClickTool>, ToolExecutionResult> result =
-      ClickTool::Create(action.click(), profile_.get());
+  auto tool_result = CreateTool(action.click(), web_state_ptr);
+  ASSERT_TRUE(tool_result.has_value());
+  std::unique_ptr<ClickTool> tool = std::move(tool_result).value();
 
-  EXPECT_FALSE(result.has_value());
-  EXPECT_EQ(result.error().code(), mojom::ActionResultCode::kArgumentsInvalid);
+  base::test::TestFuture<ToolExecutionResult> future;
+  tool->Validate(future.GetCallback());
+  ToolExecutionResult result = future.Get();
+
+  EXPECT_FALSE(result.IsOk());
+  EXPECT_EQ(result.code(), mojom::ActionResultCode::kArgumentsInvalid);
 }
 
-TEST_F(ClickToolTest, Create_MissingTarget) {
+TEST_F(ClickToolTest, Validate_MissingTarget) {
   optimization_guide::proto::Action action;
   auto web_state = std::make_unique<web::FakeWebState>();
+  web::WebState* web_state_ptr = web_state.get();
   web_state->SetBrowserState(profile_.get());
   int tab_id = web_state->GetUniqueIdentifier().identifier();
   browser_->GetWebStateList()->InsertWebState(
@@ -115,16 +133,22 @@ TEST_F(ClickToolTest, Create_MissingTarget) {
   action.mutable_click()->set_click_type(
       optimization_guide::proto::ClickAction::LEFT);
 
-  base::expected<std::unique_ptr<ClickTool>, ToolExecutionResult> result =
-      ClickTool::Create(action.click(), profile_.get());
+  auto tool_result = CreateTool(action.click(), web_state_ptr);
+  ASSERT_TRUE(tool_result.has_value());
+  std::unique_ptr<ClickTool> tool = std::move(tool_result).value();
 
-  EXPECT_FALSE(result.has_value());
-  EXPECT_EQ(result.error().code(), mojom::ActionResultCode::kArgumentsInvalid);
+  base::test::TestFuture<ToolExecutionResult> future;
+  tool->Validate(future.GetCallback());
+  ToolExecutionResult result = future.Get();
+
+  EXPECT_FALSE(result.IsOk());
+  EXPECT_EQ(result.code(), mojom::ActionResultCode::kArgumentsInvalid);
 }
 
-TEST_F(ClickToolTest, Create_NodeIdWithoutDocumentIdentifier_Invalid) {
+TEST_F(ClickToolTest, Validate_NodeIdWithoutDocumentIdentifier_Invalid) {
   optimization_guide::proto::Action action;
   auto web_state = std::make_unique<web::FakeWebState>();
+  web::WebState* web_state_ptr = web_state.get();
   web_state->SetBrowserState(profile_.get());
   int tab_id = web_state->GetUniqueIdentifier().identifier();
   browser_->GetWebStateList()->InsertWebState(
@@ -142,16 +166,22 @@ TEST_F(ClickToolTest, Create_NodeIdWithoutDocumentIdentifier_Invalid) {
   target->set_content_node_id(123);
   // Omit document_identifier
 
-  base::expected<std::unique_ptr<ClickTool>, ToolExecutionResult> result =
-      ClickTool::Create(action.click(), profile_.get());
+  auto tool_result = CreateTool(action.click(), web_state_ptr);
+  ASSERT_TRUE(tool_result.has_value());
+  std::unique_ptr<ClickTool> tool = std::move(tool_result).value();
 
-  EXPECT_FALSE(result.has_value());
-  EXPECT_EQ(result.error().code(), mojom::ActionResultCode::kArgumentsInvalid);
+  base::test::TestFuture<ToolExecutionResult> future;
+  tool->Validate(future.GetCallback());
+  ToolExecutionResult result = future.Get();
+
+  EXPECT_FALSE(result.IsOk());
+  EXPECT_EQ(result.code(), mojom::ActionResultCode::kArgumentsInvalid);
 }
 
-TEST_F(ClickToolTest, Create_BothTargetingTypes_Invalid) {
+TEST_F(ClickToolTest, Validate_BothTargetingTypes_Invalid) {
   optimization_guide::proto::Action action;
   auto web_state = std::make_unique<web::FakeWebState>();
+  web::WebState* web_state_ptr = web_state.get();
   web_state->SetBrowserState(profile_.get());
   int tab_id = web_state->GetUniqueIdentifier().identifier();
   browser_->GetWebStateList()->InsertWebState(
@@ -171,11 +201,16 @@ TEST_F(ClickToolTest, Create_BothTargetingTypes_Invalid) {
   target->set_content_node_id(123);
   target->mutable_document_identifier()->set_serialized_token("dummy");
 
-  base::expected<std::unique_ptr<ClickTool>, ToolExecutionResult> result =
-      ClickTool::Create(action.click(), profile_.get());
+  auto tool_result = CreateTool(action.click(), web_state_ptr);
+  ASSERT_TRUE(tool_result.has_value());
+  std::unique_ptr<ClickTool> tool = std::move(tool_result).value();
 
-  EXPECT_FALSE(result.has_value());
-  EXPECT_EQ(result.error().code(), mojom::ActionResultCode::kArgumentsInvalid);
+  base::test::TestFuture<ToolExecutionResult> future;
+  tool->Validate(future.GetCallback());
+  ToolExecutionResult result = future.Get();
+
+  EXPECT_FALSE(result.IsOk());
+  EXPECT_EQ(result.code(), mojom::ActionResultCode::kArgumentsInvalid);
 }
 
 TEST_F(ClickToolTest, Execute_WebStateDestroyed_ReturnsError) {
@@ -194,10 +229,9 @@ TEST_F(ClickToolTest, Execute_WebStateDestroyed_ReturnsError) {
   click_action->mutable_target()->mutable_coordinate()->set_y(50);
   click_action->set_click_type(optimization_guide::proto::ClickAction::LEFT);
   click_action->set_click_count(optimization_guide::proto::ClickAction::SINGLE);
-  base::expected<std::unique_ptr<ClickTool>, ToolExecutionResult>
-      create_result = ClickTool::Create(action.click(), profile_.get());
-  ASSERT_TRUE(create_result.has_value());
-  std::unique_ptr<ClickTool> tool = std::move(create_result.value());
+  std::unique_ptr<ClickTool> tool =
+      CreateAndValidateClickTool(action.click(), inserted_web_state);
+  ASSERT_TRUE(tool);
 
   browser_->GetWebStateList()->CloseWebStateAt(
       web_state_index, WebStateList::ClosingReason::kDefault);
@@ -229,10 +263,9 @@ TEST_F(ClickToolTest, Execute_NoWebFramesManager_ReturnsError) {
   click_action->mutable_target()->mutable_coordinate()->set_y(50);
   click_action->set_click_type(optimization_guide::proto::ClickAction::LEFT);
   click_action->set_click_count(optimization_guide::proto::ClickAction::SINGLE);
-  base::expected<std::unique_ptr<ClickTool>, ToolExecutionResult>
-      create_result = ClickTool::Create(action.click(), profile_.get());
-  ASSERT_TRUE(create_result.has_value());
-  std::unique_ptr<ClickTool> tool = std::move(create_result.value());
+  std::unique_ptr<ClickTool> tool =
+      CreateAndValidateClickTool(action.click(), inserted_web_state);
+  ASSERT_TRUE(tool);
 
   base::test::TestFuture<ToolExecutionResult> future;
   tool->Execute(future.GetCallback());
@@ -271,10 +304,9 @@ TEST_F(ClickToolTest, Execute_NoMainFrame_ReturnsError) {
   click_action->mutable_target()->mutable_coordinate()->set_y(50);
   click_action->set_click_type(optimization_guide::proto::ClickAction::LEFT);
   click_action->set_click_count(optimization_guide::proto::ClickAction::SINGLE);
-  base::expected<std::unique_ptr<ClickTool>, ToolExecutionResult>
-      create_result = ClickTool::Create(action.click(), profile_.get());
-  ASSERT_TRUE(create_result.has_value());
-  std::unique_ptr<ClickTool> tool = std::move(create_result.value());
+  std::unique_ptr<ClickTool> tool =
+      CreateAndValidateClickTool(action.click(), inserted_web_state);
+  ASSERT_TRUE(tool);
 
   base::test::TestFuture<ToolExecutionResult> future;
   tool->Execute(future.GetCallback());
@@ -287,6 +319,7 @@ TEST_F(ClickToolTest, Execute_NoMainFrame_ReturnsError) {
 TEST_F(ClickToolTest, GetToolType) {
   optimization_guide::proto::Action action;
   auto web_state = std::make_unique<web::FakeWebState>();
+  web::WebState* web_state_ptr = web_state.get();
   web_state->SetBrowserState(profile_.get());
   int tab_id = web_state->GetUniqueIdentifier().identifier();
   browser_->GetWebStateList()->InsertWebState(
@@ -301,11 +334,11 @@ TEST_F(ClickToolTest, GetToolType) {
   action.mutable_click()->mutable_target()->mutable_coordinate()->set_x(50);
   action.mutable_click()->mutable_target()->mutable_coordinate()->set_y(50);
 
-  base::expected<std::unique_ptr<ClickTool>, ToolExecutionResult> result =
-      ClickTool::Create(action.click(), profile_.get());
+  std::unique_ptr<ClickTool> tool =
+      CreateAndValidateClickTool(action.click(), web_state_ptr);
+  ASSERT_TRUE(tool);
 
-  ASSERT_TRUE(result.has_value());
-  EXPECT_EQ(result.value()->GetToolType(), ToolType::kClick);
+  EXPECT_EQ(tool->GetToolType(), ToolType::kClick);
 }
 
 }  // namespace actor

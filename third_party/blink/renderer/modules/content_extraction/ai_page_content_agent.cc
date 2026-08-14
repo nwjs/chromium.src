@@ -535,8 +535,7 @@ bool IsReachableInOverflowContainer(const LayoutObject& object,
 
   // `overflow:hidden` creates a Blink scroll container, but users cannot scroll
   // it. Only the current overflow clip is reachable.
-  return overflow_container.OverflowClipRect(PhysicalOffset())
-      .Intersects(object_rect);
+  return overflow_container.OverflowClipRect().Intersects(object_rect);
 }
 
 gfx::Rect ComputeDocumentBoundsInViewport(const LayoutView& layout_view) {
@@ -788,6 +787,52 @@ bool IsVisible(const LayoutObject& object) {
   return object.StyleRef().Visibility() == EVisibility::kVisible;
 }
 
+bool HasEmptyGeometry(const mojom::blink::AIPageContentNode* content_node) {
+  if (!content_node || !content_node->content_attributes ||
+      !content_node->content_attributes->geometry) {
+    return false;
+  }
+  return content_node->content_attributes->geometry->outer_bounding_box
+      .IsEmpty();
+}
+
+// Accumulate geometry from a descendant APC node into an ancestor whose own
+// layout box is 0x0. WalkChildren calls this as descendant branches produce
+// geometry. A 0x0 descendant first accumulates geometry from its own branches,
+// then passes the combined geometry upward.
+//
+// A common example is a position:absolute or position:fixed node whose own box
+// is 0x0 but which has visible out-of-flow descendants. The ancestor unions
+// outer and visible boxes from its descendant branches. Explicit fragments are
+// copied when available; otherwise a descendant's visible box becomes one
+// fragment. Repairing the ancestor gives downstream processing usable geometry
+// for that node.
+void MergeNodeGeometryIntoAncestor(
+    const mojom::blink::AIPageContentNode& descendant,
+    mojom::blink::AIPageContentNode& ancestor) {
+  if (!descendant.content_attributes ||
+      !descendant.content_attributes->geometry ||
+      descendant.content_attributes->geometry->outer_bounding_box.IsEmpty()) {
+    return;
+  }
+
+  DCHECK(ancestor.content_attributes);
+  DCHECK(ancestor.content_attributes->geometry);
+  const auto& descendant_geometry = *descendant.content_attributes->geometry;
+  auto& ancestor_geometry = *ancestor.content_attributes->geometry;
+  ancestor_geometry.outer_bounding_box.Union(
+      descendant_geometry.outer_bounding_box);
+  ancestor_geometry.visible_bounding_box.Union(
+      descendant_geometry.visible_bounding_box);
+  if (!descendant_geometry.fragment_visible_bounding_boxes.empty()) {
+    ancestor_geometry.fragment_visible_bounding_boxes.append_range(
+        descendant_geometry.fragment_visible_bounding_boxes);
+  } else if (!descendant_geometry.visible_bounding_box.IsEmpty()) {
+    ancestor_geometry.fragment_visible_bounding_boxes.push_back(
+        descendant_geometry.visible_bounding_box);
+  }
+}
+
 bool AreChildrenBlockedByDisplayLock(const LayoutObject& object) {
   return object.ChildLayoutBlockedByDisplayLock() ||
          object.ChildPrePaintBlockedByDisplayLock();
@@ -906,19 +951,40 @@ void AddClickabilityReasons(
   }
 }
 
-// Returns whether interaction is determined to be disabled.
+// Returns whether the node is in the strong disabled state that requires click
+// rejection.
 bool AddInteractionDisabledReasons(
     const Element& element,
     bool is_aria_disabled,
+    bool is_aria_hidden,
     mojom::blink::AIPageContentNodeInteractionInfo& interaction_info) {
   using Reason = mojom::blink::AIPageContentInteractionDisabledReason;
 
   bool is_disabled = false;
 
   if (is_aria_disabled) {
+    // aria-disabled asks consumers to avoid the node, but it does not prevent
+    // DOM events. Record the advisory reason without setting `is_disabled`.
     interaction_info.interaction_disabled_reasons.push_back(
         Reason::kAriaDisabled);
-    is_disabled = true;
+  }
+
+  if (is_aria_hidden) {
+    // aria-hidden hides the node from assistive technology, but it does not
+    // require click rejection. Record the reason without setting `is_disabled`.
+    interaction_info.interaction_disabled_reasons.push_back(
+        Reason::kAriaHidden);
+  }
+
+  // ARIA treats role=presentation and role=none as the same role. Blink's raw
+  // ARIA role resolver reports both as kNone.
+  if (AXObject::DetermineRawAriaRole(element) ==
+      ax::mojom::blink::Role::kNone) {
+    // A presentational role hides the node's role from assistive technology,
+    // but it does not require click rejection. Record the reason without
+    // setting `is_disabled`.
+    interaction_info.interaction_disabled_reasons.push_back(
+        Reason::kAriaRolePresentational);
   }
 
   if (auto* form_control_element = DynamicTo<HTMLFormControlElement>(&element);
@@ -1083,9 +1149,9 @@ void ProcessTextNode(const LayoutText& layout_text,
   DCHECK(!ShouldRedactSubtree(attributes.redaction_decision));
 
   auto text_style = mojom::blink::AIPageContentTextStyle::New();
-  text_style->text_size = GetTextSize(*layout_text.Style(), document_style);
-  text_style->has_emphasis = HasEmphasis(*layout_text.Style());
-  text_style->color = GetColor(*layout_text.Style());
+  text_style->text_size = GetTextSize(layout_text.StyleRef(), document_style);
+  text_style->has_emphasis = HasEmphasis(layout_text.StyleRef());
+  text_style->color = GetColor(layout_text.StyleRef());
 
   auto text_info = mojom::blink::AIPageContentTextInfo::New();
   text_info->text_content =
@@ -2164,7 +2230,7 @@ mojom::blink::AIPageContentPtr AIPageContentAgent::ContentBuilder::Build(
   UpdateLifecycle(document);
 
   auto* layout_view = document.GetLayoutView();
-  auto* document_style = layout_view->Style();
+  const auto& document_style = layout_view->StyleRef();
 
   if (ShouldSkipNonSalientNode(*layout_view, *options_)) {
     return nullptr;
@@ -2181,7 +2247,7 @@ mojom::blink::AIPageContentPtr AIPageContentAgent::ContentBuilder::Build(
   AddFrameData(frame, *frame_data);
   page_content->frame_data = std::move(frame_data);
 
-  RecursionData recursion_data(*document_style);
+  RecursionData recursion_data(document_style);
   recursion_data.accessibility_focused_node_id =
       GetAccessibilityFocusedDOMNodeId(frame);
 
@@ -2282,7 +2348,17 @@ bool AIPageContentAgent::ContentBuilder::ShouldSkipSingleNode(
     const LayoutObject& object,
     const mojom::blink::AIPageContentAttributes& attributes) const {
   if (object.StyleRef().GetPosition() == EPosition::kFixed) {
-    return false;
+    // Fixed elements may implement blocking UI such as paywalls, so APC
+    // normally preserves them. When enabled, the feature lets
+    // pointer-transparent fixed wrappers be skipped via the normal rules for
+    // containers.
+    const bool should_preserve_as_fixed_overlay =
+        !RuntimeEnabledFeatures::
+            AIPageContentSkipUnclickableFixedOverlaysEnabled() ||
+        object.StyleRef().UsedPointerEvents() != EPointerEvents::kNone;
+    if (should_preserve_as_fixed_overlay) {
+      return false;
+    }
   }
 
   if (object.StyleRef().GetPosition() == EPosition::kSticky) {
@@ -2353,7 +2429,8 @@ void AIPageContentAgent::ContentBuilder::AddInteractiveNode(
 bool AIPageContentAgent::ContentBuilder::WalkChildren(
     const LayoutObject& object,
     mojom::blink::AIPageContentNode& content_node,
-    const RecursionData& recursion_data) {
+    const RecursionData& recursion_data,
+    mojom::blink::AIPageContentNode* ancestor_for_geometry_repair) {
   if (AreChildrenBlockedByDisplayLock(object)) {
     // APC only includes content with layout objects; display-locked subtrees
     // skip child layout/prepaint, so they are not included in the layout tree.
@@ -2382,6 +2459,11 @@ bool AIPageContentAgent::ContentBuilder::WalkChildren(
         AXObject::IsAriaAttributeTrue(*child_element,
                                       html_names::kAriaDisabledAttr)) {
       child_recursion_data.is_aria_disabled = true;
+    }
+    if (!child_recursion_data.is_aria_hidden && child_element &&
+        AXObject::IsAriaAttributeTrue(*child_element,
+                                      html_names::kAriaHiddenAttr)) {
+      child_recursion_data.is_aria_hidden = true;
     }
     const auto* child_box = DynamicTo<LayoutBox>(child);
     const bool child_is_fixed_to_view = child_box && child_box->IsFixedToView();
@@ -2417,18 +2499,42 @@ bool AIPageContentAgent::ContentBuilder::WalkChildren(
 
     if (!ShouldSkipDescendants(child_content_node, *child)) {
       if (child_content_node) {
+        // This layout object has an APC node. Walk its descendants under that
+        // node, and let them repair its geometry if it starts empty.
         child_recursion_data.stack_depth++;
+        // When repairing an ancestor's empty geometry, use only the first
+        // nonempty APC node on each descendant branch.
+        // * If this child already has geometry, leave this null so deeper nodes
+        //   do not also repair the ancestor.
+        // * Otherwise, collect geometry from its descendants into this child
+        //   before using it to repair the ancestor.
+        mojom::blink::AIPageContentNode*
+            ancestor_for_descendant_geometry_repair = nullptr;
+        if (HasEmptyGeometry(child_content_node.get())) {
+          ancestor_for_descendant_geometry_repair = child_content_node.get();
+        }
+        child_has_visible_content =
+            WalkChildren(*child, *child_content_node, child_recursion_data,
+                         ancestor_for_descendant_geometry_repair);
+      } else {
+        // This layout object is omitted from APC. Continue walking so its APC
+        // descendants can be added without this wrapper.
+        child_has_visible_content =
+            WalkChildren(*child, content_node, child_recursion_data,
+                         ancestor_for_geometry_repair);
       }
-
-      auto& node_for_child =
-          child_content_node ? *child_content_node : content_node;
-      child_has_visible_content =
-          WalkChildren(*child, node_for_child, child_recursion_data);
       has_visible_content |= child_has_visible_content;
     }
 
     const bool should_add_node_for_child =
         IsVisible(*child) || child_has_visible_content;
+    if (should_add_node_for_child && ancestor_for_geometry_repair &&
+        child_content_node) {
+      // If this node started empty, its walk has already repaired it from
+      // deeper branches.
+      MergeNodeGeometryIntoAncestor(*child_content_node,
+                                    *ancestor_for_geometry_repair);
+    }
     if (should_add_node_for_child && child_content_node) {
       content_node.children_nodes.emplace_back(std::move(child_content_node));
     }
@@ -2566,7 +2672,8 @@ AIPageContentAgent::ContentBuilder::MaybeGenerateContentNodeImpl(
   if (actionable_mode() && element) {
     attributes.aria_role = AXObject::DetermineRawAriaRole(*element);
   }
-  AddNodeInteractionInfo(object, attributes, recursion_data.is_aria_disabled);
+  AddNodeInteractionInfo(object, attributes, recursion_data.is_aria_disabled,
+                         recursion_data.is_aria_hidden);
 
   // Set the attribute type and add any special attributes if the attribute type
   // requires it.
@@ -3212,8 +3319,9 @@ void AIPageContentAgent::ContentBuilder::AddInteractionInfoForHitTesting(
 void AIPageContentAgent::ContentBuilder::AddNodeInteractionInfo(
     const LayoutObject& object,
     mojom::blink::AIPageContentAttributes& attributes,
-    bool is_aria_disabled) {
-  const ComputedStyle& style = *object.Style();
+    bool is_aria_disabled,
+    bool is_aria_hidden) {
+  const ComputedStyle& style = object.StyleRef();
   if (style.UsedPointerEvents() == EPointerEvents::kNone) {
     // Treat nodes exposed through pointer-events:none as non-actionable. This
     // includes elements the author explicitly removed from hit testing and
@@ -3237,17 +3345,18 @@ void AIPageContentAgent::ContentBuilder::AddNodeInteractionInfo(
   auto* element = DynamicTo<Element>(object.GetNode());
   bool is_disabled = false;
   if (element) {
-    is_disabled = AddInteractionDisabledReasons(*element, is_aria_disabled,
-                                                *node_interaction_info);
+    is_disabled = AddInteractionDisabledReasons(
+        *element, is_aria_disabled, is_aria_hidden, *node_interaction_info);
   }
 
-  // TODO(linnan): Remove `is_disabled` when consumers move to use
-  // `interaction_disabled_reasons`.
+  // Strongly disabled nodes are not valid action targets, so do not populate
+  // their normal clickability or focus signals. Keep interaction information
+  // for visible nodes so consumers can see `is_disabled` and reject them.
   if (is_disabled) {
     if (node_interaction_info->document_scoped_z_order) {
       attributes.node_interaction_info = std::move(node_interaction_info);
-      // `is_disabled` is only set for nodes with `document_scoped_z_order`.
-      // This implies offscreen nodes will not be marked as disabled.
+      // Offscreen nodes do not have a z-order, so this branch cannot retain
+      // interaction information or expose `is_disabled` for them.
       attributes.node_interaction_info->is_disabled = true;
     }
 
@@ -3300,6 +3409,7 @@ void AIPageContentAgent::ContentBuilder::AddNodeInteractionInfo(
       node_interaction_info->scroller_info ||
       node_interaction_info->is_focusable ||
       !node_interaction_info->aria_action_target_node_ids.empty() ||
+      !node_interaction_info->interaction_disabled_reasons.empty() ||
       node_interaction_info->document_scoped_z_order ||
       !node_interaction_info->clickability_reasons.empty();
 

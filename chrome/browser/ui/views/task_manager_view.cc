@@ -152,7 +152,7 @@ task_manager::TaskManagerTableModel* TaskManagerView::Show(
   if (browser) {
     ui::win::SetAppIdForWindow(
         shell_integration::win::GetAppUserModelIdForBrowser(
-            browser->profile()->GetPath()),
+            browser->GetProfile()->GetPath()),
         views::HWNDForWidget(g_task_manager_view->GetWidget()));
   }
 #endif
@@ -283,7 +283,7 @@ std::string TaskManagerView::GetWindowName() const {
   return prefs::kTaskManagerWindowPlacement;
 }
 
-bool TaskManagerView::Accept() {
+bool TaskManagerView::OnAccept() {
   EndSelectedProcess();
 
   // Just kill the process, don't close the task manager dialog.
@@ -377,16 +377,7 @@ TaskManagerView::TaskManagerView(StartAction start_action)
   task_manager::RecordNewOpenEvent(start_action);
   set_use_custom_frame(false);
   SetHasWindowSizeControls(true);
-#if !BUILDFLAG(IS_CHROMEOS)
-  // On Chrome OS, the widget's frame should not show the window title.
   SetTitle(IDS_TASK_MANAGER_TITLE);
-#endif
-
-  // Avoid calling Accept() when closing the dialog, since Accept() here means
-  // "kill task" (!).
-  // TODO(ellyjones): Remove this once the Accept() override is removed from
-  // this class.
-  SetCloseCallback(base::DoNothing());
 
   Init();
 }
@@ -607,6 +598,8 @@ void TaskManagerView::Init() {
   SetButtons(static_cast<int>(ui::mojom::DialogButton::kOk));
   SetButtonLabel(ui::mojom::DialogButton::kOk,
                  l10n_util::GetStringUTF16(IDS_TASK_MANAGER_KILL_V2));
+  SetAcceptCallbackWithClose(
+      base::BindRepeating(&TaskManagerView::OnAccept, base::Unretained(this)));
 
   const auto* provider = ChromeLayoutProvider::Get();
   const float corner_radius =

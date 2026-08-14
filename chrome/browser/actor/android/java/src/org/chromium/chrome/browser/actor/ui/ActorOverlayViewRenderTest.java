@@ -65,7 +65,8 @@ public class ActorOverlayViewRenderTest {
     public ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
                     .setBugComponent(ChromeRenderTestRule.Component.UI_BROWSER_GLIC)
-                    .setRevision(5)
+                    .setRevision(6)
+                    .setDescription("Custom blue glow shadow for take over button")
                     .build();
 
     @Mock private TabModelSelector mTabModelSelector;
@@ -181,7 +182,7 @@ public class ActorOverlayViewRenderTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mCoordinator.getMediator().setOverlayVisible(true);
-                    mCoordinator.getView().setHovered(true);
+                    mParentView.findViewById(R.id.actor_overlay).setHovered(true);
                 });
 
         CriteriaHelper.pollUiThread(

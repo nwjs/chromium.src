@@ -22,7 +22,7 @@ class MockOidcAuthenticationSigninInterceptor
   MockOidcAuthenticationSigninInterceptor& operator=(
       const MockOidcAuthenticationSigninInterceptor&) = delete;
 
-  MOCK_METHOD(void,
+  MOCK_METHOD(bool,
               MaybeInterceptOidcAuthentication,
               (content::WebContents * intercepted_contents,
                const ProfileManagementOidcTokens& oidc_tokens,
@@ -33,6 +33,12 @@ class MockOidcAuthenticationSigninInterceptor
               (override));
 
   MOCK_METHOD(void, CreateBrowserAfterSigninInterception, (), (override));
+
+  void FinalizeSigninInterceptionForTesting() { FinalizeSigninInterception(); }
+
+  void SetNewProfileForTesting(base::WeakPtr<Profile> new_profile) {
+    new_profile_ = new_profile;
+  }
 };
 
 #endif  // CHROME_BROWSER_ENTERPRISE_SIGNIN_MOCK_OIDC_AUTHENTICATION_SIGNIN_INTERCEPTOR_H_

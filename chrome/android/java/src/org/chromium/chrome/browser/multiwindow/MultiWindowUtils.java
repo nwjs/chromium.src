@@ -646,10 +646,18 @@ public class MultiWindowUtils implements ActivityStateListener {
         return count;
     }
 
+    /* package */ static boolean isWindowManagerDeprecated() {
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.IN_APP_WINDOW_MANAGER_DEPRECATION)
+                || DeviceInfo.isDesktop();
+    }
+
     /**
      * @return Whether the app menu 'Manage windows' should be shown.
      */
     public static boolean shouldShowManageWindowsMenu() {
+        if (isWindowManagerDeprecated()) {
+            return false;
+        }
         return getInstanceCount(PersistedInstanceType.ANY) > 1;
     }
 
@@ -657,9 +665,25 @@ public class MultiWindowUtils implements ActivityStateListener {
      * @return Whether the IPH for Chrome's window manager should be shown.
      */
     public static boolean shouldShowInstanceSwitcherIph() {
+        if (isWindowManagerDeprecated()) {
+            return false;
+        }
         int instanceCount = getInstanceCount(PersistedInstanceType.ANY);
         int threshold = DeviceInfo.isDesktop() ? 10 : 1;
         return instanceCount > threshold;
+    }
+
+    /**
+     * Determines whether the IPH for the Recent Tabs UI that lists closed windows, should be shown.
+     *
+     * @return Whether the IPH for Recent Tabs should be shown.
+     */
+    public static boolean shouldShowRecentTabsIph() {
+        if (!isWindowManagerDeprecated()) {
+            return false;
+        }
+        int inactiveInstanceCount = getInstanceCount(PersistedInstanceType.INACTIVE);
+        return inactiveInstanceCount > 0;
     }
 
     static boolean isRestorableInstance(Set<Integer> appTaskIds, int index) {
@@ -1738,6 +1762,10 @@ public class MultiWindowUtils implements ActivityStateListener {
             if (info != null) results.put(info.taskId, task);
         }
         return results;
+    }
+
+    /* package */ static boolean isNewStartupWindowPolicyEnabled() {
+        return ChromeFeatureList.sOnStartupWindowPolicy.isEnabled() && DeviceInfo.isDesktop();
     }
 
     /* package */ static void setAppTaskIdsForTesting(Set<Integer> appTaskIds) {

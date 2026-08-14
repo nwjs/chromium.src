@@ -117,7 +117,7 @@ IN_PROC_BROWSER_TEST_F(KcerFactoryAshNoNssTest,
 // profiles.
 IN_PROC_BROWSER_TEST_F(KcerFactoryAshNoNssTest,
                        OffTheRecordProfileIsRedirected) {
-  auto* profile = browser()->profile();
+  auto* profile = browser()->GetProfile();
   auto* otr_profile = profile->GetPrimaryOTRProfile(/*create_if_needed=*/true);
 
   base::WeakPtr<Kcer> kcer = KcerFactoryAsh::GetKcer(profile);
@@ -143,7 +143,7 @@ class KcerFactoryAshNoNssAffiliatedTest : public KcerFactoryAshNoNssTest {
 // Test that KcerFactory can create an instance with both tokens.
 IN_PROC_BROWSER_TEST_F(KcerFactoryAshNoNssAffiliatedTest,
                        KcerWithBothTokensCreated) {
-  base::WeakPtr<Kcer> kcer = KcerFactoryAsh::GetKcer(browser()->profile());
+  base::WeakPtr<Kcer> kcer = KcerFactoryAsh::GetKcer(browser()->GetProfile());
   ASSERT_TRUE(kcer);
 
   base::test::TestFuture<base::flat_set<Token>> tokens_waiter;
@@ -170,7 +170,7 @@ class KcerFactoryAshNoNssUnaffiliatedTest : public KcerFactoryAshNoNssTest {
 // Test that KcerFactory can create an instance with one token.
 IN_PROC_BROWSER_TEST_F(KcerFactoryAshNoNssUnaffiliatedTest,
                        KcerWithOneTokensCreated) {
-  base::WeakPtr<Kcer> kcer = KcerFactoryAsh::GetKcer(browser()->profile());
+  base::WeakPtr<Kcer> kcer = KcerFactoryAsh::GetKcer(browser()->GetProfile());
   ASSERT_TRUE(kcer);
 
   base::test::TestFuture<base::flat_set<Token>> tokens_waiter;

@@ -35,6 +35,10 @@ std::optional<std::string> ToolTypeToToolDisplayString(ToolType tool) {
       return "Scrolling";
     case ToolType::kAttemptLogin:
       return "Attempting login";
+    case ToolType::kAttemptFormFilling:
+      return "Attempting form filling";
+    case ToolType::kCloseTab:
+      return "Closing tab";
     case ToolType::kUnknown:
       return std::nullopt;
   }

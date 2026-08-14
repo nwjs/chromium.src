@@ -65,6 +65,7 @@ class OmniboxAutofillDelegate;
 class OtpUnmaskDelegate;
 enum class OtpUnmaskResult;
 class PaymentsDataManager;
+enum class SuggestionHidingReason;
 class TouchToFillPaymentMethodDelegate;
 struct VirtualCardEnrollmentFields;
 class VirtualCardEnrollmentManager;
@@ -802,7 +803,7 @@ class PaymentsAutofillClient : public RiskDataLoader {
   virtual void HideCreditCardSaveAndFillDialog() = 0;
 
   // Checks if the browser popup is a tab modal popup.
-  virtual bool IsTabModalPopupDeprecated() const = 0;
+  virtual bool IsTabModalPopup() const = 0;
 
   // Gets the `BnplStrategy` instance associated with the client. Helps
   // determines the next step in the BNPL flow depending on the platform.
@@ -818,27 +819,33 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // Omnibox is the trigger point.
   virtual OmniboxAutofillDelegate* GetOmniboxAutofillDelegate() = 0;
 
-  // Shows the "Autofill payments" omnibox chip and initializes the bubble
-  // controller with the given suggestions and callbacks.
-  virtual void ShowOmniboxAutofillChip(
+  // Shows the expanded omnibox chip and initializes the bubble controller with
+  // the given suggestions and callbacks.
+  virtual void ShowExpandedOmniboxAutofillChip(
       std::vector<Suggestion> suggestions,
+      base::OnceClosure on_chip_shown,
       base::RepeatingCallback<void(base::span<const Suggestion>)>
           on_suggestions_shown,
+      base::RepeatingCallback<void(SuggestionHidingReason)>
+          on_suggestions_hidden,
       base::RepeatingCallback<void(const Suggestion&)> did_select_suggestion,
+      base::RepeatingClosure did_deselect_suggestion,
       base::RepeatingCallback<
           void(const Suggestion&,
                const AutofillSuggestionDelegate::SuggestionMetadata&)>
           did_accept_suggestion) = 0;
 
-  // Hides the "Autofill payments" omnibox chip that appears for relevant
-  // payment checkout forms.
+  // Hides the entire omnibox chip.
   virtual void HideOmniboxAutofillChip() = 0;
 #endif
 
   // Shows the Payments Churned Users UI. This UI is responsible for providing
   // users that have turned off autofill with a value prop to turn autofill back
   // on.
-  virtual void ShowPaymentsChurnedUsersUI() {}
+  // TODO(crbug.com/524740910): Rename to ShowPaymentsChurnedUsersUi().
+  virtual void ShowPaymentsChurnedUsersUI(base::OnceClosure accept_callback,
+                                          base::OnceClosure cancel_callback,
+                                          base::OnceClosure closed_callback) {}
 };
 
 }  // namespace payments

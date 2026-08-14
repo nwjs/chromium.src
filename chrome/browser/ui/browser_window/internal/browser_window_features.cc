@@ -7,13 +7,14 @@
 #include <memory>
 
 #include "base/check_is_test.h"
+#include "base/containers/to_vector.h"
 #include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
 #include "base/no_destructor.h"
 #include "chrome/browser/actor/ui/actor_border_view_controller.h"
 #include "chrome/browser/actor/ui/actor_ui_window_controller.h"
-#include "chrome/browser/actor/ui/task_list_bubble/actor_task_list_bubble_controller.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
+#include "chrome/browser/bookmarks/bookmark_merged_surface_service_factory.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/bookmarks/managed_bookmark_service_factory.h"
 #include "chrome/browser/browser_process.h"
@@ -21,8 +22,6 @@
 #include "chrome/browser/commerce/shopping_service_factory.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
-#include "chrome/browser/contextual_cueing/contextual_cueing_controller.h"
-#include "chrome/browser/contextual_cueing/features.h"
 #include "chrome/browser/contextual_tasks/active_task_context_provider_impl.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.h"
@@ -30,11 +29,9 @@
 #include "chrome/browser/devtools/devtools_ui_controller.h"
 #include "chrome/browser/enterprise/data_protection/data_protection_ui_controller.h"
 #include "chrome/browser/extensions/browser_extension_window_controller.h"
-#include "chrome/browser/glic/browser_ui/glic_actor_nudge_controller.h"
-#include "chrome/browser/glic/browser_ui/glic_button_controller.h"
 #include "chrome/browser/glic/browser_ui/glic_iph_controller.h"
 #include "chrome/browser/glic/browser_ui/glic_nudge_controller.h"
-#include "chrome/browser/glic/browser_ui/glic_nudge_controller_desktop.h"
+#include "chrome/browser/glic/browser_ui/glic_split_button_controller.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
@@ -55,11 +52,13 @@
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_content_setting_bubble_model_delegate.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/browser_init_state.h"
 #include "chrome/browser/ui/browser_instant_controller.h"
 #include "chrome/browser/ui/browser_live_tab_context.h"
 #include "chrome/browser/ui/browser_location_bar_model_delegate.h"
 #include "chrome/browser/ui/browser_select_file_dialog_controller.h"
 #include "chrome/browser/ui/browser_tab_menu_model_delegate.h"
+#include "chrome/browser/ui/browser_web_contents_delegate/browser_web_contents_delegate.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
@@ -89,7 +88,7 @@
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/sync/browser_synced_window_delegate.h"
 #include "chrome/browser/ui/tabs/features.h"
-#include "chrome/browser/ui/tabs/projects/projects_panel_state_controller.h"
+#include "chrome/browser/ui/tabs/organizer/organizer_panel_state_controller.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/most_recent_shared_tab_update_store.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/session_service_tab_group_sync_observer.h"
@@ -150,7 +149,7 @@
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/tabs/groups/recent_activity_bubble_dialog_view.h"
-#include "chrome/browser/ui/views/tabs/projects/projects_panel_utils.h"
+#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_utils.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_action_container.h"
 #include "chrome/browser/ui/views/toolbar/chrome_labs/chrome_labs_coordinator.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions.h"
@@ -268,10 +267,13 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
       GetUserDataFactory().CreateInstanceWithFactoryMethod(
           *browser, &web_app::MaybeCreateAppBrowserController, browser);
 
-  if (auto* model = BookmarkModelFactory::GetForBrowserContext(profile)) {
-    auto* managed = ManagedBookmarkServiceFactory::GetForProfile(profile);
-    bookmarks_service_feature_ =
-        std::make_unique<BookmarksServiceFeature>(model, managed);
+  {
+    auto* merged_bookmarks_service =
+        BookmarkMergedSurfaceServiceFactory::GetForProfile(profile);
+    if (merged_bookmarks_service != nullptr) {
+      bookmarks_service_feature_ =
+          std::make_unique<BookmarksServiceFeature>(merged_bookmarks_service);
+    }
   }
 
   bookmarks_side_panel_coordinator_ =
@@ -299,7 +301,7 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
       GetUserDataFactory().CreateInstance<WindowFeatureController>(
           *browser, fullscreen_controller_.get(), app_browser_controller_.get(),
           browser->GetType(),
-          browser->GetBrowserForMigrationOnly()->is_trusted_source(),
+          BrowserInitState::From(browser)->create_params().trusted_source,
           browser->GetUnownedUserDataHost());
 
   side_panel_registry_ =
@@ -531,8 +533,7 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
           *browser, browser);
 
   window_metadata_controller_ = std::make_unique<WindowMetadataController>(
-      *browser,
-      browser->GetBrowserForMigrationOnly()->create_params().user_title);
+      *browser, BrowserInitState::From(browser)->create_params().user_title);
 
   // ---------------------------------------------------------------------------
   // Members owned only when the browser is TYPE_NORMAL (e.g. a window with an
@@ -546,18 +547,15 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
               *browser, browser);
     }
 
-    if (base::FeatureList::IsEnabled(contextual_cueing::kContextualCueingV2)) {
-      contextual_cueing_controller_ =
-          std::make_unique<contextual_cueing::ContextualCueingController>(
-              browser, tab_list_bridge_.get());
-    }
-
     if (glic::GlicEnabling::IsProfileEligible(profile)) {
-      glic_iph_controller_ = std::make_unique<glic::GlicIphController>(
-          browser, *glic::GlicKeyedService::Get(profile));
-      glic_nudge_controller_ =
-          std::make_unique<glic::GlicNudgeControllerDesktop>(
-              browser, tab_list_bridge_.get());
+      if (glic::GlicKeyedService* glic_service =
+              glic::GlicKeyedService::Get(profile)) {
+        glic_iph_controller_ =
+            std::make_unique<glic::GlicIphController>(browser, *glic_service);
+        glic_split_button_controller_ =
+            std::make_unique<glic::GlicSplitButtonController>(browser,
+                                                              glic_service);
+      }
     }
 
     initial_web_ui_manager_ = std::make_unique<InitialWebUIManager>(browser);
@@ -578,23 +576,21 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
               profile, browser->GetTabStripModel(), browser->GetSessionID());
     }
 
-    if (projects_panel::IsProjectsPanelVisibleForProfile(profile)) {
-      glic::GlicKeyedService* glic_service =
-          glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile);
-      projects_panel_state_controller_ =
-          GetUserDataFactory().CreateInstance<ProjectsPanelStateController>(
-              *browser, browser, browser_actions_->root_action_item(),
-              AimEligibilityServiceFactory::GetForProfile(profile),
-              glic_service ? &glic_service->enabling() : nullptr);
+    if (organizer_panel::IsOrganizerPanelVisibleForProfile(profile)) {
+      organizer_panel_state_controller_ =
+          GetUserDataFactory().CreateInstance<OrganizerPanelStateController>(
+              *browser, browser, browser_actions_->root_action_item());
     }
 
     if (tabs::IsVerticalTabsFeatureEnabled()) {
       Browser* raw_browser = browser->GetBrowserForMigrationOnly();
 
       std::optional<bool> restored_state_collapsed =
-          raw_browser->is_vertical_tabs_initially_collapsed();
+          BrowserInitState::From(raw_browser)
+              ->is_vertical_tabs_initially_collapsed();
       std::optional<int> restored_state_uncollapsed_width =
-          raw_browser->get_vertical_tabs_initial_uncollapsed_width();
+          BrowserInitState::From(raw_browser)
+              ->get_vertical_tabs_initial_uncollapsed_width();
 
       if (!restored_state_collapsed.has_value() &&
           !restored_state_uncollapsed_width.has_value() &&
@@ -690,7 +686,7 @@ void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
 
   browser_select_file_dialog_controller_ =
       std::make_unique<BrowserSelectFileDialogController>(
-          browser->profile(), browser->tab_strip_model(),
+          browser->GetProfile(), browser->tab_strip_model(),
           BrowserWindow::FromBrowser(browser), browser);
 
   if (browser_view) {
@@ -745,13 +741,19 @@ void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
   if (webui_browser_window) {
     webui_browser_exclusive_access_context_ =
         std::make_unique<WebUIBrowserExclusiveAccessContext>(
-            browser->profile(), browser_, browser->GetTabStripModel(),
+            browser->GetProfile(), browser_, browser->GetTabStripModel(),
             webui_browser_window->widget(), webui_browser_window);
   }
 
   exclusive_access_manager_ = std::make_unique<ExclusiveAccessManager>(
       browser,
       BrowserWindow::FromBrowser(browser)->GetExclusiveAccessContext());
+
+  // Must be after exclusive_access_manager_ and
+  // desktop_browser_window_capabilities_.
+  browser_web_contents_delegate_ = std::make_unique<BrowserWebContentsDelegate>(
+      browser, *exclusive_access_manager_, *BrowserWindow::FromBrowser(browser),
+      *desktop_browser_window_capabilities_);
 
   // Must be after exclusive_access_manager_.
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -890,7 +892,7 @@ void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
       if (base::FeatureList::IsEnabled(features::kGlicActorUi)) {
         std::vector<std::pair<views::WebView*, ActorOverlayWebView*>>
             container_overlay_view_pairs;
-        for (auto* contents_container :
+        for (auto& contents_container :
              browser_view->GetContentsContainerViews()) {
           container_overlay_view_pairs.emplace_back(
               contents_container->contents_view(),
@@ -904,19 +906,18 @@ void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
 
     if (browser_view && IsPageActionMigrated(PageActionIconType::kAiMode) &&
         AiModeButtonServiceFactory::GetForProfile(profile)) {
-      LocationBarView* location_bar_view = browser_view->GetLocationBarView();
-      // TODO(crbug.com/491707187): Make it work with any LocationBar
-      if (location_bar_view) {
+      LocationBar* location_bar = browser_view->GetLocationBar();
+      if (location_bar) {
         ai_mode_page_action_controller_ =
             GetUserDataFactory()
                 .CreateInstance<omnibox::AiModePageActionController>(
-                    *browser, *browser, *profile, *location_bar_view);
+                    *browser, *browser, *profile, *location_bar);
       }
     }
 
     if (browser_view) {
       if (media_router::MediaRouterEnabled(
-              browser_view->browser()->profile())) {
+              browser_view->browser()->GetProfile())) {
         cast_browser_controller_ =
             std::make_unique<media_router::CastBrowserController>(
                 browser_view->browser());
@@ -927,45 +928,6 @@ void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
       chrome_labs_coordinator_ =
           GetUserDataFactory().CreateInstance<ChromeLabsCoordinator>(*browser,
                                                                      browser);
-    }
-
-    if (browser_view) {
-      // Shared if-gate: members initialized only when the GlicKeyedService is
-      // available (glic_button_controller_, actor_task_list_bubble_controller_,
-      // glic_actor_nudge_controller_).
-      if (glic::GlicKeyedService* glic_service =
-              glic::GlicKeyedService::Get(browser_view->GetProfile())) {
-        auto* tab_strip_container =
-            BrowserElementsViews::From(browser_view->browser())
-                ->GetViewAs<TabStripActionContainer>(
-                    kTabStripActionContainerElementId);
-        auto* toolbar_view =
-            BrowserElementsViews::From(browser_view->browser())
-                ->GetViewAs<ToolbarView>(ToolbarView::kToolbarElementId);
-
-        if (tab_strip_container && toolbar_view) {
-          glic_button_controller_ =
-              std::make_unique<glic::GlicButtonController>(
-                  browser_view->GetProfile(), *browser_, tab_strip_container,
-                  toolbar_view, glic_service);
-        }
-
-        if (base::FeatureList::IsEnabled(features::kGlicActor) &&
-            base::FeatureList::IsEnabled(features::kGlicActorUi) &&
-            features::kGlicActorUiTaskIcon.Get() &&
-            browser_->GetProfile()->IsRegularProfile()) {
-          // Must be before glic_actor_nudge_controller_.
-          actor_task_list_bubble_controller_ =
-              GetUserDataFactory()
-                  .CreateInstance<ActorTaskListBubbleController>(*browser_,
-                                                                 browser_);
-          // Includes browser twice to enable injecting for testing.
-          glic_actor_nudge_controller_ =
-              GetUserDataFactory()
-                  .CreateInstance<glic::GlicActorNudgeController>(
-                      *browser_, browser_, tab_strip_container, toolbar_view);
-        }
-      }
     }
 
     if (MobilePromoOnDesktopEnabled()) {
@@ -1107,8 +1069,6 @@ void BrowserWindowFeatures::TearDownPreBrowserWindowDestruction() {
   pinned_toolbar_actions_ = nullptr;
   memory_saver_opt_in_iph_controller_.reset();
   ios_promo_controller_.reset();
-  glic_button_controller_.reset();
-  glic_actor_nudge_controller_.reset();
   if (chrome_labs_coordinator_) {
     chrome_labs_coordinator_->TearDown();
   }
@@ -1117,7 +1077,6 @@ void BrowserWindowFeatures::TearDownPreBrowserWindowDestruction() {
   if (actor_ui_window_controller_) {
     actor_ui_window_controller_->TearDown();
   }
-  actor_task_list_bubble_controller_.reset();
 
   // Owned-by-all members.
   zoom_bubble_coordinator_.reset();
@@ -1158,6 +1117,7 @@ void BrowserWindowFeatures::TearDownPreBrowserWindowDestruction() {
     download_toolbar_ui_controller_->TearDownPreBrowserWindowDestruction();
   }
 #endif
+  browser_web_contents_delegate_.reset();
   exclusive_access_manager_.reset();
   // Must be after exclusive_access_manager_ (which holds a reference to this
   // context for WebUI browser windows).
@@ -1181,6 +1141,8 @@ void BrowserWindowFeatures::TearDownPreBrowserWindowDestruction() {
   // Init (reverse).
 
   // TYPE_NORMAL members.
+  glic_iph_controller_.reset();
+  glic_split_button_controller_.reset();
   initial_web_ui_manager_.reset();
   ai_overlay_dialog_controller_.reset();
 
@@ -1208,6 +1170,12 @@ void BrowserWindowFeatures::TearDownPreBrowserWindowDestruction() {
   }
   browser_animation_controller_.reset();
   actor_border_view_controller_.reset();
+}
+
+glic::GlicNudgeController* BrowserWindowFeatures::glic_nudge_controller() {
+  return glic_split_button_controller_
+             ? glic_split_button_controller_->nudge_controller()
+             : nullptr;
 }
 
 SidePanelUI* BrowserWindowFeatures::side_panel_ui() {

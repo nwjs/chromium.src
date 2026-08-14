@@ -1343,9 +1343,9 @@ void SimpleURLLoaderImpl::DownloadToStringOfUnboundedSizeUntilCrashAndDie(
   body_handler_ = std::make_unique<SaveToStringBodyHandler>(
       this, !on_download_progress_callback_.is_null(),
       std::move(body_as_string_callback),
-      // int64_t because URLLoaderCompletionStatus::decoded_body_length
-      // is an int64_t, not a size_t.
-      std::numeric_limits<int64_t>::max());
+      // URLLoaderCompletionStatus::decoded_body_length is a ByteSize, not a
+      // size_t.
+      base::ByteSize::Max().InBytes());
   Start(url_loader_factory);
 }
 
@@ -2052,10 +2052,11 @@ void SimpleURLLoaderImpl::MaybeComplete() {
     return;
   }
 
+  // Convert to signed int for comparisons with `received_body_size`.
   const std::optional<int64_t> decoded_body_length =
       request_state_->completion_status
-          ? std::make_optional<int64_t>(
-                request_state_->completion_status->decoded_body_length)
+          ? std::make_optional<int64_t>(request_state_->completion_status
+                                            ->decoded_body_length.InBytes())
           : std::nullopt;
 
   // If the URLLoader didn't supply a data pipe because we set the

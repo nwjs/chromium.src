@@ -16,8 +16,7 @@ class AppMenuControl;
 class AvatarToolbarButtonInterface;
 class BrowserWindowInterface;
 class PinnedToolbarActions;
-class ExtensionsToolbarDesktop;
-class IntentChipButton;
+class ExtensionsContainerViews;
 class PageActionIconView;
 class ReloadButton;
 class ReloadControl;
@@ -45,8 +44,8 @@ class ToolbarButtonProvider {
 
   static ToolbarButtonProvider* From(BrowserWindowInterface* browser);
 
-  // Gets the ExtensionsToolbarDesktop.
-  virtual ExtensionsToolbarDesktop* GetExtensionsToolbarDesktop() = 0;
+  // Gets the ExtensionsContainerViews.
+  virtual ExtensionsContainerViews* GetExtensionsContainerViews() = 0;
 
   // Gets the PinnedToolbarActions.
   virtual PinnedToolbarActions* GetPinnedToolbarActions() = 0;
@@ -107,8 +106,6 @@ class ToolbarButtonProvider {
   // `WebUIToolbarWebView` depending on the enabled features.
   virtual ReloadControl* GetReloadButton() = 0;
 
-  // Returns the intent chip button, if present.
-  virtual IntentChipButton* GetIntentChipButton() = 0;
 
   // Returns the download button.
   virtual ToolbarButton* GetDownloadButton() = 0;

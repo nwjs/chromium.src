@@ -29,7 +29,6 @@
 #include <limits>
 
 #include "base/auto_reset.h"
-#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/security_context/insecure_request_policy.h"
 #include "third_party/blink/public/mojom/devtools/inspector_issue.mojom-blink.h"
 #include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom-blink.h"
@@ -1174,6 +1173,14 @@ void HTMLFormElement::Associate(ListedElement& e) {
   if (e.ToHTMLElement().FastHasAttribute(html_names::kFormAttr))
     has_elements_associated_by_form_attribute_ = true;
   ScheduleWebMCPSchemaUpdateIfActive();
+  if (RuntimeEnabledFeatures::EmailVerificationStatusIndicatorEnabled(
+          GetExecutionContext())) {
+    if (auto* input_element = DynamicTo<HTMLInputElement>(e.ToHTMLElement())) {
+      if (input_element->IsEmailVerificationTokenField()) {
+        NotifyEmailVerificationTokenFieldChanged();
+      }
+    }
+  }
 }
 
 void HTMLFormElement::Disassociate(ListedElement& e) {
@@ -1183,6 +1190,14 @@ void HTMLFormElement::Disassociate(ListedElement& e) {
   listed_elements_for_autofill_.clear();
   RemoveFromPastNamesMap(e.ToHTMLElement());
   ScheduleWebMCPSchemaUpdateIfActive();
+  if (RuntimeEnabledFeatures::EmailVerificationStatusIndicatorEnabled(
+          GetExecutionContext())) {
+    if (auto* input_element = DynamicTo<HTMLInputElement>(e.ToHTMLElement())) {
+      if (input_element->IsEmailVerificationTokenField()) {
+        NotifyEmailVerificationTokenFieldChanged();
+      }
+    }
+  }
 }
 
 bool HTMLFormElement::IsURLAttribute(const Attribute& attribute) const {
@@ -1290,10 +1305,7 @@ void HTMLFormElement::CollectListedElements(
   const bool nested_forms_have_form_associated_elements =
       std::ranges::any_of(nested_forms, [](const auto& form) {
         return form->has_elements_associated_by_form_attribute_ ||
-               (form->has_elements_associated_by_parser_ &&
-                base::FeatureList::IsEnabled(
-                    features::
-                        kAutofillFixFieldsAssociatedWithNestedFormsByParser));
+               form->has_elements_associated_by_parser_;
       });
   if (nested_forms_have_form_associated_elements && isConnected()) {
     root = &GetTreeScope().RootNode();
@@ -1662,6 +1674,13 @@ void HTMLFormElement::InvalidateListedElementsForAutofill() {
   listed_elements_for_autofill_are_dirty_ = true;
 }
 
+void HTMLFormElement::InvalidateListedElements() {
+  listed_elements_are_dirty_ = true;
+  listed_elements_.clear();
+  listed_elements_for_autofill_are_dirty_ = true;
+  listed_elements_for_autofill_.clear();
+}
+
 void HTMLFormElement::UseCountPropertyAccess(
     v8::Local<v8::Name>& v8_property_name,
     const v8::PropertyCallbackInfo<v8::Value>& info) {
@@ -1686,6 +1705,17 @@ void HTMLFormElement::ScheduleWebMCPSchemaUpdateIfActive() {
     return;
   }
   ScheduleDeclarativeWebMCPToolRegistration();
+}
+
+void HTMLFormElement::NotifyEmailVerificationTokenFieldChanged() {
+  for (ListedElement* listed_element : ListedElements()) {
+    HTMLElement& html_element = listed_element->ToHTMLElement();
+    if (auto* input_element = DynamicTo<HTMLInputElement>(html_element)) {
+      if (input_element->type() == input_type_names::kEmail) {
+        input_element->UpdateEmailVerificationIndicator();
+      }
+    }
+  }
 }
 
 }  // namespace blink

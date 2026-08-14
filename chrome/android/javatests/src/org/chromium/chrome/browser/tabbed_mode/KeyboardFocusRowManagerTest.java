@@ -58,6 +58,9 @@ import java.util.concurrent.TimeoutException;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @Batch(Batch.PER_CLASS)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+@EnableFeatures(
+        ChromeFeatureList.HOME_BUTTON_REMOVAL
+                + ":set_default_to_false_on_homepage_on_desktop/false")
 public class KeyboardFocusRowManagerTest {
 
     @Rule
@@ -99,12 +102,26 @@ public class KeyboardFocusRowManagerTest {
     @SmallTest
     @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
     @Feature("KeyboardShortcuts")
+    public void testSwitchKeyboardFocusRow_onOmnibox() {
+        // Put something in the content view so we can focus on it.
+        openNewTabAndFocusContent();
+
+        // Switch the first time.
+        switchRow();
+        assertOnOmnibox();
+    }
+
+    @Test
+    @SmallTest
+    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
+    @Feature("KeyboardShortcuts")
     public void testSwitchKeyboardFocusRow_withTabletTabStrip() {
         // Put something in the content view so we can focus on it.
         openNewTabAndFocusContent();
+
         // Switch the first time.
         switchRow();
-        assertOnToolbar();
+        assertOnOmnibox();
 
         // Switch a 2nd time.
         switchRow();
@@ -125,7 +142,7 @@ public class KeyboardFocusRowManagerTest {
 
         // Switch the first time.
         switchRow();
-        assertOnToolbar();
+        assertOnOmnibox();
 
         // Switch a 2nd time.
         switchRow();
@@ -144,7 +161,7 @@ public class KeyboardFocusRowManagerTest {
 
         // Switch the first time.
         switchRow();
-        assertOnToolbar();
+        assertOnOmnibox();
 
         // Switch a 2nd time.
         switchRow();
@@ -176,7 +193,7 @@ public class KeyboardFocusRowManagerTest {
 
         // Switch the first time.
         switchRow();
-        assertOnToolbar();
+        assertOnOmnibox();
 
         // Switch a 2nd time.
         switchRow();
@@ -214,7 +231,7 @@ public class KeyboardFocusRowManagerTest {
 
         // Switch the first time.
         switchRow();
-        assertOnToolbar();
+        assertOnOmnibox();
 
         // Switch a 2nd time.
         switchRow();
@@ -253,7 +270,7 @@ public class KeyboardFocusRowManagerTest {
 
         // Switch the first time.
         switchRow();
-        assertOnToolbar();
+        assertOnOmnibox();
 
         // Switch a 2nd time.
         switchRow();
@@ -287,6 +304,7 @@ public class KeyboardFocusRowManagerTest {
         // Focus directly on bookmarks bar with shortcut even though it's not next in cycle order.
         ThreadUtils.runOnUiThreadBlocking(
                 () -> mActivity.onMenuOrKeyboardAction(R.id.focus_bookmarks, false));
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         assertOnBookmarksBar();
 
         // Now switch and make sure we appropriately switch given our new cycle position.
@@ -311,7 +329,7 @@ public class KeyboardFocusRowManagerTest {
 
         // Switch the first time.
         switchRow();
-        assertOnToolbar();
+        assertOnOmnibox();
 
         // Switch a 2nd time.
         switchRow();
@@ -409,13 +427,13 @@ public class KeyboardFocusRowManagerTest {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 
-    private void assertOnToolbar() {
+    private void assertOnOmnibox() {
         ThreadUtils.runOnUiThreadBlocking(
                 () ->
                         assertEquals(
-                                "Expected focus to be on toolbar after invocation of keyboard"
+                                "Expected focus to be on omnibox after invocation of keyboard"
                                         + " focus row switch",
-                                KeyboardFocusRow.TOOLBAR,
+                                KeyboardFocusRow.OMNIBOX,
                                 mKeyboardFocusRowManager.getKeyboardFocusRowForTesting()));
     }
 

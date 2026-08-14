@@ -334,7 +334,7 @@ void RenderProcessHostImpl::RegisterMojoInterfaces() {
   GetContentClient()->browser()->ExposeInterfacesToRenderer(
       registry.get(), associated_interfaces_.get(), this);
 
-  DCHECK(child_host_pending_receiver_);
+  CHECK(child_host_pending_receiver_, base::NotFatalUntil::M154);
   io_thread_host_impl_.emplace(
       GetIOThreadTaskRunner({}), GetID(), instance_weak_factory_.GetWeakPtr(),
       std::move(registry), std::move(child_host_pending_receiver_));
@@ -449,6 +449,16 @@ void RenderProcessHostImpl::IOThreadHostImpl::BindHostReceiver(
   GetUIThreadTaskRunner({})->PostTask(
       FROM_HERE, base::BindOnce(&IOThreadHostImpl::BindHostReceiverOnUIThread,
                                 weak_host_, std::move(receiver)));
+}
+
+void RenderProcessHostImpl::IOThreadHostImpl::BindHostReceivers(
+    std::vector<mojo::GenericPendingReceiver> receivers) {
+  // Bind each receiver through the same per-item path, preserving the
+  // interceptor, interface filtering, BinderRegistry, and UI-thread
+  // fallthrough.
+  for (auto& receiver : receivers) {
+    BindHostReceiver(std::move(receiver));
+  }
 }
 
 // static

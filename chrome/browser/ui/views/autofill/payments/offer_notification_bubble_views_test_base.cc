@@ -12,23 +12,17 @@
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/location_bar/location_bar_view.h"
-#include "chrome/browser/ui/views/page_action/page_action_view.h"
 #include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
-#include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/content/browser/test_autofill_manager_injector.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager_test_api.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/common/autofill_clock.h"
-#include "components/autofill/core/common/autofill_payments_features.h"
-#include "components/commerce/core/commerce_feature_list.h"
 #include "content/public/test/content_mock_cert_verifier.h"
 #include "net/dns/mock_host_resolver.h"
 
@@ -59,14 +53,14 @@ void OfferNotificationBubbleViewsTestBase::SetUpOnMainThread() {
   AddEventObserverToController(controller);
 
   personal_data_ =
-      PersonalDataManagerFactory::GetForBrowserContext(browser()->profile());
+      PersonalDataManagerFactory::GetForBrowserContext(browser()->GetProfile());
 
   // Mimic the user is signed in so payments integration is considered enabled.
   personal_data_->payments_data_manager().SetSyncingForTest(true);
 
   // Wait for Personal Data Manager to be fully loaded to prevent that
   // spurious notifications deceive the tests.
-  WaitForPersonalDataManagerToBeLoaded(browser()->profile());
+  WaitForPersonalDataManagerToBeLoaded(browser()->GetProfile());
 
   host_resolver()->AddRule("*", "127.0.0.1");
   cert_verifier_.mock_cert_verifier()->set_default_result(net::OK);

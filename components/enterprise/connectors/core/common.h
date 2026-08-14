@@ -238,14 +238,18 @@ enum class FinalContentAnalysisResult {
   // Show that DLP checks failed, but that the user can proceed if they want.
   WARNING = 4,
 
-  // Show that no issue was found and that the user may proceed.
-  SUCCESS = 5,
-
   // Show that the download is blocked and may proceed to cloud storage.
-  FORCE_SAVE_TO_CLOUD = 6,
+  FORCE_SAVE_TO_CLOUD = 5,
 
   // Show that the user cancelled the scan.
-  CANCELLED = 7,
+  CANCELLED = 6,
+
+  // Show that the copy operation is allowed within managed Chrome, but
+  // blocked from the OS clipboard.
+  KEPT_IN_MANAGED_CHROME = 7,
+
+  // Show that no issue was found and that the user may proceed.
+  SUCCESS = 8,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/enterprise/histograms.xml)
 
@@ -395,7 +399,10 @@ enum class DeepScanAccessPoint {
   // A deep scan was initiated from copying text.
   COPY,
 
-  kMaxValue = COPY,
+  // A deep scan was initiated from a network request.
+  NETWORK_REQUEST,
+
+  kMaxValue = NETWORK_REQUEST,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/enterprise/histograms.xml:DeepScanAccessPoint)
 

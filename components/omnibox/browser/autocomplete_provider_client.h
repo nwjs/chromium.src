@@ -84,7 +84,7 @@ class TemplateURLService;
 
 class AutocompleteProviderClient : public OmniboxAction::Client {
  public:
-  virtual ~AutocompleteProviderClient() = default;
+  ~AutocompleteProviderClient() override = default;
 
   virtual scoped_refptr<network::SharedURLLoaderFactory>
   GetURLLoaderFactory() = 0;
@@ -214,6 +214,10 @@ class AutocompleteProviderClient : public OmniboxAction::Client {
   // be expensive so this method should only be called once per input session.
   virtual void StartServiceWorker(const GURL& destination_url) {}
 
+  // Resets the DSE geolocation permission status to ASK if it is currently
+  // DENY.
+  virtual void ResetGeolocationPermissionToAsk(const GURL& url) const {}
+
   // Called after creation of |keyword_provider| to allow the client to
   // configure the provider if desired.
   virtual void ConfigureKeywordProvider(KeywordProvider* keyword_provider) {}
@@ -277,6 +281,16 @@ class AutocompleteProviderClient : public OmniboxAction::Client {
   // Gets a weak pointer to the client. Used when providers need to use the
   // client when the client may no longer be around.
   virtual base::WeakPtr<AutocompleteProviderClient> GetWeakPtr();
+
+  // Returns whether the Web UI NTP is enabled for Desktop Android. In all other
+  // cases and platforms, it returns false.
+  virtual bool IsWebUiNtpEnabledForDesktopAndroid() const;
+
+  // OmniboxAction::Client overrides:
+  bool ShouldOpenCoBrowsePanel() const override;
+  void OpenCoBrowsePanel() override;
+  bool ShouldOpenComposeboxForAskG() const override;
+  void OpenComposeboxForAskG() override;
 };
 
 #endif  // COMPONENTS_OMNIBOX_BROWSER_AUTOCOMPLETE_PROVIDER_CLIENT_H_

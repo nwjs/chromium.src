@@ -8,6 +8,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -31,6 +33,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
@@ -91,7 +94,8 @@ public class BottomSheetControllerImplUnitTest {
                         false,
                         mEdgeToEdgeBottomInsetSupplier,
                         mDesktopWindowStateManager,
-                        mInsetObserver);
+                        mInsetObserver,
+                        /* enableLargeFormFactorUi= */ false);
     }
 
     @Test
@@ -106,13 +110,55 @@ public class BottomSheetControllerImplUnitTest {
         mController.runSheetInitializerForTesting();
         verify(mBottomSheet)
                 .init(
+                        eq(mWindow),
+                        eq(mKeyboardVisibilityDelegate),
+                        eq(false),
+                        eq(mEdgeToEdgeBottomInsetSupplier),
+                        eq(APP_HEADER_HEIGHT),
+                        eq(0),
+                        eq(mInsetObserver),
+                        anyBoolean());
+    }
+
+    @Test
+    public void testIsDesktopUi_FeatureDisabled() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        // mController is initialized with enableLargeFormFactorUi = false in setUp()
+        assertFalse(mController.isLargeFormFactor());
+    }
+
+    @Test
+    public void testIsDesktopUi_NotDesktop() {
+        BottomSheetControllerImpl controller =
+                new BottomSheetControllerImpl(
+                        mScrimManagerSupplier,
                         mWindow,
                         mKeyboardVisibilityDelegate,
+                        mRootSupplier,
                         false,
                         mEdgeToEdgeBottomInsetSupplier,
-                        APP_HEADER_HEIGHT,
-                        0,
-                        mInsetObserver);
+                        mDesktopWindowStateManager,
+                        mInsetObserver,
+                        /* enableLargeFormFactorUi= */ true);
+        DeviceInfo.setIsDesktopForTesting(false);
+        assertFalse(controller.isLargeFormFactor());
+    }
+
+    @Test
+    public void testIsDesktopUi_Enabled() {
+        BottomSheetControllerImpl controller =
+                new BottomSheetControllerImpl(
+                        mScrimManagerSupplier,
+                        mWindow,
+                        mKeyboardVisibilityDelegate,
+                        mRootSupplier,
+                        false,
+                        mEdgeToEdgeBottomInsetSupplier,
+                        mDesktopWindowStateManager,
+                        mInsetObserver,
+                        /* enableLargeFormFactorUi= */ true);
+        DeviceInfo.setIsDesktopForTesting(true);
+        assertTrue(controller.isLargeFormFactor());
     }
 
     @Test
@@ -189,6 +235,37 @@ public class BottomSheetControllerImplUnitTest {
         verify(mBottomSheet).setBottomMargin(100);
     }
 
+    // Verify that when a sheet content specifies coversBottomControls() as true, it retains
+    // a zero bottom margin and elevated Z-axis even when the scrim is hidden.
+    @Test
+    public void testBottomControlsOffset_coversBottomControls() {
+        mController.runSheetInitializerForTesting();
+        verify(mBottomSheet).addObserver(mBottomSheetObserverCaptor.capture());
+        doReturn(true).when(mBottomSheet).isSheetOpen();
+        doReturn(mSheetContent).when(mBottomSheet).getCurrentSheetContent();
+        doReturn(true).when(mSheetContent).coversBottomControls();
+        doReturn(ObservableSuppliers.alwaysFalse())
+                .when(mSheetContent)
+                .getBackPressStateChangedSupplier();
+
+        // 1. Simulate sheet opened to trigger showScrim and initial Z-axis / margin adjustment.
+        mBottomSheetObserverCaptor.getValue().onSheetOpened(StateChangeReason.NONE);
+        verify(mScrimManager).showScrim(mScrimPropertyModelCaptor.capture());
+        var callback =
+                mScrimPropertyModelCaptor.getValue().get(ScrimProperties.VISIBILITY_CALLBACK);
+
+        // 2. Set bottom controls offset to 100 while scrim is visible -> margin must stay 0.
+        mController.setBottomControlsOffset(100);
+        verify(mBottomSheet, times(3)).setBottomMargin(0);
+        verify(mRoot, times(3)).setZ(1.0f);
+
+        // 3. Hide scrim via callback -> with coversBottomControls() true, bottom margin must
+        // remain 0 and Z-axis must stay elevated (1.0f) rather than shifting to offset (100).
+        callback.onResult(false);
+        verify(mBottomSheet, times(4)).setBottomMargin(0);
+        verify(mRoot, times(4)).setZ(1.0f);
+    }
+
     @Test
     public void testScrimStartsVisible() {
         doReturn(true).when(mScrimManager).isShowingScrim();
@@ -234,7 +311,8 @@ public class BottomSheetControllerImplUnitTest {
                         false,
                         mEdgeToEdgeBottomInsetSupplier,
                         mDesktopWindowStateManager,
-                        mInsetObserver);
+                        mInsetObserver,
+                        /* enableLargeFormFactorUi= */ false);
 
         // Requesting to show content should fail gracefully instead of crashing.
         boolean result =
@@ -514,5 +592,69 @@ public class BottomSheetControllerImplUnitTest {
 
         // 4. Verify that Z-elevation remains 0.0f (not elevated to 1.0f automatically).
         verify(mRoot, never()).setZ(1.0f);
+    }
+
+    @Test
+    public void testSuppressSheet_doesNotCaptureIfTargetStateIsHidden() {
+        mController.runSheetInitializerForTesting();
+
+        BottomSheetContent currentContent = mock(BottomSheetContent.class);
+        when(currentContent.getBackPressStateChangedSupplier())
+                .thenReturn(ObservableSuppliers.alwaysFalse());
+
+        when(mBottomSheet.getCurrentSheetContent()).thenReturn(currentContent);
+        when(mBottomSheet.getTargetSheetState()).thenReturn(SheetState.HIDDEN);
+
+        int token = mController.suppressSheet(StateChangeReason.NONE);
+
+        verify(mBottomSheet).setSheetState(SheetState.HIDDEN, false, StateChangeReason.NONE);
+
+        mController.unsuppressSheet(token);
+        verify(mBottomSheet, never()).showContent(currentContent);
+    }
+
+    @Test
+    public void testRequestShowContent_doesNotQueueIfTargetStateIsHidden() {
+        mController.runSheetInitializerForTesting();
+
+        BottomSheetContent newContent = mock(BottomSheetContent.class);
+        when(newContent.getPriority()).thenReturn(BottomSheetContent.ContentPriority.HIGH);
+        BottomSheetContent currentContent = mock(BottomSheetContent.class);
+        when(currentContent.getPriority()).thenReturn(BottomSheetContent.ContentPriority.LOW);
+        when(currentContent.canBeSuppressed(newContent)).thenReturn(true);
+        when(currentContent.getBackPressStateChangedSupplier())
+                .thenReturn(ObservableSuppliers.alwaysFalse());
+
+        when(mBottomSheet.getCurrentSheetContent()).thenReturn(currentContent);
+        when(mBottomSheet.isSheetOpen()).thenReturn(true);
+        when(mBottomSheet.getTargetSheetState()).thenReturn(SheetState.HIDDEN);
+
+        boolean result = mController.requestShowContent(newContent, /* animate= */ true);
+
+        assertTrue("Request should return true", result);
+        verify(mBottomSheet).setSheetState(SheetState.HIDDEN, true);
+
+        // Verify the dying content was not queued by ensuring it doesn't restore when the new
+        // content is hidden.
+        mController.hideContent(newContent, false, StateChangeReason.NONE);
+        verify(mBottomSheet, never()).showContent(currentContent);
+    }
+
+    @Test
+    public void testHideContent_purgesFromSuppressionCache() {
+        mController.runSheetInitializerForTesting();
+
+        BottomSheetContent currentContent = mock(BottomSheetContent.class);
+        when(currentContent.getBackPressStateChangedSupplier())
+                .thenReturn(ObservableSuppliers.alwaysFalse());
+
+        when(mBottomSheet.getCurrentSheetContent()).thenReturn(currentContent);
+        when(mBottomSheet.getTargetSheetState()).thenReturn(SheetState.PEEK);
+
+        int token = mController.suppressSheet(StateChangeReason.NONE);
+        mController.hideContent(currentContent, false, StateChangeReason.NONE);
+        mController.unsuppressSheet(token);
+
+        verify(mBottomSheet, never()).showContent(currentContent);
     }
 }

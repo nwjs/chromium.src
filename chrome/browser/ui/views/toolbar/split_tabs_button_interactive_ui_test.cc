@@ -174,8 +174,8 @@ class SplitTabButtonInteractiveTest
 
   auto UpdateSplitTabButtonPinState(bool should_pin) {
     return Do([=, this]() {
-      browser()->profile()->GetPrefs()->SetBoolean(prefs::kPinSplitTabButton,
-                                                   should_pin);
+      browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kPinSplitTabButton,
+                                                      should_pin);
     });
   }
 
@@ -353,7 +353,7 @@ class SplitTabButtonInteractiveTest
   auto CheckSplitTabButtonPinState(bool should_pin) {
     return CheckResult(
         [=, this]() {
-          return browser()->profile()->GetPrefs()->GetBoolean(
+          return browser()->GetProfile()->GetPrefs()->GetBoolean(
               prefs::kPinSplitTabButton);
         },
         should_pin);

@@ -1,0 +1,767 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "chrome/browser/password_manager/remote_actor/remote_actor_credential_sharing_impl.h"
+
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
+#include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
+#include "base/run_loop.h"
+#include "base/strings/utf_string_conversions.h"
+#include "base/test/scoped_feature_list.h"
+#include "base/test/test_future.h"
+#include "chrome/browser/password_manager/chrome_password_manager_client.h"
+#include "chrome/browser/password_manager/password_manager_test_util.h"
+#include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
+#include "chrome/browser/sync/sync_service_factory.h"
+#include "chrome/browser/ui/autofill/chrome_autofill_client.h"
+#include "chrome/browser/ui/passwords/remote_actor_selection_dialog_controller.h"
+#include "chrome/common/chrome_features.h"
+#include "chrome/common/password_manager/remote_actor_credential_sharing_policy.h"
+#include "chrome/test/base/chrome_render_view_host_test_harness.h"
+#include "components/device_reauth/mock_device_authenticator.h"
+#include "components/password_manager/core/browser/password_form.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
+#include "components/password_manager/core/browser/password_store/test_password_store.h"
+#include "components/strings/grit/components_strings.h"
+#include "components/sync/test/mock_sync_service.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_process_host.h"
+#include "content/public/test/navigation_simulator.h"
+#include "content/public/test/test_renderer_host.h"
+#include "mojo/public/cpp/bindings/associated_remote.h"
+#include "mojo/public/cpp/system/functions.h"
+#include "testing/gmock/include/gmock/gmock.h"
+#include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/l10n/l10n_util.h"
+#include "url/gurl.h"
+#include "url/origin.h"
+
+namespace password_manager {
+
+class MockBadMessageHelper {
+ public:
+  MockBadMessageHelper() {
+    mojo::SetDefaultProcessErrorHandler(base::BindRepeating(
+        &MockBadMessageHelper::OnBadMessage, base::Unretained(this)));
+  }
+  ~MockBadMessageHelper() {
+    mojo::SetDefaultProcessErrorHandler(base::NullCallback());
+  }
+
+  MOCK_METHOD(void, OnBadMessage, (const std::string& error));
+};
+
+class StubRemoteActorSelectionDialogController
+    : public RemoteActorSelectionDialogController {
+ public:
+  StubRemoteActorSelectionDialogController(
+      content::WebContents* web_contents,
+      std::vector<std::unique_ptr<PasswordForm>> credentials,
+      const std::string& credential_domain,
+      OnResultCallback callback)
+      : RemoteActorSelectionDialogController(web_contents,
+                                             std::move(credentials),
+                                             credential_domain,
+                                             std::move(callback)) {}
+  ~StubRemoteActorSelectionDialogController() override = default;
+  void Show() override {}
+};
+
+class MockChromePasswordManagerClient : public ChromePasswordManagerClient {
+ public:
+  static MockChromePasswordManagerClient* CreateForWebContentsAndGet(
+      content::WebContents* contents) {
+    auto* client =
+        new testing::NiceMock<MockChromePasswordManagerClient>(contents);
+    contents->SetUserData(UserDataKey(), base::WrapUnique(client));
+    return client;
+  }
+
+  explicit MockChromePasswordManagerClient(content::WebContents* web_contents)
+      : ChromePasswordManagerClient(web_contents) {}
+
+  MOCK_METHOD(std::unique_ptr<device_reauth::DeviceAuthenticator>,
+              GetDeviceAuthenticator,
+              (),
+              (override));
+  MOCK_METHOD(bool,
+              IsReauthBeforeFillingRequired,
+              (device_reauth::DeviceAuthenticator*),
+              (override));
+};
+
+class RemoteActorCredentialSharingImplTest
+    : public ChromeRenderViewHostTestHarness {
+ public:
+  ~RemoteActorCredentialSharingImplTest() override = default;
+
+  TestingProfile::TestingFactories GetTestingFactories() const override {
+    return IdentityTestEnvironmentProfileAdaptor::
+        GetIdentityTestEnvironmentFactories();
+  }
+
+ protected:
+  void SetUp() override {
+    ChromeRenderViewHostTestHarness::SetUp();
+
+    identity_test_env_adaptor_ =
+        std::make_unique<IdentityTestEnvironmentProfileAdaptor>(profile());
+
+    mock_sync_service_ = static_cast<syncer::MockSyncService*>(
+        SyncServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+            profile(),
+            base::BindRepeating(
+                [](content::BrowserContext*) -> std::unique_ptr<KeyedService> {
+                  return std::make_unique<
+                      testing::NiceMock<syncer::MockSyncService>>();
+                })));
+
+    profile_store_ = CreateAndUseTestPasswordStore(profile());
+    account_store_ = CreateAndUseTestAccountPasswordStore(profile());
+
+    // Default sync config: active.
+    SetSyncActive(true);
+    autofill::ChromeAutofillClient::CreateForWebContents(web_contents());
+    mock_client_ =
+        MockChromePasswordManagerClient::CreateForWebContentsAndGet(
+            web_contents());
+    ON_CALL(*mock_client_, IsReauthBeforeFillingRequired)
+        .WillByDefault(testing::Return(false));
+  }
+
+  void TearDown() override {
+    last_dialog_controller_ = nullptr;
+    if (profile_store_) {
+      profile_store_->ShutdownOnUIThread();
+    }
+    if (account_store_) {
+      account_store_->ShutdownOnUIThread();
+    }
+    mock_client_ = nullptr;
+    mock_sync_service_ = nullptr;
+    identity_test_env_adaptor_.reset();
+    ChromeRenderViewHostTestHarness::TearDown();
+  }
+
+  void NavigateAndCommit(const GURL& url) {
+    content::NavigationSimulator::NavigateAndCommitFromBrowser(web_contents(),
+                                                               url);
+    if (main_rfh()) {
+      main_rfh()->GetProcess()->Init();
+    }
+  }
+
+  void SignIn(const std::string& email) {
+    account_info_ =
+        identity_test_env_adaptor_->identity_test_env()
+            ->MakePrimaryAccountAvailable(email, signin::ConsentLevel::kSignin);
+  }
+
+  void SetSyncActive(bool active) {
+    ON_CALL(*mock_sync_service_, GetDisableReasons())
+        .WillByDefault(
+            testing::Return(syncer::SyncService::DisableReasonSet()));
+    ON_CALL(*mock_sync_service_, HasSyncConsent())
+        .WillByDefault(testing::Return(active));
+    ON_CALL(*mock_sync_service_->GetMockUserSettings(),
+            IsInitialSyncFeatureSetupComplete())
+        .WillByDefault(testing::Return(active));
+    ON_CALL(*mock_sync_service_->GetMockUserSettings(), GetSelectedTypes())
+        .WillByDefault(testing::Return(
+            active ? syncer::UserSelectableTypeSet(
+                         {syncer::UserSelectableType::kPasswords})
+                   : syncer::UserSelectableTypeSet()));
+    ON_CALL(*mock_sync_service_, GetActiveDataTypes())
+        .WillByDefault(
+            testing::Return(active ? syncer::DataTypeSet({syncer::PASSWORDS})
+                                   : syncer::DataTypeSet()));
+  }
+
+  void SetAccountStorageState(bool active) {
+    ON_CALL(*mock_sync_service_, HasSyncConsent())
+        .WillByDefault(testing::Return(false));
+    ON_CALL(*mock_sync_service_->GetMockUserSettings(),
+            IsInitialSyncFeatureSetupComplete())
+        .WillByDefault(testing::Return(false));
+    ON_CALL(*mock_sync_service_, GetTransportState())
+        .WillByDefault(testing::Return(
+            active ? syncer::SyncService::TransportState::ACTIVE
+                   : syncer::SyncService::TransportState::DISABLED));
+    ON_CALL(*mock_sync_service_->GetMockUserSettings(), GetSelectedTypes())
+        .WillByDefault(testing::Return(
+            active ? syncer::UserSelectableTypeSet(
+                         {syncer::UserSelectableType::kPasswords})
+                   : syncer::UserSelectableTypeSet()));
+    ON_CALL(*mock_sync_service_, GetActiveDataTypes())
+        .WillByDefault(
+            testing::Return(active ? syncer::DataTypeSet({syncer::PASSWORDS})
+                                   : syncer::DataTypeSet()));
+  }
+
+  void CreateImpl(content::RenderFrameHost* rfh = nullptr) {
+    if (!rfh) {
+      rfh = main_rfh();
+    }
+    RemoteActorCredentialSharingImpl::CreateForCurrentDocument(
+        rfh, base::BindRepeating(
+                 &RemoteActorCredentialSharingImplTest::CreateTestDialog,
+                 base::Unretained(this)));
+  }
+  std::unique_ptr<RemoteActorSelectionDialogController> CreateTestDialog(
+      content::WebContents* web_contents,
+      std::vector<std::unique_ptr<PasswordForm>> credentials,
+      const std::string& credential_domain,
+      base::OnceCallback<void(std::optional<PasswordForm>)> callback) {
+    last_dialog_credentials_ = std::move(credentials);
+    last_dialog_credential_domain_ = credential_domain;
+    last_dialog_callback_ = std::move(callback);
+
+    auto controller =
+        std::make_unique<StubRemoteActorSelectionDialogController>(
+            web_contents, std::vector<std::unique_ptr<PasswordForm>>(),
+            credential_domain,
+            base::BindOnce(
+                &RemoteActorCredentialSharingImplTest::OnDialogResult,
+                base::Unretained(this)));
+    last_dialog_controller_ = controller.get();
+    if (dialog_shown_quit_closure_) {
+      std::move(dialog_shown_quit_closure_).Run();
+    }
+    return controller;
+  }
+
+  void OnDialogResult(std::optional<PasswordForm> form) {
+    last_dialog_controller_ = nullptr;
+    ASSERT_TRUE(last_dialog_callback_);
+    std::move(last_dialog_callback_).Run(form);
+  }
+
+  void SimulateDialogSelection(std::optional<PasswordForm> selected_form) {
+    ASSERT_TRUE(last_dialog_controller_);
+    if (selected_form) {
+      last_dialog_controller_->OnChooseCredentials(
+          *selected_form,
+          password_manager::CredentialType::CREDENTIAL_TYPE_PASSWORD);
+    } else {
+      last_dialog_controller_->OnCloseDialog();
+    }
+  }
+
+  void SetupMockAuthenticator(bool reauth_required,
+                              bool auth_success = false,
+                              const std::string& domain = "google.com") {
+    auto prepared_authenticator = std::make_unique<
+        testing::NiceMock<device_reauth::MockDeviceAuthenticator>>();
+    auto* raw_authenticator = prepared_authenticator.get();
+
+    if (reauth_required) {
+      EXPECT_CALL(*raw_authenticator, CanAuthenticateWithBiometrics)
+          .WillRepeatedly(testing::Return(true));
+      std::u16string expected_message;
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
+      expected_message = l10n_util::GetStringFUTF16(
+          IDS_PASSWORD_MANAGER_FILLING_REAUTH, base::UTF8ToUTF16(domain));
+#endif
+      EXPECT_CALL(*raw_authenticator,
+                  AuthenticateWithMessage(expected_message, testing::_))
+          .WillOnce(testing::WithArg<1>(
+              [auth_success](device_reauth::DeviceAuthenticator::AuthenticateCallback callback) {
+                std::move(callback).Run(auth_success);
+              }));
+    } else {
+      EXPECT_CALL(*raw_authenticator, AuthenticateWithMessage).Times(0);
+    }
+
+    EXPECT_CALL(*mock_client_, GetDeviceAuthenticator)
+        .WillOnce([authenticator = std::move(prepared_authenticator)]() mutable {
+          return std::move(authenticator);
+        });
+    EXPECT_CALL(*mock_client_, IsReauthBeforeFillingRequired)
+        .WillOnce(testing::Return(reauth_required));
+  }
+
+  bool RunSharingFlowAndSelect(
+      mojo::AssociatedRemote<chrome::mojom::RemoteActorCredentialSharing>& remote) {
+    PasswordForm form;
+    form.signon_realm = "https://google.com/";
+    form.url = GURL("https://google.com");
+    form.username_value = u"user";
+    form.password_value = u"pass";
+    form.in_store = PasswordForm::Store::kProfileStore;
+    profile_store_->AddLogin(FromPasswordForm(form));
+
+    content::RenderFrameHostTester::For(main_rfh())->SimulateUserActivation();
+    base::test::TestFuture<bool> result;
+    remote->RequestAgentAuthentication(account_info_.gaia.ToString(),
+                                       "google.com", "actor_id",
+                                       result.GetCallback());
+    base::RunLoop().RunUntilIdle();
+
+    if (last_dialog_credentials_.size() != 1u) {
+      return false;
+    }
+
+    SimulateDialogSelection(*last_dialog_credentials_[0]);
+    return result.Get();
+  }
+
+  mojo::AssociatedRemote<chrome::mojom::RemoteActorCredentialSharing>
+  SetUpAndBindFlow() {
+    SignIn("user@gmail.com");
+    NavigateAndCommit(GURL("https://gemini.google.com"));
+    content::RenderFrameHostTester::For(main_rfh())
+        ->InitializeRenderFrameIfNeeded();
+    CreateImpl();
+
+    RemoteActorCredentialSharingImpl* impl =
+        RemoteActorCredentialSharingImpl::GetForCurrentDocument(main_rfh());
+    EXPECT_NE(impl, nullptr);
+
+    mojo::AssociatedRemote<chrome::mojom::RemoteActorCredentialSharing> remote;
+    if (impl) {
+      impl->Bind(remote.BindNewEndpointAndPassDedicatedReceiver());
+    }
+    return remote;
+  }
+
+  std::unique_ptr<IdentityTestEnvironmentProfileAdaptor>
+      identity_test_env_adaptor_;
+  raw_ptr<syncer::MockSyncService> mock_sync_service_ = nullptr;
+  scoped_refptr<TestPasswordStore> profile_store_;
+  scoped_refptr<TestPasswordStore> account_store_;
+
+  AccountInfo account_info_;
+
+  // Dialog tracking
+  std::vector<std::unique_ptr<PasswordForm>> last_dialog_credentials_;
+  std::string last_dialog_credential_domain_;
+  base::OnceCallback<void(std::optional<PasswordForm>)> last_dialog_callback_;
+  base::OnceClosure dialog_shown_quit_closure_;
+  raw_ptr<StubRemoteActorSelectionDialogController> last_dialog_controller_ = nullptr;
+
+  raw_ptr<MockChromePasswordManagerClient> mock_client_ = nullptr;
+
+ private:
+  base::test::ScopedFeatureList feature_list_{
+      ::features::kRemoteActorCredentialSharing};
+};
+
+// Verify that when the feature flag kRemoteActorCredentialSharing is enabled,
+// binding the receiver succeeds on the whitelisted origins, and authentication
+// request works.
+TEST_F(RemoteActorCredentialSharingImplTest,
+       FeatureEnabledWhitelistedOriginSucceeds) {
+  NavigateAndCommit(GURL("https://gemini.google.com"));
+  content::RenderFrameHostTester::For(main_rfh())
+      ->InitializeRenderFrameIfNeeded();
+  CreateImpl();
+
+  RemoteActorCredentialSharingImpl* impl =
+      RemoteActorCredentialSharingImpl::GetForCurrentDocument(main_rfh());
+  ASSERT_NE(impl, nullptr);
+
+  mojo::AssociatedRemote<chrome::mojom::RemoteActorCredentialSharing> remote;
+  impl->Bind(remote.BindNewEndpointAndPassDedicatedReceiver());
+
+  // Call RequestAgentAuthentication (expected false because not signed in).
+  content::RenderFrameHostTester::For(main_rfh())->SimulateUserActivation();
+  base::test::TestFuture<bool> result;
+  remote->RequestAgentAuthentication(/*gaia_id=*/"123456789",
+                                     /*domain=*/"google.com",
+                                     /*remote_actor_id=*/"actor_id",
+                                     result.GetCallback());
+  EXPECT_FALSE(result.Get());
+}
+
+// Verify that when the feature flag kRemoteActorCredentialSharing is enabled,
+// binding the receiver succeeds on the sandbox whitelisted origin.
+TEST_F(RemoteActorCredentialSharingImplTest,
+       FeatureEnabledSandboxOriginSucceeds) {
+  NavigateAndCommit(GURL("https://gemini-preprod.corp.google.com"));
+  content::RenderFrameHostTester::For(main_rfh())
+      ->InitializeRenderFrameIfNeeded();
+  CreateImpl();
+
+  RemoteActorCredentialSharingImpl* impl =
+      RemoteActorCredentialSharingImpl::GetForCurrentDocument(main_rfh());
+  ASSERT_NE(impl, nullptr);
+
+  mojo::AssociatedRemote<chrome::mojom::RemoteActorCredentialSharing> remote;
+  impl->Bind(remote.BindNewEndpointAndPassDedicatedReceiver());
+
+  // Call RequestAgentAuthentication (expected false).
+  content::RenderFrameHostTester::For(main_rfh())->SimulateUserActivation();
+  base::test::TestFuture<bool> result;
+  remote->RequestAgentAuthentication(/*gaia_id=*/"123456789",
+                                     /*domain=*/"google.com",
+                                     /*remote_actor_id=*/"actor_id",
+                                     result.GetCallback());
+  EXPECT_FALSE(result.Get());
+}
+
+// Verify behavior with empty arguments.
+TEST_F(RemoteActorCredentialSharingImplTest, RequestWithEmptyArguments) {
+  NavigateAndCommit(GURL("https://gemini.google.com"));
+  content::RenderFrameHostTester::For(main_rfh())
+      ->InitializeRenderFrameIfNeeded();
+  CreateImpl();
+
+  RemoteActorCredentialSharingImpl* impl =
+      RemoteActorCredentialSharingImpl::GetForCurrentDocument(main_rfh());
+  ASSERT_NE(impl, nullptr);
+
+  mojo::AssociatedRemote<chrome::mojom::RemoteActorCredentialSharing> remote;
+  impl->Bind(remote.BindNewEndpointAndPassDedicatedReceiver());
+
+  content::RenderFrameHostTester::For(main_rfh())->SimulateUserActivation();
+  base::test::TestFuture<bool> result;
+  remote->RequestAgentAuthentication(/*gaia_id=*/"", /*domain=*/"",
+                                     /*remote_actor_id=*/"",
+                                     result.GetCallback());
+  EXPECT_FALSE(result.Get());
+}
+
+// Verify behavior with extremely long strings.
+TEST_F(RemoteActorCredentialSharingImplTest,
+       RequestWithExtremelyLongArguments) {
+  NavigateAndCommit(GURL("https://gemini.google.com"));
+  content::RenderFrameHostTester::For(main_rfh())
+      ->InitializeRenderFrameIfNeeded();
+  CreateImpl();
+
+  RemoteActorCredentialSharingImpl* impl =
+      RemoteActorCredentialSharingImpl::GetForCurrentDocument(main_rfh());
+  ASSERT_NE(impl, nullptr);
+
+  mojo::AssociatedRemote<chrome::mojom::RemoteActorCredentialSharing> remote;
+  impl->Bind(remote.BindNewEndpointAndPassDedicatedReceiver());
+
+  content::RenderFrameHostTester::For(main_rfh())->SimulateUserActivation();
+  std::string long_string(1000000, 'a');
+
+  MockBadMessageHelper bad_message_helper;
+  base::RunLoop run_loop;
+  EXPECT_CALL(
+      bad_message_helper,
+      OnBadMessage(testing::HasSubstr(
+          "RemoteActorCredentialSharing: Argument length limit exceeded")))
+      .WillOnce([&run_loop](const std::string&) { run_loop.Quit(); });
+
+  remote->RequestAgentAuthentication(/*gaia_id=*/long_string,
+                                     /*domain=*/"google.com",
+                                     /*remote_actor_id=*/long_string,
+                                     base::DoNothing());
+  run_loop.Run();
+}
+
+// Verify behavior with special/null characters.
+TEST_F(RemoteActorCredentialSharingImplTest, RequestWithSpecialCharacters) {
+  NavigateAndCommit(GURL("https://gemini.google.com"));
+  content::RenderFrameHostTester::For(main_rfh())
+      ->InitializeRenderFrameIfNeeded();
+  CreateImpl();
+
+  RemoteActorCredentialSharingImpl* impl =
+      RemoteActorCredentialSharingImpl::GetForCurrentDocument(main_rfh());
+  ASSERT_NE(impl, nullptr);
+
+  mojo::AssociatedRemote<chrome::mojom::RemoteActorCredentialSharing> remote;
+  impl->Bind(remote.BindNewEndpointAndPassDedicatedReceiver());
+
+  content::RenderFrameHostTester::For(main_rfh())->SimulateUserActivation();
+  base::test::TestFuture<bool> result;
+  remote->RequestAgentAuthentication(/*gaia_id=*/"gaia\0id",
+                                     /*domain=*/"google.com",
+                                     /*remote_actor_id=*/"actor\nhack",
+                                     result.GetCallback());
+  EXPECT_FALSE(result.Get());
+}
+
+// Verify that calling RequestAgentAuthentication from a subframe
+// triggers a bad message.
+TEST_F(RemoteActorCredentialSharingImplTest,
+       SubframeRequestTriggersBadMessage) {
+  NavigateAndCommit(GURL("https://gemini.google.com"));
+  content::RenderFrameHostTester::For(main_rfh())
+      ->InitializeRenderFrameIfNeeded();
+
+  content::RenderFrameHost* subframe =
+      content::NavigationSimulator::NavigateAndCommitFromDocument(
+          GURL("https://gemini.google.com"),
+          content::RenderFrameHostTester::For(main_rfh())
+              ->AppendChild("subframe"));
+
+  ASSERT_NE(subframe, nullptr);
+  subframe->GetProcess()->Init();
+
+  CreateImpl(subframe);
+  RemoteActorCredentialSharingImpl* impl =
+      RemoteActorCredentialSharingImpl::GetForCurrentDocument(subframe);
+  ASSERT_NE(impl, nullptr);
+
+  mojo::AssociatedRemote<chrome::mojom::RemoteActorCredentialSharing> remote;
+  impl->Bind(remote.BindNewEndpointAndPassDedicatedReceiver());
+
+  MockBadMessageHelper bad_message_helper;
+  base::RunLoop run_loop;
+  EXPECT_CALL(bad_message_helper,
+              OnBadMessage(testing::HasSubstr(
+                  "RemoteActorCredentialSharing: Request from subframe")))
+      .WillOnce([&run_loop](const std::string&) { run_loop.Quit(); });
+
+  remote->RequestAgentAuthentication(/*gaia_id=*/"123456789",
+                                     /*domain=*/"google.com",
+                                     /*remote_actor_id=*/"actor_id",
+                                     base::DoNothing());
+  run_loop.Run();
+}
+
+// Verify that calling RequestAgentAuthentication without user activation
+// reports a bad message.
+TEST_F(RemoteActorCredentialSharingImplTest,
+       RequestWithoutUserGestureReportsBadMessage) {
+  NavigateAndCommit(GURL("https://gemini.google.com"));
+  content::RenderFrameHostTester::For(main_rfh())
+      ->InitializeRenderFrameIfNeeded();
+  CreateImpl();
+
+  RemoteActorCredentialSharingImpl* impl =
+      RemoteActorCredentialSharingImpl::GetForCurrentDocument(main_rfh());
+  ASSERT_NE(impl, nullptr);
+
+  mojo::AssociatedRemote<chrome::mojom::RemoteActorCredentialSharing> remote;
+  impl->Bind(remote.BindNewEndpointAndPassDedicatedReceiver());
+
+  MockBadMessageHelper bad_message_helper;
+  base::RunLoop run_loop;
+  EXPECT_CALL(
+      bad_message_helper,
+      OnBadMessage(testing::HasSubstr(
+          "RemoteActorCredentialSharing: Request without user gesture")))
+      .WillOnce([&run_loop](const std::string&) { run_loop.Quit(); });
+
+  remote->RequestAgentAuthentication(/*gaia_id=*/"123456789",
+                                     /*domain=*/"google.com",
+                                     /*remote_actor_id=*/"actor_id",
+                                     base::DoNothing());
+  run_loop.Run();
+}
+
+TEST_F(RemoteActorCredentialSharingImplTest, SuccessFlow_SelectCredential) {
+  SignIn("user@gmail.com");
+  NavigateAndCommit(GURL("https://gemini.google.com"));
+  content::RenderFrameHostTester::For(main_rfh())
+      ->InitializeRenderFrameIfNeeded();
+  CreateImpl();
+
+  RemoteActorCredentialSharingImpl* impl =
+      RemoteActorCredentialSharingImpl::GetForCurrentDocument(main_rfh());
+  ASSERT_NE(impl, nullptr);
+
+  mojo::AssociatedRemote<chrome::mojom::RemoteActorCredentialSharing> remote;
+  impl->Bind(remote.BindNewEndpointAndPassDedicatedReceiver());
+
+  // Add a credential to the profile store (synced because sync is active).
+  PasswordForm form;
+  form.signon_realm = "https://google.com/";
+  form.url = GURL("https://google.com");
+  form.username_value = u"user";
+  form.password_value = u"pass";
+  form.in_store = PasswordForm::Store::kProfileStore;
+  profile_store_->AddLogin(FromPasswordForm(form));
+
+  content::RenderFrameHostTester::For(main_rfh())->SimulateUserActivation();
+  base::test::TestFuture<bool> result;
+  base::RunLoop run_loop;
+  dialog_shown_quit_closure_ = run_loop.QuitClosure();
+  remote->RequestAgentAuthentication(
+      /*gaia_id=*/account_info_.gaia.ToString(),
+      /*domain=*/"google.com", /*remote_actor_id=*/"actor_id",
+      result.GetCallback());
+
+  // Wait for the dialog to be shown (factory called).
+  run_loop.Run();
+
+  ASSERT_EQ(last_dialog_credentials_.size(), 1u);
+  EXPECT_EQ(last_dialog_credentials_[0]->username_value, u"user");
+  EXPECT_EQ(last_dialog_credential_domain_, "https://google.com");
+
+  // Simulate user selecting the credential.
+  SimulateDialogSelection(*last_dialog_credentials_[0]);
+
+  // Selecting a credential should return false (no-op backend for now).
+  EXPECT_FALSE(result.Get());
+}
+
+TEST_F(RemoteActorCredentialSharingImplTest, SuccessFlow_CancelDialog) {
+  SignIn("user@gmail.com");
+  NavigateAndCommit(GURL("https://gemini.google.com"));
+  content::RenderFrameHostTester::For(main_rfh())
+      ->InitializeRenderFrameIfNeeded();
+  CreateImpl();
+
+  RemoteActorCredentialSharingImpl* impl =
+      RemoteActorCredentialSharingImpl::GetForCurrentDocument(main_rfh());
+  ASSERT_NE(impl, nullptr);
+
+  mojo::AssociatedRemote<chrome::mojom::RemoteActorCredentialSharing> remote;
+  impl->Bind(remote.BindNewEndpointAndPassDedicatedReceiver());
+
+  PasswordForm form;
+  form.signon_realm = "https://google.com/";
+  form.url = GURL("https://google.com");
+  form.username_value = u"user";
+  form.password_value = u"pass";
+  form.in_store = PasswordForm::Store::kProfileStore;
+  profile_store_->AddLogin(FromPasswordForm(form));
+
+  content::RenderFrameHostTester::For(main_rfh())->SimulateUserActivation();
+  base::test::TestFuture<bool> result;
+  base::RunLoop run_loop;
+  dialog_shown_quit_closure_ = run_loop.QuitClosure();
+  remote->RequestAgentAuthentication(
+      /*gaia_id=*/account_info_.gaia.ToString(),
+      /*domain=*/"google.com", /*remote_actor_id=*/"actor_id",
+      result.GetCallback());
+
+  run_loop.Run();
+
+  ASSERT_EQ(last_dialog_credentials_.size(), 1u);
+
+  // Simulate user cancelling the dialog.
+  SimulateDialogSelection(std::nullopt);
+
+  EXPECT_FALSE(result.Get());
+}
+
+TEST_F(RemoteActorCredentialSharingImplTest,
+       SyncInactive_OnlyAccountStoreQueried) {
+  SignIn("user@gmail.com");
+  SetAccountStorageState(true);
+  NavigateAndCommit(GURL("https://gemini.google.com"));
+  content::RenderFrameHostTester::For(main_rfh())
+      ->InitializeRenderFrameIfNeeded();
+  CreateImpl();
+
+  RemoteActorCredentialSharingImpl* impl =
+      RemoteActorCredentialSharingImpl::GetForCurrentDocument(main_rfh());
+
+  mojo::AssociatedRemote<chrome::mojom::RemoteActorCredentialSharing> remote;
+  impl->Bind(remote.BindNewEndpointAndPassDedicatedReceiver());
+
+  // Add password to profile store (local-only because sync is inactive).
+  PasswordForm profile_form;
+  profile_form.signon_realm = "https://google.com/";
+  profile_form.url = GURL("https://google.com");
+  profile_form.username_value = u"profile_user";
+  profile_form.password_value = u"pass";
+  profile_form.in_store = PasswordForm::Store::kProfileStore;
+  profile_store_->AddLogin(FromPasswordForm(profile_form));
+
+  // Add password to account store.
+  PasswordForm account_form;
+  account_form.signon_realm = "https://google.com/";
+  account_form.url = GURL("https://google.com");
+  account_form.username_value = u"account_user";
+  account_form.password_value = u"pass";
+  account_form.in_store = PasswordForm::Store::kAccountStore;
+  account_store_->AddLogin(FromPasswordForm(account_form));
+
+  content::RenderFrameHostTester::For(main_rfh())->SimulateUserActivation();
+  base::test::TestFuture<bool> result;
+  base::RunLoop run_loop;
+  dialog_shown_quit_closure_ = run_loop.QuitClosure();
+  remote->RequestAgentAuthentication(
+      /*gaia_id=*/account_info_.gaia.ToString(),
+      /*domain=*/"google.com", /*remote_actor_id=*/"actor_id",
+      result.GetCallback());
+
+  run_loop.Run();
+
+  // Only account_user should be in the dialog.
+  ASSERT_EQ(last_dialog_credentials_.size(), 1u);
+  EXPECT_EQ(last_dialog_credentials_[0]->username_value, u"account_user");
+
+  SimulateDialogSelection(std::nullopt);
+}
+
+TEST_F(RemoteActorCredentialSharingImplTest,
+       SyncActive_OnlyProfileStoreQueried) {
+  SignIn("user@gmail.com");
+  SetSyncActive(true);
+  NavigateAndCommit(GURL("https://gemini.google.com"));
+  content::RenderFrameHostTester::For(main_rfh())
+      ->InitializeRenderFrameIfNeeded();
+  CreateImpl();
+
+  RemoteActorCredentialSharingImpl* impl =
+      RemoteActorCredentialSharingImpl::GetForCurrentDocument(main_rfh());
+
+  mojo::AssociatedRemote<chrome::mojom::RemoteActorCredentialSharing> remote;
+  impl->Bind(remote.BindNewEndpointAndPassDedicatedReceiver());
+
+  // Add password to profile store (will be kept because sync is active).
+  PasswordForm profile_form;
+  profile_form.signon_realm = "https://google.com/";
+  profile_form.url = GURL("https://google.com");
+  profile_form.username_value = u"profile_user";
+  profile_form.password_value = u"pass";
+  profile_form.in_store = PasswordForm::Store::kProfileStore;
+  profile_store_->AddLogin(FromPasswordForm(profile_form));
+
+  // Add password to account store (should be ignored because sync feature is
+  // active, which means account store is not active).
+  PasswordForm account_form;
+  account_form.signon_realm = "https://google.com/";
+  account_form.url = GURL("https://google.com");
+  account_form.username_value = u"account_user";
+  account_form.password_value = u"pass";
+  account_form.in_store = PasswordForm::Store::kAccountStore;
+  account_store_->AddLogin(FromPasswordForm(account_form));
+
+  content::RenderFrameHostTester::For(main_rfh())->SimulateUserActivation();
+  base::test::TestFuture<bool> result;
+  base::RunLoop run_loop;
+  dialog_shown_quit_closure_ = run_loop.QuitClosure();
+  remote->RequestAgentAuthentication(
+      /*gaia_id=*/account_info_.gaia.ToString(),
+      /*domain=*/"google.com", /*remote_actor_id=*/"actor_id",
+      result.GetCallback());
+
+  run_loop.Run();
+
+  // Only profile_user should be in the dialog.
+  ASSERT_EQ(last_dialog_credentials_.size(), 1u);
+  EXPECT_EQ(last_dialog_credentials_[0]->username_value, u"profile_user");
+
+  SimulateDialogSelection(std::nullopt);
+}
+
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
+TEST_F(RemoteActorCredentialSharingImplTest, ReauthEnabled_Success) {
+  auto remote = SetUpAndBindFlow();
+  SetupMockAuthenticator(/*reauth_required=*/true, /*auth_success=*/true);
+  EXPECT_FALSE(RunSharingFlowAndSelect(remote));
+}
+
+TEST_F(RemoteActorCredentialSharingImplTest, ReauthEnabled_Failure) {
+  auto remote = SetUpAndBindFlow();
+  SetupMockAuthenticator(/*reauth_required=*/true, /*auth_success=*/false);
+  EXPECT_FALSE(RunSharingFlowAndSelect(remote));
+}
+
+TEST_F(RemoteActorCredentialSharingImplTest, ReauthDisabled_NoPrompt) {
+  auto remote = SetUpAndBindFlow();
+  SetupMockAuthenticator(/*reauth_required=*/false);
+  EXPECT_FALSE(RunSharingFlowAndSelect(remote));
+}
+#endif
+
+}  // namespace password_manager

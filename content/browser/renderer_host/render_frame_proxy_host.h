@@ -132,7 +132,7 @@ class CONTENT_EXPORT RenderFrameProxyHost
 
   int GetRoutingID() const { return routing_id_; }
   GlobalRoutingID GetGlobalID() const {
-    return GlobalRoutingID(GetProcess()->GetDeprecatedID(), routing_id_);
+    return GlobalRoutingID(GetProcess()->GetID(), routing_id_);
   }
 
   // Each RenderFrameProxyHost belongs to a SiteInstanceGroup, where it is a
@@ -303,6 +303,7 @@ class CONTENT_EXPORT RenderFrameProxyHost
   // These interceptors need access to frame_host_receiver_for_testing().
   friend class InitiatorClosingOpenURLInterceptor;
   friend class RemoteFrameHostInterceptor;
+  friend class CapabilityDelegationRemoteFrameHostInterceptor;
   friend class UpdateViewportIntersectionMessageFilter;
   friend class SynchronizeVisualPropertiesInterceptor;
 

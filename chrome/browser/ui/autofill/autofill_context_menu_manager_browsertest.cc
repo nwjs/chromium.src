@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 
 #include "ash/constants/ash_switches.h"
 #include "base/command_line.h"
@@ -16,7 +17,6 @@
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
-#include "build/branding_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/password_manager/chrome_webauthn_credentials_delegate_factory.h"
@@ -36,6 +36,7 @@
 #include "components/autofill/content/browser/test_autofill_client_injector.h"
 #include "components/autofill/content/browser/test_autofill_driver_injector.h"
 #include "components/autofill/content/browser/test_content_autofill_client.h"
+#include "components/autofill/core/browser/foundations/autofill_manager_test_api.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #include "components/autofill/core/browser/foundations/test_autofill_manager_waiter.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
@@ -44,6 +45,8 @@
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/keyed_service/core/service_access_type.h"
+#include "components/optimization_guide/core/feature_registry/feature_registration.h"
+#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/password_manager/content/browser/content_password_manager_driver.h"
 #include "components/password_manager/core/browser/manage_passwords_referrer.h"
 #include "components/password_manager/core/browser/password_form.h"
@@ -51,7 +54,7 @@
 #include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
-#include "components/personal_context/core/mock_personal_context_enablement_service.h"
+#include "components/personal_context/core/mock_personal_context_eligibility_service.h"
 #include "components/personal_context/core/personal_context_prefs.h"
 #include "components/plus_addresses/core/browser/grit/plus_addresses_strings.h"
 #include "components/plus_addresses/core/browser/plus_address_service.h"
@@ -70,6 +73,7 @@
 #include "content/public/test/test_utils.h"
 #include "net/dns/mock_host_resolver.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/dom/dom_node_id.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/menus/simple_menu_model.h"
@@ -249,9 +253,9 @@ content::ContextMenuParams CreateContextMenuParams(
   rv.page_url = GURL("http://test.page/");
   rv.form_control_type = form_control_type;
   if (form_renderer_id) {
-    rv.form_renderer_id = form_renderer_id->value();
+    rv.form_renderer_id = blink::DOMNodeIdType(form_renderer_id->value());
   }
-  rv.field_renderer_id = field_render_id.value();
+  rv.field_renderer_id = blink::DOMNodeIdType(field_render_id.value());
   return rv;
 }
 
@@ -300,7 +304,7 @@ class BaseAutofillContextMenuManagerTest : public InProcessBrowserTest {
     return browser()->tab_strip_model()->GetActiveWebContents();
   }
 
-  virtual Profile* profile() { return browser()->profile(); }
+  virtual Profile* profile() { return browser()->GetProfile(); }
 
   ChromePasswordManagerClient* password_manager_client() {
     return ChromePasswordManagerClient::FromWebContents(web_contents());
@@ -363,8 +367,9 @@ class BaseAutofillContextMenuManagerTest : public InProcessBrowserTest {
     TestAutofillManagerSingleEventWaiter wait_for_forms_seen(
         autofill_manager(), &AutofillManager::Observer::OnAfterFormsSeen,
         ElementsAre(form.global_id()), IsEmpty());
-    autofill_manager().OnFormsSeen(/*updated_forms=*/{form},
-                                   /*removed_forms=*/{});
+    autofill_manager().OnFormsSeen(
+        /*updated_forms=*/{form},
+        /*removed_forms=*/{}, autofill::AutofillManagerTestApi::pass_key());
     ASSERT_TRUE(std::move(wait_for_forms_seen).Wait());
   }
 
@@ -485,26 +490,17 @@ class PasswordsFallbackTestBase : public BaseAutofillContextMenuManagerTest {
   base::CallbackListSubscription subscription_;
 };
 
+// Test suite for manual fallback. The boolean parameter indicates whether the
+// password form under test is configured to accept WebAuthn credentials.
 class PasswordManualFallbackTest : public PasswordsFallbackTestBase,
                                    public testing::WithParamInterface<bool> {
  public:
-  PasswordManualFallbackTest() {
-    if (GetParam()) {
-      feature_list_.InitWithFeatures(
-          {password_manager::features::
-               kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu},
-          {});
-    } else {
-      feature_list_.InitWithFeatures(
-          {}, {password_manager::features::
-                   kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu});
-    }
-  }
+  PasswordManualFallbackTest() = default;
 
   void SetUpOnMainThread() override {
     PasswordsFallbackTestBase::SetUpOnMainThread();
 
-    form_ = CreateAndAttachPasswordForm(/*is_webauthn=*/GetParam());
+    form_ = CreateAndAttachPasswordForm(is_webauthn_form());
     autofill_context_menu_manager()->set_params_for_testing(
         CreateContextMenuParams(form_.renderer_id(),
                                 form_.fields()[0].renderer_id(),
@@ -519,12 +515,12 @@ class PasswordManualFallbackTest : public PasswordsFallbackTestBase,
     return ChromeWebAuthnCredentialsDelegateFactory::GetFactory(
                content::WebContents::FromRenderFrameHost(main_rfh()))
         ->GetDelegateForFrame(main_rfh());
-    ;
   }
+
+  bool is_webauthn_form() const { return GetParam(); }
 
  private:
   raw_ptr<ChromeWebAuthnCredentialsDelegate> webauthn_delegate_;
-  base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_P(
@@ -532,7 +528,8 @@ IN_PROC_BROWSER_TEST_P(
     PasswordGenerationEnabled_NoPasswordsSaved_ManualFallbackAddedWithGeneratePasswordOptionAndImportPasswordsOption) {
   UpdateSyncStatus(/*sync_enabled=*/true);
   autofill_context_menu_manager()->AppendItems();
-  EXPECT_THAT(menu_model(), PasswordFallbackAdded(false, true, GetParam()));
+  EXPECT_THAT(menu_model(),
+              PasswordFallbackAdded(false, true, is_webauthn_form()));
 }
 
 IN_PROC_BROWSER_TEST_P(
@@ -540,7 +537,8 @@ IN_PROC_BROWSER_TEST_P(
     PasswordGenerationDisabled_NoPasswordsSaved_ManualFallbackAddedWithImportPasswordsOption) {
   UpdateSyncStatus(/*sync_enabled=*/false);
   autofill_context_menu_manager()->AppendItems();
-  EXPECT_THAT(menu_model(), PasswordFallbackAdded(false, false, GetParam()));
+  EXPECT_THAT(menu_model(),
+              PasswordFallbackAdded(false, false, is_webauthn_form()));
 }
 
 IN_PROC_BROWSER_TEST_P(
@@ -577,7 +575,7 @@ IN_PROC_BROWSER_TEST_P(PasswordManualFallbackTest,
                        SelectPasswordTriggersSuggestions) {
   password_manager::PasswordStoreInterface* password_store =
       ProfilePasswordStoreFactory::GetForProfile(
-          browser()->profile(), ServiceAccessType::IMPLICIT_ACCESS)
+          browser()->GetProfile(), ServiceAccessType::IMPLICIT_ACCESS)
           .get();
   password_manager::PasswordStoreWaiter add_waiter(password_store);
   password_manager::PasswordForm existing_form;
@@ -809,10 +807,10 @@ class PasswordsFallbackWithPasswordDatabaseEntriesTest
     password_manager::PasswordStoreInterface* password_store =
         use_profile_store()
             ? ProfilePasswordStoreFactory::GetForProfile(
-                  browser()->profile(), ServiceAccessType::IMPLICIT_ACCESS)
+                  browser()->GetProfile(), ServiceAccessType::IMPLICIT_ACCESS)
                   .get()
             : AccountPasswordStoreFactory::GetForProfile(
-                  browser()->profile(), ServiceAccessType::IMPLICIT_ACCESS)
+                  browser()->GetProfile(), ServiceAccessType::IMPLICIT_ACCESS)
                   .get();
 
     password_manager::PasswordForm password_form;
@@ -945,7 +943,7 @@ class PasswordsFallbackWithGuestProfileTest : public PasswordsFallbackTestBase {
     return guest_browser_->tab_strip_model()->GetActiveWebContents();
   }
 
-  Profile* profile() override { return guest_browser_->profile(); }
+  Profile* profile() override { return guest_browser_->GetProfile(); }
 
   void TearDownOnMainThread() override {
     // Release raw_ptr's so they don't become dangling.
@@ -996,7 +994,7 @@ class SelectPasswordFallbackMetricsTest
     // Add a saved password so the manual fallback option shows.
     password_manager::PasswordStoreInterface* password_store =
         ProfilePasswordStoreFactory::GetForProfile(
-            browser()->profile(), ServiceAccessType::IMPLICIT_ACCESS)
+            browser()->GetProfile(), ServiceAccessType::IMPLICIT_ACCESS)
             .get();
     password_manager::PasswordStoreWaiter add_waiter(password_store);
     password_manager::PasswordForm form;
@@ -1081,7 +1079,6 @@ INSTANTIATE_TEST_SUITE_P(
       return info.param.test_name;
     });
 
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 class AtMemoryContextMenuManagerTest
     : public BaseAutofillContextMenuManagerTest {
  public:
@@ -1091,20 +1088,22 @@ class AtMemoryContextMenuManagerTest
 
   void SetUpOnMainThread() override {
     BaseAutofillContextMenuManagerTest::SetUpOnMainThread();
-    personal_context::prefs::RegisterProfilePrefs(
-        autofill_client()->GetPrefs()->registry());
+    autofill_client()->GetPrefs()->registry()->RegisterIntegerPref(
+        optimization_guide::prefs::kFindAndFillWithGeminiSettings,
+        std::to_underlying(optimization_guide::model_execution::prefs::
+                               ModelExecutionEnterprisePolicyValue::kAllow));
     autofill_client()->GetPrefs()->SetBoolean(
         personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
         true);
-    ON_CALL(mock_personal_context_service_, GetEnablementState())
-        .WillByDefault(
-            Return(personal_context::PersonalContextEnablementState::kEnabled));
-    autofill_client()->set_personal_context_enablement_service(
+    ON_CALL(mock_personal_context_service_, GetEligibilityState())
+        .WillByDefault(Return(
+            personal_context::PersonalContextEligibilityState::kEligible));
+    autofill_client()->set_personal_context_eligibility_service(
         &mock_personal_context_service_);
   }
 
  protected:
-  NiceMock<personal_context::MockPersonalContextEnablementService>
+  NiceMock<personal_context::MockPersonalContextEligibilityService>
       mock_personal_context_service_;
 
  private:
@@ -1135,12 +1134,49 @@ IN_PROC_BROWSER_TEST_F(AtMemoryContextMenuManagerTest, AddAtMemoryFallback) {
   ASSERT_TRUE(ContainsAtMemoryFallback(*menu_model()));
 }
 
+// Tests that when both password fallback and AtMemory fallback are eligible,
+// they are displayed in the same menu group with no separator between them,
+// followed by a separator at the end of the group.
+IN_PROC_BROWSER_TEST_F(AtMemoryContextMenuManagerTest,
+                       AtMemoryFallbackAndPasswordsFallbackInSameGroup) {
+  // Add a saved credential so "Select password" fallback item is shown.
+  auto* password_store =
+      ProfilePasswordStoreFactory::GetForProfile(
+          browser()->GetProfile(), ServiceAccessType::IMPLICIT_ACCESS)
+          .get();
+  password_manager::PasswordStoreWaiter add_waiter(password_store);
+  password_manager::PasswordForm form;
+  form.signon_realm = "http://test.com";
+  form.url = GURL(form.signon_realm);
+  form.username_value = u"username";
+  form.password_value = u"password";
+  password_store->AddLogin(password_manager::FromPasswordForm(form));
+  add_waiter.WaitOrReturn();
+
+  autofill_context_menu_manager()->AppendItems();
+
+  // Find the positions of both fallback options in the context menu model.
+  std::optional<size_t> select_password_idx = menu_model()->GetIndexOfCommandId(
+      IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS_SELECT_PASSWORD);
+  std::optional<size_t> at_memory_idx = menu_model()->GetIndexOfCommandId(
+      IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_AT_MEMORY);
+
+  ASSERT_TRUE(select_password_idx);
+  ASSERT_TRUE(at_memory_idx);
+
+  // Verify that AtMemory immediately follows "Select password" (same group)
+  // and that the group is terminated with a separator.
+  EXPECT_EQ(*at_memory_idx, *select_password_idx + 1);
+  EXPECT_EQ(menu_model()->GetTypeAt(*at_memory_idx + 1),
+            ui::MenuModel::ItemType::TYPE_SEPARATOR);
+}
+
 // Tests that when the accessibility annotator is disabled for the profile,
 // AtMemory fallback is dropped.
 IN_PROC_BROWSER_TEST_F(AtMemoryContextMenuManagerTest,
                        AtMemoryFallbackDroppedWhenProfileNotEligible) {
-  EXPECT_CALL(mock_personal_context_service_, GetEnablementState())
-      .WillRepeatedly(Return(personal_context::PersonalContextEnablementState::
+  EXPECT_CALL(mock_personal_context_service_, GetEligibilityState())
+      .WillRepeatedly(Return(personal_context::PersonalContextEligibilityState::
                                  kDisabledNotEligible));
 
   autofill_context_menu_manager()->AppendItems();
@@ -1196,7 +1232,7 @@ IN_PROC_BROWSER_TEST_F(AtMemoryContextMenuManagerTest,
   content::ContextMenuParams params = CreateContextMenuParams();
   params.form_control_type = std::nullopt;
   params.is_content_editable_for_autofill = true;
-  params.field_renderer_id = 123;
+  params.field_renderer_id = blink::DOMNodeIdType(123);
   autofill_context_menu_manager()->set_params_for_testing(params);
 
   autofill_context_menu_manager()->AppendItems();
@@ -1226,7 +1262,6 @@ IN_PROC_BROWSER_TEST_F(AtMemoryContextMenuManagerTest,
   autofill_context_menu_manager()->ExecuteCommand(
       IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_AT_MEMORY);
 }
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 }  // namespace
 }  // namespace autofill

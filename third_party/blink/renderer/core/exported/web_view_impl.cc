@@ -196,7 +196,7 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 #include "ui/native_theme/native_theme.h"
 #endif
 
@@ -460,6 +460,14 @@ void MaybePreloadSystemFonts(Page* page) {
   page->GetAgentGroupScheduler().DefaultTaskRunner()->PostTask(
       FROM_HERE, BindOnce([]() { FontCache::MaybePreloadSystemFonts(); }));
 }
+
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
+void UpdateUseOverlayScrollbar(bool use_overlay_scrollbar) {
+  ui::NativeTheme::GetInstanceForWeb()->set_use_overlay_scrollbar(
+      use_overlay_scrollbar);
+  Page::UsesOverlayScrollbarsChanged();
+}
+#endif
 
 }  // namespace
 
@@ -763,10 +771,8 @@ float WebViewImpl::MaximumLegiblePageScale() const {
 
   // For compat, the following code determines the circumstances under which the
   // user's OS-level font size preferences affects how far they can zoom in.
-  // Chrome currently only sets a non-default AccessibilityFontScaleFactor on
-  // mobile.
 
-  // Allow the user to always zoom more on Chrome Android.. Allow on WebView if
+  // Allow the user to always zoom more on Chrome. Allow on WebView if
   // the Java developer has enabled autosizing.
   const bool is_webview = settings.GetWideViewportQuirkEnabled();
   if (!is_webview) {
@@ -1236,8 +1242,14 @@ void WebViewImpl::DidFirstVisuallyNonEmptyPaint() {
   local_main_frame_host_remote_->DidFirstVisuallyNonEmptyPaint();
 }
 
-void WebViewImpl::OnFirstContentfulPaint(const base::TimeDelta& duration) {
-  local_main_frame_host_remote_->OnFirstContentfulPaint(duration);
+void WebViewImpl::OnFirstContentfulPaint(
+    const base::TimeTicks& presentation_time) {
+  local_main_frame_host_remote_->OnFirstContentfulPaint(presentation_time);
+}
+
+void WebViewImpl::OnLargestContentfulPaint(
+    const base::TimeTicks& presentation_time) {
+  local_main_frame_host_remote_->OnLargestContentfulPaint(presentation_time);
 }
 
 void WebViewImpl::UpdateICBAndResizeViewport(
@@ -1475,6 +1487,10 @@ void WebViewImpl::ResizeWithBrowserControls(
   // frame rect is resized (as noted by the ancient FIXME inside this method).
   // https://crbug.com/1353728.
   SendResizeEventForMainFrame();
+}
+
+void WebViewImpl::OnTextScaleMetaTagPresentChanged() {
+  UpdateWidgetZoomFactors();
 }
 
 void WebViewImpl::Resize(const gfx::Size& new_size) {
@@ -1879,12 +1895,10 @@ void WebView::ApplyWebPreferences(const web_pref::WebPreferences& prefs,
       static_cast<blink::WebEffectiveConnectionType>(
           prefs.low_priority_iframes_threshold));
 
-  settings->SetPictureInPictureEnabled(prefs.picture_in_picture_enabled &&
-                                       ::features::UseSurfaceLayerForVideo());
+  settings->SetPictureInPictureEnabled(prefs.picture_in_picture_enabled);
 
   settings->SetImmersiveVideoPlaybackEnabled(
-      prefs.immersive_video_playback_enabled &&
-      ::features::UseSurfaceLayerForVideo());
+      prefs.immersive_video_playback_enabled);
 
   settings->SetRootScrollbarThemeColor(prefs.root_scrollbar_theme_color);
   settings->SetLazyLoadEnabled(prefs.lazy_load_enabled);
@@ -2479,11 +2493,20 @@ void WebViewImpl::SetPageScaleFactor(float scale_factor) {
 }
 
 void WebViewImpl::SetZoomFactorForDeviceScaleFactor(
-    float zoom_factor_for_device_scale_factor) {
+    float device_scale_factor,
+    float text_scale_multiplier) {
   DCHECK(does_composite_);
-  if (zoom_factor_for_device_scale_factor_ !=
-      zoom_factor_for_device_scale_factor) {
-    zoom_factor_for_device_scale_factor_ = zoom_factor_for_device_scale_factor;
+  const bool text_scale_multiplier_changed =
+      zoom_factor_for_text_scale_multiplier_ != text_scale_multiplier;
+  if (text_scale_multiplier_changed) {
+    zoom_factor_for_text_scale_multiplier_ = text_scale_multiplier;
+    GetSettings()->SetAccessibilityFontScaleFactor(text_scale_multiplier);
+  }
+
+  // Resulting zoom updates may be impacted by either scale factor changing
+  if (text_scale_multiplier_changed ||
+      (zoom_factor_for_device_scale_factor_ != device_scale_factor)) {
+    zoom_factor_for_device_scale_factor_ = device_scale_factor;
     UpdateWidgetZoomFactors();
     UpdateInspectorDeviceScaleFactorOverride();
   }
@@ -2580,7 +2603,20 @@ void WebViewImpl::SetPageLifecycleStateInternal(
       new_state->eviction_enabled != old_state->eviction_enabled;
 
   if (dispatching_pagehide) {
-    RemoveFocusAndTextInputState();
+    // `pagehide_dispatch` tells us whether this page is being stored in
+    // BFCache: `kDispatchedPersisted` means the page is frozen and kept in
+    // BFCache, while `kDispatchedNotPersisted` means the page is being
+    // discarded as part of a normal navigation away (not stored in BFCache).
+    //
+    // For a discarded (non-persisted) page, clear DOM focus as well as the
+    // browser-side text input state. For a BFCache (persisted) page, keep DOM
+    // focus so it can be restored on page restore, but still clear the cached
+    // text input state so it is sent again on restore, after the browser has
+    // stopped treating this frozen page as the active IME target.
+    const bool clear_focus =
+        new_state->pagehide_dispatch !=
+        mojom::blink::PagehideDispatch::kDispatchedPersisted;
+    RemoveFocusAndTextInputState(clear_focus);
   }
   if (dispatching_pagehide) {
     // Note that |dispatching_pagehide| is different than |hiding_page|.
@@ -2700,14 +2736,12 @@ void WebViewImpl::SetPageLifecycleStateInternal(
   UpdateViewTransitionState(restoring_from_bfcache, storing_in_bfcache,
                             page_restore_params);
 
-  if (RuntimeEnabledFeatures::PageRevealEventEnabled()) {
-    if (restoring_from_bfcache) {
-      for (Frame* frame = GetPage()->MainFrame(); frame;
-           frame = frame->Tree().TraverseNext()) {
-        if (auto* local_frame = DynamicTo<LocalFrame>(frame)) {
-          CHECK(local_frame->GetDocument());
-          local_frame->GetDocument()->EnqueuePageRevealEvent();
-        }
+  if (restoring_from_bfcache) {
+    for (Frame* frame = GetPage()->MainFrame(); frame;
+         frame = frame->Tree().TraverseNext()) {
+      if (auto* local_frame = DynamicTo<LocalFrame>(frame)) {
+        CHECK(local_frame->GetDocument());
+        local_frame->GetDocument()->EnqueuePageRevealEvent();
       }
     }
   }
@@ -2773,22 +2807,32 @@ void WebViewImpl::AudioStateChanged(bool is_audio_playing) {
   GetPage()->GetPageScheduler()->AudioStateChanged(is_audio_playing);
 }
 
-void WebViewImpl::RemoveFocusAndTextInputState() {
+void WebViewImpl::RemoveFocusAndTextInputState(bool clear_focus) {
   auto& focus_controller = GetPage()->GetFocusController();
   auto* focused_frame = focus_controller.FocusedFrame();
   if (!focused_frame) {
     return;
   }
-  // Remove focus from the currently focused element and frame.
-  focus_controller.SetFocusedElement(nullptr, nullptr);
+  if (clear_focus) {
+    // Remove focus from the currently focused element and frame.
+    focus_controller.SetFocusedElement(nullptr, nullptr);
+  }
   // Clear composing state, and make sure we send a TextInputState update.
-  // Note that the TextInputState itself is cleared when we clear the focus,
-  // but no updates to the browser will be triggered until the next animation
-  // frame, which won't happen if we're freezing the page.
+  // When we clear focus, the text input state itself is cleared too, but no
+  // updates to the browser will be triggered until the next animation frame,
+  // which won't happen if we're freezing the page.
   if (auto* widget = static_cast<WebFrameWidgetImpl*>(
           focused_frame->GetWidgetForLocalRoot())) {
     widget->FinishComposingText(false /* keep_selection */);
-    widget->UpdateTextInputState();
+    if (clear_focus) {
+      widget->UpdateTextInputState();
+    } else {
+      // When freezing for BFCache, send a synchronous clear instead of
+      // UpdateTextInputState(), whose async IPC could race with
+      // TextInputManager::DidEnterBackForwardCache and re-mark this frozen
+      // page as the active IME target.
+      widget->ClearTextInputState();
+    }
   }
 }
 
@@ -3641,16 +3685,6 @@ void WebViewImpl::UpdateFontRenderingFromRendererPrefs() {
 #endif  // !BUILDFLAG(IS_MAC)
 }
 
-#if BUILDFLAG(IS_CHROMEOS)
-void WebViewImpl::UpdateUseOverlayScrollbar(bool use_overlay_scrollbar) {
-  ui::NativeTheme::GetInstanceForWeb()->set_use_overlay_scrollbar(
-      use_overlay_scrollbar);
-  if (MainFrameImpl() && MainFrameImpl()->GetFrameView()) {
-    MainFrameImpl()->GetFrameView()->UsesOverlayScrollbarsChanged();
-  }
-}
-#endif
-
 void WebViewImpl::ActivatePrerenderedPage(
     mojom::blink::PrerenderPageActivationParamsPtr
         prerender_page_activation_params,
@@ -3789,7 +3823,7 @@ void WebViewImpl::UpdateRendererPreferences(
   SetExplicitlyAllowedPorts(
       renderer_preferences_.explicitly_allowed_network_ports);
 
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
   if (!ScrollbarTheme::MockScrollbarsEnabled()) {
     WebRuntimeFeatures::EnableOverlayScrollbars(
         renderer_preferences_.use_overlay_scrollbar);
@@ -4389,11 +4423,4 @@ void WebViewImpl::UpdatePageBrowsingContextGroup(
   page->UpdateBrowsingContextGroup(browsing_context_group_token);
 }
 
-void WebViewImpl::SetPageAttributionSupport(
-    network::mojom::AttributionSupport support) {
-  Page* page = GetPage();
-  CHECK(page);
-
-  page->SetAttributionSupport(support);
-}
 }  // namespace blink

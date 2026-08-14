@@ -72,6 +72,7 @@ class AutocompleteHistoryManager : public KeyedService {
 
   virtual void OnRemoveCurrentSingleFieldSuggestion(
       const std::u16string& field_name,
+      const std::u16string& field_label,
       const std::u16string& value,
       SuggestionType type);
 
@@ -105,11 +106,6 @@ class AutocompleteHistoryManager : public KeyedService {
 
  private:
   friend class AutocompleteHistoryManagerTest;
-
-  // Returns true if the given `field` in `form` and its value are valid to be
-  // saved as a new or updated Autocomplete entry.
-  bool IsFieldValueSaveable(const FormFieldData& field,
-                            const FormStructure* form);
 
   // Must outlive this object.
   scoped_refptr<AutofillWebDataService> profile_database_;

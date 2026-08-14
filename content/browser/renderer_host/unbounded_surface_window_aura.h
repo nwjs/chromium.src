@@ -24,9 +24,14 @@
 #include "ui/base/hit_test.h"
 #include "ui/events/gestures/motion_event_aura.h"
 
+namespace ui {
+class Layer;
+}
+
 namespace content {
 
 class RenderWidgetHostViewAura;
+class RenderWidgetHostViewBase;
 
 class UnboundedSurfaceWindowAura : public UnboundedSurfaceWindow,
                                    public aura::WindowDelegate,
@@ -39,7 +44,8 @@ class UnboundedSurfaceWindowAura : public UnboundedSurfaceWindow,
       mojo::PendingAssociatedReceiver<blink::mojom::UnboundedSurfaceHost> host,
       mojo::PendingAssociatedRemote<blink::mojom::UnboundedSurfaceClient>
           client,
-      const gfx::Rect& bounds_in_dips);
+      const gfx::Rect& bounds_in_screen,
+      base::WeakPtr<RenderWidgetHostViewBase> subframe_view);
 
   ~UnboundedSurfaceWindowAura() override;
 
@@ -104,16 +110,19 @@ class UnboundedSurfaceWindowAura : public UnboundedSurfaceWindow,
                            base::TimeTicks activation_time) override {}
 
  private:
+  class DebugBorderDelegate;
+
   UnboundedSurfaceWindowAura(
       RenderWidgetHostViewAura* parent_view,
       mojo::PendingAssociatedReceiver<blink::mojom::UnboundedSurfaceHost> host,
       mojo::PendingAssociatedRemote<blink::mojom::UnboundedSurfaceClient>
-          client);
-  bool InitWindow(const gfx::Rect& bounds_in_dips);
+          client,
+      base::WeakPtr<RenderWidgetHostViewBase> subframe_view);
+  bool InitWindow(const gfx::Rect& bounds_in_screen);
   void OnConnectionError();
-  gfx::Rect ConvertDIPToScreenBounds(const gfx::Rect& bounds_in_dips) const;
 
   raw_ptr<RenderWidgetHostViewAura> parent_view_;
+  base::WeakPtr<RenderWidgetHostViewBase> subframe_view_;
   viz::FrameSinkId frame_sink_id_;
   viz::FrameSinkId parent_frame_sink_id_;
   viz::ParentLocalSurfaceIdAllocator local_surface_id_allocator_;
@@ -122,6 +131,8 @@ class UnboundedSurfaceWindowAura : public UnboundedSurfaceWindow,
   std::unique_ptr<aura::Window> window_;
   raw_ptr<aura::Window> root_window_ = nullptr;
   ui::MotionEventAura pointer_state_;
+  std::unique_ptr<DebugBorderDelegate> debug_border_delegate_;
+  std::unique_ptr<ui::Layer> debug_border_layer_;
   base::WeakPtrFactory<UnboundedSurfaceWindow> weak_ptr_factory_{this};
 };
 

@@ -7,13 +7,16 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
+#include "base/callback_list.h"
 #include "base/containers/span.h"
+#include "base/files/file_path.h"
+#include "base/functional/callback.h"
 #include "base/types/expected.h"
 #include "base/version.h"
-#include "chrome/browser/web_applications/isolated_web_apps/key_distribution/iwa_key_distribution_histograms.h"
-#include "chrome/browser/web_applications/isolated_web_apps/key_distribution/iwa_key_distribution_info_provider.h"
 #include "components/web_package/signed_web_bundles/signed_web_bundle_id.h"
+#include "components/webapps/isolated_web_apps/key_distribution/iwa_key_distribution_histograms.h"
 #include "components/webapps/isolated_web_apps/key_distribution/proto/key_distribution.pb.h"
 
 namespace web_app::test {
@@ -23,9 +26,11 @@ struct IwaComponentMetadata {
   bool is_preloaded;
 };
 
+// Represents the on-disk state of the key distribution component.
 struct KeyDistributionComponent {
-  base::Version version;
-  bool is_preloaded;
+  IwaComponentMetadata metadata;
+  // In-memory data parsed from the protobuf file inside the component
+  // directory.
   IwaKeyDistribution component_data;
 
   // Uploads the component just by replacing the saved internal data in
@@ -44,7 +49,8 @@ struct KeyDistributionComponent {
 class KeyDistributionComponentBuilder {
  public:
   struct SpecialAppPermissions {
-    bool skip_capture_started_notification;
+    bool skip_capture_started_notification = false;
+    bool allow_set_shape = false;
   };
   // Component update requires the higher component version than the current
   // one.
@@ -115,6 +121,11 @@ base::expected<void, IwaComponentUpdateError> UpdateKeyDistributionInfo(
     const base::Version& version,
     const IwaKeyDistribution& kd_proto);
 
+base::CallbackListSubscription SetOnComponentUpdatedForTesting(
+    base::RepeatingCallback<
+        void(base::expected<IwaComponentMetadata, IwaComponentUpdateError>)>
+        callback);
+
 // Writes `kd_proto` into `DIR_COMPONENT_USER/IwaKeyDistribution/{version}` and
 // triggers the registration process with the component updater. The directory
 // is deleted once IwaKeyDistributionInfoProvider has processed the update
@@ -130,6 +141,12 @@ InstallIwaKeyDistributionComponent(
     const base::Version& version,
     const std::string& web_bundle_id,
     std::optional<base::span<const uint8_t>> expected_key);
+
+// Configures the key distribution component to allow the given IWA to use the
+// setShape API.
+base::expected<void, IwaComponentUpdateError> ConfigureSetShapeAllowlist(
+    const web_package::SignedWebBundleId& web_bundle_id,
+    const base::Version& version = base::Version("1.0.0"));
 
 // Synchronously registers the component with the component updater and waits
 // for the component updater to pick up the on-disk data in its folder.

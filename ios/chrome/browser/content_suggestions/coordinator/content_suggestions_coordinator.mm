@@ -81,7 +81,6 @@
 #import "ios/chrome/browser/content_suggestions/shortcuts/coordinator/shortcuts_mediator.h"
 #import "ios/chrome/browser/content_suggestions/tab_resumption/coordinator/tab_resumption_mediator.h"
 #import "ios/chrome/browser/content_suggestions/tips/coordinator/tips_magic_stack_mediator.h"
-#import "ios/chrome/browser/content_suggestions/tips/coordinator/tips_passwords_coordinator.h"
 #import "ios/chrome/browser/content_suggestions/tips/model/tips_metrics.h"
 #import "ios/chrome/browser/content_suggestions/tips/ui/tips_module_config.h"
 #import "ios/chrome/browser/content_suggestions/ui/content_suggestions_collection_utils.h"
@@ -104,6 +103,7 @@
 #import "ios/chrome/browser/home_customization/coordinator/home_customization_delegate.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_constants.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_entrypoint.h"
+#import "ios/chrome/browser/level_up/model/level_up_service_factory.h"
 #import "ios/chrome/browser/menu/ui_bundled/browser_action_factory.h"
 #import "ios/chrome/browser/menu/ui_bundled/menu_histograms.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
@@ -159,6 +159,7 @@
 #import "ios/chrome/browser/shared/public/commands/search_image_with_lens_command.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
+#import "ios/chrome/browser/shared/public/commands/tips_passwords_commands.h"
 #import "ios/chrome/browser/shared/public/commands/whats_new_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
@@ -213,7 +214,6 @@ using segmentation_platform::TipIdentifier;
     ContentSuggestionsViewControllerAudience,
     MagicStackCollectionViewControllerAudience,
     MagicStackModuleContainerDelegate,
-    TipsPasswordsCoordinatorDelegate,
     NotificationsOptInAlertCoordinatorDelegate,
     PriceTrackingPromoActionDelegate,
     SetUpListDefaultBrowserPromoCoordinatorDelegate,
@@ -241,9 +241,6 @@ using segmentation_platform::TipIdentifier;
 
   // The Show More Menu presented from the Set Up List in the Magic Stack.
   SetUpListShowMoreViewController* _setUpListShowMoreViewController;
-
-  // The coordinator for displaying tips related to Passwords.
-  TipsPasswordsCoordinator* _tipsPasswordsCoordinator;
 
   // The coordinator used to present an alert to enable notifications.
   // Used for Tips, Safety Check, Send Tab, and Price Tracking promo modules.
@@ -528,7 +525,9 @@ using segmentation_platform::TipIdentifier;
             appStoreBundleService:AppStoreBundleServiceFactory::GetForProfile(
                                       self.profile)
                     bookmarkModel:ios::BookmarkModelFactory::GetForProfile(
-                                      profile)];
+                                      self.profile)
+                   levelUpService:LevelUpServiceFactory::GetForProfile(
+                                      self.profile)];
   _magicStackRankingModel.contentSuggestionsMetricsRecorder =
       self.contentSuggestionsMetricsRecorder;
   self.contentSuggestionsMediator.magicStackRankingModel =
@@ -796,15 +795,9 @@ using segmentation_platform::TipIdentifier;
     }
     case TipIdentifier::kSavePasswords:
     case TipIdentifier::kAutofillPasswords: {
-      _tipsPasswordsCoordinator = [[TipsPasswordsCoordinator alloc]
-          initWithBaseViewController:self.magicStackCollectionView
-                             browser:self.browser
-                          identifier:_tipsMediator.config.identifier];
-
-      _tipsPasswordsCoordinator.delegate = self;
-
-      [_tipsPasswordsCoordinator start];
-
+      [HandlerForProtocol(self.browser->GetCommandDispatcher(),
+                          TipsPasswordsCommands)
+          showPasswordsTipForIdentifier:_tipsMediator.config.identifier];
       break;
     }
   }
@@ -1122,15 +1115,6 @@ using segmentation_platform::TipIdentifier;
 
 - (void)customizeCardsWasTapped {
   [self didTapMagicStackEditButton];
-}
-
-#pragma mark - TipsPasswordsCoordinatorDelegate
-
-- (void)tipsPasswordsCoordinatorDidFinish:
-    (TipsPasswordsCoordinator*)coordinator {
-  CHECK_EQ(coordinator, _tipsPasswordsCoordinator);
-  [_tipsPasswordsCoordinator stop];
-  _tipsPasswordsCoordinator = nil;
 }
 
 #pragma mark - SafetyCheckViewDelegate

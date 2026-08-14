@@ -43,6 +43,7 @@ enum class IPHDismissalReasonType;
 @protocol TabGridConsumer;
 @protocol TabGridMutator;
 @protocol TabGridToolbarsCommandsWrangler;
+@class TabGridState;
 @class TabGridViewController;
 @class TabGridTopToolbar;
 @class TabGroupsPanelViewController;
@@ -102,18 +103,14 @@ enum class TabGridPageConfiguration {
 // View controller representing a tab switcher. The tab switcher has an
 // incognito tab grid, regular tab grid, and tab groups grid.
 @interface TabGridViewController
-    : UIViewControllerWithDisplayTracing <DisabledGridViewControllerDelegate,
+    : UIViewControllerWithDisplayTracing <ContextMenuTransitionStateProviding,
+                                          DisabledGridViewControllerDelegate,
                                           GridConsumer,
                                           KeyCommandActions,
                                           TabGridConsumer,
                                           TabGridIdleStatusHandler,
                                           TabGridToolbarsMainTabGridDelegate,
-                                          UISearchBarDelegate,
-                                          ContextMenuTransitionStateProviding>
-
-// Returns whether the child views have been set up.
-// Used by EarlGrey tests to poll for deferred setup completion.
-@property(nonatomic, readonly) BOOL childViewsAreSetUp;
+                                          UISearchBarDelegate>
 
 // Handler for Scene commands.
 @property(nonatomic, weak) id<SceneCommands> handler;
@@ -190,6 +187,8 @@ enum class TabGridPageConfiguration {
 @property(nonatomic, assign, readonly) TabGridPage activePage;
 // The currently visible page.
 @property(nonatomic, assign, readonly) TabGridPage currentPage;
+// The tab grid state.
+@property(nonatomic, weak) TabGridState* tabGridState;
 // The active context menu interaction animator, if any.
 @property(nonatomic, readonly) id<UIContextMenuInteractionAnimating>
     activeContextMenuAnimator;
@@ -217,14 +216,10 @@ enum class TabGridPageConfiguration {
 // Updates the active page to be the current page.
 - (void)updateActivePageToCurrent;
 
-// Signal that child view controllers were setup externally. For testing only.
-- (void)didSetupChildViewsForTesting;
-
 // Hides or shows tab grid content views. Used to hide the tab grid content
 // while the active browser is being displayed, which prevents any visual
 // glitches or TabGrid leakage when the grid should not be visible.
 - (void)setContentVisible:(BOOL)visible;
-
 @end
 
 #endif  // IOS_CHROME_BROWSER_TAB_SWITCHER_UI_BUNDLED_TAB_GRID_TAB_GRID_VIEW_CONTROLLER_H_

@@ -13,9 +13,7 @@
 #include "chrome/browser/bookmarks/bookmark_merged_surface_service.h"
 #include "chrome/browser/bookmarks/bookmark_merged_surface_service_factory.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/infobars/browser_infobar_manager.h"
-#include "chrome/browser/infobars/infobar_features.h"
-#include "chrome/browser/infobars/infobar_spec.h"
+#include "chrome/browser/ui/infobars/browser_infobar_registry.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_account_storage_move_dialog.h"
 #include "chrome/browser/ui/views/chrome_constrained_window_views_client.h"
@@ -28,6 +26,7 @@
 #include "components/constrained_window/constrained_window_views.h"
 #include "components/infobars/core/infobar_delegate.h"
 #include "components/media_router/browser/media_router_dialog_controller.h"
+#include "components/strings/grit/components_strings.h"
 #include "components/ui_devtools/devtools_server.h"
 #include "components/ui_devtools/switches.h"
 #include "components/ui_devtools/views/server_holder.h"
@@ -188,41 +187,12 @@ void ChromeBrowserMainExtraPartsViews::PostProfileInit(
   }
 }
 
-void ChromeBrowserMainExtraPartsViews::
-    RegisterInfobars() {
-  if (infobars::IsInfoBarMigrated(
-          infobars::InfoBarDelegate::COLLECTED_COOKIES_INFOBAR_DELEGATE)) {
-    auto* browser_infobar_manager =
-        infobars::BrowserInfoBarManager::From(g_browser_process);
-    CHECK(browser_infobar_manager);
-    auto spec =
-        infobars::InfoBarSpec::Builder(
-            infobars::InfoBarDelegate::COLLECTED_COOKIES_INFOBAR_DELEGATE)
-            .SetMessageText(l10n_util::GetStringUTF16(
-                IDS_COLLECTED_COOKIES_INFOBAR_MESSAGE))
-            .SetIcon(features::IsRoundedIconsEnabled()
-                         ? vector_icons::kSettingsIcon
-                         : vector_icons::kSettingsChromeRefreshOldIcon)
-            .SetScope(infobars::InfoBarScope::kTab)
-            .AddOkButton(
-                l10n_util::GetStringUTF16(IDS_COLLECTED_COOKIES_INFOBAR_BUTTON),
-                base::BindRepeating([](content::WebContents* web_contents) {
-                  if (web_contents) {
-                    web_contents->GetController().Reload(
-                        content::ReloadType::NORMAL, true);
-                  }
-                }))
-            .Build();
-    browser_infobar_manager->Register(std::move(spec));
-  }
-}
-
 void ChromeBrowserMainExtraPartsViews::PostBrowserStart() {
   relaunch_notification_controller_ =
       std::make_unique<RelaunchNotificationController>(
           UpgradeDetector::GetInstance());
 
-  RegisterInfobars();
+  infobars::RegisterInfoBars();
 }
 
 void ChromeBrowserMainExtraPartsViews::PostMainMessageLoopRun() {

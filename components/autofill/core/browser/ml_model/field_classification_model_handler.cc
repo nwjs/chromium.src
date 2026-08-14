@@ -168,7 +168,7 @@ void FieldClassificationModelHandler::ApplySmallFormRules(
     candidates.AddFieldCandidate(
         predicted_types[i],
         // Arbitrary value to satisfy the API - not used.
-        MatchAttribute::kLabel,
+        MatchInfo{.matched_attribute = MatchInfo::MatchAttribute::kName},
         {/*is_name_or_high_quality_label_match=*/true,
          /*parser_type=*/HeuristicParser::kName});
     field_candidates_map.try_emplace(form.fields()[i].global_id(),
@@ -409,9 +409,8 @@ void FieldClassificationModelHandler::OnModelUpdated(
   // The model was loaded or updated.
   state_.reset();
   ModelState state;
-  if (!model_info->GetModelMetadata() ||
-      !state.metadata.ParseFromString(
-          model_info->GetModelMetadata()->value())) {
+  if (!model_info->model_metadata ||
+      !state.metadata.ParseFromString(model_info->model_metadata->value())) {
     // The model should always come with metadata - but since this comes from
     // the server-side and might change in the future, it might fail.
     return;

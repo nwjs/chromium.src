@@ -413,6 +413,11 @@ DiceWebSigninInterceptor::ResetableState::~ResetableState() = default;
 DiceWebSigninInterceptor::ProfilePresets::ProfilePresets(SkColor profile_color)
     : profile_color(profile_color) {}
 
+DiceWebSigninInterceptor::ProfilePresets::ProfilePresets(ProfilePresets&&) =
+    default;
+DiceWebSigninInterceptor::ProfilePresets&
+DiceWebSigninInterceptor::ProfilePresets::operator=(ProfilePresets&&) = default;
+
 DiceWebSigninInterceptor::ProfilePresets::~ProfilePresets() = default;
 
 // static
@@ -440,7 +445,8 @@ DiceWebSigninInterceptor::GetHeuristicOutcome(
     bool is_sync_signin,
     const std::string& email,
     const GaiaId& gaia_id,
-    const ProfileAttributesEntry** entry) const {
+    const ProfileAttributesEntry** entry,
+    signin::Tribool primary_is_connected) const {
   bool signin_interception_enabled =
       profile_->GetPrefs()->GetBoolean(prefs::kSigninInterceptionEnabled);
 
@@ -450,6 +456,13 @@ DiceWebSigninInterceptor::GetHeuristicOutcome(
     // true when in fact the signin was not a sync signin. In this case the
     // interception is missed.
     return SigninInterceptionHeuristicOutcome::kAbortSyncSignin;
+  }
+
+  // When Gaia indicates that the account is already connected to the primary
+  // account, suppress interception immediately so added accounts settle
+  // cleanly into the active profile without user prompting.
+  if (primary_is_connected == signin::Tribool::kTrue) {
+    return SigninInterceptionHeuristicOutcome::kAbortAccountConnected;
   }
 
   auto enforce_enterprise_separation = EnterpriseSeparationMaybeRequired(
@@ -535,6 +548,13 @@ DiceWebSigninInterceptor::GetHeuristicOutcome(
         kAbortUserDeclinedProfileForAccount;
   }
 
+  // When Gaia explicitly states that the account is not connected (kFalse),
+  // immediately enforce multi-user interception to prevent unconnected accounts
+  // from mixing in the same profile, even if given names match later.
+  if (primary_is_connected == signin::Tribool::kFalse) {
+    return SigninInterceptionHeuristicOutcome::kInterceptMultiUser;
+  }
+
   return std::nullopt;
 }
 
@@ -543,7 +563,8 @@ void DiceWebSigninInterceptor::MaybeInterceptWebSignin(
     CoreAccountId account_id,
     signin_metrics::AccessPoint access_point,
     bool is_new_account,
-    bool is_sync_signin) {
+    bool is_sync_signin,
+    signin::Tribool primary_is_connected) {
   // If the user is in sign in pending state and signs in with a different
   // account, it means that they enter an inconsistent state. Record this event
   // so that we can check afterwards if this state is resolved by accepting the
@@ -607,11 +628,12 @@ void DiceWebSigninInterceptor::MaybeInterceptWebSignin(
   const ProfileAttributesEntry* entry = nullptr;
   std::optional<SigninInterceptionHeuristicOutcome> heuristic_outcome =
       GetHeuristicOutcome(is_new_account, is_sync_signin, account_info.email,
-                          account_info.gaia, &entry);
+                          account_info.gaia, &entry, primary_is_connected);
   state_->account_id_ = account_id;
   state_->is_interception_in_progress_ = true;
   state_->new_account_interception_ = is_new_account;
   state_->web_contents_ = web_contents->GetWeakPtr();
+  state_->primary_is_connected_ = primary_is_connected;
 
   if (heuristic_outcome &&
       !SigninInterceptionHeuristicOutcomeIsSuccess(*heuristic_outcome)) {
@@ -825,6 +847,14 @@ bool DiceWebSigninInterceptor::ShouldShowMultiUserBubble(
       !identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
     return false;
   }
+
+  if (state_->primary_is_connected_ == signin::Tribool::kFalse) {
+    // When Gaia explicitly states the account is not connected (kFalse),
+    // we must intercept to prevent unconnected accounts from mixing in the same
+    // profile, even if the given names match.
+    return true;
+  }
+
   // Check if the account has the same name as another account in the profile.
   for (const auto& account_info :
        identity_manager_->GetExtendedAccountInfoForAccountsWithRefreshToken()) {
@@ -895,6 +925,22 @@ void DiceWebSigninInterceptor::ShowSigninInterceptionBubble(
     base::OnceCallback<void(SigninInterceptionResult)> callback) {
   state_->was_interception_ui_displayed_ = true;
   state_->interception_type_ = bubble_parameters.interception_type;
+  switch (bubble_parameters.interception_type) {
+    case WebSigninInterceptor::SigninInterceptionType::kEnterprise:
+    case WebSigninInterceptor::SigninInterceptionType::kEnterpriseForced:
+    case WebSigninInterceptor::SigninInterceptionType::
+        kEnterpriseAcceptManagement:
+    case WebSigninInterceptor::SigninInterceptionType::kEnterpriseOIDC:
+      signin_metrics::LogSignInOffered(
+          signin_metrics::AccessPoint::kEnterpriseDialogAfterSigninInterception,
+          signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO);
+      break;
+    case WebSigninInterceptor::SigninInterceptionType::kProfileSwitch:
+    case WebSigninInterceptor::SigninInterceptionType::kMultiUser:
+    case WebSigninInterceptor::SigninInterceptionType::kProfileSwitchForced:
+    case WebSigninInterceptor::SigninInterceptionType::kChromeSignin:
+      break;
+  }
   state_->interception_bubble_handle_ = delegate_->ShowSigninInterceptionBubble(
       state_->web_contents_.get(), bubble_parameters, std::move(callback));
 }
@@ -1503,12 +1549,18 @@ void DiceWebSigninInterceptor::OnEnterpriseProfileCreationResult(
           profile_, state_->intercepted_account_management_accepted_);
       Reset();
     } else {
+      signin_metrics::LogSignInStarted(
+          signin_metrics::AccessPoint::kEnterpriseDialogAfterSigninInterception,
+          profile_metrics_service_.get());
       OnProfileCreationChoice(account_info, profile_color,
                               SigninInterceptionResult::kAccepted);
     }
   } else if (create == SigninInterceptionResult::kAcceptedWithExistingProfile) {
     state_->intercepted_account_management_accepted_ = true;
     if (GetPrimaryAccountInfo(identity_manager_).IsEmpty()) {
+      signin_metrics::LogSignInStarted(
+          signin_metrics::AccessPoint::kEnterpriseDialogAfterSigninInterception,
+          profile_metrics_service_.get());
       identity_manager_->GetPrimaryAccountMutator()->SetPrimaryAccount(
           account_info.account_id, signin::ConsentLevel::kSignin,
           signin_metrics::AccessPoint::kEnterpriseDialogAfterSigninInterception);

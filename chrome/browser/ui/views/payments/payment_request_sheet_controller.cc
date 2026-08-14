@@ -12,7 +12,6 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/views/payments/payment_request_dialog_view.h"
 #include "chrome/browser/ui/views/payments/payment_request_views_util.h"
-#include "components/payments/content/payment_request.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -384,18 +383,6 @@ void PaymentRequestSheetController::UpdateContentView() {
   content_view_->RemoveAllChildViews();
   FillContentView(content_view_);
   RelayoutPane();
-}
-
-void PaymentRequestSheetController::UpdateHeaderView() {
-  // Do not update the view if the payment request is being aborted.
-  if (!is_active_) {
-    return;
-  }
-
-  header_view_->RemoveAllChildViews();
-  PopulateSheetHeaderView(header_view_);
-  header_view_->InvalidateLayout();
-  header_view_->SchedulePaint();
 }
 
 void PaymentRequestSheetController::UpdateFocus(views::View* focused_view) {

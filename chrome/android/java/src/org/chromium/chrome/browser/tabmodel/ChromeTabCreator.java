@@ -25,6 +25,7 @@ import org.chromium.chrome.browser.app.tab_activity_glue.ReparentingDelegateFact
 import org.chromium.chrome.browser.app.tab_activity_glue.ReparentingTask;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.prefetch.settings.PreloadPagesSettingsBridge;
 import org.chromium.chrome.browser.prefetch.settings.PreloadPagesState;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -318,7 +319,7 @@ public class ChromeTabCreator implements TabCreator, NeedsTabModel, NeedsTabMode
         // Measure tab creation duration for different launch types to understand tab creation
         // performance.
         try (TraceEvent te = TraceEvent.scoped("ChromeTabCreator.createNewTab");
-                TimingMetric unused =
+                var _ =
                         TimingMetric.mediumUptime(
                                 "Android.Tab.CreateNewTabDuration."
                                         + tabLaunchTypeToHistogramKey(type)
@@ -380,8 +381,7 @@ public class ChromeTabCreator implements TabCreator, NeedsTabModel, NeedsTabMode
                                 intent, IntentHandler.EXTRA_PARENT_TAB_ID, parentId);
                 TabModelSelector selector = mTabModelSelectorSupplier.get();
                 parent = selector != null ? selector.getTabById(parentId) : null;
-                assert TabModelUtils.getTabIndexById(mTabModel, assignedTabId)
-                        == TabModel.INVALID_TAB_INDEX;
+                assert mTabModel.getTabById(assignedTabId) == null;
                 tab =
                         TabBuilder.createLiveTab(getProfile(), !openInForeground)
                                 .setId(assignedTabId)
@@ -605,7 +605,13 @@ public class ChromeTabCreator implements TabCreator, NeedsTabModel, NeedsTabMode
     public @Nullable Tab launchUrlFromExternalApp(
             LoadUrlParams loadUrlParams, String appId, boolean forceNewTab, Intent intent) {
         if (mTabModel == null) return null;
-        assert !mIncognito;
+        assert !mIncognito || isIncognitoForced();
+
+        if (mIncognito) {
+            forceNewTab = true;
+            appId = null;
+        }
+
         // Don't re-use tabs for intents from Chrome. Note that this can be spoofed so shouldn't be
         // relied on for anything security sensitive.
         boolean isLaunchedFromChrome = TextUtils.equals(appId, mActivity.getPackageName());
@@ -814,6 +820,12 @@ public class ChromeTabCreator implements TabCreator, NeedsTabModel, NeedsTabMode
     @Override
     public void setTabModelOrderController(TabModelOrderController tabModelOrderController) {
         mOrderController = tabModelOrderController;
+    }
+
+    private boolean isIncognitoForced() {
+        ProfileProvider profileProvider = mProfileProviderSupplier.get();
+        if (profileProvider == null) return false;
+        return IncognitoUtils.isIncognitoModeForced(profileProvider.getOriginalProfile());
     }
 
     /** Returns the default tab delegate factory to be used if creating new tabs w/o parents. */

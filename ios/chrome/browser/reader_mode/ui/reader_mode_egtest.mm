@@ -6,7 +6,6 @@
 
 #import "base/strings/stringprintf.h"
 #import "base/strings/sys_string_conversions.h"
-#import "base/test/ios/wait_util.h"
 #import "components/dom_distiller/core/dom_distiller_features.h"
 #import "components/dom_distiller/core/mojom/distilled_page_prefs.mojom.h"
 #import "components/dom_distiller/core/pref_names.h"

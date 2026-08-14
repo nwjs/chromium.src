@@ -75,7 +75,8 @@ class HlsNetworkAccessImplUnittest : public testing::Test {
     return base::MakeRefCounted<hls::MediaSegment>(
         base::Seconds(1), 0, 0, resource_uri, url::Origin::Create(manifest_uri),
         std::move(init), std::move(enc_data), ByteRangeFromTuple(byte_range),
-        std::nullopt, false, false, init_mode == InitMode::kPresent, false);
+        std::nullopt, false, false, init_mode == InitMode::kPresent, false,
+        std::nullopt);
   }
 
  protected:
@@ -91,7 +92,7 @@ TEST_F(HlsNetworkAccessImplUnittest, TestReadSmallManifest) {
   factory_->AddReadExpectation(800, 16384, 0);
 
   network_access_->ReadManifest(
-      GURL("example.com"),
+      GURL("https://example.com"),
       base::BindOnce([](HlsDataSourceProvider::ReadResult result) {
         ASSERT_TRUE(result.has_value());
         auto stream = std::move(result).value();
@@ -110,7 +111,7 @@ TEST_F(HlsNetworkAccessImplUnittest, TestReadLargeManifest) {
   factory_->AddReadExpectation(20000, 16384, 0);
 
   network_access_->ReadManifest(
-      GURL("example.com"),
+      GURL("https://example.com"),
       base::BindOnce([](HlsDataSourceProvider::ReadResult result) {
         ASSERT_TRUE(result.has_value());
         auto stream = std::move(result).value();

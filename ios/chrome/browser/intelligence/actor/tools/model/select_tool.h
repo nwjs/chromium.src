@@ -12,8 +12,6 @@
 #import "ios/chrome/browser/intelligence/actor/tools/model/action_target_java_script_feature.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/web_actor_tool.h"
 
-class ProfileIOS;
-
 namespace web {
 class WebState;
 }  // namespace web
@@ -28,18 +26,19 @@ class SelectTool : public WebActorTool {
   ~SelectTool() override;
 
   // Validates and creates a SelectTool instance.
-  static base::expected<std::unique_ptr<SelectTool>, ToolExecutionResult>
-  Create(const optimization_guide::proto::SelectAction& action,
-         ProfileIOS* profile);
+  static std::unique_ptr<SelectTool> Create(
+      base::WeakPtr<web::WebState> web_state,
+      const optimization_guide::proto::SelectAction& action);
 
   // ActorTool:
+  void Validate(ToolExecutionCallback callback) override;
   void Execute(ToolExecutionCallback callback) override;
   base::WeakPtr<web::WebState> GetTargetWebState() const override;
   ToolType GetToolType() const override;
 
  private:
-  SelectTool(const optimization_guide::proto::SelectAction& action,
-             base::WeakPtr<web::WebState> web_state);
+  SelectTool(base::WeakPtr<web::WebState> web_state,
+             const optimization_guide::proto::SelectAction& action);
 
   void OnTargetFrameResolved(
       ToolExecutionCallback callback,

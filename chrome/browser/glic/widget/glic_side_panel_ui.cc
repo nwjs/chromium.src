@@ -167,7 +167,7 @@ void GlicSidePanelUi::SidePanelStateChanged(
             ? EmbedderCloseReason::kBackgrounded
             : EmbedderCloseReason::kExplicitlyClosed;
     // NOTE: `this` will be destroyed after this call.
-    delegate_->DidCloseFor(tab_.get(), close_reason);
+    delegate_->DidCloseFor(SidePanelEmbedderKey{*tab_}, close_reason);
   }
 }
 
@@ -186,7 +186,7 @@ void GlicSidePanelUi::CaptureScreenshot(
     return;
   }
   if (!screenshot_capturer_) {
-    screenshot_capturer_ = std::make_unique<GlicScreenshotCapturer>();
+    screenshot_capturer_ = GlicScreenshotCapturer::Create();
   }
   auto* browser_window = tab_->GetBrowserWindowInterface();
   CHECK(browser_window);
@@ -280,10 +280,6 @@ void GlicSidePanelUi::Zoom(mojom::ZoomAction zoom_action) {
   delegate_->host().Zoom(zoom_action);
 }
 
-void GlicSidePanelUi::ShowTitleBarContextMenuAt(gfx::Point event_loc) {
-  // This is floaty-specific. It doesn't make sense in side panel.
-}
-
 bool GlicSidePanelUi::HasSelectionOverlay() {
   if (!tab_ || !tab_->IsActivated()) {
     return false;
@@ -333,6 +329,10 @@ GlicSidePanelCoordinator* GlicSidePanelUi::GetGlicSidePanelCoordinator() const {
 std::string GlicSidePanelUi::DescribeForTesting() {
   return base::StrCat({"SidePanelUi for tab ",
                        base::NumberToString(tab_->GetHandle().raw_value())});
+}
+
+BrowserWindowInterface* GlicSidePanelUi::GetBrowserWindowInterface() {
+  return tab_ ? tab_->GetBrowserWindowInterface() : nullptr;
 }
 
 }  // namespace glic

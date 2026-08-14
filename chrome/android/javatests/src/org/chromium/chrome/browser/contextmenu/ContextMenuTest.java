@@ -4,7 +4,10 @@
 
 package org.chromium.chrome.browser.contextmenu;
 
+import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.matcher.ViewMatchers.assertThat;
+import static androidx.test.espresso.matcher.ViewMatchers.withId;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -528,11 +531,21 @@ public class ContextMenuTest {
         // Allow DiskWrites temporarily in main thread to avoid
         // violation during copying under emulator environment.
         try (CloseableOnMainThread ignored = CloseableOnMainThread.StrictMode.allowDiskWrites()) {
-            ContextMenuUtils.selectContextMenuItem(
+            ContextMenuCoordinator menu = ContextMenuUtils.openContextMenu(tab, "testTel");
+            Assert.assertNotNull("Context menu failed to open for testTel", menu);
+            Assert.assertEquals(
+                    "Touch target missed testTel element (url was "
+                            + menu.getParams().getLinkUrl().getSpec()
+                            + ")",
+                    "tel:10000000000",
+                    menu.getParams().getLinkUrl().getSpec());
+            Assert.assertNotNull(
+                    "Copy menu item (R.id.contextmenu_copy) not generated for tel: link",
+                    menu.findItem(R.id.contextmenu_copy));
+            ContextMenuUtils.selectOpenContextMenuItem(
                     InstrumentationRegistry.getInstrumentation(),
                     mActivityTestRule.getActivity(),
-                    tab,
-                    "testTel",
+                    menu,
                     R.id.contextmenu_copy);
         }
 
@@ -1014,7 +1027,8 @@ public class ContextMenuTest {
                         mItemDelegate,
                         SupplierUtils.of(mShareDelegate),
                         ChromeContextMenuPopulator.ContextMenuMode.NORMAL,
-                        /* customContentActions= */ List.of());
+                        /* customContentActions= */ List.of(),
+                        /* leftSideUiWidthSupplier= */ () -> 0);
         Integer[] commonItems = {
             R.id.contextmenu_share_highlight,
             R.id.contextmenu_remove_highlight,
@@ -1234,6 +1248,22 @@ public class ContextMenuTest {
 
     @Test
     @MediumTest
+    @EnableFeatures(ChromeFeatureList.LENS_OVERLAY_ANDROID)
+    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
+    public void testContextMenuRetrievesPageOptions_LensOverlay() throws TimeoutException {
+        GSAUtils.setFakePassableGsaEnvironmentForTesting(true);
+        Tab tab = mActivityTestRule.getActivityTab();
+        switchToDesktopUserAgent(tab);
+        mMenuCoordinator = ContextMenuUtils.openContextMenu(tab, "testEmptySpace");
+
+        Assert.assertNotNull(
+                "Lens Overlay item should be present in the context menu",
+                getMenuTitleFromItem(
+                        mMenuCoordinator, R.id.contextmenu_search_tab_with_google_lens));
+    }
+
+    @Test
+    @MediumTest
     @Restriction(DeviceFormFactor.DESKTOP)
     @DisabledTest(message = "https://crbug.com/445993228")
     @DisableFeatures({UiAndroidFeatures.ANDROID_WINDOW_OCCLUSION})
@@ -1357,8 +1387,8 @@ public class ContextMenuTest {
                         () ->
                                 ContentFeatureMap.isEnabled(
                                                 ContentFeatureList.ANDROID_DEV_TOOLS_FRONTEND)
-                                        && DeviceInput.supportsAlphabeticKeyboard()
-                                        && DeviceInput.supportsPrecisionPointer()),
+                                        && DeviceFormFactor.isNonMultiDisplayContextOnTablet(
+                                                mActivityTestRule.getActivity())),
                 baseItems,
                 new Integer[] {R.id.contextmenu_inspect_element});
     }
@@ -1383,12 +1413,20 @@ public class ContextMenuTest {
         // Select "save [image/video]" in that menu.
         Tab tab = mActivityTestRule.getActivityTab();
         int callCount = mDownloadTestRule.getChromeDownloadCallCount();
+        boolean isSaveAsEnabled =
+                ChromeFeatureList.isEnabled(ChromeFeatureList.ENABLE_DOWNLOAD_SAVE_AS_CONTEXT_MENU);
         ContextMenuUtils.selectContextMenuItem(
                 InstrumentationRegistry.getInstrumentation(),
-                mActivityTestRule.getActivity(),
+                isSaveAsEnabled ? null : mActivityTestRule.getActivity(),
                 tab,
                 mediaDOMElement,
                 saveMenuID);
+
+        if (isSaveAsEnabled) {
+            CriteriaHelper.pollUiThread(
+                    () -> mActivityTestRule.getActivity().getModalDialogManager().isShowing());
+            onView(withId(R.id.positive_button)).perform(click());
+        }
 
         // Wait for the download to complete and see if we got the right file
         Assert.assertTrue(mDownloadTestRule.waitForChromeDownloadToFinish(callCount));

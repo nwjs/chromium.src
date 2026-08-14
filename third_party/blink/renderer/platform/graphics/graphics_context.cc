@@ -51,6 +51,7 @@
 #include "third_party/blink/renderer/platform/graphics/platform_focus_ring.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/text_run.h"
 #include "third_party/blink/renderer/platform/transforms/affine_transform.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
@@ -77,7 +78,7 @@ namespace {
 SkColor4f DarkModeColor(GraphicsContext& context,
                         const SkColor4f& color,
                         const AutoDarkMode& auto_dark_mode) {
-  if (auto_dark_mode.enabled) {
+  if (auto_dark_mode.enabled && !context.IsAutoDarkModePaused()) {
     return context.GetDarkModeFilter()->InvertColorIfNeeded(
         color, auto_dark_mode.role,
         SkColor4f::FromColor(auto_dark_mode.contrast_color));
@@ -189,7 +190,7 @@ class GraphicsContext::DarkModeFlags final {
   DarkModeFlags(GraphicsContext* context,
                 const AutoDarkMode& auto_dark_mode,
                 const cc::PaintFlags& flags) {
-    if (auto_dark_mode.enabled) {
+    if (auto_dark_mode.enabled && !context->IsAutoDarkModePaused()) {
       dark_mode_flags_ = context->GetDarkModeFilter()->ApplyToFlagsIfNeeded(
           flags, auto_dark_mode.role,
           SkColor4f::FromColor(auto_dark_mode.contrast_color));
@@ -248,10 +249,20 @@ DarkModeFilter* GraphicsContext::GetDarkModeFilterForImage(
     const ImageAutoDarkMode& auto_dark_mode) {
   if (!auto_dark_mode.enabled)
     return nullptr;
+  // Images are gated by their own size classification, not by the context's
+  // auto dark mode paused state, so an icon-sized image is still inverted even
+  // while dark mode is paused for its container.
   DarkModeFilter* dark_mode_filter = GetDarkModeFilter();
   if (!dark_mode_filter->ShouldApplyFilterToImage(auto_dark_mode.image_type))
     return nullptr;
   return dark_mode_filter;
+}
+
+bool GraphicsContext::IsAutoDarkModePaused() const {
+  if (!RuntimeEnabledFeatures::AutoDarkModeSVGSizeThresholdEnabled()) {
+    return false;
+  }
+  return !auto_dark_mode_states_.empty() && auto_dark_mode_states_.back();
 }
 
 void GraphicsContext::SetDarkModeFilterForTest(

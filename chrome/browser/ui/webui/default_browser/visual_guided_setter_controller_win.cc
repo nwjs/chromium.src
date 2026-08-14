@@ -17,20 +17,28 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
+#include "base/win/default_apps_util.h"
 #include "chrome/browser/default_browser/default_browser_features.h"
 #include "chrome/browser/ui/webui/default_browser/guided_setter_overlay_window_win.h"
 #include "chrome/browser/ui/webui/default_browser/visual_guided_setter_layout_utils.h"
 #include "chrome/installer/util/shell_util.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/common/url_constants.h"
 #include "ui/display/screen.h"
 #include "ui/display/win/screen_win.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/views/win/hwnd_util.h"
+#include "url/gurl.h"
 
 VisualGuidedSetterControllerWin::VisualGuidedSetterControllerWin(
     views::Widget* parent_widget)
-    : parent_widget_(parent_widget) {
+    : parent_widget_(parent_widget),
+      is_continuous_docking_enabled_(
+          default_browser::IsVisualGuidedSetterDockingEnabled()) {
   CHECK(parent_widget_);
-  widget_observation_.Observe(parent_widget_);
+  if (is_continuous_docking_enabled_) {
+    widget_observation_.Observe(parent_widget_);
+  }
 
   CHECK(parent_widget_->GetNativeWindow());
   chrome_hwnd_ = views::HWNDForNativeWindow(parent_widget_->GetNativeWindow());
@@ -46,6 +54,7 @@ void VisualGuidedSetterControllerWin::Start() {
   if (is_running_) {
     return;
   }
+
   CHECK(parent_widget_ && chrome_hwnd_);
   if (!has_anchor_rect_) {
     return;
@@ -58,6 +67,7 @@ void VisualGuidedSetterControllerWin::Start() {
   if (!overlay_) {
     overlay_ = std::make_unique<GuidedSetterOverlayWindowWin>(
         parent_widget_->GetNativeWindow());
+    UpdateOverlayColor();
   }
 
   LaunchSettings();
@@ -77,6 +87,36 @@ void VisualGuidedSetterControllerWin::SetTopmostPolicy(TopmostPolicy policy) {
   topmost_policy_ = policy;
   if (is_running_ && IsSettingsWindowValid()) {
     UpdateDockedLayout();
+  }
+}
+
+void VisualGuidedSetterControllerWin::SetWebContents(
+    content::WebContents* web_contents) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  web_contents_ = web_contents;
+
+  if (!is_continuous_docking_enabled_) {
+    return;
+  }
+
+  content::WebContentsObserver::Observe(web_contents);
+  if (is_running_) {
+    UpdateDockedLayout();
+  }
+}
+
+void VisualGuidedSetterControllerWin::SetErrorCallback(ErrorCallback callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  error_callback_ = std::move(callback);
+}
+
+void VisualGuidedSetterControllerWin::NotifyErrorState(bool is_error) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (last_reported_error_ != is_error) {
+    last_reported_error_ = is_error;
+    if (error_callback_) {
+      error_callback_.Run(is_error);
+    }
   }
 }
 
@@ -152,6 +192,40 @@ void VisualGuidedSetterControllerWin::OnWidgetActivationChanged(
   UpdateDockedLayout();
 }
 
+void VisualGuidedSetterControllerWin::OnWidgetShowStateChanged(
+    views::Widget* widget) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK_EQ(widget, parent_widget_);
+  if (!is_running_) {
+    return;
+  }
+  UpdateDockedLayout();
+}
+
+void VisualGuidedSetterControllerWin::OnWidgetThemeChanged(
+    views::Widget* widget) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK_EQ(widget, parent_widget_);
+  UpdateOverlayColor();
+}
+
+void VisualGuidedSetterControllerWin::OnVisibilityChanged(
+    content::Visibility visibility) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!is_running_) {
+    return;
+  }
+  UpdateDockedLayout();
+}
+
+void VisualGuidedSetterControllerWin::PrimaryPageChanged(content::Page& page) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!is_running_) {
+    return;
+  }
+  UpdateDockedLayout();
+}
+
 void VisualGuidedSetterControllerWin::LaunchSettings() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // Querying base::FILE_EXE and launching the Settings shell URI may block, so
@@ -193,11 +267,23 @@ void VisualGuidedSetterControllerWin::OnSettingsWindowFound(HWND hwnd) {
   }
 
   settings_hwnd_ = hwnd;
+
+  if (!is_continuous_docking_enabled_) {
+    settings_window_finder_->StartObservingLocationChanges(
+        settings_hwnd_,
+        base::BindRepeating(
+            &VisualGuidedSetterControllerWin::UpdateDockedLayout,
+            weak_ptr_factory_.GetWeakPtr()));
+  }
+
   if (parent_widget_ && !parent_widget_->IsVisible()) {
     ::ShowWindow(settings_hwnd_, SW_HIDE);
     return;
   }
-  StartRuntimeTimers();
+
+  if (is_continuous_docking_enabled_) {
+    StartRuntimeTimers();
+  }
   UpdateDockedLayout();
 }
 
@@ -205,6 +291,7 @@ void VisualGuidedSetterControllerWin::OnFindSettingsTimeout() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   find_settings_start_time_ = base::TimeTicks();
   outcome_ = Outcome::kSettingsWindowNotFound;
+  NotifyErrorState(true);
   TearDownInternal();
 }
 
@@ -223,6 +310,7 @@ void VisualGuidedSetterControllerWin::StartRuntimeTimers() {
 
 void VisualGuidedSetterControllerWin::StopAllTimers() {
   settings_window_finder_->Stop();
+  settings_window_finder_->StopObservingLocationChanges();
   dock_timer_.Stop();
 }
 
@@ -261,9 +349,18 @@ void VisualGuidedSetterControllerWin::UpdateDockedLayout() {
                   ->GetDisplayNearestWindow(parent_widget_->GetNativeWindow())
                   .id())
           .screen_work_rect();
+  gfx::Rect anchor_rect_screen_dip = anchor_rect_in_webui_;
+  if (web_contents_) {
+    anchor_rect_screen_dip.Offset(
+        web_contents_->GetViewBounds().OffsetFromOrigin());
+  } else if (parent_widget_ && parent_widget_->GetContentsView()) {
+    anchor_rect_screen_dip.Offset(parent_widget_->GetContentsView()
+                                      ->GetBoundsInScreen()
+                                      .OffsetFromOrigin());
+  }
   const gfx::Rect settings_target =
       visual_guided_setter::ComputeDockedSettingsRectFromAnchor(
-          chrome_hwnd_, anchor_rect_in_webui_, work_area);
+          chrome_hwnd_, anchor_rect_screen_dip, work_area, settings_hwnd_);
 
   bool dpi_compatible =
       IsDpiCompatibleForDocking(chrome_hwnd_, settings_target);
@@ -276,6 +373,7 @@ void VisualGuidedSetterControllerWin::UpdateDockedLayout() {
     outcome_ = std::nullopt;
     is_degraded_ = false;
   }
+  NotifyErrorState(false);
 
   HWND insert_after = HWND_TOPMOST;
   if (topmost_policy_ == TopmostPolicy::kRequiresFocus &&
@@ -303,12 +401,7 @@ std::optional<gfx::Rect> VisualGuidedSetterControllerWin::GetAnchorRectScreen()
     return std::nullopt;
   }
 
-  // The WebUI coordinates are in CSS pixels (DIPs) relative to the contents
-  // view. Offset them by the contents view's screen origin to get screen DIPs.
-  gfx::Rect anchor_rect_dip = anchor_rect_in_webui_;
-  anchor_rect_dip.Offset(parent_widget_->GetContentsView()
-                             ->GetBoundsInScreen()
-                             .OffsetFromOrigin());
+  gfx::Rect anchor_rect_dip = GetAnchorRectScreenDip();
 
   // Scale to physical screen pixels using the monitor's DPI scaling factor so
   // that the overlay and docked window align correctly regardless of display
@@ -333,6 +426,7 @@ void VisualGuidedSetterControllerWin::EnterDegradedFloating(Outcome reason) {
                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
   }
   is_degraded_ = true;
+  NotifyErrorState(true);
 }
 
 void VisualGuidedSetterControllerWin::ApplySettingsRectAndZOrder(
@@ -348,9 +442,24 @@ void VisualGuidedSetterControllerWin::ApplySettingsRectAndZOrder(
     ::ShowWindow(settings_hwnd_, SW_RESTORE);
   }
 
+  UINT flags = SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_ASYNCWINDOWPOS;
+  RECT current_rect;
+  if (::GetWindowRect(settings_hwnd_, &current_rect)) {
+    gfx::Rect current(current_rect);
+    if (current == target_rect) {
+      flags |= SWP_NOMOVE | SWP_NOSIZE;
+    }
+  }
+
+  bool is_currently_topmost =
+      (::GetWindowLong(settings_hwnd_, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
+  bool want_topmost = (insert_after == HWND_TOPMOST);
+  if (is_currently_topmost == want_topmost) {
+    flags |= SWP_NOZORDER;
+  }
+
   ::SetWindowPos(settings_hwnd_, insert_after, target_rect.x(), target_rect.y(),
-                 target_rect.width(), target_rect.height(),
-                 SWP_NOACTIVATE | SWP_SHOWWINDOW);
+                 target_rect.width(), target_rect.height(), flags);
 }
 
 void VisualGuidedSetterControllerWin::UpdateOverlay() {
@@ -358,9 +467,24 @@ void VisualGuidedSetterControllerWin::UpdateOverlay() {
     return;
   }
   if (!is_running_ || is_degraded_ || !IsSettingsWindowValid() ||
-      !chrome_hwnd_) {
+      !chrome_hwnd_ || ::IsIconic(chrome_hwnd_) ||
+      (parent_widget_ && parent_widget_->IsMinimized())) {
     overlay_->Hide();
     return;
+  }
+
+  if (web_contents_) {
+    if (web_contents_->GetVisibility() != content::Visibility::VISIBLE) {
+      overlay_->Hide();
+      return;
+    }
+
+    const GURL url = web_contents_->GetVisibleURL();
+    if (!url.SchemeIs(content::kChromeUIScheme) ||
+        !url.host().starts_with("default-browser")) {
+      overlay_->Hide();
+      return;
+    }
   }
 
   std::optional<gfx::Rect> anchor_rect_screen = GetAnchorRectScreen();
@@ -380,20 +504,39 @@ void VisualGuidedSetterControllerWin::UpdateOverlay() {
     return;
   }
 
-  gfx::Rect overlay_bounds = *anchor_rect_screen;
-  overlay_bounds.Union(settings_rect);
   const gfx::Point start =
       visual_guided_setter::ComputeArrowStartPointFromAnchor(
           *anchor_rect_screen);
-
-  const gfx::Rect target_rect = settings_rect;
   const gfx::Point end =
-      visual_guided_setter::ComputeArrowEndPoint(target_rect);
-  overlay_->UpdateAndShow(overlay_bounds, start, end);
+      visual_guided_setter::ComputeArrowEndPoint(settings_rect);
+
+  overlay_->UpdateAndShow(start, end);
+}
+
+void VisualGuidedSetterControllerWin::UpdateOverlayColor() {
+  if (!overlay_ || !parent_widget_) {
+    return;
+  }
+
+  const ui::ColorProvider* provider = parent_widget_->GetColorProvider();
+  if (!provider) {
+    return;
+  }
+
+  overlay_->SetArrowColor(provider->GetColor(ui::kColorSysPrimary));
+}
+
+gfx::Rect VisualGuidedSetterControllerWin::GetAnchorRectScreenDip() const {
+  CHECK(web_contents_);
+  gfx::Rect anchor_rect_dip = anchor_rect_in_webui_;
+  anchor_rect_dip.Offset(web_contents_->GetViewBounds().OffsetFromOrigin());
+  return anchor_rect_dip;
 }
 
 bool VisualGuidedSetterControllerWin::IsChromeWindowActive() const {
-  CHECK_EQ(::GetForegroundWindow() == chrome_hwnd_, last_known_chrome_active_);
+  if (chrome_hwnd_ && ::IsWindow(chrome_hwnd_)) {
+    return ::GetForegroundWindow() == chrome_hwnd_;
+  }
   return last_known_chrome_active_;
 }
 
@@ -431,6 +574,10 @@ void VisualGuidedSetterControllerWin::TearDownInternal() {
   if (is_running_) {
     base::UmaHistogramEnumeration("DefaultBrowser.VisualGuide.Outcome",
                                   outcome_.value_or(Outcome::kSuccess));
+  }
+
+  if (outcome_.has_value() && outcome_.value() != Outcome::kSuccess) {
+    NotifyErrorState(true);
   }
 
   is_running_ = false;

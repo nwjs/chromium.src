@@ -38,8 +38,9 @@ class InstallerDownloaderInteractiveUiTest
         {kInstallerDownloader,
          {{kInstallerUrlTemplateParam.name, kUrlTemplate}}}};
     if (GetParam()) {
-      enabled_features.push_back({infobars::kCentralizedInfoBarFramework,
-                                  {{"installer_downloader", "true"}}});
+      enabled_features.push_back(
+          {infobars::kCentralizedInfoBarFramework,
+           {{"MigratedInstallerDownloader", "true"}}});
     }
     feature_list_.InitWithFeaturesAndParameters(enabled_features, {});
     InteractiveBrowserTest::SetUp();
@@ -62,7 +63,7 @@ class InstallerDownloaderInteractiveUiTest
   // Assumes that actual window have infobar visible. As a result, new window
   // will also get the infobar.
   InteractiveTestApi::MultiStep ShowInfobarInNewWindow() {
-    return Steps(Do([&]() { CreateBrowser(browser()->profile()); }),
+    return Steps(Do([&]() { CreateBrowser(browser()->GetProfile()); }),
                  WaitForShow(ConfirmInfoBar::kInfoBarElementId));
   }
 

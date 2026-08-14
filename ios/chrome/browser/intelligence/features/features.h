@@ -251,10 +251,6 @@ double GetGeminiResponseReadyInterval();
 base::TimeDelta GetGeminiSessionValidityDuration();
 extern const char kGeminiSessionValidityDuration[];
 
-// Feature flag for enabling early metrics collection for page stability.
-BASE_DECLARE_FEATURE(kPageStabilityMetrics);
-bool IsPageStabilityMetricsEnabled();
-base::TimeDelta GetPageStabilityIntervalDuration();
 
 // Feature flag for Actor tools.
 BASE_DECLARE_FEATURE(kActorTools);
@@ -340,6 +336,13 @@ bool IsPageContextIPCOptimizationEnabled();
 // Returns true if the actionable optimization is enabled within the IPC
 // optimization.
 bool IsPageContextIPCOptimizationActionableEnabled();
+
+// Enables the PageContextPdf feature. This allows PDFs to be used as context
+// for prompts for Gemini only. Other providers would have separate flags.
+BASE_DECLARE_FEATURE(kPageContextPdf);
+
+// Returns true if the PageContextPdf feature is enabled.
+bool IsPageContextPDFEnabled();
 
 // Enables the GeminiClientMigration feature.
 BASE_DECLARE_FEATURE(kGeminiClientMigration);
@@ -427,6 +430,18 @@ BASE_DECLARE_FEATURE(kIOSGeminiBottomSheetMigration);
 
 // Helper function to check if `kIOSGeminiBottomSheetMigration` is enabled.
 bool IsIOSGeminiBottomSheetMigrationEnabled();
+
+// Enables the GeminiQuizzes feature.
+BASE_DECLARE_FEATURE(kGeminiQuizzes);
+
+// Returns true if the GeminiQuizzes feature is enabled.
+bool IsGeminiQuizzesEnabled();
+
+// Feature flag to enable the Gemini FRE UI refactoring.
+BASE_DECLARE_FEATURE(kGeminiFRERefactor);
+
+// Helper function to check if `kGeminiFRERefactor` is enabled.
+bool IsGeminiFRERefactorEnabled();
 
 // Feature flag to control the Gemini coordinator teardown crash fix.
 BASE_DECLARE_FEATURE(kGeminiCoordinatorTeardownFix);

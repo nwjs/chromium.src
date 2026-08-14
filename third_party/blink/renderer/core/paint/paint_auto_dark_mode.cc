@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/core/paint/paint_auto_dark_mode.h"
 
 #include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 
@@ -67,6 +68,29 @@ ImageAutoDarkMode ImageClassifierHelper::GetImageAutoDarkMode(
   return ImageAutoDarkMode(
       role, style.ForceDark(),
       GetImageTypeWithZoom(layout_zoom, dest_rect, src_rect));
+}
+
+// static
+DarkModeFilter::ImageType ImageClassifierHelper::GetSVGDocumentType(
+    LocalFrame& local_frame,
+    const gfx::Rect& size) {
+  if (!RuntimeEnabledFeatures::AutoDarkModeSVGSizeThresholdEnabled()) {
+    return DarkModeFilter::ImageType::kIcon;
+  }
+
+  // |size| includes the layout zoom factor (page zoom and DSF). Undo it so the
+  // size threshold matches bitmap images, whose classification is unaffected by
+  // page zoom and DSF.
+  const float layout_zoom = local_frame.LayoutZoomFactor();
+  const float unzoomed_width =
+      layout_zoom > 0.f ? size.width() / layout_zoom : size.width();
+  const float unzoomed_height =
+      layout_zoom > 0.f ? size.height() / layout_zoom : size.height();
+  if (unzoomed_width <= kMaxImageLength && unzoomed_height <= kMaxImageLength) {
+    return DarkModeFilter::ImageType::kIcon;
+  }
+
+  return DarkModeFilter::ImageType::kPhoto;
 }
 
 // static

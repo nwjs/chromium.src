@@ -28,7 +28,6 @@
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/platform_browser_test.h"
 #include "components/optimization_guide/core/delivery/model_info.h"
-#include "components/optimization_guide/core/delivery/test_model_info_builder.h"
 #include "components/optimization_guide/proto/models.pb.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
@@ -239,11 +238,12 @@ class SegmentationPlatformTest : public PlatformBrowserTest {
 
   base::HistogramTester& histogram_tester() { return histogram_tester_; }
 
-  std::unique_ptr<optimization_guide::ModelInfo>
-  CreateOptimizationGuideModelInfo(
+  optimization_guide::ModelInfo CreateOptimizationGuideModelInfo(
       std::optional<proto::SegmentationModelMetadata>
           segmentation_model_metadata) {
-    auto model_info_builder = optimization_guide::TestModelInfoBuilder();
+    optimization_guide::ModelInfo model_info = {
+        .model_file_path = base::FilePath(FILE_PATH_LITERAL("dummy_path")),
+    };
     if (segmentation_model_metadata.has_value()) {
       std::string serialized_metadata;
       segmentation_model_metadata.value().SerializeToString(
@@ -254,9 +254,9 @@ class SegmentationPlatformTest : public PlatformBrowserTest {
       any->set_type_url(
           "type.googleapis.com/"
           "segmentation_platform.proto.SegmentationModelMetadata");
-      model_info_builder.SetModelMetadata(any);
+      model_info.model_metadata = any;
     }
-    return model_info_builder.Build();
+    return model_info;
   }
 
   proto::SegmentationModelMetadata GetSegmentationModelMetadataWithSignals() {
@@ -448,7 +448,7 @@ IN_PROC_BROWSER_TEST_F(SegmentationPlatformTest,
       ->OverrideTargetModelForTesting(
           optimization_guide::proto::
               OPTIMIZATION_TARGET_SEGMENTATION_SEARCH_USER,
-          nullptr);
+          std::nullopt);
   // Count how many user actions and histgrams are tracked after removing this
   // model. Updating signals happens synchronously, so there's no need to wait
   // for these histograms.
@@ -523,7 +523,7 @@ IN_PROC_BROWSER_TEST_F(SegmentationPlatformTest,
       ->OverrideTargetModelForTesting(
           optimization_guide::proto::
               OPTIMIZATION_TARGET_SEGMENTATION_ADAPTIVE_TOOLBAR,
-          nullptr);
+          std::nullopt);
 
   histogram_tester_2.ExpectUniqueSample(
       "SegmentationPlatform.ModelDelivery.HasMetadata." +

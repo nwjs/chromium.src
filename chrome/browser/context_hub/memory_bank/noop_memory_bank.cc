@@ -4,6 +4,7 @@
 
 #include "chrome/browser/context_hub/memory_bank/noop_memory_bank.h"
 
+#include <string_view>
 #include <vector>
 
 #include "chrome/browser/context_hub/memory_bank/memory_bank_entry.h"
@@ -14,7 +15,8 @@ NoOpMemoryBank::NoOpMemoryBank() = default;
 NoOpMemoryBank::~NoOpMemoryBank() = default;
 
 void NoOpMemoryBank::SaveTab(const GURL& url,
-                             const std::string& tab_title,
+                             std::string_view tab_title,
+                             std::string_view page_text,
                              OperationCompleteCallback callback) {
   if (callback) {
     std::move(callback).Run();
@@ -22,8 +24,8 @@ void NoOpMemoryBank::SaveTab(const GURL& url,
 }
 
 void NoOpMemoryBank::SaveTextSelection(const GURL& url,
-                                       const std::string& tab_title,
-                                       const std::string& selected_text,
+                                       std::string_view tab_title,
+                                       std::string_view selected_text,
                                        OperationCompleteCallback callback) {
   if (callback) {
     std::move(callback).Run();
@@ -34,8 +36,8 @@ void NoOpMemoryBank::GetAllEntries(GetAllEntriesCallback callback) const {
   std::move(callback).Run({});
 }
 
-void NoOpMemoryBank::DeleteEntry(int64_t id,
-                                 OperationCompleteCallback callback) {
+void NoOpMemoryBank::DeleteEntries(base::span<const int64_t> ids,
+                                   OperationCompleteCallback callback) {
   if (callback) {
     std::move(callback).Run();
   }

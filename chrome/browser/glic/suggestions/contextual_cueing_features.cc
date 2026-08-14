@@ -6,7 +6,6 @@
 
 #include "base/metrics/field_trial_params.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/glic/host/glic_features.mojom.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/common/chrome_features.h"
 #include "components/variations/service/variations_service.h"
@@ -21,8 +20,6 @@ BASE_FEATURE(kZeroStateSuggestionsUsePrivateAi,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableAutoOpenGlicSidePanel, base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kUseAnchoredMessage, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsContextualCueingEnabled() {
   // If the feature is overridden (e.g. via server-side config or command-line),
@@ -152,7 +149,7 @@ const base::FeatureParam<base::TimeDelta> kZSSPageContextTimeout(
     base::Seconds(5));
 
 const base::FeatureParam<int> kMaxPinnedPagesForTriggeringSuggestions(
-    &glic::mojom::features::kZeroStateSuggestionsV2,
+    &kGlicZeroStateSuggestions,
     "ZSSMaxPinnedPagesForTriggeringSuggestions",
     10);
 

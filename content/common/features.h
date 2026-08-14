@@ -20,6 +20,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kAccessibilityExpandEventMetadata);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kAccessibilityExposeNonAtomicTextFieldChildren);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAllowContentInitiatedDataUrlNavigations);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kAncestorThrottleEvaluateRedirectSource);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidDesktopStyleScrollbars);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidDownloadableFontsMatching);
 #if BUILDFLAG(IS_WIN)
@@ -80,11 +81,15 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kDisableAutoResizeOutputSurface);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kDocumentIsolationPolicyWithoutSiteIsolation);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kDocumentPolicyNegotiation);
+#if BUILDFLAG(IS_ANDROID)
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kEarlyTopAppForSandboxedRenderer);
+#endif
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEditContextSelectionSync);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kKillOnUnexpectedOriginHeader);
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnableDevToolsJsErrorReporting);
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnforceGamepadPermissionsPolicy);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnforceSameDocumentOriginInvariants);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEmbeddingRequiresOptIn);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kExperimentalContentSecurityPolicyFeatures);
@@ -96,18 +101,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kFilterInstalledAppsWebAppMatching);
 #if BUILDFLAG(IS_WIN)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFilterInstalledAppsWinMatching);
 #endif  // BUILDFLAG(IS_WIN)
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeLimitNumAuctions);
-CONTENT_EXPORT extern const base::FeatureParam<int>
-    kFledgeLimitNumAuctionsParam;
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeDelayPostAuctionInterestGroupUpdate);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeSellerWorkletThreadPool);
-CONTENT_EXPORT extern const base::FeatureParam<int>
-    kFledgeSellerWorkletThreadPoolSize;
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeBidderWorkletThreadPool);
-CONTENT_EXPORT extern const base::FeatureParam<double>
-    kFledgeBidderWorkletThreadPoolSizeLogarithmicScalingFactor;
 #if BUILDFLAG(IS_ANDROID)
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeAndroidWorkletOffMainThread);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kFocusRenderWidgetHostViewAndroidOnMouseDown);
 #endif
@@ -158,6 +152,8 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kInterestGroupUpdateIfOlderThan);
 #if BUILDFLAG(IS_MAC)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kIOSurfaceCapturer);
 #endif
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kIsSuitableForUrlInfoEarlyReturnHoldback);
+
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kKeepChildProcessAfterIPCReset);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kKillOnInvalidNavigationHeaders);
 
@@ -189,7 +185,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kNavigationThrottleRunner2);
 #if !BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPermissionsPolicyVerificationInContent);
 #endif
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kMouseEventPenPointerType);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kMouseEventPreservePointerType);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrecomputeSiteInfo);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchCookieIndices);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchDevtoolsUserAgentOverride);
@@ -202,6 +198,10 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kPriorityOverridePendingViews);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrivacySandboxAdsAPIsM1Override);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kProcessReuseOnPrerenderCOOPSwap);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kProgressiveAccessibilityPhase2);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kReduceMojoURLLoaderFactoryCloning);
+CONTENT_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    bool,
+    kUseLazyURLLoaderFactoryForServiceWorkerFallback);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kReloadHiddenTabsWithCrashedSubframes);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPreferWarmRendererProcess);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kReusePrerenderingProcessForMainFrames);
@@ -243,6 +243,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kServiceWorkerClientUrlIsCreationUrl);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kServiceWorkerOptionalTimeoutIterator);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kServiceWorkerVerifyMainScriptUrl);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kServiceWorkerSoftUpdateOnFunctionalEvent);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kServiceWorkerStrictContextValidation);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kSharedWorkerSecureContextDerivationFromBrowser);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(

@@ -18,6 +18,7 @@ namespace glic {
 
 DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTabId);
 
+// TODO(crbug.com/537847154): Migrate this test suite to GlicApiBrowserTest.
 class GlicPermissionEnforcementUiTest : public NonInteractiveGlicTest {
  public:
   GlicPermissionEnforcementUiTest()
@@ -43,14 +44,14 @@ IN_PROC_BROWSER_TEST_F(GlicPermissionEnforcementUiTest,
   const InteractiveBrowserTest::DeepQuery kAudioCaptureStart = {
       "#audioCapStart"};
   const InteractiveBrowserTest::DeepQuery kAudioCaptureStop = {"#audioCapStop"};
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       glic::prefs::kGlicMicrophoneEnabled, false);
   RunTestSequence(
       DeprecatedOpenGlicWindow(GlicWindowMode::kAttached,
                                GlicInstrumentMode::kHostAndContents),
-      WaitForElementVisible(test::kGlicContentsElementId, {"body"}),
+      WaitForElementVisible(kGlicContentsElementId, {"body"}),
       ClickMockGlicElement(kAudioCaptureStart),
-      WaitForJsResult(test::kGlicContentsElementId,
+      WaitForJsResult(kGlicContentsElementId,
                       "() => document.querySelector('#audioStatus').innerText",
                       "Caught error: NotAllowedError: Permission denied"));
 }
@@ -60,18 +61,18 @@ IN_PROC_BROWSER_TEST_F(GlicPermissionEnforcementUiTest,
   const InteractiveBrowserTest::DeepQuery kAudioCaptureStart = {
       "#audioCapStart"};
   const InteractiveBrowserTest::DeepQuery kAudioCaptureStop = {"#audioCapStop"};
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       glic::prefs::kGlicMicrophoneEnabled, true);
   RunTestSequence(
       DeprecatedOpenGlicWindow(GlicWindowMode::kAttached,
                                GlicInstrumentMode::kHostAndContents),
-      WaitForElementVisible(test::kGlicContentsElementId, {"body"}),
+      WaitForElementVisible(kGlicContentsElementId, {"body"}),
       ClickMockGlicElement(kAudioCaptureStart),
-      WaitForJsResult(test::kGlicContentsElementId,
+      WaitForJsResult(kGlicContentsElementId,
                       "() => document.querySelector('#audioStatus').innerText",
                       "Recording..."),
       ClickMockGlicElement(kAudioCaptureStop),
-      WaitForJsResult(test::kGlicContentsElementId,
+      WaitForJsResult(kGlicContentsElementId,
                       "() => document.querySelector('#audioStatus').innerText",
                       "Recording Stopped"));
 }
@@ -83,17 +84,17 @@ IN_PROC_BROWSER_TEST_F(GlicPermissionEnforcementUiTest,
     GTEST_SKIP() << "Skipping for kGlicMultiInstance";
   }
   const InteractiveBrowserTest::DeepQuery kContextToggle = {"#getpagecontext"};
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       glic::prefs::kGlicTabContextEnabled, false);
   RunTestSequence(
       InstrumentTab(kActiveTabId),
       NavigateWebContents(kActiveTabId, embedded_test_server()->GetURL("/")),
       DeprecatedOpenGlicWindow(GlicWindowMode::kAttached,
                                GlicInstrumentMode::kHostAndContents),
-      WaitForElementVisible(test::kGlicContentsElementId, {"body"}),
+      WaitForElementVisible(kGlicContentsElementId, {"body"}),
       ClickMockGlicElement(kContextToggle),
       WaitForJsResult(
-          test::kGlicContentsElementId,
+          kGlicContentsElementId,
           "() => document.querySelector('#getPageContextStatus').innerText",
           "Error getting page context: Error: tabContext failed: permission "
           "denied: context permission not enabled"));
@@ -102,17 +103,17 @@ IN_PROC_BROWSER_TEST_F(GlicPermissionEnforcementUiTest,
 IN_PROC_BROWSER_TEST_F(GlicPermissionEnforcementUiTest,
                        TabContextPermissionTestAllow) {
   const InteractiveBrowserTest::DeepQuery kContextToggle = {"#getpagecontext"};
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       glic::prefs::kGlicTabContextEnabled, true);
   RunTestSequence(
       InstrumentTab(kActiveTabId),
       NavigateWebContents(kActiveTabId, embedded_test_server()->GetURL("/")),
       DeprecatedOpenGlicWindow(GlicWindowMode::kAttached,
                                GlicInstrumentMode::kHostAndContents),
-      WaitForElementVisible(test::kGlicContentsElementId, {"body"}),
+      WaitForElementVisible(kGlicContentsElementId, {"body"}),
       ClickMockGlicElement(kContextToggle),
       WaitForJsResult(
-          test::kGlicContentsElementId,
+          kGlicContentsElementId,
           "() => document.querySelector('#getPageContextStatus').innerText",
           "Finished Get Page Context."));
 }
@@ -120,15 +121,15 @@ IN_PROC_BROWSER_TEST_F(GlicPermissionEnforcementUiTest,
 IN_PROC_BROWSER_TEST_F(GlicPermissionEnforcementUiTest,
                        LocationPermissionTestDeny) {
   const InteractiveBrowserTest::DeepQuery kGetLocationButton = {"#getlocation"};
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       glic::prefs::kGlicGeolocationEnabled, false);
   RunTestSequence(
       DeprecatedOpenGlicWindow(GlicWindowMode::kAttached,
                                GlicInstrumentMode::kHostAndContents),
-      WaitForElementVisible(test::kGlicContentsElementId, {"body"}),
+      WaitForElementVisible(kGlicContentsElementId, {"body"}),
       ClickMockGlicElement(kGetLocationButton),
       WaitForJsResult(
-          test::kGlicContentsElementId,
+          kGlicContentsElementId,
           "() => document.querySelector('#locationStatus').innerText",
           "Permission Denied."));
 }
@@ -136,15 +137,15 @@ IN_PROC_BROWSER_TEST_F(GlicPermissionEnforcementUiTest,
 IN_PROC_BROWSER_TEST_F(GlicPermissionEnforcementUiTest,
                        LocationPermissionTestAllow) {
   const InteractiveBrowserTest::DeepQuery kGetLocationButton = {"#getlocation"};
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       glic::prefs::kGlicGeolocationEnabled, true);
   RunTestSequence(
       DeprecatedOpenGlicWindow(GlicWindowMode::kAttached,
                                GlicInstrumentMode::kHostAndContents),
-      WaitForElementVisible(test::kGlicContentsElementId, {"body"}),
+      WaitForElementVisible(kGlicContentsElementId, {"body"}),
       ClickMockGlicElement(kGetLocationButton),
       WaitForJsResult(
-          test::kGlicContentsElementId,
+          kGlicContentsElementId,
           "() => document.querySelector('#locationStatus').innerText",
           "Location Received."));
 }

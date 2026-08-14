@@ -19,6 +19,10 @@
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/toasts/api/toast_id.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
+#include "chrome/common/webui_url_constants.h"
+#include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/common/url_constants.h"
 #include "default_browser_setter.h"
 
 namespace default_browser {
@@ -94,12 +98,10 @@ void DefaultBrowserController::OnAccepted(
     const DefaultBrowserSetter::ExecuteParams& params) {
   RecordInteractionMetric(DefaultBrowserInteractionType::kAccepted);
 
-  setter_execution_start_time_ = base::TimeTicks::Now();
-
-  completion_callback_ = std::move(completion_callback);
   setter_->Execute(
       base::BindOnce(&DefaultBrowserController::OnSetterExecutionComplete,
-                     weak_ptr_factory_.GetWeakPtr()),
+                     weak_ptr_factory_.GetWeakPtr(),
+                     std::move(completion_callback), base::TimeTicks::Now()),
       std::move(params));
 }
 
@@ -112,6 +114,8 @@ void DefaultBrowserController::OnDismissed() {
 }
 
 void DefaultBrowserController::OnSetterExecutionComplete(
+    DefaultBrowserControllerCompletionCallback completion_callback,
+    base::TimeTicks setter_execution_start_time,
     DefaultBrowserState default_browser_state) {
   bool success = default_browser_state == DefaultBrowserState::IS_DEFAULT;
   RecordResultMetric(success);
@@ -121,7 +125,7 @@ void DefaultBrowserController::OnSetterExecutionComplete(
         GetSetterHistogramName(GetSetterType(), "SuccessDuration");
     base::UmaHistogramLongTimes(
         duration_histogram_name,
-        base::TimeTicks::Now() - setter_execution_start_time_);
+        base::TimeTicks::Now() - setter_execution_start_time);
 
     BrowserWindowInterface* browser =
         GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser();
@@ -132,12 +136,28 @@ void DefaultBrowserController::OnSetterExecutionComplete(
         toast_controller->MaybeShowToast(
             ToastParams(ToastId::kDefaultBrowserUpdateSuccess));
       }
+
+      tabs::TabInterface* active_tab = browser->GetActiveTabInterface();
+      if (active_tab && active_tab->GetContents()) {
+        bool is_default_browser_page = false;
+#if BUILDFLAG(IS_WIN)
+        const GURL& url = active_tab->GetContents()->GetVisibleURL();
+        is_default_browser_page =
+            url.SchemeIs(content::kChromeUIScheme) &&
+            url.host() == chrome::kChromeUIDefaultBrowserVisualGuidedSetterHost;
+#endif
+        if (is_default_browser_page) {
+          CHECK(GetSetterType() == DefaultBrowserSetterType::kVisualGuide);
+          active_tab->Close();
+        }
+      }
     }
+
   } else if (auto* manager = DefaultBrowserManager::From(g_browser_process)) {
     manager->TrackTimeAfterSetterFailure(ui_entrypoint_, GetSetterType());
   }
 
-  std::move(completion_callback_).Run(default_browser_state);
+  std::move(completion_callback).Run(default_browser_state);
 }
 
 void DefaultBrowserController::IncrementShownMetric() {

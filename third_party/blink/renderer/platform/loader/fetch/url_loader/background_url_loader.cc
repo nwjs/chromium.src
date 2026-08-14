@@ -9,10 +9,11 @@
 #include <memory>
 #include <variant>
 
+#include "base/byte_size.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/numerics/checked_math.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
@@ -263,12 +264,10 @@ class BackgroundURLLoader::Context
           &Context::OnReceivedResponse, context_, std::move(head),
           std::move(body), std::move(cached_metadata)));
     }
-    void OnTransferSizeUpdated(int transfer_size_diff) override {
+    void OnTransferSizeUpdated(base::ByteSize transfer_size_diff) override {
       CHECK(background_task_runner_->RunsTasksInCurrentSequence());
       if (waiting_for_background_response_processor_) {
-        deferred_transfer_size_diff_ =
-            base::CheckAdd(deferred_transfer_size_diff_, transfer_size_diff)
-                .ValueOrDie();
+        deferred_transfer_size_diff_ += transfer_size_diff;
         return;
       }
       context_->PostTaskToMainThread(CrossThreadBindOnce(
@@ -311,7 +310,7 @@ class BackgroundURLLoader::Context
     const scoped_refptr<base::SequencedTaskRunner> background_task_runner_;
     std::unique_ptr<BackgroundResponseProcessor> background_response_processor_;
 
-    int deferred_transfer_size_diff_ = 0;
+    base::ByteSize deferred_transfer_size_diff_;
     std::optional<network::URLLoaderCompletionStatus> deferred_status_;
     bool waiting_for_background_response_processor_ = false;
     base::WeakPtrFactory<RequestClient> weak_factory_{this};
@@ -496,35 +495,37 @@ class BackgroundURLLoader::Context
       network::mojom::URLResponseHeadPtr head,
       BodyVariant body,
       std::optional<mojo_base::BigBuffer> cached_metadata,
-      int deferred_transfer_size_diff,
+      base::ByteSize deferred_transfer_size_diff,
       std::optional<network::URLLoaderCompletionStatus> deferred_status,
       int request_id) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(main_thread_sequence_checker_);
 
     OnReceivedResponse(std::move(head), std::move(body),
                        std::move(cached_metadata), request_id);
-    if (client_ && deferred_transfer_size_diff > 0) {
+    if (client_ && deferred_transfer_size_diff.is_positive()) {
       OnTransferSizeUpdated(deferred_transfer_size_diff);
     }
     if (client_ && deferred_status) {
       OnCompletedRequest(*deferred_status);
     }
   }
-  void OnTransferSizeUpdated(int transfer_size_diff) {
+  void OnTransferSizeUpdated(base::ByteSize transfer_size_diff) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(main_thread_sequence_checker_);
-    client_->DidReceiveTransferSizeUpdate(transfer_size_diff);
+    client_->DidReceiveTransferSizeUpdate(
+        base::checked_cast<int>(transfer_size_diff.InBytes()));
   }
   void OnCompletedRequest(const network::URLLoaderCompletionStatus& status) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(main_thread_sequence_checker_);
-    int64_t total_transfer_size = status.encoded_data_length;
-    int64_t encoded_body_size = status.encoded_body_length;
+    int64_t total_transfer_size = status.encoded_data_length.InBytes();
+    int64_t encoded_body_size = status.encoded_body_length.InBytes();
     if (status.error_code != net::OK) {
       client_->DidFail(WebURLError::Create(status, url_),
                        status.completion_time, total_transfer_size,
-                       encoded_body_size, status.decoded_body_length);
+                       encoded_body_size, status.decoded_body_length.InBytes());
     } else {
       client_->DidFinishLoading(status.completion_time, total_transfer_size,
-                                encoded_body_size, status.decoded_body_length);
+                                encoded_body_size,
+                                status.decoded_body_length.InBytes());
     }
   }
 

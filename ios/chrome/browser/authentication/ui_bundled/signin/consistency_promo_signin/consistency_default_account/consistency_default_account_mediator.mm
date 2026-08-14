@@ -173,6 +173,7 @@ NSString* GetPromoLabelString(
     case signin_metrics::AccessPoint::kIndigo:
     case signin_metrics::AccessPoint::kDeepLinkDefault:
     case signin_metrics::AccessPoint::kAgeMismatchSignout:
+    case signin_metrics::AccessPoint::kSignoutUndoSnackbar:
       // Nothing prevents instantiating ConsistencyDefaultAccountViewController
       // with an arbitrary entry point, API-wise. In doubt, no label is a good,
       // generic default that fits all entry points.
@@ -182,8 +183,7 @@ NSString* GetPromoLabelString(
 
 }  // namespace
 
-@interface ConsistencyDefaultAccountMediator () <
-    IdentityManagerObserverBridgeDelegate> {
+@interface ConsistencyDefaultAccountMediator () <IdentityManagerObserving> {
   std::unique_ptr<signin::IdentityManagerObserverBridge>
       _identityManagerObserver;
   signin_metrics::AccessPoint _accessPoint;
@@ -360,7 +360,7 @@ NSString* GetPromoLabelString(
 
 #pragma mark -  IdentityManagerObserver
 
-- (void)onAccountsOnDeviceChanged {
+- (void)accountsOnDeviceDidChange {
   if (_accountManagerService &&
       !_accountManagerService->IsValidIdentity(self.selectedIdentity.gaiaId)) {
     // The currently selected identity is not valid anymore. Let’s select the
@@ -369,7 +369,7 @@ NSString* GetPromoLabelString(
   }
 }
 
-- (void)onExtendedAccountInfoUpdated:(const AccountInfo&)info {
+- (void)extendedAccountInfoDidUpdate:(const AccountInfo&)info {
   id<SystemIdentity> identity =
       _accountManagerService->GetIdentityOnDeviceWithGaiaID(info.gaia);
   [self handleIdentityUpdated:identity];

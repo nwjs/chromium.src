@@ -15,6 +15,7 @@
 #include "chrome/browser/contextual_tasks/jni_headers/ContextualTaskBottomSheetComponentProvider_jni.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
@@ -29,7 +30,11 @@ ContextualTasksPanelHostAndroid::ContextualTasksPanelHostAndroid(
 }
 
 ContextualTasksPanelHostAndroid::~ContextualTasksPanelHostAndroid() {
-  SetWebContents(nullptr);
+  if (web_contents_) {
+    webui::SetBrowserWindowInterface(web_contents_, nullptr);
+    web_contents_->SetDelegate(nullptr);
+    web_contents_ = nullptr;
+  }
 }
 
 void ContextualTasksPanelHostAndroid::AddObserver(
@@ -84,6 +89,10 @@ content::WebContents* ContextualTasksPanelHostAndroid::GetWebContents() {
   return web_contents_.get();
 }
 
+content::WebContents* ContextualTasksPanelHostAndroid::GetToolbarWebContents() {
+  return GetWebContents();
+}
+
 void ContextualTasksPanelHostAndroid::SetWebContents(
     content::WebContents* web_contents) {
   if (web_contents_ == web_contents) {
@@ -91,6 +100,7 @@ void ContextualTasksPanelHostAndroid::SetWebContents(
   }
 
   if (content::WebContents* prev = std::exchange(web_contents_, web_contents)) {
+    webui::SetBrowserWindowInterface(prev, nullptr);
     prev->SetDelegate(nullptr);
   }
 
@@ -98,6 +108,7 @@ void ContextualTasksPanelHostAndroid::SetWebContents(
     return;
   }
 
+  webui::SetBrowserWindowInterface(web_contents_, browser_window_);
   web_contents_->SetDelegate(this);
   if (auto* bridge = GetOrCreateBridge()) {
     views_bridge_->SetWebContents(web_contents, /*request_focus=*/true);
@@ -145,16 +156,21 @@ bool ContextualTasksPanelHostAndroid::HandleKeyboardEvent(
 
 context_sharing::TabBottomSheetBridge*
 ContextualTasksPanelHostAndroid::GetOrCreateBridge() {
-  if (!tab_bottom_sheet_bridge_) {
+  if (!tab_bottom_sheet_bridge_ || !tab_ref_) {
     TabAndroid* tab_android = GetTabAndroid();
     if (!tab_android) {
       return nullptr;
+    }
+    TabListInterface* tab_list = TabListInterface::From(browser_window_);
+    if (tab_list && tab_list->GetActiveTab()) {
+      tab_ref_ = tab_list->GetActiveTab()->GetWeakPtr();
     }
     views_bridge_ = std::make_unique<context_sharing::CoBrowseViewsBridge>(
         *tab_android,
         context_sharing::TabBottomSheetClientType::kContextualTasks,
         context_sharing::CoBrowseContainerType::kBottomSheet,
-        CreateBottomSheetContentProvider());
+        CreateBottomSheetContentProvider(),
+        /*enable_pinch_to_zoom=*/true);
     tab_bottom_sheet_bridge_ =
         std::make_unique<context_sharing::TabBottomSheetBridge>(this,
                                                                 tab_android);

@@ -126,12 +126,12 @@
 <translation id="1396260204083880024">እንደ <ph name="USER_NAME" /> ሆነው ገብተዋል። <ph name="USER_EMAIL" />። የመለያ ምናሌን ክፈት።</translation>
 <translation id="1397144142234474689">ታሪክ ደብቅ</translation>
 <translation id="1399268420835656394">ልጅ ካልሆኑ፣ በዚህ መሣሪያ ላይ ባለው የApple መለያ ውስጥ ያለውን ዕድሜ መፈተሽ ይፈልጉ ይሆናል። <ph name="BEGIN_LINK" />የበለጠ ለመረዳት<ph name="END_LINK" /></translation>
+<translation id="140486444381639942">ከዚህ ቀደም የተሞላ</translation>
 <translation id="1407135791313364759">ሁሉንም ክፈት</translation>
 <translation id="1408847409015257906">«ግላዊነት እና ደህንነት» ላይ መታ ያድርጉ።</translation>
 <translation id="1411386976162024013">የሌንስ ምስላዊ ፍለጋ</translation>
 <translation id="1417474386970818917">ዘግተህ ውጣ እና ሰርዝ</translation>
 <translation id="1426410128494586442">አዎ</translation>
-<translation id="1429187656584513419">የይለፍ ቃሎችን ይክፈቱ</translation>
 <translation id="1430915738399379752">አትም</translation>
 <translation id="1433478348197382180">የንባብ ሁነታ</translation>
 <translation id="1435271730600332883">ራስ-ሙላ እና የይለፍ ቃላትን ይክፈቱ</translation>
@@ -148,6 +148,7 @@
 <translation id="1469381646033328562">የእርስዎ መለያ የሚተዳደረው በወላጅዎ ነው።
 <ph name="BEGIN_LINK" />የበለጠ ለመረዳት<ph name="END_LINK" /></translation>
 <translation id="147982357559798527">ተለውጧል</translation>
+<translation id="1481450969185702334">ያግኙ እና ይሙሉ</translation>
 <translation id="1483493594462132177">ላክ</translation>
 <translation id="1486096554574027028">የይለፍ ቃላትን ፈልግ</translation>
 <translation id="1486593497476255523">የትር ቡድኖች ተጠናቅቀዋል!</translation>
@@ -156,6 +157,7 @@
 <translation id="1497590942294823549">ምናሌ → የሚስጥር ቁልፍ አስተዳዳሪ</translation>
 <translation id="1498283581832036924">የእርስዎ የ<ph name="WEBSITE" /> መለያ አይሰረዝም።</translation>
 <translation id="1503814213414825943">ወደ ሌላ መተግበሪያ መላክ የሚፈልጓቸውን መለያዎች ይምረጡ።</translation>
+<translation id="1503850843654701910"><ph name="USER_NAME" />፣ <ph name="EMAIL" />።</translation>
 <translation id="1506061864768559482">የፍለጋ ፕሮግራም</translation>
 <translation id="1506063256525392513">ይህ ፎቶዎችን እንዲያነሱ እና እንዲሰቅሉና እንዲሁም የQR ኮዶችን እንዲቃኙ ያስችልዎታል</translation>
 <translation id="1506733063065214205">RCS MLS ደንበኛ</translation>
@@ -271,6 +273,7 @@
 <translation id="183878838231635348">ይህ ካርድ የደህንነት ፍተሻ በራስ-ሰር የሚያገኝልዎትን ማንኛውንም የግላዊነት ወይም የደህንነት ችግሮችን ያሳያል።</translation>
 <translation id="1840320537320704887">የአዲስ ትር ገጽ ምርጫዎችዎ ተወግደዋል</translation>
 <translation id="1845230888742614096">ቡድን አቆይ</translation>
+<translation id="1853558655412913122">አሁን የአድራሻ አሞሌውን አቀማመጥ «ቅንብሮች» እና ከዚያም «የአድራሻ አሞሌ» ውስጥ መለወጥ ይችላሉ</translation>
 <translation id="1853692000353488670">አዲስ ማንነት የማያሳውቅ ትር</translation>
 <translation id="1854463785401910334">ክፍት ትሮችን ይፈልጉ</translation>
 <translation id="1860609647735325606">በGemini አብራራ</translation>
@@ -286,6 +289,7 @@
 <translation id="188177382966899059">Deep Search</translation>
 <translation id="188237709236611317">የዘመናዊ ድርድር የምናሌ አሞሌ</translation>
 <translation id="1883255238294161206">ዝርዝር ሰብስብ</translation>
+<translation id="1883898928879467646">ትር ተወግዷል</translation>
 <translation id="1888854257756214946">የይለፍ ቃል ይምረጡ…</translation>
 <translation id="1890237935065108104">ይህ ቅንብር አይገኝም።</translation>
 <translation id="1894023287452300670">ዋጋን እዚህ ይከታተሉ</translation>
@@ -574,6 +578,7 @@
 <translation id="2858204748079866344">የእርስዎን ግላዊነት ለመጠበቅ፣ Chrome በዚህ መስክ ውስጥ የእርስዎን የይለፍ ቃል በራስ-ሰር አይሞላውም።</translation>
 <translation id="2858951819750638913">Gemini Live</translation>
 <translation id="286382692684806520">{COUNT,plural, =1{1 ንጥል (የሰመሩ መሣሪያዎች ላይ ተጨማሪ)}one{# ንጥል (የሰመሩ መሣሪያዎች ላይ ተጨማሪ)}other{# ንጥሎች (የሰመሩ መሣሪያዎች ላይ ተጨማሪ)}}</translation>
+<translation id="2865392654629180917">ማንኛውንም ነገር ይጠይቁ እና በሰው ሠራሽ አስተውሎት የተጎላበቱ ምላሾችን ያግኙ</translation>
 <translation id="2870560284913253234">ጣቢያ</translation>
 <translation id="2876369937070532032">የእርስዎ ደኅንነት አደጋ ላይ ሲወድቅ እርስዎ የሚጎበኙዋቸውን አንዳንድ ገጾች ዩአርኤሎች ወደ Google ይልካል።</translation>
 <translation id="2883151425485251736">ከመለያዎ የደበቋቸውን ርዕሶች ይመልከቱ እና ያርትዑ</translation>
@@ -613,6 +618,7 @@
 <translation id="3037177537145227281">ዋጋዎችን በመከታተል ላይ</translation>
 <translation id="3038136505713492417">የይለፍ ቁልፎችዎን በዚህ መሣሪያ ላይ ለመጠቀም እርስዎ መሆንዎን ያረጋግጡ</translation>
 <translation id="3039671569659952257">አቃፊ ሰርዝ</translation>
+<translation id="3050988301648974170">የይለፍ ቃል ፍተሻን ይክፈቱ</translation>
 <translation id="3053332585453689122">ጎጂ መሆናቸውን ለመፈተሽ የሚጎበኟቸው ዩአርሎችን እና የገፅ ይዘት ትንሽ ናሙናን፣ ውርዶችን፣ የቅጥያ እንቅስቃሴን እና የሥርዓት መረጃን ወደ የGoogle ጥንቃቄ አሰሳ ይልካል።</translation>
 <translation id="3055102495753300780">የመረጃ ማከማቻ</translation>
 <translation id="3059270601560379555">አዲስ ፍለጋ</translation>
@@ -658,6 +664,7 @@
 <translation id="3183362380688692618">አዲስ የትር ቡድን...</translation>
 <translation id="3185760469172949183">በካሜራ ፈልግ ተጠናቅቋል!</translation>
 <translation id="3186796054637504691">ታሪክ እና የድር ጣቢያ ውሂብን አጽዳ</translation>
+<translation id="3190558889382726167">የይለፍ ቃል ተቀምጧል</translation>
 <translation id="3190736958609431397">ክትትል ማድረግ አቁም</translation>
 <translation id="3208260410153224535">ድርጅትዎ በመለያ መግባትን አጥፍቷል። አዳዲስ ዕልባቶች፣ የይለፍ ቃላት እና ሌሎችም በዚህ መሣሪያ ላይ ብቻ ይቀመጣሉ።</translation>
 <translation id="3211969308836412674">ጣቢያን ንቀል</translation>
@@ -852,6 +859,7 @@
 <translation id="3905384981098338147">የሰው ሠራሽ አስተውሎት ሁነታ ታሪክ</translation>
 <translation id="3909222758573607742">የይለፍ ቃላትን እና ሌሎች ንጥሎችን በመለያ ውስጥ ያስቀምጡ</translation>
 <translation id="3913463964270756493">በGoogle ሌንስ የፍለጋ ማያ ገፅን ይደብቁ</translation>
+<translation id="3914173277599553213">የሚያስፈልግ</translation>
 <translation id="3914640181019354363">አድራሻዎችን ይወቁ</translation>
 <translation id="391904960191284041">የምርት ግምገማዎች</translation>
 <translation id="3921585859122905677">የአድራሻ አሞሌ አቀማመጥ</translation>
@@ -973,7 +981,6 @@
 <translation id="4294506173142861371">እንደ <ph name="FIRST_NAME" /> ሆነው ይግቡ?</translation>
 <translation id="4302061870579014542">አቀማመጥ አቀናብር</translation>
 <translation id="4304713468139749426">የይለፍ ቃል አስተዳዳሪ</translation>
-<translation id="4306349443295056740">OCSP መፈረም</translation>
 <translation id="4309403553630140242">ለተጨማሪ መረጃ ሁለቴ መታ ያድርጉ</translation>
 <translation id="4310738531374808763">መነሻ ገጽዎን ያብጁ</translation>
 <translation id="4316794575239200608">ከGemini ጋር የሚኖሩዎት ውይይቶች ወይም እንደ የእርስዎ<ph name="BEGIN_LINK" />የGoogle Workspace ውሂብ<ph name="END_LINK" /> በሰው ገምጋሚዎች አይገመገሙም ወይም ሰው ሠራሽ አስተውሎት አመንጪ ሞዴሎችን ለማሻሻል ጥቅም ላይ አይውሉም።</translation>
@@ -1104,7 +1111,6 @@
 <translation id="4744428388659507035">እልባቶችዎን በሁሉም መሣሪያዎችዎ ላይ ለማግኘት፣ ቅንብሮች ውስጥ "እልባቶች"ን ያብሩ።</translation>
 <translation id="4746926359847517643">በማንኛውም ጊዜ በታሪክ ውስጥ መልሰው ሊያገኟቸው ይችላሉ።</translation>
 <translation id="4749529195026091676">{count,plural, =1{{count} ካርድ መቷል}one{{count} ካርድ መቷል}other{{count} ካርዶች መተዋል}}</translation>
-<translation id="4749924365937394956">የአገልጋይ ማረጋገጫ</translation>
 <translation id="4751645464639803239">አዲስ ማንነት የማያሳውቅ ትር</translation>
 <translation id="4752348350801431746">የደህንነት ፍተሻ ማሳወቂያዎችን አጥፋ…</translation>
 <translation id="4759238208242260848">የወረዱ</translation>
@@ -1185,6 +1191,7 @@
 <translation id="4985921635659180565">አንዴ ፋይል እንዲሰረዝ መርሐግብር ከተያዘለት በኋላ ሊቀር አይችልም።</translation>
 <translation id="498624032394115435">አገናኙ ያለው ማንኛውም ሰው ሁሉንም ትሮች ማርትዕ ይችላል።</translation>
 <translation id="499122600724363620"><ph name="NAME" />፣ <ph name="EMAIL" />፣ በድርጅትዎ የሚተዳደር።</translation>
+<translation id="4991383000638469704"><ph name="USER_NAME" />፣ <ph name="EMAIL" />። <ph name="AI_TIER" />።</translation>
 <translation id="4992255726304765516">የትር ቡድን ቀለም <ph name="COLOR" /></translation>
 <translation id="5005498671520578047">የይለፍ ቃል ቅዳ</translation>
 <translation id="5009127379503001909">ማሰስ ይቀጥሉ</translation>
@@ -1193,6 +1200,7 @@
 <translation id="5017529052065664584">ያለፉት 15 ደቂቃዎች</translation>
 <translation id="5020732097997376541">«የሌንስ አዶ» የሚለውን መታ ያድርጉ</translation>
 <translation id="5021500396464456616">ይህን አገናኝ የላከውን ሰው ያነጋግሩ</translation>
+<translation id="503173149952522259">ይህን ትር ፒን ለማድረግ ተጭነው ይያዙ</translation>
 <translation id="5039804452771397117">ፍቀድ</translation>
 <translation id="5050042263972837708">የቡድን ስም</translation>
 <translation id="5050810143224996149">የይለፍ ቃል ያጋሩ</translation>
@@ -1448,7 +1456,6 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="5859715514067755465">ወደፊት</translation>
 <translation id="5860491529813859533">አብራ</translation>
 <translation id="5868644772996939262">የይለፍ ቃላትን እና የይለፍ ቁልፎችን ራስ-ሙላ</translation>
-<translation id="5869522115854928033">የተቀመጡ የይለፍ ቃሎች</translation>
 <translation id="5873179562631407582">ማናቸውም ክፍት ትሮች ላይ መታ አድርገው ይያዙ</translation>
 <translation id="5887400589839399685">ካርድ ተቀምጧል</translation>
 <translation id="5888889603768021126">በሚከተለው በመለያ ተገብቷል</translation>
@@ -1492,7 +1499,6 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="6027619584715411062">የእርስዎን እልባቶች፣ የይለፍ ቃላት እና ሌሎችንም በሁሉም መሣሪያዎችዎ ላይ ለማግኘት በመለያ ይግቡ።</translation>
 <translation id="6027945736510816438"><ph name="WEBSITE" /> ለማለት ፈልገው ነው?</translation>
 <translation id="6032845897905314562">አዲስ ባህሪ</translation>
-<translation id="6037458223703682108">ዲጂታል ፊርማ</translation>
 <translation id="6038823991892265570">Google ማከማቻን ያስተዳድሩ</translation>
 <translation id="6039429417015973673"><ph name="TITLE" />፣ <ph name="PUBLISHER_INFORMATION" />፣ <ph name="PUBLICATION_DATE" /></translation>
 <translation id="6040143037577758943">ዝጋ</translation>
@@ -1624,6 +1630,7 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="6406506848690869874">አመሳስል</translation>
 <translation id="6410390304316730527">የጥንቃቄ አሰሳ እንደ ተንኮል-አዘል ሶፍትዌር መጫን ያለ አደገኛ ነገር እንዲያደርጉ ወይም እንደ የይለፍ ቃላት፣ ስልክ ቁጥሮች ወይም ክሬዲት ካርዶች ያለ የግል መረጃን እንዲገልጡ እርስዎን ሊያታልሉዎ ከሚችሉ አጥቂዎች ይጠብቀዎታል። ካጠፉት ያልተለመደ ወይም ስማቸው ጥሩ ያልሆኑ ጣቢያዎችን ሲያስሱ ይጠንቀቁ።</translation>
 <translation id="6410883413783534063">በተመሳሳይ ጊዜ የተለያዩ ገጾችን ለመጎብኘት ትሮችን ይክፈቱ</translation>
+<translation id="6412195388778525440">ትርን አስወግድ</translation>
 <translation id="6418346271604475326">ፒዲኤፍ በመዘጋጀት ላይ</translation>
 <translation id="6420292512900923139">ውሂብዎን በማስመጣት ላይ ያለ ችግር</translation>
 <translation id="6421038304268477484">የተተረጎመ ጽሑፍ</translation>
@@ -1647,7 +1654,6 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="6476284679642588870">የመክፈያ ዘዴዎችን ያቀናብሩ</translation>
 <translation id="6476800141292307438">ገጹን ወደ <ph name="LANGUAGE" /> በመተርጎም ላይ። አማራጮች ከማያ ገጹ ግርጌ አጠገብ ይገኛሉ።</translation>
 <translation id="647867789226964031">የይለፍ ቃላትዎን ይለውጡ</translation>
-<translation id="6480363549849064919">የደንበኛ ማረጋገጫ</translation>
 <translation id="6489174933860678546">ድሩን ይበልጥ በግል ለማሰስ ማንነት የማያሳውቁ ትሮችን ይክፈቱ።</translation>
 <translation id="6489775505977274806">ደረጃ ከፍ ማድረግን ደብቅ</translation>
 <translation id="6494931198667773526">ያበቃል</translation>
@@ -1684,7 +1690,6 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="6589001036857939353">የተባዙትን አዋህድ</translation>
 <translation id="659407965921887085">ይህ ካርድ በአሁኑ ጊዜ እርስዎ በሚከታተሏቸው ምርቶች ላይ በድሩ ላይ የዋጋ ቅነሳዎች ያሳያል</translation>
 <translation id="6596481460663245319">ምስልን በGoogle ይፈልጉ</translation>
-<translation id="6598432073497341323">{COUNT,plural, =1{1 የይለፍ ቃል}one{# የይለፍ ቃል}other{# የይለፍ ቃላት}}</translation>
 <translation id="6601302169302852717">በGoogle ፎቶዎች ውስጥ ለ<ph name="USER_EMAIL" /> ምስል ተቀምጧል</translation>
 <translation id="6602173570135186741">ራስ-ሙላ እና የይለፍ ቃላት</translation>
 <translation id="6603393121510733479">የእርስዎ ድርጅት የግል አሰሳዎችን አጥፍቷል።
@@ -1800,6 +1805,7 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="6924299883035848912">የአሰሳ ውሂብን ሰርዝን ደብቅ</translation>
 <translation id="6930162026494574854">የትርጉም ቅንብሮችን ዳግም አስጀምር</translation>
 <translation id="6930799952781667037">ወደዚህ ቋንቋ ለመለወጥ መታ ያድርጉ።</translation>
+<translation id="6932739965694346873"><ph name="USER_NAME" />፣ <ph name="EMAIL" />። <ph name="MANAGED_STATUS" />።</translation>
 <translation id="693761253105515415">የይለፍ ኮድ ያዋቅሩ</translation>
 <translation id="6945221475159498467">ይምረጡ</translation>
 <translation id="6946722113367118030">በማሰብ ላይ</translation>
@@ -1849,6 +1855,7 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="713215255510512027"><ph name="FILENAME" /> (<ph name="FILESIZE" />)</translation>
 <translation id="7136892417564438900">ካሜራ አይገኝም</translation>
 <translation id="7138678301420049075">ሌላ</translation>
+<translation id="7140355148730164340"><ph name="EMAIL" />። <ph name="AI_TIER" />።</translation>
 <translation id="7141960840225504692">የእርስዎ ትሮች ይዘጋሉ እና የአሰሳ ውሂብ ይሰረዛሉ</translation>
 <translation id="714291438898585119">ኮከብ የተደረገባቸው</translation>
 <translation id="7145337554745942724">የመንጃ ፈቃድን ያዘምኑ</translation>
@@ -1878,7 +1885,6 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="7233006041370588369">የሚሞላ የይለፍ ቃል ይምረጡ።</translation>
 <translation id="723874023660911012">መገለጫዎችን ቀይር</translation>
 <translation id="7241135764990439166">ማንነት የማያሳውቅ ሁነታ አይገኝም</translation>
-<translation id="7248046129087111453"><ph name="BEGIN_LINK" />የፍለጋ ታሪክ<ph name="END_LINK" /> እና <ph name="BEGIN_LINK" />ሌሎች የእንቅስቃሴ ቅፆች<ph name="END_LINK" /> በGoogle መለያዎ ውስጥ ሊቀመጡ ይችላሉ።</translation>
 <translation id="7253951228444156601">የይለፍ ቃላትን በመፈተሽ ላይ…</translation>
 <translation id="7261217796641151584">ቡድንን አጋራ</translation>
 <translation id="7266578100016339897">ይህ እንደተደራጁ እንዲቆዩ ያግዝዎታል። ይህን በቅንብሮች ውስጥ በማንኛውም ጊዜ መለወጥ ይችላሉ።</translation>
@@ -1915,12 +1921,14 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="7402602673739047753">{count,plural, =1{1 ዕልባት ብቻ በዚህ መሣሪያ ላይ ተቀምጧል። በሌሎች መሣሪያዎችዎ ላይ እሱን ለመጠቀም በእርስዎ Google መለያ {email} ውስጥ ያስቀምጡት።}one{{count} ዕልባት ብቻ በዚህ መሣሪያ ላይ ተቀምጧል። በሌሎች መሣሪያዎችዎ ላይ እሱን ለመጠቀም በእርስዎ Google መለያ {email} ውስጥ ያስቀምጡት።}other{{count} ዕልባቶች ብቻ በዚህ መሣሪያ ላይ ተቀምጠዋል። በሌሎች መሣሪያዎችዎ ላይ እነሱን ለመጠቀም በእርስዎ Google መለያ {email} ውስጥ ያስቀምጧቸው።}}</translation>
 <translation id="7403227077090127147"><ph name="USER_NAME" /> (<ph name="USER_EMAIL" />) ወዲያውኑ ለ«<ph name="GROUP_NAME" />» የትር ቡድን መዳረሻ ያጣሉ</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> ያልተነበቡ ጽሑፎች።</translation>
+<translation id="7411034503745719324"><ph name="EMAIL" />። <ph name="MANAGED_STATUS" />።</translation>
 <translation id="7412027924265291969">ቀጥል</translation>
 <translation id="741204030948306876">አዎ፣ ገብቼያለሁ</translation>
 <translation id="7419565702166471774">ሁልጊዜ ደህንነታቸው የተጠበቁ ግንኙነቶችን ይጠቀሙ</translation>
 <translation id="7425053386765766120">የመክፈያ ዘዴን ያክሉ…</translation>
 <translation id="7425346204213733349">በእርስዎ ዕልባቶች፣ ታሪክ፣ የይለፍ ቃላት እና ሌሎች ቅንብሮች ላይ የተደረጉ ለውጦች ከአሁን በኋላ ከእርስዎ የGoogle መለያ ጋር አይሠምሩም። ሆኖም ግን ነባር ውሂብዎ በእርስዎ የGoogle መለያ ላይ እንደተከማቸ ይቆያል።</translation>
 <translation id="742664698522525515">ቡድን ይቆይ?</translation>
+<translation id="7426745633088095666">የተጋሩ ትሮች</translation>
 <translation id="7431851541687113774">የአድራሻ ማወቂያን አጥፋ</translation>
 <translation id="7431991332293347422">ፍለጋን እና ተጨማሪ ነገሮችን ግላዊነት ለማላበስ የእርስዎ የአሰሳ ታሪክ እንዴት ጥቅም ላይ እንደሚውል ይቆጣጠሩ</translation>
 <translation id="7435356471928173109">በአስተዳዳሪዎ ጠፍቷል</translation>
@@ -2009,6 +2017,7 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="7696316012653762532">ገፁን የመተርጎም አማራጮች</translation>
 <translation id="7700527812567437847">በGoogle ሌንስ ማያ ገፅ ውስጥ ይፈልጉ</translation>
 <translation id="7701040980221191251">ምንም</translation>
+<translation id="7702428539671224160"><ph name="URL" /> ላይ የክፍያ መረጃን በራስ-ሙላ</translation>
 <translation id="7708994397325774423">ሁሉንም የይለፍ ቃላትዎን ያግኙ</translation>
 <translation id="7711440461521638739">ምንም የይለፍ ቃላትን ዳግም እየተጠቀሙ አይደለም</translation>
 <translation id="7712361583414030698">ከመስመር ውጭ ሥሪቱን በመመልከት ላይ</translation>
@@ -2188,7 +2197,6 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="8264966119170358612">ከእርስዎ የተቀመጡ የይለፍ ቃላት መካከል አንዳንዶቹ የGoogle ባልሆነ የውሂብ ጥሰት ተጋልጠው ነበረ። <ph name="BEGIN_LINK" />የበለጠ ለመረዳት<ph name="END_LINK" /></translation>
 <translation id="826614135184049678">እንደ የእርስዎ iPad ዳግም ማስጀመር አንድ አካል ከመለያዎ <ph name="USER_NAME" /> ዘግተው ወጥተዋል። ተመልሰው በመለያ ለመግባት ከታች «ቀጥል»ን መታ ያድርጉ።</translation>
 <translation id="8270320981823560179">Drive</translation>
-<translation id="8273982424131314219">መረጃ ወደ <ph name="URL" /> ውስጥ ይሞላሉ</translation>
 <translation id="8274795744553482834">መገለጫዎችን ሊቀይሩ ነው</translation>
 <translation id="8275068909952022340">ተጨማሪ…</translation>
 <translation id="8280797717392145626">የደረሱ አገናኞች</translation>
@@ -2201,6 +2209,7 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="8292893224181644074">ማውረድ ተጠናቋል</translation>
 <translation id="8299417921174340354">የይለፍ ቃላትን ለመጠቀም መጀመሪያ በመሣሪያዎ ላይ የይለፍ ኮድ ማቀናበር አለብዎት።</translation>
 <translation id="8307481894409578819">ይህን ፋይል መስቀል አልተቻለም</translation>
+<translation id="8311561577623915832"><ph name="EMAIL" />። <ph name="MANAGED_STATUS" />። <ph name="AI_TIER" />።</translation>
 <translation id="8319076807703933069">አዲስ ፍለጋ</translation>
 <translation id="8319282042900445670">አስታዋሽ ለ<ph name="TIME" />፣ <ph name="DATE" /> ተቀናብሯል</translation>
 <translation id="8320212361750431956">የቅርብ ጊዜ እንቅስቃሴ</translation>
@@ -2309,6 +2318,7 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="8643403533759285912">ቡድን ይሰርዙ</translation>
 <translation id="8647280737650867362">ዋጋውን አለመከታተል አልተቻለም።</translation>
 <translation id="8654802032646794042">ይቅር</translation>
+<translation id="8655861111558401309">የአሰሳ ውሂብን ሰርዝ የሚለውን ይምረጡ</translation>
 <translation id="8659875081143553823">አንዴ ይጠብቁ</translation>
 <translation id="8660600697590740984">በሌንስ የተቀዳ ምስል</translation>
 <translation id="866266761389616183">ውይ፣ ተሰናከለ!</translation>
@@ -2326,7 +2336,6 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="8692689525339542358">ከአደገኛ ጣቢያዎች፣ ውርዶች እና ቅጥያዎች ጥበቃ ያግኙ።</translation>
 <translation id="8692897097252418799">ወደ ውጭ መላክ የሚፈልጉትን ውሂብ ይምረጡ</translation>
 <translation id="8694281486652655615">ይህን ንጥል ያሳያል</translation>
-<translation id="8696297579102085705">ወደ የእርስዎ መሣሪያ ይላኩ</translation>
 <translation id="8697136149718343437">የአድራሻ አሞሌን ወደታች ይውሰዱ</translation>
 <translation id="869891660844655955">የሚያበቀበት ጊዜ</translation>
 <translation id="8706253136355675497">የሙቀት መጠን</translation>
@@ -2423,6 +2432,7 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="8988107725234939347"><ph name="WEBSITE_TITLE" />፣ የተሰካ ጣቢያ</translation>
 <translation id="8990960056509724223">በድርጅትዎ መመሪያዎች ምክንያት ፋይልን ማስቀመጥ አልተቻለም</translation>
 <translation id="8998289560386111590">መሣሪያዎ ላይ አይገኝም</translation>
+<translation id="9003263770394939629">በGemini የተጠቆመ። በቅንብሮች ውስጥ የተሻሻለ ራስ-ሙላን ያስተዳድሩ።</translation>
 <translation id="9003677638446136377">እንደገና ፈትሽ</translation>
 <translation id="9006453925669499173">ምናሌ → አዲስ ማንነት የማያሳውቅ ትር</translation>
 <translation id="9008201768610948239">ችላ በል</translation>
@@ -2430,6 +2440,7 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="9013605037177245304">ማሳወቂያዎችን ያብሩ</translation>
 <translation id="9029650858822697271">እርስዎ ዘግተው ወጥተዋል</translation>
 <translation id="9032405509996909363">የአሰሳ ውሂብን ሰርዝን ያረጋግጡ</translation>
+<translation id="9035699147763101514">በGemini በግል ብልሃት የተጎላበተ። በቅንብሮች ውስጥ ምርጫዎችዎን ያስተዳድሩ።</translation>
 <translation id="9039373489628511875">መተላለፊያ ይዘት</translation>
 <translation id="9042893549633094279">ግላዊነት እና ደኅንነት</translation>
 <translation id="9055291197094969722">ክፍት ትሮችዎን ለማደራጀት የትር ቡድኖችን ይፍጠሩ እና ምርታማ ሆነው ይቆዩ</translation>
@@ -2441,6 +2452,7 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="9070824521421603770">እርስዎ ዘግተው እንዲወጡ ይደረጋሉ እና ትሮች ይዘጋሉ</translation>
 <translation id="9072837124205571418">ከሁሉም መሣሪያዎች የትር ቡድኖች</translation>
 <translation id="9081058212938299310">የ<ph name="USERNAME" /> ይለፍ ቃል ይዘመን?</translation>
+<translation id="908365381820697818">አሁን ከGmail እና ሌሎችም መረጃ ማግኘት እና መሙላት ይችላሉ</translation>
 <translation id="9083838294503912307">በመላ መሣሪያዎች ላይ ለማስመር እና ግላዊነትን ለማላበስ ስምረትን ያብሩ።</translation>
 <translation id="9084367296493549256">{count,plural, =1{የእርስዎን ደህንነት ስጋት ውስጥ ሊያስገባ የሚችል {count} ደካማ የይለፍ ቃል አለዎት። ደህንነትዎን እንደተጠበቀ ለማቆየት አሁን ያስተካክሉት።}one{የእርስዎን ደህንነት ስጋት ውስጥ ሊያስገባ የሚችል {count} ደካማ የይለፍ ቃል አለዎት። ደህንነትዎን እንደተጠበቀ ለማቆየት አሁን ያስተካክሉት።}other{የእርስዎን ደህንነት ስጋት ውስጥ ሊያስገቡ የሚችሉ {count} ደካማ የይለፍ ቃላት አሉዎት። ደህንነትዎን እንደተጠበቀ ለማቆየት አሁን እነሱን ያስተካክሉ።}}</translation>
 <translation id="9084369964545892485">በቡድን ውስጥ አዲስ ማንነት የማያሳውቅ ትር</translation>
@@ -2485,6 +2497,7 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="9219154867334666734">ትሮችን ይፈልጉ…</translation>
 <translation id="9223358826628549784">የብልሽት ሪፖርት ተልኳል።</translation>
 <translation id="926455622548529175">ቀይር እና ሰርዝ</translation>
+<translation id="927648083916327561"><ph name="USER_NAME" />፣ <ph name="EMAIL" />። <ph name="MANAGED_STATUS" />። <ph name="AI_TIER" />።</translation>
 <translation id="929748059769569925">የደመቀው ጽሁፍ</translation>
 <translation id="932305336591073205">{count,plural, =1{ትርን ዝጋ}one{ትርን ዝጋ}other{ትሮችን ዝጋ}}</translation>
 <translation id="939472100615258482">የአሁኑ ጣቢያ</translation>

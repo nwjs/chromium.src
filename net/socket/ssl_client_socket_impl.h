@@ -193,8 +193,7 @@ class NET_EXPORT_PRIVATE SSLClientSocketImpl
   // Called whenever BoringSSL processes a protocol message.
   void MessageCallback(int is_write,
                        int content_type,
-                       const void* buf,
-                       size_t len);
+                       base::span<const uint8_t> bytes);
 
   void LogConnectEndEvent(int rv);
 
@@ -207,6 +206,10 @@ class NET_EXPORT_PRIVATE SSLClientSocketImpl
   int MapLastOpenSSLError(int ssl_error,
                           const crypto::OpenSSLErrStackTracer& tracer,
                           OpenSSLErrorInfo* info);
+
+  // Configures BoringSSL's ECH options based on the EchMode for the current
+  // host. Returns OK on success and a net error code on failure.
+  int ConfigureEch();
 
   // Wraps SSL_get0_ech_name_override. See documentation for that function.
   std::string_view GetECHNameOverride() const;

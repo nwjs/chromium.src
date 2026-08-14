@@ -1764,8 +1764,9 @@ unsigned ConversionFlagsToUnitFlags(
                           static_cast<Flags>(Flag::kGlyphRelative))) {
     unit_flags |= UnitFlags::kFontRelative;
   }
-  if (conversion_flags & (static_cast<Flags>(Flag::kRootFontRelative))) {
-    unit_flags |= UnitFlags::kRootFontRelative;
+  if (conversion_flags & (static_cast<Flags>(Flag::kRootFontRelative) |
+                          static_cast<Flags>(Flag::kRlhRelative))) {
+    unit_flags |= UnitFlags::kRootRelative;
   }
   if (conversion_flags & static_cast<Flags>(Flag::kDynamicViewport)) {
     unit_flags |= UnitFlags::kDynamicViewport;
@@ -1779,6 +1780,9 @@ unsigned ConversionFlagsToUnitFlags(
   }
   if (conversion_flags & static_cast<Flags>(Flag::kSiblingRelative)) {
     unit_flags |= UnitFlags::kTreeCounting;
+  }
+  if (conversion_flags & static_cast<Flags>(Flag::kLhRelative)) {
+    unit_flags |= UnitFlags::kLineHeightRelative;
   }
 
   return unit_flags;
@@ -1807,6 +1811,7 @@ KleeneValue MediaQueryEvaluator::EvalStyleFeature(
 
     StyleResolverState state(*document, *container);
     state.CreateNewClonedStyle(container->ComputedStyleRef());
+    state.UpdateLineHeight();
     const auto* context = MakeGarbageCollected<CSSParserContext>(*document);
 
     const CSSValue* reference = StyleCascade::CoerceIntoNumericValue(
@@ -1899,7 +1904,7 @@ KleeneValue MediaQueryEvaluator::EvalStyleFeature(
   }
 
   const CSSValue* computed_value =
-      CustomProperty(property_name, *media_values_->GetDocument())
+      CustomProperty(&property_name, *media_values_->GetDocument())
           .CSSValueFromComputedStyle(
               container->ComputedStyleRef(), nullptr /* layout_object */,
               false /* allow_visited_style */, CSSValuePhase::kComputedValue);

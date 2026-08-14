@@ -12,20 +12,23 @@ namespace features {
 
 // DSE Prewarm tracked at https://crbug.com/406378765.
 BASE_DECLARE_FEATURE(kPrewarm);
+BASE_DECLARE_FEATURE(kPrewarmZeroSuggestTrigger);
 BASE_DECLARE_FEATURE_PARAM(std::string, kPrewarmUrl);
-BASE_DECLARE_FEATURE_PARAM(bool, kPrewarmZeroSuggestTrigger);
-BASE_DECLARE_FEATURE_PARAM(bool, kPrewarmUserInteractionTrigger);
 BASE_DECLARE_FEATURE_PARAM(bool, kPrewarmRevalidate);
 BASE_DECLARE_FEATURE_PARAM(bool, kPrewarmThrottlePrefetch);
 BASE_DECLARE_FEATURE_PARAM(bool, kPrewarmThrottleUserNavigation);
 BASE_DECLARE_FEATURE_PARAM(bool, kForceEnableWithDevTools);
 BASE_DECLARE_FEATURE_PARAM(int, kMinMemoryThresholdMb);
 BASE_DECLARE_FEATURE_PARAM(int, kMaxBlackoutDurationSeconds);
+BASE_DECLARE_FEATURE(kPrewarmDisableOnStartup);
 
 // If enabled, requests the compositor warm-up (crbug.com/41496019) for
 // each prerender trigger.
 BASE_DECLARE_FEATURE(kPrerender2WarmUpCompositorForBookmarkBar);
 BASE_DECLARE_FEATURE(kPrerender2WarmUpCompositorForNewTabPage);
+
+// Controls whether Omnibox Direct URL Input (DUI) prerendering is enabled.
+BASE_DECLARE_FEATURE(kOmniboxDuiPrerendering);
 
 }  // namespace features
 

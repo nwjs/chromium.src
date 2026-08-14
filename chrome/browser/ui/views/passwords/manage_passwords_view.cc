@@ -34,11 +34,8 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/favicon_size.h"
 #include "ui/views/controls/styled_label.h"
-#include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/flex_layout.h"
 #include "ui/views/layout/flex_layout_view.h"
-#include "ui/views/layout/table_layout.h"
-#include "ui/views/layout/table_layout_view.h"
 #include "ui/views/view_class_properties.h"
 
 using password_manager::metrics_util::PasswordManagementBubbleInteractions;
@@ -369,13 +366,12 @@ void ManagePasswordsView::OnFaviconReady(const gfx::Image& favicon) {
 
 ui::ImageModel ManagePasswordsView::GetFaviconImageModel() const {
   // Use a globe fallback icon until the actual favicon is loaded.
-  return favicon_.IsEmpty() ? ui::ImageModel::FromVectorIcon(
-                                  features::IsRoundedIconsEnabled() ? kGlobeIcon
-                                  : features::IsRoundedIconsEnabled()
-                                      ? vector_icons::kGlobeIcon
-                                      : kGlobeOldIcon,
-                                  ui::kColorIcon, gfx::kFaviconSize)
-                            : ui::ImageModel::FromImage(favicon_);
+  return favicon_.IsEmpty()
+             ? ui::ImageModel::FromVectorIcon(features::IsRoundedIconsEnabled()
+                                                  ? kGlobeIcon
+                                                  : kGlobeOldIcon,
+                                              ui::kColorIcon, gfx::kFaviconSize)
+             : ui::ImageModel::FromImage(favicon_);
 }
 
 void ManagePasswordsView::AuthenticateUserAndDisplayDetailsOf(

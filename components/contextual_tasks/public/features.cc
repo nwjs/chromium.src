@@ -4,6 +4,7 @@
 
 #include "components/contextual_tasks/public/features.h"
 
+#include <limits>
 #include <optional>
 #include <string>
 #include <vector>
@@ -79,6 +80,10 @@ BASE_FEATURE(kContextualTasksSuggestionsEnabled,
 BASE_FEATURE(kContextualTasksShowOnboardingTooltip,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Bypasses the dismissed cap for contextual tasks.
+BASE_FEATURE(kContextualTasksBypassDismissedCap,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Overrides the value of EntryPointEligibilitymanager::IsEligible to true.
 BASE_FEATURE(kContextualTasksForceEntryPointEligibility,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -126,6 +131,8 @@ BASE_FEATURE(kContextualTasksRoundedClipPath, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kContextualTasksHideMenuOnAiPage,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kContextualTasksUnboundedMenu, base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kContextualTasksHideCloseButtonInVerticalTabs,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -144,6 +151,10 @@ BASE_FEATURE(kContextualTasksCustomNlmUi, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kContextualTasksBackButtonExpandsSidePanel,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, close tab actions can expand the side panel.
+BASE_FEATURE(kContextualTasksCloseTabExpandsSidePanel,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables the use of APC comparison for webpages in the recontextualization
 // flow.
 BASE_FEATURE(kContextualTasksWebpageApcComparison,
@@ -158,7 +169,7 @@ BASE_FEATURE(kContextualTasksOverrideShowBottomSheetOnLargeScreen,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables prefetching of cookies for contextual tasks.
-BASE_FEATURE(kContextualTasksCookiePrefetch, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kContextualTasksCookiePrefetch, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAimTriggeredThreadLinks, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -293,7 +304,7 @@ const base::FeatureParam<base::TimeDelta> kPreviousTabRecencyThreshold(
     base::Seconds(30));
 
 const base::FeatureParam<std::string> kQueryEmbeddingTask{
-    &kContextualTasksContext, "ContextualTasksContextQueryEmbeddingTask", "question answering"};
+    &kContextualTasksContext, "ContextualTasksContextQueryEmbeddingTask", ""};
 
 const base::FeatureParam<bool> kContextualTasksContextSmartTabSharing(
     &kContextualTasksContext,
@@ -367,6 +378,9 @@ const base::FeatureParam<SmartTabSharingMegaplusStringOption>
 const base::FeatureParam<double> kContextualTasksContextLoggingSampleRate{
     &kContextualTasksContextLogging, "ContextualTasksContextLoggingSampleRate",
     1.0};
+
+const base::FeatureParam<int> kMinQueryWords{
+    &kContextualTasksContext, "ContextualTasksContextMinQueryWords", 3};
 
 const base::FeatureParam<bool> kSendContextualInputUploadTypeInSearchUrl{
     &kContextualTasksSendContextualInputUploadType, "send_in_search_url", true};
@@ -453,6 +467,11 @@ const base::FeatureParam<std::string> kContextualTasksHelpUrl(
     &kContextualTasks,
     "ContextualTasksHelpUrl",
     "https://support.google.com/websearch/");
+
+const base::FeatureParam<std::string> kContextualTasksOverflowMenuHelpUrl(
+    &kContextualTasks,
+    "ContextualTasksOverflowMenuHelpUrl",
+    "https://support.google.com/chrome/answer/17025061");
 
 const base::FeatureParam<bool> kEnableProtectedPageError(
     &kContextualTasks,
@@ -556,12 +575,18 @@ int GetContextualTasksOnboardingTooltipDismissedCap() {
   if (!base::FeatureList::IsEnabled(kContextualTasksShowOnboardingTooltip)) {
     return 0;
   }
+  if (base::FeatureList::IsEnabled(kContextualTasksBypassDismissedCap)) {
+    return std::numeric_limits<int>::max();
+  }
   return kContextualTasksOnboardingTooltipDismissedCap.Get();
 }
 
 int GetContextualTasksLensSearchTooltipDismissedCap() {
   if (!base::FeatureList::IsEnabled(kContextualTasksShowOnboardingTooltip)) {
     return 0;
+  }
+  if (base::FeatureList::IsEnabled(kContextualTasksBypassDismissedCap)) {
+    return std::numeric_limits<int>::max();
   }
   return kContextualTasksLensSearchTooltipDismissedCap.Get();
 }
@@ -727,6 +752,10 @@ std::string GetContextualTasksHelpUrl() {
   return kContextualTasksHelpUrl.Get();
 }
 
+std::string GetContextualTasksOverflowMenuHelpUrl() {
+  return kContextualTasksOverflowMenuHelpUrl.Get();
+}
+
 bool GetEnableContextualTasksSmartCompose() {
   return base::FeatureList::IsEnabled(kContextualTasks) &&
          kEnableContextualTasksSmartCompose.Get();
@@ -790,6 +819,14 @@ bool GetIsWebpageApcComparisonEnabled() {
   return base::FeatureList::IsEnabled(kContextualTasksWebpageApcComparison);
 }
 
+bool IsContextualTasksRearchitectureEnabled() {
+  return base::FeatureList::IsEnabled(kContextualTasksRearchitecture);
+}
+
+bool IsContextualTasksSidePanelRearchitectureEnabled() {
+  return base::FeatureList::IsEnabled(kContextualTasksSidePanelRearchitecture);
+}
+
 bool IsContextualTasksUIEnabled() {
   return base::FeatureList::IsEnabled(kContextualTasksSidePanel) ||
          base::FeatureList::IsEnabled(kContextualTasks);
@@ -839,6 +876,11 @@ const char kContextualTasksBackButtonExpandsSidePanelName[] =
 const char kContextualTasksBackButtonExpandsSidePanelDescription[] =
     "Enables expanding the side panel on back navigations.";
 
+const char kContextualTasksCloseTabExpandsSidePanelName[] =
+    "Contextual Tasks Close Tab Expands Side Panel";
+const char kContextualTasksCloseTabExpandsSidePanelDescription[] =
+    "Enables expanding the contextual tasks side panel on close tab actions.";
+
 const char kContextualTasksOverrideShowBottomSheetOnLargeScreenName[] =
     "Override Show Bottom Sheet On Large Screen for Contextual Tasks";
 const char kContextualTasksOverrideShowBottomSheetOnLargeScreenDescription[] =
@@ -880,6 +922,13 @@ const char kContextualTasksSidePanelRearchitectureName[] =
     "Contextual Tasks Side Panel Rearchitecture";
 const char kContextualTasksSidePanelRearchitectureDescription[] =
     "Enables the side panel rearchitecture for contextual tasks.";
+
+const char kContextualTasksBypassDismissedCapName[] =
+    "Contextual Tasks Bypass Dismissed Cap";
+const char kContextualTasksBypassDismissedCapDescription[] =
+    "Debugging flag that bypasses the dismissal count limit for contextual "
+    "tasks tooltips, allowing them to be shown even after the user has "
+    "dismissed them.";
 
 }  // namespace flag_descriptions
 

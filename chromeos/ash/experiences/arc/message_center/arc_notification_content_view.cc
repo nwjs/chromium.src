@@ -298,6 +298,9 @@ ArcNotificationContentView::ArcNotificationContentView(
       message_view_(message_view),
       control_buttons_view_(message_view) {
   DCHECK(message_view);
+  // ArcNotificationContentsView creates its own layer, so NVH do not need
+  // to create one.
+  SetCreateLayer(false);
 
   control_buttons_view_.SetButtonIconColors(cros_tokens::kIconColorPrimary);
   control_buttons_view_.SetNotificationControlButtonFactory(
@@ -424,7 +427,7 @@ void ArcNotificationContentView::UpdateCornerRadius(float top_radius,
   contents_radii_ = gfx::RoundedCornersF(top_radius, top_radius, bottom_radius,
                                          bottom_radius);
   if (GetWidget()) {
-    SetCornerRadii(contents_radii_);
+    SetNativeViewCornerRadii(contents_radii_);
   }
 }
 
@@ -660,7 +663,7 @@ void ArcNotificationContentView::AddedToWidget() {
     HideCopiedSurface();
   }
 
-  SetCornerRadii(contents_radii_);
+  SetNativeViewCornerRadii(contents_radii_);
 }
 
 void ArcNotificationContentView::RemovedFromWidget() {

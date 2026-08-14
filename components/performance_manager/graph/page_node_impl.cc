@@ -59,7 +59,7 @@ perfetto::StaticString PageNodeVisibilityToString(const bool& is_visible) {
   if (is_visible) {
     return "Visible";
   } else {
-    return "Not Visible";
+    return nullptr;
   }
 }
 
@@ -71,7 +71,7 @@ PageNodeImpl::PageNodeImpl(base::WeakPtr<content::WebContents> web_contents,
                            const GURL& visible_url,
                            PagePropertyFlags initial_properties,
                            base::TimeTicks visibility_change_time,
-                           const perfetto::NamedTrack& tracing_track)
+                           const perfetto::Track& tracing_track)
     : web_contents_(std::move(web_contents)),
       page_token_(page_token),
       frames_track_("Frames", 0, tracing_track),
@@ -311,7 +311,8 @@ void PageNodeImpl::TraceFrame(base::PassKey<FrameNodeImpl>,
       frame_node->IsMainFrame() ? "MainFrameAttached" : "FrameAttached";
   TRACE_EVENT_INSTANT("performance_manager.graph",
                       perfetto::StaticString(event_name), frames_track_,
-                      perfetto::Flow::FromPointer(frame_node));
+                      perfetto::Flow::Global(base::UnguessableTokenHash()(
+                          frame_node->GetFrameToken().value())));
 }
 
 void PageNodeImpl::RemoveFrame(base::PassKey<FrameNodeImpl>,
@@ -328,9 +329,11 @@ void PageNodeImpl::RemoveFrame(base::PassKey<FrameNodeImpl>,
   }
   const char* event_name =
       frame_node->IsMainFrame() ? "MainFrameDetached" : "FrameDetached";
-  TRACE_EVENT_INSTANT("performance_manager.graph",
-                      perfetto::StaticString(event_name), frames_track_,
-                      perfetto::Flow::FromPointer(frame_node));
+  TRACE_EVENT_INSTANT(
+      "performance_manager.graph", perfetto::StaticString(event_name),
+      frames_track_,
+      perfetto::TerminatingFlow::Global(
+          base::UnguessableTokenHash()(frame_node->GetFrameToken().value())));
 }
 
 void PageNodeImpl::SetLoadingState(LoadingState loading_state) {

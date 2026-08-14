@@ -16,8 +16,6 @@ source_set("language_tag") {
     "language_tag_matcher.h",
     "tag_converters.cc",
     "tag_converters.h",
-    "tags.cc",
-    "tags.h",
   ]
 
   defines = [ "BASE_I18N_IMPLEMENTATION" ]
@@ -25,6 +23,7 @@ source_set("language_tag") {
   public_deps = [
     ":base_i18n_export",
     "//base/i18n/internal",
+    "//third_party/icu",
   ]
   deps = [
     "//base",
@@ -37,9 +36,44 @@ source_set("language_tag") {
   ]
 }
 
+source_set("language_tag_value_converters") {
+  sources = [
+    "language_tag_value_converters.cc",
+    "language_tag_value_converters.h",
+  ]
+
+  defines = [ "BASE_I18N_IMPLEMENTATION" ]
+
+  public_deps = [
+    ":base_i18n_export",
+    ":language_tag",
+    "//base",
+  ]
+}
+
 source_set("unicodestring") {
   sources = [ "unicodestring.h" ]
   public_deps = [ "//third_party/icu" ]
+}
+
+source_set("timezone") {
+  sources = [
+    "timezone.cc",
+    "timezone.h",
+  ]
+
+  defines = [ "BASE_I18N_IMPLEMENTATION" ]
+
+  public_deps = [
+    ":base_i18n_export",
+    ":language_tag",
+    "//base",
+  ]
+
+  deps = [
+    ":unicodestring",
+    "//third_party/icu",
+  ]
 }
 
 source_set("time_formatting_types") {

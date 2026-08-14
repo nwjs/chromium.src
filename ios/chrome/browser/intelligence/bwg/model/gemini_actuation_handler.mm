@@ -79,6 +79,7 @@ TabObservationResultFromPageContextWrapperError(PageContextWrapperError error) {
     case PageContextWrapperError::kPDFDataError:
     case PageContextWrapperError::kForceDetachError:
     case PageContextWrapperError::kInnerTextError:
+    case PageContextWrapperError::kPageUnsafeError:
       return optimization_guide::proto::TabObservation::
           TAB_OBSERVATION_FETCH_ERROR;
 
@@ -171,6 +172,12 @@ void InjectTabIdIntoAction(optimization_guide::proto::Action& action,
       break;
     case optimization_guide::proto::Action::kAttemptLogin:
       action.mutable_attempt_login()->set_tab_id(tab_id);
+      break;
+    case optimization_guide::proto::Action::kAttemptFormFilling:
+      action.mutable_attempt_form_filling()->set_tab_id(tab_id);
+      break;
+    case optimization_guide::proto::Action::kCloseTab:
+      action.mutable_close_tab()->set_tab_id(tab_id);
       break;
     default:
       break;

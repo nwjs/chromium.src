@@ -6,7 +6,7 @@
 #include <optional>
 
 #include "base/base_switches.h"
-#include "base/byte_count.h"
+#include "base/byte_size.h"
 #include "base/command_line.h"
 #include "base/debug/asan_service.h"
 #include "base/files/scoped_temp_dir.h"
@@ -172,7 +172,7 @@ class WebnnGraphLPMFuzzer {
       // would be able to exercise larger graphs but the tradeoff is that the
       // fuzzer will not explore as many graphs when it spends too much time
       // with these large examples.
-      constexpr size_t kMaxTensorBytes = base::GiB(1).InBytes();
+      constexpr size_t kMaxTensorBytes = base::GiBU(1).InBytes();
       const size_t tensor_length = operand->descriptor.PackedByteLength();
       if (kMaxTensorBytes - total_tensor_length < tensor_length) {
         return;
@@ -197,9 +197,6 @@ class WebnnGraphLPMFuzzer {
     }
     webnn_graph_builder_remote.reset();
 
-    mojo::Remote<webnn::mojom::WebNNGraph> webnn_graph_remote;
-    webnn_graph_remote.Bind(
-        std::move(create_graph_result.value()->graph_remote));
     blink::WebNNGraphToken graph_token =
         create_graph_result.value()->graph_token;
 
@@ -228,7 +225,6 @@ class WebnnGraphLPMFuzzer {
       base::test::TestFuture<webnn::mojom::CreateTensorResultPtr>
           create_tensor_future;
       webnn_context_remote->CreateTensor(std::move(tensor_info),
-                                         mojo_base::BigBuffer(0),
                                          create_tensor_future.GetCallback());
       webnn::mojom::CreateTensorResultPtr create_tensor_result =
           create_tensor_future.Take();
@@ -264,7 +260,6 @@ class WebnnGraphLPMFuzzer {
       base::test::TestFuture<webnn::mojom::CreateTensorResultPtr>
           create_tensor_future;
       webnn_context_remote->CreateTensor(std::move(tensor_info),
-                                         mojo_base::BigBuffer(0),
                                          create_tensor_future.GetCallback());
       webnn::mojom::CreateTensorResultPtr create_tensor_result =
           create_tensor_future.Take();

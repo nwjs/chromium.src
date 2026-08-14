@@ -11,6 +11,7 @@ import android.content.ComponentCallbacks;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.graphics.Rect;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityEvent;
@@ -25,10 +26,11 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.NonNullObservableSupplier;
-import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
+import org.chromium.base.task.PostTask;
+import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.EnsuresNonNull;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
@@ -58,7 +60,6 @@ import org.chromium.ui.widget.AnchoredPopupWindow;
 import org.chromium.ui.widget.AnchoredPopupWindow.HorizontalOrientation;
 import org.chromium.ui.widget.RectProvider;
 import org.chromium.ui.widget.ViewRectProvider;
-import org.chromium.url.GURL;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -135,10 +136,10 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
     private boolean mDestroyed;
     private @Nullable Callback<Boolean> mOnInteractionCompletedCallback;
     private @Nullable Runnable mOnFirstPickerInteractionCanceledCallback;
-    private final NullableObservableSupplier<GURL> mExactMatchUrlSupplier;
     private final Runnable mOnActivationChipClickedWithQuery;
     private final Runnable mClearUrlBarTextCallback;
     private final Supplier<String> mUrlBarTextSupplier;
+    private final boolean mIsForcedPhoneStyleOmnibox;
 
     /**
      * Creates a new instance of {@link FuseboxCoordinator}.
@@ -151,10 +152,10 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
      * @param snackbarManager The snackbar manager to show messages.
      * @param scrimAnchorViewSupplier Supplier for the view to anchor the scrim to.
      * @param backPressManager The back press manager to register the back press handler.
-     * @param exactMatchUrlSupplier The supplier of the exact match URL.
      * @param onActivationChipClickedWithQuery Runnable for activation chip when there is a query.
      * @param clearUrlBarTextRunnable Callback to clear the URL bar text.
      * @param urlBarTextSupplier Supplier for the current URL bar text
+     * @param isForcedPhoneStyleOmnibox Whether to force phone-style Omnibox layout.
      */
     public FuseboxCoordinator(
             Context context,
@@ -165,10 +166,10 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
             SnackbarManager snackbarManager,
             Supplier<@Nullable View> scrimAnchorViewSupplier,
             BackPressManager backPressManager,
-            NullableObservableSupplier<GURL> exactMatchUrlSupplier,
             Runnable onActivationChipClickedWithQuery,
             Runnable clearUrlBarTextRunnable,
-            Supplier<String> urlBarTextSupplier) {
+            Supplier<String> urlBarTextSupplier,
+            boolean isForcedPhoneStyleOmnibox) {
         mActivity = assumeNonNull(ContextUtils.activityFromContext(context));
         mWindowAndroid = windowAndroid;
         mParent = parent;
@@ -178,9 +179,9 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
         mTabModelSelectorSupplier = tabModelSelectorSupplier;
         mSnackbarManager = snackbarManager;
         mScrimAnchorViewSupplier = scrimAnchorViewSupplier;
+        mIsForcedPhoneStyleOmnibox = isForcedPhoneStyleOmnibox;
         mFuseboxLayoutModeSupplier.set(getFuseboxLayoutMode());
         mBackPressManager = backPressManager;
-        mExactMatchUrlSupplier = exactMatchUrlSupplier;
         mOnActivationChipClickedWithQuery = onActivationChipClickedWithQuery;
         mClearUrlBarTextCallback = clearUrlBarTextRunnable;
         mUrlBarTextSupplier = urlBarTextSupplier;
@@ -243,7 +244,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
 
         DynamicRectProvider dynamicRectProvider =
                 new DynamicRectProvider(floatingViewRectProvider, mBottomSheetRectProvider);
-        mViewportRectProvider = new ViewportRectProvider(mActivity);
+        mViewportRectProvider = new ViewportRectProvider(mActivity, mParent);
 
         var popupWindowBuilder =
                 new AnchoredPopupWindow.Builder(
@@ -305,7 +306,6 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
                         mScrimAnchorViewSupplier,
                         mBackPressManager,
                         mOnFirstPickerInteractionCanceledCallback,
-                        mExactMatchUrlSupplier,
                         mActivationChipVisibilitySupplier,
                         mOnActivationChipClickedWithQuery,
                         mClearUrlBarTextCallback,
@@ -361,18 +361,6 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
         var composeBox = session.getComposeboxQueryControllerBridge();
         if (composeBox == null) return;
 
-        if (mViewHolder == null) {
-            // - If mDeferredInitialized is false - this is the first time we run beginInput and we
-            //   need to make sure the UI is built.
-            // - If mDeferredInitialized is true, but mViewHolder is null - then we already
-            //   determined that the user or scenario is not eligible (e.g. feature flag disabled).
-            if (!mDeferredInitialized) {
-                mPendingSession = session;
-                ensureDeferredInitialized();
-            }
-            return;
-        }
-
         // We can't do inclusive check due to missing `isPhone()` case in `DeviceInfo`.
         // Additionally these values may change at runtime, e.g. if the user starts Chrome on phone
         // and moves to Android Auto.
@@ -397,6 +385,26 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
                 || !isSupportedPageClass
                 || !mDefaultSearchEngineIsGoogle) {
             endInput();
+            return;
+        }
+
+        if (mViewHolder == null) {
+            // - If mDeferredInitialized is false - this is the first time we run beginInput and we
+            //   need to make sure the UI is built.
+            // - If mDeferredInitialized is true, but mViewHolder is null - then we already
+            //   determined that the user or scenario is not eligible (e.g. feature flag disabled).
+            if (!mDeferredInitialized) {
+                mPendingSession = session;
+                // A number of UI components, like the StatusView, depend on the FuseboxState. The
+                // FuseboxMediator will eventually control the FuseboxState, but it's is not yet
+                // created here. So, we do this initial assignment to ensure that these UI
+                // components don't show any bad intermediate states in the meantime.
+                mFuseboxStateSupplier.set(
+                        session.getAutocompleteInput().isStandby()
+                                ? FuseboxState.DISABLED
+                                : FuseboxState.COMPACT);
+                ensureDeferredInitialized();
+            }
             return;
         }
 
@@ -567,8 +575,13 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
         }
     }
 
+    /**
+     * Resolves the layout mode for the Fusebox. Forced phone-style Omniboxes (e.g. for hub, tab
+     * search, or the search widget) use the TOOLBAR layout mode to match mobile layouts.
+     */
     private @FuseboxLayoutMode int getFuseboxLayoutMode() {
-        return OmniboxCapabilities.isDesktopPlatform()
+        return !mIsForcedPhoneStyleOmnibox
+                        && OmniboxCapabilities.isDesktopPlatform()
                         && OmniboxFeatures.sAndroidDesktopAimGate.isEnabled()
                 ? FuseboxLayoutMode.SUGGESTIONS_POPOVER
                 : FuseboxLayoutMode.TOOLBAR;
@@ -579,26 +592,47 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
      * window as available, ignoring e.g. ime insets which can reduce the available height to a very
      * small quantity using PopupWindow's default viewport rect.
      */
-    static class ViewportRectProvider extends RectProvider implements ComponentCallbacks {
+    static class ViewportRectProvider extends RectProvider
+            implements ComponentCallbacks, View.OnLayoutChangeListener {
         private final Activity mActivity;
+        private final View mView;
 
-        public ViewportRectProvider(Activity activity) {
+        public ViewportRectProvider(Activity activity, View view) {
             mActivity = activity;
+            mView = view;
             mActivity.registerComponentCallbacks(this);
+            mView.addOnLayoutChangeListener(this);
             updateRect();
         }
 
         @Override
         public void onConfigurationChanged(Configuration configuration) {
             updateRect();
-            notifyRectChanged();
+        }
+
+        @Override
+        public void onLayoutChange(
+                View v,
+                int left,
+                int top,
+                int right,
+                int bottom,
+                int oldLeft,
+                int oldTop,
+                int oldRight,
+                int oldBottom) {
+            PostTask.postTask(TaskTraits.UI_DEFAULT, this::updateRect);
         }
 
         private void updateRect() {
             var windowMetrics =
                     WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(mActivity);
             var bounds = windowMetrics.getBounds();
-            mRect.set(0, 0, bounds.width(), bounds.height());
+            Rect newRect = new Rect(0, 0, bounds.width(), bounds.height());
+            if (!newRect.equals(mRect)) {
+                mRect.set(newRect);
+                notifyRectChanged();
+            }
         }
 
         @Override
@@ -606,6 +640,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
 
         public void destroy() {
             mActivity.unregisterComponentCallbacks(this);
+            mView.removeOnLayoutChangeListener(this);
         }
     }
 }

@@ -134,26 +134,6 @@ void RecordCookiesExemptedByTopLevelStorage(ukm::SourceId source_id,
       .Record(ukm::UkmRecorder::Get());
 }
 
-// Relies on checks in RecordPartitionedCookiesUKMs to confirm that that the
-// cookie name is not "receive-cookie-deprecation", that cookie is first party
-// partitioned and the RenderFrameHost is not prerendering.
-void RecordFirstPartyPartitionedCookieCrossSiteContextUKM(
-    RenderFrameHostImpl* render_frame_host_impl,
-    const net::CanonicalCookie& cookie,
-    const ukm::SourceId& source_id) {
-  // Same-site embed with cross-site ancestors (ABA embeds) have a null site
-  // for cookies since it is a cross-site context. If the result of
-  // ComputeSiteForCookies is first-party that means we are not in an ABA
-  // embedded context.
-  bool has_cross_site_ancestor =
-      !render_frame_host_impl->ComputeSiteForCookies().IsFirstParty(
-          GURL(base::StrCat({url::kHttpsScheme, url::kStandardSchemeSeparator,
-                             cookie.DomainWithoutDot()})));
-
-  ukm::builders::Cookies_FirstPartyPartitionedInCrossSiteContextV3(source_id)
-      .SetCookiePresent(has_cross_site_ancestor)
-      .Record(ukm::UkmRecorder::Get());
-}
 
 // Records the PartitionedCookiePresentV3 UKM. It ignores prerendering pages.
 void RecordPartitionedCookieUseV3UKM(RenderFrameHost* rfh,
@@ -166,31 +146,6 @@ void RecordPartitionedCookieUseV3UKM(RenderFrameHost* rfh,
       .Record(ukm::UkmRecorder::Get());
 }
 
-void RecordPartitionedCookiesUKMs(RenderFrameHostImpl* render_frame_host_impl,
-                                  const net::CanonicalCookie& cookie) {
-  // Our data collection policy disallows collecting UKMs while prerendering.
-  // See //content/browser/preloading/prerender/README.md and ask the team to
-  // explore options to record data for prerendering pages if we need to
-  // support the case.
-  if (render_frame_host_impl->IsInLifecycleState(
-          RenderFrameHost::LifecycleState::kPrerendering)) {
-    return;
-  }
-
-  // Cookies_FirstPartyPartitionedInCrossSiteContextV3 measures cookies
-  // without the name of 'receive-cookie-deprecation'. Return here to ensure
-  // that the metrics do not include those cookies.
-  if (cookie.Name() == "receive-cookie-deprecation") {
-    return;
-  }
-
-  ukm::SourceId source_id = render_frame_host_impl->GetPageUkmSourceId();
-
-  if (cookie.IsFirstPartyPartitioned()) {
-    RecordFirstPartyPartitionedCookieCrossSiteContextUKM(render_frame_host_impl,
-                                                         cookie, source_id);
-  }
-}
 
 void RecordRedirectContextDowngradeUKM(RenderFrameHost* rfh,
                                        CookieAccessDetails::Type access_type,
@@ -221,37 +176,6 @@ void RecordRedirectContextDowngradeUKM(RenderFrameHost* rfh,
     CHECK(access_type == CookieAccessDetails::Type::kChange);
     ukm::builders::SamesiteRedirectContextDowngrade(source_id)
         .SetSamesiteValueWritePerCookie(samesite_value)
-        .Record(ukm::UkmRecorder::Get());
-  }
-}
-
-void RecordSchemefulContextDowngradeUKM(
-    RenderFrameHost* rfh,
-    CookieAccessDetails::Type access_type,
-    const net::CookieInclusionStatus& status,
-    const GURL& url) {
-  CHECK(rfh);
-
-  // Our data collection policy disallows collecting UKMs while prerendering.
-  // See //content/browser/preloading/prerender/README.md and ask the team to
-  // explore options to record data for prerendering pages if we need to
-  // support the case.
-  if (rfh->IsInLifecycleState(RenderFrameHost::LifecycleState::kPrerendering)) {
-    return;
-  }
-
-  ukm::SourceId source_id = rfh->GetPageUkmSourceId();
-
-  auto downgrade_metric =
-      static_cast<int64_t>(status.GetBreakingDowngradeMetricsEnumValue(url));
-  if (access_type == CookieAccessDetails::Type::kRead) {
-    ukm::builders::SchemefulSameSiteContextDowngrade(source_id)
-        .SetRequestPerCookie(downgrade_metric)
-        .Record(ukm::UkmRecorder::Get());
-  } else {
-    CHECK(access_type == CookieAccessDetails::Type::kChange);
-    ukm::builders::SchemefulSameSiteContextDowngrade(source_id)
-        .SetResponsePerCookie(downgrade_metric)
         .Record(ukm::UkmRecorder::Get());
   }
 }
@@ -358,7 +282,6 @@ void EmitCookieWarningsAndMetrics(
 
   bool samesite_treated_as_lax_cookies = false;
   bool samesite_none_insecure_cookies = false;
-  bool breaking_context_downgrade = false;
   bool lax_allow_unsafe_cookies = false;
 
   bool samesite_cookie_inclusion_changed_by_cross_site_redirect = false;
@@ -448,7 +371,6 @@ void EmitCookieWarningsAndMetrics(
         partitioned_non_httponly_cookie_names.insert(
             cookie->cookie_or_line->get_cookie().Name());
       }
-      RecordPartitionedCookiesUKMs(rfh, cookie->cookie_or_line->get_cookie());
       partitioned_cookies_exist = true;
       if (cookie->cookie_or_line->get_cookie().Name() !=
           "receive-cookie-deprecation") {
@@ -465,18 +387,6 @@ void EmitCookieWarningsAndMetrics(
     if (cookie->access_result.status.exemption_reason() ==
         net::CookieInclusionStatus::ExemptionReason::kTopLevelStorageAccess) {
       cookies_exempted_by_top_level_storage_access++;
-    }
-
-    breaking_context_downgrade =
-        breaking_context_downgrade ||
-        cookie->access_result.status.HasSchemefulDowngradeWarning();
-
-    if (cookie->access_result.status.HasSchemefulDowngradeWarning()) {
-      // Unlike with UMA, do not record cookies that have no schemeful downgrade
-      // warning.
-      RecordSchemefulContextDowngradeUKM(rfh, cookie_details->type,
-                                         cookie->access_result.status,
-                                         cookie_details->url);
     }
 
     if (status.HasWarningReason(
@@ -536,11 +446,6 @@ void EmitCookieWarningsAndMetrics(
   if (samesite_none_insecure_cookies) {
     GetContentClient()->browser()->LogWebFeatureForCurrentPage(
         rfh, blink::mojom::WebFeature::kCookieInsecureAndSameSiteNone);
-  }
-
-  if (breaking_context_downgrade) {
-    GetContentClient()->browser()->LogWebFeatureForCurrentPage(
-        rfh, blink::mojom::WebFeature::kSchemefulSameSiteContextDowngrade);
   }
 
   if (lax_allow_unsafe_cookies) {

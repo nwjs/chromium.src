@@ -28,6 +28,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_OBJECT_H_
 
 #include <concepts>
+#include <optional>
 #include <utility>
 
 #include "base/check_op.h"
@@ -95,6 +96,8 @@ struct PaintInfo;
 struct PaintInvalidatorContext;
 struct SVGLayoutInfo;
 struct SVGLayoutResult;
+
+enum class PhysicalAxis : uint8_t;
 
 enum CursorDirective { kSetCursorBasedOnStyle, kSetCursor, kDoNotSetCursor };
 
@@ -1521,7 +1524,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
 
   // CSS clip only applies when position is absolute or fixed. Prefer this check
   // over !StyleRef().HasAutoClip().
-  bool HasClip() const {
+  bool HasCSSClip() const {
     NOT_DESTROYED();
     return IsOutOfFlowPositioned() && !StyleRef().HasAutoClip();
   }
@@ -1934,6 +1937,12 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   // which is already marked for subtree recalc.
   void InvalidateSubtreePositionTry(bool mark_style_dirty);
 
+  // Equivalent to Element's corresponding functions if GetNode() is an
+  // Element, or returns the result of the nearest ancestor (across frame
+  // boundaries) whose GetNode() is an Element.
+  bool IsCanvasOrInCanvasSubtree() const;
+  bool IsInCanvasSubtree() const;
+
  protected:
   enum PositionedState {
     kIsStaticallyPositioned = 0,
@@ -2033,10 +2042,12 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   // Gap decorations can take a list format for its styles. When the container
   // fragments, the order of those styles must be maintained. This method
   // returns the index of the gap within the container's decoration style
-  // pattern within the stiched container given the provided fragment relative
+  // pattern within the stitched container given the provided fragment relative
   // `gap_index`.
-  virtual wtf_size_t StitchedRowGapIndex(const PhysicalBoxFragment& fragment,
-                                         wtf_size_t gap_index) const {
+  virtual wtf_size_t StitchedRowGapIndex(
+      const PhysicalBoxFragment& fragment,
+      wtf_size_t gap_index,
+      std::optional<wtf_size_t> line_index) const {
     NOT_DESTROYED();
     return gap_index;
   }
@@ -2263,9 +2274,23 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
 
   LayoutBlock* InclusiveContainingBlock(AncestorSkipInfo* = nullptr);
 
+  // Returns the nearest ancestor scroll container in any axis.
   const LayoutBox* ContainingScrollContainer(
       bool ignore_layout_view_for_fixed_pos = false) const;
+
+  // Returns the nearest ancestor scroll container with a scrollable overflow
+  // value in the given axis.
+  const LayoutBox* ContainingScrollContainer(PhysicalAxis axis) const;
+
+  // Returns the nearest ancestor that is a scroll container in any axis.
   const PaintLayer* ContainingScrollContainerLayer(
+      bool ignore_layout_view_for_fixed_pos = false) const;
+
+  // Returns the nearest ancestor that is a scroll container for the given axis,
+  // which with single-axis scroll containers may be a further ancestor than the
+  // nearest scroll container.
+  const PaintLayer* ContainingScrollContainerLayer(
+      PhysicalAxis axis,
       bool ignore_layout_view_for_fixed_pos = false) const;
 
   bool CanContainAbsolutePositionObjects() const {
@@ -2489,9 +2514,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   /* The following methods are inlined in LayoutObjectInlines.h */
   // If first line style is requested and there is no applicable first line
   // style, the functions will return the style of this object.
-  inline const ComputedStyle* FirstLineStyle() const;
   inline const ComputedStyle& FirstLineStyleRef() const;
-  inline const ComputedStyle* Style(bool first_line) const;
   inline const ComputedStyle& StyleRef(bool first_line) const;
 
   const ComputedStyle& EffectiveStyle(StyleVariant style_variant) const {
@@ -2509,19 +2532,6 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   inline Color ResolveColor(const Longhand& color_property) const {
     NOT_DESTROYED();
     return StyleRef().VisitedDependentColor(color_property);
-  }
-
-  // See ComputedStyle::VisitedDependentColorFast().
-  template <class Property>
-  static inline Color ResolveColorFast(const ComputedStyle& style_to_use,
-                                       const Property& color_property) {
-    return style_to_use.VisitedDependentColorFast(color_property);
-  }
-
-  template <class Property>
-  inline Color ResolveColorFast(const Property& color_property) const {
-    NOT_DESTROYED();
-    return StyleRef().VisitedDependentColorFast(color_property);
   }
 
   virtual CursorDirective GetCursor(const PhysicalOffset&, ui::Cursor&) const;
@@ -3030,6 +3040,31 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     bitfields_.SetShouldInheritSoftNavigationContext(should_inherit);
   }
 
+  // Container Timing pre-paint attribution tracking bits (parallel to SoftNav).
+  // Setters DCHECK ContainerTimingPrepaintTraversal is on; ClearPaintFlags()
+  // resets them after every pre-paint walk, so reads stay 0 when the feature
+  // is off (no runtime check needed on the paint hot path).
+  void MarkContainerTimingChanged();
+  void MarkDescendantContainerTimingChanged();
+  bool ContainerTimingChanged() const {
+    NOT_DESTROYED();
+    return bitfields_.ContainerTimingChanged();
+  }
+  bool DescendantContainerTimingChanged() const {
+    NOT_DESTROYED();
+    return bitfields_.DescendantContainerTimingChanged();
+  }
+  bool ShouldInheritContainerTimingRoot() const {
+    NOT_DESTROYED();
+    return bitfields_.ShouldInheritContainerTimingRoot();
+  }
+  void SetShouldInheritContainerTimingRoot(bool should_inherit) {
+    NOT_DESTROYED();
+    DCHECK(RuntimeEnabledFeatures::ContainerTimingPrepaintTraversalEnabled(
+        GetDocument().GetExecutionContext()));
+    bitfields_.SetShouldInheritContainerTimingRoot(should_inherit);
+  }
+
   // Painters can use const methods only, except for these explicitly declared
   // methods.
   class CORE_EXPORT MutableForPainting {
@@ -3131,6 +3166,10 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
 
     void SetShouldInheritSoftNavigationContext(bool b) {
       layout_object_.SetShouldInheritSoftNavigationContext(b);
+    }
+
+    void SetShouldInheritContainerTimingRoot(bool b) {
+      layout_object_.SetShouldInheritContainerTimingRoot(b);
     }
 
     void FragmentCountChanged() {
@@ -3662,8 +3701,6 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
                                          const LayoutBoxModelObject* ancestor,
                                          MapCoordinatesFlags = 0) const;
 
-  void ScheduleRelayout();
-
   void AddAsImageObserver(StyleImage*);
   void RemoveAsImageObserver(StyleImage*);
 
@@ -3841,6 +3878,9 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
           soft_navigation_context_changed_(true),
           descendant_soft_navigation_context_changed_(false),
           should_inherit_soft_navigation_context_(true),
+          container_timing_changed_(true),
+          descendant_container_timing_changed_(false),
+          should_inherit_container_timing_root_(true),
           is_effective_root_scroller_(false),
           is_global_root_scroller_(false),
           registered_as_first_line_image_observer_(false),
@@ -4103,6 +4143,25 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     // mapping is stored in SoftNavigationPaintAttributionTracker.
     ADD_BOOLEAN_BITFIELD(should_inherit_soft_navigation_context_,
                          ShouldInheritSoftNavigationContext);
+
+    // Set when the containertiming or containertiming-ignore attribute changes
+    // on this node, triggering a re-walk by
+    // ContainerTimingPaintAttributionTracker. Initialized to true so every new
+    // LayoutObject is visited by the pre-paint walk at least once to populate
+    // the tracker. ClearPaintFlags() resets it after the walk.
+    ADD_BOOLEAN_BITFIELD(container_timing_changed_, ContainerTimingChanged);
+
+    // Set on ancestors when a descendant's container timing attribute changes.
+    // Used to ensure the PrePaint walk processes nodes with
+    // |container_timing_changed_|.
+    ADD_BOOLEAN_BITFIELD(descendant_container_timing_changed_,
+                         DescendantContainerTimingChanged);
+
+    // Whether this node inherits its container timing root from its parent.
+    // false = this node IS a container root or stop node. Cached from pre-paint
+    // by ContainerTimingPaintAttributionTracker.
+    ADD_BOOLEAN_BITFIELD(should_inherit_container_timing_root_,
+                         ShouldInheritContainerTimingRoot);
 
     // See page/scrolling/README.md for an explanation of root scroller and how
     // it works.

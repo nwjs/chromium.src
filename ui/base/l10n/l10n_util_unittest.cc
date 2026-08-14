@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
 #include "ui/base/l10n/l10n_util.h"
 
 #include <stddef.h>
@@ -13,9 +12,11 @@
 #include <memory>
 
 #include "base/containers/flat_set.h"
+#include "base/containers/span.h"
 #include "base/environment.h"
 #include "base/files/file_util.h"
 #include "base/i18n/case_conversion.h"
+#include "base/i18n/language_tag.h"
 #include "base/i18n/rtl.h"
 #include "base/i18n/time_formatting.h"
 #include "base/path_service.h"
@@ -37,10 +38,12 @@
 #include <cstdlib>
 #endif
 
+namespace l10n_util {
 namespace {
 
 using ::base::ASCIIToUTF16;
 using ::base::UTF8ToUTF16;
+using ::base::i18n::LanguageTag;
 using ::testing::ElementsAre;
 
 class StringWrapper {
@@ -56,10 +59,7 @@ class StringWrapper {
   std::u16string string_;
 };
 
-}  // namespace
-
-class L10nUtilTest : public PlatformTest {
-};
+using L10nUtilTest = PlatformTest;
 
 TEST_F(L10nUtilTest, GetString) {
   std::string s = l10n_util::GetStringUTF8(IDS_SIMPLE);
@@ -117,7 +117,7 @@ TEST_F(L10nUtilTest, GetAppLocale) {
   auto filenames = std::to_array<std::string>({
       "am",
       "ca",
-      "ca@valencia",
+      "ca-u-va-valencia",
       "en-GB",
       "en-US",
       "es",
@@ -132,9 +132,8 @@ TEST_F(L10nUtilTest, GetAppLocale) {
       "zh-TW",
   });
 
-  for (size_t i = 0; i < std::size(filenames); ++i) {
-    base::FilePath filename = new_locale_dir.AppendASCII(
-        filenames[i] + ".pak");
+  for (const std::string& filename_str : filenames) {
+    base::FilePath filename = new_locale_dir.AppendASCII(filename_str + ".pak");
     base::WriteFile(filename, "");
   }
 
@@ -198,15 +197,18 @@ TEST_F(L10nUtilTest, GetAppLocale) {
     EXPECT_STREQ("ca", icu::Locale::getDefault().getLanguage());
 
     SetDefaultLocaleForTest("ca@valencia", env.get());
-    EXPECT_EQ("ca@valencia", l10n_util::GetApplicationLocale(std::string()));
+    EXPECT_EQ("ca-u-va-valencia",
+              l10n_util::GetApplicationLocale(std::string()));
     EXPECT_STREQ("ca", icu::Locale::getDefault().getLanguage());
 
     SetDefaultLocaleForTest("ca_ES@valencia", env.get());
-    EXPECT_EQ("ca@valencia", l10n_util::GetApplicationLocale(std::string()));
+    EXPECT_EQ("ca-u-va-valencia",
+              l10n_util::GetApplicationLocale(std::string()));
     EXPECT_STREQ("ca", icu::Locale::getDefault().getLanguage());
 
     SetDefaultLocaleForTest("ca_ES.UTF8@valencia", env.get());
-    EXPECT_EQ("ca@valencia", l10n_util::GetApplicationLocale(std::string()));
+    EXPECT_EQ("ca-u-va-valencia",
+              l10n_util::GetApplicationLocale(std::string()));
     EXPECT_STREQ("ca", icu::Locale::getDefault().getLanguage());
   }
 
@@ -567,61 +569,6 @@ TEST_F(L10nUtilTest, GetParentLocales) {
               ElementsAre("sr_Cyrl_RS", "sr_Cyrl", "sr"));
 }
 
-TEST_F(L10nUtilTest, IsValidLocaleSyntax) {
-  // Test valid locales.
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("en"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("fr"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("de"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("pt"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("zh"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("fil"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("haw"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("en-US"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("en_US"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("en_GB"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("pt-BR"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("zh_CN"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("zh_Hans"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("zh_Hans_CN"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("zh_Hant"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("zh_Hant_TW"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("fr_CA"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("i-klingon"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("es-419"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("en_IE_PREEURO"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("en_IE_u_cu_IEP"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("en_IE@currency=IEP"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("fr@x=y"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax("zh_CN@foo=bar"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax(
-      "fr@collation=phonebook;calendar=islamic-civil"));
-  EXPECT_TRUE(l10n_util::IsValidLocaleSyntax(
-      "sr_Latn_RS_REVISED@currency=USD"));
-
-  // Test invalid locales.
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax(std::string()));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("x"));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("12"));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("456"));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("a1"));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("enUS"));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("zhcn"));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("en.US"));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("en#US"));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("-en-US"));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("en-US-"));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("123-en-US"));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("Latin"));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("German"));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("pt--BR"));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("sl-macedonia"));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("@"));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("en-US@"));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("en-US@x"));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("en-US@x="));
-  EXPECT_FALSE(l10n_util::IsValidLocaleSyntax("en-US@=y"));
-}
-
 TEST_F(L10nUtilTest, TimeDurationFormatAllLocales) {
   base::test::ScopedRestoreICUDefaultLocale restore_locale;
 
@@ -675,7 +622,7 @@ TEST_F(L10nUtilTest, GetUserFacingUILocaleList) {
 }
 
 TEST_F(L10nUtilTest, PlatformLocalesIsSorted) {
-  const base::span<const std::string_view> locales =
+  base::span<const LanguageTag> locales =
       l10n_util::GetPlatformLocalesForTesting();
 
   // Check adjacent pairs and ensure they are in sorted order ...
@@ -689,11 +636,13 @@ TEST_F(L10nUtilTest, IsPossibleAcceptLanguage) {
   EXPECT_TRUE(l10n_util::IsPossibleAcceptLanguage("en-CA"));
   EXPECT_TRUE(l10n_util::IsPossibleAcceptLanguage("fil"));
   EXPECT_TRUE(l10n_util::IsPossibleAcceptLanguage("zu"));
-
-  EXPECT_FALSE(l10n_util::IsPossibleAcceptLanguage("tl"));
-  EXPECT_FALSE(l10n_util::IsPossibleAcceptLanguage("fr-CO"));
-  EXPECT_FALSE(l10n_util::IsPossibleAcceptLanguage("iw"));
-
+  // These now match via LanguageTagMatcher:
+  // tl -> fil
+  // fr-CO -> fr
+  // iw -> he
+  EXPECT_TRUE(l10n_util::IsPossibleAcceptLanguage("tl"));
+  EXPECT_TRUE(l10n_util::IsPossibleAcceptLanguage("fr-CO"));
+  EXPECT_TRUE(l10n_util::IsPossibleAcceptLanguage("iw"));
   EXPECT_FALSE(l10n_util::IsPossibleAcceptLanguage("dne"));
 }
 
@@ -703,26 +652,26 @@ TEST_F(L10nUtilTest, IsAcceptLanguageDisplayable) {
   EXPECT_TRUE(l10n_util::IsAcceptLanguageDisplayable("es", "fil"));
   EXPECT_TRUE(l10n_util::IsAcceptLanguageDisplayable("de", "zu"));
 
-  // The old code for "he" is not supported.
-  EXPECT_FALSE(l10n_util::IsAcceptLanguageDisplayable("es", "iw"));
+  // "iw" now matches "he".
+  EXPECT_TRUE(l10n_util::IsAcceptLanguageDisplayable("es", "iw"));
 }
 
 TEST_F(L10nUtilTest, KeepAcceptedLanguages) {
   // All valid languages.
   EXPECT_EQ(l10n_util::KeepAcceptedLanguages({"en", "es", "fr"}),
             std::vector<std::string>({"en", "es", "fr"}));
-  // Some invalid languages.
+  // iw now matches he.
   EXPECT_EQ(l10n_util::KeepAcceptedLanguages({"en", "es", "iw"}),
-            std::vector<std::string>({"en", "es"}));
-  // All invalid languages.
+            std::vector<std::string>({"en", "es", "iw"}));
+  // All invalid languages except iw.
   EXPECT_EQ(l10n_util::KeepAcceptedLanguages({"iw", "ch_ZN"}),
-            std::vector<std::string>{});
+            std::vector<std::string>({"iw"}));
   // Empty input.
   EXPECT_EQ(l10n_util::KeepAcceptedLanguages({}), std::vector<std::string>{});
   // Maintain languages order.
   EXPECT_EQ(
       l10n_util::KeepAcceptedLanguages({"en", "aa", "es", "iw", "fr", "xx"}),
-      std::vector<std::string>({"en", "es", "fr"}));
+      std::vector<std::string>({"en", "es", "iw", "fr"}));
 }
 
 TEST_F(L10nUtilTest, FormatStringComputeCorrectOffsetInRTL) {
@@ -743,3 +692,75 @@ TEST_F(L10nUtilTest, FormatStringComputeCorrectOffsetInRTL) {
   EXPECT_EQ(offsets[0], 10u);
 #endif
 }
+
+TEST_F(L10nUtilTest, AllLegacyAcceptLanguagesWork) {
+  static constexpr std::string_view kLegacyAcceptLanguages[] = {
+      "af",       "ak",    "am",
+      "an",       "ar",    "ar-XB",
+      "as",       "ast",   "ay",
+      "az",       "be",    "bg",
+      "bho",      "bm",    "bn",
+      "br",       "bs",    "ca",
+      "ceb",      "chr",   "ckb",
+      "co",       "cs",    "cy",
+      "da",       "de",    "de-AT",
+      "de-CH",    "de-DE", "de-LI",
+      "doi",      "dv",    "ee",
+      "el",       "en",    "en-AU",
+      "en-CA",    "en-GB", "en-GB-oxendict",
+      "en-IE",    "en-IN", "en-NZ",
+      "en-US",    "en-XA", "en-ZA",
+      "eo",       "es",    "es-419",
+      "es-AR",    "es-CL", "es-CO",
+      "es-CR",    "es-ES", "es-HN",
+      "es-MX",    "es-PE", "es-US",
+      "es-UY",    "es-VE", "et",
+      "eu",       "fa",    "fi",
+      "fil",      "fo",    "fr",
+      "fr-CA",    "fr-CH", "fr-FR",
+      "fy",       "ga",    "gd",
+      "gl",       "gn",    "gu",
+      "ha",       "haw",   "he",
+      "hi",       "hmn",   "hr",
+      "ht",       "hu",    "hy",
+      "ia",       "id",    "ig",
+      "ilo",      "is",    "it",
+      "it-CH",    "it-IT", "ja",
+      "jv",       "ka",    "kk",
+      "km",       "kn",    "ko",
+      "kok",      "kri",   "ku",
+      "ky",       "la",    "lb",
+      "lg",       "ln",    "lo",
+      "lt",       "lus",   "lv",
+      "mai",      "mg",    "mi",
+      "mk",       "ml",    "mn",
+      "mni-Mtei", "mo",    "mr",
+      "ms",       "mt",    "my",
+      "nb",       "ne",    "nl",
+      "nn",       "no",    "nso",
+      "ny",       "oc",    "om",
+      "or",       "pa",    "pl",
+      "ps",       "pt",    "pt-BR",
+      "pt-PT",    "qu",    "rm",
+      "ro",       "ru",    "rw",
+      "sa",       "sd",    "sh",
+      "si",       "sk",    "sl",
+      "sm",       "sn",    "so",
+      "sq",       "sr",    "st",
+      "su",       "sv",    "sw",
+      "ta",       "te",    "tg",
+      "th",       "ti",    "tk",
+      "tn",       "to",    "tr",
+      "ts",       "tt",    "tw",
+      "ug",       "uk",    "ur",
+      "uz",       "vi",    "wa",
+      "wo",       "xh",    "yi",
+      "yo",       "zh",    "zh-CN",
+      "zh-HK",    "zh-TW", "zu"};
+  for (std::string_view locale : kLegacyAcceptLanguages) {
+    EXPECT_TRUE(l10n_util::IsPossibleAcceptLanguage(locale)) << locale;
+  }
+}
+
+}  // namespace
+}  // namespace l10n_util

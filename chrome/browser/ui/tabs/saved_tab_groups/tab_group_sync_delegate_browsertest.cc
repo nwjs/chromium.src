@@ -66,8 +66,6 @@ class TabGroupSyncDelegateBrowserTest : public InProcessBrowserTest,
                                         public TabGroupSyncService::Observer {
  public:
   TabGroupSyncDelegateBrowserTest() {
-    features_.InitWithFeatures({}, {tab_groups::kProjectsPanel});
-
     dependency_manager_subscription_ =
         BrowserContextDependencyManager::GetInstance()
             ->RegisterCreateServicesCallbackForTesting(base::BindRepeating(
@@ -128,7 +126,7 @@ class TabGroupSyncDelegateBrowserTest : public InProcessBrowserTest,
 
     // `service_` is instantiated the first time GetForProfile() is called.
     TabGroupSyncService* service =
-        TabGroupSyncServiceFactory::GetForProfile(browser()->profile());
+        TabGroupSyncServiceFactory::GetForProfile(browser()->GetProfile());
     service->AddObserver(this);
   }
 
@@ -174,7 +172,6 @@ class TabGroupSyncDelegateBrowserTest : public InProcessBrowserTest,
     return std::move(service);
   }
 
-  base::test::ScopedFeatureList features_;
   base::CallbackListSubscription subscription_;
   raw_ptr<SavedTabGroupModel> model_;
   raw_ptr<TabGroupSyncService> service_;
@@ -621,7 +618,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupSyncDelegateBrowserTest, ReorderDiscardedTab) {
   // Discard the first tab and move it to the right of the second tab.
   std::unique_ptr<content::WebContents> replacement_web_contents =
       content::WebContents::Create(
-          content::WebContents::CreateParams(browser()->profile()));
+          content::WebContents::CreateParams(browser()->GetProfile()));
   browser()->tab_strip_model()->DiscardWebContentsAt(
       0, std::move(replacement_web_contents));
   browser()->tab_strip_model()->MoveWebContentsAt(0, 1, true, group_id);

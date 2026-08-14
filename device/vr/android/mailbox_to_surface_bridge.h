@@ -7,6 +7,7 @@
 
 #include "base/functional/callback_forward.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
+#include "third_party/skia/include/gpu/ganesh/GrTypes.h"
 
 namespace gfx {
 class ColorSpace;
@@ -43,6 +44,8 @@ class MailboxToSurfaceBridge {
 
   virtual void GenSyncToken(gpu::SyncToken* out_sync_token) = 0;
 
+  virtual void VerifySyncToken(gpu::SyncToken& out_sync_token) = 0;
+
   virtual void WaitSyncToken(const gpu::SyncToken& sync_token) = 0;
 
   // Copies a GpuFence from the local context to the GPU process,
@@ -63,6 +66,7 @@ class MailboxToSurfaceBridge {
       viz::SharedImageFormat format,
       const gfx::Size& size,
       const gfx::ColorSpace& color_space,
+      GrSurfaceOrigin surface_origin,
       gpu::SharedImageUsageSet usage,
       gpu::SyncToken& sync_token) = 0;
 

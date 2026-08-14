@@ -126,13 +126,13 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) SchedulerLoopQuarantineRoot {
   std::atomic_size_t cumulative_size_in_bytes_ = 0;
   std::atomic_size_t quarantine_miss_count_ = 0;
 
-  template <bool>
+  template <bool, bool>
   friend class SchedulerLoopQuarantineBranch;
 };
 
 // When set to `thread_bound = true`, the branch is for single-thread use
 // (faster).
-template <bool thread_bound>
+template <bool thread_bound, bool for_sanitized_objects = false>
 class SchedulerLoopQuarantineBranch {
  public:
   static constexpr bool kThreadBound = thread_bound;
@@ -163,6 +163,9 @@ class SchedulerLoopQuarantineBranch {
 
   // Determines this list contains an object.
   bool IsQuarantinedForTesting(void* object) PA_LOCKS_EXCLUDED(lock_);
+
+  bool IsQuarantineTarget(
+      const internal::BucketSizeDetails& size_details) const;
 
   size_t GetCapacityInBytes() {
     return branch_capacity_in_bytes_.load(std::memory_order_relaxed);
@@ -342,15 +345,19 @@ class SchedulerLoopQuarantineBranch {
   SchedulerLoopQuarantineConfig config_for_testing_;
 };
 
+using SanitizedObjectSchedulerLoopQuarantineBranch =
+    SchedulerLoopQuarantineBranch<false, true>;
 using GlobalSchedulerLoopQuarantineBranch =
-    SchedulerLoopQuarantineBranch<false>;
+    SchedulerLoopQuarantineBranch<false, false>;
 using ThreadBoundSchedulerLoopQuarantineBranch =
-    SchedulerLoopQuarantineBranch<true>;
+    SchedulerLoopQuarantineBranch<true, false>;
 
-extern template class PA_EXPORT_TEMPLATE_DECLARE(
-    PA_COMPONENT_EXPORT(PARTITION_ALLOC)) SchedulerLoopQuarantineBranch<false>;
-extern template class PA_EXPORT_TEMPLATE_DECLARE(
-    PA_COMPONENT_EXPORT(PARTITION_ALLOC)) SchedulerLoopQuarantineBranch<true>;
+extern template class PA_EXPORT_TEMPLATE_DECLARE(PA_COMPONENT_EXPORT(
+    PARTITION_ALLOC)) SchedulerLoopQuarantineBranch<false, false>;
+extern template class PA_EXPORT_TEMPLATE_DECLARE(PA_COMPONENT_EXPORT(
+    PARTITION_ALLOC)) SchedulerLoopQuarantineBranch<false, true>;
+extern template class PA_EXPORT_TEMPLATE_DECLARE(PA_COMPONENT_EXPORT(
+    PARTITION_ALLOC)) SchedulerLoopQuarantineBranch<true, false>;
 
 }  // namespace internal
 

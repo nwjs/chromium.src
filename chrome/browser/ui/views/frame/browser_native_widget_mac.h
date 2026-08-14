@@ -7,9 +7,12 @@
 
 #include <optional>
 
+#include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/command_observer.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/frame/browser_native_widget.h"
+#include "chrome/browser/ui/views/frame/glass_frame_service.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/mojom/window_show_state.mojom-forward.h"
 #include "ui/native_theme/native_theme.h"
@@ -19,6 +22,9 @@ class BrowserWidget;
 class BrowserView;
 @class BrowserWindowTouchBarController;
 @class BrowserWindowTouchBarViewsDelegate;
+namespace tabs {
+class VerticalTabStripStateController;
+}  // namespace tabs
 
 ////////////////////////////////////////////////////////////////////////////////
 //  BrowserNativeWidgetMac is a NativeWidgetMac subclass that provides
@@ -84,20 +90,27 @@ class BrowserNativeWidgetMac : public views::NativeWidgetMac,
   void OnWidgetInitDone() override;
   void OnWidgetThemeChanged(views::Widget* widget) override;
   void OnWindowDestroying(gfx::NativeWindow window) override;
+  void OnWidgetActivationChanged(views::Widget* widget, bool active) override;
 
   // Overridden from CommandObserver:
   void EnabledStateChangedForCommand(int id, bool enabled) override;
 
  private:
+  bool IsBrowserWidgetEligible() const;
+  void UpdateBackground(bool is_eligible);
+  void OnVerticalTabStripModeChanged(
+      tabs::VerticalTabStripStateController* controller);
+
   raw_ptr<BrowserView> browser_view_;  // Weak. Our ClientView.
   BrowserWindowTouchBarViewsDelegate* __strong touch_bar_delegate_;
   NSView* __strong background_view_;
+  NSView* __strong tint_view_;
 
   std::optional<ui::NativeTheme::PreferredColorScheme>
       last_preferred_color_scheme_;
   std::optional<SkColor> last_theme_color_;
-
-  void UpdateBackground();
+  base::CallbackListSubscription vertical_tab_subscription_;
+  base::CallbackListSubscription glass_frame_service_subscription_;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_FRAME_BROWSER_NATIVE_WIDGET_MAC_H_

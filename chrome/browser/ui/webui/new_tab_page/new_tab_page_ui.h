@@ -57,7 +57,7 @@
 #include "chrome/browser/ui/webui/new_tab_page/ntp_promo/ntp_promo.mojom.h"  // nogncheck
 #include "chrome/browser/ui/webui/new_tab_page/ntp_promo/ntp_promo_handler.h"  // nogncheck
 #include "components/user_education/common/ntp_promo/ntp_promo_controller.h"
-#include "components/user_education/webui/help_bubble_handler.h"
+#include "components/user_education/webui/help_bubble_handler.h"  // nogncheck
 #endif
 
 namespace base {
@@ -278,7 +278,6 @@ class NewTabPageUI
 
   // composebox::mojom::PageHandlerFactory:
   void CreatePageHandler(
-      mojo::PendingRemote<composebox::mojom::Page> pending_page,
       mojo::PendingReceiver<composebox::mojom::PageHandler>
           pending_page_handler,
       mojo::PendingRemote<searchbox::mojom::Page> pending_searchbox_page,
@@ -358,7 +357,6 @@ class NewTabPageUI
       composebox_page_factory_receiver_;
   std::unique_ptr<ComposeboxHandler> composebox_handler_;
 #if BUILDFLAG(IS_ANDROID)
-  mojo::PendingRemote<composebox::mojom::Page> android_stub_composebox_page_;
   std::unique_ptr<composebox::mojom::PageHandler>
       android_stub_composebox_handler_;
   mojo::PendingRemote<searchbox::mojom::Page> android_stub_searchbox_page_;
@@ -397,8 +395,10 @@ class NewTabPageUI
                           NtpCustomBackgroundServiceObserver>
       ntp_custom_background_service_observation_;
   // Time the NTP started loading. Used for logging the WebUI NTP's load
-  // performance.
+  // performance. `navigation_start_time_ticks_` is the matching monotonic-
+  // clock instant, stamped together with `navigation_start_time_`.
   base::Time navigation_start_time_;
+  base::TimeTicks navigation_start_time_ticks_;
   const std::vector<ntp::ModuleIdDetail> module_id_details_;
 
   // Mojo implementations for modules:

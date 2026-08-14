@@ -43,6 +43,8 @@ component("network_service") {
     "data_remover_util.h",
     "device_bound_session_manager.cc",
     "device_bound_session_manager.h",
+    "device_bound_session_service_delegate.cc",
+    "device_bound_session_service_delegate.h",
     "devtools_durable_msg.cc",
     "devtools_durable_msg.h",
     "devtools_durable_msg_accounting_delegate.h",
@@ -94,6 +96,8 @@ component("network_service") {
     "local_network_access_checker.h",
     "local_network_access_url_loader_interceptor.cc",
     "local_network_access_url_loader_interceptor.h",
+    "logical_invalidation_store.cc",
+    "logical_invalidation_store.h",
     "mojo_host_resolver_impl.cc",
     "mojo_host_resolver_impl.h",
     "multiple_durable_message_writer_impl.cc",
@@ -380,8 +384,6 @@ component("network_service") {
     "//mojo/public/cpp/system",
     "//net",
     "//net:extras",
-    "//services/network/ad_auction",
-    "//services/network/attribution",
     "//services/network/first_party_sets:first_party_sets_manager",
     "//services/network/public/cpp",
     "//services/network/public/cpp:crash_keys",
@@ -499,6 +501,7 @@ source_set("tests") {
     "keepalive_statistics_recorder_unittest.cc",
     "known_legacy_scope_domains_delegate_unittest.cc",
     "local_network_access_checker_unittest.cc",
+    "logical_invalidation_store_unittest.cc",
     "mojo_host_resolver_impl_unittest.cc",
     "multiple_durable_message_writer_impl_unittest.cc",
     "net_log_proxy_sink_unittest.cc",
@@ -570,11 +573,6 @@ source_set("tests") {
 
   if (enable_websockets) {
     sources += [
-      "proxy_resolver_factory_mojo_unittest.cc",
-      "proxy_service_mojo_unittest.cc",
-      "test_mojo_proxy_resolver_factory.cc",
-      "test_mojo_proxy_resolver_factory.h",
-      "url_request_context_builder_mojo_unittest.cc",
       "websocket_factory_unittest.cc",
       "websocket_interceptor_unittest.cc",
       "websocket_throttler_unittest.cc",
@@ -605,7 +603,10 @@ source_set("tests") {
   }
 
   if (enable_device_bound_sessions) {
-    sources += [ "device_bound_session_manager_unittest.cc" ]
+    sources += [
+      "device_bound_session_manager_unittest.cc",
+      "device_bound_session_service_delegate_unittest.cc",
+    ]
   }
 
   if (!is_fuchsia) {
@@ -616,6 +617,7 @@ source_set("tests") {
     ":network_service",
     ":test_support",
     "//base",
+    "//base/test:test_support",
     "//components/enterprise/buildflags",
     "//components/network_session_configurator/browser",
     "//components/os_crypt/async/browser:test_support",
@@ -636,8 +638,6 @@ source_set("tests") {
     "//net:quic_test_tools",
     "//net:simple_quic_tools",
     "//net:test_support",
-    "//services/network/attribution",
-    "//services/network/attribution:tests",
     "//services/network/first_party_sets:first_party_sets_manager",
     "//services/network/first_party_sets:tests",
     "//services/network/public/cpp",
@@ -666,6 +666,13 @@ source_set("tests") {
   }
 
   if (use_blink) {
+    sources += [
+      "proxy_resolver_factory_mojo_unittest.cc",
+      "proxy_service_mojo_unittest.cc",
+      "test_mojo_proxy_resolver_factory.cc",
+      "test_mojo_proxy_resolver_factory.h",
+      "url_request_context_builder_mojo_unittest.cc",
+    ]
     deps += [
       "//services/proxy_resolver:lib",
       "//third_party/blink/public/common:preloading_headers",

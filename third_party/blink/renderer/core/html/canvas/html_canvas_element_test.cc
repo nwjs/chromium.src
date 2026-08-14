@@ -500,7 +500,7 @@ TEST_P(HTMLCanvasElementTest, IsCanvasOrInCanvasSubtree) {
     <div id=div></div>
     <canvas id=canvas>
       <div id=nested_div></div>
-      <canvas id=nested_canvas></canvas>
+        <canvas id=nested_canvas></canvas>
       <input id=nested_input>
     </canvas>
   )HTML");
@@ -534,6 +534,10 @@ TEST_P(HTMLCanvasElementTest, IsCanvasOrInCanvasSubtree) {
   div->appendChild(nested_canvas);
   EXPECT_TRUE(nested_canvas->IsCanvasOrInCanvasSubtree());
   EXPECT_FALSE(nested_canvas->IsInCanvasSubtree());
+  EXPECT_TRUE(nested_input->IsCanvasOrInCanvasSubtree());
+  EXPECT_TRUE(nested_input->IsInCanvasSubtree());
+  EXPECT_TRUE(nested_input_shadow->IsCanvasOrInCanvasSubtree());
+  EXPECT_TRUE(nested_input_shadow->IsInCanvasSubtree());
   div->appendChild(nested_input);
   EXPECT_FALSE(nested_input->IsCanvasOrInCanvasSubtree());
   EXPECT_FALSE(nested_input->IsInCanvasSubtree());
@@ -551,6 +555,30 @@ TEST_P(HTMLCanvasElementTest, IsCanvasOrInCanvasSubtree) {
   EXPECT_TRUE(nested_input->IsInCanvasSubtree());
   EXPECT_TRUE(nested_input_shadow->IsCanvasOrInCanvasSubtree());
   EXPECT_TRUE(nested_input_shadow->IsInCanvasSubtree());
+}
+
+TEST_P(HTMLCanvasElementTest, IsCanvasOrInCanvasSubtreeSlotted) {
+  GetDocument().body()->SetHTMLUnsafeWithoutTrustedTypes(R"(
+    <div id=slotHost>
+      <template shadowrootmode=open>
+        <canvas layoutsubtree>
+          <slot name="slot1"></slot>
+        </canvas>
+      </template>
+      <div id=slotted slot="slot1">
+        <p id=slotchild>Hello</p>
+      </div>
+    </div>
+  )");
+  UpdateAllLifecyclePhasesForTest();
+
+  auto* slotted = GetDocument().getElementById(AtomicString("slotted"));
+  EXPECT_TRUE(slotted->IsCanvasOrInCanvasSubtree());
+  EXPECT_TRUE(slotted->IsInCanvasSubtree());
+
+  auto* slotted_child = GetDocument().getElementById(AtomicString("slotchild"));
+  EXPECT_TRUE(slotted_child->IsCanvasOrInCanvasSubtree());
+  EXPECT_TRUE(slotted_child->IsInCanvasSubtree());
 }
 
 TEST_P(HTMLCanvasElementTest, LayoutsubtreeInvalidation) {
@@ -587,16 +615,25 @@ TEST_P(HTMLCanvasElementTest, LayoutsubtreeInvalidation) {
 }
 
 TEST_P(HTMLCanvasElementTest, HTMLInCanvasUseCounter) {
-  SetBodyInnerHTML(R"HTML(
-    <canvas></canvas>
-  )HTML");
-  UpdateAllLifecyclePhasesForTest();
-  EXPECT_FALSE(GetDocument().IsUseCounted(WebFeature::kHTMLInCanvas));
+  ScopedCanvasDrawElementForTest forced_canvas_draw_element_feature(true);
+  GetDocument().GetSettings()->SetScriptEnabled(true);
 
   SetBodyInnerHTML(R"HTML(
-    <canvas layoutsubtree></canvas>
+    <canvas id=cvs layoutsubtree>
+      <div id=target>hello world</div>
+    </canvas>
   )HTML");
-  UpdateAllLifecyclePhasesForTest();
+  RunDocumentLifecycle();
+
+  // Metrics should not be recorded until the feature is actually used.
+  EXPECT_FALSE(GetDocument().IsUseCounted(WebFeature::kHTMLInCanvas));
+
+  Element* script = GetDocument().CreateRawElement(html_names::kScriptTag);
+  script->setTextContent(R"JS(
+    cvs.getContext('2d').drawElementImage(target, 0, 0);
+  )JS");
+  GetDocument().body()->appendChild(script);
+  RunDocumentLifecycle();
   EXPECT_TRUE(GetDocument().IsUseCounted(WebFeature::kHTMLInCanvas));
 }
 

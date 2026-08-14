@@ -40,6 +40,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/default_clock.h"
 #include "base/time/time.h"
+#include "base/values.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/permissions_policy/document_policy_feature.mojom-blink.h"
@@ -580,6 +581,12 @@ PerformanceEntryVector Performance::getEntriesByTypeInternal(
         entries = &long_animation_frame_buffer_;
       break;
 
+    // Conditional user timing entries are included in other relevant
+    // Performance entries. They are not retrievable through Performance
+    // interface.
+    case PerformanceEntry::kMarkConditional:
+      break;
+
     case PerformanceEntry::kInvalid:
       break;
   }
@@ -766,6 +773,18 @@ void Performance::AddLargestContentfulPaint(LargestContentfulPaint* entry) {
            .find(PerformanceEntry::kLargestContentfulPaint)
            ->value);
   }
+
+  if (RuntimeEnabledFeatures::DeclarativePerformanceObserverEnabled(
+          GetExecutionContext()) &&
+      !is_declarative_performance_observer_disabled_for_document_) {
+    auto lcp_mojom_entry = mojom::blink::DeclarativePerformanceEntry::NewLcp(
+        mojom::blink::DeclarativeLargestContentfulPaint::New(
+            base::Milliseconds(entry->startTime()), entry->size(),
+            base::Milliseconds(entry->renderTime()),
+            base::Milliseconds(entry->loadTime()), entry->id(), entry->url(),
+            entry->element() ? entry->element()->tagName() : String()));
+    BufferPerformanceEntry(std::move(lcp_mojom_entry));
+  }
 }
 
 void Performance::AddInteractionContentfulPaint(
@@ -945,10 +964,10 @@ PerformanceMark* Performance::mark(ScriptState* script_state,
           }
         }
       }
-      auto entry = mojom::blink::DeclarativePerformanceEntry::New();
-      entry->name = mark_name;
-      entry->start_time = base::Milliseconds(performance_mark->startTime());
-      entry->detail = std::move(detail_value);
+      auto entry = mojom::blink::DeclarativePerformanceEntry::NewMark(
+          mojom::blink::DeclarativePerformanceMark::New(
+              mark_name, base::Milliseconds(performance_mark->startTime()),
+              std::move(detail_value)));
       BufferPerformanceEntry(std::move(entry));
     }
 
@@ -1182,6 +1201,9 @@ void Performance::clearMeasures(const AtomicString& measure_name) {
   GetUserTiming().ClearMeasures(measure_name);
 }
 
+void Performance::markConditional(ScriptState* script_state,
+                                  const AtomicString& mark_name) {}
+
 void Performance::RegisterPerformanceObserver(PerformanceObserver& observer) {
   observer_filter_options_ |= observer.FilterOptions();
   observers_.insert(&observer);
@@ -1247,16 +1269,17 @@ void Performance::ActivateObserver(PerformanceObserver& observer) {
   if (active_observers_.empty())
     deliver_observations_timer_.StartOneShot(base::TimeDelta(), FROM_HERE);
 
-  if (suspended_observers_.Contains(&observer))
-    suspended_observers_.erase(&observer);
+  // erase() is a no-op when the observer isn't present, so no guard is needed.
+  suspended_observers_.erase(&observer);
   active_observers_.insert(&observer);
 }
 
 void Performance::SuspendObserver(PerformanceObserver& observer) {
   DCHECK(!suspended_observers_.Contains(&observer));
-  if (!active_observers_.Contains(&observer))
+  auto it = active_observers_.find(&observer);
+  if (it == active_observers_.end())
     return;
-  active_observers_.erase(&observer);
+  active_observers_.erase(it);
   suspended_observers_.insert(&observer);
 }
 

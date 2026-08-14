@@ -106,6 +106,8 @@ GlicActorClientSession::GlicActorClientSession(
       journal_handler_(
           std::make_unique<GlicActorJournalHandler>(manager->profile())) {
   receiver_.Bind(std::move(receiver));
+  receiver_.set_disconnect_handler(
+      base::BindOnce(&GlicActorClientSession::Unbind, base::Unretained(this)));
   actor_client_.Bind(std::move(client));
   // Unretained is safe because the subscription cancels the callback when
   // this is destroyed.
@@ -247,7 +249,8 @@ void GlicActorClientSession::CreateTask(
   current_task_id_ = actor_keyed_service().CreateTaskWithOptions(
       actor::TaskSourceInfo(actor::TaskSourceInfo::Client::kGlic,
                             conversation_id),
-      &actor_policy_checker(), std::move(options), GetWeakPtr());
+      &actor_policy_checker(), std::move(options), GetWeakPtr(),
+      instance_metrics().initial_invocation_source());
   CHECK(!current_task_id_.is_null());
 
   if (manager_->delegate_) {
@@ -398,6 +401,15 @@ void GlicActorClientSession::OnPerformActionsComplete(
   }
 
   actor::CopyScriptToolResults(response, action_results);
+
+  for (const auto& action_result : action_results) {
+    if (actor::IsOk(*action_result.result)) {
+      response.add_extra_information(action_result.result->message);
+    } else {
+      // In case of an error, the message is copied to `error_message` instead.
+      response.add_extra_information(std::string());
+    }
+  }
 
   auto* latency_info = response.mutable_latency_information();
   for (size_t i = 0; i < action_results.size(); ++i) {
@@ -701,7 +713,7 @@ void GlicActorClientSession::PauseActorTask(
 
 void GlicActorClientSession::ResumeActorTask(
     int32_t task_id,
-    mojom::GetTabContextOptionsPtr context_options,
+    mojom::TabContextOptionsPtr context_options,
     ResumeActorTaskCallback callback) {
   auto actor_task_id = actor::TaskId(task_id);
   instance_metrics().OnResumeActorTask();
@@ -777,7 +789,7 @@ void GlicActorClientSession::ResumeActorTask(
         CHECK(page_context.screenshot_result.has_value());
         CHECK(page_context.annotated_page_content_result.has_value());
 
-        auto glic_tab_context = mojom::TabContext::New();
+        auto glic_tab_context = mojom::TabContextResult::New();
 
         glic_tab_context->tab_data = std::move(tab_data);
 
@@ -787,7 +799,9 @@ void GlicActorClientSession::ResumeActorTask(
             std::move(page_context.screenshot_result->screenshot_data),
             page_context.screenshot_result->mime_type,
             // TODO(b/380495633): Finalize and implement image annotations.
-            glic::mojom::ImageOriginAnnotations::New());
+            glic::mojom::ImageOriginAnnotations::New(),
+            /*encryption_scheme=*/
+            glic::mojom::ScreenshotEncryptionScheme::kNone);
 
         if (page_context.screenshot_info.has_value()) {
           glic_tab_context->screenshot_info =
@@ -903,21 +917,20 @@ void GlicActorClientSession::UninterruptActorTask(int32_t task_id) {
 
 void GlicActorClientSession::CreateActorTab(
     int32_t task_id,
-    bool open_in_background,
-    std::optional<int32_t> initiator_tab_id,
-    std::optional<int32_t> initiator_window_id,
+    mojom::CreateActorTabOptionsPtr options,
     CreateActorTabCallback callback) {
   auto actor_task_id = actor::TaskId(task_id);
   tabs::TabHandle initiator_tab_handle =
-      initiator_tab_id.has_value() ? tabs::TabHandle(*initiator_tab_id)
-                                   : tabs::TabHandle::Null();
+      options->initiator_tab_id.has_value()
+          ? tabs::TabHandle(*options->initiator_tab_id)
+          : tabs::TabHandle::Null();
   SessionID initiator_window_session_id =
-      initiator_window_id.has_value()
-          ? SessionID::FromSerializedValue(*initiator_window_id)
+      options->initiator_window_id.has_value()
+          ? SessionID::FromSerializedValue(*options->initiator_window_id)
           : SessionID::InvalidValue();
 
   actor_keyed_service().CreateActorTab(
-      actor_task_id, open_in_background, initiator_tab_handle,
+      actor_task_id, options->open_in_background, initiator_tab_handle,
       initiator_window_session_id,
       base::BindOnce(&GlicActorClientSession::CreateActorTabFinished,
                      GetWeakPtr(), std::move(callback)));
@@ -1132,8 +1145,20 @@ void GlicActorClientSession::RequestToShowCredentialSelectionDialog(
 void GlicActorClientSession::RequestToShowGmailOtpOptInDialog(
     actor::TaskId task_id,
     actor::ActorTaskDelegate::GmailOtpOptInCallback callback) {
-  actor_client_->RequestToShowGmailOtpOptInDialog(task_id.value(),
+  auto request =
+      actor::webui::mojom::GmailOtpOptInRequest::New(task_id.value());
+  actor_client_->RequestToShowGmailOtpOptInDialog(std::move(request),
                                                   std::move(callback));
+}
+
+void GlicActorClientSession::RequestToShowGmailOtpConfirmationDialog(
+    actor::TaskId task_id,
+    const std::string& verification_code,
+    actor::ActorTaskDelegate::GmailOtpConfirmationCallback callback) {
+  auto dialog_request = actor::webui::mojom::GmailOtpConfirmationRequest::New(
+      task_id.value(), verification_code);
+  actor_client_->RequestToShowGmailOtpConfirmationDialog(
+      std::move(dialog_request), std::move(callback));
 }
 
 void GlicActorClientSession::RequestToShowUserConfirmationDialog(
@@ -1234,8 +1259,10 @@ void GlicActorClientSession::AutofillSuggestionDialogOnFormConfirmed(
 }
 
 void GlicActorClientSession::Unbind() {
-  CHECK_EQ(manager_->session_.get(), this);
-  manager_->UnbindSession();
+  // Avoid reentrancy.
+  if (manager_->session_.get() == this) {
+    manager_->UnbindSession();
+  }
 }
 
 void GlicActorTaskManager::Bind(
@@ -1251,7 +1278,7 @@ mojom::ActorClient* GlicActorClientSession::GetClient() {
 
 void GlicActorClientSession::GetContextForActorFromTab(
     int32_t tab_id,
-    mojom::GetTabContextOptionsPtr options,
+    mojom::TabContextOptionsPtr options,
     GetContextForActorFromTabCallback callback) {
   GlicKeyedService* glic_service =
       GlicKeyedServiceFactory::GetGlicKeyedService(manager_->profile());

@@ -34,7 +34,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="MessagePumpEpoll.WatchedFileDescriptors"
-    units="FileDescriptors" expires_after="2026-10-25">
+    units="FileDescriptors" expires_after="2026-12-27">
   <owner>mthiesse@chromium.org</owner>
   <owner>lizeb@chromium.org</owner>
   <summary>
@@ -45,8 +45,41 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
-    name="Scheduling.ContendedLockAcquisitionTime.{LockType}.{ThreadName}"
+    name="Scheduling.ContendedLockAcquisitionTime.{LockType}.{ProcessName}.{ThreadGroup}Worker"
     units="microseconds" expires_after="2026-11-08">
+  <owner>fionav@google.com</owner>
+  <owner>clank-performance-team@google.com</owner>
+  <summary>
+    The time it takes to acquire a contended {LockType} on the {ThreadGroup}
+    thread pool in the {ProcessName} process. This is recorded with probability
+    1/1000 when acquisition of the lock is likely to cause the thread to wait in
+    the kernel.
+
+    Note: The metric is reported for only clients with high-resolution clocks (a
+    subset of Windows clients won't report it, see the
+    Windows.HasHighResolutionTimeTicks histogram).
+  </summary>
+  <token key="LockType">
+    <variant name="BaseLock" summary="base:Lock"/>
+    <variant name="PartitionAllocLock"
+        summary="partition_alloc::internal::Lock"/>
+  </token>
+  <token key="ThreadGroup">
+    <variant name="Background"
+        summary="a thread pool background worker thread"/>
+    <variant name="Foreground"
+        summary="a thread pool foreground worker thread"/>
+  </token>
+  <token key="ProcessName">
+    <variant name="Browser" summary="the browser process"/>
+    <variant name="GPU" summary="the gpu process"/>
+    <variant name="Renderer" summary="the renderer process"/>
+  </token>
+</histogram>
+
+<histogram
+    name="Scheduling.ContendedLockAcquisitionTime.{LockType}.{ThreadName}"
+    units="microseconds" expires_after="2027-01-10">
   <owner>anandrv@google.com</owner>
   <owner>clank-performance-team@google.com</owner>
   <summary>
@@ -64,8 +97,13 @@ chromium-metrics-reviews@google.com.
         summary="partition_alloc::internal::Lock"/>
   </token>
   <token key="ThreadName">
+    <variant name="BrowserIO" summary="the browser IO thread"/>
+    <variant name="Compositor" summary="the compositor thread"/>
     <variant name="CrBrowserMain" summary="the browser main thread"/>
+    <variant name="CrGpuMain" summary="the gpu main thread"/>
     <variant name="CrRendererMain" summary="the renderer main thread"/>
+    <variant name="NetworkService" summary="the network service thread"/>
+    <variant name="VizCompositor" summary="the viz compositor thread"/>
   </token>
 </histogram>
 
@@ -522,7 +560,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Scheduling.ThreadPriority.Browser.{ThreadName}" units="int"
-    expires_after="2026-10-25">
+    expires_after="2027-01-03">
   <owner>anandrv@google.com</owner>
   <owner>clank-performance-team@google.com</owner>
   <summary>
@@ -542,7 +580,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Scheduling.ThreadPriority.GPUProcess.{ThreadName}" units="int"
-    expires_after="2026-10-25">
+    expires_after="2027-01-03">
   <owner>anandrv@google.com</owner>
   <owner>clank-performance-team@google.com</owner>
   <summary>
@@ -562,7 +600,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Scheduling.ThreadPriority.Renderer.{ThreadName}" units="int"
-    expires_after="2026-10-25">
+    expires_after="2027-01-03">
   <owner>anandrv@google.com</owner>
   <owner>clank-performance-team@google.com</owner>
   <summary>
@@ -582,7 +620,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ThreadPool.UnnecessaryWakeup.{ThreadPoolName}.{WorkerGroup}"
-    enum="BooleanHit" expires_after="2026-08-30">
+    enum="BooleanHit" expires_after="2027-02-28">
   <owner>spvm@chromium.org</owner>
   <owner>gab@chromium.org</owner>
   <summary>

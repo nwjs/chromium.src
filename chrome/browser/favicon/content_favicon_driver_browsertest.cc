@@ -263,7 +263,7 @@ class ContentFaviconDriverTest : public InProcessBrowserTest {
 
   favicon::FaviconService* favicon_service() {
     return FaviconServiceFactory::GetForProfile(
-        browser()->profile(), ServiceAccessType::EXPLICIT_ACCESS);
+        browser()->GetProfile(), ServiceAccessType::EXPLICIT_ACCESS);
   }
 
   favicon_base::FaviconRawBitmapResult GetFaviconForPageURL(
@@ -1066,7 +1066,7 @@ IN_PROC_BROWSER_TEST_F(ContentFaviconDriverTest,
   // Clear cache.
   {
     content::BrowsingDataRemover* remover =
-        browser()->profile()->GetBrowsingDataRemover();
+        browser()->GetProfile()->GetBrowsingDataRemover();
     content::BrowsingDataRemoverCompletionObserver observer(remover);
     remover->RemoveAndReply(
         base::Time(), base::Time::Max(),
@@ -1111,7 +1111,7 @@ IN_PROC_BROWSER_TEST_F(ContentFaviconDriverTest,
 
   // Visiting the site in incognito mode should always load the favicon.
   Browser* incognito = Browser::Create(Browser::CreateParams(
-      browser()->profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true),
+      browser()->GetProfile()->GetPrimaryOTRProfile(/*create_if_needed=*/true),
       true));
   AddBlankTabAndShow(incognito);
   {

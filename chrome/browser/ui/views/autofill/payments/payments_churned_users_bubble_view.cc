@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/views/autofill/payments/payments_churned_users_bubble_view.h"
 
 #include "chrome/browser/ui/autofill/payments/payments_churned_users_bubble_controller.h"
+#include "chrome/browser/ui/views/autofill/payments/payments_view_util.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
@@ -17,7 +18,8 @@ PaymentsChurnedUsersBubbleView::PaymentsChurnedUsersBubbleView(
     content::WebContents* web_contents,
     PaymentsChurnedUsersBubbleController* controller)
     : AutofillLocationBarBubble(anchor, web_contents), controller_(controller) {
-  SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
+  SetButtons(static_cast<int>(ui::mojom::DialogButton::kOk) |
+             static_cast<int>(ui::mojom::DialogButton::kCancel));
   SetShowCloseButton(true);
   set_fixed_width(views::LayoutProvider::Get()->GetDistanceMetric(
       views::DISTANCE_BUBBLE_PREFERRED_WIDTH));
@@ -31,6 +33,10 @@ void PaymentsChurnedUsersBubbleView::Show(DisplayReason reason) {
 
 void PaymentsChurnedUsersBubbleView::Hide() {
   CloseBubble();
+  if (controller_) {
+    controller_->OnBubbleClosed(
+        GetPaymentsUiClosedReasonFromWidget(GetWidget()));
+  }
   controller_ = nullptr;
 }
 
@@ -42,7 +48,8 @@ std::u16string PaymentsChurnedUsersBubbleView::GetWindowTitle() const {
 
 void PaymentsChurnedUsersBubbleView::WindowClosing() {
   if (controller_) {
-    controller_->OnBubbleClosed();
+    controller_->OnBubbleClosed(
+        GetPaymentsUiClosedReasonFromWidget(GetWidget()));
     controller_ = nullptr;
   }
 }

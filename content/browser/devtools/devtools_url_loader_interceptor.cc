@@ -10,6 +10,7 @@
 
 #include "base/barrier_closure.h"
 #include "base/base64.h"
+#include "base/byte_size.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
@@ -39,6 +40,7 @@
 #include "net/base/mime_sniffer.h"
 #include "net/cookies/cookie_access_result.h"
 #include "net/cookies/cookie_util.h"
+#include "net/http/http_request_headers.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_util.h"
 #include "net/url_request/redirect_info.h"
@@ -1340,6 +1342,18 @@ void InterceptionJob::ProcessFollowRedirect(
                                         headers_update_params.modified_headers);
   headers_update_params.modified_cors_exempt_headers =
       modified_cors_exempt_headers;
+  // Never report Origin as a client modification. The diff above is taken
+  // against the pre-redirect headers, so the Origin that the browser itself
+  // recomputed for this redirect (in FollowRedirect(), mirroring what the
+  // network service does) shows up here as though the client had set it.
+  // Forwarding it trips the network service's guard against modifying Origin
+  // on redirect and fails the request with net::ERR_INVALID_ARGUMENT, even for
+  // a client that never touched Origin. Dropping it is safe in every case: the
+  // network service recomputes the same value itself, so the request is
+  // unchanged on the wire, and Origin is not a header clients are allowed to
+  // change on a redirect anyway.
+  headers_update_params.modified_headers.RemoveHeader(
+      net::HttpRequestHeaders::kOrigin);
   headers_before_redirect_.reset();
   loader_->FollowRedirect(std::move(headers_update_params), std::nullopt);
   state_ = State::kRequestSent;
@@ -1477,9 +1491,10 @@ Response InterceptionJob::ProcessResponseOverride(
   response_metadata_->transfer_size = body_size;
 
   response_metadata_->status.completion_time = base::TimeTicks::Now();
-  response_metadata_->status.encoded_data_length = headers_size + body_size;
-  response_metadata_->status.encoded_body_length = body_size;
-  response_metadata_->status.decoded_body_length = body_size;
+  response_metadata_->status.encoded_data_length =
+      base::ByteSize(headers_size) + base::ByteSize(body_size);
+  response_metadata_->status.encoded_body_length = base::ByteSize(body_size);
+  response_metadata_->status.decoded_body_length = base::ByteSize(body_size);
 
   base::OnceClosure continue_after_cookies_set;
   std::string location;

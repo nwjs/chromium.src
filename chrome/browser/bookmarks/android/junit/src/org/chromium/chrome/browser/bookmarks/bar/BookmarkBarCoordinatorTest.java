@@ -80,6 +80,7 @@ import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.theme.ThemeUtils;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.ui.favicon.FaviconHelperJni;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
 import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
 import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
@@ -89,6 +90,7 @@ import org.chromium.components.browser_ui.widget.CoordinatorLayoutForPointer;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.listmenu.ListItemType;
 import org.chromium.ui.listmenu.ListMenuItemProperties;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -135,6 +137,8 @@ public class BookmarkBarCoordinatorTest {
     @Mock private TopUiThemeColorProvider mTopUiThemeColorProvider;
     @Mock private SideUiStateProvider mSideUiStateProvider;
     @Mock private TabObscuringHandler mTabObscuringHandler;
+    @Mock private ModalDialogManager mModalDialogManager;
+    @Mock private SnackbarManager mSnackbarManager;
 
     private ShadowLooper mShadowLooper;
     private BookmarkBarCoordinator mCoordinator;
@@ -168,6 +172,8 @@ public class BookmarkBarCoordinatorTest {
         ImageServiceBridgeJni.setInstanceForTesting(mImageServiceBridgeJni);
 
         onActivity(this::createCoordinator);
+        SideUiSpecs sideUiSpecs = new SideUiSpecs(100, 200);
+        when(mSideUiStateProvider.getCurrentSideUiSpecs()).thenReturn(sideUiSpecs);
     }
 
     @SuppressWarnings("unchecked") // Raw CompositorModelChangeProcessor mock.
@@ -227,7 +233,9 @@ public class BookmarkBarCoordinatorTest {
                         ObservableSuppliers.alwaysNull(),
                         mTopUiThemeColorProvider,
                         mSideUiStateProviderSupplier,
-                        mTabObscuringHandler);
+                        mTabObscuringHandler,
+                        () -> mModalDialogManager,
+                        () -> mSnackbarManager);
 
         assertNotNull("Verify view stub inflation during construction.", mView);
 
@@ -302,7 +310,7 @@ public class BookmarkBarCoordinatorTest {
     @SmallTest
     public void testOnBookmarkBarHeightChanged() {
         // Verify initial state. Height is read from minHeight and hairline's height.
-        assertEquals("Verify initial state.", 41, mCoordinator.getTopControlHeight());
+        assertEquals("Verify initial state.", 43, mCoordinator.getTopControlHeight());
 
         // NOTE: the `mHeightChangeCallback` is expected to have been registered for observation
         // during `mCoordinator` construction and notified of initial height via posted task.
@@ -489,8 +497,8 @@ public class BookmarkBarCoordinatorTest {
     @SmallTest
     @SuppressWarnings("DirectInvocationOnMock")
     public void testOnTopControlsHeightChanged() {
-        // Initialize browser controls manager. Bookmark bar start height is 40.
-        int topControlsHeight = 41;
+        // Initialize browser controls manager. Bookmark bar start height is 42.
+        int topControlsHeight = 43;
         when(mBrowserControlsManager.getTopControlsHeight()).thenReturn(topControlsHeight);
         when(mTopControlsStacker.getHeightFromLayerToTop(TopControlType.BOOKMARK_BAR))
                 .thenReturn(0);
@@ -504,7 +512,7 @@ public class BookmarkBarCoordinatorTest {
                 0,
                 ((MarginLayoutParams) mView.getLayoutParams()).topMargin);
 
-        topControlsHeight = 51;
+        topControlsHeight = 53;
         when(mBrowserControlsManager.getTopControlsHeight()).thenReturn(topControlsHeight);
         when(mTopControlsStacker.getHeightFromLayerToTop(TopControlType.BOOKMARK_BAR))
                 .thenReturn(10);

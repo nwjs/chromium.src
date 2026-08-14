@@ -15,7 +15,6 @@
 #include "base/containers/to_vector.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
-#include "base/run_loop.h"
 #include "base/test/bind.h"
 #include "base/test/mock_callback.h"
 #include "base/test/test_future.h"
@@ -115,6 +114,9 @@ class ChromeWebAuthnCredentialsDelegateTest
   void SetUp() override {
     ChromeRenderViewHostTestHarness::SetUp();
 
+    content::WebContentsTester::For(web_contents())
+        ->NavigateAndCommit(GURL("https://example.com"));
+
 #if !BUILDFLAG(IS_ANDROID)
     authenticator_request_delegate_ =
         AuthenticatorRequestScheduler::CreateRequestDelegate(
@@ -126,12 +128,9 @@ class ChromeWebAuthnCredentialsDelegateTest
         base::DoNothing(), base::DoNothing(), base::DoNothing(),
         base::DoNothing(), base::DoNothing(), base::DoNothing());
 #else
-    delegate_ =
-        WebAuthnRequestDelegateAndroid::GetRequestDelegate(web_contents());
+    delegate_ = WebAuthnRequestDelegateAndroid::GetRequestDelegate(
+        web_contents()->GetPrimaryMainFrame());
 #endif
-
-    content::WebContentsTester::For(web_contents())
-        ->NavigateAndCommit(GURL("https://example.com"));
   }
 
   void TearDown() override {
@@ -250,18 +249,20 @@ TEST_F(ChromeWebAuthnCredentialsDelegateTest, SelectCredential) {
       {passkey1, passkey2}, SecurityKeyOrHybridFlowAvailable(true));
 
 #if !BUILDFLAG(IS_ANDROID)
-  base::RunLoop run_loop;
-  dialog_controller()->SetAccountPreselectedCallback(base::BindLambdaForTesting(
-      [&](device::DiscoverableCredentialMetadata cred) {
-        EXPECT_THAT(cred.cred_id, testing::ElementsAreArray(kCredId2));
-        run_loop.Quit();
-      }));
+  base::test::TestFuture<device::DiscoverableCredentialMetadata>
+      preselected_future;
+  dialog_controller()->SetAccountPreselectedCallback(
+      preselected_future.GetRepeatingCallback());
 #endif
 
   EXPECT_CALL(mock_callback, Run());
   credentials_delegate()->SelectPasskey(base::Base64Encode(kCredId2),
                                         mock_callback.Get());
 
+#if !BUILDFLAG(IS_ANDROID)
+  EXPECT_THAT(preselected_future.Get().cred_id,
+              testing::ElementsAreArray(kCredId2));
+#endif
 #if BUILDFLAG(IS_ANDROID)
   auto credential_id = GetSelectedId();
   EXPECT_THAT(*credential_id, testing::ElementsAreArray(kCredId2));

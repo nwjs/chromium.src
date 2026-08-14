@@ -60,7 +60,7 @@ class WebState;
 
 // Mediator that manages the business logic and data for the AI mode Assistant.
 @interface AssistantAIMMediator
-    : NSObject <ComposeboxURLLoader, AssistantAIMMutator>
+    : NSObject <AssistantAIMMutator, ComposeboxURLLoader>
 
 // The consumer for this mediator.
 @property(nonatomic, weak) id<AssistantAIMConsumer> consumer;
@@ -104,6 +104,9 @@ class WebState;
 // Returns the active capabilities of the current AIM page. Returns std::nullopt
 // if the handshake has not completed yet.
 - (const std::optional<std::vector<lens::FeatureCapability>>&)capabilities;
+
+// Updates the context from the browser agent and reloads if it has changed.
+- (void)updateContext;
 
 // Disconnects the mediator.
 - (void)disconnect;

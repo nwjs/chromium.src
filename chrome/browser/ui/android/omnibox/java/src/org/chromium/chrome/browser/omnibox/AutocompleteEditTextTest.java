@@ -1532,4 +1532,47 @@ public class AutocompleteEditTextTest {
         mAutocomplete.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL));
         assertTexts("w", "", "");
     }
+
+    @Test
+    public void testTypeCharacter_replacingSelection_doesNotAutoCommit() {
+        // 1. Set initial text "google.com" and select all (reproducing page focus state)
+        mAutocomplete.setText("google.com");
+        mAutocomplete.setSelection(0, 10);
+
+        // 2. Type "w" replacing selection
+        assertTrue(mInputConnection.commitText("w", 1));
+
+        // Model should now have userText = "w", no autocomplete
+        assertTexts("w", "", "");
+
+        // 3. Controller sets autocomplete "wikipedia.org" (inline "ikipedia.org")
+        mAutocomplete.setAutocompleteText("w", "ikipedia.org", null, null);
+
+        // Model should have userText = "w", autocomplete = "ikipedia.org"
+        // If it autocommitted, the userText would be "wikipedia.org" and autocomplete would be
+        // empty.
+        assertTexts("w", "ikipedia.org", "");
+    }
+
+    @Test
+    public void testTypeCharacter_replacingSuffixSelection_allowsAutocomplete() {
+        mAutocomplete.setText("www.example.com");
+        mAutocomplete.setSelection(4, 15);
+
+        assertTrue(mInputConnection.commitText("e", 1));
+
+        assertEquals("www.e", mAutocomplete.getText().toString());
+        assertTrue(mAutocomplete.shouldAutocomplete());
+    }
+
+    @Test
+    public void testTypeCharacter_replacingReversedSuffixSelection_allowsAutocomplete() {
+        mAutocomplete.setText("www.example.com");
+        mAutocomplete.setSelection(15, 4);
+
+        assertTrue(mInputConnection.commitText("e", 1));
+
+        assertEquals("www.e", mAutocomplete.getText().toString());
+        assertTrue(mAutocomplete.shouldAutocomplete());
+    }
 }

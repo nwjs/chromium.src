@@ -311,8 +311,7 @@ class WEB_ENGINE_EXPORT FrameImpl : public fuchsia::web::Frame,
       const std::string& frame_name,
       const GURL& target_url) override;
   void WebContentsCreated(content::WebContents* source_contents,
-                          int opener_render_process_id,
-                          int opener_render_frame_id,
+                          const content::GlobalRenderFrameHostId& opener_id,
                           const std::string& frame_name,
                           const GURL& target_url,
                           content::WebContents* new_contents) override;
@@ -347,6 +346,7 @@ class WEB_ENGINE_EXPORT FrameImpl : public fuchsia::web::Frame,
   void ResourceLoadComplete(
       content::RenderFrameHost* render_frame_host,
       const content::GlobalRequestID& request_id,
+      const GURL& original_url,
       const blink::mojom::ResourceLoadInfo& resource_load_info) override;
   void MediaStartedPlaying(const MediaPlayerInfo& video_type,
                            const content::MediaPlayerId& id) override;

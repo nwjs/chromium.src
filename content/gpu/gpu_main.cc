@@ -27,6 +27,7 @@
 #include "base/rand_util.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/synchronization/lock_metrics_recorder.h"
 #include "base/system/sys_info.h"
 #include "base/task/current_thread.h"
 #include "base/task/single_thread_task_executor.h"
@@ -109,6 +110,9 @@
 #include "media/base/win/mf_initializer.h"
 #include "sandbox/policy/win/sandbox_warmup.h"
 #include "sandbox/win/src/sandbox.h"
+#endif
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
 #include "services/webnn/public/cpp/webnn_sandbox_init.h"
 #endif
 
@@ -189,6 +193,8 @@ class ContentSandboxHelper : public gpu::GpuSandboxHelper {
 #endif  // BUILDFLAG(USE_VAAPI)
 #if BUILDFLAG(IS_WIN)
     media::PreSandboxMediaFoundationInitialization();
+#endif
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
     webnn::PreSandboxWebNNInitialization();
 #endif
 
@@ -342,6 +348,7 @@ int GpuMain(MainFunctionParams parameters) {
   base::PlatformThread::SetName("CrGpuMain");
   mojo::InterfaceEndpointClient::SetThreadNameSuffixForMetrics("GpuMain");
   base::MessagePumpWakeupCounter::InitializeForCurrentThread("GpuMain");
+  base::LockMetricsRecorder::EnableRecordingOnCurrentThread("CrGpuMain");
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   // Thread type delegate of the process should be registered before
@@ -353,7 +360,7 @@ int GpuMain(MainFunctionParams parameters) {
   SandboxedProcessThreadTypeHandler::Create();
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
-  base::PlatformThread::SetCurrentThreadType(base::ThreadType::kPresentation);
+  base::PlatformThread::SetDefaultThreadType(base::ThreadType::kPresentation);
 
   auto gpu_init = std::make_unique<gpu::GpuInit>();
   ContentSandboxHelper sandbox_helper;

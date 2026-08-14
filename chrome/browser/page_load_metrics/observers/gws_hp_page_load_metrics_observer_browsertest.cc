@@ -18,6 +18,7 @@
 #include "components/page_load_metrics/browser/page_load_metrics_util.h"
 #include "components/page_load_metrics/common/test/page_load_metrics_test_util.h"
 #include "components/page_load_metrics/google/browser/histogram_suffixes.h"
+#include "components/performance_manager/public/performance_manager.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
@@ -68,8 +69,10 @@ class GWSHpPageLoadMetricsObserverBrowserTest : public MetricIntegrationTest {
         base::BindRepeating(&RequestHandler));
     Start();
 
-    // Wait until the browser init is complete.
-    AfterStartupTaskUtils::StartMonitoringStartup();
+    // Ensure startup monitoring has started (idempotent for testing).
+    ASSERT_TRUE(performance_manager::PerformanceManager::IsAvailable());
+    AfterStartupTaskUtils::BeginMonitoringStartupCompletionForTesting(
+        performance_manager::PerformanceManager::GetGraph());
   }
 };
 

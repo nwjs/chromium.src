@@ -110,6 +110,11 @@ void ListenerStreamProvider::StartStream(
     details.context = ConvertToApiContext(std::move(*result));
   }
 
+  extensions::api::dictation_private::StartStreamFlags flags;
+  flags.eval_mode = kDictationEvalMode.Get();
+  flags.web_speech_api_backend = kWebSpeechApiBackend.Get();
+  details.flags = std::move(flags);
+
   base::ListValue event_args =
       extensions::api::dictation_private::OnStartStream::Create(details);
 

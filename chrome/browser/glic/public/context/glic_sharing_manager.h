@@ -47,7 +47,8 @@ enum class GlicPinTrigger {
   kActuation,
   kWebClientUnknown,
   kContextualCue,
-  kMaxValue = kContextualCue
+  kTabGroupIntegration,
+  kMaxValue = kTabGroupIntegration
 };
 
 enum class GlicUnpinTrigger {
@@ -61,7 +62,8 @@ enum class GlicUnpinTrigger {
   kChip,
   kActuation,
   kWebClientUnknown,
-  kMaxValue = kWebClientUnknown
+  kTabGroupIntegration,
+  kMaxValue = kTabGroupIntegration
 };
 
 struct GlicPinEvent {
@@ -176,6 +178,10 @@ class GlicSharingManager {
 
   // Queries whether the given tab has been explicitly pinned.
   virtual bool IsTabPinned(tabs::TabHandle tab_handle) const = 0;
+
+  // Queries whether the given tab is shared with Glic (i.e. is focused and
+  // valid, or pinned).
+  virtual bool IsTabShared(tabs::TabInterface* tab) const = 0;
 };
 
 // Responsible for managing all shared context (focused tabs, explicitly-shared
@@ -285,6 +291,7 @@ class GlicSharingManagerInternal : public GlicSharingManager {
 
   // GlicSharingManager override.
   bool IsTabPinned(tabs::TabHandle tab_handle) const override = 0;
+  bool IsTabShared(tabs::TabInterface* tab) const override = 0;
 
   // Queries whether the given tab is focused.
   // Note: this signal should only be used by features that care about live mode
@@ -305,12 +312,12 @@ class GlicSharingManagerInternal : public GlicSharingManager {
 
   virtual void GetContextFromTab(
       tabs::TabHandle tab_handle,
-      const mojom::GetTabContextOptions& options,
+      const mojom::TabContextOptions& options,
       base::OnceCallback<void(GlicGetContextResult)> callback) = 0;
 
   virtual void GetContextForActorFromTab(
       tabs::TabHandle tab_handle,
-      const mojom::GetTabContextOptions& options,
+      const mojom::TabContextOptions& options,
       base::OnceCallback<void(GlicGetContextResult)> callback) = 0;
 
   virtual void GetImageBytes(

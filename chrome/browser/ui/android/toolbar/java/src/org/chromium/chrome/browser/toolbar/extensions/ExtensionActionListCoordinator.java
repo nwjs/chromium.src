@@ -150,8 +150,8 @@ public class ExtensionActionListCoordinator implements Destroyable {
         mMediator.executeUserAction(actionId, source);
     }
 
-    @Nullable
-    private View getButtonViewForId(String actionId) {
+    /** Retrieves the button view representing the icon of a given extension. */
+    public @Nullable View getButtonViewForId(String actionId) {
         for (int i = 0; i < mModels.size(); i++) {
             PropertyModel model = mModels.get(i).model;
             if (actionId.equals(model.get(ExtensionActionButtonProperties.ID))) {
@@ -177,6 +177,11 @@ public class ExtensionActionListCoordinator implements Destroyable {
      */
     public int setCanShowPoppedOutAction(int availableWidth) {
         return mMediator.setCanShowPoppedOutAction(availableWidth);
+    }
+
+    /** Whether the popped out action can be shown. */
+    public boolean canShowPoppedOutAction() {
+        return mMediator.canShowPoppedOutAction();
     }
 
     /**

@@ -26,6 +26,7 @@ import android.webkit.ServiceWorkerController;
 import android.webkit.TokenBindingService;
 import android.webkit.TracingController;
 import android.webkit.ValueCallback;
+import android.webkit.WebIconDatabase;
 import android.webkit.WebStorage;
 import android.webkit.WebView;
 import android.webkit.WebViewDatabase;
@@ -917,7 +918,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
     }
 
     @Override
-    public android.webkit.WebIconDatabase getWebIconDatabase() {
+    public WebIconDatabase getWebIconDatabase() {
         return mAwInit.getWebIconDatabase();
     }
 
@@ -933,15 +934,6 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
 
     WebViewDelegate getWebViewDelegate() {
         return mWebViewDelegate;
-    }
-
-    WebViewContentsClientAdapter createWebViewContentsClientAdapter(
-            WebView webView, Context context) {
-        try (DualTraceEvent e =
-                DualTraceEvent.scoped(
-                        "WebViewChromiumFactoryProvider.insideCreateWebViewContentsClientAdapter")) {
-            return new WebViewContentsClientAdapter(webView, context, mWebViewDelegate);
-        }
     }
 
     WebViewChromiumAwInit getAwInit() {

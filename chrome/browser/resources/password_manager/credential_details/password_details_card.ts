@@ -18,9 +18,7 @@ import '../dialogs/edit_password_dialog.js';
 import '../dialogs/multi_store_delete_password_dialog.js';
 import '../sharing/share_password_flow.js';
 import '../sharing/metrics_utils.js';
-import '../dialogs/move_single_password_dialog.js';
 
-import {loadTimeData} from '//resources/js/load_time_data.js';
 import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
 import {HelpBubbleMixin} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin.js';
 import type {CrButtonElement} from 'chrome://resources/cr_elements/cr_button/cr_button.js';
@@ -28,6 +26,7 @@ import type {CrIconButtonElement} from 'chrome://resources/cr_elements/cr_icon_b
 import type {CrInputElement} from 'chrome://resources/cr_elements/cr_input/cr_input.js';
 import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
 import {assert} from 'chrome://resources/js/assert.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {htmlEscape} from 'chrome://resources/js/util.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
@@ -107,12 +106,6 @@ export class PasswordDetailsCardElement extends PasswordDetailsCardElementBase {
 
       showEditPasswordDialog_: Boolean,
       showDeletePasswordDialog_: Boolean,
-      showMovePasswordDialog_: Boolean,
-
-      showSingleClickUploadUi_: {
-        type: Boolean,
-        value: () => loadTimeData.getBoolean('passwordUploadUiUpdate'),
-      },
 
       showShareButton_: {
         type: Boolean,
@@ -166,8 +159,6 @@ export class PasswordDetailsCardElement extends PasswordDetailsCardElementBase {
   declare private showDeletePasswordDialog_: boolean;
   declare private showShareFlow_: boolean;
   declare private showShareButton_: boolean;
-  declare private showMovePasswordDialog_: boolean;
-  declare private showSingleClickUploadUi_: boolean;
   declare private trigger_: MoveToAccountStoreTrigger;
 
 
@@ -348,18 +339,9 @@ export class PasswordDetailsCardElement extends PasswordDetailsCardElementBase {
             this.getCredentialTypeString_());
   }
 
-  private computeMovePasswordText_(): TrustedHTML {
-    return this.i18nAdvanced('moveSinglePassword');
-  }
-
   private onMovePasswordClicked_(e: Event) {
     assert(this.isAccountStoreUser);
     e.preventDefault();
-
-    if (!this.showSingleClickUploadUi_) {
-      this.showMovePasswordDialog_ = true;
-      return;
-    }
 
     PasswordManagerImpl.getInstance().movePasswordsToAccount(
         [this.password.id]);
@@ -375,15 +357,6 @@ export class PasswordDetailsCardElement extends PasswordDetailsCardElementBase {
     return this.isUsingAccountStore &&
         this.password.storedIn ===
         chrome.passwordsPrivate.PasswordStoreSet.DEVICE;
-  }
-
-  private getUploadSinglePasswordId_(): string {
-    return this.showSingleClickUploadUi_ ? 'uploadSinglePasswordLarge' :
-                                           'uploadSinglePasswordSmall';
-  }
-
-  private onMovePasswordDialogClose_(): void {
-    this.showMovePasswordDialog_ = false;
   }
 
   private onPasswordChanged_(): void {
@@ -403,6 +376,12 @@ export class PasswordDetailsCardElement extends PasswordDetailsCardElementBase {
 
     this.registerHelpBubble(
         PASSWORD_SHARE_BUTTON_BUTTON_ELEMENT_ID, this.$.shareButtonContainer);
+  }
+
+  protected getCloudUploadIcon_(): string {
+    return loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+        'passwords-icon:cloud-upload' :
+        'passwords-icon:upload-old';
   }
 }
 

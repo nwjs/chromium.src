@@ -31,20 +31,19 @@
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/queue.h"
+#include "base/containers/span.h"
 #include "base/i18n/internal/icu_bridge.rs.h"
 #include "base/i18n/language_tag.h"
 #include "base/i18n/tag_converters.h"
-#include "base/i18n/tags.h"
-#include "base/logging.h"
 #include "base/no_destructor.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 
 namespace base::i18n {
 namespace {
 
-using internal::create_icu_fallbacker;
-using internal::Icu4xLocale;
-using internal::IcuFallbacker;
+using ::base::i18n_internal::create_icu_fallbacker;
+using ::base::i18n_internal::Icu4xLocale;
+using ::base::i18n_internal::IcuFallbacker;
 
 // Returns the sequence of fallback locales using ICU4X logic, excluding the
 // original locale and the root locale ("und").
@@ -98,24 +97,27 @@ float GetEdgeWeight(const LanguageTag& source, const LanguageTag& target) {
       kNonDefaultEdges([]() {
         base::flat_map<std::pair<LanguageTag, LanguageTag>, float>
             non_default_edges{
-                {{language_tags::SPANISH_LATIN_AMERICAN(),
-                  language_tags::SPANISH_MEXICO()},
+                {{GetKnownLanguageTag("es-419"), GetKnownLanguageTag("es-MX")},
                  0.8},
-                {{language_tags::ENGLISH_GLOBAL(),
-                  language_tags::BRITISH_ENGLISH()},
+                // For english global (en-001), we favor "en-GB" matches by
+                // lowering the edge weight.
+                {{GetKnownLanguageTag("en-001"), GetKnownLanguageTag("en-GB")},
                  0.8},
-                {{language_tags::ENGLISH_GLOBAL(), language_tags::ENGLISH_US()},
+                {{GetKnownLanguageTag("en-001"), GetKnownLanguageTag("en-US")},
                  0.9},
-                {{language_tags::SPANISH(),
-                  language_tags::SPANISH_LATIN_AMERICAN()},
+                // For english (en) we favor "en-US" matches by lowering the
+                // "en" -> "en-US" edge weight.
+                {{GetKnownLanguageTag("en"), GetKnownLanguageTag("en-US")},
                  0.8},
-                {{language_tags::PORTUGUESE(),
-                  language_tags::BRAZILIAN_PORTUGUESE()},
+                {{GetKnownLanguageTag("en"), GetKnownLanguageTag("en-GB")},
+                 0.9},
+                {{GetKnownLanguageTag("es"), GetKnownLanguageTag("es-419")},
                  0.8},
-                {{language_tags::CHINESE(), language_tags::CHINA_CHINESE()},
+                {{GetKnownLanguageTag("pt"), GetKnownLanguageTag("pt-BR")},
                  0.8},
-                {{language_tags::CHINESE_TRADITIONAL(),
-                  language_tags::TAIWAN_CHINESE()},
+                {{GetKnownLanguageTag("zh"), GetKnownLanguageTag("zh-CN")},
+                 0.8},
+                {{GetKnownLanguageTag("zh-Hant"), GetKnownLanguageTag("zh-TW")},
                  0.8}};
         return non_default_edges;
       }());
@@ -156,8 +158,16 @@ class LanguageTagPreferenceGraph {
 
     // Special edges for Liberian and Philippino English to favor en-US, the
     // rest should default to en-GB.
-    AddEdge(language_tags::ENGLISH_PHILIPPINES(), language_tags::ENGLISH_US());
-    AddEdge(language_tags::ENGLISH_LIBERIA(), language_tags::ENGLISH_US());
+    AddEdge(GetKnownLanguageTag("en-PH"), GetKnownLanguageTag("en-US"));
+    AddEdge(GetKnownLanguageTag("en-LR"), GetKnownLanguageTag("en-US"));
+    // Special case for "en-CA" which from ICU data will default to "en-US" but
+    // Chorme i18n code always assumes it should match "en-GB".
+    AddEdge(GetKnownLanguageTag("en-CA"), GetKnownLanguageTag("en-GB"));
+    // This edge does not exist from the fallback algorithm as
+    // fallback("en-GB") = ["en-001", "en"]
+    // We need to add it to get "en" to match "en-GB" when "en-US" is not
+    // present.
+    AddEdge(GetKnownLanguageTag("en"), GetKnownLanguageTag("en-GB"));
   }
 
   // Computes the closest supported locale for all reachable nodes in the graph.
@@ -249,14 +259,22 @@ LanguageTagMatcher LanguageTagMatcher::Create(
                             std::move(fallbacker));
 }
 
+bool LanguageTagMatcher::HasExactMatch(
+    const LanguageTag& preferred_locale) const {
+  auto it = closest_supported_tag_.find(preferred_locale);
+  if (it == closest_supported_tag_.end()) {
+    return false;
+  }
+  return it->second == preferred_locale;
+}
+
 std::optional<LanguageTag> LanguageTagMatcher::Match(
     const LanguageTag& preferred_locale) const {
-  // Step 1: Check if the preferred locale is supported.
+  // Step 1: Check if the preferred locale is linked to a supported node.
   auto it = closest_supported_tag_.find(preferred_locale);
   if (it != closest_supported_tag_.end()) {
     return it->second;
   }
-
   // Step 2: Traverse the fallback chain to look for a supported locale. The
   // first supported locale found is returned.
   for (const LanguageTag& fallback :
@@ -272,10 +290,42 @@ std::optional<LanguageTag> LanguageTagMatcher::Match(
 
 LanguageTagMatcher::LanguageTagMatcher(
     base::flat_map<LanguageTag, LanguageTag> closest_supported_tag,
-    rust::Box<internal::IcuFallbacker> icu_fallbacker)
+    rust::Box<i18n_internal::IcuFallbacker> icu_fallbacker)
     : closest_supported_tag_(std::move(closest_supported_tag)),
       icu_fallbacker_(std::move(icu_fallbacker)) {}
 
+LanguageTagMatcher::LanguageTagMatcher(LanguageTagMatcher&&) noexcept = default;
+LanguageTagMatcher& LanguageTagMatcher::operator=(
+    LanguageTagMatcher&&) noexcept = default;
+
 LanguageTagMatcher::~LanguageTagMatcher() = default;
+
+LanguageTagMatcherWithDefault::LanguageTagMatcherWithDefault(
+    LanguageTag default_tag,
+    LanguageTagMatcher matcher)
+    : default_tag_(std::move(default_tag)), matcher_(std::move(matcher)) {}
+
+std::optional<LanguageTag> LanguageTagMatcherWithDefault::Match(
+    const LanguageTag& preferred_tag) const {
+  return matcher_.Match(preferred_tag);
+}
+
+bool LanguageTagMatcherWithDefault::HasExactMatch(
+    const LanguageTag& preferred_tag) const {
+  return matcher_.HasExactMatch(preferred_tag);
+}
+
+LanguageTag LanguageTagMatcherWithDefault::MatchOrDefault(
+    const LanguageTag& preferred_tag) const {
+  return matcher_.Match(preferred_tag).value_or(default_tag_);
+}
+
+// static
+LanguageTagMatcherWithDefault LanguageTagMatcherWithDefault::Create(
+    LanguageTag default_tag,
+    base::span<const LanguageTag> supported_tags) {
+  return LanguageTagMatcherWithDefault(
+      std::move(default_tag), LanguageTagMatcher::Create(supported_tags));
+}
 
 }  // namespace base::i18n

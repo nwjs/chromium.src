@@ -172,86 +172,9 @@ bool IsValidTab(GURL url) {
          !url.IsAboutBlank();
 }
 
-std::optional<lens::ImageEncodingOptions> CreateImageEncodingOptions() {
-  // TODO(crbug.com/457815342): Use omnibox fieldtrial when available.
-  auto image_upload_config =
-      omnibox::FeatureConfig::Get().config.composebox().image_upload();
-  return lens::ImageEncodingOptions{
-      .enable_webp_encoding = image_upload_config.enable_webp_encoding(),
-      .max_size = image_upload_config.downscale_max_image_size(),
-      .max_height = image_upload_config.downscale_max_image_height(),
-      .max_width = image_upload_config.downscale_max_image_width(),
-      .compression_quality = image_upload_config.image_compression_quality()};
-}
-
 bool IsThinkingModel(omnibox::ModelMode model) {
   return model == omnibox::ModelMode::MODEL_MODE_GEMINI_PRO ||
          model == omnibox::ModelMode::MODEL_MODE_GEMINI_PRO_NO_GEN_UI;
-}
-
-void HandleDriveUploadResponse(
-    bool was_ai_mode_open,
-    base::WeakPtr<content::WebContents> web_contents,
-    searchbox::mojom::DriveUploadResponsePtr response) {
-  if (!response || !web_contents) {
-    return;
-  }
-
-  std::vector<searchbox::mojom::SearchContextAttachmentPtr> file_attachments;
-  for (const auto& file : response->files) {
-    auto file_attachment = searchbox::mojom::FileAttachment::New();
-    file_attachment->uuid = file->token;
-    file_attachment->name = file->file_name;
-    file_attachment->mime_type = file->mime_type;
-    file_attachment->image_data_url = std::nullopt;
-    file_attachment->icon_url = file->icon_url;
-    if (file->thumbnail_url.has_value()) {
-      file_attachment->thumbnail_url = GURL(file->thumbnail_url.value());
-    }
-
-    file_attachments.push_back(
-        searchbox::mojom::SearchContextAttachment::NewFileAttachment(
-            std::move(file_attachment)));
-  }
-
-  if (response->error.has_value()) {
-    auto file_attachment = searchbox::mojom::FileAttachment::New();
-    file_attachment->uuid = base::UnguessableToken::Create();
-    file_attachment->name = "";
-    file_attachment->mime_type = "";
-
-    contextual_search::ContextUploadErrorType error_type =
-        contextual_search::ContextUploadErrorType::kUnknown;
-    switch (response->error.value()) {
-      case searchbox::mojom::DriveUploadError::kMaxFilesExceeded:
-        error_type = contextual_search::ContextUploadErrorType::
-            kBrowserProcessingMaxFilesExceededError;
-        break;
-      case searchbox::mojom::DriveUploadError::kSizeLimitExceeded:
-        error_type = contextual_search::ContextUploadErrorType::
-            kBrowserProcessingFileTooLargeError;
-        break;
-    }
-    file_attachment->error_type = error_type;
-    file_attachments.push_back(
-        searchbox::mojom::SearchContextAttachment::NewFileAttachment(
-            std::move(file_attachment)));
-  }
-
-  bool has_files_or_errors = !file_attachments.empty();
-
-  OmniboxContextMenuController::UpdateSearchboxContext(
-      web_contents.get(), /*tab_info=*/std::nullopt,
-      /*tool_mode=*/std::nullopt, std::move(file_attachments));
-
-  auto* omnibox_controller =
-      OmniboxContextMenuController::GetOmniboxController(web_contents.get());
-  if (omnibox_controller && omnibox_controller->edit_model()) {
-    if (was_ai_mode_open || has_files_or_errors) {
-      omnibox_controller->edit_model()->OpenAiMode(
-          OmniboxEditModel::AimActivation::kContextMenu);
-    }
-  }
 }
 
 }  // namespace
@@ -772,6 +695,13 @@ bool OmniboxContextMenuController::IsTabContextEnabled() const {
     return false;
   }
 
+  auto* model = omnibox_popup_ui->composebox_handler()->input_state_model();
+  const auto& disabled_types = model->GetInputState().disabled_input_types;
+  if (std::ranges::contains(disabled_types,
+                            omnibox::InputType::INPUT_TYPE_BROWSER_TAB)) {
+    return false;
+  }
+
   return true;
 }
 
@@ -893,6 +823,74 @@ void OmniboxContextMenuController::UpdateSearchboxContext(
     }
   } else {
     searchbox_context_data->SetPendingContext(std::move(context));
+  }
+}
+
+void OmniboxContextMenuController::HandleDriveUploadResponse(
+    bool was_ai_mode_open,
+    base::WeakPtr<content::WebContents> web_contents,
+    searchbox::mojom::DriveUploadResponsePtr response) {
+  if (!response || !web_contents) {
+    return;
+  }
+
+  std::vector<searchbox::mojom::SearchContextAttachmentPtr> file_attachments;
+  for (const auto& file : response->files) {
+    auto file_attachment = searchbox::mojom::FileAttachment::New();
+    file_attachment->uuid = file->token;
+    file_attachment->name = file->file_name;
+    file_attachment->mime_type = file->mime_type;
+    file_attachment->image_data_url = std::nullopt;
+    file_attachment->icon_url = file->icon_url;
+    if (file->thumbnail_url.has_value()) {
+      file_attachment->thumbnail_url = GURL(file->thumbnail_url.value());
+    }
+
+    file_attachments.push_back(
+        searchbox::mojom::SearchContextAttachment::NewFileAttachment(
+            std::move(file_attachment)));
+  }
+
+  if (response->error.has_value()) {
+    auto file_attachment = searchbox::mojom::FileAttachment::New();
+    file_attachment->uuid = base::UnguessableToken::Create();
+    file_attachment->name = "";
+    file_attachment->mime_type = "";
+
+    contextual_search::ContextUploadErrorType error_type =
+        contextual_search::ContextUploadErrorType::kUnknown;
+    switch (response->error.value()) {
+      case searchbox::mojom::DriveUploadError::kMaxFilesExceeded:
+        error_type = contextual_search::ContextUploadErrorType::
+            kBrowserProcessingMaxFilesExceededError;
+        break;
+      case searchbox::mojom::DriveUploadError::kSizeLimitExceeded:
+        error_type = contextual_search::ContextUploadErrorType::
+            kBrowserProcessingFileTooLargeError;
+        break;
+    }
+    file_attachment->error_type = error_type;
+    file_attachments.push_back(
+        searchbox::mojom::SearchContextAttachment::NewFileAttachment(
+            std::move(file_attachment)));
+  }
+
+  // Only update the search context and open AI mode if files or errors were
+  // received. Ignore cancellations to preserve the current search/query state.
+  bool has_files_or_errors = !file_attachments.empty();
+  if (has_files_or_errors) {
+    OmniboxContextMenuController::UpdateSearchboxContext(
+        web_contents.get(), /*tab_info=*/std::nullopt,
+        /*tool_mode=*/std::nullopt, std::move(file_attachments));
+  }
+
+  auto* omnibox_controller =
+      OmniboxContextMenuController::GetOmniboxController(web_contents.get());
+  if (omnibox_controller && omnibox_controller->edit_model()) {
+    if (was_ai_mode_open || has_files_or_errors) {
+      omnibox_controller->edit_model()->OpenAiMode(
+          OmniboxEditModel::AimActivation::kContextMenu);
+    }
   }
 }
 
@@ -1449,7 +1447,8 @@ void OmniboxContextMenuController::ExecuteCommand(int id, int event_flags) {
                                       : nullptr;
                   if (handler) {
                     handler->OnDriveUploadClicked(
-                        base::BindOnce(&HandleDriveUploadResponse,
+                        base::BindOnce(&OmniboxContextMenuController::
+                                           HandleDriveUploadResponse,
                                        is_aim_popup_open, web_contents));
                   }
                 },
@@ -1462,7 +1461,8 @@ void OmniboxContextMenuController::ExecuteCommand(int id, int event_flags) {
             web_contents_.get(),
             /*is_image=*/it->second ==
                 omnibox::InputType::INPUT_TYPE_LENS_IMAGE,
-            GetEditModel(), CreateImageEncodingOptions(),
+            GetEditModel(),
+            OmniboxPopupFileSelector::CreateImageEncodingOptions(),
             /*was_ai_mode_open=*/is_aim_popup_open);
         return;
       }
@@ -1502,14 +1502,16 @@ void OmniboxContextMenuController::ExecuteCommand(int id, int event_flags) {
       case IDC_OMNIBOX_CONTEXT_ADD_IMAGE: {
         file_selector_->OpenFileUploadDialog(
             web_contents_.get(),
-            /*is_image=*/true, GetEditModel(), CreateImageEncodingOptions(),
+            /*is_image=*/true, GetEditModel(),
+            OmniboxPopupFileSelector::CreateImageEncodingOptions(),
             /*was_ai_mode_open=*/is_aim_popup_open);
         break;
       }
       case IDC_OMNIBOX_CONTEXT_ADD_FILE:
         file_selector_->OpenFileUploadDialog(
             web_contents_.get(),
-            /*is_image=*/false, GetEditModel(), CreateImageEncodingOptions(),
+            /*is_image=*/false, GetEditModel(),
+            OmniboxPopupFileSelector::CreateImageEncodingOptions(),
             /*was_ai_mode_open=*/is_aim_popup_open);
         break;
       case IDC_OMNIBOX_CONTEXT_CREATE_IMAGES:
@@ -1557,11 +1559,14 @@ bool OmniboxContextMenuController::IsCommandIdEnabled(int command_id) const {
     CHECK(
         base::FeatureList::IsEnabled(omnibox::kContextManagementInOmnibox) &&
         base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox));
+    if (!IsTabContextEnabled()) {
+      return false;
+    }
     auto* handler = GetSearchboxHandler();
     return !handler || !handler->IsSmartTabSharingActive();
   }
   if (command_id == IDC_OMNIBOX_CONTEXT_SMART_TAB_SHARING) {
-    return true;
+    return IsTabContextEnabled();
   }
   if (command_id == ui::MenuModel::kTitleId) {
     return false;

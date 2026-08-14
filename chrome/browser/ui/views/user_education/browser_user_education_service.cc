@@ -58,7 +58,7 @@
 #include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_button.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/contents_web_view.h"
-#include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_icon_view.h"
+#include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/page_action/page_action_view.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_icon.h"
 #include "chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.h"
@@ -71,11 +71,6 @@
 #include "chrome/browser/ui/views/user_education/impl/browser_user_education_context.h"
 #include "chrome/browser/ui/views/user_education/ios_promo_bubble_view.h"
 #include "chrome/browser/ui/views/web_apps/web_app_install_dialog_delegate.h"
-#include "components/signin/public/base/signin_switches.h"
-#if BUILDFLAG(IS_WIN)
-#include "chrome/browser/ui/search_promotion/search_promotion_manager.h"
-#include "chrome/browser/ui/search_promotion/search_promotion_manager_factory.h"
-#endif
 #include "chrome/browser/ui/webui/customize_buttons/customize_buttons_handler.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
 #include "chrome/browser/ui/webui/password_manager/password_manager_ui.h"
@@ -111,6 +106,7 @@
 #include "components/safe_browsing/core/common/safebrowsing_referral_methods.h"
 #include "components/saved_tab_groups/public/features.h"
 #include "components/send_tab_to_self/features.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/strings/grit/privacy_sandbox_strings.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
@@ -157,6 +153,11 @@
 #if BUILDFLAG(IS_MAC)
 #include "components/user_education/views/help_bubble_factory_mac.h"
 #endif  // BUILDFLAG(IS_MAC)
+
+#if BUILDFLAG(IS_WIN)
+#include "chrome/browser/ui/search_promotion/search_promotion_manager.h"
+#include "chrome/browser/ui/search_promotion/search_promotion_manager_factory.h"
+#endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/ui/webui/extensions_zero_state_promo/zero_state_promo_ui.h"
@@ -279,7 +280,7 @@ CreateNavigationAction(GURL target) {
       [](GURL url, ContextPtr ctx,
          user_education::FeaturePromoHandle promo_handle) {
         auto* browser = GetBrowser(ctx);
-        NavigateParams params(browser->profile(), url,
+        NavigateParams params(browser->GetProfile(), url,
                               ui::PAGE_TRANSITION_LINK);
         params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
         params.browser = browser;
@@ -665,12 +666,12 @@ void MaybeRegisterChromeFeaturePromos(
                  user_education::FeaturePromoHandle promo_handle) {
                 Browser* const browser = GetBrowser(ctx);
                 if (!search::DefaultSearchProviderIsGoogle(
-                        browser->profile())) {
+                        browser->GetProfile())) {
                   return;
                 }
                 auto* service =
                     UserEducationServiceFactory::GetForBrowserContext(
-                        browser->profile());
+                        browser->GetProfile());
                 user_education::TutorialService* tutorial_service =
                     service ? &service->tutorial_service() : nullptr;
                 if (!tutorial_service) {
@@ -682,7 +683,7 @@ void MaybeRegisterChromeFeaturePromos(
                       tab_strip_model->GetActiveWebContents();
                   if (web_contents &&
                       web_contents->GetURL() != browser->GetNewTabURL()) {
-                    NavigateParams params(browser->profile(),
+                    NavigateParams params(browser->GetProfile(),
                                           chrome::ChromeUINewTabPageURLAsGURL(),
                                           ui::PAGE_TRANSITION_LINK);
                     params.disposition =
@@ -760,6 +761,28 @@ void MaybeRegisterChromeFeaturePromos(
           .SetMetadata(117, "emiliapaz@chromium.org",
                        "Triggered when an extension "
                        "requests access permission.")));
+
+  // kIPHExtensionsPinnedByDefaultFeature:
+  registry.RegisterFeature(std::move(
+      FeaturePromoSpecification::CreateForCustomAction(
+          feature_engagement::kIPHExtensionsPinnedByDefaultFeature,
+          kExtensionsPinnedByDefaultElementId,
+          IDS_EXTENSIONS_PINNED_BY_DEFAULT_IPH_BODY,
+          IDS_EXTENSIONS_PINNED_BY_DEFAULT_IPH_GO_TO_EXTENSIONS,
+          base::BindRepeating(
+              [](ContextPtr ctx,
+                 user_education::FeaturePromoHandle promo_handle) {
+                Browser* const browser = GetBrowser(ctx);
+                if (browser) {
+                  chrome::ShowExtensions(browser);
+                }
+              }))
+          .SetBubbleArrow(user_education::HelpBubbleArrow::kTopCenter)
+          .SetInAnyContext(true)
+          .SetMetadata(
+              155, "evasu@google.com",
+              "Triggered when the user installs a new extension and it is "
+              "pinned by default to the toolbar.")));
 
   // kIPHExtensionsZeroStatePromoFeature
   Metadata iph_extensions_zero_state_promo_feature_metaData(
@@ -1115,39 +1138,6 @@ void MaybeRegisterChromeFeaturePromos(
                        "Triggered once per-app when is in quiet notification "
                        "mode and a notification is triggered in a PWA.")));
 
-  // kIPHCookieControlsFeature:
-  registry.RegisterFeature(std::move(
-      FeaturePromoSpecification::CreateForCustomAction(
-          feature_engagement::kIPHCookieControlsFeature,
-          kCookieControlsIconElementId, IDS_COOKIE_CONTROLS_PROMO_TEXT,
-          IDS_COOKIE_CONTROLS_PROMO_SEE_HOW_BUTTON_TEXT,
-          base::BindRepeating(
-              [](ContextPtr ctx,
-                 user_education::FeaturePromoHandle promo_handle) {
-                if (IsPageActionMigrated(PageActionIconType::kCookieControls)) {
-                  actions::ActionManager::Get()
-                      .FindAction(
-                          kActionShowCookieControls,
-                          GetBrowser(ctx)->GetActions()->root_action_item())
-                      ->InvokeAction();
-                } else {
-                  auto* cookie_controls_icon_view =
-                      views::ElementTrackerViews::GetInstance()
-                          ->GetFirstMatchingViewAs<CookieControlsIconView>(
-                              kCookieControlsIconElementId,
-                              ctx->GetElementContext());
-                  if (cookie_controls_icon_view != nullptr) {
-                    cookie_controls_icon_view->ShowCookieControlsBubble();
-                  }
-                }
-              }))
-          .SetBubbleTitleText(IDS_COOKIE_CONTROLS_PROMO_TITLE)
-          .SetBubbleArrow(HelpBubbleArrow::kTopRight)
-          .SetBubbleIcon(kLightbulbOutlineIcon)
-          .SetCustomActionIsDefault(true)
-          .SetCustomActionDismissText(
-              IDS_COOKIE_CONTROLS_PROMO_CLOSE_BUTTON_TEXT)));
-
   // kIPHSmartTabSharingFeature:
   auto smart_tab_sharing_iph_first_time_prompt_option =
       contextual_tasks::kSmartTabSharingIphFirstTimePromptOption.Get();
@@ -1181,7 +1171,7 @@ void MaybeRegisterChromeFeaturePromos(
                 Browser* const browser = GetBrowser(ctx);
                 auto* service =
                     contextual_tasks::ContextualTasksUiServiceFactory::
-                        GetForBrowserContext(browser->profile());
+                        GetForBrowserContext(browser->GetProfile());
                 if (service) {
                   service->TurnOnSmartTabSharing(browser);
                 }
@@ -1262,7 +1252,7 @@ void MaybeRegisterChromeFeaturePromos(
   registry.RegisterFeature(std::move(
       FeaturePromoSpecification::CreateForToastPromo(
           feature_engagement::kIPHResumptionRailFeature,
-          kVerticalTabStripProjectsButtonElementId, IDS_WILDCARD,
+          kVerticalTabStripOrganizerButtonElementId, IDS_WILDCARD,
           IDS_RESUMPTION_RAIL_IPH_TITLE,
           FeaturePromoSpecification::AcceleratorInfo())
           .SetBubbleTitleText(IDS_RESUMPTION_RAIL_IPH_TITLE)
@@ -1642,7 +1632,7 @@ void MaybeRegisterChromeFeaturePromos(
                 }
                 base::RecordAction(
                     base::UserMetricsAction("BookmarkBar_Simplified_IPH_Undo"));
-                browser->profile()->GetPrefs()->SetInteger(
+                browser->GetProfile()->GetPrefs()->SetInteger(
                     bookmarks::prefs::kBookmarkBarVisibilityState,
                     static_cast<int>(
                         bookmarks::BookmarkBarVisibilityState::kOnlyShowOnNtp));
@@ -1999,7 +1989,7 @@ void MaybeRegisterChromeFeaturePromos(
                   // corresponding to the Finch arm.
                   SearchPromotionManager* manager =
                       SearchPromotionManagerFactory::GetForProfile(
-                          browser->profile());
+                          browser->GetProfile());
                   if (manager) {
                     manager->OnPromoAccepted();
                   }
@@ -2505,6 +2495,12 @@ void MaybeRegisterChromeNewBadges(user_education::NewBadgeRegistry& registry) {
       send_tab_to_self::kSendTabToSelfEnhancedDesktopUI,
       user_education::Metadata(
           151, "mtatarski@google.com",
+          "Show the new badge on Send to Your Devices context menu items.")));
+
+  registry.RegisterFeature(user_education::NewBadgeSpecification(
+      send_tab_to_self::kSendTabToSelfEnhancedDesktopUIv2,
+      user_education::Metadata(
+          153, "mtatarski@google.com",
           "Show the new badge on Send to Your Devices context menu items.")));
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)

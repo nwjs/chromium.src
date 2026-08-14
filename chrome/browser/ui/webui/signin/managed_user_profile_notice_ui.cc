@@ -27,6 +27,7 @@
 #include "chrome/browser/regional_capabilities/regional_capabilities_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_util.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/managed_ui.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/signin/managed_user_profile_notice_handler.h"
@@ -36,6 +37,7 @@
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/signin_resources.h"
+#include "chrome/browser/ui/webui/theme_source.h"
 #include "components/prefs/pref_service.h"
 #include "components/regional_capabilities/regional_capabilities_service.h"
 #include "components/signin/public/base/consent_level.h"
@@ -82,9 +84,11 @@ ManagedUserProfileNoticeUI::ScreenType GetScreenTypeFromURL(const GURL& url) {
 
 ManagedUserProfileNoticeUI::ManagedUserProfileNoticeUI(content::WebUI* web_ui)
     : content::WebUIController(web_ui) {
+  Profile* profile = Profile::FromWebUI(web_ui);
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
-      Profile::FromWebUI(web_ui),
-      chrome::kChromeUIManagedUserProfileNoticeHost);
+      profile, chrome::kChromeUIManagedUserProfileNoticeHost);
+  // Explicitly add ThemeSource for serving the dynamic WebUI color stylesheet.
+  content::URLDataSource::Add(profile, std::make_unique<ThemeSource>(profile));
 
   static constexpr webui::ResourcePath kResources[] = {
       {"icons.html.js", IDR_SIGNIN_ICONS_HTML_JS},
@@ -104,14 +108,20 @@ ManagedUserProfileNoticeUI::ManagedUserProfileNoticeUI(content::WebUI* web_ui)
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_APP_REFRESH_HTML_JS},
       {"managed_user_profile_notice_disclosure.css.js",
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_DISCLOSURE_CSS_JS},
+      {"signals_disclaimer.css.js",
+       IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_SIGNALS_DISCLAIMER_CSS_JS},
       {"managed_user_profile_notice_disclosure_refresh.css.js",
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_DISCLOSURE_REFRESH_CSS_JS},
       {"managed_user_profile_notice_disclosure.html.js",
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_DISCLOSURE_HTML_JS},
+      {"signals_disclaimer.html.js",
+       IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_SIGNALS_DISCLAIMER_HTML_JS},
       {"managed_user_profile_notice_disclosure_refresh.html.js",
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_DISCLOSURE_REFRESH_HTML_JS},
       {"managed_user_profile_notice_disclosure.js",
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_DISCLOSURE_JS},
+      {"signals_disclaimer.js",
+       IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_SIGNALS_DISCLAIMER_JS},
       {"managed_user_profile_notice_disclosure_refresh.js",
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_DISCLOSURE_REFRESH_JS},
       {"managed_user_profile_notice_state.css.js",
@@ -262,6 +272,25 @@ ManagedUserProfileNoticeUI::ManagedUserProfileNoticeUI(content::WebUI* web_ui)
                      base::FeatureList::IsEnabled(
                          switches::kUsePrimaryAndTonalButtonsForPromos));
 
+  // Signals disclaimer screen:
+  source->AddLocalizedString("signalsDisclaimerTitle",
+                             IDS_ENTERPRISE_DEVICE_SIGNALS_DISCLAIMER_TITLE);
+  source->AddLocalizedString("signalsDisclaimerSubtitle",
+                             IDS_ENTERPRISE_DEVICE_SIGNALS_DISCLAIMER_SUBTITLE);
+  source->AddLocalizedString(
+      "signalsDisclaimerProfileInformationDetails",
+      IDS_ENTERPRISE_DEVICE_SIGNALS_DISCLAIMER_PROFILE_INFORMATION_DETAILS);
+  source->AddLocalizedString(
+      "signalsDisclaimerDeviceInformationDetails",
+      IDS_ENTERPRISE_DEVICE_SIGNALS_DISCLAIMER_DEVICE_INFORMATION_DETAILS);
+  source->AddLocalizedString(
+      "signalsDisclaimerContinueLabel",
+      IDS_ENTERPRISE_DEVICE_SIGNALS_DISCLAIMER_CONTINUE_BUTTON_LABEL);
+  source->AddLocalizedString(
+      "signalsDisclaimerCancelLabel",
+      IDS_ENTERPRISE_DEVICE_SIGNALS_DISCLAIMER_CANCEL_BUTTON_LABEL);
+  source->AddLocalizedString("learnMore", IDS_LEARN_MORE);
+
   if (base::FeatureList::IsEnabled(
           switches::kDisableFirstRunAnimationsForTesting)) {
     CHECK_IS_TEST();
@@ -269,8 +298,6 @@ ManagedUserProfileNoticeUI::ManagedUserProfileNoticeUI(content::WebUI* web_ui)
   } else {
     source->AddBoolean("disableAnimations", false);
   }
-
-  Profile* profile = Profile::FromWebUI(web_ui);
 
   bool is_in_search_engine_choice_region =
       CHECK_DEREF(regional_capabilities::RegionalCapabilitiesServiceFactory::
@@ -356,10 +383,15 @@ ManagedUserProfileNoticeUI::GetScreenTypeFromURLForTesting(const GURL& url) {
 ManagedUserProfileNoticeUI::~ManagedUserProfileNoticeUI() = default;
 
 void ManagedUserProfileNoticeUI::Initialize(
-    Browser* browser,
+    BrowserWindowInterface* browser,
     ManagedUserProfileNoticeUI::ScreenType type,
     std::unique_ptr<signin::EnterpriseProfileCreationDialogParams>
         create_param) {
+  if (type == ScreenType::kDeviceSignalsDisclaimer) {
+    InitializeForDeviceSignalsDisclaimer(browser, std::move(create_param));
+    return;
+  }
+
   auto* profile = Profile::FromWebUI(web_ui());
   bool is_school_account =
       create_param->account_info.GetAccountCapabilities()
@@ -500,36 +532,6 @@ void ManagedUserProfileNoticeUI::Initialize(
             IDS_ENTERPRISE_WELCOME_SEPARATE_BROWSING_DATA_SCHOOL_CHOICE));
   }
 
-  if (type ==
-      ManagedUserProfileNoticeUI::ScreenType::kDeviceSignalsDisclaimer) {
-    update_data.Set("isModalDialog", true);
-    update_data.Set("initialState",
-                    ManagedUserProfileNoticeHandler::State::kDisclosure);
-
-    update_data.Set("profileDisclosureTitle",
-                    l10n_util::GetStringUTF16(
-                        IDS_ENTERPRISE_DEVICE_SIGNALS_DISCLAIMER_TITLE));
-    update_data.Set("profileDisclosureSubtitle",
-                    l10n_util::GetStringUTF16(
-                        IDS_ENTERPRISE_DEVICE_SIGNALS_DISCLAIMER_SUBTITLE));
-    update_data.Set(
-        "profileInformationDetails",
-        l10n_util::GetStringUTF16(
-            IDS_ENTERPRISE_DEVICE_SIGNALS_DISCLAIMER_PROFILE_INFORMATION_DETAILS));
-    update_data.Set(
-        "deviceInformationDetails",
-        l10n_util::GetStringUTF16(
-            IDS_ENTERPRISE_DEVICE_SIGNALS_DISCLAIMER_DEVICE_INFORMATION_DETAILS));
-    update_data.Set(
-        "continueLabel",
-        l10n_util::GetStringUTF16(
-            IDS_ENTERPRISE_DEVICE_SIGNALS_DISCLAIMER_CONTINUE_BUTTON_LABEL));
-    update_data.Set(
-        "cancelLabel",
-        l10n_util::GetStringUTF16(
-            IDS_ENTERPRISE_DEVICE_SIGNALS_DISCLAIMER_CANCEL_BUTTON_LABEL));
-  }
-
   // Change the text so that the "(Recommended)" label is not shown when the
   // admin has set merging data as the default option.
   bool profile_separation_data_migration_settings_optout =
@@ -562,6 +564,31 @@ void ManagedUserProfileNoticeUI::Initialize(
 
   auto handler = std::make_unique<ManagedUserProfileNoticeHandler>(
       browser, type, std::move(create_param));
+  handler_ = handler.get();
+
+  web_ui()->AddMessageHandler(std::move(handler));
+}
+
+void ManagedUserProfileNoticeUI::InitializeForDeviceSignalsDisclaimer(
+    BrowserWindowInterface* browser,
+    std::unique_ptr<signin::EnterpriseProfileCreationDialogParams>
+        create_param) {
+  base::DictValue update_data =
+      base::DictValue()
+          .Set("screenType",
+               static_cast<int>(ManagedUserProfileNoticeUI::ScreenType::
+                                    kDeviceSignalsDisclaimer))
+          .Set("isModalDialog",
+               create_param->is_device_signals_disclaimer_modal)
+          .Set("initialState",
+               ManagedUserProfileNoticeHandler::State::kSignalsDisclaimer);
+  auto* profile = Profile::FromWebUI(web_ui());
+  content::WebUIDataSource::Update(
+      profile, chrome::kChromeUIManagedUserProfileNoticeHost,
+      std::move(update_data));
+
+  auto handler = std::make_unique<ManagedUserProfileNoticeHandler>(
+      browser, ScreenType::kDeviceSignalsDisclaimer, std::move(create_param));
   handler_ = handler.get();
 
   web_ui()->AddMessageHandler(std::move(handler));

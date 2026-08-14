@@ -10,17 +10,6 @@ namespace autofillPrivate {
     DOMString email;
     boolean isSyncEnabledForAutofillProfiles;
     boolean isEligibleForAddressAccountStorage;
-
-    // Controls whether the Autofill Sync toggle should be available (duplicated
-    // from the Sync Settings page) on the Autofill Settings page.
-    // TODO(crbug.com/40943238): Remove when toggle becomes available on the Sync
-    // page for non-syncing users.
-    boolean isAutofillSyncToggleAvailable;
-
-    // Represents the UserSelectableType::kAutofill state (enabled or not).
-    // TODO(crbug.com/40943238): Remove when toggle becomes available on the Sync
-    // page for non-syncing users.
-    boolean isAutofillSyncToggleEnabled;
   };
 
   // A copy of FieldType from components/autofill/core/browser/field_types.h.
@@ -152,6 +141,8 @@ namespace autofillPrivate {
     FLIGHT_RESERVATION_FLIGHT_NUMBER,
     FLIGHT_RESERVATION_TICKET_NUMBER,
     FLIGHT_RESERVATION_CONFIRMATION_CODE,
+    FLIGHT_RESERVATION_DEPARTURE_AIRPORT,
+    FLIGHT_RESERVATION_ARRIVAL_AIRPORT,
     FLIGHT_RESERVATION_PASSENGER_NAME,
     FLIGHT_RESERVATION_DEPARTURE_DATE,
     ADDRESS_HOME_ZIP_AND_CITY,
@@ -620,10 +611,6 @@ namespace autofillPrivate {
     // sync server and thus other devices.
     static void bulkDeleteAllCvcs();
 
-    // Sets the Sync Autofill toggle value, which corresponds to
-    // `syncer::UserSelectableType::kAutofill` in `SyncUserSettings`.
-    static void setAutofillSyncToggleEnabled(boolean enabled);
-
     // Adds a new entity instance if it doesn't exist yet. Otherwise, it updates
     // the entity instance.
     static void addOrUpdateEntityInstance(
@@ -655,7 +642,7 @@ namespace autofillPrivate {
     // Returns the list of attributes satisfying the entity type's import
     // requirements. The list represents a disjunction: presenting any one
     // attribute is sufficient. Returns an empty list if there are no
-    // requirements.
+    // requirements, or if the entity type is read-only.
     static void getRequiredAttributeTypesForEntityTypeName(
         long entityTypeName,
         GetAttributeTypesCallback callback);

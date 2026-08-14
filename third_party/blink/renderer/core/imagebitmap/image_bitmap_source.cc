@@ -7,11 +7,14 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_image_bitmap_options.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
+#include "third_party/blink/renderer/core/execution_context/agent.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/deprecation/deprecation.h"
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/persistent.h"
+#include "third_party/blink/renderer/platform/wtf/functional.h"
 
 namespace blink {
 
@@ -38,7 +41,16 @@ ScriptPromise<ImageBitmap> ImageBitmapSource::FulfillImageBitmap(
         WebFeature::kObsoleteCreateImageBitmapImageOrientationNone);
   }
 
-  return ToResolvedPromise<ImageBitmap>(script_state, image_bitmap);
+  auto* resolver =
+      MakeGarbageCollected<ScriptPromiseResolver<ImageBitmap>>(script_state);
+  ExecutionContext::From(script_state->GetContext())
+      ->GetAgent()
+      ->event_loop()
+      ->EnqueueMicrotask(
+          BindOnce([](ScriptPromiseResolver<ImageBitmap>* resolver,
+                      ImageBitmap* bitmap) { resolver->Resolve(bitmap); },
+                   WrapPersistent(resolver), WrapPersistent(image_bitmap)));
+  return resolver->Promise();
 }
 
 ScriptPromise<ImageBitmap> ImageBitmapSource::CreateImageBitmap(

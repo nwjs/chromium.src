@@ -59,17 +59,17 @@ class SVGSVGElement final : public SVGViewportContainerElement,
   // This method, as opposed to the one above, also includes the synthesized
   // viewBox if one is active. Because of that it shouldn't be used for sizing
   // calculations.
-  gfx::RectF CurrentViewBoxRect() const override;
+  gfx::RectF CurrentViewBoxRect(float zoom) const override;
   const SVGPreserveAspectRatio* CurrentPreserveAspectRatio() const override;
 
   float currentScale() const;
   void setCurrentScale(float scale);
 
-  gfx::Vector2dF CurrentTranslate() {
-    return translation_->Value().OffsetFromOrigin();
-  }
+  gfx::Vector2dF CurrentTranslate() const;
   void SetCurrentTranslate(const gfx::Vector2dF&);
-  SVGPointTearOff* currentTranslateFromJavascript();
+  SVGPointTearOff* currentTranslateFromJavascript() {
+    return EnsureCurrentTranslate();
+  }
 
   SMILTimeContainer* TimeContainer() const { return time_container_.Get(); }
 
@@ -104,8 +104,8 @@ class SVGSVGElement final : public SVGViewportContainerElement,
   static SVGTransformTearOff* createSVGTransform();
   static SVGTransformTearOff* createSVGTransformFromMatrix(SVGMatrixTearOff*);
 
-  AffineTransform ViewBoxToViewTransform(
-      const gfx::SizeF& viewport_size) const override;
+  AffineTransform ViewBoxToViewTransform(const gfx::SizeF& viewport_size,
+                                         float zoom) const override;
 
   const SVGViewSpec* ParseViewSpec(const String& fragment_identifier,
                                    Element* anchor_node) const;
@@ -140,6 +140,7 @@ class SVGSVGElement final : public SVGViewportContainerElement,
   void DidMoveToNewDocument(Document& old_document) override;
 
   bool ShouldSynthesizeViewBox() const;
+  SVGPointTearOff* EnsureCurrentTranslate();
   void UpdateUserTransform();
 
   void FinishParsingChildren() override;
@@ -149,7 +150,7 @@ class SVGSVGElement final : public SVGViewportContainerElement,
   AffineTransform LocalCoordinateSpaceTransform(CTMScope) const override;
 
   Member<SMILTimeContainer> time_container_;
-  Member<SVGPoint> translation_;
+  Member<SVGPointTearOff> translation_;
   Member<const SVGViewSpec> view_spec_;
   float current_scale_;
 

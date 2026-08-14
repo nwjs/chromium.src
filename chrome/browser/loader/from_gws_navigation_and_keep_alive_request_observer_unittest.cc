@@ -177,8 +177,6 @@ class FromGWSNavigationAndKeepAliveRequestObserverTest
     network::ResourceRequest request;
 
     request.url = url;
-    request.attribution_reporting_eligibility =
-        network::mojom::AttributionReportingEligibility::kEmpty;
     request.keepalive = true;
     request.keepalive_token = base::UnguessableToken::Create();
 
@@ -234,7 +232,7 @@ TEST_F(FromGWSNavigationAndKeepAliveRequestObserverTest,
   auto navigation_target = GetCategoryUrl(kTestNonGoogleSearchUrl, category);
   auto handle = CreateMockNavigationHandle(navigation_target);
   handle->set_initiator_frame_token(&main_rfh()->GetFrameToken());
-  handle->set_initiator_process_id(main_rfh()->GetProcess()->GetDeprecatedID());
+  handle->set_initiator_process_id(main_rfh()->GetProcess()->GetID());
 
   EXPECT_CALL(*tracker(), TrackNavigation).Times(0);
   EXPECT_CALL(*tracker(), TrackKeepAliveRequest).Times(0);
@@ -255,7 +253,7 @@ TEST_F(FromGWSNavigationAndKeepAliveRequestObserverTest,
   auto navigation_target = GURL(kTestNonGoogleSearchUrl);
   auto handle = CreateMockNavigationHandle(navigation_target);
   handle->set_initiator_frame_token(&main_rfh()->GetFrameToken());
-  handle->set_initiator_process_id(main_rfh()->GetProcess()->GetDeprecatedID());
+  handle->set_initiator_process_id(main_rfh()->GetProcess()->GetID());
 
   EXPECT_CALL(*tracker(), TrackNavigation).Times(0);
   EXPECT_CALL(*tracker(), TrackKeepAliveRequest).Times(0);
@@ -274,7 +272,7 @@ TEST_F(FromGWSNavigationAndKeepAliveRequestObserverTest, DidStartNavigation) {
   auto navigation_target = GetCategoryUrl(kTestNonGoogleSearchUrl, category);
   auto handle = CreateMockNavigationHandle(navigation_target);
   handle->set_initiator_frame_token(&main_rfh()->GetFrameToken());
-  handle->set_initiator_process_id(main_rfh()->GetProcess()->GetDeprecatedID());
+  handle->set_initiator_process_id(main_rfh()->GetProcess()->GetID());
 
   EXPECT_CALL(*tracker(), TrackNavigation(Eq(main_rfh()->GetGlobalId()), Eq(10),
                                           Eq(main_rfh()->GetPageUkmSourceId()),

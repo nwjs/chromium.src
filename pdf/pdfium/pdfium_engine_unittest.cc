@@ -14,9 +14,11 @@
 #include "base/check_op.h"
 #include "base/compiler_specific.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/functional/callback.h"
+#include "base/i18n/language_tag.h"
 #include "base/i18n/tag_converters.h"
-#include "base/i18n/tags.h"
+#include "base/path_service.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -60,6 +62,7 @@
 #include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/blink/public/common/input/web_pointer_properties.h"
 #include "third_party/skia/include/core/SkFont.h"
+#include "third_party/skia/include/core/SkFontMgr.h"
 #include "third_party/skia/include/core/SkFontTypes.h"
 #include "third_party/skia/include/core/SkRefCnt.h"
 #include "third_party/skia/include/core/SkTypeface.h"
@@ -74,15 +77,20 @@
 #if BUILDFLAG(ENABLE_PDF_INK2)
 #include <array>
 
+#include "base/base_paths.h"
 #include "base/containers/span.h"
 #include "base/numerics/byte_conversions.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "pdf/pdf_ink_brush.h"
 #include "pdf/pdf_ink_constants.h"
 #include "pdf/pdf_ink_metrics_handler.h"
 #include "pdf/test/pdf_ink_test_helpers.h"
 #include "third_party/ink/src/ink/strokes/input/stroke_input_batch.h"
 #include "third_party/ink/src/ink/strokes/stroke.h"
+#include "third_party/pdfium/public/fpdf_edit.h"
+#include "third_party/skia/include/core/SkData.h"
+#include "third_party/skia/include/ports/SkFontMgr_Fontations.h"
 #endif
 
 namespace chrome_pdf {
@@ -180,6 +188,11 @@ class MockTestClient : public TestClient {
   MOCK_METHOD(void, SetLinkUnderCursor, (const std::string&), (override));
   MOCK_METHOD(void, ScrollToX, (int, bool), (override));
   MOCK_METHOD(void, ScrollToY, (int, bool), (override));
+  MOCK_METHOD(void,
+              GetDocumentPassword,
+              (base::OnceCallback<void(const std::string&)>),
+              (override));
+  MOCK_METHOD(void, DocumentLoadFailed, (), (override));
 #if BUILDFLAG(ENABLE_PDF_INK2)
   MOCK_METHOD(bool, IsInAnnotationMode, (), (const override));
 #endif  // BUILDFLAG(ENABLE_PDF_INK2)
@@ -218,6 +231,31 @@ std::u16string UTF16BEBlobToString(base::span<const unsigned char> blob) {
         base::U16FromBigEndian(blob.take_first<2>()));
   }
   return result;
+}
+
+struct TestFont {
+  sk_sp<SkData> serialized_font;
+  FontId font_id;
+};
+
+// Returns the font data for Noto Color Emoji.
+TestFont GetTestEmojiFont() {
+  base::FilePath assets_dir;
+  CHECK(base::PathService::Get(base::DIR_ASSETS, &assets_dir));
+  base::FilePath font_path =
+      assets_dir.AppendASCII("test_fonts").AppendASCII("NotoColorEmoji.ttf");
+  std::optional<std::vector<uint8_t>> font_data =
+      base::ReadFileToBytes(font_path);
+  CHECK(font_data.has_value());
+
+  sk_sp<SkFontMgr> font_mgr = SkFontMgr_New_Fontations_Empty();
+  sk_sp<SkTypeface> typeface = font_mgr->makeFromData(
+      SkData::MakeWithCopy(font_data.value().data(), font_data.value().size()));
+  CHECK(typeface);
+  return TestFont{
+      .serialized_font = typeface->serialize(),
+      .font_id = static_cast<FontId>(typeface->uniqueID()),
+  };
 }
 
 }  // namespace
@@ -601,7 +639,8 @@ TEST_P(PDFiumEngineTest, GetLanguageTagFromDocumentMetadata) {
   ASSERT_TRUE(engine);
 
   const DocumentMetadata& doc_metadata = engine->GetDocumentMetadata();
-  EXPECT_EQ(base::i18n::language_tags::ENGLISH_US(), doc_metadata.language_tag);
+  EXPECT_EQ(base::i18n::GetKnownLanguageTag("en-US"),
+            doc_metadata.language_tag);
 }
 
 TEST_P(PDFiumEngineTest, HasMeaningfulText) {
@@ -677,6 +716,88 @@ TEST_P(PDFiumEngineTest, HasMeaningfulTextNotLoaded) {
   // Before loading any data, the page count should be 0.
   ASSERT_EQ(0, engine.GetNumberOfPages());
   EXPECT_FALSE(engine.HasMeaningfulText());
+}
+
+TEST_P(PDFiumEngineTest, HasNoJavaScript) {
+  NiceMock<MockTestClient> client(GetParam());
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("blank.pdf"));
+  ASSERT_TRUE(engine);
+  EXPECT_FALSE(engine->HasJavaScript());
+}
+
+TEST_P(PDFiumEngineTest, HasJavaScript) {
+  NiceMock<MockTestClient> client(GetParam());
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("js_actions.pdf"));
+  ASSERT_TRUE(engine);
+  EXPECT_TRUE(engine->HasJavaScript());
+}
+
+TEST_P(PDFiumEngineTest, HasJavaScriptNotLoaded) {
+  NiceMock<MockTestClient> client(GetParam());
+  InitializeEngineResult initialize_result =
+      InitializeEngineWithoutLoading(&client, FILE_PATH_LITERAL("blank.pdf"));
+  ASSERT_TRUE(initialize_result.engine);
+  PDFiumEngine& engine = *initialize_result.engine;
+
+  ASSERT_EQ(0, engine.GetNumberOfPages());
+  EXPECT_FALSE(engine.HasJavaScript());
+}
+
+TEST_P(PDFiumEngineTest, IsNotPasswordProtected) {
+  NiceMock<MockTestClient> client(GetParam());
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("blank.pdf"));
+  ASSERT_TRUE(engine);
+  EXPECT_FALSE(engine->IsPasswordProtected());
+}
+
+TEST_P(PDFiumEngineTest, IsNotPasswordProtectedWithCopyRestriction) {
+  NiceMock<MockTestClient> client(GetParam());
+  std::unique_ptr<PDFiumEngine> engine = InitializeEngine(
+      &client, FILE_PATH_LITERAL("hello_world2_with_copy_restriction.pdf"));
+  ASSERT_TRUE(engine);
+  EXPECT_FALSE(engine->IsPasswordProtected());
+}
+
+TEST_P(PDFiumEngineTest, IsPasswordProtected) {
+  NiceMock<MockTestClient> client(GetParam());
+  ON_CALL(client, GetDocumentPassword)
+      .WillByDefault([](base::OnceCallback<void(const std::string&)> callback) {
+        std::move(callback).Run("userpass");
+      });
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("encrypted.pdf"));
+  ASSERT_TRUE(engine);
+  EXPECT_TRUE(engine->IsPasswordProtected());
+}
+
+TEST_P(PDFiumEngineTest, IsPasswordProtectedWithWrongPassword) {
+  NiceMock<MockTestClient> client(GetParam());
+  EXPECT_CALL(client, GetDocumentPassword)
+      .WillRepeatedly(
+          [](base::OnceCallback<void(const std::string&)> callback) {
+            std::move(callback).Run("wrongpass");
+          });
+  EXPECT_CALL(client, DocumentLoadFailed);
+
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("encrypted.pdf"));
+  ASSERT_TRUE(engine);
+  ASSERT_EQ(0, engine->GetNumberOfPages());
+  EXPECT_FALSE(engine->IsPasswordProtected());
+}
+
+TEST_P(PDFiumEngineTest, IsPasswordProtectedNotLoaded) {
+  NiceMock<MockTestClient> client(GetParam());
+  InitializeEngineResult initialize_result = InitializeEngineWithoutLoading(
+      &client, FILE_PATH_LITERAL("encrypted.pdf"));
+  ASSERT_TRUE(initialize_result.engine);
+  PDFiumEngine& engine = *initialize_result.engine;
+
+  ASSERT_EQ(0, engine.GetNumberOfPages());
+  EXPECT_FALSE(engine.IsPasswordProtected());
 }
 
 TEST_P(PDFiumEngineTest, GetLinearizedDocumentMetadata) {
@@ -1724,6 +1845,101 @@ TEST_P(PDFiumEngineDeathTest, RequestThumbnailRedundant) {
 
 INSTANTIATE_TEST_SUITE_P(All, PDFiumEngineDeathTest, testing::Bool());
 
+class PDFiumEnginePageMutationTest : public PDFiumEngineTest {
+ protected:
+  FPDF_FORMHANDLE GetFormHandle(PDFiumEngine* engine) { return engine->form(); }
+
+  FPDF_DOCUMENT GetDoc(PDFiumEngine* engine) { return engine->doc(); }
+
+  void InvalidateAllPages(PDFiumEngine* engine) {
+    engine->InvalidateAllPages();
+  }
+
+  void SetLastFocusedPage(PDFiumEngine* engine, int page_index) {
+    engine->last_focused_page_ = page_index;
+  }
+};
+
+// Simulates an XFA page deletion when handling a char event.
+TEST_P(PDFiumEnginePageMutationTest, PageCountShrinkOnHandleInputEvent) {
+  NiceMock<MockTestClient> client(/*use_skia_renderer=*/GetParam());
+  std::unique_ptr<PDFiumEngine> engine = InitializeEngine(
+      &client, FILE_PATH_LITERAL("annotation_form_fields.pdf"));
+  ASSERT_TRUE(engine);
+  ASSERT_EQ(2, engine->GetNumberOfPages());
+  ASSERT_TRUE(GetFormHandle(engine.get()));
+
+  bool test_triggered = false;
+  bool in_on_char = false;
+
+  // Invalidate() is called during form changes.
+  EXPECT_CALL(client, Invalidate(_)).WillRepeatedly([&](const gfx::Rect& rect) {
+    if (in_on_char && !test_triggered) {
+      test_triggered = true;
+      FPDFPage_Delete(GetDoc(engine.get()), 1);
+      InvalidateAllPages(engine.get());
+    }
+  });
+
+  engine->PluginSizeUpdated({1024, 4096});
+
+  // Put focus on an annotation on page 2.
+  {
+    constexpr int kPageIndex = 1;
+    constexpr int kAnnotIndex = 0;
+    PDFiumPage& page = GetPDFiumPage(*engine, kPageIndex);
+    ScopedFPDFAnnotation annot(FPDFPage_GetAnnot(page.GetPage(), kAnnotIndex));
+    ASSERT_TRUE(annot);
+    engine->UpdateFocus(/*has_focus=*/true);
+    ASSERT_TRUE(FORM_SetFocusedAnnot(GetFormHandle(engine.get()), annot.get()));
+    SetLastFocusedPage(engine.get(), kPageIndex);
+  }
+
+  // Trigger OnChar() on page 2. This executes FORM_OnChar().
+  blink::WebKeyboardEvent char_event(
+      blink::WebInputEvent::Type::kChar, blink::WebInputEvent::kNoModifiers,
+      blink::WebInputEvent::GetStaticTimeStampForTests());
+  char_event.text[0] = 'a';
+
+  // HandleInputEvent() should complete without crashing.
+  in_on_char = true;
+  engine->HandleInputEvent(char_event);
+  in_on_char = false;
+
+  EXPECT_TRUE(test_triggered);
+}
+
+TEST_P(PDFiumEnginePageMutationTest, DeferPageDestructionWithPreventer) {
+  NiceMock<MockTestClient> client(/*use_skia_renderer=*/GetParam());
+  std::unique_ptr<PDFiumEngine> engine = InitializeEngine(
+      &client, FILE_PATH_LITERAL("annotation_form_fields.pdf"));
+  ASSERT_TRUE(engine);
+  ASSERT_EQ(2, engine->GetNumberOfPages());
+
+  {
+    // Get page 2.
+    constexpr int kPageIndex = 1;
+    PDFiumPage& page = GetPDFiumPage(*engine, kPageIndex);
+    PDFiumPage::ScopedPageUnloadPreventer preventer(&page);
+
+    // Delete page 2 in the document.
+    FPDFPage_Delete(GetDoc(engine.get()), kPageIndex);
+
+    // Trigger a layout update. Since the preventer is active, page 2's
+    // destruction must be deferred.
+    InvalidateAllPages(engine.get());
+
+    // Page 2 is removed from engine's active pages list.
+    EXPECT_EQ(1, engine->GetNumberOfPages());
+
+    // `preventer` is still holding a raw pointer to `page`. `page` should be
+    // kept alive, and its destruction should be deferred. This should complete
+    // without crashing.
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(All, PDFiumEnginePageMutationTest, testing::Bool());
+
 class PDFiumEngineTabbingTest : public PDFiumTestBase {
  public:
   PDFiumEngineTabbingTest() = default;
@@ -2537,29 +2753,74 @@ TEST_P(PDFiumEngineInkTest, CannotSelectTextInAnnotationMode) {
   EXPECT_THAT(engine->GetSelectedText(), IsEmpty());
 }
 
-TEST_P(PDFiumEngineInkTest, ContainsV2InkPath) {
+TEST_P(PDFiumEngineInkTest, ScanForInkAnnotations) {
   TestClient client(/*use_skia_renderer=*/GetParam());
-  std::unique_ptr<PDFiumEngine> engine =
-      InitializeEngine(&client, FILE_PATH_LITERAL("blank.pdf"));
-  ASSERT_TRUE(engine);
-  ASSERT_EQ(1, engine->GetNumberOfPages());
-  constexpr base::TimeDelta kContainsV2InkPathTimeout =
-      base::Milliseconds(5000);
-  EXPECT_EQ(engine->ContainsV2InkPath(kContainsV2InkPathTimeout),
-            PDFLoadedWithV2InkAnnotations::kFalse);
+  constexpr base::TimeDelta kTimeout = base::Milliseconds(5000);
 
-  engine = InitializeEngine(&client, FILE_PATH_LITERAL("ink_v2.pdf"));
-  ASSERT_TRUE(engine);
-  ASSERT_EQ(1, engine->GetNumberOfPages());
-  EXPECT_EQ(engine->ContainsV2InkPath(kContainsV2InkPathTimeout),
-            PDFLoadedWithV2InkAnnotations::kTrue);
+  // PDF with no annotations.
+  {
+    std::unique_ptr<PDFiumEngine> engine =
+        InitializeEngine(&client, FILE_PATH_LITERAL("blank.pdf"));
+    ASSERT_TRUE(engine);
+    ASSERT_EQ(1, engine->GetNumberOfPages());
+    PDFiumEngine::InkIdentifiers result =
+        engine->ScanForInkAnnotations(kTimeout);
+    EXPECT_EQ(result.ink_text_annotations,
+              PDFLoadedWithInkTextAnnotations::kFalse);
+    EXPECT_EQ(result.v2_ink_path, PDFLoadedWithV2InkAnnotations::kFalse);
+  }
+
+  // PDF with "V2" Ink annotation.
+  {
+    std::unique_ptr<PDFiumEngine> engine =
+        InitializeEngine(&client, FILE_PATH_LITERAL("ink_v2.pdf"));
+    ASSERT_TRUE(engine);
+    ASSERT_EQ(1, engine->GetNumberOfPages());
+    PDFiumEngine::InkIdentifiers result =
+        engine->ScanForInkAnnotations(kTimeout);
+    EXPECT_EQ(result.ink_text_annotations,
+              PDFLoadedWithInkTextAnnotations::kFalse);
+    EXPECT_EQ(result.v2_ink_path, PDFLoadedWithV2InkAnnotations::kTrue);
+  }
+
+  // PDF with Ink text annotation.
+  {
+    std::unique_ptr<PDFiumEngine> engine =
+        InitializeEngine(&client, FILE_PATH_LITERAL("ink_text.pdf"));
+    ASSERT_TRUE(engine);
+    ASSERT_EQ(1, engine->GetNumberOfPages());
+    PDFiumEngine::InkIdentifiers result =
+        engine->ScanForInkAnnotations(kTimeout);
+    EXPECT_EQ(result.ink_text_annotations,
+              PDFLoadedWithInkTextAnnotations::kTrue);
+    EXPECT_EQ(result.v2_ink_path, PDFLoadedWithV2InkAnnotations::kFalse);
+  }
+
+  // PDF with Ink text and "V2" Ink annotation.
+  {
+    std::unique_ptr<PDFiumEngine> engine =
+        InitializeEngine(&client, FILE_PATH_LITERAL("ink_v2_and_text.pdf"));
+    ASSERT_TRUE(engine);
+    ASSERT_EQ(1, engine->GetNumberOfPages());
+    PDFiumEngine::InkIdentifiers result =
+        engine->ScanForInkAnnotations(kTimeout);
+    EXPECT_EQ(result.ink_text_annotations,
+              PDFLoadedWithInkTextAnnotations::kTrue);
+    EXPECT_EQ(result.v2_ink_path, PDFLoadedWithV2InkAnnotations::kTrue);
+  }
 
   // Test timeout.
-  engine = InitializeEngine(&client, FILE_PATH_LITERAL("ink_v2.pdf"));
-  ASSERT_TRUE(engine);
-  ASSERT_EQ(1, engine->GetNumberOfPages());
-  EXPECT_EQ(engine->ContainsV2InkPath(base::Milliseconds(0)),
-            PDFLoadedWithV2InkAnnotations::kUnknown);
+  {
+    std::unique_ptr<PDFiumEngine> engine =
+        InitializeEngine(&client, FILE_PATH_LITERAL("ink_v2.pdf"));
+    ASSERT_TRUE(engine);
+    ASSERT_EQ(1, engine->GetNumberOfPages());
+    PDFiumEngine::InkIdentifiers result =
+        engine->ScanForInkAnnotations(base::Milliseconds(0));
+    EXPECT_EQ(result.ink_text_annotations,
+              PDFLoadedWithInkTextAnnotations::kUnknown);
+    EXPECT_EQ(result.v2_ink_path, PDFLoadedWithV2InkAnnotations::kUnknown);
+  }
 }
 
 TEST_P(PDFiumEngineInkTest, LoadV2InkPathsForPage) {
@@ -2607,6 +2868,7 @@ TEST_P(PDFiumEngineInkTest, GetCanonicalToPdfTransform) {
 }
 
 TEST_P(PDFiumEngineInkTest, AddFont) {
+  base::HistogramTester histograms;
   TestClient client(/*use_skia_renderer=*/GetParam());
   std::unique_ptr<PDFiumEngine> engine =
       InitializeEngine(&client, FILE_PATH_LITERAL("hello_world2.pdf"));
@@ -2623,6 +2885,32 @@ TEST_P(PDFiumEngineInkTest, AddFont) {
   float ascent = 0;
   EXPECT_TRUE(FPDFFont_GetAscent(font, 12, &ascent));
   EXPECT_GT(ascent, 0);
+
+  histograms.ExpectUniqueSample("PDF.Ink2FontLoaded", true, 1);
+  histograms.ExpectTotalCount("PDF.Ink2EmojiFontLoadFailed", 0);
+}
+
+TEST_P(PDFiumEngineInkTest, AddFontEmojiLoadFailure) {
+  base::HistogramTester histograms;
+  TestClient client(/*use_skia_renderer=*/GetParam());
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("hello_world2.pdf"));
+  ASSERT_TRUE(engine);
+
+  TestFont emoji_font = GetTestEmojiFont();
+  ASSERT_TRUE(emoji_font.serialized_font);
+  FontId id = emoji_font.font_id;
+
+  // Attempting to add Noto Color Emoji font should not crash. It will fail to
+  // load in PDFium due to missing PNG support, and return gracefully. The
+  // font should be set as nullptr.
+  engine->AddFont(id, "NotoColorEmoji",
+                  gfx::SkDataToSpan(emoji_font.serialized_font));
+  FPDF_FONT font = engine->GetAddedFont(id);
+  EXPECT_FALSE(font);
+
+  histograms.ExpectUniqueSample("PDF.Ink2FontLoaded", false, 1);
+  histograms.ExpectUniqueSample("PDF.Ink2EmojiFontLoadFailed", true, 1);
 }
 
 INSTANTIATE_TEST_SUITE_P(All, PDFiumEngineInkTest, testing::Bool());
@@ -3365,6 +3653,40 @@ TEST_P(PDFiumEngineInkDrawTextTest, DrawTextSyntheticBoldItalic) {
   const base::FilePath kExpectedFilePath(GetInkTestDataFilePath(
       GetTestDataPathWithPlatformSuffix("applied_text_bold_italic.png")));
   CheckPdfRendering(page.GetPage(), kPageSizeInPoints, kExpectedFilePath);
+}
+
+TEST_P(PDFiumEngineInkDrawTextTest, DrawTextEmojiWithoutFontDoesNotCrash) {
+  TestClient client(/*use_skia_renderer=*/GetParam());
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("blank.pdf"));
+  ASSERT_TRUE(engine);
+  int page_count = FPDF_GetPageCount(engine->doc());
+  ASSERT_EQ(page_count, 1);
+
+  TestFont emoji_font = GetTestEmojiFont();
+  ASSERT_TRUE(emoji_font.serialized_font);
+  FontId id = emoji_font.font_id;
+
+  // Attempting to add Noto Color Emoji font should not crash. It will fail to
+  // load in PDFium due to missing PNG support, and return gracefully.
+  engine->AddFont(id, "NotoColorEmoji",
+                  gfx::SkDataToSpan(emoji_font.serialized_font));
+
+  // Draw emoji with the failed font. It should not crash.
+  std::u16string emoji_text = u"\U0001F603";
+  // Placeholder glyphs.
+  DrawTextData text_data = GetGlyphsForText("?", /*font_size=*/10.0f);
+  ASSERT_FALSE(text_data.glyphs.empty());
+
+  constexpr int kPageIndex = 0;
+  const InkTextBoxAttributes attributes = SampleInkTextBoxAttributes();
+  engine->DrawText(
+      kPageIndex, InkTextId(0),
+      {InkTextInfo(id, text_data.glyphs, text_data.glyph_positions,
+                   /*location=*/gfx::RectF(0.0f, 0.0f, 100.0f, 20.0f),
+                   /*is_horizontal=*/true, emoji_text)},
+      /*ascent=*/8.0f,
+      /*pdf_zoom=*/1.0, attributes);
 }
 
 TEST_P(PDFiumEngineInkDrawTextTest, StrokeTextStrokeOverlap) {

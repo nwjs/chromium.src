@@ -78,10 +78,11 @@ class MockContextualTasksPage : public contextual_tasks::mojom::Page {
   ~MockContextualTasksPage() override = default;
 
   MOCK_METHOD(void, SetOAuthToken, (const std::string& token), (override));
+  MOCK_METHOD(void, OnCookieSyncCompleted, (), (override));
   MOCK_METHOD(void, SetThreadTitle, (const std::string& title), (override));
   MOCK_METHOD(void, OnSidePanelStateChanged, (), (override));
   MOCK_METHOD(void,
-              PostMessageToWebview,
+              PostAimMessage,
               (const std::vector<uint8_t>& message),
               (override));
   MOCK_METHOD(void, OnHandshakeComplete, (), (override));
@@ -162,7 +163,10 @@ class MockContextualTasksCookieSynchronizer
       : ContextualTasksCookieSynchronizer(context, identity_manager) {}
   ~MockContextualTasksCookieSynchronizer() override = default;
 
-  MOCK_METHOD(void, CopyCookiesToWebviewStoragePartition, (), (override));
+  MOCK_METHOD(void,
+              CopyCookiesToWebviewStoragePartition,
+              (base::OnceClosure callback),
+              (override));
 };
 
 }  // namespace
@@ -222,7 +226,7 @@ class ContextualTasksUIBrowserTest : public InProcessBrowserTest {
     // Sign in the user so IdentityManager is ready.
     identity_test_environment_adaptor_ =
         std::make_unique<IdentityTestEnvironmentProfileAdaptor>(
-            browser()->profile());
+            browser()->GetProfile());
     identity_test_env_ =
         identity_test_environment_adaptor_->identity_test_env();
     identity_test_env_->MakePrimaryAccountAvailable(
@@ -246,9 +250,20 @@ class ContextualTasksUIBrowserTest : public InProcessBrowserTest {
     InProcessBrowserTest::TearDownOnMainThread();
   }
 
-  void TriggerOnInnerWebContentsCreated(content::WebContents* inner) {
-    controller_->OnInnerWebContentsCreated(inner);
+  void TriggerOnInnerWebContentsCreated(ContextualTasksUI* controller,
+                                        content::WebContents* inner) {
+    controller->OnInnerWebContentsCreated(inner);
   }
+
+  void TriggerOnInnerWebContentsCreated(content::WebContents* inner) {
+    TriggerOnInnerWebContentsCreated(controller_.get(), inner);
+  }
+
+  void TriggerUpdateZoom(ContextualTasksUI* controller) {
+    controller->UpdateZoom();
+  }
+
+  void TriggerUpdateZoom() { TriggerUpdateZoom(controller_.get()); }
 
   ContextualTasksComposeboxHandler* GetComposeboxHandler() {
     return static_cast<ContextualTasksComposeboxHandler*>(
@@ -291,8 +306,8 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
   // Expect OnSidePanelStateChanged to be called on the page.
   EXPECT_CALL(mock_page, OnSidePanelStateChanged()).Times(1);
 
-  // Expect PostMessageToWebview to be called with the correct display mode.
-  EXPECT_CALL(mock_page, PostMessageToWebview(_))
+  // Expect PostAimMessage to be called with the correct display mode.
+  EXPECT_CALL(mock_page, PostAimMessage(_))
       .WillOnce([&run_loop](const std::vector<uint8_t>& message) {
         lens::ClientToAimMessage client_message;
         ASSERT_TRUE(
@@ -314,7 +329,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
   // Create a WebContents not associated with a tab.
   std::unique_ptr<content::WebContents> side_panel_contents =
       content::WebContents::Create(
-          content::WebContents::CreateParams(browser()->profile()));
+          content::WebContents::CreateParams(browser()->GetProfile()));
   auto side_panel_web_ui = std::make_unique<content::TestWebUI>();
   side_panel_web_ui->set_web_contents(side_panel_contents.get());
 
@@ -328,7 +343,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
 
   base::RunLoop run_loop;
   EXPECT_CALL(mock_page, OnSidePanelStateChanged()).Times(1);
-  EXPECT_CALL(mock_page, PostMessageToWebview(_))
+  EXPECT_CALL(mock_page, PostAimMessage(_))
       .WillOnce([&run_loop](const std::vector<uint8_t>& message) {
         lens::ClientToAimMessage client_message;
         ASSERT_TRUE(
@@ -389,18 +404,15 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest, HandleLensButtonClick) {
   mojo::Remote<composebox::mojom::PageHandler> handler_remote(
       handler_receiver.InitWithNewPipeAndPassRemote());
 
-  mojo::PendingRemote<composebox::mojom::Page> composebox_page;
-  std::ignore = composebox_page.InitWithNewPipeAndPassReceiver();
-
   mojo::PendingReceiver<searchbox::mojom::PageHandler>
       searchbox_handler_receiver;
   mojo::PendingRemote<searchbox::mojom::Page> searchbox_page;
   std::ignore = searchbox_page.InitWithNewPipeAndPassReceiver();
 
   // Create PageHandler
-  controller_->CreatePageHandler(
-      std::move(composebox_page), std::move(handler_receiver),
-      std::move(searchbox_page), std::move(searchbox_handler_receiver));
+  controller_->CreatePageHandler(std::move(handler_receiver),
+                                 std::move(searchbox_page),
+                                 std::move(searchbox_handler_receiver));
 
   // Invoke button click
   handler_remote->HandleLensButtonClick();
@@ -451,13 +463,14 @@ class ContextualTasksUICookieSyncBrowserTest
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksUICookieSyncBrowserTest,
                        OnInnerWebContentsCreated_TriggersCookieSync) {
-  EXPECT_CALL(*mock_synchronizer_, CopyCookiesToWebviewStoragePartition())
+  EXPECT_CALL(*mock_synchronizer_,
+              CopyCookiesToWebviewStoragePartition(testing::_))
       .Times(1);
 
   // Create inner contents to trigger the observer.
   std::unique_ptr<content::WebContents> inner_contents =
       content::WebContents::Create(
-          content::WebContents::CreateParams(browser()->profile()));
+          content::WebContents::CreateParams(browser()->GetProfile()));
 
   TriggerOnInnerWebContentsCreated(inner_contents.get());
 }
@@ -504,7 +517,7 @@ IN_PROC_BROWSER_TEST_F(
   // Create first inner contents.
   std::unique_ptr<content::WebContents> inner_contents1 =
       content::WebContents::Create(
-          content::WebContents::CreateParams(browser()->profile()));
+          content::WebContents::CreateParams(browser()->GetProfile()));
   GURL url1 = embedded_test_server()->GetURL("/title1.html?1");
   inner_contents1->GetController().LoadURL(
       url1, content::Referrer(), ui::PAGE_TRANSITION_TYPED, std::string());
@@ -517,7 +530,7 @@ IN_PROC_BROWSER_TEST_F(
   // Create second inner contents (should be ignored).
   std::unique_ptr<content::WebContents> inner_contents2 =
       content::WebContents::Create(
-          content::WebContents::CreateParams(browser()->profile()));
+          content::WebContents::CreateParams(browser()->GetProfile()));
   GURL url2 = embedded_test_server()->GetURL("/title1.html?2");
   inner_contents2->GetController().LoadURL(
       url2, content::Referrer(), ui::PAGE_TRANSITION_TYPED, std::string());
@@ -539,7 +552,7 @@ IN_PROC_BROWSER_TEST_F(
   // Create a third inner contents (should be accepted now).
   std::unique_ptr<content::WebContents> inner_contents3 =
       content::WebContents::Create(
-          content::WebContents::CreateParams(browser()->profile()));
+          content::WebContents::CreateParams(browser()->GetProfile()));
   GURL url3 = embedded_test_server()->GetURL("/title1.html?3");
   inner_contents3->GetController().LoadURL(
       url3, content::Referrer(), ui::PAGE_TRANSITION_TYPED, std::string());
@@ -562,16 +575,14 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
   mojo::PendingReceiver<composebox::mojom::PageHandler> handler_receiver;
   mojo::Remote<composebox::mojom::PageHandler> handler_remote(
       handler_receiver.InitWithNewPipeAndPassRemote());
-  mojo::PendingRemote<composebox::mojom::Page> composebox_page;
-  std::ignore = composebox_page.InitWithNewPipeAndPassReceiver();
   mojo::PendingReceiver<searchbox::mojom::PageHandler>
       searchbox_handler_receiver;
   mojo::PendingRemote<searchbox::mojom::Page> searchbox_page;
   std::ignore = searchbox_page.InitWithNewPipeAndPassReceiver();
 
-  controller_->CreatePageHandler(
-      std::move(composebox_page), std::move(handler_receiver),
-      std::move(searchbox_page), std::move(searchbox_handler_receiver));
+  controller_->CreatePageHandler(std::move(handler_receiver),
+                                 std::move(searchbox_page),
+                                 std::move(searchbox_handler_receiver));
 
   // Should succeed for http/https/file URLs.
   EXPECT_TRUE(controller_->CanUpdateSuggestedTabContext(
@@ -609,16 +620,14 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
   mojo::PendingReceiver<composebox::mojom::PageHandler> handler_receiver;
   mojo::Remote<composebox::mojom::PageHandler> handler_remote(
       handler_receiver.InitWithNewPipeAndPassRemote());
-  mojo::PendingRemote<composebox::mojom::Page> composebox_page;
-  std::ignore = composebox_page.InitWithNewPipeAndPassReceiver();
   mojo::PendingReceiver<searchbox::mojom::PageHandler>
       searchbox_handler_receiver;
   mojo::PendingRemote<searchbox::mojom::Page> searchbox_page;
   std::ignore = searchbox_page.InitWithNewPipeAndPassReceiver();
 
-  controller_->CreatePageHandler(
-      std::move(composebox_page), std::move(handler_receiver),
-      std::move(searchbox_page), std::move(searchbox_handler_receiver));
+  controller_->CreatePageHandler(std::move(handler_receiver),
+                                 std::move(searchbox_page),
+                                 std::move(searchbox_handler_receiver));
 
   // Add a couple of exclusions and save to prefs.
   base::Time now = base::Time::Now();
@@ -641,7 +650,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
   // Create inner contents to trigger the observer.
   std::unique_ptr<content::WebContents> inner_contents =
       content::WebContents::Create(
-          content::WebContents::CreateParams(browser()->profile()));
+          content::WebContents::CreateParams(browser()->GetProfile()));
   TriggerOnInnerWebContentsCreated(inner_contents.get());
 
   GURL url = embedded_test_server()->GetURL("/title1.html");
@@ -697,7 +706,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest,
                        CannotZoomInSidePanel) {
   std::unique_ptr<content::WebContents> side_panel_contents =
       content::WebContents::Create(
-          content::WebContents::CreateParams(browser()->profile()));
+          content::WebContents::CreateParams(browser()->GetProfile()));
   auto side_panel_web_ui = std::make_unique<content::TestWebUI>();
   side_panel_web_ui->set_web_contents(side_panel_contents.get());
 
@@ -732,7 +741,8 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest,
                                     /*replace_navigation_entry=*/false);
 
   content::HostZoomMap* zoom_map =
-      content::HostZoomMap::GetDefaultForBrowserContext(browser()->profile());
+      content::HostZoomMap::GetDefaultForBrowserContext(
+          browser()->GetProfile());
 
   // 1. Test Host -> WebUI sync.
   double target_zoom = 2.0;
@@ -757,7 +767,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest,
                        InitSidePanelWithGhostLoader_WaitUntilPanelOpen) {
   auto* service =
       contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
-          browser()->profile());
+          browser()->GetProfile());
   auto* tab = TabListInterface::From(browser())->GetActiveTab();
 
   // Call InitSidePanelWithGhostLoader.
@@ -781,7 +791,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest,
                        CanUpdateSuggestedTabContext_SidePanelLifecycle) {
   auto* service =
       contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
-          browser()->profile());
+          browser()->GetProfile());
   auto* tab = TabListInterface::From(browser())->GetActiveTab();
 
   // 1. Open the side panel. This will load the ContextualTasksUI.
@@ -903,7 +913,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
   sib_param2->set_param_value("1");
 
   auto* contextual_search_service =
-      ContextualSearchServiceFactory::GetForProfile(browser()->profile());
+      ContextualSearchServiceFactory::GetForProfile(browser()->GetProfile());
   ASSERT_TRUE(contextual_search_service);
 
   ON_CALL(*GetMockAimEligibilityService(), IsAimUrl(_, _))
@@ -941,22 +951,20 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
   mojo::PendingReceiver<composebox::mojom::PageHandler> handler_receiver;
   mojo::Remote<composebox::mojom::PageHandler> handler_remote(
       handler_receiver.InitWithNewPipeAndPassRemote());
-  mojo::PendingRemote<composebox::mojom::Page> composebox_page;
-  std::ignore = composebox_page.InitWithNewPipeAndPassReceiver();
   mojo::PendingReceiver<searchbox::mojom::PageHandler>
       searchbox_handler_receiver;
   mojo::PendingRemote<searchbox::mojom::Page> searchbox_page;
   std::ignore = searchbox_page.InitWithNewPipeAndPassReceiver();
 
-  controller_->CreatePageHandler(
-      std::move(composebox_page), std::move(handler_receiver),
-      std::move(searchbox_page), std::move(searchbox_handler_receiver));
+  controller_->CreatePageHandler(std::move(handler_receiver),
+                                 std::move(searchbox_page),
+                                 std::move(searchbox_handler_receiver));
 
   controller_->OnInitComplete();
 
   std::unique_ptr<content::WebContents> inner_contents =
       content::WebContents::Create(
-          content::WebContents::CreateParams(browser()->profile()));
+          content::WebContents::CreateParams(browser()->GetProfile()));
 
   TriggerOnInnerWebContentsCreated(inner_contents.get());
 
@@ -1027,4 +1035,44 @@ IN_PROC_BROWSER_TEST_F(
   // This should return early and not crash.
   CallOnContextRetrievedForActiveTab(null_browser, tab_id, url,
                                      std::move(context));
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
+                       UpdateZoom_UpdatesInnerWebContentsZoomMode) {
+  // Test in tab mode. IsShownInTab() returns true.
+  std::unique_ptr<content::WebContents> inner_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(browser()->GetProfile()));
+
+  TriggerOnInnerWebContentsCreated(inner_contents.get());
+  TriggerUpdateZoom();
+
+  auto* inner_zoom_controller =
+      zoom::ZoomController::FromWebContents(inner_contents.get());
+  ASSERT_TRUE(inner_zoom_controller);
+  EXPECT_EQ(zoom::ZoomController::ZoomMode::ZOOM_MODE_DEFAULT,
+            inner_zoom_controller->zoom_mode());
+
+  // Test in side panel mode, since this WebUI is not added to the tab strip,
+  // IsShownInTab() returns false.
+  std::unique_ptr<content::WebContents> side_panel_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(browser()->GetProfile()));
+  auto side_panel_web_ui = std::make_unique<content::TestWebUI>();
+  side_panel_web_ui->set_web_contents(side_panel_contents.get());
+  auto side_panel_controller =
+      std::make_unique<ContextualTasksUI>(side_panel_web_ui.get());
+
+  std::unique_ptr<content::WebContents> side_panel_inner_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(browser()->GetProfile()));
+  TriggerOnInnerWebContentsCreated(side_panel_controller.get(),
+                                   side_panel_inner_contents.get());
+  TriggerUpdateZoom(side_panel_controller.get());
+
+  auto* side_panel_inner_zoom_controller =
+      zoom::ZoomController::FromWebContents(side_panel_inner_contents.get());
+  ASSERT_TRUE(side_panel_inner_zoom_controller);
+  EXPECT_EQ(zoom::ZoomController::ZoomMode::ZOOM_MODE_DISABLED,
+            side_panel_inner_zoom_controller->zoom_mode());
 }

@@ -44,6 +44,7 @@
 #include "chromeos/ash/components/dbus/vm_plugin_dispatcher/vm_plugin_dispatcher_client.h"
 #include "chromeos/ash/components/disks/disk_mount_manager.h"
 #include "chromeos/ash/components/disks/fake_disk_mount_manager.h"
+#include "chromeos/ash/components/install_attributes/stub_install_attributes.h"
 #include "chromeos/ash/experiences/arc/arc_util.h"
 #include "chromeos/ash/experiences/arc/session/arc_session_runner.h"
 #include "chromeos/ash/experiences/arc/test/fake_arc_session.h"
@@ -68,6 +69,7 @@ namespace {
 std::unique_ptr<KeyedService> BuildVolumeManager(
     content::BrowserContext* context) {
   return std::make_unique<file_manager::VolumeManager>(
+      TestingBrowserProcess::GetGlobal()->local_state(),
       Profile::FromBrowserContext(context),
       nullptr /* drive_integration_service */,
       nullptr /* power_manager_client */,

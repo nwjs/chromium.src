@@ -75,7 +75,7 @@ NSString* const kCollaborationSigninHeaderBackground =
 @synthesize targetIdentityEmail = _targetIdentityEmail;
 
 - (instancetype)initWithContextStyle:(SigninContextStyle)contextStyle {
-  self = [super init];
+  self = [super initWithConfiguration:[[ButtonStackConfiguration alloc] init]];
   if (self) {
     _contextStyle = contextStyle;
   }
@@ -98,7 +98,7 @@ NSString* const kCollaborationSigninHeaderBackground =
 #if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
   self.bannerName = kChromeSigninBannerImage;
   self.headerImage = MakeSymbolMulticolor(
-      CustomSymbolWithPointSize(kMulticolorChromeballSymbol, kHeaderImageSize));
+      SymbolWithPointSize(SymbolMulticolorChromeball, kHeaderImageSize));
 #else
   self.bannerName = kChromiumSigninBannerImage;
 #endif
@@ -171,7 +171,7 @@ NSString* const kCollaborationSigninHeaderBackground =
             ? self.specificContentView.topAnchor
             : self.identityControl.bottomAnchor;
     UIImage* image = SymbolWithPalette(
-        CustomSymbolWithPointSize(kEnterpriseSymbol, kEnterpriseIconPointSize),
+        SymbolWithPointSize(SymbolEnterprise, kEnterpriseIconPointSize),
         @[ [UIColor colorNamed:kStaticGrey600Color] ]);
     UIImageView* enterpriseImageView =
         [[UIImageView alloc] initWithImage:image];
@@ -426,25 +426,10 @@ NSString* const kCollaborationSigninHeaderBackground =
             l10n_util::GetNSString(IDS_IOS_FIRST_RUN_SIGNIN_STAY_SIGNED_OUT);
       }
       break;
-    case SigninContextStyle::kDefault: {
-      if (FRESignInSecondaryActionLabelUpdate()) {
-        std::string signinValue =
-            kFRESignInSecondaryActionLabelUpdateParam.Get();
-        if (signinValue ==
-            kFRESignInSecondaryActionLabelUpdateParamStaySignedOut) {
-          self.configuration.secondaryActionString =
-              l10n_util::GetNSString(IDS_IOS_FIRST_RUN_SIGNIN_STAY_SIGNED_OUT);
-        } else {
-          // Fallback action when no valid value is provided.
-          self.configuration.secondaryActionString =
-              l10n_util::GetNSString(IDS_IOS_FIRST_RUN_SIGNIN_DONT_SIGN_IN);
-        }
-      } else {
-        // When the feature flag is disabled, default to the original string
-        self.configuration.secondaryActionString =
-            l10n_util::GetNSString(IDS_IOS_FIRST_RUN_SIGNIN_DONT_SIGN_IN);
-      }
-    } break;
+    case SigninContextStyle::kDefault:
+      self.configuration.secondaryActionString =
+          l10n_util::GetNSString(IDS_IOS_FIRST_RUN_SIGNIN_STAY_SIGNED_OUT);
+      break;
   }
 }
 

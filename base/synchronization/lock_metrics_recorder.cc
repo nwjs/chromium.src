@@ -4,12 +4,17 @@
 
 #include "base/synchronization/lock_metrics_recorder.h"
 
+#include <algorithm>
+
 #include "base/auto_reset.h"
 #include "base/check.h"
 #include "base/containers/ring_buffer.h"
+#include "base/feature_list.h"
+#include "base/features.h"
 #include "base/metrics/histogram.h"
 #include "base/no_destructor.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_split.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/platform_thread_ref.h"
@@ -72,6 +77,23 @@ std::atomic<base::ThreadLocalOwnedPointer<LockMetricsRecorder>*> g_tls_slot{
     nullptr};
 
 constexpr int kHistogramBucketCount = 100;
+
+base::HistogramBase* CreateLockHistogram(std::string_view lock_name,
+                                         std::string_view histogram_suffix) {
+  return base::Histogram::FactoryMicrosecondsTimeGet(
+      StrCat({"Scheduling.ContendedLockAcquisitionTime.", lock_name, ".",
+              histogram_suffix}),
+      Microseconds(1), Seconds(1), kHistogramBucketCount,
+      base::HistogramBase::kUmaTargetedHistogramFlag);
+}
+
+std::vector<std::string>& GetAllowedThreads() {
+  static base::NoDestructor<std::vector<std::string>> allowed_threads(
+      base::SplitString(
+          base::features::kRecordLockAcquisitionTimeAllowedThreads.Get(), ",",
+          base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY));
+  return *allowed_threads;
+}
 
 }  // namespace
 
@@ -142,45 +164,6 @@ void LockMetricsRecorder::ReportLockAcquisitionTimes() {
     return;
   }
 
-  // Instead of checking if the histogram exists every time we record a sample,
-  // only check it before we are about to report to reduce the total number of
-  // checks.
-  // We only need to check the base lock histogram since both histograms are
-  // created together.
-  if (!base_lock_histogram_) [[unlikely]] {
-    const char* thread_name = PlatformThread::GetName();
-
-    CHECK(thread_name);
-
-    // Make sure that when the thread first goes idle we don't try to create a
-    // histogram with an empty name if it is not set yet.
-    //
-    // Since this function is called whenever the thread goes idle, and the
-    // histogram is created on the first iteration, we can just make the
-    // histogram on the next iteration.
-    //
-    // TODO(crbug.com/525428839) - Remove this check once we remove plumbing
-    // code in thread controller and enable recording only after the thread name
-    // is set.
-    if (thread_name[0] == '\0') {
-      return;
-    }
-
-    base_lock_histogram_ = base::Histogram::FactoryMicrosecondsTimeGet(
-        StrCat(
-            {"Scheduling.ContendedLockAcquisitionTime.BaseLock.", thread_name}),
-        Microseconds(1), Seconds(1), kHistogramBucketCount,
-        base::HistogramBase::kUmaTargetedHistogramFlag);
-
-    partition_alloc_lock_histogram_ =
-        base::Histogram::FactoryMicrosecondsTimeGet(
-            StrCat(
-                {"Scheduling.ContendedLockAcquisitionTime.PartitionAllocLock.",
-                 thread_name}),
-            Microseconds(1), Seconds(1), kHistogramBucketCount,
-            base::HistogramBase::kUmaTargetedHistogramFlag);
-  }
-
   // Copy guarded members to local variables to appease the static analyzer.
   // Clang's thread-safety analysis treats lambda scopes as new contexts and
   // generates false-positive "missing lock" errors, even though the context was
@@ -209,24 +192,56 @@ void LockMetricsRecorder::ReportLockAcquisitionTimes() {
 // rules), `GetForCurrentThread()` can safely read via a lock-free atomic load
 // without reentrancy risks.
 // static
-void LockMetricsRecorder::EnableRecordingOnCurrentThread() {
+void LockMetricsRecorder::EnableRecordingOnCurrentThread(
+    std::string_view histogram_suffix) {
+  CHECK(!histogram_suffix.empty());
+
+  if (!base::FeatureList::IsEnabled(
+          base::features::kRecordLockAcquisitionTime)) {
+    return;
+  }
+
+  std::vector<std::string>& allowed = GetAllowedThreads();
+  if (std::ranges::find(allowed, histogram_suffix) == allowed.end()) {
+    return;
+  }
+
   static base::NoDestructor<base::ThreadLocalOwnedPointer<LockMetricsRecorder>>
       tls_slot;
   g_tls_slot.store(tls_slot.get(), std::memory_order_release);
 
   if (!tls_slot->Get()) {
     tls_slot->Set(std::make_unique<LockMetricsRecorder>(
-        base::PassKey<LockMetricsRecorder>()));
+        base::PassKey<LockMetricsRecorder>(), histogram_suffix));
   }
 }
 
-LockMetricsRecorder::LockMetricsRecorder(PassKey) {}
+LockMetricsRecorder::LockMetricsRecorder(PassKey,
+                                         std::string_view histogram_suffix)
+    : base_lock_histogram_(CreateLockHistogram("BaseLock", histogram_suffix)),
+      partition_alloc_lock_histogram_(
+          CreateLockHistogram("PartitionAllocLock", histogram_suffix)) {}
 
 // static
 LockMetricsRecorder::ScopedLockAcquisitionTimer
 LockMetricsRecorder::ScopedLockAcquisitionTimer::CreateForTest(
     LockMetricsRecorder* recorder) {
   return LockMetricsRecorder::ScopedLockAcquisitionTimer(recorder);
+}
+
+// static
+void LockMetricsRecorder::DisableRecordingOnCurrentThreadForTesting() {
+  base::ThreadLocalOwnedPointer<LockMetricsRecorder>* slot =
+      g_tls_slot.load(std::memory_order_acquire);
+  if (slot) {
+    slot->Set(nullptr);
+  }
+}
+
+// static
+void LockMetricsRecorder::SetAllowedThreadsForTesting(
+    std::vector<std::string> allowed_threads) {
+  GetAllowedThreads() = std::move(allowed_threads);
 }
 
 }  // namespace base

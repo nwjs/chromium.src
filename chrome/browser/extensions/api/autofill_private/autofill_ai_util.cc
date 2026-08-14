@@ -10,7 +10,9 @@
 #include <utility>
 
 #include "base/containers/flat_set.h"
+#include "base/containers/span.h"
 #include "base/containers/to_vector.h"
+#include "base/feature_list.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
@@ -29,6 +31,7 @@
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_wallet_utils.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/management_utils.h"
 #include "components/autofill/core/browser/proto/server.pb.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -67,11 +70,11 @@ void EntityInstanceToPrivateApiEntityInstanceWithLabels(
     std::vector<autofill_private::EntityInstanceWithLabels>& output) {
   // Step 1#, get all available labels for `entity_instances`.
   const std::vector<autofill::EntityLabel> labels_for_entities =
-      autofill::GetLabelsForEntities(entity_instances,
-                                     /*attribute_types_to_ignore=*/{},
-                                     /*only_disambiguating_types=*/false,
-                                     /*obfuscate_sensitive_types=*/obfuscate_sensitive_types,
-                                     app_locale);
+      autofill::GetLabelsForEntities(
+          entity_instances,
+          /*attribute_types_to_ignore=*/{},
+          /*only_disambiguating_types=*/false,
+          /*obfuscate_sensitive_types=*/obfuscate_sensitive_types, app_locale);
 
   // Step 2#
   // Update the `output` with each entity's respective
@@ -317,8 +320,11 @@ api::autofill_private::EntityType EntityTypeToPrivateApiEntityType(
   api_type.type_name = std::to_underlying(entity_type.name());
   api_type.type_name_as_string =
       base::UTF16ToUTF8(entity_type.GetNameForI18n());
-  api_type.add_entity_type_string =
-      autofill::GetAddEntityTypeStringForI18n(entity_type);
+  api_type.add_entity_type_string = autofill::GetAddEntityTypeStringForI18n(
+      entity_type,
+      /*is_wallet_branded=*/supports_wallet_storage &&
+          base::FeatureList::IsEnabled(
+              autofill::features::kAutofillAiWalletPassBranding2026));
   api_type.edit_entity_type_string =
       autofill::GetEditEntityTypeStringForI18n(entity_type);
   api_type.delete_entity_type_string =
@@ -357,6 +363,14 @@ api::autofill_private::AttributeType AttributeTypeToPrivateApiAttributeType(
 
 std::vector<api::autofill_private::AttributeType> GetRequiredAttributesForType(
     autofill::EntityType entity_type) {
+  // Read-only entity types cannot be created or updated in the UI, so they
+  // do not have required fields in the UI context. Bypassing them also
+  // prevents hitting a CHECK on complex constraints (e.g. for Orders/Shipments)
+  // which the UI cannot represent.
+  if (entity_type.read_only()) {
+    return {};
+  }
+
   return base::ToVector(entity_type.import_constraints(), [](autofill::DenseSet<
                                                               AttributeType>
                                                                  group) {

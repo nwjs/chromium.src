@@ -97,7 +97,8 @@ bool SodaSpeechRecognitionEngineImpl::Initialize() {
                          weak_factory_.GetWeakPtr())));
 
   speech_recognition_mgr_delegate->BindSpeechRecognitionContext(
-      std::move(speech_recognition_context_receiver), config_.language);
+      std::move(speech_recognition_context_receiver), config_.language,
+      config_.initial_context.global_id);
 
   speech_recognition_context_.set_disconnect_handler(
       base::BindPostTaskToCurrentDefault(base::BindOnce(
@@ -162,6 +163,13 @@ void SodaSpeechRecognitionEngineImpl::OnSpeechRecognitionRecognitionEvent(
   results.push_back(media::mojom::WebSpeechRecognitionResult::New());
   media::mojom::WebSpeechRecognitionResultPtr& result = results.back();
   result->is_provisional = !recognition_result.is_final;
+
+  if (recognition_result.timing_information.has_value()) {
+    result->audio_start_time =
+        recognition_result.timing_information->audio_start_time;
+    result->audio_end_time =
+        recognition_result.timing_information->audio_end_time;
+  }
 
   media::mojom::SpeechRecognitionHypothesisPtr hypothesis =
       media::mojom::SpeechRecognitionHypothesis::New();

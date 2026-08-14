@@ -91,7 +91,6 @@ class TestBrowserWindow : public BrowserWindow,
   std::vector<StatusBubble*> GetStatusBubbles() override;
   void UpdateTitleBar() override {}
   void UpdateLoadingAnimations(bool is_visible) override {}
-  void SetStarredState(bool is_starred) override {}
   void OnActiveTabChanged(content::WebContents* old_contents,
                           content::WebContents* new_contents,
                           int index,
@@ -176,7 +175,7 @@ class TestBrowserWindow : public BrowserWindow,
   DownloadBubbleUIController* GetDownloadBubbleUIController() override;
   void ConfirmBrowserCloseWithPendingDownloads(
       int download_count,
-      Browser::DownloadCloseType dialog_type,
+      UnloadController::DownloadCloseType dialog_type,
       base::OnceCallback<void(bool)> callback) override {}
 
   std::unique_ptr<FindBar> CreateFindBar() override;
@@ -219,10 +218,6 @@ class TestBrowserWindow : public BrowserWindow,
   void CreateTabSearchBubble() override {}
   void CloseTabSearchBubble() override {}
 
-  bool IsTabModalPopupDeprecated() const override;
-  void SetIsTabModalPopupDeprecated(
-      bool is_tab_modal_popup_deprecated) override;
-
   void set_workspace(std::string workspace) { workspace_ = workspace; }
   void set_visible_on_all_workspaces(bool visible_on_all_workspaces) {
     visible_on_all_workspaces_ = visible_on_all_workspaces;
@@ -263,7 +258,7 @@ class TestBrowserWindow : public BrowserWindow,
     void OnChanged() override {}
     void UpdateWithoutTabRestore() override {}
     ui::TrackedElement* GetAnchorOrNull() override;
-    Browser* GetBrowser() override;
+    BrowserWindowInterface* GetBrowser() override;
     Profile* GetProfile() override;
     bool IsInitialized() const override;
     bool IsVisible() const override;
@@ -271,6 +266,7 @@ class TestBrowserWindow : public BrowserWindow,
     bool IsFullscreen() const override;
     bool IsEditingOrEmpty() const override;
     bool IsMouseHovered() const override;
+    bool IsFocusWithin() const override;
     void InvalidateLayout() override {}
     gfx::Rect Bounds() const override;
     gfx::Rect BoundsInScreen() const override;
@@ -294,7 +290,6 @@ class TestBrowserWindow : public BrowserWindow,
   bool is_active_ = false;
   bool is_closed_ = false;
   bool is_tab_strip_editable_ = true;
-  bool is_tab_modal_popup_deprecated_ = false;
 
   base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
       browser_collection_observation_{this};

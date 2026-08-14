@@ -31,7 +31,7 @@ class MockContextualTasksPage : public mojom::Page {
               (override));
   MOCK_METHOD(void, OnSidePanelStateChanged, (), (override));
   MOCK_METHOD(void,
-              PostMessageToWebview,
+              PostAimMessage,
               (const std::vector<uint8_t>& message),
               (override));
   MOCK_METHOD(void, OnHandshakeComplete, (), (override));
@@ -39,6 +39,7 @@ class MockContextualTasksPage : public mojom::Page {
               SetOAuthToken,
               (const std::string& oauth_token),
               (override));
+  MOCK_METHOD(void, OnCookieSyncCompleted, (), (override));
   MOCK_METHOD(void,
               OnContextUpdated,
               (std::vector<mojom::ContextInfoPtr> context),

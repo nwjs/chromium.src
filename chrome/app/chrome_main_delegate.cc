@@ -245,20 +245,23 @@ base::LazyInstance<ChromeContentGpuClient>::DestructorAtExit
 base::LazyInstance<ChromeContentRendererClient>::DestructorAtExit
     g_chrome_content_renderer_client = LAZY_INSTANCE_INITIALIZER;
 
-const char* const ChromeMainDelegate::kNonWildcardDomainNonPortSchemes[] = {
+// static
+base::span<const char* const>
+ChromeMainDelegate::GetNonWildcardDomainNonPortSchemes() {
+  static const char* const kNonWildcardDomainNonPortSchemes[] = {
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
-    extensions::kExtensionScheme,
+      extensions::kExtensionScheme,
 #endif
-    chrome::kChromeSearchScheme,
+      chrome::kChromeSearchScheme,
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
     BUILDFLAG(IS_MAC)
-    webapps::kIsolatedAppScheme,
+      webapps::kIsolatedAppScheme,
 #endif
-    content::kChromeDevToolsScheme,    content::kChromeUIScheme,
-    content::kChromeUIUntrustedScheme,
-};
-const size_t ChromeMainDelegate::kNonWildcardDomainNonPortSchemesSize =
-    std::size(kNonWildcardDomainNonPortSchemes);
+      content::kChromeDevToolsScheme,    content::kChromeUIScheme,
+      content::kChromeUIUntrustedScheme,
+  };
+  return kNonWildcardDomainNonPortSchemes;
+}
 
 #if defined(COMPONENT_BUILD)
 CONTENT_EXPORT NodeStartFn g_node_start_fn;
@@ -324,8 +327,9 @@ void AdjustLinuxOOMScore(const std::string& process_type) {
   // In the case of a 0 score, still try to adjust it. Most likely the score is
   // 0 already, but it may not be if this process inherited a higher score from
   // its parent process.
-  if (score > -1)
+  if (score > -1) {
     base::AdjustOOMScore(base::GetCurrentProcId(), score);
+  }
 }
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
@@ -338,8 +342,8 @@ bool SubprocessNeedsResourceBundle(const std::string& process_type) {
       process_type == switches::kZygoteProcess ||
 #endif
 #if BUILDFLAG(IS_MAC)
-  // Mac needs them too for scrollbar related images and for sandbox
-  // profiles.
+      // Mac needs them too for scrollbar related images and for sandbox
+      // profiles.
       process_type == switches::kGpuProcess ||
 #endif
       process_type == switches::kRendererProcess ||
@@ -348,8 +352,9 @@ bool SubprocessNeedsResourceBundle(const std::string& process_type) {
 
 #if BUILDFLAG(IS_POSIX)
 bool HandleCreditsSwitch(const base::CommandLine& command_line) {
-  if (!command_line.HasSwitch(switches::kCredits))
+  if (!command_line.HasSwitch(switches::kCredits)) {
     return false;
+  }
 
   // Load resources: about_credits.html is in component_resources.pak that is
   // re-packed into resources.pak.
@@ -384,10 +389,11 @@ bool HandleCreditsSwitch(const base::CommandLine& command_line) {
   // We use a threshold of 100 characters to see if the resources
   // were loaded successfully.
   size_t resource_loading_threshold = 100;
-  if (credits.size() < resource_loading_threshold)
+  if (credits.size() < resource_loading_threshold) {
     printf("%s\n", "Failed to load credits.");
-  else
+  } else {
     printf("%s\n", credits.c_str());
+  }
 
   return true;
 }
@@ -471,8 +477,9 @@ std::optional<int> HandlePackExtensionSwitches(
     const base::CommandLine& command_line) {
   // If the command line specifies --pack-extension, attempt the pack extension
   // startup action and exit.
-  if (!command_line.HasSwitch(switches::kPackExtension))
+  if (!command_line.HasSwitch(switches::kPackExtension)) {
     return std::nullopt;
+  }
 
   // This happens before the default flow for FeatureList initialization, but
   // packing an extension can depend on different base::Features. Thus, we
@@ -614,8 +621,9 @@ void InitializeUserDataDir(base::CommandLine* command_line) {
       !base::PathService::OverrideAndCreateIfNeeded(chrome::DIR_USER_DATA,
                                                     user_data_dir, false, true);
   // Save inaccessible or invalid paths so the user may be prompted later.
-  if (specified_directory_was_invalid)
+  if (specified_directory_was_invalid) {
     chrome::SetInvalidSpecifiedUserDataDir(user_data_dir);
+  }
 
   // Warn and fail early if the process fails to get a user data directory.
   if (!base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir)) {
@@ -626,8 +634,9 @@ void InitializeUserDataDir(base::CommandLine* command_line) {
       // base::PathService::Get() returns false and yields an empty path if it
       // fails to create DIR_USER_DATA. Retrieve the default value manually to
       // display a more meaningful error to the user in that case.
-      if (user_data_dir.empty())
+      if (user_data_dir.empty()) {
         chrome::GetDefaultUserDataDirectory(&user_data_dir);
+      }
       chrome::SetInvalidSpecifiedUserDataDir(user_data_dir);
     }
 
@@ -771,8 +780,9 @@ ChromeMainDelegate::~ChromeMainDelegate() {
       base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
           switches::kProcessType);
   const bool is_browser_process = process_type.empty();
-  if (is_browser_process)
+  if (is_browser_process) {
     browser_shutdown::RecordShutdownMetrics();
+  }
 }
 #else
 ChromeMainDelegate::~ChromeMainDelegate() = default;
@@ -968,7 +978,8 @@ void ChromeMainDelegate::CreateThreadPool(std::string_view name) {
     // The ThreadGroupProfiler client must be set before thread pool is created.
     base::ThreadGroupProfiler::SetClient(
         std::make_unique<ChromeThreadGroupProfilerClient>());
-    base::ThreadPoolInstance::Create(name);
+    base::ThreadPoolInstance::Create(
+        name, base::ThreadPoolInstance::RecordLockContention::kEnabled);
   }
 
   // The ThreadProfiler client must be set before main thread profiling is
@@ -1221,6 +1232,14 @@ std::optional<int> ChromeMainDelegate::BasicStartupComplete() {
     if (isolated_process.has_value()) {
       int exit_code = 0;
       if (isolated_process->WaitForExit(&exit_code)) {
+        // A negative exit code indicates the browser crashed, however
+        // `content::RunContentProcess` treats negative return code from
+        // `BasicStartupComplete` as indicating that startup should continue, so
+        // in this case it is best to simply pass the exit code straight back to
+        // the shell by terminating immediately.
+        if (exit_code < 0) {
+          base::Process::TerminateCurrentProcessImmediately(exit_code);
+        }
         return exit_code;
       }
       return CHROME_RESULT_CODE_INVALID_ISOLATED_BROWSER_PROCESS;
@@ -1239,7 +1258,7 @@ std::optional<int> ChromeMainDelegate::BasicStartupComplete() {
 #endif
 
   ContentSettingsPattern::SetNonWildcardDomainNonPortSchemes(
-      kNonWildcardDomainNonPortSchemes, kNonWildcardDomainNonPortSchemesSize);
+      GetNonWildcardDomainNonPortSchemes());
 
 // No support for ANDROID yet as DiagnosticsController needs wchar support.
 // TODO(gspencer): That's not true anymore, or at least there are no w-string
@@ -1408,10 +1427,12 @@ void ChromeMainDelegate::SetUpInstallerPreferences(
   const bool default_browser_setting =
       command_line.HasSwitch(switches::kMakeChromeDefault);
 
-  if (uma_setting)
+  if (uma_setting) {
     crash_reporter::SetUploadConsent(uma_setting);
-  if (default_browser_setting)
+  }
+  if (default_browser_setting) {
     shell_integration::SetAsDefaultBrowser();
+  }
 }
 #endif  // BUILDFLAG(IS_MAC)
 
@@ -1616,6 +1637,15 @@ void ChromeMainDelegate::PreSandboxStartup() {
   // line for crash reporting.
   crash_keys::SetCrashKeysFromCommandLine(command_line);
 
+#if BUILDFLAG(IS_WIN)
+  auto process_token = base::win::AccessToken::FromCurrentProcess();
+  if (process_token && process_token->GetSecurityAttribute(
+                           installer::GetIsolationAttributeName())) {
+    static crash_reporter::CrashKeyString<32> is_isolated("is-isolated");
+    is_isolated.Set("yes");
+  }
+#endif
+
 #if 1 //!defined(OS_WIN)
   if (!report_url.empty()) {
     GURL url(report_url);
@@ -1717,8 +1747,9 @@ void ChromeMainDelegate::ProcessExiting(const std::string& process_type) {
   ChromeProcessSingleton::DeleteInstance();
 #endif  // BUILDFLAG(ENABLE_PROCESS_SINGLETON)
 
-  if (SubprocessNeedsResourceBundle(process_type))
+  if (SubprocessNeedsResourceBundle(process_type)) {
     ui::ResourceBundle::CleanupSharedInstance();
+  }
 #if !BUILDFLAG(IS_ANDROID)
   logging::CleanupChromeLogging();
 #else
@@ -1729,8 +1760,7 @@ void ChromeMainDelegate::ProcessExiting(const std::string& process_type) {
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 void ChromeMainDelegate::ZygoteStarting(
-    std::vector<std::unique_ptr<content::ZygoteForkDelegate>>* delegates) {
-}
+    std::vector<std::unique_ptr<content::ZygoteForkDelegate>>* delegates) {}
 
 void ChromeMainDelegate::ZygoteForked() {
   // Set up tracing for processes forked off a zygote.
@@ -1793,16 +1823,18 @@ ChromeMainDelegate::CreateContentUtilityClient() {
 
 std::optional<int> ChromeMainDelegate::PreBrowserMain() {
   std::optional<int> exit_code = content::ContentMainDelegate::PreBrowserMain();
-  if (exit_code.has_value())
+  if (exit_code.has_value()) {
     return exit_code;
+  }
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   const base::CommandLine& command_line =
       *base::CommandLine::ForCurrentProcess();
   std::optional<int> pack_extension_exit_code =
       HandlePackExtensionSwitches(command_line);
-  if (pack_extension_exit_code.has_value())
+  if (pack_extension_exit_code.has_value()) {
     return pack_extension_exit_code;  // Got a --pack-extension switch; exit.
+  }
 #endif
 
 #if BUILDFLAG(IS_MAC)

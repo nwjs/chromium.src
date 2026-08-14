@@ -68,6 +68,13 @@ source_set("impl") {
     ]
   }
 
+  if (is_chromeos) {
+    deps += [
+      "//chrome/browser/ash/file_manager",
+      "//chrome/browser/ash/fusebox",
+    ]
+  }
+
   if (safe_browsing_mode != 0) {
     deps += [ "//components/safe_browsing/content/common:file_type_policies" ]
   }
@@ -154,6 +161,10 @@ source_set("unit_tests") {
 
   if (enterprise_cloud_content_analysis) {
     deps += [ "//chrome/browser/enterprise/connectors/test:test_support" ]
+  }
+
+  if (safe_browsing_mode != 0) {
+    deps += [ "//components/safe_browsing/content/common:file_type_policies_test_support" ]
   }
 
   if (!is_android) {

@@ -8,15 +8,23 @@
 #include <memory>
 
 #include "base/functional/callback.h"
+#include "base/memory/weak_ptr.h"
+#include "base/process/process.h"
+#include "base/threading/sequence_bound.h"
 #include "base/time/time.h"
+#include "base/types/expected.h"
+#include "base/win/object_watcher.h"
 #include "chrome/browser/platform_experience/delegated_tasks/delegated_task.h"
 
 namespace platform_experience {
 
+class DelegatedTaskRunner;
 class PehLauncher;
 
+using DelegatedTaskExitCodeOrStatus = base::expected<int, DelegatedTaskStatus>;
+
 struct DelegatedTaskResult {
-  DelegatedTaskStatus status;
+  DelegatedTaskExitCodeOrStatus exit_code_or_status;
   base::TimeDelta execution_time;
 };
 
@@ -25,7 +33,8 @@ using DelegatedTaskCompletionCallback =
 
 // `DelegatedTaskRunner` handles executing tasks, waiting for task
 // completion/timeout and UMA telemetry.
-class DelegatedTaskRunner {
+// The runner is implemented to run one task in its lifecycle.
+class DelegatedTaskRunner : public base::win::ObjectWatcher::Delegate {
  public:
   // Creates the `DelegatedTaskRunner` with the default `PehLauncher` instance.
   DelegatedTaskRunner();
@@ -34,22 +43,35 @@ class DelegatedTaskRunner {
   // Useful for injecting mock launcher in tests.
   explicit DelegatedTaskRunner(std::unique_ptr<PehLauncher> peh_launcher);
 
-  ~DelegatedTaskRunner();
+  ~DelegatedTaskRunner() override;
 
   DelegatedTaskRunner(const DelegatedTaskRunner&) = delete;
   DelegatedTaskRunner& operator=(const DelegatedTaskRunner&) = delete;
 
   // Runs the provided task and asynchronously returns the task completion
   // result in the `callback`.
-  void Run(const DelegatedTask& task, DelegatedTaskCompletionCallback callback);
+  virtual void Run(std::unique_ptr<DelegatedTask> task,
+                   DelegatedTaskCompletionCallback callback);
 
  private:
-  void CleanupAndReturnResult(DelegatedTaskStatus status);
+  void OnProcessLaunched(base::Process process);
+  void OnBinaryPathRetrieved(const base::FilePath& peh_binary_path);
+
+  void CleanupAndReturnResult(
+      DelegatedTaskExitCodeOrStatus exit_code_or_status);
+
+  // base::win::ObjectWatcher::Delegate:
+  void OnObjectSignaled(HANDLE object) override;
 
   base::TimeTicks task_start_time_;
+  base::Process process_;
+  base::win::ObjectWatcher watcher_;
   DelegatedTaskCompletionCallback completion_callback_;
 
-  std::unique_ptr<PehLauncher> peh_launcher_;
+  std::unique_ptr<DelegatedTask> task_;
+  base::SequenceBound<std::unique_ptr<PehLauncher>> peh_launcher_;
+
+  base::WeakPtrFactory<DelegatedTaskRunner> weak_factory_{this};
 };
 
 }  // namespace platform_experience

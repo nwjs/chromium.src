@@ -41,11 +41,11 @@ group("metrics_metadata") {
   ]
 
   # Only include histograms_xml if we have access to dirmd data, which
-  # is used to populate ownership information. This is only set to false
-  # for non-git checkouts.
-  # TODO(crbug.com/329080012): Remove this once dirmd works in non-git
-  # checkouts.
-  if (generate_location_tags) {
+  # is used to populate ownership information. This is disabled
+  # for non-git checkouts, as dirmd doesn't work on non-git checkout.
+  # TODO(crbug.com/329080012): Remove this condition once dirmd works
+  # in non-git checkouts.
+  if (path_exists("//.git")) {
     deps += [ ":histograms_xml" ]
   }
 }
@@ -123,6 +123,10 @@ group("metrics_python_tests") {
     "//tools/metrics/histograms/histogram_configuration_model_enums_test.py",
     "//tools/metrics/histograms/histogram_configuration_model_histograms_test.py",
     "//tools/metrics/histograms/histogram_paths.py",
+    "//tools/metrics/histograms/histogram_utils.py",
+    "//tools/metrics/histograms/histogram_utils_unittest.py",
+    "//tools/metrics/histograms/histogram_validation.py",
+    "//tools/metrics/histograms/histogram_validation_test.py",
     "//tools/metrics/histograms/merge_xml.py",
     "//tools/metrics/histograms/merge_xml_test.py",
     "//tools/metrics/histograms/populate_enums.py",
@@ -131,6 +135,8 @@ group("metrics_python_tests") {
     "//tools/metrics/histograms/pretty_print_test.py",
     "//tools/metrics/histograms/print_expanded_histograms.py",
     "//tools/metrics/histograms/print_expanded_histograms_test.py",
+    "//tools/metrics/histograms/print_histogram_names.py",
+    "//tools/metrics/histograms/setup_modules.py",
     "//tools/metrics/histograms/validate_token.py",
     "//tools/metrics/histograms/validate_token_test.py",
 

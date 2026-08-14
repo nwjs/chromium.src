@@ -55,6 +55,10 @@
 #include "chrome/grit/guest_view_shared_resources_map.h"  // nogncheck
 #endif  // !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
+#if !BUILDFLAG(IS_ANDROID) || BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "chrome/browser/ui/webui/theme_source.h"
+#endif
+
 namespace glic {
 
 // Sets the maximum number of in-flight requests to the guest.
@@ -193,6 +197,10 @@ GlicUI::GlicUI(content::WebUI* web_ui)
   // Set up the chrome://glic source.
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       browser_context, chrome::kChromeUIGlicHost);
+
+#if !BUILDFLAG(IS_ANDROID) || BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  content::URLDataSource::Add(profile, std::make_unique<ThemeSource>(profile));
+#endif
 
   // Add required resources.
   webui::SetupWebUIDataSource(source, kGlicResources, IDR_GLIC_GLIC_HTML);
@@ -354,6 +362,9 @@ GlicUI::GlicUI(content::WebUI* web_ui)
   source->AddBoolean(
       "glicPopupWindowsEnabled",
       base::FeatureList::IsEnabled(features::kGlicPopupWindowsEnabled));
+  source->AddBoolean(
+      "enableStructuredYieldMetadata",
+      base::FeatureList::IsEnabled(features::kGlicStructuredYieldMetadata));
 }
 
 WEB_UI_CONTROLLER_TYPE_IMPL(GlicUI)

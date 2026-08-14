@@ -18,6 +18,7 @@
 #include "base/base64.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
+#include "base/containers/span.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/lazy_instance.h"
@@ -492,10 +493,6 @@ BrowserContext::GetFederatedIdentityAutoReauthnPermissionContext() {
 FederatedIdentityPermissionContextDelegate*
 BrowserContext::GetFederatedIdentityPermissionContext() {
   return impl()->GetFederatedPermissionContext();
-}
-
-KAnonymityServiceDelegate* BrowserContext::GetKAnonymityServiceDelegate() {
-  return nullptr;
 }
 
 OriginTrialsControllerDelegate*

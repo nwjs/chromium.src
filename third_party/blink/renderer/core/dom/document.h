@@ -35,7 +35,7 @@
 
 #include "base/check_op.h"
 #include "base/containers/enum_set.h"
-#include "base/containers/lru_cache.h"
+#include "base/containers/hashing_lru_cache.h"
 #include "base/dcheck_is_on.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_refptr.h"
@@ -75,6 +75,7 @@
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/events/event_path.h"
 #include "third_party/blink/renderer/core/dom/focus_params.h"
+#include "third_party/blink/renderer/core/dom/frame_request_callback_collection.h"
 #include "third_party/blink/renderer/core/dom/live_node_list_registry.h"
 #include "third_party/blink/renderer/core/dom/node_list_invalidation_type.h"
 #include "third_party/blink/renderer/core/dom/qualified_name.h"
@@ -243,7 +244,6 @@ class ResizeObserver;
 class Resource;
 class ResourceFetcher;
 class RootScrollerController;
-class RouteMap;
 class SVGDocumentExtensions;
 class SVGUseElement;
 class ScriptElementBase;
@@ -309,8 +309,7 @@ enum class DocumentClass {
   kMaxValue = kText,
 };
 
-using DocumentClassFlags = base::
-    EnumSet<DocumentClass, DocumentClass::kMinValue, DocumentClass::kMaxValue>;
+using DocumentClassFlags = base::EnumSet<DocumentClass>;
 
 // A map of IDL attribute name to Element FrozenArray value, for one particular
 // element.
@@ -1662,8 +1661,8 @@ class CORE_EXPORT Document : public ContainerNode,
            IsInOutermostMainFrame();
   }
 
-  int RequestAnimationFrame(FrameCallback*);
-  void CancelAnimationFrame(int id);
+  int RequestAnimationFrame(FrameCallback*, FrameCallbackType type);
+  void CancelAnimationFrame(int id, FrameCallbackType type);
 
   ScriptedAnimationController& GetScriptedAnimationController();
 
@@ -1796,11 +1795,6 @@ class CORE_EXPORT Document : public ContainerNode,
   // different.  Having it be a distinct method also makes it clearer why
   // callers are using it.
   PopoverStack& MenuStack() { return popover_auto_stack_; }
-
-  // https://crbug.com/1453291
-  // The DOM Parts API:
-  // https://github.com/WICG/webcomponents/blob/gh-pages/proposals/DOM-Parts.md.
-  RouteMap* routeMap();
 
   void SetHasCaptureListener() { has_capture_listener_ = true; }
   bool HasCaptureListener() const { return has_capture_listener_; }

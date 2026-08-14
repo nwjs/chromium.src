@@ -14,7 +14,6 @@
 #include "chrome/browser/signin/account_consistency_mode_manager.h"
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "components/pref_registry/pref_registry_syncable.h"
 #include "components/signin/core/browser/account_reconcilor.h"
 #include "components/signin/core/browser/account_reconcilor_delegate.h"
 #include "components/signin/core/browser/mirror_account_reconcilor_delegate.h"
@@ -25,10 +24,7 @@
 #if BUILDFLAG(IS_CHROMEOS)
 #include "base/metrics/histogram_macros.h"
 #include "base/time/time.h"
-#include "chrome/browser/ash/account_manager/account_manager_util.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
-#include "chromeos/ash/components/account_manager/account_manager_factory.h"
-#include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "components/user_manager/user_manager.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #endif
@@ -119,19 +115,10 @@ AccountReconcilorFactory::BuildServiceInstanceForBrowserContext(
       IdentityManagerFactory::GetForProfile(profile);
   SigninClient* signin_client =
       ChromeSigninClientFactory::GetForProfile(profile);
-#if BUILDFLAG(IS_CHROMEOS)
-  std::unique_ptr<AccountReconcilor> reconcilor =
-      std::make_unique<AccountReconcilor>(
-          identity_manager, signin_client,
-          ash::AccountManagerFactory::Get()->GetAccountManagerFacade(
-              profile->GetPath().value()),
-          CreateAccountReconcilorDelegate(profile));
-#else
   std::unique_ptr<AccountReconcilor> reconcilor =
       std::make_unique<AccountReconcilor>(
           identity_manager, signin_client,
           CreateAccountReconcilorDelegate(profile));
-#endif  // BUILDFLAG(IS_CHROMEOS)
   reconcilor->Initialize(true /* start_reconcile_if_tokens_available */);
   return reconcilor;
 }

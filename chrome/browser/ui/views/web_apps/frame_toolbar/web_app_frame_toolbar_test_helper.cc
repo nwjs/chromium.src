@@ -78,19 +78,19 @@ webapps::AppId WebAppFrameToolbarTestHelper::InstallAndLaunchWebApp(
 webapps::AppId WebAppFrameToolbarTestHelper::InstallAndLaunchWebApp(
     Browser* browser,
     const GURL& start_url) {
-  return InstallAndLaunchWebApp(browser->profile(), start_url);
+  return InstallAndLaunchWebApp(browser->GetProfile(), start_url);
 }
 
 webapps::AppId WebAppFrameToolbarTestHelper::InstallAndLaunchCustomWebApp(
     Browser* browser,
     std::unique_ptr<web_app::WebAppInstallInfo> web_app_info,
     const GURL& start_url) {
-  webapps::AppId app_id = web_app::test::InstallWebApp(
-      browser->profile(), std::move(web_app_info));
+  webapps::AppId app_id = web_app::test::InstallWebApp(browser->GetProfile(),
+                                                       std::move(web_app_info));
   content::TestNavigationObserver navigation_observer(start_url);
   navigation_observer.StartWatchingNewWebContents();
   Browser* app_browser =
-      web_app::LaunchWebAppBrowser(browser->profile(), app_id);
+      web_app::LaunchWebAppBrowser(browser->GetProfile(), app_id);
   navigation_observer.WaitForNavigationFinished();
 
   SetViewFromAppBrowser(app_browser);
@@ -239,12 +239,14 @@ gfx::Rect WebAppFrameToolbarTestHelper::GetXYWidthHeightRect(
 void WebAppFrameToolbarTestHelper::SetupGeometryChangeCallback(
     content::WebContents* web_contents) {
   EXPECT_TRUE(ExecJs(web_contents->GetPrimaryMainFrame(), R"(
-    var geometrychangeCount = 0;
+    window.geometrychangeCount = 0;
+    window.overlay_rect_from_event = null;
+    window.overlay_visible_from_event = null;
     document.title = 'beforegeometrychange';
     navigator.windowControlsOverlay.ongeometrychange = (e) => {
-      geometrychangeCount++;
-      overlay_rect_from_event = e.titlebarAreaRect;
-      overlay_visible_from_event = e.visible;
+      window.geometrychangeCount++;
+      window.overlay_rect_from_event = e.titlebarAreaRect;
+      window.overlay_visible_from_event = e.visible;
       document.title = 'ongeometrychange';
     }
   )"));

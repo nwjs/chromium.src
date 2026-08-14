@@ -6,6 +6,7 @@
 
 #include <optional>
 
+#include "base/numerics/safe_conversions.h"
 #include "base/types/optional_util.h"
 #include "services/network/public/cpp/cors/cors_error_status.h"
 #include "services/network/public/mojom/cors.mojom-forward.h"
@@ -14,7 +15,6 @@
 #include "third_party/blink/renderer/core/core_probes_inl.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
 #include "third_party/blink/renderer/core/execution_context/agent.h"
-#include "third_party/blink/renderer/core/frame/attribution_src_loader.h"
 #include "third_party/blink/renderer/core/frame/deprecation/deprecation.h"
 #include "third_party/blink/renderer/core/frame/frame_console.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
@@ -153,9 +153,6 @@ void ResourceLoadObserverForFrame::WillSendRequest(
                                                 request.Priority());
   }
 
-  frame->GetAttributionSrcLoader()->MaybeRegisterAttributionHeaders(
-      request, redirect_response);
-
   probe::WillSendRequest(
       document_->domWindow(), document_loader_,
       fetcher_properties_->GetFetchClientSettingsObject().GlobalObjectUrl(),
@@ -272,9 +269,6 @@ void ResourceLoadObserverForFrame::DidReceiveResponse(
         document_loader_->GetContentSecurityNotifier());
   }
 
-  frame->GetAttributionSrcLoader()->MaybeRegisterAttributionHeaders(request,
-                                                                    response);
-
   frame->Loader().Progress().IncrementProgress(identifier, response);
   probe::DidReceiveResourceResponse(GetProbe(), identifier, document_loader_,
                                     response, resource);
@@ -292,7 +286,8 @@ void ResourceLoadObserverForFrame::CheckGuardrailsPolicyForSizeLimit(
     metrics.accumulated_bytes += bytes;
 
     if (document_->GetExecutionContext()->CheckGuardrailsPolicyForAssetSize(
-            GuardrailPolicyAssetType::kImage, metrics.accumulated_bytes,
+            GuardrailPolicyAssetType::kImage,
+            base::saturated_cast<size_t>(metrics.accumulated_bytes),
             metrics.url)) {
       resource_metrics_by_identifier_.erase(identifier);
     }

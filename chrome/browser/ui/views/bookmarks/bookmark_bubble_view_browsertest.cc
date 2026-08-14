@@ -4,27 +4,21 @@
 
 #include "chrome/browser/ui/views/bookmarks/bookmark_bubble_view.h"
 
-#include "base/command_line.h"
 #include "base/memory/raw_ptr.h"
-#include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
-#include "base/test/with_feature_override.h"
 #include "build/build_config.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/commerce/mock_commerce_ui_tab_helper.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/commerce/price_tracking_view.h"
 #include "chrome/browser/ui/views/commerce/shopping_collection_iph_view.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/bookmarks/browser/bookmark_model.h"
@@ -40,7 +34,6 @@
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/sync/base/features.h"
-#include "components/sync/test/test_sync_service.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/test/browser_test.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
@@ -75,7 +68,7 @@ class BaseBookmarkBubbleViewBrowserTest : public DialogBrowserTest {
   void ShowUi(const std::string& name) override {
 #if !BUILDFLAG(IS_CHROMEOS)
     signin::IdentityManager* identity_manager =
-        IdentityManagerFactory::GetForProfile(browser()->profile());
+        IdentityManagerFactory::GetForProfile(browser()->GetProfile());
     signin::MakePrimaryAccountAvailable(identity_manager, "testuser@gtest.com",
                                         signin::ConsentLevel::kSignin);
 #endif
@@ -86,7 +79,7 @@ class BaseBookmarkBubbleViewBrowserTest : public DialogBrowserTest {
       commerce::MockShoppingService* mock_shopping_service =
           static_cast<commerce::MockShoppingService*>(
               commerce::ShoppingServiceFactory::GetForBrowserContext(
-                  browser()->profile()));
+                  browser()->GetProfile()));
       mock_shopping_service->SetIsShoppingListEligible(true);
       mock_shopping_service->SetResponseForGetProductInfoForUrl(info);
       mock_shopping_service->SetIsSubscribedCallbackValue(false);
@@ -95,7 +88,7 @@ class BaseBookmarkBubbleViewBrowserTest : public DialogBrowserTest {
     const GURL url = GURL("https://www.google.com");
     const std::u16string title = u"Title";
     bookmarks::BookmarkModel* bookmark_model =
-        BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+        BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
     bookmarks::test::WaitForBookmarkModelToLoad(bookmark_model);
     bookmarks::AddIfNotBookmarked(bookmark_model, url, title);
     BrowserWindow::FromBrowser(browser())->ShowBookmarkBubble(url, true);
@@ -168,7 +161,7 @@ class BookmarkBubbleViewMigrationBrowserTest : public InProcessBrowserTest {
     InProcessBrowserTest::SetUpOnMainThread();
 
     bookmark_model_ =
-        BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+        BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
     bookmarks::test::WaitForBookmarkModelToLoad(bookmark_model_);
     bookmark_node_ = bookmarks::AddIfNotBookmarked(
         bookmark_model_, GURL(kTestBookmarkURL), std::u16string());
@@ -231,7 +224,7 @@ class BookmarkBubbleViewMigrationBrowserTest : public InProcessBrowserTest {
 IN_PROC_BROWSER_TEST_F(BookmarkBubbleViewMigrationBrowserTest,
                        SyncPromoSignedIn) {
   signin::MakePrimaryAccountAvailable(
-      IdentityManagerFactory::GetForProfile(browser()->profile()),
+      IdentityManagerFactory::GetForProfile(browser()->GetProfile()),
       "fake_username@gmail.com", signin::ConsentLevel::kSync);
   CreateBubbleView();
   EXPECT_FALSE(
@@ -264,7 +257,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkBubbleViewMigrationBrowserTest,
   commerce::MockShoppingService* mock_shopping_service =
       static_cast<commerce::MockShoppingService*>(
           commerce::ShoppingServiceFactory::GetForBrowserContext(
-              browser()->profile()));
+              browser()->GetProfile()));
   mock_shopping_service->SetIsShoppingListEligible(true);
 
   commerce::ProductInfo info;
@@ -289,7 +282,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkBubbleViewMigrationBrowserTest,
   commerce::MockShoppingService* mock_shopping_service =
       static_cast<commerce::MockShoppingService*>(
           commerce::ShoppingServiceFactory::GetForBrowserContext(
-              browser()->profile()));
+              browser()->GetProfile()));
   mock_shopping_service->SetIsShoppingListEligible(true);
 
   commerce::ProductInfo info;
@@ -312,7 +305,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkBubbleViewMigrationBrowserTest,
   commerce::MockShoppingService* mock_shopping_service =
       static_cast<commerce::MockShoppingService*>(
           commerce::ShoppingServiceFactory::GetForBrowserContext(
-              browser()->profile()));
+              browser()->GetProfile()));
   mock_shopping_service->SetResponseForGetProductInfoForUrl(std::nullopt);
 
   CreateBubbleView();
@@ -330,7 +323,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkBubbleViewMigrationBrowserTest,
   commerce::MockShoppingService* mock_shopping_service =
       static_cast<commerce::MockShoppingService*>(
           commerce::ShoppingServiceFactory::GetForBrowserContext(
-              browser()->profile()));
+              browser()->GetProfile()));
   mock_shopping_service->SetIsShoppingListEligible(true);
 
   commerce::ProductInfo info;
@@ -379,7 +372,7 @@ IN_PROC_BROWSER_TEST_P(PriceTrackingViewFeatureFlagBrowserTest,
   commerce::MockShoppingService* mock_shopping_service =
       static_cast<commerce::MockShoppingService*>(
           commerce::ShoppingServiceFactory::GetForBrowserContext(
-              browser()->profile()));
+              browser()->GetProfile()));
   commerce::ProductInfo info;
   info.product_cluster_id.emplace(12345L);
   mock_shopping_service->SetResponseForGetProductInfoForUrl(info);
@@ -430,7 +423,7 @@ class BookmarkBubbleViewShoppingCollectionBrowserTest
     BookmarkBubbleViewMigrationBrowserTest::SetUpOnMainThread();
 
     signin::MakePrimaryAccountAvailable(
-        IdentityManagerFactory::GetForProfile(browser()->profile()),
+        IdentityManagerFactory::GetForProfile(browser()->GetProfile()),
         "test@example.com",
         GetParam() ? signin::ConsentLevel::kSignin
                    : signin::ConsentLevel::kSync);

@@ -116,9 +116,13 @@ public class ListMenuItemViewBinder {
                 // We specifically need to check whether bitmap == null. If we do not, creating a
                 // BitmapDrawable from null does not fail; it instead creates an empty drawable and
                 // makes it visible. To achieve the correct behavior of hiding the start icon, we
-                // therefore need to perform a separate check for the bitmap being null and hide the
-                // start icon if so.
-                hideStartIcon(startIcon, keepIconSpacing);
+                // therefore need to perform a separate check for the bitmap being null.
+                // If hasStartIcon is true, that means a different start icon property was set, so
+                // we need to maintain the start icon. If no other start icon property is set and
+                // the bitmap is null, we should clear (hide) the start icon.
+                if (!hasStartIcon) {
+                    hideStartIcon(startIcon, keepIconSpacing);
+                }
             } else if (hasStartIcon) {
                 Drawable drawable = new BitmapDrawable(view.getResources(), bitmap);
                 setStartIcon(startIcon, drawable, keepIconSpacing);
@@ -203,6 +207,8 @@ public class ListMenuItemViewBinder {
             view.setOnKeyListener(model.get(ListMenuItemProperties.KEY_LISTENER));
         } else if (propertyKey == ListMenuItemProperties.TOUCH_LISTENER) {
             view.setOnTouchListener(model.get(ListMenuItemProperties.TOUCH_LISTENER));
+        } else if (propertyKey == ListMenuItemProperties.LONG_CLICK_LISTENER) {
+            view.setOnLongClickListener(model.get(ListMenuItemProperties.LONG_CLICK_LISTENER));
         } else if (propertyKey == ListMenuItemProperties.ORDER) {
             // Not tracked intentionally because it's used by clients to keep track of items. The
             // order field is used to recreate a SelectionMenuItem when an item is clicked.

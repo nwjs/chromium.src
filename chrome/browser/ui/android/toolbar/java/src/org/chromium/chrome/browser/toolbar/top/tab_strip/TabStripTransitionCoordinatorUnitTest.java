@@ -915,6 +915,32 @@ public class TabStripTransitionCoordinatorUnitTest {
     }
 
     @Test
+    public void fadeTransitionThresholdChangedInDesktopWindow() {
+        // Start in desktop windowing mode with a large window.
+        // LARGE_DESKTOP_WINDOW_WIDTH is wider than the default threshold, so no scrim initially.
+        setUpTabStripTransitionCoordinator(
+                /* isInDesktopWindow= */ true, LARGE_DESKTOP_WINDOW_WIDTH);
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
+        verifyFadeTransitionState(0f);
+
+        // Update the threshold dynamically to exceed LARGE_DESKTOP_WINDOW_WIDTH.
+        mDelegate.thresholdDp = LARGE_DESKTOP_WINDOW_WIDTH + 1;
+
+        // Trigger the callback to notify the coordinator/handler of the threshold change.
+        int count = mDelegate.fadeTransitionCallback.getCallCount();
+        mDelegate.triggerThresholdChanged();
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
+
+        // The handler should immediately re-evaluate visibility and request a fade transition
+        // (applying the scrim overlay because the current width is now under the threshold).
+        assertEquals(
+                "Fade transition should be requested when threshold changed.",
+                count + 1,
+                mDelegate.fadeTransitionCallback.getCallCount());
+        verifyFadeTransitionState(1f);
+    }
+
+    @Test
     public void transitionUpdatesTopPaddingOnAppThemeChange() {
         // Simulate re-instantiation of the coordinator when the control container hasn't been
         // measured yet, that happens on an app theme change.
@@ -1030,6 +1056,20 @@ public class TabStripTransitionCoordinatorUnitTest {
                 "Height request should not go through when not in desktop windowing mode.",
                 NOTHING_OBSERVED,
                 mTestHandler.heightRequested);
+    }
+
+    @Test
+    public void destroyBeforeDelegateAvailable() {
+        setUpTabStripTransitionCoordinator(
+                /* isInDesktopWindow= */ false,
+                LARGE_NORMAL_WINDOW_WIDTH,
+                /* initDelegate= */ false);
+        mCoordinator.destroy();
+
+        // Fulfilling the delegate supplier after destruction should not execute callbacks
+        // or crash. See https://crbug.com/531591505.
+        mDelegateSupplier.set(mDelegate);
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
     }
 
     private void doTestDesktopWindowModeChanged(
@@ -1294,6 +1334,7 @@ public class TabStripTransitionCoordinatorUnitTest {
                 int newHeight,
                 int topPadding,
                 boolean applyScrimOverlay,
+                boolean isTabStripSuppressed,
                 Runnable transitionStartedCallback) {
             this.heightRequested = newHeight;
             this.applyScrimOverlay = applyScrimOverlay;
@@ -1350,9 +1391,23 @@ public class TabStripTransitionCoordinatorUnitTest {
             return hiddenByFade;
         }
 
+        public int thresholdDp = NARROW_DESKTOP_WINDOW_WIDTH + 1;
+        private Runnable mCallback;
+
         @Override
         public int getFadeTransitionThresholdDp() {
-            return NARROW_DESKTOP_WINDOW_WIDTH + 1;
+            return thresholdDp;
+        }
+
+        @Override
+        public void setFadeTransitionThresholdChangedCallback(Runnable callback) {
+            mCallback = callback;
+        }
+
+        public void triggerThresholdChanged() {
+            if (mCallback != null) {
+                mCallback.run();
+            }
         }
     }
 }

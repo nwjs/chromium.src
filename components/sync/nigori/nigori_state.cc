@@ -17,9 +17,9 @@
 #include "components/sync/base/features.h"
 #include "components/sync/base/time.h"
 #include "components/sync/engine/sync_encryption_handler.h"
+#include "components/sync/model/crypto/key_derivation_params.h"
 #include "components/sync/nigori/cross_user_sharing_public_key.h"
 #include "components/sync/nigori/cryptographer_impl.h"
-#include "components/sync/nigori/key_derivation_params.h"
 #include "components/sync/nigori/keystore_keys_cryptographer.h"
 #include "components/sync/protocol/nigori_local_data.pb.h"
 #include "components/sync/protocol/nigori_specifics.pb.h"
@@ -133,8 +133,9 @@ NigoriState NigoriState::CreateFromLocalProto(
     const sync_pb::NigoriModel& proto) {
   NigoriState state;
 
-  state.cryptographer =
-      CryptographerImpl::FromLocalProto(proto.cryptographer_data());
+  state.cryptographer = CryptographerImpl::FromLocalProto(
+      proto.cryptographer_data(),
+      /*default_encryption_key_invalidated=*/proto.has_pending_keys());
   CHECK(state.cryptographer);
 
   if (proto.has_pending_keys()) {

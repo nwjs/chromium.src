@@ -109,6 +109,7 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/compositor/compositor.h"
+#include "ui/compositor/layer.h"
 #include "ui/compositor/layer_tree_owner.h"
 #include "ui/compositor/test/draw_waiter_for_test.h"
 #include "ui/display/display.h"
@@ -132,6 +133,8 @@
 #if BUILDFLAG(IS_WIN)
 #include "base/win/windows_version.h"
 #include "components/stylus_handwriting/win/features.h"
+#include "content/browser/renderer_host/input/mock_tfhandwriting.h"
+#include "content/browser/renderer_host/input/stylus_handwriting_callback_sink_win.h"
 #include "content/browser/renderer_host/input/stylus_handwriting_controller_win.h"
 #include "content/browser/renderer_host/input/stylus_handwriting_win_test_helper.h"
 #include "content/browser/renderer_host/legacy_render_widget_host_win.h"
@@ -149,6 +152,7 @@
 #endif
 
 using testing::_;
+using testing::Return;
 
 using blink::WebGestureEvent;
 using blink::WebInputEvent;
@@ -1219,6 +1223,25 @@ TEST_F(RenderWidgetHostViewAuraTest, ParentMovementUpdatesScreenRect) {
             widget_host_->screen_rects().at(0).first);
   EXPECT_EQ(gfx::Rect(10, 10, 300, 300),
             widget_host_->screen_rects().at(0).second);
+}
+
+TEST_F(RenderWidgetHostViewAuraTest, GetViewBoundsWithoutTransform) {
+  parent_view_->SetBounds(gfx::Rect(0, 0, 800, 600));
+  InitViewForPopup(parent_view_, gfx::Rect(50, 50, 100, 100));
+
+  gfx::Rect initial_bounds = view_->GetViewBounds();
+  EXPECT_EQ(gfx::Rect(50, 50, 100, 100), initial_bounds);
+  EXPECT_EQ(initial_bounds, view_->GetViewBoundsWithoutTransform());
+
+  gfx::Transform transform;
+  transform.Translate(100, 100);
+  view_->GetNativeView()->SetTransform(transform);
+
+  // The transformed bounds should be different after translation.
+  EXPECT_NE(initial_bounds, view_->GetViewBounds());
+
+  // The bounds without transform should not be changed.
+  EXPECT_EQ(initial_bounds, view_->GetViewBoundsWithoutTransform());
 }
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -3138,10 +3161,10 @@ TEST_F(RenderWidgetHostViewAuraTest, BackgroundColorMatchesCompositorFrame) {
   metadata.root_background_color = SkColors::kRed;
   view_->SetRenderFrameMetadata(metadata);
   view_->OnRenderFrameMetadataChangedAfterActivation(base::TimeTicks::Now());
-  ui::Layer* parent_layer = view_->GetNativeView()->layer();
+  auto* parent_layer = view_->GetNativeView()->layer()->AsSolidColor();
 
   EXPECT_EQ(gfx::Rect(0, 0, 100, 100), parent_layer->bounds());
-  EXPECT_EQ(SK_ColorRED, parent_layer->background_color());
+  EXPECT_EQ(SkColors::kRed, parent_layer->background_color());
 }
 
 // Tests background setting priority.
@@ -6493,6 +6516,9 @@ class InputMethodStateAuraTest : public InputMethodAuraTestBase {
 TEST_F(InputMethodStateAuraTest, GetCaretBounds) {
   for (auto index : active_view_sequence_) {
     ActivateViewForTextInputManager(views_[index], ui::TEXT_INPUT_TYPE_TEXT);
+    // Set a non-empty bounds for the view to prevent selection bounds from
+    // being clamped to an empty viewport in TextInputManager.
+    views_[index]->SetBounds(gfx::Rect(0, 0, 800, 600));
     gfx::Rect anchor_rect = gfx::Rect(0, 0, 10, 10);
     gfx::Rect focus_rect = gfx::Rect(10 + index, 10 + index, 10, 10);
     views_[index]->SelectionBoundsChanged(
@@ -6665,6 +6691,44 @@ TEST_F(InputMethodStateAuraTest, GetTextFromRange) {
   }
 }
 
+// This test verifies that the autocorrect range is taken from the active view
+// only and that stale spans from other registered views are ignored.
+TEST_F(InputMethodStateAuraTest, GetAutocorrectRangeFromActiveView) {
+  TextInputManager* manager = GetTextInputManager(tab_view());
+  ASSERT_TRUE(manager);
+
+  // Send an autocorrect span from a child view, making it the active view.
+  ui::mojom::TextInputState child_state;
+  child_state.type = ui::TEXT_INPUT_TYPE_TEXT;
+  child_state.ime_text_spans_info.push_back(ui::mojom::ImeTextSpanInfo::New(
+      ui::ImeTextSpan(ui::ImeTextSpan::Type::kAutocorrect, 0, 1000),
+      gfx::Rect()));
+  views_[1]->TextInputStateChanged(child_state);
+  ASSERT_EQ(views_[1], manager->active_view_for_testing());
+  EXPECT_EQ(gfx::Range(0, 1000), manager->GetAutocorrectRange());
+
+  // Activate the tab view with no autocorrect span. The child view's span is
+  // still stored in the manager, but it must not be returned for the now
+  // active tab view.
+  ui::mojom::TextInputState tab_state;
+  tab_state.type = ui::TEXT_INPUT_TYPE_TEXT;
+  views_[0]->TextInputStateChanged(tab_state);
+  ASSERT_EQ(views_[0], manager->active_view_for_testing());
+  EXPECT_EQ(gfx::Range(), manager->GetAutocorrectRange());
+
+  // Activate the tab view with its own autocorrect span and verify that the
+  // returned range comes from the tab view.
+  ui::mojom::TextInputState tab_state_with_span;
+  tab_state_with_span.type = ui::TEXT_INPUT_TYPE_TEXT;
+  tab_state_with_span.ime_text_spans_info.push_back(
+      ui::mojom::ImeTextSpanInfo::New(
+          ui::ImeTextSpan(ui::ImeTextSpan::Type::kAutocorrect, 3, 6),
+          gfx::Rect()));
+  views_[0]->TextInputStateChanged(tab_state_with_span);
+  ASSERT_EQ(views_[0], manager->active_view_for_testing());
+  EXPECT_EQ(gfx::Range(3, 6), manager->GetAutocorrectRange());
+}
+
 // This test will verify that after selection, the selected text is written to
 // the clipboard from the focused widget.
 TEST_F(InputMethodStateAuraTest, SelectedTextCopiedToClipboard) {
@@ -6804,15 +6868,16 @@ TEST_F(RenderWidgetHostViewAuraTest, FocusReasonMultipleEventsOnSameNode) {
 }
 
 // Pen input on Aura can be delivered as MouseEvents with pointer type kPen.
-// kMouseEventPenPointerType feature ensures that the RenderWidgetHostViewAura's
-// LastPointerType is correctly set to kPen for these scenarios as opposed to
-// unconditionally reporting kMouse.
+// kMouseEventPreservePointerType feature ensures that the
+// RenderWidgetHostViewAura's LastPointerType is correctly set to kPen for these
+// scenarios as opposed to unconditionally reporting kMouse.
 // This is particularly important for virtual keyboard on Windows which
 // references the last pointer type in its Show/Hide logic.
 // http://crbug.com/525093257
 TEST_F(RenderWidgetHostViewAuraTest, PenMouseEventsSetPointerType) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kMouseEventPenPointerType);
+  scoped_feature_list.InitAndEnableFeature(
+      features::kMouseEventPreservePointerType);
 
   for (ui::EventPointerType pointer_type :
        {ui::EventPointerType::kPen, ui::EventPointerType::kMouse}) {
@@ -6831,6 +6896,30 @@ TEST_F(RenderWidgetHostViewAuraTest, PenMouseEventsSetPointerType) {
       EXPECT_EQ(parent_view_->GetLastPointerType(), pointer_type);
     }
   }
+}
+
+// Touch and pen down triggers
+// WindowEventDispatcher::SynthesizeMouseMoveEvent. These mouse moves are
+// synthesized at the ui::Event level and have no OS analog. They exist to
+// update hover state and cursor visibility after mouse events are re-enabled.
+// Therefore they should not overwrite |last_pointer_type_|.
+TEST_F(RenderWidgetHostViewAuraTest,
+       SynthesizedMouseDoesNotClobberPenPointerType) {
+  // Simulate a pen gesture setting last_pointer_type_ to kPen.
+  ui::GestureEventDetails tap_details(ui::EventType::kGestureTapDown);
+  tap_details.set_device_type(ui::GestureDeviceType::DEVICE_TOUCHSCREEN);
+  tap_details.set_primary_pointer_type(ui::EventPointerType::kPen);
+  ui::GestureEvent pen_gesture(0, 0, 0, base::TimeTicks(), tap_details);
+  parent_view_->OnGestureEvent(&pen_gesture);
+  EXPECT_EQ(parent_view_->GetLastPointerType(), ui::EventPointerType::kPen);
+
+  // A synthesized mouse-move arrives (as aura does when re-enabling mouse
+  // events after a touch/pen interaction). It must not clobber kPen.
+  ui::MouseEvent synth_mouse(ui::EventType::kMouseMoved, gfx::Point(),
+                             gfx::Point(), ui::EventTimeForNow(),
+                             ui::EF_IS_SYNTHESIZED, 0);
+  parent_view_->OnMouseEvent(&synth_mouse);
+  EXPECT_EQ(parent_view_->GetLastPointerType(), ui::EventPointerType::kPen);
 }
 
 class RenderWidgetHostViewAuraInputMethodTest
@@ -7276,7 +7365,7 @@ TEST_F(InputMethodStateAuraHandwritingTest, CheckHistograms) {
       handwriting_callback;
   StylusHandwritingControllerWin* instance =
       StylusHandwritingControllerWin::GetInstance();
-  instance->OnStartStylusWriting(handwriting_callback,
+  instance->OnStartStylusWriting(tab_view(), handwriting_callback,
                                  last_stylus_handwriting_properties);
   histogram_tester.ExpectBucketCount(
       "Stylus.Handwriting.RequestHandwritingForPointer", 0, 1);
@@ -7462,6 +7551,138 @@ TEST(IndexFromPointFlagsTest, OStreamOperator) {
   EXPECT_STREQ(oob_bit.str().c_str(), "Unknown(0x04)");
   EXPECT_STREQ(all_bits.str().c_str(), "Unknown(0xff)");
 }
+
+// Test fixture for verifying OnFocusFailed behavior in stylus handwriting.
+// Sets up the StylusHandwritingControllerWin with mock infrastructure that
+// supports putting the controller into "waiting for focus result" state.
+class StylusHandwritingOnFocusFailedAuraTest
+    : public RenderWidgetHostViewAuraTest {
+ public:
+  StylusHandwritingOnFocusFailedAuraTest() = default;
+  ~StylusHandwritingOnFocusFailedAuraTest() override = default;
+
+  void SetUp() override {
+    RenderWidgetHostViewAuraTest::SetUp();
+    scoped_feature_list_.InitAndEnableFeature(
+        stylus_handwriting::win::kStylusHandwritingWin);
+    stylus_handwriting_win_test_helper_.SetUpDefaultMockInfrastructure();
+    stylus_handwriting_win_test_helper_
+        .DefaultMockRequestHandwritingForPointerMethod();
+  }
+
+ protected:
+  base::test::ScopedFeatureList scoped_feature_list_;
+  StylusHandwritingWinTestHelper stylus_handwriting_win_test_helper_;
+  Microsoft::WRL::ComPtr<MockTfFocusHandwritingTargetArgsImpl> mock_focus_args_;
+};
+
+// Verify that OnEditElementFocusedForStylusWriting with a null focus_result
+// calls OnFocusFailed, which signals TF_NO_HANDWRITING_TARGET to the Shell
+// Handwriting API.
+TEST_F(StylusHandwritingOnFocusFailedAuraTest, NullFocusResult) {
+  InitViewForFrame(nullptr);
+  view_->ShowWithVisibility(PageVisibilityState::kVisible);
+  mock_focus_args_ =
+      stylus_handwriting_win_test_helper_.SetUpWaitingForFocusResult(
+          view_->GetWeakPtr());
+
+  EXPECT_CALL(*mock_focus_args_.Get(), SetResponse(::TF_NO_HANDWRITING_TARGET))
+      .Times(1);
+
+  view_->OnEditElementFocusedForStylusWriting(nullptr);
+
+  EXPECT_FALSE(
+      StylusHandwritingControllerWin::GetInstance()->IsWaitingForFocusResult());
+}
+
+// Verify that destroying the view that initiated an in-flight handwriting
+// session calls OnFocusFailed, signaling cancellation to the Shell Handwriting
+// API.
+TEST_F(StylusHandwritingOnFocusFailedAuraTest,
+       InitiatingViewDestructionFailsFocus) {
+  FakeRenderWidgetHostViewAura* initiating_view = CreateView();
+  initiating_view->InitAsChild(nullptr);
+  aura::client::ParentWindowWithContext(
+      initiating_view->GetNativeView(), aura_test_helper_->GetContext(),
+      gfx::Rect(), display::kInvalidDisplayId);
+
+  mock_focus_args_ =
+      stylus_handwriting_win_test_helper_.SetUpWaitingForFocusResult(
+          initiating_view->GetWeakPtr());
+
+  EXPECT_CALL(*mock_focus_args_.Get(), SetResponse(::TF_NO_HANDWRITING_TARGET))
+      .Times(1);
+
+  DestroyView(initiating_view);
+
+  EXPECT_FALSE(
+      StylusHandwritingControllerWin::GetInstance()->IsWaitingForFocusResult());
+}
+
+// Verify that destroying a view that did NOT initiate the in-flight handwriting
+// session leaves the session untouched (does not call OnFocusFailed). This is
+// the regression test for a non-initiating ~RWHVA ending an unrelated session.
+TEST_F(StylusHandwritingOnFocusFailedAuraTest,
+       NonInitiatingViewDestructionPreservesFocus) {
+  InitViewForFrame(nullptr);
+  view_->ShowWithVisibility(PageVisibilityState::kVisible);
+  mock_focus_args_ =
+      stylus_handwriting_win_test_helper_.SetUpWaitingForFocusResult(
+          view_->GetWeakPtr());
+
+  EXPECT_CALL(*mock_focus_args_.Get(), SetResponse(_)).Times(0);
+
+  // Create and destroy an unrelated view that never started handwriting.
+  FakeRenderWidgetHostViewAura* unrelated_view = CreateView();
+  unrelated_view->InitAsChild(nullptr);
+  aura::client::ParentWindowWithContext(
+      unrelated_view->GetNativeView(), aura_test_helper_->GetContext(),
+      gfx::Rect(), display::kInvalidDisplayId);
+  DestroyView(unrelated_view);
+
+  EXPECT_TRUE(
+      StylusHandwritingControllerWin::GetInstance()->IsWaitingForFocusResult());
+
+  // Verify expectations now otherwise `view_` destruction on fixture teardown
+  // will trigger the Times(0) expectation above.
+  testing::Mock::VerifyAndClearExpectations(mock_focus_args_.Get());
+}
+
+// Verify that if the view that initiated an in-flight session is destroyed
+// after the session started but before TSF delivers FocusHandwritingTarget, the
+// subsequent FocusHandwritingTarget is declined immediately (responding
+// TF_NO_HANDWRITING_TARGET) rather than forwarded, so the Shell Handwriting API
+// is not left awaiting a response that can never arrive.
+TEST_F(StylusHandwritingOnFocusFailedAuraTest,
+       InitiatingViewDestroyedBeforeTargetDeclinesFocus) {
+  FakeRenderWidgetHostViewAura* initiating_view = CreateView();
+  initiating_view->InitAsChild(nullptr);
+  aura::client::ParentWindowWithContext(
+      initiating_view->GetNativeView(), aura_test_helper_->GetContext(),
+      gfx::Rect(), display::kInvalidDisplayId);
+
+  // Start the session without delivering FocusHandwritingTarget.
+  mock_focus_args_ =
+      stylus_handwriting_win_test_helper_.SetUpStartedStylusWriting(
+          initiating_view->GetWeakPtr());
+  auto* controller = StylusHandwritingControllerWin::GetInstance();
+  ASSERT_FALSE(controller->IsWaitingForFocusResult());
+
+  EXPECT_CALL(*mock_focus_args_.Get(), SetResponse(::TF_NO_HANDWRITING_TARGET))
+      .Times(1);
+
+  // Destroying the initiating view before the target arrives should arm the
+  // decline.
+  DestroyView(initiating_view);
+
+  // When TSF delivers the target, it is declined synchronously and no focus
+  // result remains pending.
+  auto sink = controller->GetCallbackSinkForTesting();
+  ASSERT_TRUE(sink);
+  EXPECT_EQ(S_OK, sink->FocusHandwritingTarget(mock_focus_args_.Get()));
+  EXPECT_FALSE(controller->IsWaitingForFocusResult());
+}
+
 #endif  // BUILDFLAG(IS_WIN)
 
 TEST_F(RenderWidgetHostViewAuraTest, ForceSpecifiedDeadline) {

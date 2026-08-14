@@ -23,8 +23,8 @@
 #import "ios/chrome/browser/lens/ui_bundled/lens_availability.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_entrypoint.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_configuration_factory.h"
-#import "ios/chrome/browser/lens_overlay/model/lens_overlay_entrypoint.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_view_finder_metrics_recorder.h"
+#import "ios/chrome/browser/lens_overlay/public/lens_overlay_entrypoint.h"
 #import "ios/chrome/browser/lens_overlay/ui/lens_view_finder_transition_manager.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
@@ -69,10 +69,10 @@ LensViewFinderTransition TransitionFromPresentationStyle(
 }  // namespace
 
 @interface LensViewFinderCoordinator () <
-    LensCommands,
     ChromeLensViewFinderDelegate,
-    UIViewControllerTransitioningDelegate,
-    UIAdaptivePresentationControllerDelegate>
+    LensCommands,
+    UIAdaptivePresentationControllerDelegate,
+    UIViewControllerTransitioningDelegate>
 
 // Whether post capture view is shown.
 @property(nonatomic, assign) BOOL postCaptureShown;

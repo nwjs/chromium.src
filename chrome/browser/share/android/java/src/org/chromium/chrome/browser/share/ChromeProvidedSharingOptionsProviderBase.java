@@ -20,6 +20,7 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.screenshot_protection.ScreenshotProtectionController;
 import org.chromium.chrome.browser.share.ChromeShareExtras.DetailedContentType;
 import org.chromium.chrome.browser.share.ShareContentTypeHelper.ContentType;
 import org.chromium.chrome.browser.share.ShareMetricsUtils.ShareCustomAction;
@@ -295,9 +296,12 @@ public abstract class ChromeProvidedSharingOptionsProviderBase {
         // TODO(386833405): Decide on priority for this option.
         maybeAddCollaborateFirstPartyOption();
 
+        Tab currentTab = mTabProvider.get();
+        boolean isScreenshotProtected =
+                ScreenshotProtectionController.isScreenshotBlocked(currentTab);
         // Only show a limited first party share selection for automotive and PDF pages.
         if (!isAutomotive()) {
-            if (!isPdfTab()) {
+            if (!isPdfTab() && !isScreenshotProtected) {
                 maybeAddLongScreenshotFirstPartyOption();
             }
             maybeAddPrintFirstPartyOption();
@@ -441,7 +445,7 @@ public abstract class ChromeProvidedSharingOptionsProviderBase {
                         ContentType.LINK_PAGE_NOT_VISIBLE,
                         ContentType.IMAGE)
                 .setDetailedContentTypesToDisableFor(DetailedContentType.SCREENSHOT)
-                .setIcon(R.drawable.send_tab, R.string.sharing_send_tab_to_self)
+                .setIcon(R.drawable.send_tab, R.string.send_tab_to_self)
                 .setShareActionType(ShareCustomAction.SEND_TAB_TO_SELF)
                 .setFeatureNameForMetrics(USER_ACTION_SEND_TAB_TO_SELF_SELECTED)
                 .setOnClickCallback(

@@ -41,6 +41,7 @@ import android.content.res.Resources;
 import android.text.TextUtils;
 import android.util.Pair;
 import android.util.SparseBooleanArray;
+import android.view.LayoutInflater;
 
 import androidx.test.core.app.ApplicationProvider;
 
@@ -61,6 +62,7 @@ import org.mockito.stubbing.Answer;
 import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowDialog;
+import org.robolectric.shadows.ShadowToast;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
@@ -91,6 +93,7 @@ import org.chromium.chrome.browser.multiwindow.MultiInstanceDataProto.MultiInsta
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.AllocatedIdInfo;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.CloseWindowAppSource;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.InstanceAllocationType;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.LastSessionExitType;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
 import org.chromium.chrome.browser.multiwindow.UiUtils.NameWindowDialogSource;
@@ -120,6 +123,7 @@ import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.test.util.MockitoHelper;
+import org.chromium.ui.widget.ToastManager;
 import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
 
@@ -134,7 +138,9 @@ import java.util.stream.Collectors;
 
 /** Unit tests for {@link MultiInstanceManagerApi31}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
+@Config(
+        manifest = Config.NONE,
+        shadows = {ShadowToast.class})
 @EnableFeatures({
     ChromeFeatureList.SESSION_RESTORE_AFTER_CRASH,
     ChromeFeatureList.INCOGNITO_AS_WINDOW_FULL_SCREEN
@@ -393,6 +399,8 @@ public class MultiInstanceManagerApi31UnitTest {
         when(mTabGroupSyncService.getAllGroupIds()).thenReturn(new String[] {});
         when(mNormalTabModel.getProfile()).thenReturn(mProfile);
         when(mTabModelSelector.isTabStateInitialized()).thenReturn(true);
+        when(mTabModelSelector.getCurrentTabModelSupplier())
+                .thenReturn(ObservableSuppliers.createMonotonic(mNormalTabModel));
         doNothing()
                 .when(mMultiInstanceManager)
                 .showTargetSelectorDialog(MockitoHelper.anyCallback(), anyInt(), anyInt());
@@ -408,6 +416,8 @@ public class MultiInstanceManagerApi31UnitTest {
         TabWindowManagerSingleton.resetTabModelSelectorFactoryForTesting();
         ApplicationStatus.destroyForJUnitTests();
         mMultiInstanceManager.mTestBuildInstancesList = false;
+        ShadowToast.reset();
+        ToastManager.resetForTesting();
     }
 
     private void setupActivityForCreateNewWindowIntent(Activity activity) {
@@ -465,13 +475,21 @@ public class MultiInstanceManagerApi31UnitTest {
         assertEquals(0, allocInstanceIndex(PASSED_ID_INVALID, mActivityPool[0]));
         assertEquals(1, allocInstanceIndex(PASSED_ID_INVALID, mActivityPool[1]));
 
-        // Simulate closing a window from Android Recents.
+        // Simulate closing instance 1 from recents (instance 1 now has persisted state).
         removeTaskOnRecentsScreen(mActivityPool[1]);
 
-        // Normally, without ON_STARTUP_WINDOW_POLICY, allocating a new window here would reuse
-        // instance 1 because it has persistent state. With ON_STARTUP_WINDOW_POLICY enabled, it
-        // refrains from reusing instance 1 and allocates a brand-new unused index (2).
+        // Mark last session exit type as LAST_WINDOW_CLOSED_BY_APP.
+        ChromeMultiInstancePersistentStore.writeLastSessionExitType(
+                LastSessionExitType.LAST_WINDOW_CLOSED_BY_APP);
+
+        // Allocating a new window should refrain from using instance 1 and allocate brand-new
+        // instance 2.
         assertEquals(2, allocInstanceIndex(PASSED_ID_INVALID, mActivityPool[1]));
+
+        // Check that the flag was reset to NORMAL.
+        assertEquals(
+                LastSessionExitType.NORMAL,
+                ChromeMultiInstancePersistentStore.readLastSessionExitType());
     }
 
     @Test
@@ -493,6 +511,32 @@ public class MultiInstanceManagerApi31UnitTest {
         // With ON_STARTUP_WINDOW_POLICY enabled, but with EXTRA_FROM_RELAUNCH set on the intent,
         // it should bypass the skip check and reuse instance 1.
         assertEquals(1, allocInstanceIndex(PASSED_ID_INVALID, mActivityPool[1]));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ON_STARTUP_WINDOW_POLICY)
+    public void
+            testAllocInstanceId_onStartupWindowPolicy_lastWindowClosedByApp_refrainsFromUsingExistingInstanceState() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        // Allocate instance 0 and 1.
+        assertEquals(0, allocInstanceIndex(PASSED_ID_INVALID, mActivityPool[0]));
+        assertEquals(1, allocInstanceIndex(PASSED_ID_INVALID, mActivityPool[1]));
+
+        // Simulate closing instance 1 from recents (instance 1 now has persisted state).
+        removeTaskOnRecentsScreen(mActivityPool[1]);
+
+        // Mark last session exit type as LAST_WINDOW_CLOSED_BY_APP.
+        ChromeMultiInstancePersistentStore.writeLastSessionExitType(
+                LastSessionExitType.LAST_WINDOW_CLOSED_BY_APP);
+
+        // Allocating a new window should refrain from using instance 1 and allocate brand-new
+        // instance 2.
+        assertEquals(2, allocInstanceIndex(PASSED_ID_INVALID, mActivityPool[1]));
+
+        // Check that the flag was reset to NORMAL.
+        assertEquals(
+                LastSessionExitType.NORMAL,
+                ChromeMultiInstancePersistentStore.readLastSessionExitType());
     }
 
     @Test
@@ -1052,6 +1096,43 @@ public class MultiInstanceManagerApi31UnitTest {
         inOrderVerifier.verify(appTasks.get(1)).finishAndRemoveTask();
         inOrderVerifier.verify(appTasks.get(2)).finishAndRemoveTask();
         inOrderVerifier.verify(mCurrentActivity).finishAndRemoveTask();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ON_STARTUP_WINDOW_POLICY)
+    public void testCloseWindows_lastActiveWindowClosed_setsLastSessionExitType() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        // Allocate instance 0.
+        assertEquals(0, allocInstanceIndex(PASSED_ID_INVALID, mActivityPool[0]));
+
+        // Close instance 0 (the only active instance).
+        mMultiInstanceManager.closeWindows(
+                Collections.singletonList(0), CloseWindowAppSource.NO_TABS_IN_WINDOW);
+
+        assertEquals(
+                LastSessionExitType.LAST_WINDOW_CLOSED_BY_APP,
+                ChromeMultiInstancePersistentStore.readLastSessionExitType());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ON_STARTUP_WINDOW_POLICY)
+    public void
+            testCloseWindows_lastActiveWindowClosed_withInactiveInstancesInList_setsLastSessionExitType() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        // Allocate instance 0 (active) and instance 1.
+        assertEquals(0, allocInstanceIndex(PASSED_ID_INVALID, mActivityPool[0]));
+        assertEquals(1, allocInstanceIndex(PASSED_ID_INVALID, mActivityPool[1]));
+
+        // Simulate closing instance 1 from recents (instance 1 is now inactive).
+        removeTaskOnRecentsScreen(mActivityPool[1]);
+
+        // Close list containing active instance 0 and inactive instance 1.
+        mMultiInstanceManager.closeWindows(
+                Arrays.asList(0, 1), CloseWindowAppSource.NO_TABS_IN_WINDOW);
+
+        assertEquals(
+                LastSessionExitType.LAST_WINDOW_CLOSED_BY_APP,
+                ChromeMultiInstancePersistentStore.readLastSessionExitType());
     }
 
     @Test
@@ -2123,6 +2204,7 @@ public class MultiInstanceManagerApi31UnitTest {
     }
 
     @Test
+    @DisableFeatures(ChromeFeatureList.IN_APP_WINDOW_MANAGER_DEPRECATION)
     public void showInstanceCreationLimitMessage() {
         when(mCurrentActivity.getResources()).thenReturn(mock(Resources.class));
 
@@ -2137,6 +2219,7 @@ public class MultiInstanceManagerApi31UnitTest {
     }
 
     @Test
+    @DisableFeatures(ChromeFeatureList.IN_APP_WINDOW_MANAGER_DEPRECATION)
     public void testShowInstanceCreationLimitMessage_SuppressesDuplicates() {
         when(mCurrentActivity.getResources()).thenReturn(mock(Resources.class));
 
@@ -2158,6 +2241,23 @@ public class MultiInstanceManagerApi31UnitTest {
         // Third invocation now enqueues again because the first one was dismissed.
         mMultiInstanceManager.showInstanceCreationLimitMessage();
         verify(mMessageDispatcher).enqueueWindowScopedMessage(any(), eq(false));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.IN_APP_WINDOW_MANAGER_DEPRECATION)
+    public void testInstanceCreationLimitWarning_WindowManagerDeprecated() {
+        when(mCurrentActivity.getResources())
+                .thenReturn(ApplicationProvider.getApplicationContext().getResources());
+        when(mCurrentActivity.getSystemService(Context.LAYOUT_INFLATER_SERVICE))
+                .thenReturn(LayoutInflater.from(ApplicationProvider.getApplicationContext()));
+
+        mMultiInstanceManager.showInstanceCreationLimitMessage();
+
+        // Verify that the message is NOT enqueued via message dispatcher.
+        verify(mMessageDispatcher, never()).enqueueWindowScopedMessage(any(), anyBoolean());
+
+        // Verify that the toast is shown.
+        assertNotNull("Toast should have been shown.", ShadowToast.getLatestToast());
     }
 
     @Test

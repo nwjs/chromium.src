@@ -23,7 +23,7 @@
 #include "content/browser/webid/idp_network_request_manager.h"
 #include "content/browser/webid/request.h"
 #include "content/browser/webid/request_service.h"
-#include "content/browser/webid/test/federated_auth_request_request_token_callback_helper.h"
+#include "content/browser/webid/test/federated_request_token_callback_helper.h"
 #include "content/browser/webid/test/mock_api_permission_delegate.h"
 #include "content/browser/webid/test/mock_auto_reauthn_permission_delegate.h"
 #include "content/browser/webid/test/mock_identity_registry.h"
@@ -44,18 +44,20 @@
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/mojom/webid/federated_auth_request.mojom.h"
+#include "third_party/blink/public/mojom/webid/federated_request.mojom.h"
 #include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
+namespace content::webid {
+
+using ::testing::NiceMock;
 using ApiPermissionStatus =
-    content::FederatedIdentityApiPermissionContextDelegate::PermissionStatus;
-using AuthRequestCallbackHelper =
-    content::FederatedAuthRequestRequestTokenCallbackHelper;
+    FederatedIdentityApiPermissionContextDelegate::PermissionStatus;
 using FedCmEntry = ukm::builders::Blink_FedCm;
 using FedCmIdpEntry = ukm::builders::Blink_FedCmIdp;
-using RequesterFrameType = content::webid::RequesterFrameType;
+using MediationRequirement = ::password_manager::CredentialMediationRequirement;
+using RequestCallbackHelper = FederatedRequestTokenCallbackHelper;
 using StartTokenRequestCallback =
     blink::mojom::FederatedRequestService::StartTokenRequestCallback;
 using blink::mojom::FederatedRequest;
@@ -63,9 +65,6 @@ using blink::mojom::FederatedRequestService;
 using blink::mojom::RequestTokenStatus;
 using blink::mojom::TokenRequestFailurePtr;
 using blink::mojom::TokenRequestSuccessPtr;
-using ::testing::NiceMock;
-
-namespace content::webid {
 
 namespace {
 
@@ -194,10 +193,11 @@ class TestDialogController
   TestDialogController& operator=(TestDialogController&) = delete;
 
   bool ShowAccountsDialog(
-      content::RelyingPartyData rp_data,
-      const std::vector<IdentityProviderDataPtr>& idp_list,
-      const std::vector<IdentityRequestAccountPtr>& accounts,
-      const std::vector<IdentityRequestAccountPtr>& filtered_accounts,
+      RelyingPartyData rp_data,
+      const std::vector<scoped_refptr<IdentityProviderData>>& idp_list,
+      const std::vector<scoped_refptr<IdentityRequestAccount>>& accounts,
+      const std::vector<scoped_refptr<IdentityRequestAccount>>&
+          filtered_accounts,
       blink::mojom::RpMode rp_mode,
       IdentityRequestDialogController::AccountSelectionCallback on_selected,
       IdentityRequestDialogController::LoginToIdPCallback on_add_account,
@@ -289,7 +289,7 @@ class RequestMultipleFramesTest : public RenderViewHostImplTestHarness {
   void DoRequestTokenAndWait(
       mojo::Remote<FederatedRequestService>& service_remote,
       mojo::Remote<FederatedRequest>& request_remote,
-      AuthRequestCallbackHelper& callback_helper) {
+      RequestCallbackHelper& callback_helper) {
     DoRequestToken(service_remote, request_remote, callback_helper.callback());
     request_remote.set_disconnect_handler(callback_helper.quit_closure());
 
@@ -401,8 +401,8 @@ class RequestMultipleFramesTest : public RenderViewHostImplTestHarness {
 
 // Test that test harness can execute successful FedCM flow for iframe.
 TEST_F(RequestMultipleFramesTest, TestHarness) {
-  RenderFrameHost* iframe_rfh = content::RenderFrameHostTester::For(main_rfh())
-                                    ->AppendChild(/*frame_name=*/"");
+  RenderFrameHost* iframe_rfh =
+      RenderFrameHostTester::For(main_rfh())->AppendChild(/*frame_name=*/"");
 
   mojo::Remote<FederatedRequestService> iframe_service_remote;
   mojo::Remote<FederatedRequest> iframe_request_remote;
@@ -411,7 +411,7 @@ TEST_F(RequestMultipleFramesTest, TestHarness) {
                 TestDialogController::AccountsDialogAction::kSelectAccount,
                 &iframe_dialog_state);
 
-  AuthRequestCallbackHelper iframe_callback_helper;
+  RequestCallbackHelper iframe_callback_helper;
   DoRequestTokenAndWait(iframe_service_remote, iframe_request_remote,
                         iframe_callback_helper);
   EXPECT_EQ(RequestTokenStatus::kSuccess, iframe_callback_helper.status());
@@ -433,8 +433,8 @@ TEST_F(RequestMultipleFramesTest, IframeTooManyRequests) {
                  StartTokenRequestCallback());
   EXPECT_TRUE(main_frame_dialog_state.did_show_accounts_dialog);
 
-  RenderFrameHost* iframe_rfh = content::RenderFrameHostTester::For(main_rfh())
-                                    ->AppendChild(/*frame_name=*/"");
+  RenderFrameHost* iframe_rfh =
+      RenderFrameHostTester::For(main_rfh())->AppendChild(/*frame_name=*/"");
   mojo::Remote<FederatedRequestService> iframe_service_remote;
   mojo::Remote<FederatedRequest> iframe_request_remote;
   TestDialogController::State iframe_dialog_state;
@@ -442,7 +442,7 @@ TEST_F(RequestMultipleFramesTest, IframeTooManyRequests) {
                 TestDialogController::AccountsDialogAction::kSelectAccount,
                 &iframe_dialog_state);
 
-  AuthRequestCallbackHelper iframe_callback_helper;
+  RequestCallbackHelper iframe_callback_helper;
   DoRequestTokenAndWait(iframe_service_remote, iframe_request_remote,
                         iframe_callback_helper);
   EXPECT_EQ(RequestTokenStatus::kErrorTooManyRequests,
@@ -467,8 +467,8 @@ TEST_F(RequestMultipleFramesTest, IframeTooManyRequestsDifferentIdP) {
                  StartTokenRequestCallback());
   EXPECT_TRUE(main_frame_dialog_state.did_show_accounts_dialog);
 
-  RenderFrameHost* iframe_rfh = content::RenderFrameHostTester::For(main_rfh())
-                                    ->AppendChild(/*frame_name=*/"");
+  RenderFrameHost* iframe_rfh =
+      RenderFrameHostTester::For(main_rfh())->AppendChild(/*frame_name=*/"");
   mojo::Remote<FederatedRequestService> iframe_service_remote;
   mojo::Remote<FederatedRequest> iframe_request_remote;
   TestDialogController::State iframe_dialog_state;
@@ -507,7 +507,7 @@ TEST_F(RequestMultipleFramesTest, SameOriginIframe) {
   ukm_recorder()->SetOnAddEntryCallback(FedCmEntry::kEntryName,
                                         ukm_loop.QuitClosure());
 
-  AuthRequestCallbackHelper iframe_callback_helper;
+  RequestCallbackHelper iframe_callback_helper;
   DoRequestTokenAndWait(iframe_service_remote, iframe_request_remote,
                         iframe_callback_helper);
 
@@ -553,7 +553,7 @@ TEST_F(RequestMultipleFramesTest, SameSiteIframe) {
   ukm_recorder()->SetOnAddEntryCallback(FedCmEntry::kEntryName,
                                         ukm_loop.QuitClosure());
 
-  AuthRequestCallbackHelper iframe_callback_helper;
+  RequestCallbackHelper iframe_callback_helper;
   DoRequestTokenAndWait(iframe_service_remote, iframe_request_remote,
                         iframe_callback_helper);
 
@@ -595,7 +595,7 @@ TEST_F(RequestMultipleFramesTest, CrossSiteIframe) {
   ukm_recorder()->SetOnAddEntryCallback(FedCmEntry::kEntryName,
                                         ukm_loop.QuitClosure());
 
-  AuthRequestCallbackHelper iframe_callback_helper;
+  RequestCallbackHelper iframe_callback_helper;
   DoRequestTokenAndWait(iframe_service_remote, iframe_request_remote,
                         iframe_callback_helper);
 
@@ -646,7 +646,7 @@ TEST_F(RequestMultipleFramesTest,
 
   // Perform an actual FedCM request to log some metrics and flush the ukm
   // recorder.
-  AuthRequestCallbackHelper iframe_callback_helper;
+  RequestCallbackHelper iframe_callback_helper;
   DoRequestTokenAndWait(iframe_service_remote, iframe_request_remote,
                         iframe_callback_helper);
 
@@ -809,7 +809,7 @@ TEST_F(RequestMultipleFramesTest, CrossSiteIframeSendClientMetadata) {
                 &iframe_dialog_state, &network_manager);
   network_manager->SetSendClientIsThirdPartyToTopFrameOrigin(true);
 
-  AuthRequestCallbackHelper iframe_callback_helper;
+  RequestCallbackHelper iframe_callback_helper;
   DoRequestTokenAndWait(iframe_service_remote, iframe_request_remote,
                         iframe_callback_helper);
   EXPECT_EQ(RequestTokenStatus::kSuccess, iframe_callback_helper.status());

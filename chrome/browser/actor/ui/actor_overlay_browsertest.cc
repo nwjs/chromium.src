@@ -90,7 +90,7 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayTest, PageLoadsWhenFeatureOn) {
 
 IN_PROC_BROWSER_TEST_F(ActorOverlayTest, PageDoesNotLoadInOTRBrowser) {
   GURL kUrl(chrome::kChromeUIActorOverlayURL);
-  Browser* otr_browser = OpenURLOffTheRecord(browser()->profile(), kUrl);
+  Browser* otr_browser = OpenURLOffTheRecord(browser()->GetProfile(), kUrl);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(otr_browser, kUrl));
   content::WebContents* web_contents =
       otr_browser->tab_strip_model()->GetActiveWebContents();
@@ -102,7 +102,7 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayTest, PageDoesNotLoadInOTRBrowser) {
 // Verifies that the ActorUiWindowController and Actor Ui Tab Controller
 // should only exist for normal browser windows.
 IN_PROC_BROWSER_TEST_F(ActorOverlayTest, ControllerExistsForNormalBrowsers) {
-  Profile* const profile = browser()->profile();
+  Profile* const profile = browser()->GetProfile();
 
   // Normal browser window
   Browser* const normal_browser = browser();
@@ -177,7 +177,7 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayTest, WebViewLifecycleAndVisibility) {
 }
 
 IN_PROC_BROWSER_TEST_F(ActorOverlayTest, SendStartEventAndStopEvent) {
-  Profile* const profile = browser()->profile();
+  Profile* const profile = browser()->GetProfile();
   ActorUiStateManagerInterface* state_manager =
       ActorKeyedService::Get(profile)->GetActorUiStateManager();
   ASSERT_NE(state_manager, nullptr);
@@ -199,7 +199,7 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayTest, SendStartEventAndStopEvent) {
 }
 
 IN_PROC_BROWSER_TEST_F(ActorOverlayTest, OverlayHidesOnTabBackgrounding) {
-  Profile* const profile = browser()->profile();
+  Profile* const profile = browser()->GetProfile();
   ActorUiStateManagerInterface* state_manager =
       ActorKeyedService::Get(profile)->GetActorUiStateManager();
   ASSERT_NE(state_manager, nullptr);
@@ -236,7 +236,7 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayTest, OverlayHidesOnTabBackgrounding) {
 #endif
 IN_PROC_BROWSER_TEST_F(ActorOverlayTest,
                        MAYBE_RepeatedlyMoveTabBetweenWindows) {
-  Profile* const profile = browser()->profile();
+  Profile* const profile = browser()->GetProfile();
   ActorUiStateManagerInterface* state_manager =
       ActorKeyedService::Get(profile)->GetActorUiStateManager();
   ASSERT_NE(state_manager, nullptr);
@@ -314,7 +314,7 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayTest,
 }
 
 IN_PROC_BROWSER_TEST_F(ActorOverlayTest, RepeatedlyMoveActuatedTabToNewWindow) {
-  Profile* const profile = browser()->profile();
+  Profile* const profile = browser()->GetProfile();
   ActorUiStateManagerInterface* state_manager =
       ActorKeyedService::Get(profile)->GetActorUiStateManager();
   ASSERT_NE(state_manager, nullptr);
@@ -370,7 +370,7 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayTest, RepeatedlyMoveActuatedTabToNewWindow) {
 
 IN_PROC_BROWSER_TEST_F(ActorOverlayTest,
                        InputAndA11yInputEventsIgnoredWhenOverlayVisible) {
-  Profile* const profile = browser()->profile();
+  Profile* const profile = browser()->GetProfile();
   ActorUiStateManagerInterface* state_manager =
       ActorKeyedService::Get(profile)->GetActorUiStateManager();
   ASSERT_NE(state_manager, nullptr);
@@ -459,7 +459,7 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayTest,
   // Activate the first tab.
   browser()->tab_strip_model()->ActivateTabAt(0);
   // Start actuating on the first tab and wait for the overlay to be visible.
-  Profile* const profile = browser()->profile();
+  Profile* const profile = browser()->GetProfile();
   ActorUiStateManagerInterface* state_manager =
       ActorKeyedService::Get(profile)->GetActorUiStateManager();
   ASSERT_NE(state_manager, nullptr);
@@ -500,7 +500,7 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayTest,
   // Verify that the default state is enabled for first browser.
   ASSERT_TRUE(chrome::IsCommandEnabled(browser1, IDC_FIND));
   // Create a second browser window.
-  Profile* const profile = browser1->profile();
+  Profile* const profile = browser1->GetProfile();
   Browser* browser2 = CreateBrowser(profile);
   ASSERT_NE(browser2, browser1);
   // Verify that the default state is enabled for the second browser.
@@ -569,7 +569,7 @@ IN_PROC_BROWSER_TEST_F(ActorOverlaySplitViewTest,
   browser()->tab_strip_model()->ActivateTabAt(1);
   ASSERT_TRUE(chrome::IsCommandEnabled(browser(), IDC_FIND));
   // Start actuation on right split view tab and wait for overlay to be visible.
-  Profile* const profile = browser()->profile();
+  Profile* const profile = browser()->GetProfile();
   ActorUiStateManagerInterface* state_manager =
       ActorKeyedService::Get(profile)->GetActorUiStateManager();
   ASSERT_NE(state_manager, nullptr);
@@ -767,6 +767,58 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayMagicCursorTest,
   EXPECT_FALSE(has_class);
 }
 
+IN_PROC_BROWSER_TEST_F(ActorOverlayTest,
+                       OverlayWebViewIsTransparentAfterNavigation) {
+  Profile* const profile = browser()->GetProfile();
+  ActorUiStateManagerInterface* state_manager =
+      ActorKeyedService::Get(profile)->GetActorUiStateManager();
+  ASSERT_NE(state_manager, nullptr);
+  tabs::TabHandle tab_handle = browser()->GetActiveTabInterface()->GetHandle();
+  TestFuture<ActionResultPtr> result;
+  state_manager->OnUiEvent(StartingToActOnTab(tab_handle, TaskId(1)),
+                           result.GetCallback());
+  ExpectOkResult(result);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsActorOverlayVisible(browser()); }));
+  content::WebContents* overlay_web_contents =
+      GetActorOverlayWebViewWebContents(browser());
+  ASSERT_NE(overlay_web_contents, nullptr);
+
+  // RenderWidgetHostViewMac::GetBackgroundColor() overrides SK_ColorTRANSPARENT
+  // to SK_ColorWHITE to avoid macOS AppKit compositing bugs (crbug.com/735407).
+  // On non-Mac platforms (Aura), GetBackgroundColor() returns
+  // SK_ColorTRANSPARENT.
+  const SkColor expected_rwhv_color =
+#if BUILDFLAG(IS_MAC)
+      SK_ColorWHITE;
+#else
+      SK_ColorTRANSPARENT;
+#endif
+
+  // 1. Assert that the browser-side RenderWidgetHostView has the expected
+  // background color immediately upon navigation commit (before
+  // WaitForLoadStop).
+  content::RenderWidgetHostView* rwhv =
+      overlay_web_contents->GetRenderWidgetHostView();
+  ASSERT_NE(rwhv, nullptr);
+  EXPECT_EQ(rwhv->GetBackgroundColor(), expected_rwhv_color);
+
+  // 2. Wait for the overlay WebUI document to finish loading.
+  EXPECT_TRUE(content::WaitForLoadStop(overlay_web_contents));
+
+  // 3. Assert that Blink's document background color is transparent after load
+  // on all platforms. Without web_contents()->SetPageBaseBackgroundColor(
+  // SK_ColorTRANSPARENT) in ShowUI, Blink renders a solid white document
+  // canvas (SK_ColorWHITE).
+  EXPECT_EQ(overlay_web_contents->GetBackgroundColor(), SK_ColorTRANSPARENT);
+
+  // 4. Assert that the RenderWidgetHostView background color remains as
+  // expected after load.
+  rwhv = overlay_web_contents->GetRenderWidgetHostView();
+  ASSERT_NE(rwhv, nullptr);
+  EXPECT_EQ(rwhv->GetBackgroundColor(), expected_rwhv_color);
+}
+
 class ActorOverlayDisabledTest : public InProcessBrowserTest {
  public:
   void SetUp() override {
@@ -828,7 +880,7 @@ class GlicActorDisabledTest : public InProcessBrowserTest {
 // browser windows since the feature is disabled.
 IN_PROC_BROWSER_TEST_F(GlicActorDisabledTest,
                        ControllerDoesntExistsForNormalBrowsers) {
-  Profile* const profile = browser()->profile();
+  Profile* const profile = browser()->GetProfile();
 
   // Normal browser window
   Browser* const normal_browser = browser();

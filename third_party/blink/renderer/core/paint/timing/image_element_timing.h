@@ -15,7 +15,6 @@
 #include "third_party/blink/renderer/core/timing/window_performance.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
-#include "third_party/blink/renderer/platform/supplementable.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
@@ -29,11 +28,8 @@ class StyleImage;
 // ImageElementTiming is responsible for tracking the paint timings for <img>
 // elements for a given window.
 class CORE_EXPORT ImageElementTiming final
-    : public GarbageCollected<ImageElementTiming>,
-      public Supplement<LocalDOMWindow> {
+    : public GarbageCollected<ImageElementTiming> {
  public:
-  static const char kSupplementName[];
-
   // The maximum amount of characters included in Element Timing and Largest
   // Contentful Paint for inline images.
   static constexpr const unsigned kInlineImageMaxChars = 100;
@@ -45,16 +41,17 @@ class CORE_EXPORT ImageElementTiming final
 
   static ImageElementTiming& From(LocalDOMWindow&);
 
-  void NotifyImageFinished(const LayoutObject&, const ImageResourceContent*);
+  void NotifyImageFinished(const LayoutObject&, const MediaTiming*);
 
   void NotifyBackgroundImageFinished(const StyleFetchedImage*);
   base::TimeTicks GetBackgroundImageLoadTime(const StyleImage*);
 
-  // Called when the LayoutObject has been painted. This method might queue a
-  // presentation promise to compute and report paint timestamps.
-  void NotifyImagePainted(
+  // Called when the LayoutObject has been painted. Does nothing if the image is
+  // not fully loaded. This method might queue a presentation promise to compute
+  // and report paint timestamps.
+  void NotifyImagePaint(
       const LayoutObject&,
-      const ImageResourceContent& cached_image,
+      const MediaTiming& cached_image,
       const PropertyTreeStateOrAlias& current_paint_chunk_properties,
       const gfx::Rect& image_border);
 
@@ -64,10 +61,10 @@ class CORE_EXPORT ImageElementTiming final
       const PropertyTreeStateOrAlias& current_paint_chunk_properties,
       const gfx::Rect& image_border);
 
-  void NotifyImageRemoved(const LayoutObject*,
+  void NotifyImageRemoved(const LayoutObject&,
                           const ImageResourceContent* image);
 
-  void Trace(Visitor*) const override;
+  void Trace(Visitor*) const;
 
   OptionalPaintTimingCallback TakePaintTimingCallback();
 
@@ -132,9 +129,9 @@ class CORE_EXPORT ImageElementTiming final
     DISALLOW_NEW();
   };
   // Hashmap of pairs of elements, LayoutObjects (for the elements) and
-  // ImageResourceContent (for the src) which correspond to either images or
-  // background images whose paint has been observed. For background images,
-  // only the |is_painted_| bit is used, as the timestamp needs to be tracked by
+  // MediaTiming (for the src) which correspond to either images or background
+  // images whose paint has been observed. For background images, only the
+  // |is_painted_| bit is used, as the timestamp needs to be tracked by
   // |background_image_timestamps_|.
   HashMap<MediaRecordIdHash, ImageInfo> images_notified_;
 
@@ -144,6 +141,8 @@ class CORE_EXPORT ImageElementTiming final
       background_image_timestamps_;
 
   Member<ContainerTiming> container_timing_;
+
+  Member<LocalDOMWindow> window_;
 };
 
 }  // namespace blink

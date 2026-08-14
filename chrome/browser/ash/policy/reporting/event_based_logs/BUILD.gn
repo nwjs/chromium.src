@@ -19,7 +19,6 @@ static_library("event_based_logs") {
   deps = [
     ":utils",
     "//base",
-    "//chrome/browser:browser_process",
     "//chrome/browser/ash/policy/core",
     "//chrome/browser/ash/policy/reporting/event_based_logs/event_observers",
     "//chrome/browser/ash/policy/reporting/os_updates",
@@ -88,12 +87,15 @@ source_set("browser_tests") {
   deps = [
     ":event_based_logs",
     "//chrome/browser",
+    "//chrome/browser:browser_process",
+    "//chrome/browser:browser_process_platform_part",
     "//chrome/browser/ash/login/test:test_support",
     "//chrome/browser/ash/policy/core:test_support",
     "//chrome/browser/ash/policy/remote_commands:test_support",
     "//chrome/browser/ash/policy/test_support",
     "//chrome/browser/ash/settings",
     "//chrome/browser/ash/settings:test_support",
+    "//chrome/browser/policy:test_support",
     "//chrome/browser/policy/messaging_layer/proto:log_upload_event_proto",
     "//chrome/browser/support_tool:support_tool_proto",
     "//chrome/test:test_support",

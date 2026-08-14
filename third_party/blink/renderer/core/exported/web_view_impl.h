@@ -177,7 +177,8 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   gfx::Size ContentsPreferredMinimumSize() override;
   void UpdatePreferredSize() override;
   void EnablePreferredSizeChangedMode() override;
-  void SetZoomFactorForDeviceScaleFactor(float) override;
+  void SetZoomFactorForDeviceScaleFactor(float device_scale_factor,
+                                         float text_scale_multiplier) override;
   float ZoomFactorForViewportLayout() override {
     // This returns the zoom factor to use when determining the layout width
     // while processing the viewport meta tag. We use only the device scale
@@ -193,6 +194,10 @@ class CORE_EXPORT WebViewImpl final : public WebView,
     return compositor_device_scale_factor_override_
                ? compositor_device_scale_factor_override_
                : zoom_factor_for_device_scale_factor_;
+  }
+  float ZoomFactorForViewportLayoutWithoutTextScale() override {
+    return ZoomFactorForViewportLayout() /
+           zoom_factor_for_text_scale_multiplier_;
   }
   bool AutoResizeMode() override;
   void EnableAutoResizeForTesting(const gfx::Size& min_window_size,
@@ -258,6 +263,9 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   void SetBaseBackgroundColorOverrideTransparent(bool override_to_transparent);
   void SetBaseBackgroundColorOverrideForInspector(std::optional<SkColor>);
 
+  // Called when the text-scale meta tag is added or removed
+  void OnTextScaleMetaTagPresentChanged();
+
   // Resize the WebView. You likely should be using
   // MainFrameWidget()->Resize instead.
   void Resize(const gfx::Size&);
@@ -309,8 +317,6 @@ class CORE_EXPORT WebViewImpl final : public WebView,
       override;
   void UpdatePageBrowsingContextGroup(
       const base::UnguessableToken& browsing_context_group_token) override;
-  void SetPageAttributionSupport(
-      network::mojom::AttributionSupport support) override;
   void UpdateColorProviders(
       const ColorProviderColorMaps& color_provider_colors) override;
   void SetSupportsDraggableRegions(bool supports_draggable_regions) override;
@@ -623,7 +629,11 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   void DidFirstVisuallyNonEmptyPaint();
 
   // Called once the first contentful paint happens on the main frame.
-  void OnFirstContentfulPaint(const base::TimeDelta& duration);
+  void OnFirstContentfulPaint(const base::TimeTicks& presentation_time);
+
+  // Called when the outermost main frame's largest contentful paint candidate
+  // changed.
+  void OnLargestContentfulPaint(const base::TimeTicks& presentation_time);
 
   scheduler::WebAgentGroupScheduler& GetWebAgentGroupScheduler();
 
@@ -698,10 +708,6 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   // browser.
   void DoDeferredCloseWindowSoon();
 
-#if BUILDFLAG(IS_CHROMEOS)
-  void UpdateUseOverlayScrollbar(bool use_overlay_scrollbar);
-#endif
-
   WebViewImpl(
       WebViewClient*,
       mojom::blink::PageVisibilityState visibility,
@@ -742,10 +748,10 @@ class CORE_EXPORT WebViewImpl final : public WebView,
 
   LocalFrame* FocusedLocalFrameInWidget() const;
 
-  // Clear focus and text input state of the page. If there was a focused
-  // element, this will trigger updates to observers and send focus, selection,
-  // and text input-related events.
-  void RemoveFocusAndTextInputState();
+  // Clear text input state of the page, and optionally clear DOM focus too.
+  // If there was a focused element, this may trigger updates to observers and
+  // send focus, selection, and text input-related events.
+  void RemoveFocusAndTextInputState(bool clear_focus);
 
   // Finds the zoom and scroll parameters for zooming into an editable element
   // with bounds |element_bounds_in_root_frame| and caret bounds
@@ -861,6 +867,10 @@ class CORE_EXPORT WebViewImpl final : public WebView,
 
   // Additional zoom factor used to scale the content by device scale factor.
   double zoom_factor_for_device_scale_factor_ = 1.;
+
+  // The portion of |zoom_factor_for_device_scale_factor_| that is due to the
+  // system text scale factor.
+  double zoom_factor_for_text_scale_multiplier_ = 1.f;
 
   // This value, when multiplied by the font scale factor, gives the maximum
   // page scale that can result from automatic zooms.

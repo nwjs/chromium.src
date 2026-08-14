@@ -2059,8 +2059,15 @@ class AXPosition {
                            : ax::mojom::MoveDirection::kBackward);
     }
     // It could be that there are no unignored positions that can be rooted
-    // at the current anchor. In such case, we return a null position.
+    // at the current anchor.
     if (new_position->IsIgnored()) {
+      // If the anchor itself is unignored, its end is still a valid boundary
+      // rooted on this node, even when the leaf equivalent is ignored because
+      // the anchor's text is followed by ignored content. Returning null here
+      // would drop the anchor's last line.
+      if (!GetAnchor()->IsIgnored()) {
+        return Clone();
+      }
       return CreateNullPosition();
     }
 
@@ -3912,16 +3919,33 @@ class AXPosition {
     AXPositionInstance unignored_position = text_position->AsUnignoredPosition(
         AXPositionAdjustmentBehavior::kMoveForward);
 
-    // If there are no unignored positions then `text_position` is anchored in
-    // ignored content at the end of the whole content. For
-    // `kStopAtLastAnchorBoundary`, try to adjust in the opposite direction to
-    // return a position within the whole content just before crossing into the
-    // ignored content. This will be the last unignored anchor boundary.
-    if (unignored_position->IsNullPosition() &&
-        options.boundary_behavior ==
-            AXBoundaryBehavior::kStopAtLastAnchorBoundary) {
-      unignored_position = text_position->AsUnignoredPosition(
-          AXPositionAdjustmentBehavior::kMoveBackward);
+    // AsUnignoredPosition() returns a leaf position (or null), which is not
+    // always what a given boundary behavior needs. Handle each behavior
+    // separately.
+    switch (options.boundary_behavior) {
+      case AXBoundaryBehavior::kCrossBoundary:
+        // Any unignored position is acceptable, including a leaf in another
+        // subtree.
+        break;
+      case AXBoundaryBehavior::kStopAtAnchorBoundary:
+        // The result must stay on this anchor, but normalizing to a leaf can
+        // move it off the anchor it was rooted at above. Un-ignore it in a way
+        // that keeps the anchor instead.
+        unignored_position =
+            text_position->TryAsUnignoredPositionPreservingAnchor(
+                move_direction == ax::mojom::MoveDirection::kBackward
+                    ? AXPositionAdjustmentBehavior::kMoveBackward
+                    : AXPositionAdjustmentBehavior::kMoveForward);
+        break;
+      case AXBoundaryBehavior::kStopAtLastAnchorBoundary:
+        // A null position means `text_position` is anchored in ignored content
+        // at the end of the whole content. Adjust in the opposite direction to
+        // return the last unignored position just before that ignored content.
+        if (unignored_position->IsNullPosition()) {
+          unignored_position = text_position->AsUnignoredPosition(
+              AXPositionAdjustmentBehavior::kMoveBackward);
+        }
+        break;
     }
 
     unignored_position->affinity_ = forward_upstream

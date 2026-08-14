@@ -10,6 +10,8 @@
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/feature_list.h"
+#include "base/i18n/language_tag.h"
+#include "base/i18n/tag_converters.h"
 #include "components/language/core/common/language_util.h"
 #include "components/live_caption/caption_bubble_settings.h"
 #include "components/live_caption/views/format_constants.h"
@@ -19,6 +21,7 @@
 #include "components/vector_icons/vector_icons.h"
 #include "media/base/media_switches.h"
 #include "ui/base/cursor/cursor.h"
+#include "ui/base/l10n/chromium_language_matcher.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -39,6 +42,10 @@
 
 namespace captions {
 namespace {
+
+using ::base::i18n::GetKnownLanguageTag;
+using ::base::i18n::LanguageTag;
+using ::base::i18n::LanguageTagConverter;
 
 void InitButton(views::MdTextButton* button, views::Label* label) {
   button->SetCustomPadding(kLanguageButtonInsets);
@@ -290,9 +297,13 @@ views::View* TranslationViewWrapperBase::GetTranslateArrowIconForTesting() {
 
 void TranslationViewWrapperBase::SetTargetLanguageForTesting(
     const std::string& language_code) {
+  base::i18n::LanguageTag language_tag =
+      base::i18n::LanguageTagConverter::GetInstance()
+          .FromString(language_code)
+          .value_or(base::i18n::GetKnownLanguageTag("und"));
   for (size_t i = 0;
        i < translate_ui_languages_manager_->GetNumberOfLanguages(); ++i) {
-    if (language_code ==
+    if (language_tag.tag_string() ==
         translate_ui_languages_manager_->GetLanguageCodeAt(i)) {
       ExecuteCommand(/*target_language_code_index=*/i, /*event_flags=*/0);
     }
@@ -390,10 +401,12 @@ void TranslationViewWrapperBase::ExecuteCommand(int target_language_code_index,
       translate_ui_languages_manager_->UpdateTargetLanguageIndex(
           target_language_code_index);
   if (updated) {
-    std::string target_language_code = GetTargetLanguageCode();
-    language::ToChromeLanguageSynonym(&target_language_code);
-    caption_bubble_settings()->SetLiveTranslateTargetLanguageCode(
-        target_language_code);
+    std::optional<LanguageTag> parsed_tag =
+        LanguageTagConverter::GetInstance().FromString(GetTargetLanguageCode());
+    if (parsed_tag) {
+      caption_bubble_settings()->SetLiveTranslateTargetLanguageCode(
+          parsed_tag->tag_string());
+    }
   }
 }
 

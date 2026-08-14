@@ -46,7 +46,6 @@ class WebstoreDataFetcher;
 class WebstoreStandaloneInstaller
     : public base::RefCountedThreadSafe<WebstoreStandaloneInstaller>,
       public WebstoreDataFetcherDelegate,
-      public WebstoreInstallHelper::Delegate,
       public ProfileObserver {
  public:
   // A callback for when the install process completes, successfully or not. If
@@ -115,8 +114,7 @@ class WebstoreStandaloneInstaller
 
   // Should return an installation prompt with desired properties or NULL if
   // no prompt should be shown.
-  virtual std::unique_ptr<ExtensionInstallPrompt::Prompt> CreateInstallPrompt()
-      const = 0;
+  virtual std::unique_ptr<InstallPromptData> CreateInstallPrompt() const = 0;
 
   // Will be called after the extension's manifest has been successfully parsed.
   // Subclasses can perform asynchronous checks at this point and call
@@ -127,7 +125,8 @@ class WebstoreStandaloneInstaller
 
   // Returns an install UI to be shown. By default, this returns an install UI
   // that is a transient child of the host window for GetWebContents().
-  virtual std::unique_ptr<ExtensionInstallPrompt> CreateInstallUI();
+  virtual std::unique_ptr<ExtensionInstallPrompt> CreateInstallUI(
+      std::unique_ptr<InstallPromptData> prompt);
 
   // Create an approval to pass installation parameters to the CrxInstaller.
   virtual std::unique_ptr<InstallApproval> CreateApproval() const;
@@ -185,13 +184,7 @@ class WebstoreStandaloneInstaller
   void OnWebstoreResponseParseFailure(const std::string& extension_id,
                                       const std::string& error) override;
 
-  // WebstoreInstallHelper::Delegate interface implementation.
-  void OnWebstoreParseSuccess(const std::string& id,
-                              const SkBitmap& icon,
-                              base::DictValue parsed_manifest) override;
-  void OnWebstoreParseFailure(const std::string& id,
-                              InstallHelperResultCode result_code,
-                              const std::string& error_message) override;
+  void OnWebstoreParseFinished(WebstoreParseResult result);
 
   // WebstoreInstaller::Delegate callbacks.
   void OnExtensionInstallSuccess(const std::string& id);
@@ -219,7 +212,7 @@ class WebstoreStandaloneInstaller
 
   // Installation dialog and its underlying prompt.
   std::unique_ptr<ExtensionInstallPrompt> install_ui_;
-  std::unique_ptr<ExtensionInstallPrompt::Prompt> install_prompt_;
+  std::unique_ptr<InstallPromptData> install_prompt_;
 
   // For fetching webstore JSON data.
   std::unique_ptr<WebstoreDataFetcher> webstore_data_fetcher_;

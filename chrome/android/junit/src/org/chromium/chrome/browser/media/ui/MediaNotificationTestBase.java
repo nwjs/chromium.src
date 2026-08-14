@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.media.ui;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
@@ -61,6 +62,7 @@ public class MediaNotificationTestBase {
     ForegroundServiceUtils mMockForegroundServiceUtils;
     NotificationUmaTracker mMockUmaTracker;
     MediaNotificationInfo.Builder mMediaNotificationInfoBuilder;
+    int mFgsNotificationId = -1;
 
     protected MediaNotificationTestTabHolder createMediaNotificationTestTabHolder(
             int tabId, String url, String title) {
@@ -104,7 +106,11 @@ public class MediaNotificationTestBase {
         FeatureOverrides.newBuilder()
                 .disable(ChromeFeatureList.ALLOW_MULTIPLE_MEDIA_NOTIFICATIONS)
                 .applyWithoutOverwrite();
-
+        // The MediaNotificationManager is in components, but the flag is in Chrome. In production
+        // code, we expect Chrome code to call
+        // MediaNotificationManager.setMultipleMediaNotificationsEnabled. In the test, this is not
+        // happening, so we have to do it manually.
+        MediaNotificationManager.setMultipleMediaNotificationsEnabled(false);
         mMockContext = spy(RuntimeEnvironment.application);
         ContextUtils.initApplicationContextForTests(mMockContext);
 
@@ -121,7 +127,7 @@ public class MediaNotificationTestBase {
                 spy(
                         new MockMediaNotificationController(
                                 new ChromeMediaNotificationControllerDelegate(
-                                        getNotificationId(), getNotificationId()) {
+                                        getNotificationId(), getMediaTypeId()) {
                                     @Override
                                     public void logNotificationShown(
                                             NotificationWrapper notification) {
@@ -176,12 +182,54 @@ public class MediaNotificationTestBase {
         getController().mPendingIntentActionSwipe = mock(PendingIntentProvider.class);
 
         mMockForegroundServiceUtils = mock(ForegroundServiceUtils.class);
+        doAnswer(
+                        new Answer<Void>() {
+                            @Override
+                            public Void answer(InvocationOnMock invocation) throws Throwable {
+                                int id = invocation.getArgument(1);
+                                android.app.Notification notification = invocation.getArgument(2);
+                                mFgsNotificationId = id;
+                                android.app.NotificationManager nm =
+                                        (android.app.NotificationManager)
+                                                RuntimeEnvironment.getApplication()
+                                                        .getSystemService(
+                                                                Context.NOTIFICATION_SERVICE);
+                                nm.notify(id, notification);
+                                return null;
+                            }
+                        })
+                .when(mMockForegroundServiceUtils)
+                .startForeground(any(), anyInt(), any(), anyInt());
+        doAnswer(
+                        new Answer<Void>() {
+                            @Override
+                            public Void answer(InvocationOnMock invocation) throws Throwable {
+                                int flags = invocation.getArgument(1);
+                                if ((flags & android.app.Service.STOP_FOREGROUND_REMOVE) != 0) {
+                                    if (mFgsNotificationId != -1) {
+                                        android.app.NotificationManager nm =
+                                                (android.app.NotificationManager)
+                                                        RuntimeEnvironment.getApplication()
+                                                                .getSystemService(
+                                                                        Context
+                                                                                .NOTIFICATION_SERVICE);
+                                        nm.cancel(mFgsNotificationId);
+                                        mFgsNotificationId = -1;
+                                    }
+                                }
+                                return null;
+                            }
+                        })
+                .when(mMockForegroundServiceUtils)
+                .stopForeground(any(), anyInt());
         ForegroundServiceUtils.setInstanceForTesting(mMockForegroundServiceUtils);
     }
 
     @After
     public void tearDown() {
-        MediaNotificationManager.clear(NOTIFICATION_ID);
+        MediaNotificationManager.hideForAllTabs(getNotificationId());
+        MediaNotificationManager.setService(getNotificationId(), null);
+        MediaNotificationManager.setMultipleMediaNotificationsEnabled(false);
     }
 
     MediaNotificationController getController() {
@@ -212,7 +260,7 @@ public class MediaNotificationTestBase {
         mService.onStartCommand(intent, 0, 0);
     }
 
-    private void ensureService() {
+    void ensureService() {
         if (mService != null) return;
         mService = spy(new MockListenerService());
         MockListenerServiceImpl impl = mService.getImpl();
@@ -241,6 +289,10 @@ public class MediaNotificationTestBase {
 
     int getNotificationId() {
         return NOTIFICATION_ID;
+    }
+
+    int getMediaTypeId() {
+        return getNotificationId();
     }
 
     void advanceTimeByMillis(int timeMillis) {

@@ -70,7 +70,8 @@ public class SnackbarView implements InsetObserver.WindowInsetObserver {
     private NonNullObservableSupplier<Integer> mAdditionalBottomMarginPxSupplier;
     protected Snackbar mSnackbar;
     private final View mRootContentView;
-
+    private final NonNullObservableSupplier<Boolean> mIsFullscreenSupplier;
+    private final Callback<Boolean> mIsFullscreenObserver = (ignored) -> adjustViewPosition();
     private final KeyboardVisibilityDelegate.KeyboardVisibilityListener
             mKeyboardVisibilityListener = (isShowing) -> adjustViewPosition();
     private @ColorInt int mBackgroundColor;
@@ -109,6 +110,7 @@ public class SnackbarView implements InsetObserver.WindowInsetObserver {
      *     Animator#start is called instead.
      * @param additionalBottomMarginPxSupplier The bottom margin to be added to the snackbar view
      *     when shown.
+     * @param isFullscreenSupplier The supplier that monitors whether the app is in fullscreen mode.
      */
     public SnackbarView(
             Activity activity,
@@ -116,7 +118,8 @@ public class SnackbarView implements InsetObserver.WindowInsetObserver {
             Snackbar snackbar,
             ViewGroup parentView,
             @Nullable WindowAndroid windowAndroid,
-            NonNullObservableSupplier<Integer> additionalBottomMarginPxSupplier) {
+            NonNullObservableSupplier<Integer> additionalBottomMarginPxSupplier,
+            NonNullObservableSupplier<Boolean> isFullscreenSupplier) {
         mOriginalParent = parentView;
         mWindowAndroid = windowAndroid;
         mAdditionalBottomMarginPxSupplier = additionalBottomMarginPxSupplier;
@@ -129,6 +132,8 @@ public class SnackbarView implements InsetObserver.WindowInsetObserver {
                 (ViewGroup)
                         LayoutInflater.from(activity)
                                 .inflate(R.layout.floating_snackbar, mParent, false);
+
+        mIsFullscreenSupplier = isFullscreenSupplier;
 
         mSnackbarSwipeHandler =
                 new SnackbarSwipeHandler(
@@ -191,6 +196,7 @@ public class SnackbarView implements InsetObserver.WindowInsetObserver {
 
     public void show() {
         addToParent();
+        mIsFullscreenSupplier.addSyncObserver(mIsFullscreenObserver);
         KeyboardVisibilityDelegate.getInstance()
                 .addKeyboardVisibilityListener(mKeyboardVisibilityListener);
         mContainerView.addOnLayoutChangeListener(
@@ -221,6 +227,7 @@ public class SnackbarView implements InsetObserver.WindowInsetObserver {
         // Prevent clicks during dismissal animations. Intentionally not using setEnabled(false) to
         // avoid unnecessary text color changes in this transitory state.
         mActionButtonView.setOnClickListener(null);
+        mIsFullscreenSupplier.removeObserver(mIsFullscreenObserver);
         KeyboardVisibilityDelegate.getInstance()
                 .removeKeyboardVisibilityListener(mKeyboardVisibilityListener);
         mAdditionalBottomMarginPxSupplier.removeObserver(mAdditionalBottomMarginPxObserver);
@@ -263,9 +270,12 @@ public class SnackbarView implements InsetObserver.WindowInsetObserver {
     void adjustViewPosition() {
         FrameLayout.LayoutParams lp = getLayoutParams();
         int targetWidth = Math.min(mMaxWidth, mParent.getWidth() - 2 * mSnackbarMargin);
+        boolean isFullscreen = mIsFullscreenSupplier.get();
         int keyboardHeight =
-                KeyboardVisibilityDelegate.getInstance()
-                        .calculateTotalKeyboardHeight(mRootContentView);
+                isFullscreen
+                        ? KeyboardVisibilityDelegate.getInstance()
+                                .calculateTotalKeyboardHeight(mRootContentView)
+                        : 0;
         int targetBottomMargin =
                 mDefaultBottomMargin + mAdditionalBottomMarginPxSupplier.get() + keyboardHeight;
         int targetGravity = Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM;

@@ -685,7 +685,7 @@ void LayoutBox::StyleDidChange(StyleDifference diff,
       layer->ScrollContainerStatusChanged();
   }
 
-  UpdateShapeOutsideInfoAfterStyleChange(*Style(), old_style);
+  UpdateShapeOutsideInfoAfterStyleChange(new_style, old_style);
   UpdateGridPositionAfterStyleChange(old_style);
 
   if (old_style) {
@@ -893,7 +893,6 @@ void LayoutBox::UpdateGridPositionAfterStyleChange(
 void LayoutBox::UpdateScrollSnapMappingAfterStyleChange(
     const ComputedStyle& old_style) {
   NOT_DESTROYED();
-  DCHECK(Style());
   // scroll-snap-type and scroll-padding invalidate the snap container.
   if (old_style.GetScrollSnapType() != StyleRef().GetScrollSnapType() ||
       old_style.ScrollPaddingBottom() != StyleRef().ScrollPaddingBottom() ||
@@ -1009,98 +1008,6 @@ void LayoutBox::LayoutSubtreeRoot() {
   }
 }
 
-DISABLE_CFI_PERF
-LayoutUnit LayoutBox::ClientLeft() const {
-  NOT_DESTROYED();
-  if (!RuntimeEnabledFeatures::LayoutBoxRectGettersUseFragmentsEnabled()) {
-    if (CanSkipComputeScrollbars()) {
-      return BorderOutsets().left;
-    }
-    return BorderOutsets().left +
-           ComputeScrollbarsInternal(kClampToContentBox).left;
-  }
-  return PhysicalContractedBoxRect(kContractToPaddingEdge).X();
-}
-
-DISABLE_CFI_PERF
-LayoutUnit LayoutBox::ClientTop() const {
-  NOT_DESTROYED();
-  if (!RuntimeEnabledFeatures::LayoutBoxRectGettersUseFragmentsEnabled()) {
-    if (CanSkipComputeScrollbars()) {
-      return BorderOutsets().top;
-    }
-    return BorderOutsets().top +
-           ComputeScrollbarsInternal(kClampToContentBox).top;
-  }
-  return PhysicalContractedBoxRect(kContractToPaddingEdge).Y();
-}
-
-// ClientWidth and ClientHeight represent the interior of an object excluding
-// border and scrollbar.
-DISABLE_CFI_PERF
-LayoutUnit LayoutBox::ClientWidth() const {
-  NOT_DESTROYED();
-  LayoutUnit width = StitchedSize().width;
-  if (!RuntimeEnabledFeatures::LayoutBoxRectGettersUseFragmentsEnabled()) {
-    if (CanSkipComputeScrollbars()) {
-      return (width - BorderOutsets().HorizontalSum()).ClampNegativeToZero();
-    }
-    return (width - BorderOutsets().HorizontalSum() -
-            ComputeScrollbarsInternal(kClampToContentBox).HorizontalSum())
-        .ClampNegativeToZero();
-  }
-  return PhysicalContractedBoxRect(kContractToPaddingEdge).Width();
-}
-
-DISABLE_CFI_PERF
-LayoutUnit LayoutBox::ClientHeight() const {
-  NOT_DESTROYED();
-  LayoutUnit height = StitchedSize().height;
-  if (!RuntimeEnabledFeatures::LayoutBoxRectGettersUseFragmentsEnabled()) {
-    if (CanSkipComputeScrollbars()) {
-      return (height - BorderOutsets().VerticalSum()).ClampNegativeToZero();
-    }
-    return (height - BorderOutsets().VerticalSum() -
-            ComputeScrollbarsInternal(kClampToContentBox).VerticalSum())
-        .ClampNegativeToZero();
-  }
-  return PhysicalContractedBoxRect(kContractToPaddingEdge).Height();
-}
-
-LayoutUnit LayoutBox::ClientWidthWithTableSpecialBehavior() const {
-  NOT_DESTROYED();
-  // clientWidth/Height is the visual portion of the box content, not including
-  // borders or scroll bars, but includes padding. And per
-  // https://www.w3.org/TR/CSS2/tables.html#model,
-  // table wrapper box is a principal block box that contains the table box
-  // itself and any caption boxes, and table grid box is a block-level box that
-  // contains the table's internal table boxes. When table's border is specified
-  // in CSS, the border is added to table grid box, not table wrapper box.
-  // Currently, Blink doesn't have table wrapper box, and we are supposed to
-  // retrieve clientWidth/Height from table wrapper box, not table grid box. So
-  // when we retrieve clientWidth/Height, it includes table's border size.
-  if (IsTable())
-    return ClientWidth() + BorderOutsets().HorizontalSum();
-  return ClientWidth();
-}
-
-LayoutUnit LayoutBox::ClientHeightWithTableSpecialBehavior() const {
-  NOT_DESTROYED();
-  // clientWidth/Height is the visual portion of the box content, not including
-  // borders or scroll bars, but includes padding. And per
-  // https://www.w3.org/TR/CSS2/tables.html#model,
-  // table wrapper box is a principal block box that contains the table box
-  // itself and any caption boxes, and table grid box is a block-level box that
-  // contains the table's internal table boxes. When table's border is specified
-  // in CSS, the border is added to table grid box, not table wrapper box.
-  // Currently, Blink doesn't have table wrapper box, and we are supposed to
-  // retrieve clientWidth/Height from table wrapper box, not table grid box. So
-  // when we retrieve clientWidth/Height, it includes table's border size.
-  if (IsTable())
-    return ClientHeight() + BorderOutsets().VerticalSum();
-  return ClientHeight();
-}
-
 bool LayoutBox::UsesOverlayScrollbars() const {
   NOT_DESTROYED();
   if (StyleRef().HasCustomScrollbarStyle(DynamicTo<Element>(GetNode()))) {
@@ -1125,10 +1032,10 @@ LayoutUnit LayoutBox::ScrollWidth() const {
   // For objects with scrollable overflow, this matches IE.
   const PhysicalRect overflow_rect = ScrollableOverflowRect();
   if (!StyleRef().GetWritingDirection().IsFlippedX()) {
-    return std::max(ClientWidth(),
+    return std::max(PhysicalPaddingBoxRect().Width(),
                     overflow_rect.Right() - BorderOutsets().left);
   }
-  return ClientWidth() -
+  return PhysicalPaddingBoxRect().Width() -
          std::min(LayoutUnit(), overflow_rect.X() - BorderOutsets().left);
 }
 
@@ -1145,7 +1052,7 @@ LayoutUnit LayoutBox::ScrollHeight() const {
   }
   // For objects with visible overflow, this matches IE.
   // FIXME: Need to work right with writing modes.
-  return std::max(ClientHeight(),
+  return std::max(PhysicalPaddingBoxRect().Height(),
                   ScrollableOverflowRect().Bottom() - BorderOutsets().top);
 }
 
@@ -1276,44 +1183,6 @@ void LayoutBox::UpdateAfterLayout() {
   }
 }
 
-DISABLE_CFI_PERF
-LayoutUnit LayoutBox::ContentLeft() const {
-  NOT_DESTROYED();
-  if (!RuntimeEnabledFeatures::LayoutBoxRectGettersUseFragmentsEnabled()) {
-    return ClientLeft() + PaddingOutsets().left;
-  }
-  return PhysicalContractedBoxRect(kContractToContentEdge).X();
-}
-
-DISABLE_CFI_PERF
-LayoutUnit LayoutBox::ContentTop() const {
-  NOT_DESTROYED();
-  if (!RuntimeEnabledFeatures::LayoutBoxRectGettersUseFragmentsEnabled()) {
-    return ClientTop() + PaddingOutsets().top;
-  }
-  return PhysicalContractedBoxRect(kContractToContentEdge).Y();
-}
-
-DISABLE_CFI_PERF
-LayoutUnit LayoutBox::ContentWidth() const {
-  NOT_DESTROYED();
-  if (!RuntimeEnabledFeatures::LayoutBoxRectGettersUseFragmentsEnabled()) {
-    return (ClientWidth() - PaddingOutsets().HorizontalSum())
-        .ClampNegativeToZero();
-  }
-  return PhysicalContractedBoxRect(kContractToContentEdge).Width();
-}
-
-DISABLE_CFI_PERF
-LayoutUnit LayoutBox::ContentHeight() const {
-  NOT_DESTROYED();
-  if (!RuntimeEnabledFeatures::LayoutBoxRectGettersUseFragmentsEnabled()) {
-    return (ClientHeight() - PaddingOutsets().VerticalSum())
-        .ClampNegativeToZero();
-  }
-  return PhysicalContractedBoxRect(kContractToContentEdge).Height();
-}
-
 LayoutUnit LayoutBox::OverrideIntrinsicContentInlineSize() const {
   NOT_DESTROYED();
 
@@ -1323,13 +1192,18 @@ LayoutUnit LayoutBox::OverrideIntrinsicContentInlineSize() const {
   }
 
   const auto& style = StyleRef();
-  const StyleIntrinsicLength& intrinsic_length =
-      style.ContainIntrinsicInlineSize();
+  StyleIntrinsicLength intrinsic_length =
+      style.EffectiveContainIntrinsicInlineSize();
 
   if (intrinsic_length.HasAuto()) {
     const auto* context = GetDisplayLockContext();
-    if (context && context->IsLocked()) {
-      if (const auto* elem = DynamicTo<Element>(GetNode())) {
+    const bool is_locked = context && context->IsLocked();
+    const auto* elem = DynamicTo<Element>(GetNode());
+    const bool is_vt_scope =
+        style.HasSizeContainmentForViewTransitionScope() &&
+        RuntimeEnabledFeatures::ScopedViewTransitionSizeContainmentEnabled();
+    if (is_locked || is_vt_scope) {
+      if (elem) {
         if (const auto inline_size = elem->LastRememberedInlineSize()) {
           // ResizeObserverSize is adjusted to be in CSS space, we need to
           // adjust it back to Layout space by applying the effective zoom.
@@ -1357,17 +1231,22 @@ LayoutUnit LayoutBox::OverrideIntrinsicContentBlockSize() const {
   }
 
   const auto& style = StyleRef();
-  const StyleIntrinsicLength& intrinsic_length =
-      style.ContainIntrinsicBlockSize();
+  StyleIntrinsicLength intrinsic_length =
+      style.EffectiveContainIntrinsicBlockSize();
 
   if (intrinsic_length.HasAuto()) {
     const auto* context = GetDisplayLockContext();
-    if (context && context->IsLocked()) {
-      if (const auto* elem = DynamicTo<Element>(GetNode())) {
-        if (const auto inline_size = elem->LastRememberedBlockSize()) {
+    const bool is_locked = context && context->IsLocked();
+    const auto* elem = DynamicTo<Element>(GetNode());
+    const bool is_vt_scope =
+        style.HasSizeContainmentForViewTransitionScope() &&
+        RuntimeEnabledFeatures::ScopedViewTransitionSizeContainmentEnabled();
+    if (is_locked || is_vt_scope) {
+      if (elem) {
+        if (const auto block_size = elem->LastRememberedBlockSize()) {
           // ResizeObserverSize is adjusted to be in CSS space, we need to
           // adjust it back to Layout space by applying the effective zoom.
-          return LayoutUnit::FromFloatRound(*inline_size *
+          return LayoutUnit::FromFloatRound(*block_size *
                                             style.EffectiveZoom());
         }
       }
@@ -1598,6 +1477,12 @@ bool LayoutBox::HasScrollbarGutters(ScrollbarOrientation orientation) const {
   NOT_DESTROYED();
   if (StyleRef().IsScrollbarGutterAuto())
     return false;
+
+  // A box that doesn't respect CSS overflow can never show scrollbars itself,
+  // so it reserves no scrollbar gutter.
+  if (!RespectsCSSOverflow()) {
+    return false;
+  }
 
   DCHECK(StyleRef().IsScrollbarGutterStable());
 
@@ -1839,14 +1724,15 @@ gfx::Vector2d LayoutBox::PixelSnappedScrolledContentOffset() const {
   return GetScrollableArea()->ScrollOffsetInt();
 }
 
-PhysicalRect LayoutBox::ClippingRect(const PhysicalOffset& location) const {
+PhysicalRect LayoutBox::ClippingRect() const {
   NOT_DESTROYED();
   PhysicalRect result(InfiniteIntRect());
-  if (ShouldClipOverflowAlongEitherAxis())
-    result = OverflowClipRect(location);
-
-  if (HasClip())
-    result.Intersect(ClipRect(location));
+  if (ShouldClipOverflowAlongEitherAxis()) {
+    result = OverflowClipRect();
+  }
+  if (HasCSSClip()) {
+    result.Intersect(CSSClipRect());
+  }
 
   return result;
 }
@@ -2012,7 +1898,7 @@ bool LayoutBox::ApplyBoxClips(
   // This won't work fully correctly for fixed-position elements, who should
   // receive CSS clip but for whom the current object is not in the containing
   // block chain.
-  PhysicalRect clip_rect = ClippingRect(PhysicalOffset());
+  PhysicalRect clip_rect = ClippingRect();
   if (visual_rect_flags & kEdgeInclusive) {
     does_intersect = rect.InclusiveIntersect(clip_rect);
   } else {
@@ -2220,6 +2106,8 @@ bool LayoutBox::ComputeBackgroundIsKnownToBeObscured() const {
 void LayoutBox::ImageChanged(WrappedImagePtr image,
                              CanDeferInvalidation defer) {
   NOT_DESTROYED();
+  LayoutBoxModelObject::ImageChanged(image, defer);
+
   bool is_box_reflect_image =
       (StyleRef().BoxReflect() && StyleRef().BoxReflect()->Mask().GetImage() &&
        StyleRef().BoxReflect()->Mask().GetImage()->Data() == image);
@@ -2238,19 +2126,6 @@ void LayoutBox::ImageChanged(WrappedImagePtr image,
       is_box_reflect_image) {
     SetShouldDoFullPaintInvalidationWithoutLayoutChange(
         PaintInvalidationReason::kImage);
-  } else {
-    for (const FillLayer* layer = &StyleRef().MaskLayers(); layer;
-         layer = layer->Next()) {
-      if (layer->GetImage() && image == layer->GetImage()->Data()) {
-        SetShouldDoFullPaintInvalidationWithoutLayoutChange(
-            PaintInvalidationReason::kImage);
-        // Since an invalid <mask> reference does not yield a paint property
-        // (see CSSMaskPainter), we need to update paint properties when such a
-        // reference changes.
-        SetNeedsPaintPropertyUpdate();
-        break;
-      }
-    }
   }
 
   if (!BackgroundTransfersToView()) {
@@ -2408,7 +2283,6 @@ void LayoutBox::ClearPaintFlags() {
 }
 
 PhysicalRect LayoutBox::OverflowClipRect(
-    const PhysicalOffset& location,
     OverlayScrollbarClipBehavior overlay_scrollbar_clip_behavior) const {
   NOT_DESTROYED();
   PhysicalRect clip_rect;
@@ -2419,11 +2293,10 @@ PhysicalRect LayoutBox::OverflowClipRect(
     // box does not. We can do this because the effective root scroller is
     // restricted such that it exactly fills the viewport. See
     // RootScrollerController::IsValidRootScroller()
-    clip_rect = PhysicalRect(location, View()->ViewRect().size);
+    clip_rect = PhysicalRect(PhysicalOffset(), View()->ViewRect().size);
   } else {
     clip_rect = PhysicalBorderBoxRect();
     clip_rect.Contract(BorderOutsets());
-    clip_rect.Move(location);
 
     // Videos need to be pre-snapped so that they line up with the
     // display_rect and can enable hardware overlays.
@@ -2463,16 +2336,14 @@ PhysicalRect LayoutBox::OverflowClipRect(
 
   if (HasControlClip()) [[unlikely]] {
     PhysicalRect control_clip = PhysicalContentBoxRect();
-    control_clip.Move(location);
     clip_rect.Intersect(control_clip);
   }
 
   return clip_rect;
 }
 
-PhysicalRect LayoutBox::OverflowClipRectForScrollNode(
-    const PhysicalOffset& location) const {
-  return OverflowClipRect(location);
+PhysicalRect LayoutBox::OverflowClipRectForScrollNode() const {
+  return OverflowClipRect();
 }
 
 bool LayoutBox::HasControlClip() const {
@@ -2500,10 +2371,10 @@ void LayoutBox::ExcludeScrollbars(
   rect.size.ClampNegativeToZero();
 }
 
-PhysicalRect LayoutBox::ClipRect(const PhysicalOffset& location) const {
+PhysicalRect LayoutBox::CSSClipRect() const {
   NOT_DESTROYED();
   PhysicalSize stitched_size = StitchedSize();
-  PhysicalRect clip_rect(location, stitched_size);
+  PhysicalRect clip_rect(PhysicalOffset(), stitched_size);
   LayoutUnit width = stitched_size.width;
   LayoutUnit height = stitched_size.height;
 
@@ -2539,7 +2410,8 @@ LayoutUnit LayoutBox::ContainingBlockLogicalHeightForRelPositioned() const {
   const auto* container = To<LayoutBoxModelObject>(Container());
 
   if (const auto* box = DynamicTo<LayoutBox>(container)) {
-    return box->ContentLogicalHeight();
+    const PhysicalSize size = box->PhysicalContentBoxRect().size;
+    return box->StyleRef().IsHorizontalWritingMode() ? size.height : size.width;
   }
 
   // TODO(ikilpatrick): This is resolving percentages against incorrectly if
@@ -2565,8 +2437,10 @@ LayoutUnit LayoutBox::ContainingBlockLogicalWidthForContent() const {
     return OverrideContainingBlockContentLogicalWidth();
 
   LayoutBlock* cb = ContainingBlock();
-  if (IsOutOfFlowPositioned())
-    return cb->ClientLogicalWidth();
+  if (IsOutOfFlowPositioned()) {
+    const PhysicalSize size = cb->PhysicalPaddingBoxRect().size;
+    return cb->StyleRef().IsHorizontalWritingMode() ? size.width : size.height;
+  }
   return cb->ContentLogicalWidth();
 }
 
@@ -3922,41 +3796,6 @@ PhysicalRect LayoutBox::PhysicalContractedBoxRect(ContractionEdge edge) const {
   return rect;
 }
 
-PhysicalRect LayoutBox::PhysicalPaddingBoxRect() const {
-  NOT_DESTROYED();
-  if (!RuntimeEnabledFeatures::LayoutBoxRectGettersUseFragmentsEnabled()) {
-    return PhysicalRect(ClientLeft(), ClientTop(), ClientWidth(),
-                        ClientHeight());
-  }
-  return PhysicalContractedBoxRect(kContractToPaddingEdge);
-}
-
-DISABLE_CFI_PERF
-PhysicalRect LayoutBox::PhysicalContentBoxRect() const {
-  NOT_DESTROYED();
-  if (!RuntimeEnabledFeatures::LayoutBoxRectGettersUseFragmentsEnabled()) {
-    return PhysicalRect(ContentLeft(), ContentTop(), ContentWidth(),
-                        ContentHeight());
-  }
-  return PhysicalContractedBoxRect(kContractToContentEdge);
-}
-
-PhysicalOffset LayoutBox::PhysicalContentBoxOffset() const {
-  NOT_DESTROYED();
-  if (!RuntimeEnabledFeatures::LayoutBoxRectGettersUseFragmentsEnabled()) {
-    return PhysicalOffset(ContentLeft(), ContentTop());
-  }
-  return PhysicalContractedBoxRect(kContractToContentEdge).offset;
-}
-
-PhysicalSize LayoutBox::PhysicalContentBoxSize() const {
-  NOT_DESTROYED();
-  if (!RuntimeEnabledFeatures::LayoutBoxRectGettersUseFragmentsEnabled()) {
-    return PhysicalSize(ContentWidth(), ContentHeight());
-  }
-  return PhysicalContractedBoxRect(kContractToContentEdge).size;
-}
-
 ShapeOutsideInfo* LayoutBox::GetShapeOutsideInfo() const {
   NOT_DESTROYED();
   return ShapeOutsideInfo::Info(*this);
@@ -4354,7 +4193,7 @@ bool LayoutBox::IsFixedToView(
 PhysicalRect LayoutBox::ComputeStickyConstrainingRect() const {
   NOT_DESTROYED();
   DCHECK(IsScrollContainer());
-  PhysicalRect constraining_rect(OverflowClipRect(PhysicalOffset()));
+  PhysicalRect constraining_rect = OverflowClipRect();
   constraining_rect.Move(-BorderOutsets().Offset());
   constraining_rect.Contract(PaddingOutsets());
 

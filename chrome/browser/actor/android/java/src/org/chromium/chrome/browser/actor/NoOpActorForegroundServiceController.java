@@ -27,6 +27,9 @@ public class NoOpActorForegroundServiceController implements ActorForegroundServ
     private NoOpActorForegroundServiceController() {}
 
     @Override
+    public void startService(String glicTriggerMessageId) {}
+
+    @Override
     public void startAndBindService(Runnable onConnected) {}
 
     @Override
@@ -54,6 +57,11 @@ public class NoOpActorForegroundServiceController implements ActorForegroundServ
 
     @Override
     public boolean isActivityVisibleForTabs(Set<Integer> tabIds) {
+        return false;
+    }
+
+    @Override
+    public boolean isTabbedActivityVisible() {
         return false;
     }
 }

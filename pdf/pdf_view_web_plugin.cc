@@ -1778,6 +1778,15 @@ void PdfViewWebPlugin::HasMeaningfulText(HasMeaningfulTextCallback callback) {
   std::move(callback).Run(engine_ && engine_->HasMeaningfulText());
 }
 
+void PdfViewWebPlugin::HasJavaScript(HasJavaScriptCallback callback) {
+  std::move(callback).Run(engine_ && engine_->HasJavaScript());
+}
+
+void PdfViewWebPlugin::IsPasswordProtected(
+    IsPasswordProtectedCallback callback) {
+  std::move(callback).Run(engine_ && engine_->IsPasswordProtected());
+}
+
 void PdfViewWebPlugin::GetPageText(int32_t page_index,
                                    GetPageTextCallback callback) {
   if (page_index < 0 || page_index >= engine_->GetNumberOfPages()) {
@@ -2885,8 +2894,10 @@ void PdfViewWebPlugin::RecordDocumentMetrics() {
   if (ink_module_) {
     // Use a timeout limit of 100ms, which will capture over 90 percent of PDFs
     // without increasing the PDF load time a significant amount.
-    RecordPdfLoadedWithV2InkAnnotations(
-        engine_->ContainsV2InkPath(base::Milliseconds(100)));
+    PDFiumEngine::InkIdentifiers ink_identifiers =
+        engine_->ScanForInkAnnotations(base::Milliseconds(100));
+    RecordPdfLoadedWithV2InkAnnotations(ink_identifiers.v2_ink_path);
+    RecordPdfLoadedWithInkTextAnnotations(ink_identifiers.ink_text_annotations);
   }
 #endif  // BUILDFLAG(ENABLE_PDF_INK2)
 }

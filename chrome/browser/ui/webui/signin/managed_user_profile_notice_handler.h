@@ -25,7 +25,6 @@
 #include "content/public/browser/web_ui_message_handler.h"
 #include "google_apis/gaia/core_account_id.h"
 
-class Browser;
 class BrowserWindowInterface;
 class Profile;
 struct AccountInfo;
@@ -49,9 +48,10 @@ class ManagedUserProfileNoticeHandler
     kError = 4,
     kValueProposition = 5,
     kUserDataHandling = 6,
+    kSignalsDisclaimer = 7,
   };
   ManagedUserProfileNoticeHandler(
-      Browser* browser,
+      BrowserWindowInterface* browser,
       ManagedUserProfileNoticeUI::ScreenType type,
       std::unique_ptr<signin::EnterpriseProfileCreationDialogParams>
           create_param);
@@ -108,6 +108,7 @@ class ManagedUserProfileNoticeHandler
   void HandleInitializedWithSize(const base::ListValue& args);
   void HandleProceed(const base::ListValue& args);
   void HandleCancel(const base::ListValue& args);
+  void HandleLearnMoreClicked(const base::ListValue& args);
 
 #if BUILDFLAG(CHROME_FOR_TESTING)
   // Processes the enterprise-signin-dialog-behavior command line switch.
@@ -152,7 +153,7 @@ class ManagedUserProfileNoticeHandler
 
   base::OneShotTimer processing_timer_;
 
-  raw_ptr<Browser> browser_ = nullptr;
+  raw_ptr<BrowserWindowInterface> browser_ = nullptr;
   base::CallbackListSubscription browser_did_close_subscription_;
   const ManagedUserProfileNoticeUI::ScreenType type_;
   const bool profile_creation_required_by_policy_;
@@ -164,6 +165,7 @@ class ManagedUserProfileNoticeHandler
   const CoreAccountId account_id_;
   signin::SigninChoiceWithConfirmAndRetryCallback
       process_user_choice_with_confirmation_callback_;
+  signin::DeviceSignalsDisclaimerCallback device_signals_disclaimer_callback_;
   base::OnceClosure done_callback_;
   base::RepeatingClosure retry_callback_;
   bool canceling_ = false;

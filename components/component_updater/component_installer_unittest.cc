@@ -24,7 +24,6 @@
 #include "base/run_loop.h"
 #include "base/sequence_checker.h"
 #include "base/strings/strcat.h"
-#include "base/strings/stringprintf.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/test/bind.h"
@@ -49,6 +48,7 @@
 #include "components/update_client/update_client_errors.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/abseil-cpp/absl/strings/str_format.h"
 
 namespace component_updater {
 namespace {
@@ -92,30 +92,40 @@ class MockUpdateClient : public UpdateClient {
     std::move(callback).Run(update_client::Error::NONE);
   }
 
-  MOCK_METHOD3(SendPing,
-               void(const CrxComponent& crx_component,
-                    PingParams ping_params,
-                    Callback callback));
-  MOCK_METHOD1(AddObserver, void(Observer* observer));
-  MOCK_METHOD1(RemoveObserver, void(Observer* observer));
-  MOCK_METHOD2(DoInstall,
-               void(const std::string& id,
-                    const CrxDataCallback& crx_data_callback));
-  MOCK_METHOD2(DoUpdate,
-               void(const std::vector<std::string>& ids,
-                    const CrxDataCallback& crx_data_callback));
-  MOCK_METHOD5(CheckForUpdate,
-               void(const std::string& ids,
-                    CrxDataCallback crx_data_callback,
-                    CrxStateChangeCallback crx_state_change_callback,
-                    bool is_foreground,
-                    Callback callback));
-  MOCK_CONST_METHOD2(GetCrxUpdateState,
-                     bool(const std::string& id, CrxUpdateItem* update_item));
-  MOCK_CONST_METHOD1(IsUpdating, bool(const std::string& id));
-  MOCK_METHOD0(Stop, void());
-  MOCK_METHOD2(CleanupStaleDownloads,
-               void(base::Time older_than, base::OnceClosure callback));
+  MOCK_METHOD(void,
+              SendPing,
+              (const CrxComponent& crx_component,
+               PingParams ping_params,
+               Callback callback),
+              (override));
+  MOCK_METHOD(void, AddObserver, (Observer * observer), (override));
+  MOCK_METHOD(void, RemoveObserver, (Observer * observer), (override));
+  MOCK_METHOD(void,
+              DoInstall,
+              (const std::string& id,
+               const CrxDataCallback& crx_data_callback));
+  MOCK_METHOD(void,
+              DoUpdate,
+              (const std::vector<std::string>& ids,
+               const CrxDataCallback& crx_data_callback));
+  MOCK_METHOD(void,
+              CheckForUpdate,
+              (const std::string& ids,
+               CrxDataCallback crx_data_callback,
+               CrxStateChangeCallback crx_state_change_callback,
+               bool is_foreground,
+               Callback callback),
+              (override));
+  MOCK_METHOD(bool,
+              GetCrxUpdateState,
+              (const std::string& id, CrxUpdateItem* update_item),
+              (const, override));
+  MOCK_METHOD(bool, IsUpdating, (const std::string& id), (const, override));
+  MOCK_METHOD(void, Stop, (), (override));
+  MOCK_METHOD(void,
+              CleanupStaleDownloads,
+              (base::Time older_than, base::OnceClosure callback),
+              (override));
 
  private:
   ~MockUpdateClient() override = default;
@@ -188,12 +198,14 @@ class MockInstallerPolicy : public ComponentInstallerPolicy {
 
 class MockUpdateScheduler : public UpdateScheduler {
  public:
-  MOCK_METHOD4(Schedule,
-               void(base::TimeDelta initial_delay,
-                    base::TimeDelta delay,
-                    const UserTask& user_task,
-                    const OnStopTaskCallback& on_stop));
-  MOCK_METHOD0(Stop, void());
+  MOCK_METHOD(void,
+              Schedule,
+              (base::TimeDelta initial_delay,
+               base::TimeDelta delay,
+               const UserTask& user_task,
+               const OnStopTaskCallback& on_stop),
+              (override));
+  MOCK_METHOD(void, Stop, (), (override));
 };
 
 class ComponentInstallerTest : public testing::Test {
@@ -308,10 +320,9 @@ std::optional<base::FilePath> CreateComponentDirectory(
     "version": "%s",
     "min_env_version": "%s"
   })";
-  return base::WriteFile(
-             component_dir.AppendASCII("manifest.json"),
-             base::StringPrintf(kManifestData.data(), name.c_str(),
-                                version.c_str(), min_env_version.c_str()))
+  return base::WriteFile(component_dir.AppendASCII("manifest.json"),
+                         absl::StrFormat(kManifestData.data(), name, version,
+                                         min_env_version))
              ? std::make_optional(component_dir)
              : std::nullopt;
 }
@@ -359,7 +370,7 @@ TEST_F(ComponentInstallerTest, RegisterComponent) {
       component.pk_hash);
   EXPECT_EQ(base::Version("0.0.0.0"), component.version);
   EXPECT_TRUE(component.fingerprint.empty());
-  EXPECT_STREQ("fake name", component.name.c_str());
+  EXPECT_EQ("fake name", component.name);
   EXPECT_EQ(expected_attrs, component.installer_attributes);
   EXPECT_TRUE(component.requires_network_encryption);
 

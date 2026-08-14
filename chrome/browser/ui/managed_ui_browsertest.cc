@@ -83,7 +83,7 @@ class ManagedUiTest : public InProcessBrowserTest {
 IN_PROC_BROWSER_TEST_F(
     ManagedUiTest,
     ShouldDisplayManagedUiNoPoliciesNotSupervisedReturnsFalse) {
-  EXPECT_FALSE(ShouldDisplayManagedUi(browser()->profile()));
+  EXPECT_FALSE(ShouldDisplayManagedUi(browser()->GetProfile()));
 }
 
 IN_PROC_BROWSER_TEST_F(
@@ -92,9 +92,9 @@ IN_PROC_BROWSER_TEST_F(
   AddEnterpriseManagedPolicies();
 
 #if BUILDFLAG(IS_CHROMEOS)
-  EXPECT_FALSE(ShouldDisplayManagedUi(browser()->profile()));
+  EXPECT_FALSE(ShouldDisplayManagedUi(browser()->GetProfile()));
 #else
-  EXPECT_TRUE(ShouldDisplayManagedUi(browser()->profile()));
+  EXPECT_TRUE(ShouldDisplayManagedUi(browser()->GetProfile()));
 #endif
 }
 
@@ -115,7 +115,7 @@ IN_PROC_BROWSER_TEST_F(ManagedUiTest, GetDeviceManagedUiHelpLabelEnterprise) {
   // Simulate a managed profile.
   AddEnterpriseManagedPolicies();
   policy::ScopedManagementServiceOverrideForTesting browser_management(
-      policy::ManagementServiceFactory::GetForProfile(browser()->profile()),
+      policy::ManagementServiceFactory::GetForProfile(browser()->GetProfile()),
       policy::EnterpriseManagementAuthority::CLOUD);
 
   TestingProfile::Builder builder;
@@ -126,7 +126,7 @@ IN_PROC_BROWSER_TEST_F(ManagedUiTest, GetDeviceManagedUiHelpLabelEnterprise) {
   builder_with_domain.OverridePolicyConnectorIsManagedForTesting(true);
   auto profile_with_domain = builder_with_domain.Build();
 
-  auto* profile_with_hosted_domain = browser()->profile();
+  auto* profile_with_hosted_domain = browser()->GetProfile();
   ProfileAttributesEntry* entry =
       g_browser_process->profile_manager()
           ->GetProfileAttributesStorage()
@@ -214,7 +214,7 @@ IN_PROC_BROWSER_TEST_F(ManagedUiTest, GetManagedUiIconEnterprise) {
   // Simulate a managed device.
   AddEnterpriseManagedPolicies();
   policy::ScopedManagementServiceOverrideForTesting browser_management(
-      policy::ManagementServiceFactory::GetForProfile(browser()->profile()),
+      policy::ManagementServiceFactory::GetForProfile(browser()->GetProfile()),
       policy::EnterpriseManagementAuthority::CLOUD);
 
   // An un-supervised profile.
@@ -255,7 +255,7 @@ IN_PROC_BROWSER_TEST_F(ManagedUiTest, GetManagedUiMenuLinkUrlEnterprise) {
   // Simulate a managed device.
   AddEnterpriseManagedPolicies();
   policy::ScopedManagementServiceOverrideForTesting browser_management(
-      policy::ManagementServiceFactory::GetForProfile(browser()->profile()),
+      policy::ManagementServiceFactory::GetForProfile(browser()->GetProfile()),
       policy::EnterpriseManagementAuthority::CLOUD);
 
   // An un-supervised profile.
@@ -303,7 +303,7 @@ IN_PROC_BROWSER_TEST_F(ManagedUiTest, GetManagedUiMenuItemLabelEnterprise) {
   builder_with_domain.OverridePolicyConnectorIsManagedForTesting(true);
   auto profile_with_domain = builder_with_domain.Build();
 
-  auto* profile_with_hosted_domain = browser()->profile();
+  auto* profile_with_hosted_domain = browser()->GetProfile();
   ProfileAttributesEntry* entry =
       g_browser_process->profile_manager()
           ->GetProfileAttributesStorage()
@@ -453,7 +453,7 @@ IN_PROC_BROWSER_TEST_F(ManagedUiTest, GetManagedUiMenuItemTooltipEnterprise) {
   builder_with_domain.OverridePolicyConnectorIsManagedForTesting(true);
   auto profile_with_domain = builder_with_domain.Build();
 
-  auto* profile_with_hosted_domain = browser()->profile();
+  auto* profile_with_hosted_domain = browser()->GetProfile();
   ProfileAttributesEntry* entry =
       g_browser_process->profile_manager()
           ->GetProfileAttributesStorage()
@@ -607,7 +607,7 @@ IN_PROC_BROWSER_TEST_F(ManagedUiTest, GetManagedUiWebUIIconEnterprise) {
   // Simulate a managed profile.
   AddEnterpriseManagedPolicies();
   policy::ScopedManagementServiceOverrideForTesting browser_management(
-      policy::ManagementServiceFactory::GetForProfile(browser()->profile()),
+      policy::ManagementServiceFactory::GetForProfile(browser()->GetProfile()),
       policy::EnterpriseManagementAuthority::CLOUD);
 
   TestingProfile::Builder builder;
@@ -653,7 +653,7 @@ IN_PROC_BROWSER_TEST_F(ManagedUiTest, GetManagedUiWebUILabelEnterprise) {
   builder_with_domain.OverridePolicyConnectorIsManagedForTesting(true);
   auto profile_with_domain = builder_with_domain.Build();
 
-  auto* profile_with_hosted_domain = browser()->profile();
+  auto* profile_with_hosted_domain = browser()->GetProfile();
   ProfileAttributesEntry* entry =
       g_browser_process->profile_manager()
           ->GetProfileAttributesStorage()
@@ -839,7 +839,7 @@ IN_PROC_BROWSER_TEST_F(ManagedUiTest, GetManagementPageSubtitle) {
   builder_with_domain.OverridePolicyConnectorIsManagedForTesting(true);
   auto profile_with_domain = builder_with_domain.Build();
 
-  auto* profile_with_hosted_domain = browser()->profile();
+  auto* profile_with_hosted_domain = browser()->GetProfile();
   ProfileAttributesEntry* entry =
       g_browser_process->profile_manager()
           ->GetProfileAttributesStorage()
@@ -998,7 +998,7 @@ IN_PROC_BROWSER_TEST_F(ManagedUiTest, GetManagementBubbleTitle) {
   builder_with_domain.OverridePolicyConnectorIsManagedForTesting(true);
   auto profile_with_domain = builder_with_domain.Build();
 
-  auto* profile_with_hosted_domain = browser()->profile();
+  auto* profile_with_hosted_domain = browser()->GetProfile();
   ProfileAttributesEntry* entry =
       g_browser_process->profile_manager()
           ->GetProfileAttributesStorage()

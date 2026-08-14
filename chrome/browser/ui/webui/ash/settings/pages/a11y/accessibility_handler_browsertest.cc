@@ -85,7 +85,8 @@ class AccessibilityHandlerTest : public InProcessBrowserTest {
   }
 
   void SetUpOnMainThread() override {
-    handler_ = std::make_unique<TestAccessibilityHandler>(browser()->profile());
+    handler_ =
+        std::make_unique<TestAccessibilityHandler>(browser()->GetProfile());
     handler_->set_web_ui(&web_ui_);
     handler_->RegisterMessages();
     handler_->AllowJavascriptForTesting();
@@ -288,7 +289,7 @@ IN_PROC_BROWSER_TEST_F(AccessibilityHandlerTest, DictationLocalesCalculation) {
     }
 
     // Set up fake preferred languages.
-    browser()->profile()->GetPrefs()->SetString(
+    browser()->GetProfile()->GetPrefs()->SetString(
         language::prefs::kPreferredLanguages, testcase.preferred_languages);
 
     MaybeAddDictationLocales();

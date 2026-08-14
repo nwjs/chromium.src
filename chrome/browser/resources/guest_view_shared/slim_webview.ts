@@ -94,6 +94,24 @@ export class NewWindowEvent extends Event {
   }
 }
 
+export class ZoomChangeEvent extends Event {
+  readonly oldZoomFactor: number;
+  readonly newZoomFactor: number;
+
+  static factory(args: EventDict) {
+    return new ZoomChangeEvent(args);
+  }
+
+  private constructor(args: EventDict) {
+    super('zoomchange', {
+      bubbles: true,
+      cancelable: false,
+    });
+    this.oldZoomFactor = args.getDouble('oldZoomFactor');
+    this.newZoomFactor = args.getDouble('newZoomFactor');
+  }
+}
+
 export interface PermissionRequest {
   url: string;
   allow(): void;
@@ -254,6 +272,12 @@ const eventDescriptors: EventMap = new Map([
       handler: SizeChangedEvent.prototype.handle,
     },
   ],
+  [
+    'zoomchange',
+    {
+      factory: ZoomChangeEvent.factory,
+    },
+  ],
   ['unresponsive', {}],
 ]);
 
@@ -378,7 +402,7 @@ export class SlimWebviewElement extends CrLitElement {
 
   override updated(changedProperties: PropertyValues<this>) {
     super.updated(changedProperties);
-    if (changedProperties.has('src')) {
+    if (changedProperties.has('src') && this.src) {
       if (this.guestInstanceId === null) {
         this.guestInstanceId = GUEST_INSTANCE_ID_PENDING;
         this.createGuest();
@@ -530,6 +554,33 @@ export class SlimWebviewElement extends CrLitElement {
       return false;
     }
     return true;
+  }
+
+  setZoom(zoomFactor: number, callback?: () => void) {
+    if (this.guestInstanceId === null ||
+        this.guestInstanceId === GUEST_INSTANCE_ID_PENDING) {
+      return;
+    }
+    BrowserProxyImpl.getInstance()
+        .handler.setZoom(this.guestInstanceId, zoomFactor)
+        .then(() => {
+          if (callback) {
+            callback();
+          }
+        });
+  }
+
+  getZoom(callback: (zoomFactor: number) => void) {
+    if (this.guestInstanceId === null ||
+        this.guestInstanceId === GUEST_INSTANCE_ID_PENDING) {
+      callback(1.0);
+      return;
+    }
+    BrowserProxyImpl.getInstance()
+        .handler.getZoom(this.guestInstanceId)
+        .then((result) => {
+          callback(result.zoomFactor);
+        });
   }
 }
 

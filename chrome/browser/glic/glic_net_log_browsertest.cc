@@ -53,14 +53,14 @@ class GlicNetLogBrowserTest : public InProcessBrowserTest {
 
 // Tests that opening the UI logs a request to the Glic main page.
 IN_PROC_BROWSER_TEST_F(GlicNetLogBrowserTest, LogGlicRequestOnOpenUI) {
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
 
   ASSERT_TRUE(GlicEnabling::IsEnabledForProfile(profile));
   SetFRECompletion(profile, prefs::FreStatus::kCompleted);
   ASSERT_TRUE(GlicEnabling::IsReadyForProfile(profile));
 
   auto* glic_service =
-      GlicKeyedServiceFactory::GetGlicKeyedService(browser()->profile());
+      GlicKeyedServiceFactory::GetGlicKeyedService(browser()->GetProfile());
   glic_service->ToggleUI(nullptr, false, mojom::InvocationSource::kOsHotkey);
 
   std::vector<net::NetLogEntry> entries = net_log_observer().GetEntries();

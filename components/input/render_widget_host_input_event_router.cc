@@ -730,7 +730,7 @@ void RenderWidgetHostInputEventRouter::DispatchMouseEvent(
 
   if (root_view_receive_additional_mouse_up_ && target != root_view &&
       mouse_event.GetType() == blink::WebInputEvent::Type::kMouseUp) {
-    root_view->ProcessMouseEvent(event, latency);
+    root_view->ProcessMouseEvent(mouse_event, latency);
   }
 }
 
@@ -2100,13 +2100,10 @@ void RenderWidgetHostInputEventRouter::ForwardEmulatedTouchEvent(
     RenderWidgetHostViewInput* target) {
   TRACE_EVENT0("input",
                "RenderWidgetHostInputEventRouter::ForwardEmulatedTouchEvent");
-  // Here we re-use the last root view we saw for a mouse move event, or fall
-  // back to using |target| as the root_view if we haven't seen a mouse event;
-  // this latter case only happens for injected touch events.
-  // TODO(wjmaclean): Why doesn't this class just track its root view?
-  DCHECK(IsViewInMap(target));
-  last_emulated_event_root_view_ =
-      last_mouse_move_root_view_ ? last_mouse_move_root_view_.get() : target;
+  CHECK(IsViewInMap(target));
+  // Emulated touch and gesture coordinates are relative to this root view.
+  RenderWidgetHostViewInput* root_view = target->GetRootView();
+  last_emulated_event_root_view_ = root_view ? root_view : target;
 
   if (event.GetType() == blink::WebInputEvent::Type::kTouchStart)
     active_touches_ += CountChangedTouchPoints(event);

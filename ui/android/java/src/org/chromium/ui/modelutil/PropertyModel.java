@@ -33,10 +33,10 @@ import java.util.function.Function;
 @NullMarked
 public class PropertyModel extends PropertyObservable<PropertyKey> {
     /** A PropertyKey implementation that associates a name with the property for easy debugging. */
-    private static class NamedPropertyKey implements PropertyKey {
+    static class NamedPropertyKey implements PropertyKey {
         private final @Nullable String mPropertyName;
 
-        public NamedPropertyKey(@Nullable String propertyName) {
+        protected NamedPropertyKey(@Nullable String propertyName) {
             mPropertyName = propertyName;
         }
 
@@ -632,9 +632,14 @@ public class PropertyModel extends PropertyObservable<PropertyKey> {
          * @param resId The specified string resource id.
          * @return The {@link Builder} with the specified key and string resource set.
          */
+        @SuppressWarnings({"rawtypes", "unchecked"})
         public Builder with(
-                ReadableObjectPropertyKey<String> key, Resources resources, @StringRes int resId) {
-            if (resId != 0) with(key, resources.getString(resId));
+                ReadableObjectPropertyKey<? extends CharSequence> key,
+                Resources resources,
+                @StringRes int resId) {
+            if (resId != 0) {
+                with((ReadableObjectPropertyKey) key, resources.getString(resId));
+            }
             return this;
         }
 

@@ -8,7 +8,6 @@
 #include "base/feature_list.h"
 #include "base/hash/sha1.h"
 #include "base/logging.h"
-#include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
 #include "base/numerics/byte_conversions.h"
 #include "base/strings/string_number_conversions.h"
@@ -450,10 +449,21 @@ bool AVCodecContextToAudioDecoderConfig(const AVCodecContext* codec_context,
         .copy_from_nonoverlapping(AVCodecContextExtraDataToSpan(codec_context));
   }
 
+  // FFmpeg exports AAC edit list padding in
+  // AVCodecParameters::initial_padding, which propagates to
+  // codec_context->delay. AAC does not have a pipeline decoder delay, and
+  // this padding is already discarded using container-level discard padding.
+  // Pass 0 here to prevent AudioDiscardHelper from treating it as decoder
+  // delay and failing.
+  int codec_delay = codec_context->delay;
+  if (codec == AudioCodec::kAAC) {
+    codec_delay = 0;
+  }
+
   config->Initialize(codec, sample_format,
                      {channel_layout, codec_context->ch_layout.nb_channels},
                      codec_context->sample_rate, extra_data, encryption_scheme,
-                     seek_preroll, codec_context->delay);
+                     seek_preroll, codec_delay);
 
 #if BUILDFLAG(ENABLE_PLATFORM_AC3_EAC3_AUDIO)
   // These are bitstream formats unknown to ffmpeg, so they don't have
@@ -700,8 +710,8 @@ bool AVStreamToVideoDecoderConfig(const AVStream* stream,
       profile = AV1PROFILE_PROFILE_MAIN;
       if (codec_context->extradata && codec_context->extradata_size) {
         mp4::AV1CodecConfigurationRecord av1_config;
-        if (av1_config.Parse(codec_context->extradata,
-                             codec_context->extradata_size)) {
+        if (av1_config.Parse(
+                AVCodecContextExtraDataToSpan(codec_context.get()))) {
           profile = av1_config.profile;
         } else {
           DLOG(WARNING) << "Failed to parse AV1 extra data for profile.";
@@ -965,18 +975,14 @@ void VideoDecoderConfigToAVCodecContext(
 
 ChannelLayout ChannelLayoutToChromeChannelLayout(
     const AVChannelLayout& layout) {
-  // TODO(crbug.com/475344578): We currently register 1st order ambisonics to be
-  // seen as a quad channel layout. While this is incorrect (we should return
-  // DISCRETE), we are not sure how common this case exists. Need to see
-  // histograms first before a potential breaking change.
-  if (layout.order == AV_CHANNEL_ORDER_AMBISONIC) {
-    constexpr int kMaxAmbisonicsChannels = 32;
-    static_assert(kMaxAmbisonicsChannels == media::limits::kMaxChannels,
-                  "kMaxAmbisonicsChannels does not match kMaxChannels.");
-    base::UmaHistogramExactLinear("Media.Audio.Layouts.Ambisonic.ChannelCount",
-                                  layout.nb_channels,
-                                  kMaxAmbisonicsChannels + 1);
-  }
+  // We currently register 1st order ambisonics (which has 4 channels) to be
+  // seen as a QUAD channel layout. While this is incorrect (and DISCRETE would
+  // be more appropriate), we opt to preserve the historical behavior. Fixing
+  // this behavior might require a substantial update, to prevent loss of
+  // information in the case of downmixing (both from QUAD or DISCRETE).
+  // However, UMAs have shown that the number of ambisonic playbacks is
+  // practically zero, so we should only update this path if we receive actual
+  // user complaints.
 
   switch (layout.u.mask) {
     case AV_CH_LAYOUT_MONO:

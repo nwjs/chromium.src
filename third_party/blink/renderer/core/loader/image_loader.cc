@@ -25,7 +25,6 @@
 #include <memory>
 #include <utility>
 
-#include "services/network/public/mojom/attribution.mojom-blink.h"
 #include "services/network/public/mojom/web_client_hints_types.mojom-blink.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
@@ -41,7 +40,6 @@
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/increment_load_event_delay_count.h"
 #include "third_party/blink/renderer/core/execution_context/agent.h"
-#include "third_party/blink/renderer/core/frame/attribution_src_loader.h"
 #include "third_party/blink/renderer/core/frame/deprecation/deprecation.h"
 #include "third_party/blink/renderer/core/frame/frame_owner.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -118,7 +116,7 @@ class ImageLoader::Task {
       : loader_(loader), update_behavior_(update_behavior) {
     ExecutionContext* context = loader_->GetElement()->GetExecutionContext();
     async_task_context_.Schedule(context, "Image",
-                                 probe::AsyncTaskContext::ScanForAds::kTrue);
+                                 probe::AsyncTaskContext::StackOptions::kScan);
     world_ = context->GetCurrentWorld();
   }
 
@@ -504,15 +502,7 @@ void ImageLoader::DoUpdateFromElement(const DOMWrapperWorld* world,
 
     DCHECK(document.GetFrame());
     auto* frame = document.GetFrame();
-
     if (IsA<HTMLImageElement>(GetElement())) {
-      if (GetElement()->FastHasAttribute(html_names::kAttributionsrcAttr) &&
-          frame->GetAttributionSrcLoader()->CanRegister(
-              url, To<HTMLImageElement>(GetElement()))) {
-        resource_request.SetAttributionReportingEligibility(
-            network::mojom::AttributionReportingEligibility::
-                kEventSourceOrTrigger);
-      }
       bool shared_storage_writable_opted_in =
           GetElement()->FastHasAttribute(
               html_names::kSharedstoragewritableAttr) &&
@@ -522,15 +512,6 @@ void ImageLoader::DoUpdateFromElement(const DOMWrapperWorld* world,
           !SecurityOrigin::Create(url)->IsOpaque();
       resource_request.SetSharedStorageWritableOptedIn(
           shared_storage_writable_opted_in);
-      if (GetElement()->FastHasAttribute(html_names::kBrowsingtopicsAttr) &&
-          RuntimeEnabledFeatures::TopicsAPIEnabled(
-              GetElement()->GetExecutionContext()) &&
-          GetElement()->GetExecutionContext()->IsSecureContext()) {
-        resource_request.SetBrowsingTopics(true);
-        UseCounter::Count(document, mojom::blink::WebFeature::kTopicsAPIImg);
-        Deprecation::CountDeprecation(GetElement()->GetExecutionContext(),
-                                      WebFeature::kTopicsAPIAll);
-      }
     }
 
     bool page_is_being_dismissed =
@@ -940,34 +921,28 @@ void ImageLoader::UpdateLayoutObject() {
     image_resource->SetImageResource(image_content_.Get());
 }
 
-gfx::Size ImageLoader::AccessNaturalSize() const {
+gfx::Size ImageLoader::DensityCorrectedNaturalSize(
+    float inverse_density) const {
   if (!image_content_ || !image_content_->HasImage() ||
       image_content_->ErrorOccurred()) {
     return gfx::Size();
   }
   Image& image = *image_content_->GetImage();
-  gfx::Size size = image.Size(kRespectImageOrientation);
-
   if (auto* svg_image = DynamicTo<SVGImage>(image)) {
-    gfx::Size concrete_object_size;
-    if (std::optional<NaturalSizingInfo> sizing_info =
-            SVGImageForContainer::GetNaturalDimensions(*svg_image, nullptr)) {
-      concrete_object_size =
-          ToRoundedSize(PhysicalSize::FromSizeFFloor(blink::ConcreteObjectSize(
-              *sizing_info, gfx::SizeF(LayoutReplaced::kDefaultWidth,
-                                       LayoutReplaced::kDefaultHeight))));
-      size = ToRoundedSize(PhysicalSize::FromSizeFFloor(
-          blink::ConcreteObjectSize(*sizing_info, gfx::SizeF())));
+    std::optional<NaturalSizingInfo> sizing_info =
+        SVGImageForContainer::GetNaturalDimensions(*svg_image, nullptr);
+    if (!sizing_info) {
+      return gfx::Size();
     }
-    if (size != concrete_object_size) {
-      element_->GetDocument().CountUse(
-          WebFeature::kHTMLImageElementNaturalSizeDiffersForSvgImage);
-    }
-    if (!RuntimeEnabledFeatures::HTMLImageElementActualNaturalSizeEnabled()) {
-      size = concrete_object_size;
-    }
+    sizing_info->size.Scale(inverse_density);
+
+    static constexpr gfx::SizeF kDefaultObjectSize{300, 150};
+    return ToRoundedSize(PhysicalSize::FromSizeFFloor(
+        blink::ConcreteObjectSize(*sizing_info, kDefaultObjectSize)));
   }
-  return size;
+  PhysicalSize natural_size(image.Size(kRespectImageOrientation));
+  natural_size.Scale(inverse_density);
+  return {natural_size.width.ToInt(), natural_size.height.ToInt()};
 }
 
 ResourcePriority ImageLoader::ComputeResourcePriority() const {

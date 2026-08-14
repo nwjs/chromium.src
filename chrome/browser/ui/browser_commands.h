@@ -22,6 +22,7 @@
 #include "components/split_tabs/split_tab_id.h"
 #include "content/public/common/page_zoom.h"
 #include "printing/buildflags/buildflags.h"
+#include "ui/actions/actions.h"
 #include "ui/base/window_open_disposition.h"
 
 class BrowserWindowInterface;
@@ -53,9 +54,22 @@ bool SupportsCommand(BrowserWindowInterface* browser, int command);
 bool ExecuteCommand(BrowserWindowInterface* browser,
                     int command,
                     base::TimeTicks time_stamp = base::TimeTicks::Now());
-bool ExecuteCommandWithDisposition(BrowserWindowInterface* browser,
-                                   int command,
-                                   WindowOpenDisposition disposition);
+bool ExecuteCommandWithContext(
+    BrowserWindowInterface* browser,
+    int command,
+    actions::ActionInvocationContext context,
+    base::TimeTicks time_stamp = base::TimeTicks::Now());
+bool ExecuteCommandWithDisposition(
+    BrowserWindowInterface* browser,
+    int command,
+    WindowOpenDisposition disposition,
+    base::TimeTicks time_stamp = base::TimeTicks::Now());
+bool ExecuteCommandWithDispositionAndContext(
+    BrowserWindowInterface* browser,
+    int command,
+    WindowOpenDisposition disposition,
+    actions::ActionInvocationContext context,
+    base::TimeTicks time_stamp = base::TimeTicks::Now());
 void UpdateCommandEnabled(BrowserWindowInterface* browser, int command, bool enabled);
 void AddCommandObserver(BrowserWindowInterface*, int command, CommandObserver* observer);
 void RemoveCommandObserver(BrowserWindowInterface*, int command, CommandObserver* observer);
@@ -126,6 +140,11 @@ void SelectNextTab(
     TabStripUserGestureDetails gesture_detail = TabStripUserGestureDetails(
         TabStripUserGestureDetails::GestureType::kOther));
 void SelectPreviousTab(
+    BrowserWindowInterface* browser,
+    TabStripUserGestureDetails gesture_detail = TabStripUserGestureDetails(
+        TabStripUserGestureDetails::GestureType::kOther));
+bool IsCtrlTabMruEnabled(BrowserWindowInterface* browser);
+void CycleToMruTab(
     BrowserWindowInterface* browser,
     TabStripUserGestureDetails gesture_detail = TabStripUserGestureDetails(
         TabStripUserGestureDetails::GestureType::kOther));
@@ -307,6 +326,10 @@ void OpenFeedbackDialog(BrowserWindowInterface* browser,
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 void OpenReportUnsafeSiteDialog(BrowserWindowInterface* browser);
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#if BUILDFLAG(IS_WIN)
+void OpenMoveWindow(BrowserWindowInterface* browser);
+void OpenSizeWindow(BrowserWindowInterface* browser);
+#endif  // BUILDFLAG(IS_WIN)
 void ToggleBookmarkBar(BrowserWindowInterface* browser);
 void SetBookmarkBarVisibilityState(BrowserWindowInterface* browser,
                                    bookmarks::BookmarkBarVisibilityState state);

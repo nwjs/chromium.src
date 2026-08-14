@@ -30,7 +30,6 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchManager;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenOptions;
 import org.chromium.chrome.browser.keyboard_accessory.ManualFillingComponent;
@@ -44,7 +43,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
+import org.chromium.chrome.browser.ui.bottombar.BottomBarConfigUtils;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
 import org.chromium.chrome.browser.ui.edge_to_edge.NavigationBarColorProvider;
@@ -68,7 +67,7 @@ class TabbedNavigationBarColorController
 
     // May be null if we return from the constructor early. Otherwise will be set.
     private final @Nullable TabModelSelector mTabModelSelector;
-    private final @Nullable TabModelSelectorObserver mTabModelSelectorObserver;
+    private final Callback<@Nullable Tab> mCurrentTabObserver;
     private final Callback<TabModel> mCurrentTabModelObserver;
     private final FullscreenManager.@Nullable Observer mFullscreenObserver;
     private final MonotonicObservableSupplier<EdgeToEdgeController> mEdgeToEdgeControllerSupplier;
@@ -108,6 +107,7 @@ class TabbedNavigationBarColorController
     private boolean mOverviewMode;
     private @Nullable ValueAnimator mNavbarColorTransitionAnimation;
     private @Nullable Boolean mEnabledBottomChinForTesting;
+    private final boolean mIsBottomBarEnabledInGts;
 
     /**
      * Creates a new {@link TabbedNavigationBarColorController} instance.
@@ -185,19 +185,16 @@ class TabbedNavigationBarColorController
         mContext = context;
         mFullScreenManager = fullscreenManager;
         mEdgeToEdgeSystemBarColorHelper = edgeToEdgeSystemBarColorHelper;
+        mIsBottomBarEnabledInGts =
+                BottomBarConfigUtils.isBottomBarEnabled(context)
+                        && BottomBarConfigUtils.shouldShowOnGts();
 
         mBottomAttachedUiObserver = bottomAttachedUiObserver;
         mBottomAttachedUiObserver.addObserver(this);
 
         mTabModelSelector = tabModelSelector;
-        mTabModelSelectorObserver =
-                new TabModelSelectorObserver() {
-                    @Override
-                    public void onChange() {
-                        updateActiveTab();
-                    }
-                };
-        mTabModelSelector.addObserver(mTabModelSelectorObserver);
+        mCurrentTabObserver = (tab) -> updateActiveTab();
+        mTabModelSelector.getCurrentTabSupplier().addSyncObserver(mCurrentTabObserver);
         mCurrentTabModelObserver = (tabModel) -> updateNavigationBarColor();
         mTabModelSelector
                 .getCurrentTabModelSupplier()
@@ -261,7 +258,7 @@ class TabbedNavigationBarColorController
     @SuppressWarnings("NullAway")
     public void destroy() {
         if (mTabModelSelector != null) {
-            mTabModelSelector.removeObserver(mTabModelSelectorObserver);
+            mTabModelSelector.getCurrentTabSupplier().removeObserver(mCurrentTabObserver);
             mTabModelSelector.getCurrentTabModelSupplier().removeObserver(mCurrentTabModelObserver);
         }
         if (mActiveTab != null) mActiveTab.removeObserver(mTabObserver);
@@ -312,7 +309,6 @@ class TabbedNavigationBarColorController
                             enableOverviewMode();
                             updateNavigationBarColor();
                         } else if (layoutType == LayoutType.TOOLBAR_SWIPE
-                                && ChromeFeatureList.sNavBarColorAnimation.isEnabled()
                                 && isBottomChinEnabled()) {
                             // Hide the nav bar during omnibox swipes.
                             mNavigationBarColor = Color.TRANSPARENT;
@@ -452,7 +448,9 @@ class TabbedNavigationBarColorController
     }
 
     private @ColorInt int getNavigationBarColor(boolean forceDarkNavigationBar) {
-        if (mOverviewMode && mOverviewColorSupplier.get() != null) {
+        if (mOverviewMode && mIsBottomBarEnabledInGts && useBottomAttachedUiColor()) {
+            return mBottomAttachedUiColor;
+        } else if (mOverviewMode && mOverviewColorSupplier.get() != null) {
             return mOverviewColorSupplier.get();
         } else if (useBottomAttachedUiColor()) {
             return mBottomAttachedUiColor;
@@ -468,7 +466,9 @@ class TabbedNavigationBarColorController
     @VisibleForTesting
     @ColorInt
     int getNavigationBarDividerColor(boolean forceDarkNavigationBar, boolean forceShowDivider) {
-        if (mOverviewMode && mOverviewColorSupplier.get() != null) {
+        if (mOverviewMode && mIsBottomBarEnabledInGts && useBottomAttachedUiColor()) {
+            return mBottomAttachedUiColor;
+        } else if (mOverviewMode && mOverviewColorSupplier.get() != null) {
             return mOverviewColorSupplier.get();
         } else if (!forceShowDivider && useBottomAttachedUiColor()) {
             return mBottomAttachedUiColor;
@@ -532,19 +532,13 @@ class TabbedNavigationBarColorController
     }
 
     private boolean shouldEnableNavBarBottomChinColorAnimations() {
-        // First check the dedicated feature flag.
-        if (!ChromeFeatureList.sNavBarColorAnimation.isEnabled()) {
-            return false;
-        }
-        // Next check whether the bottom chin is enabled.
+        // First check whether the bottom chin is enabled.
         if (isBottomChinEnabled() && mEdgeToEdgeControllerSupplier.get() != null) {
-            return !ChromeFeatureList.sNavBarColorAnimationDisableBottomChinColorAnimation
-                    .getValue();
+            return true;
         }
         // Then check whether e2e everywhere is enabled.
         if (EdgeToEdgeUtils.isEdgeToEdgeEverywhereEnabled()) {
-            return !ChromeFeatureList.sNavBarColorAnimationDisableEdgeToEdgeLayoutColorAnimation
-                    .getValue();
+            return true;
         }
         // Disable animations.
         return false;

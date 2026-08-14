@@ -41,6 +41,7 @@ chromium-metrics-reviews@google.com.
 
 <variants name="InvocationSources">
   <variant name="AIHub"/>
+  <variant name="AppBarAimButton"/>
   <variant name="AppMenu"/>
   <variant name="CobrowsePinnedToolbarButton"/>
   <variant name="CobrowseToolbarButton"/>
@@ -55,6 +56,7 @@ chromium-metrics-reviews@google.com.
   <variant name="HomeworkActionChip"/>
   <variant name="LVFGallery"/>
   <variant name="LVFShutterButton"/>
+  <variant name="NtpActionChips"/>
   <variant name="NtpContextualQuery"/>
   <variant name="Omnibox"/>
   <variant name="OmniboxContextualQuery"/>
@@ -115,7 +117,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Composebox.HandshakeCompletedInSession" enum="Boolean"
-    expires_after="2026-10-25">
+    expires_after="2026-12-27">
   <owner>mercerd@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -182,7 +184,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Composebox.ShownInSession" enum="Boolean"
-    expires_after="2026-10-25">
+    expires_after="2026-12-27">
   <owner>mercerd@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -193,7 +195,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Composebox.UserAction" enum="ComposeboxUserAction"
-    expires_after="2026-10-25">
+    expires_after="2026-12-27">
   <owner>mercerd@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -203,7 +205,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Composebox.UserActionInSession"
-    enum="ComposeboxUserAction" expires_after="2026-10-25">
+    enum="ComposeboxUserAction" expires_after="2026-12-27">
   <owner>mercerd@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -483,7 +485,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Overlay.ContextualSearchBox.FocusedInSession"
-    enum="Boolean" expires_after="2026-11-15">
+    enum="Boolean" expires_after="2027-01-17">
   <owner>niharm@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -494,7 +496,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Overlay.ContextualSearchBox.ShownInSession"
-    enum="BooleanShown" expires_after="2026-11-15">
+    enum="BooleanShown" expires_after="2027-01-17">
   <owner>stanfield@google.com</owner>
   <owner>mercerd@google.com</owner>
   <owner>lens-chrome@google.com</owner>
@@ -582,7 +584,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Overlay.ContextualSuggest.QueryIssuedInSession"
-    enum="Boolean" expires_after="2026-11-15">
+    enum="Boolean" expires_after="2027-01-17">
   <owner>niharm@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -625,7 +627,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Overlay.ContextualSuggest.ZPS.ShownInSession"
-    enum="Boolean" expires_after="2026-11-15">
+    enum="Boolean" expires_after="2027-01-17">
   <owner>niharm@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -636,7 +638,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Overlay.ContextualSuggest.ZPS.SuggestionUsedInSession"
-    enum="Boolean" expires_after="2026-11-15">
+    enum="Boolean" expires_after="2027-01-17">
   <owner>niharm@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -647,7 +649,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Overlay.ContextualTasks.QueryEligibility"
-    enum="LensContextualTasksQueryEligibility" expires_after="2026-10-25">
+    enum="LensContextualTasksQueryEligibility" expires_after="2027-01-17">
   <owner>juanmojica@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -1094,7 +1096,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Overlay.TimeToWebUIReady" units="ms"
-    expires_after="2026-10-25">
+    expires_after="2026-12-27">
   <owner>jdonnelly@chromium.org</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>

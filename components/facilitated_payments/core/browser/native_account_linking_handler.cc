@@ -33,7 +33,7 @@ void NativeAccountLinkingHandler::FetchClientToken() {
   }
   GetApiClient()->GetClientToken(
       base::BindOnce(&NativeAccountLinkingHandler::OnClientTokenReceived,
-                     weak_ptr_factory_.GetWeakPtr(), base::TimeTicks::Now()));
+                     GetWeakPtr(), base::TimeTicks::Now()));
 }
 
 void NativeAccountLinkingHandler::OnClientTokenReceived(
@@ -79,9 +79,10 @@ void NativeAccountLinkingHandler::InitiateAccountLinkingNetworkCall(
       billing_customer_id, client_token,
       base::BindOnce(&NativeAccountLinkingHandler::
                          OnGetDetailsForCreatePaymentInstrumentResponseReceived,
-                     weak_ptr_factory_.GetWeakPtr(), base::TimeTicks::Now()),
+                     GetWeakPtr(), base::TimeTicks::Now()),
       client_->GetPaymentsDataManager()->app_locale());
 }
+
 void NativeAccountLinkingHandler::InvokeInstrumentManager(
     CoreAccountInfo primary_account,
     const std::vector<uint8_t>& action_token) {
@@ -95,7 +96,20 @@ void NativeAccountLinkingHandler::InvokeInstrumentManager(
   GetApiClient()->InvokeInstrumentManager(
       primary_account, action_token,
       base::BindOnce(&NativeAccountLinkingHandler::OnAccountLinkingResult,
-                     weak_ptr_factory_.GetWeakPtr()));
+                     GetWeakPtr()));
+}
+
+void NativeAccountLinkingHandler::ShowAccountLinkingPrompt() {
+  std::optional<AccountLinkingParams> params = CreateAccountLinkingParams();
+  if (!params) {
+    return;
+  }
+  is_prompt_showing_ = true;
+  client()->ShowAccountLinkingPrompt(
+      *params,
+      base::BindOnce(&NativeAccountLinkingHandler::OnAccepted, GetWeakPtr()),
+      base::BindOnce(&NativeAccountLinkingHandler::OnDeclined, GetWeakPtr()),
+      base::BindOnce(&NativeAccountLinkingHandler::OnDismissed, GetWeakPtr()));
 }
 
 void NativeAccountLinkingHandler::DismissPrompt() {
@@ -142,9 +156,11 @@ void NativeAccountLinkingHandler::
     }
     OnAccountLinkingResult(AccountLinkingResult{});
   }
+  DoOnGetDetailsForCreatePaymentInstrumentResponse(result && is_eligible);
 }
 
 void NativeAccountLinkingHandler::OnAccepted() {
+  DoOnAccepted();
   DismissPrompt();
   if (action_token_.empty()) {
     LogAccountLinkingFlowExitedReason(
@@ -164,6 +180,18 @@ void NativeAccountLinkingHandler::OnAccepted() {
 }
 
 void NativeAccountLinkingHandler::OnDeclined() {
+  DoOnDeclined();
+  LogAccountLinkingFlowExitedReason(
+      GetHistogramSuffix(), AccountLinkingFlowExitedReason::kUserDeclined);
+  DismissPrompt();
+  OnAccountLinkingResult(AccountLinkingResult{
+      false, 0, AccountLinkingResultCode::kResultCanceled});
+}
+
+void NativeAccountLinkingHandler::OnDismissed() {
+  LogAccountLinkingFlowExitedReason(
+      GetHistogramSuffix(),
+      AccountLinkingFlowExitedReason::kScreenClosedByUser);
   DismissPrompt();
   OnAccountLinkingResult(AccountLinkingResult{
       false, 0, AccountLinkingResultCode::kResultCanceled});

@@ -24,7 +24,7 @@
 
 @interface AutofillAndPasswordsSigninPromoMediator () <
     AuthenticationServiceObserving,
-    IdentityManagerObserverBridgeDelegate,
+    IdentityManagerObserving,
     SyncObserverModelBridge>
 
 // Whether the sign-in promo is shown or not.
@@ -159,9 +159,9 @@
   [self maybeInitializeSigninPromoViewMediator];
 }
 
-#pragma mark - IdentityManagerObserverBridgeDelegate
+#pragma mark - IdentityManagerObserving
 
-- (void)onPrimaryAccountChanged:
+- (void)primaryAccountDidChange:
     (const signin::PrimaryAccountChangeEvent&)event {
   switch (event.GetEventTypeFor(signin::ConsentLevel::kSignin)) {
     case signin::PrimaryAccountChangeEvent::Type::kSet:
@@ -233,7 +233,7 @@
   if (shouldShowSignInPromo) {
     [_signinPromoViewMediator signinPromoViewIsVisible];
   } else {
-    if (!_signinPromoViewMediator.invalidClosedOrNeverVisible) {
+    if (_signinPromoViewMediator.isUsable) {
       [_signinPromoViewMediator signinPromoViewIsHidden];
     }
   }

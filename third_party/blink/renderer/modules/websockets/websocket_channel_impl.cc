@@ -37,6 +37,7 @@
 #include <limits>
 #include <memory>
 
+#include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/feature_list.h"
@@ -48,6 +49,7 @@
 #include "base/strings/string_view_util.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/types/strong_alias.h"
+#include "third_party/blink/public/common/switches.h"
 #include "third_party/blink/public/mojom/websockets/websocket_connector.mojom-blink.h"
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/platform.h"
@@ -290,7 +292,9 @@ bool WebSocketChannelImpl::Connect(const KURL& url, const String& protocol) {
   }
 
   if (auto* scheduler = execution_context_->GetScheduler()) {
-    if (!RuntimeEnabledFeatures::DisconnectWebSocketOnBFCacheEnabled()) {
+    if (!RuntimeEnabledFeatures::DisconnectWebSocketOnBFCacheEnabled() ||
+        base::CommandLine::ForCurrentProcess()->HasSwitch(
+            blink::switches::kDisableBackForwardCacheForWebSockets)) {
       // Two features are registered here:
       // - `kWebSocket`: a non-sticky feature that will disable BFCache for any
       // page. It will be reset after the `WebSocketChannel` is closed.
@@ -342,13 +346,11 @@ bool WebSocketChannelImpl::Connect(const KURL& url, const String& protocol) {
   // are throttled by the network service.
   if (connection_count_tracker_handle_.IncrementAndCheckStatus() ==
       ConnectionCountTrackerHandle::CountStatus::kShouldNotConnect) {
-    StringBuilder message;
-    message.Append("WebSocket connection to '");
-    message.Append(url.GetString());
-    message.Append("' failed: Insufficient resources");
+    String message = StrCat({"WebSocket connection to '", url.GetString(),
+                             "' failed: Insufficient resources"});
     execution_context_->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
         mojom::blink::ConsoleMessageSource::kNetwork,
-        mojom::blink::ConsoleMessageLevel::kError, message.ToString()));
+        mojom::blink::ConsoleMessageLevel::kError, message));
     execution_context_->GetTaskRunner(TaskType::kNetworking)
         ->PostTask(FROM_HERE,
                    BindOnce(&WebSocketChannelImpl::TearDownFailedConnection,

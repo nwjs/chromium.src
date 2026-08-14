@@ -31,6 +31,7 @@
 #include "net/base/io_buffer.h"
 #include "net/base/net_errors.h"
 #include "net/base/test_completion_callback.h"
+#include "net/disk_cache/backend_cleanup_tracker.h"
 #include "net/disk_cache/disk_cache_test_util.h"
 #include "net/disk_cache/sql/entry_db_handle.h"
 #include "net/disk_cache/sql/sql_async_task_manager.h"
@@ -95,10 +96,15 @@ size_t GetShardCount() {
                   1);
 }
 std::string GetExpectedFakeIndexContents() {
-  base::FieldTrial* backend_field_trial = base::FeatureList::GetFieldTrial(
-      net::features::kDiskCacheBackendExperiment);
+  base::FieldTrial* backend_field_trial =
+      net::features::kDiskCacheBackendResetCacheOnGroupChange.Get()
+          ? base::FeatureList::GetFieldTrial(
+                net::features::kDiskCacheBackendExperiment)
+          : nullptr;
   return base::StrCat(
-      {kSqlBackendFakeIndexPrefix, base::NumberToString(GetShardCount()),
+      {kSqlBackendFakeIndexPrefix,
+       net::features::kSqlDiskCacheWalMode.Get() ? "Wal" : "Truncate",
+       base::NumberToString(GetShardCount()),
        backend_field_trial ? backend_field_trial->group_name() : ""});
 }
 
@@ -113,15 +119,26 @@ class SqlBackendImplTest : public testing::Test {
  protected:
   void RunSparseDataExceedsMaxFileSizeTest(bool doom_entry);
 
-  std::unique_ptr<SqlBackendImpl> CreateBackend() {
+  std::unique_ptr<SqlBackendImpl> CreateBackend(
+      scoped_refptr<BackendCleanupTracker> cleanup_tracker = nullptr) {
     return std::make_unique<SqlBackendImpl>(
-        temp_dir_.GetPath(), kDefaultMaxBytes, net::CacheType::DISK_CACHE);
+        temp_dir_.GetPath(), kDefaultMaxBytes, net::CacheType::DISK_CACHE,
+        std::move(cleanup_tracker));
+  }
+
+  void WaitForCleanup(scoped_refptr<BackendCleanupTracker> cleanup_tracker) {
+    CHECK(cleanup_tracker);
+    base::RunLoop run_loop;
+    cleanup_tracker->AddPostCleanupCallback(run_loop.QuitClosure());
+    cleanup_tracker = nullptr;
+    run_loop.Run();
   }
 
   std::unique_ptr<SqlBackendImpl> CreateBackendAndInit(
       int64_t max_bytes = kDefaultMaxBytes) {
     auto backend = std::make_unique<SqlBackendImpl>(
-        temp_dir_.GetPath(), max_bytes, net::CacheType::DISK_CACHE);
+        temp_dir_.GetPath(), max_bytes, net::CacheType::DISK_CACHE,
+        /*cleanup_tracker=*/nullptr);
     base::test::TestFuture<int> future;
     backend->Init(future.GetCallback());
     CHECK_EQ(future.Get(), net::OK);
@@ -222,28 +239,37 @@ TEST_F(SqlBackendImplTest, InitWithFakeIndexFile) {
                                       FakeIndexFileError::kOkExisting, 1);
 }
 
-TEST_F(SqlBackendImplTest, ExperimentGroupChangeResetsCache) {
+TEST_F(SqlBackendImplTest, ExperimentGroupChangeResetsCacheWhenParamSet) {
   {
     base::test::ScopedFeatureList feature_list;
     feature_list.InitFromCommandLine(
-        "DiskCacheBackendExperiment<DiskCacheBackendExperiment.GroupA:dummy/1",
-        "");
+        "DiskCacheBackendExperiment<DiskCacheBackendExperiment.GroupA:"
+        "DiskCacheBackendResetCacheOnGroupChange/true",
+        "FeatureParamWithCache");
+
+    auto cleanup_tracker = BackendCleanupTracker::TryCreate(temp_dir_.GetPath(),
+                                                            base::DoNothing());
+    CHECK(cleanup_tracker);
 
     // Create and init backend. This should create fake index with "GroupA".
-    auto backend = CreateBackend();
+    auto backend = CreateBackend(cleanup_tracker);
     base::test::TestFuture<int> future;
     backend->Init(future.GetCallback());
     ASSERT_EQ(future.Get(), net::OK);
+
+    backend.reset();
+    WaitForCleanup(std::move(cleanup_tracker));
   }
 
   {
     base::test::ScopedFeatureList feature_list;
     feature_list.InitFromCommandLine(
-        "DiskCacheBackendExperiment<DiskCacheBackendExperiment.GroupB:dummy/1",
-        "");
+        "DiskCacheBackendExperiment<DiskCacheBackendExperiment.GroupB:"
+        "DiskCacheBackendResetCacheOnGroupChange/true",
+        "FeatureParamWithCache");
 
     // Initialize backend on same directory. It should fail because the group
-    // changed.
+    // changed and reset on group change is enabled.
     auto backend = CreateBackend();
     base::test::TestFuture<int> future;
     base::HistogramTester histogram_tester;
@@ -255,6 +281,84 @@ TEST_F(SqlBackendImplTest, ExperimentGroupChangeResetsCache) {
     histogram_tester.ExpectUniqueSample("Net.SqlDiskCache.FakeIndexFileError",
                                         FakeIndexFileError::kWrongMagicNumber,
                                         1);
+  }
+}
+
+TEST_F(SqlBackendImplTest,
+       ExperimentGroupChangeDoesNotResetCacheWhenParamNotSet) {
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitFromCommandLine(
+        "DiskCacheBackendExperiment<TrialC.GroupA:dummy/1",
+        "FeatureParamWithCache");
+
+    auto cleanup_tracker = BackendCleanupTracker::TryCreate(temp_dir_.GetPath(),
+                                                            base::DoNothing());
+    CHECK(cleanup_tracker);
+
+    // Create and init backend.
+    auto backend = CreateBackend(cleanup_tracker);
+    base::test::TestFuture<int> future;
+    backend->Init(future.GetCallback());
+    ASSERT_EQ(future.Get(), net::OK);
+
+    backend.reset();
+    WaitForCleanup(std::move(cleanup_tracker));
+  }
+
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitFromCommandLine(
+        "DiskCacheBackendExperiment<TrialD.GroupB:dummy/1",
+        "FeatureParamWithCache");
+
+    // Initialize backend on same directory. It should succeed because reset on
+    // group change is disabled by default.
+    auto backend = CreateBackend();
+    base::test::TestFuture<int> future;
+    base::HistogramTester histogram_tester;
+    backend->Init(future.GetCallback());
+    EXPECT_EQ(future.Get(), net::OK);
+
+    histogram_tester.ExpectUniqueSample("Net.SqlDiskCache.FakeIndexFileError",
+                                        FakeIndexFileError::kOkExisting, 1);
+  }
+}
+
+TEST_F(SqlBackendImplTest, WalModeChangeResetsCache) {
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeatureWithParameters(
+        net::features::kDiskCacheBackendExperiment,
+        {{"SqlDiskCacheWalMode", "false"}});
+
+    auto cleanup_tracker = BackendCleanupTracker::TryCreate(temp_dir_.GetPath(),
+                                                            base::DoNothing());
+    CHECK(cleanup_tracker);
+
+    auto backend = CreateBackend(cleanup_tracker);
+    base::test::TestFuture<int> future;
+    backend->Init(future.GetCallback());
+    ASSERT_EQ(future.Get(), net::OK);
+
+    backend.reset();
+    WaitForCleanup(std::move(cleanup_tracker));
+  }
+
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeatureWithParameters(
+        net::features::kDiskCacheBackendExperiment,
+        {{"SqlDiskCacheWalMode", "true"}});
+
+    auto backend = CreateBackend();
+    base::test::TestFuture<int> future;
+    base::HistogramTester histogram_tester;
+    backend->Init(future.GetCallback());
+    EXPECT_EQ(future.Get(), net::ERR_FAILED);
+
+    histogram_tester.ExpectUniqueSample("Net.SqlDiskCache.FakeIndexFileError",
+                                        FakeIndexFileError::kWrongFileSize, 1);
   }
 }
 
@@ -393,7 +497,8 @@ TEST_F(SqlBackendImplTest, InitWithFailedToCreateDirectory) {
   ASSERT_TRUE(base::WriteFile(cache_dir, ""));
 
   auto backend = std::make_unique<SqlBackendImpl>(cache_dir, kDefaultMaxBytes,
-                                                  net::CacheType::DISK_CACHE);
+                                                  net::CacheType::DISK_CACHE,
+                                                  /*cleanup_tracker=*/nullptr);
   base::test::TestFuture<int> future;
   backend->Init(future.GetCallback());
   ASSERT_EQ(future.Get(), net::ERR_FAILED);
@@ -1405,7 +1510,7 @@ TEST_F(SqlBackendImplTest, DoomedEntriesCleanup) {
     SqlAsyncTaskManager async_task_manager;
     auto store = std::make_unique<SqlPersistentStore>(
         temp_dir_.GetPath(), kDefaultMaxBytes, net::CacheType::DISK_CACHE,
-        task_runners, async_task_manager);
+        task_runners, async_task_manager, /*cleanup_tracker=*/nullptr);
 
     base::test::TestFuture<disk_cache::SqlPersistentStore::Error> future_init;
     store->Initialize(future_init.GetCallback());
@@ -2234,7 +2339,7 @@ void SqlBackendImplTest::RunDelayedPostInitializationTasksTest() {
     SqlAsyncTaskManager async_task_manager;
     auto store = std::make_unique<SqlPersistentStore>(
         temp_dir_.GetPath(), kDefaultMaxBytes, net::CacheType::DISK_CACHE,
-        task_runners, async_task_manager);
+        task_runners, async_task_manager, /*cleanup_tracker=*/nullptr);
 
     base::test::TestFuture<disk_cache::SqlPersistentStore::Error> future_init;
     store->Initialize(future_init.GetCallback());
@@ -2406,6 +2511,73 @@ TEST_F(SqlBackendImplTest, DoomEntryWithInMemoryIndex) {
   disk_cache::EntryResult open_result = cb_open.GetResult(
       backend->OpenEntry(kKey, net::HIGHEST, cb_open.callback()));
   EXPECT_THAT(open_result.net_error(), IsError(net::ERR_FAILED));
+}
+
+// Tests that dooming a non-existent key whose hash collides with an existing
+// entry's key does not affect the existing entry. The in-memory index is keyed
+// by hash only, so a single-entry hash bucket may resolve to a different key's
+// `res_id`; the backend must still keep the existing entry openable and avoid
+// creating duplicate rows for it.
+TEST_F(SqlBackendImplTest, DoomEntryWithInMemoryIndexHashCollision) {
+  // Two distinct keys with the same `CacheEntryKey::hash()`.
+  const std::string kExistingKey = "colliding-key-2018";
+  const std::string kCollidingKey = "colliding-key-3000";
+  const CacheEntryKey kExistingEntryKey(kExistingKey);
+  ASSERT_EQ(kExistingEntryKey.hash(), CacheEntryKey(kCollidingKey).hash());
+
+  auto backend = CreateBackendAndInit();
+
+  // 1. Create an entry for `kExistingKey` and close it so it is no longer
+  //    active.
+  TestEntryResultCompletionCallback cb_create;
+  disk_cache::EntryResult create_result = cb_create.GetResult(
+      backend->CreateEntry(kExistingKey, net::HIGHEST, cb_create.callback()));
+  ASSERT_THAT(create_result.net_error(), IsOk());
+  create_result.ReleaseEntry()->Close();
+  backend->RunUntilAllTasksCompleteForTest();
+
+  // 2. Load the in-memory index. `kExistingKey` is the sole occupant of its
+  //    hash bucket.
+  ASSERT_TRUE(LoadInMemoryIndex(*backend));
+  ASSERT_EQ(backend->GetSqlStoreForTest()->GetIndexStateForHash(
+                kExistingEntryKey.hash()),
+            SqlPersistentStore::IndexState::kHashFound);
+
+  // 3. Doom `kCollidingKey`, which does not exist but shares its hash with
+  //    `kExistingKey`.
+  net::TestCompletionCallback cb_doom;
+  EXPECT_THAT(cb_doom.GetResult(backend->DoomEntry(kCollidingKey, net::HIGHEST,
+                                                   cb_doom.callback())),
+              IsOk());
+  backend->RunUntilAllTasksCompleteForTest();
+
+  // 4. The existing entry must remain in the in-memory index.
+  EXPECT_EQ(backend->GetSqlStoreForTest()->GetIndexStateForHash(
+                kExistingEntryKey.hash()),
+            SqlPersistentStore::IndexState::kHashFound);
+
+  // 5. Opening `kExistingKey` must still succeed.
+  TestEntryResultCompletionCallback cb_open;
+  disk_cache::EntryResult open_result = cb_open.GetResult(
+      backend->OpenEntry(kExistingKey, net::HIGHEST, cb_open.callback()));
+  ASSERT_THAT(open_result.net_error(), IsOk());
+  open_result.ReleaseEntry()->Close();
+
+  // 6. OpenOrCreateEntry must open the existing entry rather than creating a
+  //    duplicate row.
+  TestEntryResultCompletionCallback cb_ooc;
+  disk_cache::EntryResult ooc_result =
+      cb_ooc.GetResult(backend->OpenOrCreateEntry(kExistingKey, net::HIGHEST,
+                                                  cb_ooc.callback()));
+  ASSERT_THAT(ooc_result.net_error(), IsOk());
+  EXPECT_TRUE(ooc_result.opened());
+  ooc_result.ReleaseEntry()->Close();
+  backend->RunUntilAllTasksCompleteForTest();
+
+  base::test::TestFuture<int32_t> count_future;
+  EXPECT_EQ(backend->GetEntryCount(count_future.GetCallback()),
+            base::unexpected(net::ERR_IO_PENDING));
+  EXPECT_EQ(count_future.Get(), 1);
 }
 
 TEST_F(SqlBackendImplTest, SetDataHintsAndDoomAndWriteOptimistically) {

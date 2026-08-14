@@ -8,6 +8,7 @@
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 
+class BrowserWindowInterface;
 class WebUIBrowserWindow;
 
 // A LocationBar implementation for WebUIBrowser.
@@ -34,7 +35,7 @@ class WebUIStubLocationBar : public LocationBar {
   std::optional<bubble_anchor_util::AnchorConfiguration> GetChipAnchor()
       override;
   ui::TrackedElement* GetAnchorOrNull() override;
-  Browser* GetBrowser() override;
+  BrowserWindowInterface* GetBrowser() override;
   Profile* GetProfile() override;
   void OnChanged() override;
   void UpdateWithoutTabRestore() override;
@@ -44,6 +45,7 @@ class WebUIStubLocationBar : public LocationBar {
   bool IsFullscreen() const override;
   bool IsEditingOrEmpty() const override;
   bool IsMouseHovered() const override;
+  bool IsFocusWithin() const override;
   void InvalidateLayout() override;
   gfx::Rect Bounds() const override;
   gfx::Rect BoundsInScreen() const override;

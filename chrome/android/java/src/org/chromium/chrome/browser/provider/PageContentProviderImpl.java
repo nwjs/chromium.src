@@ -16,7 +16,6 @@ import android.os.ParcelFileDescriptor.AutoCloseOutputStream;
 import android.util.Pair;
 
 import androidx.annotation.GuardedBy;
-import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 
 import org.json.JSONException;
@@ -288,8 +287,7 @@ public class PageContentProviderImpl extends SplitCompatContentProvider.Impl {
      * FileNotFoundException} is thrown.
      */
     @Override
-    public ParcelFileDescriptor openFile(@NonNull Uri uri, @NonNull String mode)
-            throws FileNotFoundException {
+    public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
         try (var t = TraceEvent.scoped("PageContentProviderImpl.openFile")) {
             ThreadUtils.assertOnBackgroundThread();
             if (!ChromeFeatureList.isEnabled(ChromeFeatureList.PAGE_CONTENT_PROVIDER)) {
@@ -399,8 +397,10 @@ public class PageContentProviderImpl extends SplitCompatContentProvider.Impl {
                                     Tab currentTab = tabProvider.get();
 
                                     if (currentTab == null
+                                            || currentTab.isDestroyed()
                                             || currentTab.getUrl() == null
                                             || currentTab.getWebContents() == null
+                                            || currentTab.getWebContents().isDestroyed()
                                             || currentTab.getWebContents().getMainFrame() == null) {
                                         return null;
                                     }
@@ -768,6 +768,18 @@ public class PageContentProviderImpl extends SplitCompatContentProvider.Impl {
                             try (var u =
                                     TraceEvent.scoped(
                                             "PageContentProvider.requestStringPageContentsAsyncOnUiThread")) {
+                                if (webContents == null
+                                        || webContents.isDestroyed()
+                                        || webContents.getMainFrame() == null) {
+                                    PageContentProviderMetrics.recordPageProviderEvent(
+                                            requestType,
+                                            Format.TEXT,
+                                            PageContentProviderEvent.REQUEST_FAILED_EMPTY_RESULT,
+                                            isGsa);
+                                    pageContentFuture.completeExceptionally(
+                                            new Exception("WebContents destroyed"));
+                                    return;
+                                }
                                 InnerTextBridge.getInnerText(
                                         webContents.getMainFrame(),
                                         result -> {
@@ -804,6 +816,18 @@ public class PageContentProviderImpl extends SplitCompatContentProvider.Impl {
                             try (var u =
                                     TraceEvent.scoped(
                                             "PageContentProvider.requestProtoPageContentsAsyncOnUiThread")) {
+                                if (webContents == null
+                                        || webContents.isDestroyed()
+                                        || webContents.getMainFrame() == null) {
+                                    PageContentProviderMetrics.recordPageProviderEvent(
+                                            requestType,
+                                            Format.PROTO,
+                                            PageContentProviderEvent.REQUEST_FAILED_EMPTY_RESULT,
+                                            isGsa);
+                                    pageContentFuture.completeExceptionally(
+                                            new Exception("WebContents destroyed"));
+                                    return;
+                                }
                                 PageContentProtoProviderBridge.getAiPageContent(
                                         webContents,
                                         result -> {

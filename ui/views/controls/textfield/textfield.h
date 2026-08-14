@@ -443,6 +443,9 @@ class VIEWS_EXPORT Textfield : public View,
   // ui::SimpleMenuModel::Delegate overrides:
   bool IsCommandIdChecked(int command_id) const override;
   bool IsCommandIdEnabled(int command_id) const override;
+
+  static bool GetStandardAcceleratorForCommandId(int command_id,
+                                                 ui::Accelerator* accelerator);
   bool GetAcceleratorForCommandId(int command_id,
                                   ui::Accelerator* accelerator) const override;
   void ExecuteCommand(int command_id, int event_flags) override;
@@ -538,6 +541,14 @@ class VIEWS_EXPORT Textfield : public View,
   // Returns true if this textfield should support the "Look Up" menu item.
   virtual bool SupportsLookUp() const;
 #endif
+
+  // Utility function to prepare the contents of the context menu.
+  // `controller` may be null. Returns ownership of platform-specific
+  // text services menu.
+  static std::unique_ptr<views::ViewsTextServicesContextMenu>
+  UpdateContextMenuContents(Textfield* textfield,
+                            TextfieldController* controller,
+                            ui::SimpleMenuModel* menu_contents);
 
  protected:
   TextfieldModel* textfield_model() { return model_.get(); }

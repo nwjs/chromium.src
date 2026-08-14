@@ -76,7 +76,6 @@ constexpr CGFloat kButtonImageSize = 23;
 
     _tabCountLabel = [[UILabel alloc] init];
     _tabCountLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    // Use tintColor to match normal or incognito mode colors automatically.
     _tabCountLabel.textColor = self.tintColor;
     if (IsNextOldDesignEnabled()) {
       _tabCountLabel.adjustsFontSizeToFitWidth = YES;
@@ -163,23 +162,19 @@ constexpr CGFloat kButtonImageSize = 23;
 
 - (void)updateTabGridButtonAppearance {
   if (IsNextOldDesignEnabled()) {
-    UIImage* symbol =
-        _inTabGroup
-            ? DefaultSymbolWithPointSize(kSquareFilledOnSquareSymbol, 24)
-            : CustomSymbolWithPointSize(kSquareNumberSymbol, 24);
-    _tabGridSymbolView.image = symbol;
+    Symbol symbol =
+        _inTabGroup ? SymbolSquareFilledOnSquare : SymbolSquareNumber;
+    _tabGridSymbolView.image = SymbolWithPointSize(symbol, 24);
     _tabCountLabel.textColor =
         _inTabGroup ? [UIColor colorNamed:kBackgroundColor] : self.tintColor;
   } else {
-    NSString* symbolName = _inTabGroup ? kTabsSymbol : kAppSymbol;
-
-    // Point size configuration matching point size of standard symbols.
+    Symbol symbol = _inTabGroup ? SymbolTabs : SymbolApp;
     UIImageSymbolConfiguration* symbolConfig = [UIImageSymbolConfiguration
         configurationWithPointSize:kButtonImageSize
                             weight:UIImageSymbolWeightSemibold
                              scale:UIImageSymbolScaleMedium];
-    _tabGridSymbolView.image =
-        DefaultSymbolWithConfiguration(symbolName, symbolConfig);
+    _tabGridSymbolView.image = SymbolWithConfiguration(symbol, symbolConfig);
+    _tabCountLabel.textColor = self.tintColor;
   }
 
   if (_inTabGroup) {

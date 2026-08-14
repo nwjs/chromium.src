@@ -9,19 +9,32 @@
 #include <utility>
 #include <vector>
 
+#include "base/check_deref.h"
+#include "base/command_line.h"
+#include "base/containers/flat_map.h"
+#include "base/containers/span.h"
 #include "base/containers/to_vector.h"
+#include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/logging.h"
 #include "base/memory/weak_ptr.h"
+#include "base/strings/string_split.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/types/expected.h"
-#include "chrome/browser/autofill/actor/actor_filling_observer.h"
+#include "chrome/browser/affiliations/affiliation_service_factory.h"
+#include "chrome/browser/autofill/actor/one_time_tokens/actor_one_time_token_filling_service_metrics.h"
 #include "chrome/browser/autofill/one_time_token_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/autofill/autofill_client_provider.h"
 #include "chrome/browser/ui/autofill/autofill_client_provider_factory.h"
+#include "components/actor/core/actor_switches.h"
+#include "components/affiliations/core/browser/affiliation_service.h"
+#include "components/affiliations/core/browser/domain_matching/domain_relation_checker.h"
+#include "components/affiliations/core/browser/match_type.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
+#include "components/autofill/core/browser/actor/actor_filling_observer.h"
+#include "components/autofill/core/browser/autofill_browser_util.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/autofill_trigger_source.h"
 #include "components/autofill/core/browser/form_structure.h"
@@ -31,15 +44,34 @@
 #include "components/autofill/core/common/form_data.h"
 #include "components/one_time_tokens/core/browser/one_time_token.h"
 #include "components/one_time_tokens/core/browser/one_time_token_service.h"
-#include "components/one_time_tokens/core/common/one_time_token_features.h"
+#include "components/security_state/content/security_state_tab_helper.h"
+#include "components/security_state/core/security_state.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
-#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
+#include "url/origin.h"
+#include "url/scheme_host_port.h"
+#include "url/url_canon.h"
+#include "url/url_constants.h"
 
 namespace autofill {
 
+using ::one_time_tokens::OneTimeTokenRetrievalError;
+
 namespace {
+
+using one_time_tokens::OneTimeTokenRetrievalError;
+
+std::string ExtractEmailDomain(std::string_view email) {
+  std::vector<std::string_view> parts = base::SplitStringPiece(
+      email, "@", base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
+  if (parts.size() == 2) {
+    return std::string(parts[1]);
+  }
+  return std::string();
+}
 
 // Retrieves the `AutofillManager` of the `tab`'s primary main frame.
 [[nodiscard]] base::expected<std::reference_wrapper<BrowserAutofillManager>,
@@ -77,7 +109,11 @@ GetAutofillManager(const tabs::TabInterface& tab) {
 
 ActorOneTimeTokenFillingServiceImpl::ActorOneTimeTokenFillingServiceImpl(
     Profile* profile)
-    : profile_(profile) {}
+    : profile_(profile),
+      domain_relation_checker_(
+          std::make_unique<affiliations::DomainRelationChecker>(
+              CHECK_DEREF(AffiliationServiceFactory::GetForProfile(profile)))) {
+}
 
 ActorOneTimeTokenFillingServiceImpl::~ActorOneTimeTokenFillingServiceImpl() =
     default;
@@ -131,18 +167,43 @@ ActorOneTimeTokenFillingServiceImpl::ConsumeLoginContext() {
 
 void ActorOneTimeTokenFillingServiceImpl::RetrieveOtp(
     const tabs::TabHandle tab_handle,
+    const url::Origin& otp_frame_origin,
     const std::vector<FieldGlobalId>& trigger_field_ids,
-    base::OnceCallback<void(std::string)> callback) {
+    bool is_login_flow,
+    base::OnceCallback<void(
+        base::expected<std::string, OneTimeTokenRetrievalError>)> callback) {
+  using enum ActorOneTimeTokenFillingServiceRetrieveOtp;
+  RecordActorOneTimeTokenFillingServiceRetrieveOtp(kStart);
+  otp_frame_origin_ = otp_frame_origin;
+  is_login_flow_ = is_login_flow;
+
   tabs::TabInterface* tab = tab_handle.Get();
   if (!tab || !tab->GetContents()) {
-    std::move(callback).Run("");
+    RecordActorOneTimeTokenFillingServiceRetrieveOtp(kNullTab);
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            std::move(callback),
+            base::unexpected(OneTimeTokenRetrievalError::kGmailOtpUnknown)));
     return;
   }
 
-  if (std::string mock_otp =
-          one_time_tokens::features::kMockGmailOtpValue.Get();
-      !mock_otp.empty()) {
-    std::move(callback).Run(mock_otp);
+  std::string mock_otp =
+      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          ::actor::switches::kAttemptOtpFillingMockGmailOtpValue);
+  if (!mock_otp.empty()) {
+    RecordActorOneTimeTokenFillingServiceRetrieveOtp(kMockOtp);
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), std::move(mock_otp)));
+    return;
+  }
+
+  if (otp_frame_origin_.opaque()) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            std::move(callback),
+            base::unexpected(OneTimeTokenRetrievalError::kGmailOtpUnknown)));
     return;
   }
 
@@ -152,67 +213,188 @@ void ActorOneTimeTokenFillingServiceImpl::RetrieveOtp(
   one_time_tokens::OneTimeTokenService* service =
       OneTimeTokenServiceFactory::GetForProfile(profile_);
   if (!service) {
-    std::move(callback).Run("");
+    RecordActorOneTimeTokenFillingServiceRetrieveOtp(kNoService);
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            std::move(callback),
+            base::unexpected(
+                OneTimeTokenRetrievalError::kGmailOtpBackendApiNotAvailable)));
     return;
   }
+
+  // If there is a pending request, its callback is superseded. We run the
+  // previous callback with a default error so the old caller can gracefully
+  // time out rather than hanging indefinitely.
+  RecordActorOtpRetrieveOtpCallbackSuperseded(
+      ActorOtpRetrieveOtpCallbackSuperseded::kRetrieveOtpStarted);
+  if (retrieve_otp_callback_) {
+    RecordActorOtpRetrieveOtpCallbackSuperseded(
+        ActorOtpRetrieveOtpCallbackSuperseded::kCallbackSuperseded);
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            std::move(retrieve_otp_callback_),
+            base::unexpected(OneTimeTokenRetrievalError::kGmailOtpUnknown)));
+  }
+
+  retrieve_otp_weak_ptr_factory_.InvalidateWeakPtrs();
+
+  retrieve_otp_callback_ = std::move(callback);
 
   // Note: OneTimeTokenService caches tokens for 3 minutes. It does not clear
   // them upon use. If a user triggers a "Resend OTP" flow within those 3
   // minutes, this will return the originally cached token rather than waiting
   // for the new one. This relies on the assumption that previously sent tokens
   // typically remain valid for the duration of the cache.
-  std::optional<one_time_tokens::OneTimeToken> most_recent_token;
+  std::vector<one_time_tokens::OneTimeToken> cached_tokens;
   for (const auto& token : service->GetCachedOneTimeTokens()) {
     if (token.type() == one_time_tokens::OneTimeTokenType::kGmail) {
-      if (!most_recent_token ||
-          token.on_device_arrival_time() >
-              most_recent_token->on_device_arrival_time()) {
-        most_recent_token = token;
-      }
+      cached_tokens.push_back(token);
     }
   }
 
-  if (most_recent_token) {
-    subscription_ = {};
-    // If there is a pending request, its callback is superseded. We run the
-    // previous callback with an empty string so the old caller can gracefully
-    // time out rather than hanging indefinitely.
-    if (retrieve_otp_callback_) {
-      std::move(retrieve_otp_callback_).Run("");
-    }
-    std::move(callback).Run(most_recent_token->value());
+  // The cache checking is async, so also listen to the service in the meantime
+  // in case the matching token is not in the cache. The tokens arriving from
+  // the service are also checked for relevance.
+  SubscribeForOneTimeToken();
+
+  if (cached_tokens.empty()) {
     return;
   }
 
-  // If there is a pending request, its callback is superseded. We run the
-  // previous callback with an empty string so the old caller can gracefully
-  // time out rather than hanging indefinitely.
-  if (retrieve_otp_callback_) {
-    std::move(retrieve_otp_callback_).Run("");
-  }
-  retrieve_otp_callback_ = std::move(callback);
+  std::ranges::sort(cached_tokens, [](const auto& lhs, const auto& rhs) {
+    return lhs.on_device_arrival_time() > rhs.on_device_arrival_time();
+  });
 
+  CheckCachedTokenMatch(std::move(cached_tokens), /*index=*/0);
+}
+
+void ActorOneTimeTokenFillingServiceImpl::SubscribeForOneTimeToken() {
+  one_time_tokens::OneTimeTokenService* service =
+      OneTimeTokenServiceFactory::GetForProfile(profile_);
+  // The subscription comes after the cache is retrieved from the
+  // service so it's obviously not null.
+  CHECK(service);
   // Subscribe to OneTimeTokenService with 1-minute timeout.
   subscription_ = service->Subscribe(
       one_time_tokens::OneTimeTokenSource::kGmail,
       base::Time::Now() + base::Minutes(1),
       base::BindRepeating(
           &ActorOneTimeTokenFillingServiceImpl::OnOneTimeTokenReceived,
-          weak_ptr_factory_.GetWeakPtr()));
+          retrieve_otp_weak_ptr_factory_.GetWeakPtr()),
+      /*expiration_callback=*/base::DoNothing());
+}
+
+void ActorOneTimeTokenFillingServiceImpl::CheckSenderDomainMatchesFrameToFill(
+    std::string_view sender_address,
+    base::OnceCallback<void(std::optional<affiliations::MatchType>)> callback) {
+  std::string sender_domain = ExtractEmailDomain(sender_address);
+  domain_relation_checker_->Check(
+      otp_frame_origin_.GetTupleOrPrecursorTupleIfOpaque(),
+      url::SchemeHostPort(url::kHttpsScheme, std::move(sender_domain),
+                          url::DefaultPortForScheme(url::kHttpsScheme)),
+      std::move(callback));
+}
+
+void ActorOneTimeTokenFillingServiceImpl::CheckCachedTokenMatch(
+    std::vector<one_time_tokens::OneTimeToken> cached_tokens,
+    size_t index) {
+  // If a racing check found a match already it would have invalidated
+  // all the weak pointers for the other checks including this one, so this
+  // wouldn't be called.
+  CHECK(retrieve_otp_callback_);
+  if (index >= cached_tokens.size()) {
+    return;
+  }
+
+  std::string sender_address =
+      cached_tokens.at(index).sender_address().value_or("");
+  CheckSenderDomainMatchesFrameToFill(
+      sender_address,
+      base::BindOnce(
+          &ActorOneTimeTokenFillingServiceImpl::OnCachedTokenMatchChecked,
+          retrieve_otp_weak_ptr_factory_.GetWeakPtr(), std::move(cached_tokens),
+          index));
+}
+
+bool ActorOneTimeTokenFillingServiceImpl::IsMatchTypeAllowed(
+    std::optional<affiliations::MatchType> match_type) const {
+  if (!match_type.has_value()) {
+    return false;
+  }
+  bool is_exact_or_affiliated =
+      (*match_type == affiliations::MatchType::kExact) ||
+      (static_cast<int>(*match_type) &
+       static_cast<int>(affiliations::MatchType::kAffiliated));
+  if (is_exact_or_affiliated) {
+    return true;
+  }
+  bool is_psl = static_cast<int>(*match_type) &
+                static_cast<int>(affiliations::MatchType::kPSL);
+  return is_psl && is_login_flow_;
+}
+
+void ActorOneTimeTokenFillingServiceImpl::OnCachedTokenMatchChecked(
+    std::vector<one_time_tokens::OneTimeToken> cached_tokens,
+    size_t index,
+    std::optional<affiliations::MatchType> match_type) {
+  using enum ActorOneTimeTokenFillingServiceRetrieveOtp;
+  // If a racing check found a match already it would have invalidated
+  // all weak pointers for other checks so this wouldn't be called.
+  CHECK(retrieve_otp_callback_);
+
+  if (IsMatchTypeAllowed(match_type)) {
+    subscription_ = {};
+    retrieve_otp_weak_ptr_factory_.InvalidateWeakPtrs();
+    RecordActorOneTimeTokenFillingServiceRetrieveOtp(kSuccessCacheMatchFound);
+    std::move(retrieve_otp_callback_).Run(cached_tokens.at(index).value());
+    return;
+  }
+
+  CheckCachedTokenMatch(std::move(cached_tokens), index + 1);
 }
 
 void ActorOneTimeTokenFillingServiceImpl::OnOneTimeTokenReceived(
     one_time_tokens::OneTimeTokenSource source,
-    base::expected<one_time_tokens::OneTimeToken,
-                   one_time_tokens::OneTimeTokenRetrievalError> result) {
-  if (!retrieve_otp_callback_) {
+    base::expected<one_time_tokens::OneTimeToken, OneTimeTokenRetrievalError>
+        result) {
+  using enum ActorOneTimeTokenFillingServiceRetrieveOtp;
+  // If a racing check found a match already it would have invalidated
+  // the weak pointer for the on-token-received callback and this wouldn't be
+  // called.
+  CHECK(retrieve_otp_callback_);
+
+  if (!result.has_value()) {
+    retrieve_otp_weak_ptr_factory_.InvalidateWeakPtrs();
+    RecordActorOneTimeTokenFillingServiceRetrieveOtp(kError);
+    std::move(retrieve_otp_callback_).Run(base::unexpected(result.error()));
     return;
   }
 
-  subscription_ = {};
+  std::string sender_address = result->sender_address().value_or("");
+  CheckSenderDomainMatchesFrameToFill(
+      sender_address,
+      base::BindOnce(
+          &ActorOneTimeTokenFillingServiceImpl::OnReceivedTokenMatchChecked,
+          retrieve_otp_weak_ptr_factory_.GetWeakPtr(), std::move(*result)));
+}
 
-  std::move(retrieve_otp_callback_)
-      .Run(result.has_value() ? result->value() : "");
+void ActorOneTimeTokenFillingServiceImpl::OnReceivedTokenMatchChecked(
+    one_time_tokens::OneTimeToken token,
+    std::optional<affiliations::MatchType> match_type) {
+  using enum ActorOneTimeTokenFillingServiceRetrieveOtp;
+  // If a previous check found a match already it would have invalidated
+  // the weak pointer for this callback, so this wouldn't be called.
+  CHECK(retrieve_otp_callback_);
+
+  if (IsMatchTypeAllowed(match_type)) {
+    subscription_ = {};
+    retrieve_otp_weak_ptr_factory_.InvalidateWeakPtrs();
+    RecordActorOneTimeTokenFillingServiceRetrieveOtp(
+        kSuccessReceivedMatchFound);
+    std::move(retrieve_otp_callback_).Run(token.value());
+  }
 }
 
 void ActorOneTimeTokenFillingServiceImpl::FillOtp(
@@ -220,14 +402,20 @@ void ActorOneTimeTokenFillingServiceImpl::FillOtp(
     const std::vector<FieldGlobalId>& trigger_field_ids,
     const std::string& otp,
     base::OnceCallback<void(bool)> callback) {
+  using enum ActorOneTimeTokenFillingServiceFillOtp;
+  RecordActorOneTimeTokenFillingServiceFillOtp(kStart);
   tabs::TabInterface* tab = tab_handle.Get();
   if (!tab || !tab->GetContents()) {
-    std::move(callback).Run(false);
+    RecordActorOneTimeTokenFillingServiceFillOtp(kNullTab);
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), false));
     return;
   }
 
   if (trigger_field_ids.empty()) {
-    std::move(callback).Run(false);
+    RecordActorOneTimeTokenFillingServiceFillOtp(kEmptyTriggerFieldIds);
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), false));
     return;
   }
 
@@ -236,9 +424,11 @@ void ActorOneTimeTokenFillingServiceImpl::FillOtp(
   // the previous callback would be overwritten and lost. Assuming the Actor
   // coordinates sequential usage, concurrent calls are unexpected.
   if (filling_observer_) {
+    RecordActorOneTimeTokenFillingServiceFillOtp(kConcurrentCall);
     LOG(WARNING) << "FillOtp called while another filling operation is still "
                     "in progress. The new request is ignored.";
-    std::move(callback).Run(false);
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), false));
     return;
   }
 
@@ -248,8 +438,10 @@ void ActorOneTimeTokenFillingServiceImpl::FillOtp(
                  ActorFormFillingError>
       maybe_manager = GetAutofillManager(*tab);
   if (!maybe_manager.has_value()) {
+    RecordActorOneTimeTokenFillingServiceFillOtp(kNoAutofillManager);
     LOG(WARNING) << "FillOtp failed: AutofillManager not available.";
-    std::move(callback).Run(false);
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), false));
     return;
   }
   BrowserAutofillManager& autofill_manager = maybe_manager.value();
@@ -264,17 +456,21 @@ void ActorOneTimeTokenFillingServiceImpl::FillOtp(
   const FormStructure* const form_structure =
       autofill_manager.FindCachedFormById(trigger_field_id);
   if (!form_structure) {
+    RecordActorOneTimeTokenFillingServiceFillOtp(kFormStructureNotFound);
     LOG(WARNING) << "FillOtp failed: Form structure containing trigger field "
                  << trigger_field_id << " not found in cache.";
-    std::move(callback).Run(false);
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), false));
     return;
   }
   const AutofillField* const autofill_field =
       form_structure->GetFieldById(trigger_field_id);
   if (!autofill_field) {
+    RecordActorOneTimeTokenFillingServiceFillOtp(kTriggerFieldNotFound);
     LOG(WARNING) << "FillOtp failed: Trigger field " << trigger_field_id
                  << " not found in the form structure.";
-    std::move(callback).Run(false);
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), false));
     return;
   }
 
@@ -285,8 +481,10 @@ void ActorOneTimeTokenFillingServiceImpl::FillOtp(
       *form_structure, *autofill_field, base::UTF8ToUTF16(otp));
 
   if (otp_fill_data.empty()) {
+    RecordActorOneTimeTokenFillingServiceFillOtp(kEmptyFillData);
     LOG(WARNING) << "FillOtp failed: Generated OtpFillData is empty.";
-    std::move(callback).Run(false);
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), false));
     return;
   }
 
@@ -312,7 +510,14 @@ void ActorOneTimeTokenFillingServiceImpl::FillOtp(
   filling_observer_->Activate(base::BindOnce(
       [](base::WeakPtr<ActorOneTimeTokenFillingServiceImpl> service,
          base::OnceCallback<void(bool)> callback,
-         base::expected<void, ActorFormFillingError> result) {
+         base::expected<base::flat_map<FieldGlobalId, std::string>,
+                        ActorFormFillingError> result) {
+        using enum ActorOneTimeTokenFillingServiceFillOtp;
+        if (result.has_value()) {
+          RecordActorOneTimeTokenFillingServiceFillOtp(kSuccess);
+        } else {
+          RecordActorOneTimeTokenFillingServiceFillOtp(kError);
+        }
         // Once the filling operation completes or times out, we must reset the
         // observer to clear the busy state so subsequent OTP filling requests
         // can proceed.
@@ -327,6 +532,61 @@ void ActorOneTimeTokenFillingServiceImpl::FillOtp(
         std::move(callback).Run(result.has_value());
       },
       weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+FormFillingContextStatus
+ActorOneTimeTokenFillingServiceImpl::ValidateFormFillingContext(
+    tabs::TabHandle tab_handle,
+    base::span<const FieldGlobalId> trigger_field_ids) const {
+  CHECK(!trigger_field_ids.empty());
+  tabs::TabInterface* tab = tab_handle.Get();
+  if (!tab || !tab->GetContents()) {
+    return FormFillingContextStatus::kTabNotAvailable;
+  }
+
+  content::WebContents* web_contents = tab->GetContents();
+  SecurityStateTabHelper* helper =
+      SecurityStateTabHelper::FromWebContents(web_contents);
+  if (!helper) {
+    return FormFillingContextStatus::kInsecureContext;
+  }
+
+  const security_state::SecurityLevel security_level =
+      helper->GetSecurityLevel();
+  content::NavigationEntry* entry =
+      web_contents->GetController().GetVisibleEntry();
+
+  // Verify that the page in `web_contents` is loaded over cryptographic HTTPS
+  // and has a valid certificate without mixed content.
+  if (!entry || !entry->GetURL().SchemeIsCryptographic() ||
+      !security_state::IsSslCertificateValid(security_level)) {
+    return FormFillingContextStatus::kInsecureContext;
+  }
+
+  base::expected<std::reference_wrapper<BrowserAutofillManager>,
+                 ActorFormFillingError>
+      maybe_manager = GetAutofillManager(*tab);
+  if (!maybe_manager.has_value()) {
+    return FormFillingContextStatus::kFormNotFound;
+  }
+  BrowserAutofillManager& autofill_manager = maybe_manager.value();
+
+  // Find `form_structure` in `autofill_manager` using the first ID in
+  // `trigger_field_ids`.
+  const FormStructure* const form_structure =
+      autofill_manager.FindCachedFormById(trigger_field_ids.front());
+  if (!form_structure) {
+    return FormFillingContextStatus::kFormNotFound;
+  }
+
+  // Ensure `form_structure` does not submit to an insecure mixed content
+  // action.
+  if (autofill::IsFormMixedContent(autofill_manager.client(),
+                                   form_structure->ToFormData())) {
+    return FormFillingContextStatus::kInsecureContext;
+  }
+
+  return FormFillingContextStatus::kSecure;
 }
 
 base::WeakPtr<ActorOneTimeTokenFillingService>

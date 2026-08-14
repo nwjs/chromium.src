@@ -171,7 +171,7 @@ perfetto::StaticString AudioPlayingStateToString(bool is_audio_playing) {
   if (is_audio_playing) {
     return "playing";
   } else {
-    return "silent";
+    return nullptr;
   }
 }
 
@@ -195,7 +195,7 @@ perfetto::StaticString TaskPriorityToStaticString(TaskPriority priority) {
 perfetto::StaticString OptionalTaskPriorityToString(
     std::optional<TaskPriority> priority) {
   if (!priority)
-    return "Unknown";
+    return nullptr;
   return TaskPriorityToStaticString(*priority);
 }
 
@@ -235,7 +235,7 @@ perfetto::StaticString RenderingPrioritizationStateToString(
       MainThreadSchedulerImpl::RenderingPrioritizationState;
   switch (state) {
     case RenderingPrioritizationState::kNone:
-      return "none";
+      return nullptr;
     case RenderingPrioritizationState::kRenderingStarved:
       return "rendering_starved";
     case RenderingPrioritizationState::kRenderingStarvedByRenderBlocking:
@@ -507,7 +507,7 @@ MainThreadSchedulerImpl::MainThreadOnly::MainThreadOnly(
                           kShortIdlePeriodDurationSampleCount,
                           kShortIdlePeriodDurationPercentile),
       current_use_case(UseCase::kNone,
-                       MakeNamedTrack("Scheduler.UseCase", this),
+                       MakeStateTrack("Scheduler.UseCase", this),
                        &main_thread_scheduler_impl->tracing_controller_,
                        UseCaseToString),
       renderer_pause_count(0,
@@ -515,58 +515,58 @@ MainThreadSchedulerImpl::MainThreadOnly::MainThreadOnly(
                            &main_thread_scheduler_impl->tracing_controller_),
       blocking_input_expected_soon(
           false,
-          MakeNamedTrack("Scheduler.BlockingInputExpectedSoon", this),
+          MakeStateTrack("Scheduler.BlockingInputExpectedSoon", this),
           &main_thread_scheduler_impl->tracing_controller_,
           YesNoStateToString),
       in_idle_period_for_testing(
           false,
-          MakeNamedTrack("Scheduler.InIdlePeriod", this),
+          MakeStateTrack("Scheduler.InIdlePeriod", this),
           &main_thread_scheduler_impl->tracing_controller_,
           YesNoStateToString),
       is_audio_playing(false,
-                       MakeNamedTrack("Renderer audible", this),
+                       MakeStateTrack("Renderer audible", this),
                        &main_thread_scheduler_impl->tracing_controller_,
                        AudioPlayingStateToString),
       compositor_will_send_main_frame_not_expected(
           false,
-          MakeNamedTrack("Scheduler.CompositorWillSendMainFrameNotExpected",
+          MakeStateTrack("Scheduler.CompositorWillSendMainFrameNotExpected",
                          this),
           &main_thread_scheduler_impl->tracing_controller_,
           YesNoStateToString),
       has_navigated(false,
-                    MakeNamedTrack("Scheduler.HasNavigated", this),
+                    MakeStateTrack("Scheduler.HasNavigated", this),
                     &main_thread_scheduler_impl->tracing_controller_,
                     YesNoStateToString),
       pause_timers_for_webview(
           false,
-          MakeNamedTrack("Scheduler.PauseTimersForWebview", this),
+          MakeStateTrack("Scheduler.PauseTimersForWebview", this),
           &main_thread_scheduler_impl->tracing_controller_,
           YesNoStateToString),
       restrict_cpu_performance(
           false,
-          MakeNamedTrack("Scheduler.RestrictCPUPerformance", this),
+          MakeStateTrack("Scheduler.RestrictCPUPerformance", this),
           &main_thread_scheduler_impl->tracing_controller_,
           YesNoStateToString),
       background_status_changed_at(now),
       metrics_helper(now, kLaunchingProcessIsBackgrounded),
       task_description_for_tracing(
           std::nullopt,
-          MakeNamedTrack("Scheduler.MainThreadTask", this),
+          MakeStateTrack("Scheduler.MainThreadTask", this),
           &main_thread_scheduler_impl->tracing_controller_,
           OptionalTaskDescriptionToString),
       task_priority_for_tracing(
           std::nullopt,
-          MakeNamedTrack("Scheduler.TaskPriority", this),
+          MakeStateTrack("Scheduler.TaskPriority", this),
           &main_thread_scheduler_impl->tracing_controller_,
           OptionalTaskPriorityToString),
       main_thread_compositing_is_fast(false),
       compositor_priority(TaskPriority::kNormalPriority,
-                          MakeNamedTrack("Scheduler.CompositorPriority", this),
+                          MakeStateTrack("Scheduler.CompositorPriority", this),
                           &main_thread_scheduler_impl->tracing_controller_,
                           TaskPriorityToStaticString),
       main_frame_prioritization_state(
           RenderingPrioritizationState::kNone,
-          MakeNamedTrack("RenderingPrioritizationState", this),
+          MakeStateTrack("RenderingPrioritizationState", this),
           &main_thread_scheduler_impl->tracing_controller_,
           RenderingPrioritizationStateToString),
       last_frame_time(now),
@@ -582,47 +582,47 @@ MainThreadSchedulerImpl::AnyThread::AnyThread(
     MainThreadSchedulerImpl* main_thread_scheduler_impl)
     : awaiting_touch_start_response(
           false,
-          MakeNamedTrack("Scheduler.AwaitingTouchstartResponse", this),
+          MakeStateTrack("Scheduler.AwaitingTouchstartResponse", this),
           &main_thread_scheduler_impl->tracing_controller_,
           YesNoStateToString),
       awaiting_discrete_input_response(
           false,
-          MakeNamedTrack("Scheduler.AwaitingDiscreteInputResponse", this),
+          MakeStateTrack("Scheduler.AwaitingDiscreteInputResponse", this),
           &main_thread_scheduler_impl->tracing_controller_,
           YesNoStateToString),
       begin_main_frame_on_critical_path(
           false,
-          MakeNamedTrack("Scheduler.BeginMainFrameOnCriticalPath", this),
+          MakeStateTrack("Scheduler.BeginMainFrameOnCriticalPath", this),
           &main_thread_scheduler_impl->tracing_controller_,
           YesNoStateToString),
       last_gesture_was_compositor_driven(
           false,
-          MakeNamedTrack("Scheduler.LastGestureWasCompositorDriven", this),
+          MakeStateTrack("Scheduler.LastGestureWasCompositorDriven", this),
           &main_thread_scheduler_impl->tracing_controller_,
           YesNoStateToString),
       default_gesture_prevented(
           true,
-          MakeNamedTrack("Scheduler.DefaultGesturePrevented", this),
+          MakeStateTrack("Scheduler.DefaultGesturePrevented", this),
           &main_thread_scheduler_impl->tracing_controller_,
           YesNoStateToString),
       have_seen_a_blocking_gesture(
           false,
-          MakeNamedTrack("Scheduler.HaveSeenBlockingGesture", this),
+          MakeStateTrack("Scheduler.HaveSeenBlockingGesture", this),
           &main_thread_scheduler_impl->tracing_controller_,
           YesNoStateToString),
       waiting_for_any_main_frame_contentful_paint(
           false,
-          MakeNamedTrack("Scheduler.WaitingForMainFrameContentfulPaint", this),
+          MakeStateTrack("Scheduler.WaitingForMainFrameContentfulPaint", this),
           &main_thread_scheduler_impl->tracing_controller_,
           YesNoStateToString),
       waiting_for_any_main_frame_meaningful_paint(
           false,
-          MakeNamedTrack("Scheduler.WaitingForMeaningfulPaint", this),
+          MakeStateTrack("Scheduler.WaitingForMeaningfulPaint", this),
           &main_thread_scheduler_impl->tracing_controller_,
           YesNoStateToString),
       have_seen_input_since_navigation(
           false,
-          MakeNamedTrack("Scheduler.HaveSeenInputSinceNavigation", this),
+          MakeStateTrack("Scheduler.HaveSeenInputSinceNavigation", this),
           &main_thread_scheduler_impl->tracing_controller_,
           YesNoStateToString) {}
 
@@ -2024,8 +2024,10 @@ void MainThreadSchedulerImpl::WriteIntoTraceLocked(
 
   if (optional_now.is_null())
     optional_now = helper_.NowTicks();
+  perfetto::StaticString current_use_case =
+      UseCaseToString(main_thread_only().current_use_case);
   dict.Add("current_use_case",
-           UseCaseToString(main_thread_only().current_use_case));
+           current_use_case.value ? current_use_case : "none");
   dict.Add("compositor_will_send_main_frame_not_expected",
            main_thread_only().compositor_will_send_main_frame_not_expected);
   dict.Add("blocking_input_expected_soon",
@@ -2123,7 +2125,8 @@ void MainThreadSchedulerImpl::Policy::WriteIntoTrace(
     perfetto::TracedValue context) const {
   auto dict = std::move(context).WriteDictionary();
   dict.Add("rail_mode", RAILModeToString(rail_mode));
-  dict.Add("use_case", UseCaseToString(use_case));
+  perfetto::StaticString use_case_string = UseCaseToString(use_case);
+  dict.Add("use_case", use_case_string.value ? use_case_string : "none");
   dict.Add("should_pause_task_queues", should_pause_task_queues);
   dict.Add("should_pause_task_queues_for_android_webview",
            should_pause_task_queues_for_android_webview);

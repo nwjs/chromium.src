@@ -105,8 +105,7 @@ void AtomicSetFeatureState(std::atomic<FeatureStateCache>& cached_value,
       PackFeatureState(override_state, caching_context);
 
   // When updating the currently cached value, we need to preserve all of its
-  // flag bits (bits 16 through 23), which might be set concurrently by
-  // AtomicSetFeatureStateFlags(). A simple store could clear those bits.
+  // flag bits (bits 16 through 23). A simple store could clear those bits.
   Feature::FeatureStateCache current_value =
       cached_value.load(std::memory_order_relaxed);
   Feature::FeatureStateCache value_to_store;
@@ -120,40 +119,10 @@ void AtomicSetFeatureState(std::atomic<FeatureStateCache>& cached_value,
                                                std::memory_order_relaxed));
 }
 
-// Atomically sets the flags in the packed cache value. The flags are stored in
-// the 8 bits from 16 to 23. The override state and caching context in the
-// packed cache value are preserved.
-void AtomicSetFeatureStateFlags(std::atomic<FeatureStateCache>& feature_state,
-                                FeatureStateCache flags_to_set) {
-  CHECK_EQ(flags_to_set & internal::kAllFlagsMask, flags_to_set)
-      << "Only flags should be set in this function.";
-
-  FeatureStateCache current_value =
-      feature_state.load(std::memory_order_relaxed);
-  Feature::FeatureStateCache value_to_store;
-  do {
-    // Combine the new value with the flags from the current value.
-    value_to_store = current_value | flags_to_set;
-    // Note that compare_exchange_weak() will update `current_value` if the
-    // `current_value` doesn't match `feature_state`.
-  } while (!feature_state.compare_exchange_weak(current_value, value_to_store,
-                                                std::memory_order_relaxed,
-                                                std::memory_order_relaxed));
-}
-
 // Returns true if the feature is runtime mutable, i.e. if its enabled/disabled
 // state can be changed after initialization.
 bool FeatureIsRuntimeMutable(FeatureStateCache feature_cached_value) {
   return HasFlags(feature_cached_value, internal::kRuntimeMutabilityMask);
-}
-
-// Returns true if the feature has runtime mutability enabled, i.e. if it is
-// a runtime mutable feature and the runtime mutability has been enabled.
-bool FeatureHasRuntimeMutabilityEnabled(
-    FeatureStateCache feature_cached_value) {
-  constexpr auto mask = internal::kRuntimeMutabilityMask |
-                        internal::kRuntimeMutabilityEnabledMask;
-  return HasFlags(feature_cached_value, mask);
 }
 
 // Returns true if the feature was accessed before the FeatureList was
@@ -414,11 +383,6 @@ bool Feature::IsRuntimeMutable() const {
   return FeatureIsRuntimeMutable(cached_value.load(std::memory_order_relaxed));
 }
 
-bool Feature::HasRuntimeMutabilityEnabled() const {
-  return FeatureHasRuntimeMutabilityEnabled(
-      cached_value.load(std::memory_order_relaxed));
-}
-
 bool Feature::WasAccessedEarly() const {
   return FeatureWasAccessedEarly(cached_value.load(std::memory_order_relaxed));
 }
@@ -510,6 +474,11 @@ void FeatureList::InitFromSharedMemory(PersistentMemoryAllocator* allocator) {
   }
 }
 
+void FeatureList::SetVariationCountry(std::string_view variation_country) {
+  DCHECK(!initialized_);
+  variation_country_ = ToLowerASCII(variation_country);
+}
+
 void FeatureList::EnableRuntimeMutability(
     const base::Feature& feature,
     OnRuntimeMutableFeatureStateChangedCallback callback) {
@@ -536,23 +505,22 @@ void FeatureList::EnableRuntimeMutability(
 
   // Runtime mutable features must be registered exactly once, during feature
   // list initialization, and before first use.
-  CHECK(!FeatureHasRuntimeMutabilityEnabled(cached_value));
   CHECK(!FeatureWasAccessedEarly(cached_value));
   bool inserted = runtime_mutable_overrides_
                       .try_emplace(feature.name, feature, std::move(callback))
                       .second;
   CHECK(inserted);
+}
 
-  // In principle, a correctly implemented runtime mutable feature doesn't
-  // need atomic operations to set the runtime mutability enabled flag, as
-  // initialization is done on the main sequence. We reuse the atomic helper
-  // for convenience and consistency.
-  AtomicSetFeatureStateFlags(feature.cached_value,
-                             internal::kRuntimeMutabilityEnabledMask);
-  DCHECK(feature.HasRuntimeMutabilityEnabled());
+const base::flat_map<std::string, internal::RuntimeMutableFeatureState>&
+FeatureList::GetRuntimeMutableFeatureState(
+    PassKey<metrics::RuntimeMutableFeaturesHandlerBase> pass_key) const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return runtime_mutable_overrides_;
 }
 
 bool FeatureList::UpdateRuntimeMutableFeatureState(
+    base::PassKey<variations::VariationsService>,
     std::string_view field_trial_name,
     std::string_view group_name,
     std::string_view feature_name,
@@ -593,12 +561,10 @@ bool FeatureList::UpdateRuntimeMutableFeatureState(
   // has its runtime mutability bits properly set.
   auto& runtime_override_entry = it->second;
   const auto& feature = runtime_override_entry.feature.get();
-  DCHECK(feature.HasRuntimeMutabilityEnabled());
 
   runtime_override_entry.override_state = override_state;
   // TODO: http://crbug.com/482450776 - Update field trial activations.
   runtime_override_entry.field_trial_name = std::string(field_trial_name);
-  runtime_override_entry.group_name = std::string(group_name);
 
   // Notify the callback.
   if (!runtime_override_entry.callback.is_null()) {
@@ -609,6 +575,86 @@ bool FeatureList::UpdateRuntimeMutableFeatureState(
 
   LogRuntimeMutabilityResult(feature_name, RuntimeMutabilityResult::kSuccess);
   return true;
+}
+
+bool FeatureList::HasRuntimeMutabilityEnabledByFeatureName(
+    std::string_view feature_name) const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK(initialized_);
+  DCHECK(IsValidFeatureOrFieldTrialName(feature_name)) << feature_name;
+
+  return runtime_mutable_overrides_.contains(feature_name);
+}
+
+std::string_view
+FeatureList::GetAssociatedRuntimeFieldTrialOverrideByFeatureName(
+    std::string_view feature_name) const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK(initialized_);
+  DCHECK(IsValidFeatureOrFieldTrialName(feature_name)) << feature_name;
+  DCHECK(HasRuntimeMutabilityEnabledByFeatureName(feature_name));
+
+  auto it = runtime_mutable_overrides_.find(feature_name);
+  if (it == runtime_mutable_overrides_.end()) {
+    // This should not happen since this function should only be called for
+    // runtime-mutable-enabled features (as determined by a DCHECK above).
+    return "";
+  }
+  // If the feature is not currently runtime overridden, this will be an empty
+  // string.
+  return it->second.field_trial_name;
+}
+
+FeatureList::ControllingTrialInfo
+FeatureList::GetControllingTrialInfoByFeatureName(
+    std::string_view feature_name) const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK(initialized_);
+  DCHECK(IsValidFeatureOrFieldTrialName(feature_name)) << feature_name;
+
+  if (HasRuntimeMutabilityEnabledByFeatureName(feature_name)) {
+    std::string_view runtime_override_trial =
+        GetAssociatedRuntimeFieldTrialOverrideByFeatureName(feature_name);
+    if (!runtime_override_trial.empty()) {
+      return ControllingTrialInfo{
+          .trial_name = std::string(runtime_override_trial),
+          .is_runtime_override = true};
+    }
+  }
+
+  base::FieldTrial* trial = GetAssociatedFieldTrialByFeatureName(feature_name);
+  if (trial) {
+    return ControllingTrialInfo{.trial_name = trial->trial_name(),
+                                .is_runtime_override = false};
+  }
+
+  return ControllingTrialInfo();
+}
+
+base::flat_set<std::string> FeatureList::GetFeaturesAssociatedWithTrial(
+    const ControllingTrialInfo& controlling_trial_info) const {
+  // TODO(crbug.com/482450632): Implement this more efficiently by maintaining
+  // a map of trials to associated features.
+  base::flat_set<std::string> associated_features;
+  if (controlling_trial_info.is_runtime_override) {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    for (const auto& [feature_name, runtime_override_info] :
+         runtime_mutable_overrides_) {
+      if (runtime_override_info.field_trial_name ==
+          controlling_trial_info.trial_name) {
+        associated_features.insert(feature_name);
+      }
+    }
+  } else {
+    for (const auto& [feature_name, override_info] : overrides_) {
+      if (override_info.field_trial &&
+          override_info.field_trial->trial_name() ==
+              controlling_trial_info.trial_name) {
+        associated_features.insert(feature_name);
+      }
+    }
+  }
+  return associated_features;
 }
 
 bool FeatureList::IsFeatureOverridden(std::string_view feature_name) const {
@@ -718,7 +764,8 @@ bool FeatureList::IsEnabled(const Feature& feature) {
     EarlyFeatureAccessTracker::GetInstance()->AccessedFeature(
         feature, g_feature_list_instance &&
                      g_feature_list_instance->IsEarlyAccessInstance());
-    return feature.default_state == FEATURE_ENABLED_BY_DEFAULT;
+    return feature.default_state == FEATURE_ENABLED_BY_DEFAULT ||
+           feature.default_state == FEATURE_DISABLED_FOR_COUNTRIES;
   }
   return g_feature_list_instance->IsFeatureEnabled(feature);
 }
@@ -940,6 +987,12 @@ void FeatureList::ClearFeatureCachedValueForTesting(const Feature& feature) {
       std::memory_order_relaxed);
 }
 
+bool FeatureList::IsRuntimeMutabilityEnabledForTesting(
+    const Feature& feature) const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return runtime_mutable_overrides_.contains(feature.name);
+}
+
 void FeatureList::AddEarlyAllowedFeatureForTesting(std::string feature_name) {
   CHECK(IsEarlyAccessInstance());
   allowed_feature_names_.insert(std::move(feature_name));
@@ -1041,6 +1094,21 @@ bool FeatureList::IsFeatureEnabled(const Feature& feature) const {
     return overridden_state == OVERRIDE_ENABLE_FEATURE;
   }
 
+  if (IsCountrySpecificFeatureState(feature.default_state)) [[unlikely]] {
+    const auto& restricted_feature =
+        static_cast<const FeatureWithCountryRestriction&>(feature);
+    switch (restricted_feature.default_state) {
+      case FEATURE_DISABLED_FOR_COUNTRIES:
+        return !std::ranges::contains(restricted_feature.countries,
+                                      variation_country_);
+      case FEATURE_ENABLED_FOR_COUNTRIES:
+        return std::ranges::contains(restricted_feature.countries,
+                                     variation_country_);
+      default:
+        NOTREACHED();
+    }
+  }
+
   return feature.default_state == FEATURE_ENABLED_BY_DEFAULT;
 }
 
@@ -1058,6 +1126,18 @@ std::optional<bool> FeatureList::IsFeatureEnabledIfOverridden(
 
 FeatureList::OverrideState FeatureList::GetOverrideState(
     const Feature& feature) const {
+  return GetOverrideStateImpl(feature, /*activate_trial=*/true);
+}
+
+FeatureList::OverrideState FeatureList::GetOverrideStateWithoutActivation(
+    const Feature& feature,
+    PassKey<metrics::RuntimeMutableFeaturesHandlerBase> pass_key) const {
+  return GetOverrideStateImpl(feature, /*activate_trial=*/false);
+}
+
+FeatureList::OverrideState FeatureList::GetOverrideStateImpl(
+    const Feature& feature,
+    bool activate_trial) const {
   DCHECK(initialized_);
   DCHECK(IsValidFeatureOrFieldTrialName(feature.name)) << feature.name;
   DCHECK(CheckFeatureIdentity(feature))
@@ -1089,10 +1169,14 @@ FeatureList::OverrideState FeatureList::GetOverrideState(
   }
 
   // Otherwise, look up the static override state by feature name.
-  const OverrideState state = GetOverrideStateByFeatureName(feature.name);
+  const OverrideState state =
+      GetOverrideStateByFeatureNameImpl(feature.name, activate_trial);
 
-  // Update the cache with the override state.
-  AtomicSetFeatureState(feature.cached_value, state, caching_context_);
+  // Update the cache with the override state ONLY if we are performing an
+  // activating query.
+  if (activate_trial) {
+    AtomicSetFeatureState(feature.cached_value, state, caching_context_);
+  }
 
   return state;
 }
@@ -1104,7 +1188,6 @@ FeatureList::MaybeGetRuntimeOverrideState(
   const bool is_runtime_mutable = FeatureIsRuntimeMutable(current_cached_value);
   if (is_runtime_mutable) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-    CHECK(FeatureHasRuntimeMutabilityEnabled(current_cached_value));
     // Runtime mutability is enabled, so we should use the override state if
     // it is set.
     auto it = runtime_mutable_overrides_.find(feature.name);
@@ -1121,6 +1204,13 @@ FeatureList::MaybeGetRuntimeOverrideState(
 
 FeatureList::OverrideState FeatureList::GetOverrideStateByFeatureName(
     std::string_view feature_name) const {
+  return GetOverrideStateByFeatureNameImpl(feature_name,
+                                           /*activate_trial=*/true);
+}
+
+FeatureList::OverrideState FeatureList::GetOverrideStateByFeatureNameImpl(
+    std::string_view feature_name,
+    bool activate_trial) const {
   DCHECK(initialized_);
   DCHECK(IsValidFeatureOrFieldTrialName(feature_name)) << feature_name;
 
@@ -1133,8 +1223,8 @@ FeatureList::OverrideState FeatureList::GetOverrideStateByFeatureName(
 
   if (const OverrideEntry* entry =
           GetOverrideEntryByFeatureName(feature_name)) {
-    // Activate the corresponding field trial, if necessary.
-    if (entry->field_trial) {
+    // Activate the corresponding field trial, if necessary and requested.
+    if (activate_trial && entry->field_trial) {
       entry->field_trial->Activate();
     }
 

@@ -18,7 +18,6 @@
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_bubble_coordinator.h"
 #include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_bubble_view_controller.h"
-#include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_icon_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
 #include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -27,10 +26,7 @@
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/content_settings/core/common/cookie_controls_enforcement.h"
 #include "components/content_settings/core/common/cookie_controls_state.h"
-#include "components/content_settings/core/common/features.h"
 #include "components/content_settings/core/common/pref_names.h"
-#include "components/content_settings/core/test/content_settings_mock_provider.h"
-#include "components/content_settings/core/test/content_settings_test_utils.h"
 #include "components/prefs/pref_service.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "content/public/browser/web_contents.h"
@@ -98,15 +94,15 @@ class CookieControlsBubbleViewPixelTestBase : public DialogBrowserTest {
     ASSERT_TRUE(cookie_controls_icon_);
 
     controller_ = std::make_unique<content_settings::CookieControlsController>(
-        CookieSettingsFactory::GetForProfile(browser()->profile()),
+        CookieSettingsFactory::GetForProfile(browser()->GetProfile()),
         /*original_cookie_settings=*/nullptr,
-        HostContentSettingsMapFactory::GetForProfile(browser()->profile()),
+        HostContentSettingsMapFactory::GetForProfile(browser()->GetProfile()),
         /*is_incognito_profile=*/false);
 
     incognito_controller_ =
         std::make_unique<content_settings::CookieControlsController>(
             CookieSettingsFactory::GetForProfile(incognito_profile()),
-            CookieSettingsFactory::GetForProfile(browser()->profile()),
+            CookieSettingsFactory::GetForProfile(browser()->GetProfile()),
             HostContentSettingsMapFactory::GetForProfile(incognito_profile()),
             /*is_incognito_profile=*/true);
 
@@ -132,10 +128,11 @@ class CookieControlsBubbleViewPixelTestBase : public DialogBrowserTest {
   }
 
   scoped_refptr<content_settings::CookieSettings> cookie_settings() {
-    return CookieSettingsFactory::GetForProfile(browser()->profile());
+    return CookieSettingsFactory::GetForProfile(browser()->GetProfile());
   }
   HostContentSettingsMap* host_content_settings_map() {
-    return HostContentSettingsMapFactory::GetForProfile(browser()->profile());
+    return HostContentSettingsMapFactory::GetForProfile(
+        browser()->GetProfile());
   }
   GURL third_party_cookie_page_url() {
     return https_test_server()->GetURL("a.test",
@@ -150,7 +147,7 @@ class CookieControlsBubbleViewPixelTestBase : public DialogBrowserTest {
   }
 
   Profile* incognito_profile() {
-    return browser()->profile()->GetPrimaryOTRProfile(true);
+    return browser()->GetProfile()->GetPrimaryOTRProfile(true);
   }
 
  protected:
@@ -184,7 +181,7 @@ class CookieControlsBubbleViewPixelTest
       const CookieControlsBubbleViewPixelTest&) = delete;
 
   void BlockThirdPartyCookies() {
-    browser()->profile()->GetPrefs()->SetInteger(
+    browser()->GetProfile()->GetPrefs()->SetInteger(
         prefs::kCookieControlsMode,
         static_cast<int>(
             content_settings::CookieControlsMode::kBlockThirdParty));
@@ -207,10 +204,6 @@ class CookieControlsBubbleViewPixelTest
     // CookieControlsController, which has not been updated to reflect what is
     // needed for this test.
     view_controller()->OnStatusChanged(controls_state, enforcement, expiration);
-    if (!IsPageActionMigrated(PageActionIconType::kCookieControls)) {
-      static_cast<CookieControlsIconView*>(cookie_controls_icon())
-          ->ExecuteForTesting();
-    }
   }
 
   void ShowUi(const std::string& name_with_param_suffix) override {
@@ -219,14 +212,9 @@ class CookieControlsBubbleViewPixelTest
     ASSERT_TRUE(cookie_controls_icon()->GetVisible());
     views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
                                          "CookieControlsBubbleViewImpl");
-    if (IsPageActionMigrated(PageActionIconType::kCookieControls)) {
-      actions::ActionManager::Get()
-          .FindAction(kActionShowCookieControls)
-          ->InvokeAction();
-    } else {
-      static_cast<CookieControlsIconView*>(cookie_controls_icon())
-          ->ExecuteForTesting();
-    }
+    actions::ActionManager::Get()
+        .FindAction(kActionShowCookieControls)
+        ->InvokeAction();
 
     SetStatus(controls_state_, enforcement_, days_to_expiration_);
     waiter.WaitIfNeededAndGet();

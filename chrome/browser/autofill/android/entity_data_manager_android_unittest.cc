@@ -8,6 +8,7 @@
 #include <optional>
 
 #include "base/android/jni_android.h"
+#include "base/containers/span.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
@@ -27,6 +28,8 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/consent_auditor/fake_consent_auditor.h"
+#include "components/optimization_guide/core/feature_registry/feature_registration.h"
+#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/personal_context/core/personal_context_prefs.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/sync/test/test_sync_service.h"
@@ -50,6 +53,8 @@ class EntityDataManagerAndroidTest : public testing::Test {
   EntityDataManagerAndroidTest() {
     prefs::RegisterProfilePrefs(prefs_.registry());
     personal_context::prefs::RegisterProfilePrefs(prefs_.registry());
+    prefs_.registry()->RegisterIntegerPref(
+        optimization_guide::prefs::kFindAndFillWithGeminiSettings, 0);
     entity_data_manager_ = std::make_unique<EntityDataManager>(
         &prefs_, identity_test_env_.identity_manager(), &sync_service_,
         webdata_helper_.autofill_webdata_service(),
@@ -63,7 +68,7 @@ class EntityDataManagerAndroidTest : public testing::Test {
         /*google_groups_manager=*/nullptr, &prefs_,
         identity_test_env_.identity_manager(), &sync_service_,
         /*account_setting_service=*/nullptr, &consent_auditor_,
-        /*personal_context_enablement_service=*/nullptr,
+        /*personal_context_eligibility_service=*/nullptr,
         /*subscription_eligibility_service=*/nullptr,
         /*is_off_the_record=*/false, &mock_wallet_pass_access_manager_,
         entity_data_manager_.get());
@@ -325,6 +330,31 @@ TEST_F(EntityDataManagerAndroidTest, PersonalContextEnabled_GetAndSet) {
   // Set back to true and verify it changed.
   entity_data_manager_android_->SetPersonalContextEnabled(env(), true);
   EXPECT_TRUE(entity_data_manager_android_->IsPersonalContextEnabled(env()));
+}
+
+TEST_F(EntityDataManagerAndroidTest,
+       PersonalContext_ManagedByEnterprisePolicy) {
+  // Initially not managed by policy.
+  EXPECT_FALSE(
+      entity_data_manager_android_->IsPersonalContextDisabledByEnterprisePolicy(
+          env()));
+
+  // Set policy to kDisable (2).
+  prefs_.SetInteger(
+      optimization_guide::prefs::kFindAndFillWithGeminiSettings,
+      std::to_underlying(optimization_guide::model_execution::prefs::
+                             ModelExecutionEnterprisePolicyValue::kDisable));
+
+  // Verify that setting is reported as disabled by policy and
+  // `IsPersonalContextEnabled` returns false.
+  EXPECT_TRUE(
+      entity_data_manager_android_->IsPersonalContextDisabledByEnterprisePolicy(
+          env()));
+  EXPECT_FALSE(entity_data_manager_android_->IsPersonalContextEnabled(env()));
+
+  // Attempting to set enabled status should be ignored when managed by policy.
+  entity_data_manager_android_->SetPersonalContextEnabled(env(), true);
+  EXPECT_FALSE(entity_data_manager_android_->IsPersonalContextEnabled(env()));
 }
 
 }  // namespace

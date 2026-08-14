@@ -74,7 +74,6 @@
 #include "content/public/test/service_worker_test_helpers.h"
 #include "extensions/browser/api/web_request/extension_web_request_event_router.h"
 #include "extensions/browser/api/web_request/web_request_api_helpers.h"
-#include "extensions/browser/api/web_request/web_request_resource_type.h"
 #include "extensions/browser/browsertest_util.h"
 #include "extensions/browser/crx_installer.h"
 #include "extensions/browser/event_router.h"
@@ -88,6 +87,7 @@
 #include "extensions/browser/unpacked_installer.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/api/test.h"
+#include "extensions/common/api/web_request/web_request_resource_type.h"
 #include "extensions/common/extension_features.h"
 #include "extensions/common/extensions_client.h"
 #include "extensions/common/features/feature_channel.h"
@@ -1332,8 +1332,16 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerTest,
   EXPECT_EQ("true", ExecuteScriptInBackgroundPage(extension->id(), kScript));
 }
 
+// Flaky crashes during test setup. http://crbug.com/534230908
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_ServiceWorkerSuspensionOnExtensionUnload \
+  DISABLED_ServiceWorkerSuspensionOnExtensionUnload
+#else
+#define MAYBE_ServiceWorkerSuspensionOnExtensionUnload \
+  ServiceWorkerSuspensionOnExtensionUnload
+#endif
 IN_PROC_BROWSER_TEST_F(ServiceWorkerTest,
-                       ServiceWorkerSuspensionOnExtensionUnload) {
+                       MAYBE_ServiceWorkerSuspensionOnExtensionUnload) {
   // For this test, only hold onto the extension's ID and URL + a function to
   // get a resource URL, because we're going to be disabling and uninstalling
   // it, which will invalidate the pointer.

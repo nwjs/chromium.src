@@ -830,7 +830,7 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchShadowHost(
     case CSSSelector::kPseudoTextField:
     case CSSSelector::kPseudoToolFormActive:
     case CSSSelector::kPseudoToolSubmitActive:
-    case CSSSelector::kPseudoTriggerLink:
+    case CSSSelector::kPseudoNavSource:
     case CSSSelector::kPseudoUnbounded:
     case CSSSelector::kPseudoViewTransition:
     case CSSSelector::kPseudoViewTransitionGroup:
@@ -1401,11 +1401,16 @@ static bool AnyAttributeMatches(Element& element,
   // Legacy dictates that values of some attributes should be compared in
   // a case-insensitive manner regardless of whether the case insensitive
   // flag is set or not (but an explicit case sensitive flag will override
-  // that, by causing LegacyCaseInsensitiveMatch() never to be set).
+  // that, by causing LegacyCaseInsensitiveMatch() never to be set). This only
+  // applies to HTML elements in HTML documents:
+  // https://html.spec.whatwg.org/multipage/semantics-other.html#case-sensitivity-of-selectors
   const bool case_insensitive =
       selector.AttributeMatch() ==
           CSSSelector::AttributeMatchType::kCaseInsensitive ||
       (selector.LegacyCaseInsensitiveMatch() &&
+       (!RuntimeEnabledFeatures::
+            CSSAttributeValueCaseSensitiveNonHTMLEnabled() ||
+        element.IsHTMLElement()) &&
        IsA<HTMLDocument>(element.GetDocument()));
 
   AttributeCollection attributes = element.AttributesWithoutUpdate();
@@ -2928,18 +2933,18 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
     case CSSSelector::kPseudoActiveNavigation:
       DCHECK(RuntimeEnabledFeatures::RouteMatchingEnabled());
       return CheckPseudoActiveNavigation(context, result);
-    case CSSSelector::kPseudoTriggerLink:
+    case CSSSelector::kPseudoNavSource:
       DCHECK(RuntimeEnabledFeatures::RouteMatchingEnabled());
-      if (element.IsLink()) {
-        if (const auto* state = NavigationState::Get(&element.GetDocument())) {
-          return &element == state->GetSourceElement();
+      if (const auto* state = NavigationState::Get(&element.GetDocument())) {
+        if (&element == state->GetSourceElement()) {
+          return true;
         }
-
-        // TODO(crbug.com/436805487) Find a better solution. For now we need a
-        // RouteMap instance in order to trigger style recalc of source elements
-        // for :trigger-link, when navigation starts and ends.
-        RouteMap::Ensure(element.GetDocument());
       }
+
+      // TODO(crbug.com/436805487) Find a better solution. For now we need a
+      // RouteMap instance in order to trigger style recalc of source elements
+      // for :nav-source, when navigation starts and ends.
+      RouteMap::Ensure(element.GetDocument()).SetNeedsStyleUpdateOnNavigation();
       return false;
     case CSSSelector::kPseudoLang: {
       auto* vtt_element = DynamicTo<VTTElement>(element);

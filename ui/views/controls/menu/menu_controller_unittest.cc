@@ -16,11 +16,13 @@
 #include "base/functional/callback_helpers.h"
 #include "base/i18n/rtl.h"
 #include "base/memory/raw_ptr.h"
+#include "base/scoped_observation.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/to_string.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/current_thread.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/test/bind.h"
 #include "build/build_config.h"
 #include "ui/accessibility/ax_action_data.h"
 #include "ui/accessibility/ax_mode.h"
@@ -42,6 +44,8 @@
 #include "ui/events/types/event_type.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/views/accessibility/ax_update_notifier.h"
+#include "ui/views/accessibility/ax_update_observer.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/menu/menu_controller_delegate.h"
@@ -59,6 +63,10 @@
 #include "ui/views/widget/root_view.h"
 #include "ui/views/widget/widget_utils.h"
 
+#if BUILDFLAG(IS_OZONE)
+#include "ui/ozone/public/ozone_platform.h"
+#endif
+
 #if defined(USE_AURA)
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/drag_drop_client.h"
@@ -72,9 +80,6 @@
 #include "ui/views/controls/menu/menu_pre_target_handler.h"
 #endif
 
-#if BUILDFLAG(IS_OZONE)
-#include "ui/ozone/public/ozone_platform.h"
-#endif
 
 #if BUILDFLAG(SUPPORTS_OZONE_X11)
 #include "ui/events/test/events_test_utils_x11.h"
@@ -299,6 +304,32 @@ gfx::Size CancelMenuOnMousePressView::CalculatePreferredSize(
 BEGIN_METADATA(CancelMenuOnMousePressView)
 END_METADATA
 
+// Runs a callback the first time an accessibility event of `event_type` is
+// observed on any view.
+class CallbackOnAXEventObserver : public AXUpdateObserver {
+ public:
+  CallbackOnAXEventObserver(ax::mojom::Event event_type,
+                            base::OnceClosure callback)
+      : event_type_(event_type), callback_(std::move(callback)) {
+    observation_.Observe(AXUpdateNotifier::Get());
+  }
+
+  bool fired() const { return !callback_; }
+
+  // AXUpdateObserver:
+  void OnViewEvent(View* view, ax::mojom::Event event_type) override {
+    if (event_type == event_type_ && callback_) {
+      std::move(callback_).Run();
+    }
+  }
+
+ private:
+  const ax::mojom::Event event_type_;
+  base::OnceClosure callback_;
+  base::ScopedObservation<AXUpdateNotifier, AXUpdateObserver> observation_{
+      this};
+};
+
 }  // namespace
 
 struct MenuBoundsOptions {
@@ -398,7 +429,7 @@ class MenuControllerTest : public ViewsTestBase,
                                MenuAnchorPosition menu_anchor);
 
  protected:
-  void SetPendingStateItem(MenuItemView* item);
+  void SetPendingStateItem(MenuItemView* item, bool submenu_open = true);
 
   void SetState(MenuItemView* item);
 
@@ -833,9 +864,10 @@ void MenuControllerTest::TestSubmenuFitsOnScreen(
   submenu->Close();
 }
 
-void MenuControllerTest::SetPendingStateItem(MenuItemView* item) {
+void MenuControllerTest::SetPendingStateItem(MenuItemView* item,
+                                             bool submenu_open) {
   menu_controller_->pending_state_.item = item;
-  menu_controller_->pending_state_.submenu_open = true;
+  menu_controller_->pending_state_.submenu_open = submenu_open;
 }
 
 void MenuControllerTest::SetState(MenuItemView* item) {
@@ -1078,12 +1110,13 @@ TEST_F(MenuControllerTest, EventTargeter) {
 }
 #endif  // defined(USE_AURA)
 
+// ui::SetUpTouchDevicesForTest is available only on build that supports X11.
 #if BUILDFLAG(SUPPORTS_OZONE_X11)
 // Tests that touch event ids are released correctly. See crbug.com/439051 for
 // details. When the ids aren't managed correctly, we get stuck down touches.
 TEST_F(MenuControllerTest, TouchIdsReleasedCorrectly) {
   // Run this test only for X11.
-  if (ui::OzonePlatform::GetPlatformNameForTest() != "x11") {
+  if (!ui::OzonePlatform::RunningOnX11ForTest()) {
     GTEST_SKIP();
   }
 
@@ -1785,7 +1818,13 @@ TEST_F(MenuControllerTest, AsynchronousDragCompleteWithoutClose) {
 
   // TODO(crbug.com/375959961): For X11, the menu is closed on drag completion
   // because the native widget's state is not properly updated.
-  EXPECT_EQ(BUILDFLAG(SUPPORTS_OZONE_X11) ? 1 : 0,
+  int expected_closes = 0;
+#if BUILDFLAG(IS_OZONE)
+  if (ui::OzonePlatform::RunningOnX11ForTest()) {
+    expected_closes = 1;
+  }
+#endif
+  EXPECT_EQ(expected_closes,
             menu_controller_delegate()->on_menu_closed_called());
 }
 
@@ -2526,7 +2565,7 @@ TEST_F(MenuControllerTest, WidgetStateChangeCancelsMenu) {
 
 // TODO(pkasting): The test below fails most of the time on Wayland; not clear
 // it's important to support this case.
-#if BUILDFLAG(ENABLE_DESKTOP_AURA) && !BUILDFLAG(SUPPORTS_OZONE_WAYLAND)
+#if BUILDFLAG(ENABLE_DESKTOP_AURA)
 class DesktopMenuControllerTest : public MenuControllerTest {
  public:
   // MenuControllerTest:
@@ -2540,11 +2579,16 @@ class DesktopMenuControllerTest : public MenuControllerTest {
 // MenuPreTargetHandler. Having neither parent nor context pointers when
 // creating a Widget is only valid in desktop Aura.
 TEST_F(DesktopMenuControllerTest, RunWithoutWidgetDoesntCrash) {
+#if BUILDFLAG(IS_OZONE)
+  if (::ui::OzonePlatform::RunningOnWaylandForTest()) {
+    GTEST_SKIP() << "Fails on Wayland";
+  }
+#endif
   ExitMenuRun();
   menu_controller()->Run(nullptr, nullptr, menu_item(), gfx::Rect(),
                          MenuAnchorPosition::kTopLeft);
 }
-#endif  // BUILDFLAG(ENABLE_DESKTOP_AURA) && !BUILDFLAG(SUPPORTS_OZONE_WAYLAND)
+#endif  // BUILDFLAG(ENABLE_DESKTOP_AURA)
 
 // Tests that if a MenuController is destroying during drag/drop, and another
 // MenuController becomes active, that the exiting of drag does not cause a
@@ -2592,7 +2636,13 @@ TEST_F(MenuControllerTest, RestoreCaptureAfterDrag) {
 
   // TODO(crbug.com/375959961): For X11, the menu is closed on drag completion
   // because the native widget's state is not properly updated.
-  EXPECT_NE(base_host->HasCapture(), BUILDFLAG(SUPPORTS_OZONE_X11));
+  bool expected_capture = true;
+#if BUILDFLAG(IS_OZONE)
+  if (ui::OzonePlatform::RunningOnX11ForTest()) {
+    expected_capture = false;
+  }
+#endif
+  EXPECT_EQ(base_host->HasCapture(), expected_capture);
 }
 
 // Tests that capture is not restored to the submenu after a drag and drop where
@@ -3041,6 +3091,180 @@ TEST_F(MenuControllerTest, NoUseAfterFreeWhenMenuCanceledOnMousePress) {
 
   // Close to remove observers before test TearDown.
   submenu->Close();
+}
+
+// Tests that having the MenuController deleted from an accessibility observer
+// while handling a mouse move does not cause a crash. ASAN bots should not
+// detect use-after-free in MenuController.
+TEST_F(MenuControllerTest, MenuControllerDestroyedDuringMouseMove) {
+  ShowSubmenu();
+  SubmenuView* const submenu = menu_item()->GetSubmenu();
+  SetPendingStateItem(submenu->GetMenuItemAt(0));
+
+  CallbackOnAXEventObserver observer(
+      ax::mojom::Event::kActiveDescendantChanged,
+      base::BindLambdaForTesting([this] { DestroyMenuController(); }));
+
+  // Moving the mouse over a different item changes the selection, which fires
+  // accessibility events. The observer above synchronously deletes the
+  // controller while the move is being handled.
+  const gfx::Point location = submenu->GetMenuItemAt(1)->bounds().CenterPoint();
+  ProcessMouseMoved(
+      submenu, ui::MouseEvent(ui::EventType::kMouseMoved, location, location,
+                              ui::EventTimeForNow(), 0, 0));
+  EXPECT_TRUE(observer.fired());
+}
+
+// Tests that OnDragUpdated handles the controller being synchronously
+// destroyed by an accessibility observer reacting to the selection change.
+// Should not crash in ASAN.
+TEST_F(MenuControllerTest, DragUpdateWithControllerDeletedDuringSelection) {
+  MenuItemView* const item_with_buttons =
+      AddButtonMenuItems(/*single_child=*/true);
+  SubmenuView* const submenu = menu_item()->GetSubmenu();
+  GET_CHILD_BUTTON(button, item_with_buttons, 0);
+
+  // Select the item containing the button and make the button hot-tracked so
+  // that the next selection change clears it and updates the submenu's active
+  // descendant.
+  SetPendingStateItem(item_with_buttons);
+  SetHotTrackedButton(button);
+
+  // Destroy the controller as a side effect of the active descendant changing
+  // during the selection update.
+  CallbackOnAXEventObserver observer(
+      ax::mojom::Event::kActiveDescendantChanged,
+      base::BindLambdaForTesting([this]() { DestroyMenuController(); }));
+
+  // Dispatch a drag update at a point outside any menu item so that
+  // OnDragUpdated selects the root item, triggering the selection change.
+  ui::OSExchangeData drop_data;
+  const gfx::PointF location(-1, -1);
+  const ui::DropTargetEvent target_event(drop_data, location, location,
+                                         ui::DragDropTypes::DRAG_MOVE);
+  menu_controller()->OnDragUpdated(submenu, target_event);
+
+  EXPECT_TRUE(observer.fired());
+  EXPECT_EQ(nullptr, menu_controller());
+}
+
+// Tests that SelectItemAndOpenSubmenu handles the controller being
+// synchronously destroyed by an accessibility observer reacting to the
+// selection change. Should not crash in ASAN.
+TEST_F(MenuControllerTest,
+       SelectItemAndOpenSubmenuWithControllerDeletedDuringSelection) {
+  MenuItemView* const item_with_buttons =
+      AddButtonMenuItems(/*single_child=*/true);
+  SubmenuView* const submenu = menu_item()->GetSubmenu();
+  GET_CHILD_BUTTON(button, item_with_buttons, 0);
+
+  // Select the item containing the button and make the button hot-tracked so
+  // that the next selection change clears it and updates the submenu's active
+  // descendant.
+  SetPendingStateItem(item_with_buttons);
+  SetHotTrackedButton(button);
+
+  // Destroy the controller as a side effect of the active descendant changing
+  // during the selection update.
+  CallbackOnAXEventObserver observer(
+      ax::mojom::Event::kActiveDescendantChanged,
+      base::BindLambdaForTesting([this]() { DestroyMenuController(); }));
+
+  // Selecting a different (leaf) item clears the hot-tracked button, firing the
+  // active descendant change that destroys the controller mid-selection.
+  menu_controller()->SelectItemAndOpenSubmenu(submenu->GetMenuItemAt(0));
+
+  EXPECT_TRUE(observer.fired());
+  EXPECT_EQ(nullptr, menu_controller());
+}
+
+// Tests that MenuChildrenChanged handles the controller being synchronously
+// destroyed by an accessibility observer reacting to the selection change.
+// Should not crash in ASAN.
+TEST_F(MenuControllerTest,
+       MenuChildrenChangedWithControllerDeletedDuringSelection) {
+  MenuItemView* const item_with_buttons =
+      AddButtonMenuItems(/*single_child=*/true);
+  GET_CHILD_BUTTON(button, item_with_buttons, 0);
+
+  SetPendingStateItem(item_with_buttons);
+  SetHotTrackedButton(button);
+
+  CallbackOnAXEventObserver observer(
+      ax::mojom::Event::kActiveDescendantChanged,
+      base::BindLambdaForTesting([this]() { DestroyMenuController(); }));
+
+  // Reselecting the changed item (the root) clears the hot-tracked button and
+  // fires the active descendant change that destroys the controller
+  // mid-selection.
+  MenuChildrenChanged(menu_item());
+
+  EXPECT_TRUE(observer.fired());
+  EXPECT_EQ(nullptr, menu_controller());
+}
+
+// Tests that SetInitialHotTrackedView (reached via keyboard navigation into an
+// open submenu) handles the controller being synchronously destroyed by an
+// accessibility observer reacting to the selection change. Should not crash in
+// ASAN.
+TEST_F(MenuControllerTest,
+       SetInitialHotTrackedViewWithControllerDeletedDuringSelection) {
+  // Give the root a submenu item with a child so arrow navigation moves the
+  // selection into the submenu via SetInitialHotTrackedView().
+  MenuItemView* const submenu_item = menu_item()->AppendSubMenu(10, u"Submenu");
+  submenu_item->AppendMenuItem(11, u"Child");
+  MenuItemView* const item_with_buttons =
+      AddButtonMenuItems(/*single_child=*/true);
+  GET_CHILD_BUTTON(button, item_with_buttons, 0);
+  ShowSubmenu(submenu_item->GetSubmenu());
+
+  // Select the submenu item (with its submenu open) and hot-track a sibling's
+  // button so the next selection change clears it and fires the active
+  // descendant change.
+  SetPendingStateItem(submenu_item);
+  SetHotTrackedButton(button);
+
+  CallbackOnAXEventObserver observer(
+      ax::mojom::Event::kActiveDescendantChanged,
+      base::BindLambdaForTesting([this]() { DestroyMenuController(); }));
+
+  // Arrow-down moves the selection into the open submenu, whose SetSelection()
+  // clears the hot-tracked button and destroys the controller mid-selection.
+  IncrementSelection();
+
+  EXPECT_TRUE(observer.fired());
+  EXPECT_EQ(nullptr, menu_controller());
+}
+
+// Tests that OpenSubmenuChangeSelectionIfCan (reached via the right-arrow key)
+// handles the controller being synchronously destroyed by an accessibility
+// observer reacting to the selection change. Should not crash in ASAN.
+TEST_F(MenuControllerTest,
+       OpenSubmenuChangeSelectionIfCanWithControllerDeletedDuringSelection) {
+  MenuItemView* const submenu_item = menu_item()->AppendSubMenu(10, u"Submenu");
+  submenu_item->AppendMenuItem(11, u"Child");
+  MenuItemView* const item_with_buttons =
+      AddButtonMenuItems(/*single_child=*/true);
+  GET_CHILD_BUTTON(button, item_with_buttons, 0);
+  ShowSubmenu(submenu_item->GetSubmenu());
+
+  // Select the submenu item without opening its submenu, and hot-track a
+  // sibling's button so that opening the submenu clears it and fires the active
+  // descendant change.
+  SetPendingStateItem(submenu_item, /*submenu_open=*/false);
+  SetHotTrackedButton(button);
+
+  CallbackOnAXEventObserver observer(
+      ax::mojom::Event::kActiveDescendantChanged,
+      base::BindLambdaForTesting([this]() { DestroyMenuController(); }));
+
+  // Right-arrow opens the submenu via OpenSubmenuChangeSelectionIfCan(), whose
+  // first SetSelection() clears the hot-tracked button and destroys the
+  // controller mid-selection.
+  DispatchKey(ui::VKEY_RIGHT);
+
+  EXPECT_TRUE(observer.fired());
+  EXPECT_EQ(nullptr, menu_controller());
 }
 
 TEST_F(MenuControllerTest, SetSelectionIndices_MenuItemsOnly) {

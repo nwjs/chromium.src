@@ -14,7 +14,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/new_tab_page/modules/modules_constants.h"
-#include "chrome/browser/new_tab_page/ntp_pref_names.h"
+#include "chrome/browser/new_tab_page/prefs/ntp_pref_names.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -343,34 +343,34 @@ class NewTabPageUtilTileTypesEnterpriseShortcutsBrowserTest
 IN_PROC_BROWSER_TEST_P(NewTabPageUtilTileTypesEnterpriseShortcutsBrowserTest,
                        GetEnabledTileTypes) {
   // By default, personal shortcuts are visible (Custom Links).
-  EXPECT_EQ(GetEnabledTileTypes(browser()->profile()),
+  EXPECT_EQ(GetEnabledTileTypes(browser()->GetProfile()),
             std::set<ntp_tiles::TileType>({ntp_tiles::TileType::kCustomLinks}));
 
   // Set enterprise shortcuts policy.
-  browser()->profile()->GetPrefs()->SetList(
+  browser()->GetProfile()->GetPrefs()->SetList(
       ntp_tiles::prefs::kEnterpriseShortcutsPolicyList,
       CreatePolicyList("work name", "https://work.com/"));
 
   // If enterprise shortcuts are also visible, both should be enabled.
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       ntp_prefs::kNtpEnterpriseShortcutsVisible, true);
-  EXPECT_EQ(GetEnabledTileTypes(browser()->profile()),
+  EXPECT_EQ(GetEnabledTileTypes(browser()->GetProfile()),
             std::set<ntp_tiles::TileType>(
                 {ntp_tiles::TileType::kCustomLinks,
                  ntp_tiles::TileType::kEnterpriseShortcuts}));
 
   // If personal shortcuts are explicitly hidden by the user,
   // only enterprise should remain.
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       ntp_prefs::kNtpPersonalShortcutsVisible, false);
-  EXPECT_EQ(GetEnabledTileTypes(browser()->profile()),
+  EXPECT_EQ(GetEnabledTileTypes(browser()->GetProfile()),
             std::set<ntp_tiles::TileType>(
                 {ntp_tiles::TileType::kEnterpriseShortcuts}));
 
   // Remove enterprise shortcuts policy, personal shortcuts should be visible.
-  browser()->profile()->GetPrefs()->SetList(
+  browser()->GetProfile()->GetPrefs()->SetList(
       ntp_tiles::prefs::kEnterpriseShortcutsPolicyList, base::ListValue());
-  EXPECT_EQ(GetEnabledTileTypes(browser()->profile()),
+  EXPECT_EQ(GetEnabledTileTypes(browser()->GetProfile()),
             std::set<ntp_tiles::TileType>({ntp_tiles::TileType::kCustomLinks}));
 }
 
@@ -390,12 +390,12 @@ IN_PROC_BROWSER_TEST_P(
   const std::string module_id = ntp_modules::kGoogleCalendarModuleId;
 
   // Act.
-  DisableModuleAutoRemoval(browser()->profile(), module_id);
+  DisableModuleAutoRemoval(browser()->GetProfile(), module_id);
 
   // Assert.
   const bool actual_value =
       browser()
-          ->profile()
+          ->GetProfile()
           ->GetPrefs()
           ->GetDict(ntp_prefs::kNtpModulesAutoRemovalDisabledDict)
           .FindBool(module_id)
@@ -413,10 +413,10 @@ IN_PROC_BROWSER_TEST_P(NewTabPageUtilFeatureOptimizationModuleRemovalTest,
   };
 
   // Act.
-  DisableModuleListAutoRemoval(browser()->profile(), module_ids);
+  DisableModuleListAutoRemoval(browser()->GetProfile(), module_ids);
 
   // Assert.
-  const auto& dict_pref = browser()->profile()->GetPrefs()->GetDict(
+  const auto& dict_pref = browser()->GetProfile()->GetPrefs()->GetDict(
       ntp_prefs::kNtpModulesAutoRemovalDisabledDict);
   for (const auto& module_id : module_ids) {
     EXPECT_TRUE(dict_pref.FindBool(module_id).value_or(false));

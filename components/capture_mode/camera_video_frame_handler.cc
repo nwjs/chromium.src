@@ -44,9 +44,6 @@ namespace capture_mode {
 
 namespace {
 
-BASE_FEATURE(kCameraVideoFrameUseCorrectColorSpace,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // The `kGpuMemoryBuffer` type is requested only when running on an actual
 // device. This allows force-requesting them when testing in which case
 // SharedMemory GMBs are used.
@@ -315,8 +312,7 @@ class GpuMemoryBufferHandleHolder : public BufferHandleHolder,
     // `gpu_memory_buffer_handle_` remains tied to the lifetime of this object
     // (i.e. until `OnBufferRetired()` is called).
     gfx::ColorSpace color_space = frame_info->color_space;
-    if (!color_space.IsValid() &&
-        base::FeatureList::IsEnabled(kCameraVideoFrameUseCorrectColorSpace)) {
+    if (!color_space.IsValid()) {
       color_space = format.is_multi_plane() ? gfx::ColorSpace::CreateREC709()
                                             : gfx::ColorSpace::CreateSRGB();
     }
@@ -328,7 +324,8 @@ class GpuMemoryBufferHandleHolder : public BufferHandleHolder,
 
     // Since this is the first time we create the `shared_image_`, we need to
     // guarantee that the shared image is created before it is used.
-    shared_image_sync_token_ = shared_image_interface->GenVerifiedSyncToken();
+    shared_image_sync_token_ = shared_image_->creation_sync_token();
+    shared_image_interface->VerifySyncToken(shared_image_sync_token_);
 
     should_create_shared_image_ = false;
     return true;

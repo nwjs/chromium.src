@@ -16,6 +16,7 @@ import {isMac} from 'chrome://resources/js/platform.js';
 import {CrLitElement, html} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import {NavigationPredictor} from 'chrome://resources/mojo/components/omnibox/browser/omnibox.mojom-webui.js';
 import type {AutocompleteMatch} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {SelectionLineState} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {$$, isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
@@ -74,6 +75,15 @@ class TestSearchboxMixinElement extends TestElementBase {
 
   override pageHandler() {
     return SearchboxBrowserProxy.getInstance().handler;
+  }
+
+  // Should be `true` if the searchbox should append .com to the query when
+  // Ctrl+Enter is pressed. This should be `true` for omnibox and `false` for
+  // other searchboxes.
+  shouldAppendDotCom = false;
+
+  override shouldAppendDotComOnCtrlEnter() {
+    return this.shouldAppendDotCom;
   }
 }
 
@@ -243,7 +253,8 @@ suite('SearchboxMixinTest', () => {
     inputElement.inputElement.selectionStart = 3;
     inputElement.inputElement.selectionEnd = 3;
 
-    element.queryAutocomplete('hello', /*preventInlineAutocomplete=*/ false);
+    element.queryAutocomplete(
+        'hello', /*preventInlineAutocomplete=*/ false, /*isOnFocus=*/ false);
 
     const args = await testProxy.handler.whenCalled('queryAutocomplete');
     assertEquals(args.input, 'hello');
@@ -259,7 +270,8 @@ suite('SearchboxMixinTest', () => {
         inputElement.inputElement.selectionEnd = 3;
 
         element.queryAutocomplete(
-            'hello world', /*preventInlineAutocomplete=*/ false);
+            'hello world', /*preventInlineAutocomplete=*/ false,
+            /*isOnFocus=*/ false);
 
         const args = await testProxy.handler.whenCalled('queryAutocomplete');
         assertEquals(args.input, 'hello world');
@@ -282,7 +294,8 @@ suite('SearchboxMixinTest', () => {
   });
 
   test('stale autocomplete response is ignored', async () => {
-    element.queryAutocomplete('he', /*preventInlineAutocomplete=*/ false);
+    element.queryAutocomplete(
+        'he', /*preventInlineAutocomplete=*/ false, /*isOnFocus=*/ false);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
 
     const matches = [createSearchMatchForTesting(), createUrlMatch()];
@@ -378,7 +391,7 @@ suite('SearchboxMixinTest', () => {
   test('pressing Enter in empty input prevents new line', async () => {
     const mockInput = element.getInputElement();
     mockInput.inputElement.value = '';
-    element.queryAutocomplete('', false);
+    element.queryAutocomplete('', false, /*isOnFocus=*/ false);
     element.onAutocompleteResultChanged(createAutocompleteResultForTesting({
       queryId: element.activeQueryId,
       input: '',
@@ -491,6 +504,74 @@ suite('SearchboxMixinTest', () => {
     assertTrue(args.areMatchesShowing);
     assertTrue(args.viaKeyboard);
   });
+
+  test('pressing Ctrl+Enter navigates to new match', async () => {
+    element.shouldAppendDotCom = true;
+    const mockInput = element.getInputElement();
+    await simulateUserTextInput(mockInput, 'hello');
+
+    const matches = [
+      createSearchMatchForTesting({
+        allowedToBeDefaultMatch: true,
+        fillIntoEdit: 'hello',
+      }),
+      createUrlMatch(),
+    ];
+    element.onAutocompleteResultChanged(createAutocompleteResultForTesting({
+      queryId: element.activeQueryId,
+      input: 'hello',
+      matches: matches,
+    }));
+    await microtasksFinished();
+    assertTrue(element.dropdownIsVisible);
+
+    // Pressing Ctrl+Enter.
+    const enterEvent = createKeyboardEvent('Enter', {ctrlKey: true});
+    mockInput.inputElement.dispatchEvent(enterEvent);
+    assertTrue(enterEvent.defaultPrevented);
+    await microtasksFinished();
+
+    const args = await testProxy.handler.whenCalled('openPopupSelection');
+    assertEquals(0, args.selection.line);
+    assertEquals(SelectionLineState.kCtrlEnter, args.selection.state);
+  });
+
+  test(
+      'pressing Ctrl+Enter acts as normal enter on non-omnibox searchbox',
+      async () => {
+        element.shouldAppendDotCom = false;
+        const mockInput = element.getInputElement();
+        await simulateUserTextInput(mockInput, 'hello');
+
+        const matches = [
+          createSearchMatchForTesting({
+            allowedToBeDefaultMatch: true,
+            fillIntoEdit: 'hello',
+          }),
+          createUrlMatch(),
+        ];
+        element.onAutocompleteResultChanged(createAutocompleteResultForTesting({
+          queryId: element.activeQueryId,
+          input: 'hello',
+          matches: matches,
+        }));
+        await microtasksFinished();
+        assertTrue(element.dropdownIsVisible);
+
+        // Pressing Ctrl+Enter.
+        const enterEvent = createKeyboardEvent('Enter', {ctrlKey: true});
+        mockInput.inputElement.dispatchEvent(enterEvent);
+        assertTrue(enterEvent.defaultPrevented);
+        await microtasksFinished();
+
+        // Since the feature is disabled, it should act as a normal Enter.
+        const args =
+            await testProxy.handler.whenCalled('openAutocompleteMatch');
+        assertEquals(0, args.line);
+        assertEquals(matches[0]!.destinationUrl, args.url);
+        assertTrue(args.areMatchesShowing);
+        assertTrue(args.viaKeyboard);
+      });
 
   test('pressing Escape closes dropdown or resets input', async () => {
     const mockInput = element.getInputElement();
@@ -1337,7 +1418,7 @@ suite('SearchboxMixinTest', () => {
         assertEquals(0, args.line);
         assertEquals(matches[0]!.destinationUrl, args.url);
         assertFalse(args.areMatchesShowing);
-        assertTrue(args.shiftKey);
+        assertTrue(args.modifiers.shiftKey);
         assertEquals(
             1, testProxy.handler.getCallCount('openAutocompleteMatch'));
       });
@@ -1466,7 +1547,7 @@ suite('SearchboxMixinTest', () => {
     assertEquals(0, args.line);
     assertEquals(matches[0]!.destinationUrl, args.url);
     assertTrue(args.areMatchesShowing);
-    assertTrue(args.shiftKey);
+    assertTrue(args.modifiers.shiftKey);
     assertTrue(args.viaKeyboard);
     assertEquals(1, testProxy.handler.getCallCount('openAutocompleteMatch'));
   });

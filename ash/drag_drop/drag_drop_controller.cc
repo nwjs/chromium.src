@@ -10,6 +10,7 @@
 #include "ash/drag_drop/drag_image_view.h"
 #include "ash/drag_drop/toplevel_window_drag_delegate.h"
 #include "ash/shell.h"
+#include "ash/wm/toplevel_window_event_handler.h"
 #include "ash/wm/window_util.h"
 #include "base/functional/bind.h"
 #include "base/run_loop.h"
@@ -145,6 +146,10 @@ DragOperation DragDropController::StartDragAndDrop(
     ui::mojom::DragEventSource source) {
   if (!enabled_ || IsDragDropInProgress())
     return DragOperation::kNone;
+
+  if (Shell::Get()->toplevel_window_event_handler()->is_drag_in_progress()) {
+    return DragOperation::kNone;
+  }
 
   weak_factory_.InvalidateWeakPtrs();
 
@@ -773,11 +778,11 @@ void DragDropController::Cleanup() {
   if (drag_window_ && drag_window_ != drag_source_window_)
     drag_window_->RemoveObserver(this);
   drag_window_ = nullptr;
+  capture_delegate_ = nullptr;
   drag_drop_completed_ = true;
   drag_data_.reset();
   allowed_operations_ = 0;
   touch_drag_drop_delegate_.reset();
-  capture_delegate_ = nullptr;
 }
 
 void DragDropController::CleanupPendingLongTap() {

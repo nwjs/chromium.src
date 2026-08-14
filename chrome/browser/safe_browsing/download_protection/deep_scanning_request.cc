@@ -357,6 +357,7 @@ DownloadCheckResult ResponseToDownloadCheckResult(
       case enterprise_connectors::TriggeredRule::WARN:
         return DownloadCheckResult::POTENTIALLY_UNWANTED;
       case enterprise_connectors::TriggeredRule::REPORT_ONLY:
+      case enterprise_connectors::TriggeredRule::KEEP_IN_MANAGED_CHROME:
       case enterprise_connectors::TriggeredRule::ACTION_UNSPECIFIED:
         break;
       case enterprise_connectors::TriggeredRule::FORCE_SAVE_TO_CLOUD:
@@ -381,6 +382,7 @@ DownloadCheckResult ResponseToDownloadCheckResult(
       case enterprise_connectors::TriggeredRule::WARN:
         return DownloadCheckResult::SENSITIVE_CONTENT_WARNING;
       case enterprise_connectors::TriggeredRule::REPORT_ONLY:
+      case enterprise_connectors::TriggeredRule::KEEP_IN_MANAGED_CHROME:
       case enterprise_connectors::TriggeredRule::ACTION_UNSPECIFIED:
         break;
     }
@@ -954,7 +956,6 @@ const GURL& DeepScanningRequest::url() const {
     return metadata_->GetURL();
   }
   return GURL::EmptyGURL();
-  ;
 }
 
 const GURL& DeepScanningRequest::tab_url() const {

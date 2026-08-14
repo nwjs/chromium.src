@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.ntp;
 import android.app.Activity;
 import android.content.res.Resources;
 import android.graphics.Canvas;
+import android.text.TextUtils;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.view.LayoutInflater;
@@ -21,6 +22,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.native_page.ContextMenuManager;
 import org.chromium.chrome.browser.native_page.NativePageNavigationDelegate;
 import org.chromium.chrome.browser.tab_ui.InvalidationAwareThumbnailProvider;
@@ -34,6 +36,7 @@ import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.edge_to_edge.EdgeToEdgePadAdjuster;
+import org.chromium.url.GURL;
 
 /**
  * The native recent tabs page. Lists recently closed tabs, open windows and tabs from the user's
@@ -54,6 +57,7 @@ public class RecentTabsPage
     private final Activity mActivity;
     private final @Nullable BrowserControlsStateProvider mBrowserControlsStateProvider;
     private final ExpandableListView mListView;
+    private String mUrl;
     private final String mTitle;
     private final ViewGroup mView;
     private final ContextMenuManager mContextMenuManager;
@@ -76,6 +80,8 @@ public class RecentTabsPage
     private EdgeToEdgePadAdjuster mPadAdjuster;
     private boolean mIsTouchEnabled = true;
 
+    private @Nullable String mTargetSessionTag;
+
     /**
      * Constructor returns an instance of RecentTabsPage.
      *
@@ -86,6 +92,7 @@ public class RecentTabsPage
      *     offset values.
      * @param tabStripHeightSupplier Supplier for the tab strip height.
      * @param edgeToEdgeSupplier Supplier for the {@link EdgeToEdgeController} for bottom insets.
+     * @param url The URL the page is being opened with.
      */
     public RecentTabsPage(
             Activity activity,
@@ -93,9 +100,11 @@ public class RecentTabsPage
             NativePageNavigationDelegate navigationDelegate,
             BrowserControlsStateProvider browserControlsStateProvider,
             NonNullObservableSupplier<Integer> tabStripHeightSupplier,
-            MonotonicObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier) {
+            MonotonicObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier,
+            String url) {
         mActivity = activity;
         mRecentTabsManager = recentTabsManager;
+        mUrl = url;
         Resources resources = activity.getResources();
 
         mTitle = resources.getString(R.string.recent_tabs);
@@ -143,14 +152,14 @@ public class RecentTabsPage
                 EdgeToEdgeControllerFactory.createForViewAndObserveSupplier(
                         mListView, mEdgeToEdgeSupplier);
 
-        onUpdated();
+        updateForUrl(url);
     }
 
     // NativePage overrides
 
     @Override
     public String getUrl() {
-        return UrlConstants.RECENT_TABS_URL;
+        return mUrl;
     }
 
     @Override
@@ -214,7 +223,35 @@ public class RecentTabsPage
     }
 
     @Override
-    public void updateForUrl(String url) {}
+    public void updateForUrl(String url) {
+        mUrl = url;
+        GURL gurl = new GURL(url);
+        String fragment = gurl.getRef();
+        if (!TextUtils.isEmpty(fragment)) {
+            mTargetSessionTag = fragment;
+            scrollToTargetSession();
+        } else {
+            mTargetSessionTag = null;
+        }
+    }
+
+    private void scrollToTargetSession() {
+        if (mTargetSessionTag == null) return;
+
+        final int groupPosition = mAdapter.getGroupPositionForForeignSession(mTargetSessionTag);
+        if (groupPosition != -1) {
+            mListView.expandGroup(groupPosition);
+            // Post the scroll to selection. This is needed because expandGroup() requests a layout
+            // pass asynchronously. Scrolling immediately would use the old collapsed heights.
+            mListView.post(
+                    () -> {
+                        if (mAdapter != null) {
+                            mListView.setSelectedGroup(groupPosition);
+                        }
+                    });
+            mTargetSessionTag = null;
+        }
+    }
 
     @Override
     public int getHeightOverlappedWithTopControls() {
@@ -276,6 +313,7 @@ public class RecentTabsPage
             }
         }
         mSnapshotContentChanged = true;
+        scrollToTargetSession();
     }
 
     @Override
@@ -347,6 +385,11 @@ public class RecentTabsPage
     }
 
     @Override
+    public void onControlsPositionChanged(@ControlsPosition int controlsPosition) {
+        updateMargins();
+    }
+
+    @Override
     public void onControlsOffsetChanged(
             int topOffset,
             int topControlsMinHeightOffset,
@@ -373,13 +416,24 @@ public class RecentTabsPage
         // update the margin. We don't do this if the controls height is increasing because changing
         // the margin shrinks the view height to its final value, leaving a gap at the bottom until
         // the animation finishes.
-        if (contentOffset >= topControlsHeight) {
+        // On native pages, when controls position switches from bottom to top, contentOffset
+        // is initialized to 0 while topControlsHeight increases to its resting height.
+        // We want to ensure topMargin is updated when controls are top-anchored or resting.
+        if (contentOffset >= topControlsHeight
+                || mBrowserControlsStateProvider.getControlsPosition() == ControlsPosition.TOP) {
             topMargin = topControlsHeight;
         }
 
         // If the content offset is different from the margin, we use translationY to position the
-        // view in line with the content offset.
-        recentTabsRoot.setTranslationY(contentOffset - topMargin);
+        // view in line with the content offset. We only apply translationY when contentOffset >
+        // topMargin
+        // (e.g. during top banner animations) to prevent negative translation when contentOffset is
+        // 0.
+        int translationY = 0;
+        if (contentOffset > topMargin) {
+            translationY = contentOffset - topMargin;
+        }
+        recentTabsRoot.setTranslationY(translationY);
 
         final int bottomMargin = mBrowserControlsStateProvider.getBottomControlsHeight();
         if (topMargin != layoutParams.topMargin || bottomMargin != layoutParams.bottomMargin) {

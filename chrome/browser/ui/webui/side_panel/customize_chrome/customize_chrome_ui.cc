@@ -29,6 +29,7 @@
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/wallpaper_search/wallpaper_search_handler.h"
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/wallpaper_search/wallpaper_search_string_map.h"
 #include "chrome/browser/ui/webui/theme_handler.h"
+#include "chrome/browser/ui/webui/theme_source.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
@@ -41,6 +42,7 @@
 #include "components/search/ntp_features.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
@@ -285,10 +287,10 @@ CustomizeChromeUI::CustomizeChromeUI(content::WebUI* web_ui)
       base::FeatureList::IsEnabled(
           ntp_features::kCustomizeChromeSidePanelExtensionsCard));
 
-  source->AddBoolean(
-      "ntpNextFeaturesEnabled",
+  bool ntp_next_features_enabled =
       ntp_realbox::IsNtpRealboxNextEnabled(profile_) &&
-          base::FeatureList::IsEnabled(ntp_features::kNtpNextFeatures));
+      base::FeatureList::IsEnabled(ntp_features::kNtpNextFeatures);
+  source->AddBoolean("ntpNextFeaturesEnabled", ntp_next_features_enabled);
   source->AddBoolean("ntpNextDisablementEnabled",
                      ntp_features::kNtpNextDisablementParam.Get());
   source->AddBoolean("wallpaperSearchEnabled", wallpaper_search_enabled);
@@ -324,9 +326,12 @@ CustomizeChromeUI::CustomizeChromeUI(content::WebUI* web_ui)
       num_tools_eligible++;
     }
   }
-  bool action_chips_eligible = aim_eligibility_service &&
-                               aim_eligibility_service->IsAimEligible() &&
-                               num_tools_eligible >= 2;
+  bool action_chips_eligible =
+      base::FeatureList::IsEnabled(ntp_features::kNtpScaledActionChips)
+          ? ntp_next_features_enabled
+          : (aim_eligibility_service &&
+             aim_eligibility_service->IsAimEligible() &&
+             num_tools_eligible >= 2);
   source->AddBoolean("aimPolicyEnabled", action_chips_eligible);
 
   source->AddBoolean("footerEnabled",
@@ -339,6 +344,8 @@ CustomizeChromeUI::CustomizeChromeUI(content::WebUI* web_ui)
 
   content::URLDataSource::Add(profile_,
                               std::make_unique<SanitizedImageSource>(profile_));
+  content::URLDataSource::Add(profile_,
+                              std::make_unique<ThemeSource>(profile_));
 
   ui::TrackedElementHandlerDocumentSingleton::Register(
       this, std::vector<ui::ElementIdentifier>{

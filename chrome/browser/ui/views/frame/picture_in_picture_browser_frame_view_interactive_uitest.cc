@@ -48,6 +48,7 @@
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/animation/animation_test_api.h"
 #include "ui/views/animation/widget_fade_animator.h"
+#include "ui/views/controls/label.h"
 #include "ui/views/widget/widget_observer.h"
 #include "ui/views/widget/widget_utils.h"
 
@@ -113,7 +114,8 @@ const base::FilePath::CharType kCameraPage[] =
 
 class AnimationWaiter {
  public:
-  explicit AnimationWaiter(std::vector<gfx::Animation*> animations)
+  explicit AnimationWaiter(
+      const std::vector<raw_ptr<gfx::Animation>>& animations)
       : animations_(animations) {}
 
   AnimationWaiter() = delete;
@@ -122,7 +124,7 @@ class AnimationWaiter {
   AnimationWaiter& operator=(const AnimationWaiter&) = delete;
 
   void WaitForAnimationInterval(base::TimeDelta animation_interval) {
-    for (auto* animation : animations_) {
+    for (gfx::Animation* animation : animations_) {
       auto animation_api = std::make_unique<gfx::AnimationTestApi>(animation);
       animation_api->SetStartTime(waiter_creation_time_);
       animation_api->Step(waiter_creation_time_ + animation_interval);
@@ -131,7 +133,7 @@ class AnimationWaiter {
 
  private:
   const base::TimeTicks waiter_creation_time_ = base::TimeTicks::Now();
-  std::vector<gfx::Animation*> animations_;
+  std::vector<raw_ptr<gfx::Animation>> animations_;
 };
 
 class ModalWidgetDelegate : public views::WidgetDelegate {
@@ -382,9 +384,10 @@ class PictureInPictureBrowserFrameViewTest : public WebRtcTestBase,
         views::GetRootWindow(pip_frame_view_->GetWidget()));
   }
 
-  void WaitForTopBarAnimations(std::vector<gfx::Animation*> animations) {
+  void WaitForTopBarAnimations(
+      const std::vector<raw_ptr<gfx::Animation>>& animations) {
     base::TimeTicks now = base::TimeTicks::Now();
-    for (auto* animation : animations) {
+    for (auto& animation : animations) {
       gfx::AnimationTestApi animation_api(animation);
       animation_api.SetStartTime(now);
       animation_api.Step(now + kAnimationDuration);
@@ -509,6 +512,35 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureBrowserFrameViewTest,
   ASSERT_TRUE(
       IsButtonVisible(pip_frame_view()->GetBackToTabButtonForTesting()));
   ASSERT_TRUE(IsButtonVisible(pip_frame_view()->GetCloseButtonForTesting()));
+}
+
+// Verifies that PipTopBarAnimationController::Delegate is wired up correctly:
+// activating/deactivating the top bar via UpdateTopBarView() should drive
+// ApplyTopBarForegroundColor() through to the window title, changing its
+// enabled color between the active and inactive steady states.
+IN_PROC_BROWSER_TEST_F(PictureInPictureBrowserFrameViewTest,
+                       TopBarForegroundColorChangesWithActivation) {
+  ASSERT_NO_FATAL_FAILURE(SetUpDocumentPIP());
+
+  pip_frame_view()->UpdateTopBarView(/*render_active=*/false);
+  WaitForTopBarAnimations(
+      pip_frame_view()->GetRenderInactiveAnimationsForTesting());
+  const SkColor inactive_color =
+      pip_frame_view()->GetWindowTitleForTesting()->GetEnabledColor();
+
+  pip_frame_view()->UpdateTopBarView(/*render_active=*/true);
+  WaitForTopBarAnimations(
+      pip_frame_view()->GetRenderActiveAnimationsForTesting());
+  const SkColor active_color =
+      pip_frame_view()->GetWindowTitleForTesting()->GetEnabledColor();
+
+  EXPECT_NE(inactive_color, active_color);
+
+  pip_frame_view()->UpdateTopBarView(/*render_active=*/false);
+  WaitForTopBarAnimations(
+      pip_frame_view()->GetRenderInactiveAnimationsForTesting());
+  EXPECT_EQ(inactive_color,
+            pip_frame_view()->GetWindowTitleForTesting()->GetEnabledColor());
 }
 
 IN_PROC_BROWSER_TEST_F(PictureInPictureBrowserFrameViewTest,
@@ -1212,7 +1244,8 @@ class PictureInPictureBrowserFrameViewLinuxNoClientNativeDecorationsTest
     // default. This has to wait until `SetUpOnMainThread()` so browser startup
     // doesn't overwrite it with the real getter.
     linux_ui_getter_ = std::make_unique<FakeLinuxUiGetter>();
-    ThemeServiceFactory::GetForProfile(browser()->profile())->UseSystemTheme();
+    ThemeServiceFactory::GetForProfile(browser()->GetProfile())
+        ->UseSystemTheme();
     PictureInPictureBrowserFrameViewTest::SetUpOnMainThread();
   }
 

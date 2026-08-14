@@ -19,26 +19,26 @@
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/views/animations/side_panel_animations.h"
 #include "chrome/browser/ui/views/animations/tab_strip_animations.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/frame/custom_corners.h"
 #include "chrome/browser/ui/views/frame/custom_corners_background.h"
 #include "chrome/browser/ui/views/frame/custom_floating_corner.h"
-#include "chrome/browser/ui/views/frame/horizontal_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout_delegate.h"
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout_impl.h"
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout_params.h"
-#include "chrome/browser/ui/views/frame/main_background_region_view.h"
 #include "chrome/browser/ui/views/frame/multi_contents_view.h"
 #include "chrome/browser/ui/views/frame/shadow_frame_view.h"
+#include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
+#include "chrome/browser/ui/views/frame/vertical_tab_strip_background_blur_backdrop.h"
 #include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
-#include "chrome/browser/ui/views/tabs/projects/layout_constants.h"
-#include "chrome/browser/ui/views/tabs/projects/projects_panel_utils.h"
-#include "chrome/browser/ui/views/tabs/projects/projects_panel_view.h"
+#include "chrome/browser/ui/views/tabs/organizer/layout_constants.h"
+#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_utils.h"
+#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_view.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/compositor/layer.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/outsets.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
@@ -790,6 +790,15 @@ BrowserViewTabbedLayoutImpl::CalculateProposedLayout(
                     layout_data_->tab_strip_type == TabStripType::kVertical);
   }
 
+  if (IsParentedTo(views().vertical_tab_strip_background_blur_backdrop,
+                   views().browser_view)) {
+    layout.AddChild(
+        views().vertical_tab_strip_background_blur_backdrop,
+        vertical_tab_strip_bounds,
+        in_glass_mode() && features::kGlassExpandOnHoverOpacity.Get() < 1.0 &&
+            layout_data_->vertical_tab_strip_animation.expand_on_hover > 0.0f);
+  }
+
   // Position the vertical tabstrip top corner.
   if (IsParentedTo(views().vertical_tab_strip_top_corner,
                    views().browser_view)) {
@@ -837,34 +846,34 @@ BrowserViewTabbedLayoutImpl::CalculateProposedLayout(
   }
 
   // TODO(crbug.com/469425263): Ensure correct layout calculations for the
-  // Project Panel Container.
-  if (IsParentedToAndVisible(views().projects_panel_container,
+  // Organizer Panel Container.
+  if (IsParentedToAndVisible(views().organizer_panel_container,
                              views().browser_view)) {
-    int target_width = projects_panel::kProjectsPanelMinWidth;
-    bool projects_panel_should_appear_elevated = true;
+    int target_width = organizer_panel::kOrganizerPanelMinWidth;
+    bool organizer_panel_should_appear_elevated = true;
     if (layout_data_->tab_strip_type == TabStripType::kVertical) {
-      projects_panel_should_appear_elevated =
+      organizer_panel_should_appear_elevated =
           horizontal_layout.vertical_tab_strip_width <
-          projects_panel::kProjectsPanelMinWidth;
-      if (!projects_panel_should_appear_elevated) {
+          organizer_panel::kOrganizerPanelMinWidth;
+      if (!organizer_panel_should_appear_elevated) {
         target_width = std::max(target_width - views::Separator::kThickness,
                                 horizontal_layout.vertical_tab_strip_width -
                                     views::Separator::kThickness);
       }
     }
-    views().projects_panel_container->SetTargetWidth(target_width);
-    views().projects_panel_container->SetIsElevated(
-        projects_panel_should_appear_elevated);
+    views().organizer_panel_container->SetTargetWidth(target_width);
+    views().organizer_panel_container->SetIsElevated(
+        organizer_panel_should_appear_elevated);
 
     const double reveal_amount =
-        views().projects_panel_container->GetResizeAnimationValue();
+        views().organizer_panel_container->GetResizeAnimationValue();
     const int visible_width = base::ClampFloor(target_width * reveal_amount);
 
-    gfx::Rect projects_panel_bounds =
+    gfx::Rect organizer_panel_bounds =
         gfx::Rect(browser_params.visual_client_area.x(),
                   browser_params.visual_client_area.y(), visible_width,
                   browser_params.visual_client_area.height());
-    layout.AddChild(views().projects_panel_container, projects_panel_bounds);
+    layout.AddChild(views().organizer_panel_container, organizer_panel_bounds);
   }
 
   // When the tabstrip isn't at the top or in constrained widths, the top
@@ -1155,7 +1164,8 @@ BrowserViewTabbedLayoutImpl::CalculateProposedLayout(
     }
   }
 
-  if (features::IsGlassFrameEnabled()) {
+  // If the window goes out of glass mode, these changes won't hurt anything.
+  if (in_glass_mode()) {
     gfx::RoundedCornersF content_corners;
     if (layout_data_->tab_strip_type == TabStripType::kVertical &&
         !is_fullscreen(layout_data_->window_state)) {
@@ -1218,7 +1228,7 @@ BrowserViewTabbedLayoutImpl::CalculateProposedLayout(
         vertical_tab_strip_animation.top_offset > 0);
 
     float transition_button_opacity = 1.0f;
-    if (toolbar_height > 0) {
+    if (toolbar_height > 0 && caption_button_width > 0) {
       if (!will_wrap_at_destination &&
           (vertical_tab_strip_animation.current_motion ==
                TabStripAnimations::kExpand ||
@@ -1373,6 +1383,17 @@ void BrowserViewTabbedLayoutImpl::OnLayoutParamsChanged(
   layout_data_->revised_params.visual_client_area.Inset(insets);
 }
 
+void BrowserViewTabbedLayoutImpl::OnGlassModeChanged() {
+  if (IsParentedToAndVisible(views().horizontal_tab_strip_region_view,
+                             views().browser_view)) {
+    views().horizontal_tab_strip_region_view->InvalidateLayout();
+  }
+  if (IsParentedToAndVisible(views().vertical_tab_strip_region_view,
+                             views().browser_view)) {
+    views().vertical_tab_strip_region_view->InvalidateLayout();
+  }
+}
+
 void BrowserViewTabbedLayoutImpl::DoPreLayoutComputations(
     const BrowserLayoutParams& params) {
   layout_data_ = std::make_unique<TransientLayoutData>(params);
@@ -1411,10 +1432,23 @@ void BrowserViewTabbedLayoutImpl::DoPostLayoutVisualAdjustments(
     CHECK(vertical_tabs_background)
         << "Expected vertical tab strip to have a CustomCornersBackground.";
 
-    if (features::IsGlassFrameEnabled()) {
+    if (in_glass_mode()) {
       if (!is_fullscreen(layout_data_->window_state)) {
-        frame_color.opacity = static_cast<float>(animation.expand_on_hover);
+        frame_color.opacity = 0.0f;
       }
+      // Use a curve that goes very close to 1 very quickly, but still has a
+      // visible fade. This isn't perfect, but hopefully with glass
+      // expand-on-hover it will improve.
+      const float scaled_percent =
+          std::powf(static_cast<float>(animation.expand_on_hover), 0.2f);
+      auto vertical_tabs_background_color = frame_color;
+      static const float expand_on_hover_opacity =
+          static_cast<float>(features::kGlassExpandOnHoverOpacity.Get());
+      vertical_tabs_background_color.opacity =
+          (1.0f - scaled_percent) * frame_color.opacity +
+          scaled_percent * expand_on_hover_opacity;
+      vertical_tabs_background->SetPrimaryColor(vertical_tabs_background_color);
+    } else {
       vertical_tabs_background->SetPrimaryColor(frame_color);
     }
 
@@ -1458,20 +1492,20 @@ void BrowserViewTabbedLayoutImpl::DoPostLayoutVisualAdjustments(
 
     vertical_tabs_background->SetCorners(vertical_tabs_corners);
 
-    // When the projects panel is animating open or closed and does not appear
+    // When the organizer panel is animating open or closed and does not appear
     // elevated, the background of vertical tabs should fade to match the
     // background color of the panel.
-    if (delegate().IsProjectsPanelVisible()) {
+    if (delegate().IsOrganizerPanelVisible()) {
       CustomFloatingCorner* const vertical_tabs_top_corner =
           views().vertical_tab_strip_top_corner;
       CustomFloatingCorner* const vertical_tabs_bottom_corner =
           views().vertical_tab_strip_bottom_corner;
-      if (!views().projects_panel_container->is_elevated()) {
-        auto projects_panel_reveal_amount =
-            views().projects_panel_container->GetResizeAnimationValue();
+      if (!views().organizer_panel_container->is_elevated()) {
+        auto organizer_panel_reveal_amount =
+            views().organizer_panel_container->GetResizeAnimationValue();
         CustomCorners::ColorChoiceWithAlpha const fade_background{
-            projects_panel::kProjectsPanelBackgroundColor,
-            static_cast<float>(projects_panel_reveal_amount)};
+            organizer_panel::kOrganizerPanelBackgroundColor,
+            static_cast<float>(organizer_panel_reveal_amount)};
         vertical_tabs_background->SetFadeBackground(fade_background);
         vertical_tabs_top_corner->SetFadeBackground(fade_background);
         vertical_tabs_bottom_corner->SetFadeBackground(fade_background);
@@ -1535,15 +1569,26 @@ void BrowserViewTabbedLayoutImpl::DoPostLayoutVisualAdjustments(
       }
     }
 
-    // Do corner cutouts and transparency.
+    // Do corner cutouts and transparency. These updates are needed in glass-
+    // enabled mode even if glass is off for the current window.
     if (features::IsGlassFrameEnabled()) {
       views().vertical_tab_strip_top_corner->SetAlpha(frame_color.opacity);
       views().vertical_tab_strip_bottom_corner->SetAlpha(frame_color.opacity);
       vertical_tabs_background->SetCutoutFrom(tab_strip_cutout_views);
+
+      // Has to be done after most other adjustments to ensure the correct
+      // outline path.
+      const bool use_blur_background = IsParentedToAndVisible(
+          views().vertical_tab_strip_background_blur_backdrop,
+          views().browser_view);
+      vertical_tabs_background->SetUseBackgroundBlur(use_blur_background);
+      if (use_blur_background) {
+        views().vertical_tab_strip_background_blur_backdrop->UpdateGeometry(
+            views().vertical_tab_strip_region_view, animation.expand_on_hover);
+      }
     }
   } else if (layout_data_->tab_strip_type == TabStripType::kHorizontal &&
-             !is_fullscreen(layout_data_->window_state) &&
-             features::IsGlassFrameEnabled()) {
+             !is_fullscreen(layout_data_->window_state) && in_glass_mode()) {
     frame_color.opacity = 0.0f;
   }
 
@@ -1599,13 +1644,16 @@ void BrowserViewTabbedLayoutImpl::DoPostLayoutVisualAdjustments(
   CHECK(top_container_background)
       << "Expected top container to have a CustomCornersBackground.";
 
-  // Set up top container cutouts.
+  // Set up top container cutouts. These need to be updated whether or not glass
+  // is active for the current window.
   if (features::IsGlassFrameEnabled()) {
     if (!is_fullscreen(layout_data_->window_state)) {
       toolbar_background->SetCutoutFrom(top_container_cutout_views);
       // Cut the toolbar corners out of the top container itself.
-      top_container_cutout_views.push_back(
-          CustomCornersBackground::InverseOf(*toolbar_background));
+      if (in_glass_mode()) {
+        top_container_cutout_views.push_back(
+            CustomCornersBackground::InverseOf(*toolbar_background));
+      }
       top_container_background->SetCutoutFrom(top_container_cutout_views);
     } else {
       toolbar_background->SetCutoutFrom({});
@@ -1651,7 +1699,8 @@ void BrowserViewTabbedLayoutImpl::DoPostLayoutVisualAdjustments(
     CHECK(main_background)
         << "Expected main background region to have a CustomCornersBackground.";
 
-    // Do the main area cutouts.
+    // Do the main area cutouts. These adjustments need to be made regardless of
+    // whether the current window is in glass mode.
     if (features::IsGlassFrameEnabled()) {
       main_background->SetCutoutFrom(main_background_cutout_views);
       main_background->SetCornerColor(frame_color);

@@ -659,6 +659,69 @@ TEST_F(ClipPathPaintDefinitionTest, SVGNotFallback) {
   StartAndVerifyEligibleClipPathAnimation(element, 1000);
 }
 
+TEST_F(ClipPathPaintDefinitionTest, MulticolInlineNotFallback) {
+  SetBodyInnerHTML(R"HTML(
+      <style>
+          @keyframes clippath {
+              0% {
+                  clip-path: circle(30% at 30% 30%);
+              }
+              100% {
+                  clip-path: circle(50% at 50% 50%);
+              }
+          }
+          .animation {
+              animation: clippath 4s steps(4, jump-end);
+          }
+          #container {
+            width: 300px;
+            height: 2.9em;
+            columns: 3;
+          }
+      </style>
+      <div id="container">
+        <span id="target">X<br></span>
+      </div>
+    )HTML");
+
+  Element* target = GetElementById("target");
+  target->setAttribute(html_names::kClassAttr, AtomicString("animation"));
+
+  StartAndVerifyEligibleClipPathAnimation(target, 1000);
+}
+
+TEST_F(ClipPathPaintDefinitionTest, MulticolInlineNotFallbackEndCol) {
+  SetBodyInnerHTML(R"HTML(
+      <style>
+          @keyframes clippath {
+              0% {
+                  clip-path: circle(30% at 30% 30%);
+              }
+              100% {
+                  clip-path: circle(50% at 50% 50%);
+              }
+          }
+          .animation {
+              animation: clippath 4s steps(4, jump-end);
+          }
+          #container {
+            width: 300px;
+            height: 2.9em;
+            columns: 3;
+          }
+      </style>
+      <div id="container">
+        <span>X<br>X<br></span>
+        <span id="target">X<br></span>
+      </div>
+    )HTML");
+
+  Element* target = GetElementById("target");
+  target->setAttribute(html_names::kClassAttr, AtomicString("animation"));
+
+  StartAndVerifyEligibleClipPathAnimation(target, 1000);
+}
+
 /* ----------------------------------------- */
 /*         ANIMATION FALLBACK TESTS          */
 /* For anims that fall back from the value   */
@@ -777,6 +840,137 @@ TEST_F(ClipPathPaintDefinitionTest, NoneClipPathAnimationFallbackOnSVG) {
   element->setAttribute(html_names::kClassAttr, AtomicString("animation"));
 
   StartAndVerifyNonEligibleClipPathAnimation(element, 1000);
+}
+
+TEST_F(ClipPathPaintDefinitionTest, FallbackForBoxFragmentation) {
+  SetBodyInnerHTML(R"HTML(
+      <style>
+          @keyframes clippath {
+              0% {
+                  clip-path: circle(30% at 30% 30%);
+              }
+              100% {
+                  clip-path: circle(50% at 50% 50%);
+              }
+          }
+          .animation {
+              animation: clippath 4s steps(4, jump-end);
+          }
+          #container {
+            width: 200px;
+            height: 100px;
+            columns: 2;
+          }
+          #target {
+            height: 100px;
+          }
+      </style>
+      <div id="container">
+        <div id="target"></div>
+      </div>
+    )HTML");
+
+  Element* target = GetElementById("target");
+  target->setAttribute(html_names::kClassAttr, AtomicString("animation"));
+
+  StartAndVerifyNonEligibleClipPathAnimation(target, 1000);
+}
+
+TEST_F(ClipPathPaintDefinitionTest, FallbackForMulticolInlineFragmentation) {
+  SetBodyInnerHTML(R"HTML(
+      <style>
+          @keyframes clippath {
+              0% {
+                  clip-path: circle(30% at 30% 30%);
+              }
+              100% {
+                  clip-path: circle(50% at 50% 50%);
+              }
+          }
+          .animation {
+              animation: clippath 4s steps(4, jump-end);
+          }
+          #container {
+            width: 300px;
+            height: 2.9em;
+            columns: 3;
+          }
+      </style>
+      <div id="container">
+        <span id="target">X<br>X<br>X<br></span>
+      </div>
+    )HTML");
+
+  Element* target = GetElementById("target");
+  target->setAttribute(html_names::kClassAttr, AtomicString("animation"));
+
+  StartAndVerifyNonEligibleClipPathAnimation(target, 1000);
+}
+
+TEST_F(ClipPathPaintDefinitionTest,
+       FallbackForMulticolInlineFragmentatioMiddleCol) {
+  SetBodyInnerHTML(R"HTML(
+      <style>
+          @keyframes clippath {
+              0% {
+                  clip-path: circle(30% at 30% 30%);
+              }
+              100% {
+                  clip-path: circle(50% at 50% 50%);
+              }
+          }
+          .animation {
+              animation: clippath 4s steps(4, jump-end);
+          }
+          #container {
+            width: 300px;
+            height: 2.9em;
+            columns: 3;
+          }
+      </style>
+      <div id="container">
+        <span>X<br></span>
+        <span id="target">X<br>X<br>X<br></span>
+      </div>
+    )HTML");
+
+  Element* target = GetElementById("target");
+  target->setAttribute(html_names::kClassAttr, AtomicString("animation"));
+
+  StartAndVerifyNonEligibleClipPathAnimation(target, 1000);
+}
+
+TEST_F(ClipPathPaintDefinitionTest,
+       FallbackForMulticolInlineFragmentatioEndCol) {
+  SetBodyInnerHTML(R"HTML(
+      <style>
+          @keyframes clippath {
+              0% {
+                  clip-path: circle(30% at 30% 30%);
+              }
+              100% {
+                  clip-path: circle(50% at 50% 50%);
+              }
+          }
+          .animation {
+              animation: clippath 4s steps(4, jump-end);
+          }
+          #container {
+            width: 300px;
+            height: 2.9em;
+            columns: 3;
+          }
+      </style>
+      <div id="container">
+        <span>X<br>X<br></span>
+        <span id="target">X<br>X<br>X<br></span>
+      </div>
+    )HTML");
+
+  Element* target = GetElementById("target");
+  target->setAttribute(html_names::kClassAttr, AtomicString("animation"));
+
+  StartAndVerifyNonEligibleClipPathAnimation(target, 1000);
 }
 
 /* ----------------------------------------- */
@@ -1829,18 +2023,14 @@ TEST_F(ClipPathPaintDefinitionTest, BoundingRectCorrectForSimpleKeyframeUnion) {
 
   // Keyframe 0: circle(20% at 20% 20%)
   BasicShapeCircle* circle1 = MakeGarbageCollected<BasicShapeCircle>();
-  circle1->SetCenterX(BasicShapeCenterCoordinate(
-      BasicShapeCenterCoordinate::kTopLeft, Length::Percent(20.0f)));
-  circle1->SetCenterY(BasicShapeCenterCoordinate(
-      BasicShapeCenterCoordinate::kTopLeft, Length::Percent(20.0f)));
+  circle1->SetCenter(
+      LengthPoint(Length::Percent(20.0f), Length::Percent(20.0f)));
   circle1->SetRadius(BasicShapeRadius(Length::Percent(20.0f)));
 
   // Keyframe 100: circle(20% at 70% 70%)
   BasicShapeCircle* circle2 = MakeGarbageCollected<BasicShapeCircle>();
-  circle2->SetCenterX(BasicShapeCenterCoordinate(
-      BasicShapeCenterCoordinate::kTopLeft, Length::Percent(70.0f)));
-  circle2->SetCenterY(BasicShapeCenterCoordinate(
-      BasicShapeCenterCoordinate::kTopLeft, Length::Percent(70.0f)));
+  circle2->SetCenter(
+      LengthPoint(Length::Percent(70.0f), Length::Percent(70.0f)));
   circle2->SetRadius(BasicShapeRadius(Length::Percent(20.0f)));
 
   // Get bounding rects from the generated paths

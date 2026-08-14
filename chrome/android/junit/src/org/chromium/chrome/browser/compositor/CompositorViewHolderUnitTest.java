@@ -29,7 +29,9 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Size;
 import android.view.ContextThemeWrapper;
 import android.view.InputDevice;
@@ -57,6 +59,7 @@ import org.robolectric.annotation.Config;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
+import org.chromium.base.BaseFeatures;
 import org.chromium.base.InputHintChecker;
 import org.chromium.base.InputHintCheckerJni;
 import org.chromium.base.UserDataHost;
@@ -99,7 +102,9 @@ import org.chromium.components.prefs.PrefService;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.base.ApplicationViewportInsetTracker;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.LocalizationUtils;
+import org.chromium.ui.base.ViewAndroidDelegate;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.insets.InsetObserver;
 import org.chromium.ui.mojom.VirtualKeyboardMode;
@@ -279,6 +284,17 @@ public class CompositorViewHolderUnitTest {
                                 .useConstructor(mContext, null)
                                 .defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));
 
+        // mCompositorViewHolder is a _mock_, so we need to forward any posted Runnable to the main
+        // thread so that RobolectricUtil.runAllBackgroundAndUi() can drain and run the posted
+        // tasks.
+        doAnswer(
+                        invocation -> {
+                            new Handler(Looper.getMainLooper()).post(invocation.getArgument(0));
+                            return true;
+                        })
+                .when(mCompositorViewHolder)
+                .post(any(Runnable.class));
+
         mCompositorViewHolder.setToolbarThemeColorProvider(mToolbarThemeColorProvider);
         mCompositorViewHolder.setLayoutManager(mLayoutManager);
         mCompositorViewHolder.setControlContainer(mControlContainer);
@@ -303,6 +319,8 @@ public class CompositorViewHolderUnitTest {
         IBinder windowToken = mock(IBinder.class);
         when(mContainerView.getWindowToken()).thenReturn(windowToken);
         when(mContentView.getWindowToken()).thenReturn(windowToken);
+        ViewAndroidDelegate viewDelegate = ViewAndroidDelegate.createBasicDelegate(mContentView);
+        when(mWebContents.getViewAndroidDelegate()).thenReturn(viewDelegate);
     }
 
     @After
@@ -689,7 +707,7 @@ public class CompositorViewHolderUnitTest {
 
     // Keyboard resize tests for geometrychange event fired to JS.
     @Test
-    public void testWebContentResizeTriggeredDueToKeyboardShow() {
+    public void testResizeNotificationsDueToKeyboardShow_OSKeyboardResize() {
         mCompositorViewHolder.updateVirtualKeyboardMode(VirtualKeyboardMode.OVERLAYS_CONTENT);
         reset(mWebContents);
 
@@ -707,15 +725,18 @@ public class CompositorViewHolderUnitTest {
         when(mCompositorViewHolder.getWidth()).thenReturn(fullViewportWidth);
         when(mCompositorViewHolder.getHeight()).thenReturn(adjustedHeight);
 
+        // This triggers handleWindowInsetChanged automatically.
         mKeyboardInsetSupplier.set(KEYBOARD_HEIGHT);
-        mCompositorViewHolder.updateWebContentsSize(mTab);
 
-        // Expect fullViewportHeight since in OVERLAYS_CONTENT the keyboard doesn't cause a resize
-        // to the WebContents.
-        verify(mWebContents, times(1)).setSize(fullViewportWidth, fullViewportHeight);
+        // The webcontents weren't resized, so no `setSize` should come through.
+        verify(mWebContents, never()).setSize(anyInt(), anyInt());
         verify(mCompositorViewHolder, times(1))
                 .notifyVirtualKeyboardOverlayRect(
-                        mWebContents, 0, 0, fullViewportWidth, KEYBOARD_HEIGHT);
+                        mWebContents,
+                        0,
+                        0, // Expected y is 0 when View is resized to 200 and keyboard is 741
+                        fullViewportWidth,
+                        KEYBOARD_HEIGHT);
 
         reset(mWebContents);
 
@@ -724,10 +745,10 @@ public class CompositorViewHolderUnitTest {
         when(mMockKeyboard.calculateTotalKeyboardHeight(any())).thenReturn(0);
         when(mCompositorViewHolder.getWidth()).thenReturn(fullViewportWidth);
         when(mCompositorViewHolder.getHeight()).thenReturn(fullViewportHeight);
+        // This triggers handleWindowInsetChanged automatically.
         mKeyboardInsetSupplier.set(0);
-        mCompositorViewHolder.updateWebContentsSize(mTab);
 
-        verify(mWebContents, times(1)).setSize(fullViewportWidth, fullViewportHeight);
+        verify(mWebContents, never()).setSize(anyInt(), anyInt());
         verify(mCompositorViewHolder, times(1))
                 .notifyVirtualKeyboardOverlayRect(mWebContents, 0, 0, 0, 0);
     }
@@ -888,9 +909,43 @@ public class CompositorViewHolderUnitTest {
                 .setSize(fullViewportWidth, fullViewportHeight + KEYBOARD_HEIGHT);
     }
 
+    @Test
+    @DisableFeatures(BaseFeatures.VIRTUAL_KEYBOARD_GEOMETRY_AND_INSET_FIXES)
+    public void testWebContentResizeTriggeredDueToKeyboardShow_withKillSwitch_usesLegacyOrigin() {
+        mCompositorViewHolder.updateVirtualKeyboardMode(VirtualKeyboardMode.OVERLAYS_CONTENT);
+        reset(mWebContents);
+
+        int fullViewportHeight = 941;
+        int fullViewportWidth = 1080;
+        int adjustedHeight = fullViewportHeight - KEYBOARD_HEIGHT;
+
+        View rootView = mock(View.class);
+        when(mCompositorViewHolder.getRootView()).thenReturn(rootView);
+        doAnswer(
+                        invocation -> {
+                            Rect appRect = invocation.getArgument(0);
+                            appRect.set(17, 23, 17 + fullViewportWidth, 23 + fullViewportHeight);
+                            return null;
+                        })
+                .when(rootView)
+                .getWindowVisibleDisplayFrame(any(Rect.class));
+
+        when(mMockKeyboard.isKeyboardShowing(any())).thenReturn(true);
+        when(mMockKeyboard.calculateTotalKeyboardHeight(any())).thenReturn(KEYBOARD_HEIGHT);
+        when(mCompositorViewHolder.getWidth()).thenReturn(fullViewportWidth);
+        when(mCompositorViewHolder.getHeight()).thenReturn(adjustedHeight);
+
+        mKeyboardInsetSupplier.set(KEYBOARD_HEIGHT);
+        mCompositorViewHolder.updateWebContentsSize(mTab);
+
+        verify(mCompositorViewHolder, times(1))
+                .notifyVirtualKeyboardOverlayRect(
+                        mWebContents, 17, 23, fullViewportWidth, KEYBOARD_HEIGHT);
+    }
+
     // Keyboard resize tests for geometrychange event fired to JS.
     @Test
-    public void testWebContentResizeTriggeredDueToKeyboardShow_keyboardInOverlayMode() {
+    public void testResizeNotificationsDueToKeyboardShow_OSKeyboardOverlay() {
         mCompositorViewHolder.updateVirtualKeyboardMode(VirtualKeyboardMode.OVERLAYS_CONTENT);
         reset(mWebContents);
 
@@ -911,15 +966,18 @@ public class CompositorViewHolderUnitTest {
         when(mCompositorViewHolder.getHeight()).thenReturn(fullViewportHeight);
         when(mInsetObserver.isKeyboardInOverlayMode()).thenReturn(true);
 
+        // This triggers handleWindowInsetChanged automatically.
         mKeyboardInsetSupplier.set(KEYBOARD_HEIGHT);
-        mCompositorViewHolder.updateWebContentsSize(mTab);
 
-        // Expect fullViewportHeight since in OVERLAYS_CONTENT the keyboard doesn't cause a resize
-        // to the WebContents.
-        verify(mWebContents, times(1)).setSize(fullViewportWidth, fullViewportHeight);
+        // The webcontents weren't resized, so no `setSize` should come through.
+        verify(mWebContents, never()).setSize(anyInt(), anyInt());
         verify(mCompositorViewHolder, times(1))
                 .notifyVirtualKeyboardOverlayRect(
-                        mWebContents, 0, 0, fullViewportWidth, KEYBOARD_HEIGHT);
+                        mWebContents,
+                        0,
+                        fullViewportHeight - KEYBOARD_HEIGHT,
+                        fullViewportWidth,
+                        KEYBOARD_HEIGHT);
 
         reset(mWebContents);
 
@@ -929,10 +987,10 @@ public class CompositorViewHolderUnitTest {
         when(mCompositorViewHolder.getWidth()).thenReturn(fullViewportWidth);
         when(mCompositorViewHolder.getHeight()).thenReturn(fullViewportHeight);
         when(mInsetObserver.isKeyboardInOverlayMode()).thenReturn(true);
+        // This triggers handleWindowInsetChanged automatically.
         mKeyboardInsetSupplier.set(0);
-        mCompositorViewHolder.updateWebContentsSize(mTab);
 
-        verify(mWebContents, times(1)).setSize(fullViewportWidth, fullViewportHeight);
+        verify(mWebContents, never()).setSize(anyInt(), anyInt());
         verify(mCompositorViewHolder, times(1))
                 .notifyVirtualKeyboardOverlayRect(mWebContents, 0, 0, 0, 0);
     }
@@ -1360,13 +1418,46 @@ public class CompositorViewHolderUnitTest {
         int endContainerWidth = 200;
         SideUiSpecs currentSideUiSpecs = new SideUiSpecs(startContainerWidth, endContainerWidth);
         when(mSideUiStateProvider.getCurrentSideUiSpecs()).thenReturn(currentSideUiSpecs);
+
+        // Act: Make SideUiStateProvider available.
+        //
+        // Note that onSideUiSpecsChanged() is expected to be called as soon as SideUiStateProvider
+        // is available, so we don't need to explicitly call onSideUiSpecsChanged() here.
         mSideUiStateProviderSupplier.set(mSideUiStateProvider);
         runCurrentTasks();
 
-        // Act.
-        mCompositorViewHolder.onSideUiSpecsChanged(currentSideUiSpecs);
-
         // Verify.
+        verify(mWebContents, atLeastOnce())
+                .setSize(viewportWidth - (startContainerWidth + endContainerWidth), viewportHeight);
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL)
+    @EnableFeatures(ChromeFeatureList.ANDROID_VERTICAL_TABS)
+    @Config(qualifiers = "sw600dp")
+    public void testOnSideUiSpecsChanged_updateWebContentsSize_verticalTabs() {
+        when(mResources.getInteger(R.integer.min_screen_width_bucket))
+                .thenReturn(DeviceFormFactor.SCREEN_BUCKET_TABLET);
+        when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
+        mCompositorViewHolder.onNativeLibraryReady(
+                mWindowAndroid, /* tabContentManager= */ null, mPrefService);
+        reset(mWebContents);
+
+        int viewportHeight = 941;
+        int viewportWidth = 1080;
+        when(mCompositorViewHolder.getWidth()).thenReturn(viewportWidth);
+        when(mCompositorViewHolder.getHeight()).thenReturn(viewportHeight);
+
+        int startContainerWidth = 100;
+        int endContainerWidth = 200;
+        SideUiSpecs currentSideUiSpecs = new SideUiSpecs(startContainerWidth, endContainerWidth);
+        when(mSideUiStateProvider.getCurrentSideUiSpecs()).thenReturn(currentSideUiSpecs);
+
+        // Make SideUiStateProvider available.
+        mSideUiStateProviderSupplier.set(mSideUiStateProvider);
+        runCurrentTasks();
+
+        // Verify that web contents width is updated when vertical tabs is enabled on tablet.
         verify(mWebContents, atLeastOnce())
                 .setSize(viewportWidth - (startContainerWidth + endContainerWidth), viewportHeight);
     }
@@ -1387,21 +1478,26 @@ public class CompositorViewHolderUnitTest {
         // Setup.
         LocalizationUtils.setRtlForTesting(shouldBeRtl);
         reset(mWebContents);
+        ViewAndroidDelegate viewDelegate = ViewAndroidDelegate.createBasicDelegate(mContentView);
+        when(mWebContents.getViewAndroidDelegate()).thenReturn(viewDelegate);
 
         // Arbitrary Side UI width.
         int leftContainerWidth = 50;
         int rightContainerWidth = 150;
         SideUiSpecs currentSideUiSpecs = new SideUiSpecs(leftContainerWidth, rightContainerWidth);
         when(mSideUiStateProvider.getCurrentSideUiSpecs()).thenReturn(currentSideUiSpecs);
+
+        // Act: Make SideUiStateProvider available.
+        //
+        // Note that onSideUiSpecsChanged() is expected to be called as soon as SideUiStateProvider
+        // is available, so we don't need to explicitly call onSideUiSpecsChanged() here.
         mSideUiStateProviderSupplier.set(mSideUiStateProvider);
         runCurrentTasks();
-
-        // Act.
-        mCompositorViewHolder.onSideUiSpecsChanged(currentSideUiSpecs);
 
         // Verify that RTL does not affect the offset (i.e. always contentOffsetx == left)
         int expectedContentOffsetX = leftContainerWidth;
         verify(mLayoutManager).setContentOffsetX(expectedContentOffsetX);
+        verify(mContentView, atLeastOnce()).setContentOffsetXPix(expectedContentOffsetX);
     }
 
     @Test

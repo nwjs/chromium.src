@@ -38,6 +38,20 @@ struct SuggestionAnswer {
   mojo_base.mojom.String16 second_line;
 };
 
+enum KeywordType {
+  kChip,
+  kInKeyword,
+  kInstant,
+};
+
+struct KeywordModel {
+  KeywordType type;
+  string chip_hint;
+  string chip_a11y;
+  string placeholder;
+  string keyword;
+};
+
 struct AutocompleteMatch {
   // Whether match should be hidden from UI.
   bool is_hidden;
@@ -89,14 +103,8 @@ struct AutocompleteMatch {
   // holes for sale in" is "hobbit holes for sale" and the match contents
   // would be the text following "sale".
   mojo_base.mojom.String16? tail_suggest_common_prefix;
-  // Used to determine if keyword visual treatment should be applied.
-  bool has_instant_keyword;
-  // Derived from `AutocompleteMatch::associated_keyword` and a few other
-  // fields. Determines the text shown in the keyword chip, which is shown if
-  // this is non-empty.
-  string keyword_chip_hint;
-  // Similar to `keyword_chip_text`, but the a11y label for the chip.
-  string keyword_chip_a11y;
+  // Keyword UI state for this match. Empty if not a keyword suggestion.
+  KeywordModel? keyword_model;
 };
 
 // Information about a suggested tab in the WebUI.
@@ -237,6 +245,7 @@ enum SelectionLineState {
   kFocusedButtonRemoveSuggestion = 4,
   kFocusedButtonAim = 5,
   kFocusedButtonContextEntrypoint = 6,
+  kCtrlEnter = 7,
 };
 
 // See components/omnibox/browser/omnibox_popup_selection.h
@@ -244,6 +253,14 @@ struct OmniboxPopupSelection {
   uint8 line;
   SelectionLineState state;
   uint8 action_index;
+};
+
+// Modifier keys pressed when the action was triggered.
+struct ActionModifiers {
+  bool alt_key = false;
+  bool ctrl_key = false;
+  bool meta_key = false;
+  bool shift_key = false;
 };
 
 // Directions for stepping through selections. These may apply for going
@@ -299,6 +316,7 @@ enum InputMethod {
   kLensCamera = 10,
   kSmartCompose = 11,
 };
+
 // LINT.ThenChange(//third_party/omnibox_proto/chrome_searchbox_stats.proto:InputMethod)
 
 // Information about a successfully processed Drive file.
@@ -344,14 +362,10 @@ interface PageHandler {
   QueryAutocomplete(int32 query_id,
                     mojo_base.mojom.String16 input,
                     bool prevent_inline_autocomplete,
-                    uint32 cursor_position);
-
-  // Queries autocomplete matches from the browser with preferred SuggestInventory.
-  QueryAutocompleteWithSuggestInventory(int32 query_id,
-                                        mojo_base.mojom.String16 input,
-                                        bool prevent_inline_autocomplete,
-                                        uint32 cursor_position,
-                                        SuggestInventory suggest_inventory);
+                    uint32 cursor_position,
+                    SuggestInventory suggest_inventory,
+                    bool is_on_focus,
+                    string keyword);
 
   // Cancels the current autocomplete query. Clears the result set if
   // |clear_result| is true.
@@ -366,10 +380,7 @@ interface PageHandler {
                         url.mojom.Url url,
                         bool are_matches_showing,
                         uint8 mouse_button,
-                        bool alt_key,
-                        bool ctrl_key,
-                        bool meta_key,
-                        bool shift_key,
+                        ActionModifiers modifiers,
                         bool via_keyboard);
 
   // Sets the Smart Compose stats to be passed during the next navigation.
@@ -520,6 +531,9 @@ interface PageHandler {
   // Called when the user clicks the drive upload button.
   OnDriveUploadClicked() => (DriveUploadResponse response);
 
+  // Opens the profile picker for switching profiles.
+  OpenProfilePicker();
+
   // Gets the page classification for the current context.
   GetPageClassification() => (string metricSource);
 
@@ -559,8 +573,10 @@ interface Page {
   //  OmniboxViewViews and can be eliminated once we have full webui popup.
   SetAimButtonVisible(bool visible);
 
-  // Called when the keyword mode state changes.
-  SetKeywordSelected(bool is_keyword_selected);
+  // Updates properties of the AIM button (label text, tooltip/title, a11y
+  // label, icon URL) based on the config provided by the AIM button service.
+  SetAimButtonConfig(
+      string text, string tooltip, string a11y_label, url.mojom.Url icon_url);
 
   // Called to set searchbox input.
   SetInputText(string input);
@@ -612,8 +628,7 @@ interface Page {
 
   // Notifies the size of the permission prompt and that it is
   // showing or being hidden.
-  OnPermissionPromptChanged(bool is_showing,
-                            gfx.mojom.Size prompt_size);
+  OnPermissionPromptChanged(bool is_showing, gfx.mojom.Size prompt_size);
 
   // Sets the tab IDs that should be shown as selected before tabs are selected.
   SetRestoredTabIds(array<int32> ids);

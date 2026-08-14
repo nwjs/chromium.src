@@ -127,9 +127,8 @@ TEST_F(IncognitoGridMediatorTest, TestToolbarsNormalModeWithoutWebstates) {
   EXPECT_TRUE(fake_toolbars_mediator_.configuration.searchButton);
 
   EXPECT_FALSE(fake_toolbars_mediator_.configuration.closeAllButton);
-  EXPECT_FALSE(fake_toolbars_mediator_.configuration.doneButton);
+  EXPECT_FALSE(fake_toolbars_mediator_.configuration.exitTabGridButton);
   EXPECT_FALSE(fake_toolbars_mediator_.configuration.selectTabsButton);
-  EXPECT_FALSE(fake_toolbars_mediator_.configuration.undoButton);
   EXPECT_FALSE(fake_toolbars_mediator_.configuration.deselectAllButton);
   EXPECT_FALSE(fake_toolbars_mediator_.configuration.selectAllButton);
   EXPECT_FALSE(fake_toolbars_mediator_.configuration.addToButton);

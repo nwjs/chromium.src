@@ -53,6 +53,16 @@ const char kHistogramTapOrClick[] = ".TapOrClick";
 
 constexpr char kUserInteractionTraceEventCategory[] = "latency";
 
+std::unique_ptr<TracedValue> UserInteractionTraceData(base::TimeDelta duration,
+                                                      bool is_pointer) {
+  auto traced_value = std::make_unique<TracedValue>();
+  traced_value->SetInteger("maxDuration",
+                           static_cast<int>(duration.InMilliseconds()));
+  traced_value->SetString("interactionType",
+                          is_pointer ? "tapOrClick" : "keyboard");
+  return traced_value;
+}
+
 void LogResponsivenessHistogram(base::TimeDelta duration, const char* suffix) {
   base::UmaHistogramCustomTimes(
       base::StrCat({kHistogramMaxEventDuration, suffix}), duration,
@@ -579,7 +589,7 @@ void ResponsivenessMetrics::RecordUserInteractionUKM(
   base::TimeTicks event_commit_finish = reporting_info->commit_finish_time;
   base::TimeDelta duration = event_end - event_start;
 
-  uint32_t interaction_offset = entry.GetInteractionIdInfo()->offset;
+  uint64_t interaction_offset = entry.GetInteractionIdInfo()->offset;
 
   if (!event_start.is_null() && duration.InMilliseconds() >= 0) {
     if (window->GetFrame()) {
@@ -621,7 +631,14 @@ void ResponsivenessMetrics::RecordUserInteractionTracing(
     UserInteractionType interaction_type,
     const PerformanceEventTiming& entry,
     uint64_t event_id) {
+  base::TimeDelta duration = entry.GetExactDuration();
+
   bool is_pointer_event = interaction_type == UserInteractionType::kTapOrClick;
+
+  TRACE_EVENT("devtools.timeline", "Responsiveness.Renderer.UserInteraction",
+              "data", UserInteractionTraceData(duration, is_pointer_event),
+              "frame", GetFrameIdForTracing(window->GetFrame()));
+
   const auto track = perfetto::NamedTrack::Global("Metrics: INP", event_id);
   TRACE_EVENT_BEGIN(
       kUserInteractionTraceEventCategory, kHistogramMaxEventDuration, track,
@@ -651,7 +668,7 @@ void ResponsivenessMetrics::FlushAllEvents() {
   last_recorded_frame_index_ = std::nullopt;
 }
 
-uint32_t ResponsivenessMetrics::GetInteractionCount() const {
+uint64_t ResponsivenessMetrics::GetInteractionCount() const {
   auto interaction_count = interaction_id_generator_.GetValue().offset;
   if (!RuntimeEnabledFeatures::NavigationEventTimingEnabled()) {
     interaction_count -= navigation_interaction_count_;

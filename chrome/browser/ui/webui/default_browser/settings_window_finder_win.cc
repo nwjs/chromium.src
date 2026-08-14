@@ -11,11 +11,13 @@
 #include <shlobj.h>
 #include <wrl/client.h>
 
+#include <string_view>
 #include <utility>
 
 #include "base/files/file_path.h"
 #include "base/no_destructor.h"
 #include "base/path_service.h"
+#include "base/process/process.h"
 #include "base/strings/string_util.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/scoped_propvariant.h"
@@ -58,6 +60,7 @@ SettingsWindowFinderWin::SettingsWindowFinderWin() {
 SettingsWindowFinderWin::~SettingsWindowFinderWin() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   Stop();
+  StopObservingLocationChanges();
 }
 
 void SettingsWindowFinderWin::Start(base::TimeDelta timeout,
@@ -74,14 +77,12 @@ void SettingsWindowFinderWin::Start(base::TimeDelta timeout,
     return;
   }
 
-  CHECK(!GetGlobalFinderInstance())
-      << "Only one SettingsWindowFinderWin can be active at a time.";
-  GetGlobalFinderInstance() = weak_ptr_factory_.GetWeakPtr();
   is_active_ = true;
   winevent_hook_ =
       ::SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_SHOW, nullptr,
                         &SettingsWindowFinderWin::WinEventCallback, 0, 0,
                         WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+  UpdateGlobalInstance();
 
   timeout_timer_.Start(FROM_HERE, timeout, this,
                        &SettingsWindowFinderWin::OnTimeout);
@@ -96,14 +97,53 @@ void SettingsWindowFinderWin::Stop() {
     winevent_hook_ = nullptr;
   }
 
-  if (is_active_) {
-    CHECK_EQ(GetGlobalFinderInstance().get(), this);
-    GetGlobalFinderInstance().reset();
-    is_active_ = false;
-  }
+  is_active_ = false;
+  UpdateGlobalInstance();
 
   on_found_.Reset();
   on_timeout_.Reset();
+}
+
+void SettingsWindowFinderWin::StartObservingLocationChanges(
+    HWND settings_hwnd,
+    WindowResizedCallback on_resized) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  StopObservingLocationChanges();
+
+  observed_hwnd_ = settings_hwnd;
+  on_resized_ = std::move(on_resized);
+
+  location_change_hook_ = ::SetWinEventHook(
+      EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, nullptr,
+      &SettingsWindowFinderWin::WinEventCallback, 0, 0,
+      WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+  UpdateGlobalInstance();
+}
+
+void SettingsWindowFinderWin::StopObservingLocationChanges() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (location_change_hook_) {
+    ::UnhookWinEvent(location_change_hook_);
+    location_change_hook_ = nullptr;
+  }
+  observed_hwnd_ = nullptr;
+  on_resized_.Reset();
+
+  UpdateGlobalInstance();
+}
+
+void SettingsWindowFinderWin::UpdateGlobalInstance() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (winevent_hook_ || location_change_hook_) {
+    if (GetGlobalFinderInstance().get() != this) {
+      CHECK(!GetGlobalFinderInstance())
+          << "Only one SettingsWindowFinderWin can be active at a time.";
+      GetGlobalFinderInstance() = weak_ptr_factory_.GetWeakPtr();
+    }
+  } else if (GetGlobalFinderInstance().get() == this) {
+    // No hooks are active, reset the global weak pointer.
+    GetGlobalFinderInstance().reset();
+  }
 }
 
 void SettingsWindowFinderWin::OnTimeout() {
@@ -134,28 +174,6 @@ bool SettingsWindowFinderWin::IsLikelySettingsWindow(HWND hwnd) const {
     return false;
   }
 
-  Microsoft::WRL::ComPtr<IPropertyStore> prop_store;
-  if (FAILED(::SHGetPropertyStoreForWindow(hwnd, IID_PPV_ARGS(&prop_store))) ||
-      !prop_store) {
-    return false;
-  }
-
-  base::win::ScopedPropVariant prop_var;
-  if (FAILED(prop_store->GetValue(PKEY_AppUserModel_ID, prop_var.Receive()))) {
-    return false;
-  }
-
-  if (prop_var.get().vt != VT_LPWSTR || !prop_var.get().pwszVal) {
-    return false;
-  }
-
-  if (!base::EqualsCaseInsensitiveASCII(
-          prop_var.get().pwszVal,
-          L"windows.immersivecontrolpanel_cw5n1h2txyewp"
-          L"!microsoft.windows.immersivecontrolpanel")) {
-    return false;
-  }
-
   base::FilePath system_dir;
   if (!base::PathService::Get(base::DIR_SYSTEM, &system_dir)) {
     return false;
@@ -166,9 +184,36 @@ bool SettingsWindowFinderWin::IsLikelySettingsWindow(HWND hwnd) const {
     return false;
   }
 
-  return base::FilePath::CompareEqualIgnoreCase(
+  bool is_app_frame = base::FilePath::CompareEqualIgnoreCase(
       path,
       system_dir.Append(FILE_PATH_LITERAL("ApplicationFrameHost.exe")).value());
+  if (!is_app_frame) {
+    return false;
+  }
+
+  // First check via PKEY_AppUserModel_ID.
+  Microsoft::WRL::ComPtr<IPropertyStore> prop_store;
+  if (FAILED(::SHGetPropertyStoreForWindow(hwnd, IID_PPV_ARGS(&prop_store))) &&
+      prop_store) {
+    return false;
+  }
+
+  base::win::ScopedPropVariant prop_var;
+  if (FAILED(prop_store->GetValue(PKEY_AppUserModel_ID, prop_var.Receive()))) {
+    return false;
+  }
+
+  if (prop_var.get().vt == VT_LPWSTR && prop_var.get().pwszVal) {
+    std::wstring_view app_id(prop_var.get().pwszVal);
+    if (base::EqualsCaseInsensitiveASCII(
+            app_id,
+            L"windows.immersivecontrolpanel_cw5n1h2txyewy!microsoft."
+            L"windows.immersivecontrolpanel")) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 // static
@@ -193,7 +238,10 @@ SettingsWindowFinderWin::WinEventCallback(HWINEVENTHOOK hWinEventHook,
   // the message pump of the thread that called SetWinEventHook.
   DCHECK_CALLED_ON_VALID_SEQUENCE(finder->sequence_checker_);
 
-  if (!finder->IsLikelySettingsWindow(hwnd)) {
+  if (event == EVENT_OBJECT_LOCATIONCHANGE) {
+    if (hwnd == finder->observed_hwnd_ && finder->on_resized_) {
+      finder->on_resized_.Run();
+    }
     return;
   }
 
@@ -201,9 +249,14 @@ SettingsWindowFinderWin::WinEventCallback(HWINEVENTHOOK hWinEventHook,
     return;
   }
 
+  HWND root_hwnd = ::GetAncestor(hwnd, GA_ROOT);
+  if (!finder->IsLikelySettingsWindow(root_hwnd)) {
+    return;
+  }
+
   // Copy the callback and stop the finder BEFORE executing the callback.
   // This prevents use-after-free if the callback destroys the finder.
   WindowFoundCallback callback = std::move(finder->on_found_);
   finder->Stop();
-  std::move(callback).Run(hwnd);
+  std::move(callback).Run(root_hwnd);
 }

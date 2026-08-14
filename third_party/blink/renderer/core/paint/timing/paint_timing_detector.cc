@@ -1,6 +1,7 @@
 // Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_detector.h"
 
 #include "base/check_deref.h"
@@ -23,14 +24,15 @@
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
+#include "third_party/blink/renderer/core/paint/timing/image_element_timing.h"
 #include "third_party/blink/renderer/core/paint/timing/image_paint_timing_detector.h"
 #include "third_party/blink/renderer/core/paint/timing/largest_contentful_paint_calculator.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing.h"
+#include "third_party/blink/renderer/core/paint/timing/paint_timing_utils.h"
 #include "third_party/blink/renderer/core/paint/timing/text_paint_timing_detector.h"
 #include "third_party/blink/renderer/core/style/style_fetched_image.h"
 #include "third_party/blink/renderer/core/svg/graphics/svg_image.h"
 #include "third_party/blink/renderer/core/timing/dom_window_performance.h"
-#include "third_party/blink/renderer/core/timing/performance_timing_for_reporting.h"
 #include "third_party/blink/renderer/core/timing/soft_navigation_heuristics.h"
 #include "third_party/blink/renderer/core/timing/window_performance.h"
 #include "third_party/blink/renderer/platform/graphics/bitmap_image.h"
@@ -150,12 +152,12 @@ const char* ScrollTypeToString(mojom::blink::ScrollType scroll_type) {
 
 }  // namespace
 
-PaintTimingDetector::PaintTimingDetector(LocalFrameView* frame_view)
-    : frame_view_(frame_view),
+PaintTimingDetector::PaintTimingDetector(PaintTiming* paint_timing)
+    : paint_timing_(paint_timing),
       text_paint_timing_detector_(
-          MakeGarbageCollected<TextPaintTimingDetector>(frame_view, this)),
+          MakeGarbageCollected<TextPaintTimingDetector>(this)),
       image_paint_timing_detector_(
-          MakeGarbageCollected<ImagePaintTimingDetector>(frame_view)) {
+          MakeGarbageCollected<ImagePaintTimingDetector>(this)) {
   if (PaintTimingVisualizer::IsTracingEnabled()) {
     visualizer_ = std::make_unique<PaintTimingVisualizer>();
   }
@@ -166,26 +168,20 @@ void PaintTimingDetector::NotifyPaintFinished() {
     if (!visualizer_) {
       visualizer_ = std::make_unique<PaintTimingVisualizer>();
     }
-    visualizer_->RecordMainFrameViewport(*frame_view_);
+    visualizer_->RecordMainFrameViewport(*this, GetFrame());
   } else {
     visualizer_.reset();
   }
+}
 
-  if (LocalDOMWindow* window = DomWindow()) {
-    DOMWindowPerformance::performance(*window)->OnPaintFinished();
-
-    if (auto* heuristics = window->GetSoftNavigationHeuristics()) {
-      heuristics->OnPaintFinished();
-    }
-  }
-
-  PaintTiming::From(*frame_view_->GetFrame().GetDocument())
-      .NotifyPaintFinished();
+// static
+PaintTimingDetector& PaintTimingDetector::From(Document& document) {
+  return PaintTiming::From(document).GetPaintTimingDetector();
 }
 
 // static
 bool PaintTimingDetector::NotifyBackgroundImagePaint(
-    const Node& node,
+    Node& node,
     const Image& image,
     const StyleImage& style_image,
     const PropertyTreeStateOrAlias& current_paint_chunk_properties,
@@ -194,10 +190,10 @@ bool PaintTimingDetector::NotifyBackgroundImagePaint(
   if (!object) {
     return false;
   }
-  LocalFrameView* frame_view = object->GetFrameView();
-  if (!frame_view) {
-    return false;
-  }
+
+  auto& paint_timing = PaintTiming::From(object->GetDocument());
+  paint_timing.GetImageElementTiming()->NotifyBackgroundImagePainted(
+      node, style_image, current_paint_chunk_properties, image_border);
 
   if (!IsBackgroundImageContentful(*object, image)) {
     return false;
@@ -207,8 +203,7 @@ bool PaintTimingDetector::NotifyBackgroundImagePaint(
   DCHECK(cached_image);
   // TODO(yoav): |image| and |cached_image.GetImage()| are not the same here in
   // the case of SVGs. Figure out why and if we can remove this footgun.
-
-  return frame_view->GetPaintTimingDetector()
+  return paint_timing.GetPaintTimingDetector()
       .GetImagePaintTimingDetector()
       .RecordImage(*object, image.Size(), *cached_image,
                    current_paint_chunk_properties, &style_image, image_border);
@@ -221,13 +216,14 @@ bool PaintTimingDetector::NotifyImagePaint(
     const MediaTiming& media_timing,
     const PropertyTreeStateOrAlias& current_paint_chunk_properties,
     const gfx::Rect& image_border) {
+  auto& paint_timing = PaintTiming::From(object.GetDocument());
+  paint_timing.GetImageElementTiming()->NotifyImagePaint(
+      object, media_timing, current_paint_chunk_properties, image_border);
+
   if (IgnorePaintTimingScope::ShouldIgnore()) {
     return false;
   }
-  LocalFrameView* frame_view = object.GetFrameView();
-  if (!frame_view) {
-    return false;
-  }
+
   Node* image_node = object.GetNode();
   HTMLImageElement* element = DynamicTo<HTMLImageElement>(image_node);
 
@@ -236,7 +232,7 @@ bool PaintTimingDetector::NotifyImagePaint(
     ReportImagePixelInaccuracy(element);
   }
 
-  return frame_view->GetPaintTimingDetector()
+  return paint_timing.GetPaintTimingDetector()
       .GetImagePaintTimingDetector()
       .RecordImage(object, intrinsic_size, media_timing,
                    current_paint_chunk_properties, nullptr, image_border);
@@ -251,8 +247,6 @@ void PaintTimingDetector::NotifyFirstVideoFrame(
     const gfx::Rect& image_border) {
   if (NotifyImagePaint(object, intrinsic_size, media_timing,
                        current_paint_chunk_properties, image_border)) {
-    LocalFrameView* frame_view = object.GetFrameView();
-    CHECK(frame_view);
     // crbug.com/434659231: Recording this as an LCP candidate and setting the
     // presentation time (without ReportFirstFrameTimeAsRenderTime) depends on
     // the next main frame, which we request here. This is flag-guarded for hard
@@ -260,10 +254,9 @@ void PaintTimingDetector::NotifyFirstVideoFrame(
     // since this is still experimental and we want accurate behavior for origin
     // trial along with attributing video src changes (crbug.com/434215966).
     if (RuntimeEnabledFeatures::RequestMainFrameAfterFirstVideoFrameEnabled() ||
-        !frame_view->GetPaintTimingDetector()
-             .GetImagePaintTimingDetector()
-             .IsRecordingLargestImagePaint()) {
-      frame_view->ScheduleAnimation();
+        !PaintTiming::From(object.GetDocument())
+             .GetLargestContentfulPaintManager()) {
+      object.GetFrameView()->ScheduleAnimation();
     }
   }
 }
@@ -271,26 +264,34 @@ void PaintTimingDetector::NotifyFirstVideoFrame(
 // static
 void PaintTimingDetector::NotifyInteractionTriggeredVideoSrcChange(
     const LayoutObject& object) {
-  LocalFrameView* frame_view = object.GetFrameView();
-  if (!frame_view) {
-    return;
-  }
-  frame_view->GetPaintTimingDetector()
+  PaintTimingDetector::From(object.GetDocument())
       .GetImagePaintTimingDetector()
       .NotifyInteractionTriggeredVideoSrcChange(object);
 }
 
 void PaintTimingDetector::NotifyImageFinished(const LayoutObject& object,
                                               const MediaTiming* media_timing) {
+  paint_timing_->GetImageElementTiming()->NotifyImageFinished(object,
+                                                              media_timing);
   if (IgnorePaintTimingScope::ShouldIgnore()) {
     return;
   }
   image_paint_timing_detector_->NotifyImageFinished(object, media_timing);
 }
 
+void PaintTimingDetector::NotifyBackgroundImageFinished(
+    const StyleFetchedImage* image) {
+  // TODO(crbug.com/535432431): Paint Timing (ImagePaintTimingDetector)
+  // currently gets the background image timestamp information from Element
+  // Timing. This should be inverted.
+  paint_timing_->GetImageElementTiming()->NotifyBackgroundImageFinished(image);
+}
+
 void PaintTimingDetector::NotifyImageRemoved(
     const LayoutObject& object,
     const ImageResourceContent* cached_image) {
+  paint_timing_->GetImageElementTiming()->NotifyImageRemoved(object,
+                                                             cached_image);
   image_paint_timing_detector_->NotifyImageRemoved(object, cached_image);
 }
 
@@ -306,24 +307,15 @@ void PaintTimingDetector::OnInputOrScroll() {
   }
   did_notify_first_input_or_scroll_ = true;
 
-  // TextPaintTimingDetector is used for both Largest Contentful Paint and for
-  // Element Timing. Therefore, here we only want to stop recording Largest
-  // Contentful Paint.
-  text_paint_timing_detector_->StopRecordingLargestTextPaint();
-  // ImagePaintTimingDetector is currently only being used for
-  // LargestContentfulPaint.
-  image_paint_timing_detector_->StopRecordEntries();
-  image_paint_timing_detector_->StopRecordingLargestImagePaint();
-  largest_contentful_paint_calculator_ = nullptr;
-
-  if (!window) {
-    return;
+  // Notify `PaintTiming` so it can shut down hard navigation LCP.
+  if (window) {
+    PaintTiming::From(CHECK_DEREF(window->document())).OnInputOrScroll();
   }
 
-  DOMWindowPerformance::performance(*window)
-      ->timingForReporting()
-      ->SetFirstInputOrScrollNotifiedTimestamp(base::TimeTicks::Now());
-  DidChangePerformanceTiming();
+  // TODO(crbug.com/454082773): We should compare the presentation
+  // time to the input time to avoid ignoring candidates that were presented
+  // before this input arrived.
+  image_paint_timing_detector_->StopRecordEntries();
 }
 
 void PaintTimingDetector::NotifyInputEvent(WebInputEvent::Type type) {
@@ -351,55 +343,13 @@ void PaintTimingDetector::NotifyScroll(mojom::blink::ScrollType scroll_type) {
   OnInputOrScroll();
 }
 
-LargestContentfulPaintCalculator*
-PaintTimingDetector::GetLargestContentfulPaintCalculator() {
-  // Do not create an LCP calculator once we stop measuring hard LCP.
-  if (did_notify_first_input_or_scroll_) {
-    return nullptr;
-  }
-  if (largest_contentful_paint_calculator_) {
-    return largest_contentful_paint_calculator_.Get();
-  }
-
-  auto* dom_window = DomWindow();
-  if (!dom_window) {
-    return nullptr;
-  }
-
-  largest_contentful_paint_calculator_ =
-      MakeGarbageCollected<LargestContentfulPaintCalculator>(
-          DOMWindowPerformance::performance(*dom_window), this);
-  return largest_contentful_paint_calculator_.Get();
-}
-
-void PaintTimingDetector::OnLcpMetricsForReportingChanged() {
-  // The DidChangePerformanceTiming method which triggers the reporting of
-  // metrics LCP would not be called when we are not recording metrics LCP.
-  if (did_notify_first_input_or_scroll_) {
-    return;
-  }
-
-  DOMWindowPerformance::performance(CHECK_DEREF(DomWindow()))
-      ->timingForReporting()
-      ->SetLargestContentfulPaintDetailsForMetrics(
-          GetLargestContentfulPaintCalculator()->LatestLcpDetails());
-  DidChangePerformanceTiming();
-}
-
 void PaintTimingDetector::DidChangePerformanceTiming() {
-  Document* document = frame_view_->GetFrame().GetDocument();
-  if (!document) {
-    return;
-  }
-  DocumentLoader* loader = document->Loader();
-  if (!loader) {
-    return;
-  }
-  loader->DidChangePerformanceTiming();
+  paint_timing::NotifyLoaderPerformanceTimingChanged(
+      paint_timing_->GetDocument());
 }
 
 gfx::RectF PaintTimingDetector::BlinkSpaceToDIPs(const gfx::RectF& rect) const {
-  FrameWidget* widget = frame_view_->GetFrame().GetWidgetForLocalRoot();
+  FrameWidget* widget = GetFrame().GetWidgetForLocalRoot();
   // May be nullptr in tests.
   if (!widget) {
     return rect;
@@ -416,7 +366,7 @@ gfx::RectF PaintTimingDetector::CalculateVisualRect(
   // As Layout objects live in different transform spaces, the object's rect
   // should be projected to the viewport's transform space.
   FloatClipRect float_clip_visual_rect((gfx::RectF(visual_rect)));
-  const LocalFrame& local_root = frame_view_->GetFrame().LocalFrameRoot();
+  const LocalFrame& local_root = GetFrame().LocalFrameRoot();
   GeometryMapper::LocalToAncestorVisualRect(current_paint_chunk_properties,
                                             local_root.ContentLayoutObject()
                                                 ->FirstFragment()
@@ -440,38 +390,14 @@ gfx::RectF PaintTimingDetector::CalculateVisualRect(
   // project it to the top frame space.
   auto layout_visual_rect =
       PhysicalRect::EnclosingRect(float_clip_visual_rect.Rect());
-  frame_view_->GetFrame()
-      .LocalFrameRoot()
-      .View()
-      ->MapToVisualRectInRemoteRootFrame(layout_visual_rect);
+  GetFrame().LocalFrameRoot().View()->MapToVisualRectInRemoteRootFrame(
+      layout_visual_rect);
   return BlinkSpaceToDIPs(gfx::RectF(layout_visual_rect));
-}
-
-void PaintTimingDetector::OnFramePresented(
-    const HeapVector<Member<ImageRecord>>& image_records,
-    const HeapVector<Member<TextRecord>>& text_records) {
-  auto* lcp_calculator = GetLargestContentfulPaintCalculator();
-  if (!lcp_calculator) {
-    return;
-  }
-  lcp_calculator->OnFramePresented(image_records, text_records);
 }
 
 void PaintTimingDetector::ReportIgnoredContent() {
   text_paint_timing_detector_->ReportLargestIgnoredText();
   image_paint_timing_detector_->ReportLargestIgnoredImage();
-}
-
-void PaintTimingDetector::EmitLcpPerformanceEntry(
-    const DOMPaintTimingInfo& paint_timing_info,
-    uint64_t paint_size,
-    base::TimeTicks load_time,
-    const AtomicString& id,
-    const String& url,
-    Element* element) {
-  DOMWindowPerformance::performance(CHECK_DEREF(DomWindow()))
-      ->OnLargestContentfulPaintUpdated(paint_timing_info, paint_size,
-                                        load_time, id, url, element);
 }
 
 ScopedPaintTimingDetectorBlockPaintHook*
@@ -492,9 +418,9 @@ void ScopedPaintTimingDetectorBlockPaintHook::EmplaceIfNeeded(
   }
 
   reset_top_.emplace(&top_, this);
-  TextPaintTimingDetector& detector = aggregator.GetFrameView()
-                                          ->GetPaintTimingDetector()
-                                          .GetTextPaintTimingDetector();
+  TextPaintTimingDetector& detector =
+      PaintTimingDetector::From(aggregator.GetDocument())
+          .GetTextPaintTimingDetector();
   // Only set |data_| if we need to walk the object.
   if (detector.ShouldWalkObject(aggregator)) {
     data_.emplace(aggregator, property_tree_state, &detector);
@@ -529,12 +455,15 @@ ScopedPaintTimingDetectorBlockPaintHook::
 void PaintTimingDetector::Trace(Visitor* visitor) const {
   visitor->Trace(text_paint_timing_detector_);
   visitor->Trace(image_paint_timing_detector_);
-  visitor->Trace(frame_view_);
-  visitor->Trace(largest_contentful_paint_calculator_);
+  visitor->Trace(paint_timing_);
 }
 
 LocalDOMWindow* PaintTimingDetector::DomWindow() const {
-  return frame_view_->GetFrame().DomWindow();
+  return paint_timing_->GetDocument()->domWindow();
+}
+
+LocalFrame& PaintTimingDetector::GetFrame() const {
+  return CHECK_DEREF(paint_timing_->GetDocument()->GetFrame());
 }
 
 }  // namespace blink

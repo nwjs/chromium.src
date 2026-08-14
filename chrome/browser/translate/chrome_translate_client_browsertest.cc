@@ -5,6 +5,7 @@
 #include "chrome/browser/translate/chrome_translate_client.h"
 
 #include "base/functional/callback.h"
+#include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/ui/browser.h"
@@ -52,6 +53,12 @@ class FakePdfListener : public pdf::mojom::PdfListener {
   void HasMeaningfulText(HasMeaningfulTextCallback callback) override {
     std::move(callback).Run(has_meaningful_text_);
   }
+  void HasJavaScript(HasJavaScriptCallback callback) override {
+    std::move(callback).Run(has_javascript_);
+  }
+  void IsPasswordProtected(IsPasswordProtectedCallback callback) override {
+    std::move(callback).Run(is_password_protected_);
+  }
 #if BUILDFLAG(ENABLE_PDF_SAVE_TO_DRIVE)
   void GetSaveDataBufferHandlerForDrive(
       pdf::mojom::SaveRequestType request_type,
@@ -63,9 +70,17 @@ class FakePdfListener : public pdf::mojom::PdfListener {
   void set_has_meaningful_text(bool has_meaningful_text) {
     has_meaningful_text_ = has_meaningful_text;
   }
+  void set_has_javascript(bool has_javascript) {
+    has_javascript_ = has_javascript;
+  }
+  void set_is_password_protected(bool is_password_protected) {
+    is_password_protected_ = is_password_protected;
+  }
 
  private:
   bool has_meaningful_text_ = false;
+  bool has_javascript_ = false;
+  bool is_password_protected_ = false;
 };
 
 class DummyPDFDocumentHelperClient : public pdf::PDFDocumentHelperClient {
@@ -151,7 +166,7 @@ IN_PROC_BROWSER_TEST_F(ChromeTranslateClientPdfEnabledBrowsertest,
 }
 
 #if BUILDFLAG(ENABLE_PDF)
-// If the PDF has meaningful text, it returns true.
+// If the PDF has meaningful text and no JavaScript, it returns true.
 IN_PROC_BROWSER_TEST_F(ChromeTranslateClientPdfEnabledBrowsertest,
                        TrueWhenHasMeaningfulText) {
   auto client = std::make_unique<DummyPDFDocumentHelperClient>();
@@ -166,6 +181,7 @@ IN_PROC_BROWSER_TEST_F(ChromeTranslateClientPdfEnabledBrowsertest,
   // Bind the fake listener.
   FakePdfListener listener;
   listener.set_has_meaningful_text(true);
+  listener.set_has_javascript(false);
   mojo::Receiver<pdf::mojom::PdfListener> receiver(&listener);
   pdf_helper->SetListener(receiver.BindNewPipeAndPassRemote());
 
@@ -195,6 +211,61 @@ IN_PROC_BROWSER_TEST_F(ChromeTranslateClientPdfEnabledBrowsertest,
 
   FakePdfListener listener;
   listener.set_has_meaningful_text(false);
+  listener.set_has_javascript(false);
+  mojo::Receiver<pdf::mojom::PdfListener> receiver(&listener);
+  pdf_helper->SetListener(receiver.BindNewPipeAndPassRemote());
+
+  base::test::TestFuture<bool> future;
+  chrome_translate_client()->CheckIfPdfIsTranslatable(future.GetCallback());
+  EXPECT_FALSE(future.IsReady());
+
+  pdf_helper->OnDocumentLoadComplete();
+  EXPECT_FALSE(future.Get());
+}
+
+// If the PDF has JavaScript, it returns false.
+IN_PROC_BROWSER_TEST_F(ChromeTranslateClientPdfEnabledBrowsertest,
+                       FalseWhenHasJavaScript) {
+  auto client = std::make_unique<DummyPDFDocumentHelperClient>();
+  pdf::PDFDocumentHelper::CreateForCurrentDocument(
+      web_contents()->GetPrimaryMainFrame(), std::move(client));
+
+  pdf::PDFDocumentHelper* pdf_helper =
+      pdf::PDFDocumentHelper::GetForCurrentDocument(
+          web_contents()->GetPrimaryMainFrame());
+  ASSERT_NE(pdf_helper, nullptr);
+
+  FakePdfListener listener;
+  listener.set_has_meaningful_text(true);
+  listener.set_has_javascript(true);
+  mojo::Receiver<pdf::mojom::PdfListener> receiver(&listener);
+  pdf_helper->SetListener(receiver.BindNewPipeAndPassRemote());
+
+  base::test::TestFuture<bool> future;
+  chrome_translate_client()->CheckIfPdfIsTranslatable(future.GetCallback());
+  EXPECT_FALSE(future.IsReady());
+
+  pdf_helper->OnDocumentLoadComplete();
+  EXPECT_FALSE(future.Get());
+}
+
+// If `IsPasswordProtected()` returns `true`, `CheckIfPdfIsTranslatable()`
+// returns `false`.
+IN_PROC_BROWSER_TEST_F(ChromeTranslateClientPdfEnabledBrowsertest,
+                       FalseWhenIsPasswordProtected) {
+  auto client = std::make_unique<DummyPDFDocumentHelperClient>();
+  pdf::PDFDocumentHelper::CreateForCurrentDocument(
+      web_contents()->GetPrimaryMainFrame(), std::move(client));
+
+  pdf::PDFDocumentHelper* pdf_helper =
+      pdf::PDFDocumentHelper::GetForCurrentDocument(
+          web_contents()->GetPrimaryMainFrame());
+  ASSERT_NE(pdf_helper, nullptr);
+
+  FakePdfListener listener;
+  listener.set_has_meaningful_text(true);
+  listener.set_has_javascript(false);
+  listener.set_is_password_protected(true);
   mojo::Receiver<pdf::mojom::PdfListener> receiver(&listener);
   pdf_helper->SetListener(receiver.BindNewPipeAndPassRemote());
 
@@ -222,16 +293,31 @@ IN_PROC_BROWSER_TEST_F(ChromeTranslateClientPdfEnabledBrowsertest,
   mojo::Receiver<pdf::mojom::PdfListener> receiver(&listener);
   pdf_helper->SetListener(receiver.BindNewPipeAndPassRemote());
 
-  base::test::TestFuture<bool> future;
-  chrome_translate_client()->CheckIfPdfIsTranslatable(future.GetCallback());
-  EXPECT_FALSE(future.IsReady());
+  bool callback_run = false;
+  ChromeTranslateClient* client_ptr = chrome_translate_client();
+  auto callback = base::BindLambdaForTesting([&](bool is_translatable) {
+    callback_run = true;
+    // Simulate what the real caller does when it receives the result (e.g.
+    // TranslateManager reacting to eligibility). If `translate_manager_`
+    // was not properly null-checked, this would crash because we are in the
+    // middle of teardown.
+    client_ptr->ShowTranslateUI(
+        translate::TRANSLATE_STEP_TRANSLATING, "en", "es",
+        translate::TranslateErrors::NONE, false);
+  });
 
-  // Navigate to another page, which destroys the document and
-  // `pdf::PDFDocumentHelper`
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("about:blank")));
+  client_ptr->CheckIfPdfIsTranslatable(std::move(callback));
+
+  // Close the WebContents, which initiates teardown.
+  // This calls WebContentsDestroyed (resetting translate_manager_) and
+  // proceeds to destroy UserData (like pdf::PDFDocumentHelper) which drops
+  // the callback.
+  browser()->tab_strip_model()->CloseWebContentsAt(
+      0, TabCloseTypes::CLOSE_NONE);
 
   // The destruction of `pdf::PDFDocumentHelper` should have immediately
-  // triggered the callback with false.
-  EXPECT_FALSE(future.Get());
+  // triggered the callback with false, and ShowTranslateUI should return false
+  // gracefully.
+  EXPECT_TRUE(callback_run);
 }
 #endif  // BUILDFLAG(ENABLE_PDF)

@@ -32,7 +32,7 @@
 #include "third_party/blink/renderer/core/html/html_image_loader.h"
 #include "third_party/blink/renderer/core/html/media/html_media_element.h"
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap_source.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_non_2d_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_snapshot_info.h"
 #include "third_party/blink/renderer/platform/timer.h"
 
@@ -155,6 +155,9 @@ class CORE_EXPORT HTMLVideoElement final
   void MediaRemotingStopped(int error_code) final;
   WebMediaPlayer::DisplayType GetDisplayType() const final;
   bool IsInAutoPIP() const final;
+
+  void UpdateVideoFrameAvailabilityForTest() { UpdateVideoFrameAvailability(); }
+
   void DidPlayerMediaPositionStateChange(double playback_rate,
                                          base::TimeDelta duration,
                                          base::TimeDelta position,
@@ -183,7 +186,7 @@ class CORE_EXPORT HTMLVideoElement final
   // HTMLMediaElement overrides.
   void OnCdmAttached(const media::CdmConfig& cdm_config) final;
 
-  void RequestSaveVideoFrame();
+  void RequestSaveVideoFrame() final;
 
   bool poster_deferred_for_lazy_load_for_tests() const {
     return poster_deferred_for_lazy_load_;
@@ -241,9 +244,12 @@ class CORE_EXPORT HTMLVideoElement final
   void RequestVisibility(RequestVisibilityCallback request_visibility_cb) final;
 
   void DidMoveToNewDocument(Document& old_document) override;
-  void DidChangeIsCanvasOrInCanvasSubtree() override;
+  void DidChangeIsInCanvasSubtree() override;
 
   void UpdatePictureInPictureAvailability();
+  void UpdateVideoFrameAvailability() override;
+
+  void MaybeEnterImmersivePictureInPicture();
 
   void OnIntersectionChangedForLazyLoad(
       const HeapVector<Member<IntersectionObserverEntry>>& entries);
@@ -316,9 +322,14 @@ class CORE_EXPORT HTMLVideoElement final
   // True if poster loading was deferred because loading=lazy.
   bool poster_deferred_for_lazy_load_ : 1 = false;
 
+  bool has_received_first_frame_ : 1 = false;
+
+  // True if the last reported video frame availability was true.
+  bool last_reported_video_frame_availability_ : 1 = false;
+
   // Used to fulfill blink::Image requests (CreateImage(),
   // GetSourceImageForCanvas(), etc). Created on demand.
-  std::unique_ptr<CanvasNon2DResourceProviderSharedImage> snapshot_provider_;
+  std::unique_ptr<CanvasNon2DResourceProvider> snapshot_provider_;
   std::optional<CanvasSnapshotInfo> cached_draw_info_;
   HeapTaskRunnerTimer<HTMLVideoElement> cache_deleting_timer_;
 

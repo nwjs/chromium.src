@@ -69,7 +69,6 @@
 #include "chrome/browser/ui/ash/system/system_tray_client_impl.h"
 #include "chrome/browser/ui/ash/wallpaper/wallpaper_controller_client_impl.h"
 #include "chrome/browser/ui/webui/ash/login/app_launch_splash_screen_handler.h"
-#include "chrome/browser/ui/webui/ash/login/arc_vm_data_migration_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/core_oobe_handler.h"
 #include "chrome/browser/ui/webui/ash/login/device_disabled_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/gaia_screen_handler.h"
@@ -310,13 +309,6 @@ void ShowLoginWizardFinish(
         local_state, application_locale_storage, shared_url_loader_factory,
         browser_policy_connector_ash, DisplayedScreen::SIGN_IN_SCREEN,
         /*update_geolocation_usage_allowed=*/true);
-  } else if (first_screen == ArcVmDataMigrationScreenView::kScreenId) {
-    display_host = new LoginDisplayHostMojo(
-        local_state, application_locale_storage, shared_url_loader_factory,
-        browser_policy_connector_ash, DisplayedScreen::SIGN_IN_SCREEN,
-        /*update_geolocation_usage_allowed=*/true);
-    DCHECK(session_manager::SessionManager::Get());
-    session_manager::SessionManager::Get()->NotifyLoginOrLockScreenVisible();
   } else {
     display_host = new LoginDisplayHostWebUI(
         local_state, application_locale_storage, shared_url_loader_factory,
@@ -1278,7 +1270,7 @@ void ShowLoginWizard(OobeScreenId first_screen) {
   // TODO(b/338302062): Determine whether we should wait on OOBE config
   // retrieval before calling GetPrescribedEnrollmentConfig here.
   const policy::EnrollmentConfig enrollment_config =
-      policy::EnrollmentConfig::GetPrescribedEnrollmentConfig();
+      policy::EnrollmentConfig::GetPrescribedEnrollmentConfig(local_state);
   if (enrollment_config.should_enroll() &&
       first_screen == ash::OOBE_SCREEN_UNKNOWN) {
     // Manages its own lifetime. See ShutdownDisplayHost().

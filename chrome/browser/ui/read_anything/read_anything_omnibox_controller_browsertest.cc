@@ -174,12 +174,11 @@ class ReadAnythingOmniboxControllerTestBase
 
   void OnEntryShown(SidePanelEntry* entry) {
     if (IsImmersiveEnabled()) {
-      std::optional<ReadAnythingOpenTrigger> read_anything_trigger;
-      if (entry->last_open_trigger().has_value()) {
-        read_anything_trigger =
-            read_anything::SidePanelToReadAnythingOpenTrigger(
-                entry->last_open_trigger().value());
-      }
+      ReadAnythingOpenTrigger read_anything_trigger =
+          entry->last_open_trigger().has_value()
+              ? read_anything::SidePanelToReadAnythingOpenTrigger(
+                    entry->last_open_trigger().value())
+              : ReadAnythingOpenTrigger::kUnknown;
       ReadAnythingController::From(browser()->GetActiveTabInterface())
           ->OnEntryShown(read_anything_trigger);
     } else {
@@ -739,7 +738,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
   // Discard the first tab.
   std::unique_ptr<content::WebContents> new_contents =
       content::WebContents::Create(
-          content::WebContents::CreateParams(browser()->profile()));
+          content::WebContents::CreateParams(browser()->GetProfile()));
 
   browser()->tab_strip_model()->DiscardWebContentsAt(0,
                                                      std::move(new_contents));

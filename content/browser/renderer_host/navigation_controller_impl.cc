@@ -1918,7 +1918,8 @@ bool NavigationControllerImpl::RendererDidNavigate(
     back_forward_cache_metrics = BackForwardCacheMetrics::
         CreateOrReuseBackForwardCacheMetricsForNavigation(
             GetLastCommittedEntry(), is_main_frame_navigation,
-            params.document_sequence_number);
+            params.document_sequence_number,
+            is_main_frame_navigation ? rfh->GetSiteInstance() : nullptr);
   }
 
   // Notify the last active entry that we have navigated away.
@@ -3223,7 +3224,7 @@ bool NavigationControllerImpl::StartHistoryNavigationInNewSubframe(
     RenderFrameHostImpl* render_frame_host,
     mojo::PendingAssociatedRemote<mojom::NavigationClient>* navigation_client,
     blink::LocalFrameToken initiator_frame_token,
-    int initiator_process_id,
+    ChildProcessId initiator_process_id,
     scoped_refptr<InitiatorNavigationState> initiator_navigation_state,
     base::TimeTicks actual_navigation_start) {
   NavigationEntryImpl* entry =
@@ -3301,7 +3302,7 @@ bool NavigationControllerImpl::ReloadFrame(FrameTreeNode* frame_tree_node) {
       false /* is_same_document_history_load */,
       false /* is_history_navigation_in_new_child */,
       std::nullopt /* initiator_frame_token */,
-      ChildProcessHost::kInvalidUniqueID /* initiator_process_id */,
+      ChildProcessId() /* initiator_process_id */,
       nullptr /* initiator_navigation_state */, actual_navigation_start);
   if (!request) {
     return false;
@@ -3314,7 +3315,7 @@ void NavigationControllerImpl::NavigateFromFrameProxy(
     RenderFrameHostImpl* render_frame_host,
     const GURL& url,
     const blink::LocalFrameToken* initiator_frame_token,
-    int initiator_process_id,
+    ChildProcessId initiator_process_id,
     const std::optional<url::Origin>& initiator_origin,
     const std::optional<GURL>& initiator_base_url,
     bool is_renderer_initiated,
@@ -3329,7 +3330,6 @@ void NavigationControllerImpl::NavigateFromFrameProxy(
     network::mojom::SourceLocationPtr source_location,
     scoped_refptr<network::SharedURLLoaderFactory> blob_url_loader_factory,
     bool is_form_submission,
-    const std::optional<blink::Impression>& impression,
     bool has_user_gesture,
     bool started_by_ad,
     base::TimeTicks actual_navigation_start_time,
@@ -3460,7 +3460,6 @@ void NavigationControllerImpl::NavigateFromFrameProxy(
   /* params.input_start: skip */
   params.was_activated = blink::mojom::WasActivatedOption::kUnknown;
   /* params.reload_type: skip */
-  params.impression = impression;
   params.download_policy = std::move(download_policy);
   params.is_form_submission = is_form_submission;
   params.started_by_ad = started_by_ad;
@@ -3743,11 +3742,11 @@ NavigationControllerImpl::NavigateToExistingPendingEntry(
   }
 
   std::optional<blink::LocalFrameToken> initiator_frame_token;
-  int initiator_process_id = ChildProcessHost::kInvalidUniqueID;
+  ChildProcessId initiator_process_id;
   scoped_refptr<InitiatorNavigationState> initiator_navigation_state;
   if (initiator_rfh) {
     initiator_frame_token = initiator_rfh->GetFrameToken();
-    initiator_process_id = initiator_rfh->GetProcess()->GetDeprecatedID();
+    initiator_process_id = initiator_rfh->GetProcess()->GetID();
     initiator_navigation_state =
         initiator_rfh->CreateInitiatorStateFromCurrentFrame();
     DCHECK(initiator_frame_token);
@@ -4217,7 +4216,7 @@ void NavigationControllerImpl::FindFramesToNavigate(
     FrameTreeNode* frame,
     ReloadType reload_type,
     const std::optional<blink::LocalFrameToken>& initiator_frame_token,
-    int initiator_process_id,
+    ChildProcessId initiator_process_id,
     scoped_refptr<InitiatorNavigationState> initiator_navigation_state,
     std::optional<blink::scheduler::TaskAttributionId>
         soft_navigation_heuristics_task_id,
@@ -4740,11 +4739,11 @@ NavigationControllerImpl::CreateNavigationRequestFromLoadParams(
           // The correct storage key will be computed before committing the
           // navigation.
           blink::StorageKey(), override_user_agent, params.redirect_chain,
-          std::vector<network::mojom::URLResponseHeadPtr>(),
-          std::vector<net::RedirectInfo>(), params.post_content_type,
-          original_url_for_renderer, common_params->method,
-          params.can_load_local_resources, page_state_data,
-          entry->GetUniqueID(), entry->GetSubframeUniqueNames(node),
+          std::vector<blink::mojom::NavigationRedirectParamsPtr>(),
+          params.post_content_type, original_url_for_renderer,
+          common_params->method, params.can_load_local_resources,
+          page_state_data, entry->GetUniqueID(),
+          entry->GetSubframeUniqueNames(node),
           /*intended_as_new_entry=*/true,
           /*pending_history_list_index=*/-1,
           params.should_clear_history_list ? -1 : GetLastCommittedEntryIndex(),
@@ -4853,10 +4852,10 @@ NavigationControllerImpl::CreateNavigationRequestFromLoadParams(
       params.should_ignore_initiator_policies_for_inheritance,
       extra_headers_crlf, frame_entry, entry, params.is_form_submission,
       params.navigation_ui_data ? params.navigation_ui_data->Clone() : nullptr,
-      params.impression, started_with_transient_activation,
-      params.started_by_ad, embedder_isolation_mode,
-      is_embedder_initiated_fenced_frame_navigation, is_container_initiated,
-      params.has_rel_opener, embedder_shared_storage_context);
+      started_with_transient_activation, params.started_by_ad,
+      embedder_isolation_mode, is_embedder_initiated_fenced_frame_navigation,
+      is_container_initiated, params.has_rel_opener,
+      embedder_shared_storage_context);
 
   if (!navigation_request) {
     return nullptr;
@@ -4884,7 +4883,7 @@ NavigationControllerImpl::CreateNavigationRequestFromEntry(
     bool is_same_document_history_load,
     bool is_history_navigation_in_new_child_frame,
     const std::optional<blink::LocalFrameToken>& initiator_frame_token,
-    int initiator_process_id,
+    ChildProcessId initiator_process_id,
     scoped_refptr<InitiatorNavigationState> initiator_navigation_state,
     base::TimeTicks actual_navigation_start,
     std::optional<blink::scheduler::TaskAttributionId>
@@ -5009,7 +5008,7 @@ NavigationControllerImpl::CreateNavigationRequestFromEntry(
       initiator_frame_token, initiator_process_id, initiator_navigation_state,
       false /* should_ignore_initiator_policies_for_inheritance */,
       entry->extra_headers(), frame_entry, entry, is_form_submission,
-      nullptr /* navigation_ui_data */, std::nullopt /* impression */,
+      nullptr /* navigation_ui_data */,
       false /* started_with_transient_activation */, false /* started_by_ad */,
       EmbedderIsolationInfo::Mode::kNone);
 
@@ -5892,7 +5891,7 @@ NavigationControllerImpl::CreateNavigationRequestForErrorPage(
           false /* was_opener_suppressed */, "" /* extra_headers */,
           nullptr /* frame_entry */, nullptr /* entry */,
           false /* is_form_submission */, nullptr /* navigation_ui_data */,
-          std::nullopt /* impression */, EmbedderIsolationInfo::Mode::kNone);
+          EmbedderIsolationInfo::Mode::kNone);
   if (is_post_commit_error_page) {
     navigation_request->set_browser_initiated_error_navigation_type(
         NavigationRequest::BrowserInitiatedErrorNavigationType::kPostCommit);

@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-#include "base/byte_count.h"
+#include "base/byte_size.h"
 #include "base/check_deref.h"
 #include "base/command_line.h"
 #include "base/containers/flat_map.h"
@@ -96,6 +96,7 @@
 #include "content/renderer/effective_connection_type_helper.h"
 #include "content/renderer/frame_owner_properties_converter.h"
 #include "content/renderer/gpu_benchmarking_extension.h"
+#include "content/renderer/lazy_shared_url_loader_factory.h"
 #include "content/renderer/local_resource_url_loader_factory.h"
 #include "content/renderer/media/media_permission_dispatcher.h"
 #include "content/renderer/mhtml_handle_writer.h"
@@ -155,13 +156,13 @@
 #include "third_party/blink/public/common/context_menu_data/context_menu_data.h"
 #include "third_party/blink/public/common/context_menu_data/untrustworthy_context_menu_params.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/fenced_frame/fenced_frame_utils.h"
+#include "third_party/blink/public/common/global_privacy_control/global_privacy_control_util.h"
 #include "third_party/blink/public/common/input/web_keyboard_event.h"
-#include "third_party/blink/public/common/interest_group/ad_auction_constants.h"
 #include "third_party/blink/public/common/loader/loader_constants.h"
 #include "third_party/blink/public/common/loader/record_load_histograms.h"
 #include "third_party/blink/public/common/loader/resource_type_util.h"
 #include "third_party/blink/public/common/loader/url_loader_throttle.h"
-#include "third_party/blink/public/common/navigation/impression.h"
 #include "third_party/blink/public/common/navigation/navigation_params.h"
 #include "third_party/blink/public/common/navigation/navigation_params_mojom_traits.h"
 #include "third_party/blink/public/common/navigation/navigation_policy.h"
@@ -503,7 +504,7 @@ void FillNavigationParamsRequest(
   // We'll replay the redirects afterwards and will eventually arrive at the
   // final URL. For non-redirecting navigations, use the final URL to be
   // committed (as that is the same as the original URL).
-  const bool should_use_original_url = !commit_params.redirect_infos.empty() &&
+  const bool should_use_original_url = !commit_params.redirect_params.empty() &&
                                        !commit_params.original_url.is_empty();
   navigation_params->url =
       should_use_original_url ? commit_params.original_url : common_params.url;
@@ -1017,9 +1018,10 @@ void FillMiscNavigationParams(
   navigation_params->navigation_timings = BuildNavigationTimings(
       common_params.navigation_start, *commit_params.navigation_timing,
       common_params.input_start);
-  if (!commit_params.redirect_infos.empty()) {
+  if (!commit_params.redirect_params.empty()) {
     navigation_params->navigation_timings.critical_ch_restart =
-        commit_params.redirect_infos.back().critical_ch_restart_time;
+        commit_params.redirect_params.back()
+            ->redirect_info.critical_ch_restart_time;
   }
 
   navigation_params->is_user_activated =
@@ -1139,7 +1141,7 @@ void FillMiscNavigationParams(
       const auto& nested_urn_config_pairs_value =
           commit_params.fenced_frame_properties->nested_urn_config_pairs()
               ->potentially_opaque_value.value();
-      DCHECK_EQ(blink::MaxAdAuctionAdComponents(),
+      DCHECK_EQ(blink::kMaxAdAuctionAdComponents,
                 nested_urn_config_pairs_value.size());
       navigation_params->ad_auction_components.emplace();
       for (const auto& nested_urn_config_pair : nested_urn_config_pairs_value) {
@@ -1387,9 +1389,9 @@ mojo::ScopedDataPipeConsumerHandle FillResponseForInitialWebUI(
   mojo::Remote<network::mojom::URLLoaderClient> client(
       std::move(client_remote));
   network::URLLoaderCompletionStatus status(net::OK);
-  status.encoded_data_length = output_size;
-  status.encoded_body_length = output_size;
-  status.decoded_body_length = output_size;
+  status.encoded_data_length = base::ByteSize(output_size);
+  status.encoded_body_length = base::ByteSize(output_size);
+  status.decoded_body_length = base::ByteSize(output_size);
   client->OnComplete(status);
   return std::move(response_body);
 }
@@ -2532,7 +2534,7 @@ void RenderFrameImpl::NotifyResourceResponseReceived(
 
 void RenderFrameImpl::NotifyResourceTransferSizeUpdated(
     int64_t request_id,
-    int32_t transfer_size_diff) {
+    base::ByteSize transfer_size_diff) {
   DidReceiveTransferSizeUpdate(request_id, transfer_size_diff);
 }
 
@@ -3071,12 +3073,23 @@ void RenderFrameImpl::CommitNavigationWithParams(
     navigation_params->service_worker_network_provider =
         ServiceWorkerNetworkProviderForFrame::CreateInvalidInstance();
   } else {
+    scoped_refptr<network::SharedURLLoaderFactory> fallback_loader_factory;
+    if (base::FeatureList::IsEnabled(
+            features::kReduceMojoURLLoaderFactoryCloning) &&
+        features::kUseLazyURLLoaderFactoryForServiceWorkerFallback.Get()) {
+      fallback_loader_factory = network::SharedURLLoaderFactory::Create(
+          CreateLazyPendingURLLoaderFactory(
+              new_loader_factories,
+              GetTaskRunner(blink::TaskType::kInternalLoading)));
+    } else {
+      fallback_loader_factory = network::SharedURLLoaderFactory::Create(
+          new_loader_factories->Clone());
+    }
     navigation_params->service_worker_network_provider =
         ServiceWorkerNetworkProviderForFrame::Create(
             this, std::move(container_info),
             std::move(controller_service_worker_info),
-            network::SharedURLLoaderFactory::Create(
-                new_loader_factories->Clone()));
+            std::move(fallback_loader_factory));
   }
 
   DCHECK(!pending_loader_factories_);
@@ -3270,7 +3283,7 @@ void RenderFrameImpl::CommitFailedNavigation(
   navigation_params->unreachable_url = error.url();
   if (base::FeatureList::IsEnabled(
           blink::features::kRemoveCommitRedirectUrlsArray)) {
-    if (commit_params->redirect_infos.size()) {
+    if (commit_params->redirect_params.size()) {
       navigation_params->pre_redirect_url_for_failed_navigations =
           common_params->url;
     } else {
@@ -4616,7 +4629,12 @@ void RenderFrameImpl::FinalizeRequestInternal(
     request.SetHttpHeaderField(
         blink::WebString::FromUtf8(blink::kDoNotTrackHeader), "1");
   }
-
+  if (blink::IsGlobalPrivacyControlEnabled()) {
+    request.SetHttpHeaderField(
+        blink::WebString::FromUtf8(blink::kGlobalPrivacyControlHeader), "1");
+    blink::MaybeRecordGlobalPrivacyControlSourceMetric(
+        blink::GPCSignalSourceType::kSubresourceFetch);
+  }
   // The request's extra data may indicate that we should set a custom user
   // agent. This needs to be done here, after WebKit is through with setting the
   // user agent on its own.
@@ -4669,13 +4687,13 @@ void RenderFrameImpl::DidLoadResourceFromMemoryCache(
   if (load_from_memory_cache_callback_) {
     load_from_memory_cache_callback_.Run(
         request.Url(), response.RequestId(),
-        base::ByteCount(response.EncodedBodyLength()),
+        base::ByteSize(response.EncodedBodyLength()),
         response.MimeType().Utf8(), response.FromArchive());
   } else {
     for (auto& observer : observers_) {
       observer.DidLoadResourceFromMemoryCache(
           request.Url(), response.RequestId(),
-          base::ByteCount(response.EncodedBodyLength()),
+          base::ByteSize(response.EncodedBodyLength()),
           response.MimeType().Utf8(), response.FromArchive());
     }
   }
@@ -4721,11 +4739,11 @@ void RenderFrameImpl::DidCancelResponse(int request_id) {
   }
 }
 
-void RenderFrameImpl::DidReceiveTransferSizeUpdate(int resource_id,
-                                                   int received_data_length) {
+void RenderFrameImpl::DidReceiveTransferSizeUpdate(
+    int resource_id,
+    base::ByteSize received_data_length) {
   for (auto& observer : observers_) {
-    observer.DidReceiveTransferSizeUpdate(
-        resource_id, base::ByteCount(received_data_length));
+    observer.DidReceiveTransferSizeUpdate(resource_id, received_data_length);
   }
 }
 
@@ -5002,13 +5020,6 @@ void RenderFrameImpl::WasShown() {
   frame_->WasShown();
   for (auto& observer : observers_)
     observer.WasShown();
-}
-
-void RenderFrameImpl::OnFrameVisibilityChanged(
-    blink::mojom::FrameVisibility render_status) {
-  for (auto& observer : observers_) {
-    observer.OnFrameVisibilityChanged(render_status);
-  }
 }
 
 bool RenderFrameImpl::IsMainFrame() {
@@ -6031,8 +6042,6 @@ void RenderFrameImpl::OpenURL(std::unique_ptr<blink::WebNavigationInfo> info) {
   // navigations performed via OpenURL.
   params->source_location = network::mojom::SourceLocation::New();
 
-  params->impression = info->impression;
-
   if (GetContentClient()->renderer()->AllowPopup())
     params->user_gesture = true;
 
@@ -6366,9 +6375,8 @@ void RenderFrameImpl::BeginNavigationInternal(
           info->url_request.TrustTokenParams()
               ? info->url_request.TrustTokenParams()->Clone()
               : nullptr,
-          info->impression, renderer_before_unload_start,
-          renderer_before_unload_end, before_unload_dialog_opened,
-          before_unload_dialog_closed,
+          renderer_before_unload_start, renderer_before_unload_end,
+          before_unload_dialog_opened, before_unload_dialog_closed,
           /*started_with_transient_activation=*/
           info->url_request.HasUserGesture(),
           /*started_by_ad=*/
@@ -6896,6 +6904,11 @@ RenderFrameImpl::CloneLoaderFactories() {
       std::move(pending_bundle));
 }
 
+std::unique_ptr<network::PendingSharedURLLoaderFactory>
+RenderFrameImpl::CloneLoaderFactoryBundle() {
+  return GetLoaderFactoryBundle()->Clone();
+}
+
 blink::scheduler::WebAgentGroupScheduler&
 RenderFrameImpl::GetAgentGroupScheduler() {
   return agent_scheduling_group_->agent_group_scheduler();
@@ -6939,7 +6952,6 @@ WebView* RenderFrameImpl::CreateNewWindow(
     network::mojom::WebSandboxFlags sandbox_flags,
     const blink::SessionStorageNamespaceId& session_storage_namespace_id,
     bool& consumed_user_gesture,
-    const std::optional<blink::Impression>& impression,
     const std::optional<blink::WebPictureInPictureWindowOptions>& pip_options,
     const blink::WebURL& base_url,
     blink::WebString* manifest) {
@@ -6996,8 +7008,6 @@ WebView* RenderFrameImpl::CreateNewWindow(
   params->form_submission_post_data =
       blink::GetRequestBodyForWebURLRequest(request);
   params->form_submission_post_content_type = request.HttpContentType().Utf8();
-
-  params->impression = impression;
 
   if (pip_options) {
     CHECK_EQ(policy, blink::kWebNavigationPolicyPictureInPicture);
@@ -7154,7 +7164,10 @@ WebView* RenderFrameImpl::CreateNewWindow(
   main_frame_params->widget_params = std::move(widget_params);
   main_frame_params->subresource_loader_factories =
       base::WrapUnique(static_cast<blink::PendingURLLoaderFactoryBundle*>(
-          CloneLoaderFactories()->Clone().release()));
+          base::FeatureList::IsEnabled(
+              features::kReduceMojoURLLoaderFactoryCloning)
+              ? CloneLoaderFactoryBundle().release()
+              : CloneLoaderFactories()->Clone().release()));
 
   view_params->main_frame =
       mojom::CreateMainFrameUnion::NewLocalParams(std::move(main_frame_params));

@@ -220,7 +220,7 @@ void BrowserPolicyConnectorAsh::Init(
     device_cloud_policy_manager_->Initialize(local_state, url_loader_factory);
     EnrollmentRequisitionManager::Initialize(CHECK_DEREF(local_state));
     device_cloud_policy_manager_->AddDeviceCloudPolicyManagerObserver(this);
-    RestartDeviceCloudPolicyInitializer();
+    RestartDeviceCloudPolicyInitializer(url_loader_factory);
   }
 
   device_local_account_policy_service_ =
@@ -317,6 +317,7 @@ void BrowserPolicyConnectorAsh::Init(
       std::make_unique<DeviceScheduledUpdateChecker>(
           ash::CrosSettings::Get(),
           ash::NetworkHandler::Get()->network_state_handler(),
+          GetPolicyService(),
           std::make_unique<ScheduledTaskExecutorImpl>(
               update_checker_internal::kUpdateCheckTimerTag));
 
@@ -364,7 +365,7 @@ void BrowserPolicyConnectorAsh::Init(
       url_loader_factory,
       std::make_unique<DeviceIdentityProvider>(
           DeviceOAuth2TokenServiceFactory::Get()),
-      g_browser_process->local_state());
+      local_state);
 }
 
 void BrowserPolicyConnectorAsh::OnBrowserStarted() {
@@ -577,6 +578,11 @@ void BrowserPolicyConnectorAsh::RegisterPrefs(PrefRegistrySimple* registry) {
 
 void BrowserPolicyConnectorAsh::OnUserManagerCreated(
     user_manager::UserManager* user_manager) {
+  // TODO(crbug.com/404133022): Avoid depending on g_browser_process.
+  // Currently, `local_state_` may be null in unit tests because Init() is not
+  // always called.
+  PrefService& local_state = CHECK_DEREF(g_browser_process->local_state());
+
   if (device_weekly_scheduled_suspend_controller_) {
     device_weekly_scheduled_suspend_controller_->InitUserManagerObservation(
         user_manager);
@@ -586,28 +592,32 @@ void BrowserPolicyConnectorAsh::OnUserManagerCreated(
       std::make_unique<policy::CloudExternalDataPolicyObserver>(
           cros_settings, device_local_account_policy_service_.get(),
           policy::key::kUserAvatarImage, user_manager,
-          std::make_unique<policy::UserAvatarImageExternalDataHandler>()));
+          std::make_unique<policy::UserAvatarImageExternalDataHandler>(
+              &local_state)));
   cloud_external_data_policy_observers_.push_back(
       std::make_unique<policy::CloudExternalDataPolicyObserver>(
           cros_settings, device_local_account_policy_service_.get(),
           policy::key::kWallpaperImage, user_manager,
-          std::make_unique<policy::WallpaperImageExternalDataHandler>()));
+          std::make_unique<policy::WallpaperImageExternalDataHandler>(
+              &local_state)));
   cloud_external_data_policy_observers_.push_back(
       std::make_unique<policy::CloudExternalDataPolicyObserver>(
           cros_settings, device_local_account_policy_service_.get(),
           policy::key::kPrintersBulkConfiguration, user_manager,
-          std::make_unique<policy::PrintersExternalDataHandler>()));
+          std::make_unique<policy::PrintersExternalDataHandler>(&local_state)));
   cloud_external_data_policy_observers_.push_back(
       std::make_unique<policy::CloudExternalDataPolicyObserver>(
           cros_settings, device_local_account_policy_service_.get(),
           policy::key::kExternalPrintServers, user_manager,
-          std::make_unique<policy::PrintServersExternalDataHandler>()));
+          std::make_unique<policy::PrintServersExternalDataHandler>(
+              &local_state)));
   cloud_external_data_policy_observers_.push_back(
       std::make_unique<policy::CloudExternalDataPolicyObserver>(
           cros_settings, device_local_account_policy_service_.get(),
           policy::key::kPreconfiguredDeskTemplates, user_manager,
           std::make_unique<
-              policy::PreconfiguredDeskTemplatesExternalDataHandler>()));
+              policy::PreconfiguredDeskTemplatesExternalDataHandler>(
+              &local_state)));
   for (auto& observer : cloud_external_data_policy_observers_) {
     observer->Init();
   }
@@ -693,11 +703,12 @@ void BrowserPolicyConnectorAsh::SetTimezoneIfPolicyAvailable() {
   }
 }
 
-void BrowserPolicyConnectorAsh::RestartDeviceCloudPolicyInitializer() {
+void BrowserPolicyConnectorAsh::RestartDeviceCloudPolicyInitializer(
+    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory) {
   device_cloud_policy_initializer_ =
       std::make_unique<DeviceCloudPolicyInitializer>(
-          device_management_service(), ash::InstallAttributes::Get(),
-          state_keys_broker_.get(),
+          url_loader_factory, device_management_service(),
+          ash::InstallAttributes::Get(), state_keys_broker_.get(),
           device_cloud_policy_manager_->device_store(),
           device_cloud_policy_manager_,
           ash::system::StatisticsProvider::GetInstance());

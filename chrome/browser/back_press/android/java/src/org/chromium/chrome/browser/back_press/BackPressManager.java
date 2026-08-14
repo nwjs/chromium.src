@@ -24,7 +24,6 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.BackPressResult;
@@ -54,8 +53,8 @@ public class BackPressManager implements Destroyable, BackPressHandlerRegistry {
     private static final int sMetricsMaxValue;
 
     static {
-        // Max value is 29 - 1 obsolete value +1 for 0 indexing = 29 elements.
-        SparseIntArray map = new SparseIntArray(29);
+        // Max value is 30 - 1 obsolete value +1 for 0 indexing = 30 elements.
+        SparseIntArray map = new SparseIntArray(30);
         map.put(Type.TEXT_BUBBLE, 0);
         // map.put(Type.VR_DELEGATE, 1);
         // map.put(Type.AR_DELEGATE, 2);
@@ -84,9 +83,10 @@ public class BackPressManager implements Destroyable, BackPressHandlerRegistry {
         map.put(Type.ACTOR_OVERLAY, 26);
         map.put(Type.FUSEBOX_POPUP, 27);
         map.put(Type.REALBOX, 28);
+        map.put(Type.TAB_SEARCH_OVERLAY, 29);
 
         // Add new one here and update array size.
-        sMetricsMaxValue = 29;
+        sMetricsMaxValue = 30;
         sMetricsMap = map;
     }
 
@@ -137,8 +137,7 @@ public class BackPressManager implements Destroyable, BackPressHandlerRegistry {
         @Override
         public void handleOnBackPressed() {
             mLastCalledHandlerType = -1;
-            if (ChromeFeatureList.sLockBackPressHandlerAtStart.isEnabled()
-                    && mActiveHandler != null) {
+            if (mActiveHandler != null) {
                 Boolean enabled = mActiveHandler.getHandleBackPressChangedSupplier().get();
                 if (enabled != null && enabled) {
                     int result = mActiveHandler.handleBackPress();
@@ -153,6 +152,8 @@ public class BackPressManager implements Destroyable, BackPressHandlerRegistry {
                     BackPressManager.this.handleBackPress();
                 }
             } else {
+                // mActiveHandler is always null on lower versions which do not support
+                // handleOnBackStarted
                 BackPressManager.this.handleBackPress();
             }
 
@@ -209,10 +210,6 @@ public class BackPressManager implements Destroyable, BackPressHandlerRegistry {
     private final OnBackPressedCallbackImpl mCallback = new OnBackPressedCallbackImpl(false);
 
     static final String HISTOGRAM = "Android.BackPress.Intercept";
-    static final String HISTOGRAM_CUSTOM_TAB_SAME_TASK =
-            "Android.BackPress.Intercept.CustomTab.SameTask";
-    static final String HISTOGRAM_CUSTOM_TAB_SEPARATE_TASK =
-            "Android.BackPress.Intercept.CustomTab.SeparateTask";
     static final String FAILURE_HISTOGRAM = "Android.BackPress.Failure";
 
     private final @Nullable BackPressHandler[] mHandlers = new BackPressHandler[Type.NUM_TYPES];
@@ -239,19 +236,6 @@ public class BackPressManager implements Destroyable, BackPressHandlerRegistry {
     public static void record(@Type int type) {
         RecordHistogram.recordEnumeratedHistogram(
                 HISTOGRAM, sMetricsMap.get(type), sMetricsMaxValue);
-    }
-
-    /**
-     * Record when the back press is consumed by a custom tab.
-     *
-     * @param type The {@link Type} which consumes the back press event.
-     * @param separateTask Whether the custom tab runs in a separate task.
-     */
-    public static void recordForCustomTab(@Type int type, boolean separateTask) {
-        RecordHistogram.recordEnumeratedHistogram(
-                separateTask ? HISTOGRAM_CUSTOM_TAB_SEPARATE_TASK : HISTOGRAM_CUSTOM_TAB_SAME_TASK,
-                sMetricsMap.get(type),
-                sMetricsMaxValue);
     }
 
     /**
@@ -544,13 +528,5 @@ public class BackPressManager implements Destroyable, BackPressHandlerRegistry {
 
     public static String getHistogramForTesting() {
         return HISTOGRAM;
-    }
-
-    public static String getCustomTabSameTaskHistogramForTesting() {
-        return HISTOGRAM_CUSTOM_TAB_SAME_TASK;
-    }
-
-    public static String getCustomTabSeparateTaskHistogramForTesting() {
-        return HISTOGRAM_CUSTOM_TAB_SEPARATE_TASK;
     }
 }

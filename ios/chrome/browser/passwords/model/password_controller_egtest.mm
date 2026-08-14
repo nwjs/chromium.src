@@ -35,6 +35,7 @@
 #import "ios/chrome/browser/passwords/model/password_manager_app_interface.h"
 #import "ios/chrome/browser/passwords/password_breach/public/password_breach_constants.h"
 #import "ios/chrome/browser/settings/manage_sync/public/manage_sync_settings_constants.h"
+#import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_actions.h"
@@ -139,10 +140,8 @@ void WaitForBottomSheetAndOpenKeyboard(NSString* username) {
 // Types `text` on an input field with `fieldID`. Dismisses the credential
 // bottom sheet if `dismissBottomSheet` is true.
 void TypeTextOnField(NSString* text, const std::string& fieldID) {
-  [ChromeEarlGrey
-      evaluateJavaScriptForSideEffect:
-          [NSString stringWithFormat:@"document.getElementById('%@').focus();",
-                                     base::SysUTF8ToNSString(fieldID)]];
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:chrome_test_util::TapWebElementWithId(fieldID)];
   TypeText(text);
   // Wait for the current input field to contain the `text` (i.e. typing from
   // SimulatePhysicalKeyboardEvent finished) before proceeding to next step.
@@ -224,6 +223,9 @@ void LoginOnUff() {
       [MetricsAppInterface setupHistogramTester]);
   chrome_test_util::GREYAssertErrorNil(
       [MetricsAppInterface setupUserActionTester]);
+
+  [ChromeEarlGrey
+      clearUserPrefWithName:prefs::kIosSyncInfobarErrorLastDismissedTimestamp];
 }
 
 - (void)tearDownHelper {
@@ -697,7 +699,7 @@ void LoginOnUff() {
   testPasswordGenerationWhileSignedInWithPasswordsDisabled
 #else
 #define MAYBE_testPasswordGenerationWhileSignedInWithPasswordsDisabled \
-  DISABLED_testPasswordGenerationWhileSignedInWithPasswordsDisabled
+  FLAKY_testPasswordGenerationWhileSignedInWithPasswordsDisabled
 #endif
 - (void)MAYBE_testPasswordGenerationWhileSignedInWithPasswordsDisabled {
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
@@ -739,14 +741,9 @@ void LoginOnUff() {
   testPasswordGenerationWhileSignedInWithError
 #else
 #define MAYBE_testPasswordGenerationWhileSignedInWithError \
-  DISABLED_testPasswordGenerationWhileSignedInWithError
+  FLAKY_testPasswordGenerationWhileSignedInWithError
 #endif
 - (void)MAYBE_testPasswordGenerationWhileSignedInWithError {
-  // TODO(crbug.com/454547779): Re-enable the test.
-  if (@available(iOS 26.1, *)) {
-    EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.1.");
-  }
-
   // Encrypt synced data with a passphrase to enable passphrase encryption for
   // the signed in account.
   [ChromeEarlGrey addSyncPassphrase:kPassphrase];
@@ -765,10 +762,17 @@ void LoginOnUff() {
   [ChromeEarlGrey loadURL:self.testServer->GetURL("/simple_signup_form.html")];
   [ChromeEarlGrey waitForWebStateContainingText:"Signup form."];
 
-  // Swipe up the sync infobar error.
+  // Swipe up the sync infobar error if it is visible.
+  NSError* error = nil;
   [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
                                           kInfobarBannerViewIdentifier)]
-      performAction:grey_swipeFastInDirection(kGREYDirectionUp)];
+      assertWithMatcher:grey_sufficientlyVisible()
+                  error:&error];
+  if (!error) {
+    [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
+                                            kInfobarBannerViewIdentifier)]
+        performAction:grey_swipeFastInDirection(kGREYDirectionUp)];
+  }
 
   // Verify that the target field is empty.
   NSString* emptyFieldCondition =

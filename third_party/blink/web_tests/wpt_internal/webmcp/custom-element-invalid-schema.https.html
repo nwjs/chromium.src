@@ -59,10 +59,18 @@
 </form>
 <script>
   promise_test(async t => {
-    await waitForTool('test');
-    let tools = await document.modelContext.getTools();
-    assert_equals(tools.length, 1);
-    let schema = JSON.parse(tools[0].inputSchema);
+    let expected_schema_obj = {
+      type: "object",
+      properties: {
+        "valid-param-string": {
+          type: "string"
+        }
+      },
+      required: []
+    };
+    const tool = await waitForFormToolSchemaToMatch(JSON.stringify(expected_schema_obj));
+
+    let schema = JSON.parse(tool.inputSchema);
     let properties = schema['properties'];
     assert_equals(typeof properties, 'object');
     assert_equals(properties['invalid-param-empty'], undefined);

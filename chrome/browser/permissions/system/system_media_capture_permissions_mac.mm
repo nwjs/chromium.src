@@ -17,6 +17,7 @@
 #import "base/task/sequenced_task_runner.h"
 #include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/permissions/system/media_authorization_wrapper_mac.h"
+#include "chrome/browser/permissions/system/system_permission_common.h"
 #include "media/base/media_switches.h"
 #include "ui/base/cocoa/permissions_utils.h"
 
@@ -170,7 +171,7 @@ void RequestSystemVideoCapturePermission(base::OnceClosure callback) {
 
 void SetMediaAuthorizationWrapperForTesting(
     MediaAuthorizationWrapper* wrapper) {
-  CHECK(!g_media_authorization_wrapper_for_tests);
+  CHECK(!wrapper || !g_media_authorization_wrapper_for_tests);
   g_media_authorization_wrapper_for_tests = wrapper;
 }
 

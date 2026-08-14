@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <utility>
+
 #include "base/test/scoped_feature_list.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/glic/glic_pref_names.h"
@@ -21,6 +23,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/optimization_guide/core/feature_registry/feature_registration.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/test/browser_test.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -53,7 +56,7 @@ class SystemMenuModelBuilderGlicTest : public InProcessBrowserTest {
 // Check if the toggle tab search pinning option exists and has the right label
 // based on relevant prefs.
 IN_PROC_BROWSER_TEST_F(SystemMenuModelBuilderGlicTest, ToggleTabSearchPinning) {
-  PrefService* profile_prefs = browser()->profile()->GetPrefs();
+  PrefService* profile_prefs = browser()->GetProfile()->GetPrefs();
   ui::MenuModel* menu = BrowserView::GetBrowserViewForBrowser(browser())
                             ->browser_widget()
                             ->GetSystemMenuModel();
@@ -70,25 +73,28 @@ IN_PROC_BROWSER_TEST_F(SystemMenuModelBuilderGlicTest, ToggleTabSearchPinning) {
 // Check if the toggle glic pinning option exists and has the right label based
 // on relevant prefs.
 IN_PROC_BROWSER_TEST_F(SystemMenuModelBuilderGlicTest, ToggleGlicPinning) {
-  PrefService* profile_prefs = browser()->profile()->GetPrefs();
+  PrefService* profile_prefs = browser()->GetProfile()->GetPrefs();
   ui::MenuModel* menu = BrowserView::GetBrowserViewForBrowser(browser())
                             ->browser_widget()
                             ->GetSystemMenuModel();
 
   profile_prefs->SetInteger(
-      ::prefs::kGeminiSettings,
-      static_cast<int>(glic::prefs::SettingsPolicyState::kDisabled));
+      optimization_guide::prefs::kGeminiSettings,
+      std::to_underlying(
+          optimization_guide::prefs::GeminiSettingsPolicyState::kDisabled));
   EXPECT_FALSE(ContainsCommand(menu, IDC_GLIC_TOGGLE_PIN, std::nullopt));
 
   profile_prefs->SetInteger(
-      ::prefs::kGeminiSettings,
-      static_cast<int>(glic::prefs::SettingsPolicyState::kEnabled));
+      optimization_guide::prefs::kGeminiSettings,
+      std::to_underlying(
+          optimization_guide::prefs::GeminiSettingsPolicyState::kEnabled));
   profile_prefs->SetBoolean(glic::prefs::kGlicPinnedToTabstrip, false);
   EXPECT_TRUE(ContainsCommand(menu, IDC_GLIC_TOGGLE_PIN, IDS_GLIC_PIN));
 
   profile_prefs->SetInteger(
-      ::prefs::kGeminiSettings,
-      static_cast<int>(glic::prefs::SettingsPolicyState::kEnabled));
+      optimization_guide::prefs::kGeminiSettings,
+      std::to_underlying(
+          optimization_guide::prefs::GeminiSettingsPolicyState::kEnabled));
   profile_prefs->SetBoolean(glic::prefs::kGlicPinnedToTabstrip, true);
   EXPECT_TRUE(ContainsCommand(menu, IDC_GLIC_TOGGLE_PIN, IDS_GLIC_UNPIN));
 }
@@ -97,7 +103,7 @@ IN_PROC_BROWSER_TEST_F(SystemMenuModelBuilderGlicTest, ToggleGlicPinning) {
 // pref.
 IN_PROC_BROWSER_TEST_F(SystemMenuModelBuilderGlicTest,
                        ExecuteTabSearchToggleCommand) {
-  PrefService* profile_prefs = browser()->profile()->GetPrefs();
+  PrefService* profile_prefs = browser()->GetProfile()->GetPrefs();
 
   profile_prefs->SetBoolean(prefs::kTabSearchPinnedToTabstrip, false);
   chrome::ExecuteCommand(browser(), IDC_TAB_SEARCH_TOGGLE_PIN);

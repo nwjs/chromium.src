@@ -13,6 +13,7 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/accessibility/tree_fixing/pref_names.h"
+#include "chrome/browser/autofill/generated_find_and_fill_with_gemini_pref.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/content_settings/generated_cookie_prefs.h"
@@ -65,6 +66,7 @@
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/saved_tab_groups/public/pref_names.h"
 #include "components/search_engines/default_search_manager.h"
+#include "components/search_engines/search_engines_pref_names.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/skills/public/skills_prefs.h"
 #include "components/spellcheck/browser/pref_names.h"
@@ -157,6 +159,12 @@ bool IsSettingReadOnly(const std::string& pref_name) {
     return true;
   }
 
+  // The pref is only used for deciding when to display a data logging
+  // disclaimer - users cannot change it directly.
+  if (pref_name == optimization_guide::prefs::kFindAndFillWithGeminiSettings) {
+    return true;
+  }
+
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \
     BUILDFLAG(IS_CHROMEOS)
   // Changing this pref value is protected by reauthentication.
@@ -237,6 +245,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
     BUILDFLAG(IS_CHROMEOS)
   (*s_allowlist)[autofill::prefs::kAutofillBnplEnabled] =
       settings_api::PrefType::kBoolean;
+  (*s_allowlist)[autofill::prefs::kAutofillAtMemoryTriggerInfo] =
+      settings_api::PrefType::kDictionary;
   (*s_allowlist)[autofill::prefs::kAutofillAiIdentityEntitiesEnabled] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[autofill::prefs::kAutofillAiShoppingEntitiesEnabled] =
@@ -248,6 +258,10 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[personal_context::prefs::
                      kPersonalContextInAutofillSettingsToggleStatus] =
       settings_api::PrefType::kBoolean;
+  (*s_allowlist)[autofill::kGeneratedFindAndFillWithGeminiPref] =
+      settings_api::PrefType::kBoolean;
+  (*s_allowlist)[optimization_guide::prefs::kFindAndFillWithGeminiSettings] =
+      settings_api::PrefType::kNumber;
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS)
   (*s_allowlist)[payments::kCanMakePaymentEnabled] =
@@ -273,7 +287,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kTabSearchPinnedToTabstrip] =
       settings_api::PrefType::kBoolean;
-  (*s_allowlist)[::prefs::kProjectsPanelPinnedToTabstrip] =
+  (*s_allowlist)[::prefs::kOrganizerPanelPinnedToTabstrip] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kEverythingMenuPinnedToTabstrip] =
       settings_api::PrefType::kBoolean;
@@ -329,6 +343,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[::prefs::kWebkitTabsToLinks] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kConfirmToQuitEnabled] =
+      settings_api::PrefType::kBoolean;
+  (*s_allowlist)[::prefs::kGlassFrameEnabled] =
       settings_api::PrefType::kBoolean;
 #endif
   (*s_allowlist)[prefs::kHoverCardImagesEnabled] =
@@ -555,6 +571,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   // Search page.
   (*s_allowlist)[DefaultSearchManager::kDefaultSearchProviderDataPrefName] =
       settings_api::PrefType::kDictionary;
+  (*s_allowlist)[::prefs::kDefaultSearchProviderEnabled] =
+      settings_api::PrefType::kBoolean;
   (*s_allowlist)[::omnibox::kKeywordSpaceTriggeringEnabled] =
       settings_api::PrefType::kBoolean;
 
@@ -1169,6 +1187,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::ash::prefs::kInputVoiceIsolationEnabled] =
       settings_api::PrefType::kBoolean;
+  (*s_allowlist)[::ash::prefs::kAudioFocusEnforcementEnabled] =
+      settings_api::PrefType::kBoolean;
   (*s_allowlist)[::ash::prefs::kInputVoiceIsolationPreferredEffect] =
       settings_api::PrefType::kNumber;
 
@@ -1381,8 +1401,11 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[glic::prefs::kGlicUserStatus] =
       settings_api::PrefType::kDictionary;
-  (*s_allowlist)[prefs::kGeminiSettings] = settings_api::PrefType::kNumber;
+  (*s_allowlist)[optimization_guide::prefs::kGeminiSettings] =
+      settings_api::PrefType::kNumber;
   (*s_allowlist)[glic::prefs::kGlicKeepSidepanelOpenOnNewTabsEnabled] =
+      settings_api::PrefType::kBoolean;
+  (*s_allowlist)[glic::prefs::kGlicHotkeyGlobalScopeEnabled] =
       settings_api::PrefType::kBoolean;
 
   return *s_allowlist;

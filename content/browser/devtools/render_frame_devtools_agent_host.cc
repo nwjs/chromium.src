@@ -26,8 +26,10 @@
 #include "content/browser/devtools/protocol/audits_handler.h"
 #include "content/browser/devtools/protocol/background_service_handler.h"
 #include "content/browser/devtools/protocol/browser_handler.h"
+#include "content/browser/devtools/protocol/debugger_handler.h"
 #include "content/browser/devtools/protocol/device_access_handler.h"
 #include "content/browser/devtools/protocol/device_orientation_handler.h"
+#include "content/browser/devtools/protocol/digital_credentials_handler.h"
 #include "content/browser/devtools/protocol/dom_handler.h"
 #include "content/browser/devtools/protocol/emulation_handler.h"
 #include "content/browser/devtools/protocol/fedcm_handler.h"
@@ -53,8 +55,10 @@
 #include "content/browser/devtools/protocol/webmcp_handler.h"
 #include "content/browser/devtools/web_contents_devtools_agent_host.h"
 #include "content/browser/fenced_frame/fenced_frame.h"
+#include "content/browser/preloading/prerender/prerender_host_registry.h"
 #include "content/browser/renderer_host/navigation_request.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
+#include "content/browser/renderer_host/render_frame_host_manager.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/site_instance_impl.h"
@@ -118,6 +122,46 @@ bool ShouldCreateDevToolsForNode(FrameTreeNode* ftn) {
          (ftn->current_frame_host() &&
           RenderFrameDevToolsAgentHost::ShouldCreateDevToolsForHost(
               ftn->current_frame_host()));
+}
+
+bool IsPrerenderPrimaryMainFramePlaceholder(WebContentsImpl* web_contents,
+                                            RenderFrameHostImpl* frame_host) {
+  return web_contents->GetVisibility() == Visibility::HIDDEN &&
+         frame_host->is_initial_empty_document() &&
+         !web_contents->GetPrerenderHostRegistry()
+              ->GetPrerenderFrameTrees()
+              .empty();
+}
+
+bool MaybeInitializePrerenderPrimaryMainFrame(RenderFrameHostImpl* frame_host,
+                                              bool* did_try_to_initialize) {
+  DCHECK(did_try_to_initialize);
+  *did_try_to_initialize = false;
+
+  if (!frame_host || frame_host->IsRenderFrameLive()) {
+    return false;
+  }
+
+  FrameTreeNode* frame_tree_node = frame_host->frame_tree_node();
+  if (!frame_tree_node || frame_tree_node->current_frame_host() != frame_host ||
+      frame_tree_node->GetFrameType() != FrameType::kPrimaryMainFrame) {
+    return false;
+  }
+
+  WebContentsImpl* web_contents =
+      WebContentsImpl::FromRenderFrameHostImpl(frame_host);
+  if (!web_contents || web_contents->IsBeingDestroyed() ||
+      web_contents->IsCrashed() ||
+      web_contents->GetPrimaryMainFrame() != frame_host ||
+      !IsPrerenderPrimaryMainFramePlaceholder(web_contents, frame_host)) {
+    return false;
+  }
+
+  frame_tree_node->render_manager()->InitRenderView(
+      frame_host->GetSiteInstance()->group(), web_contents->GetRenderViewHost(),
+      /*proxy=*/nullptr, /*navigation_metrics_token=*/std::nullopt);
+  *did_try_to_initialize = true;
+  return frame_host->IsRenderFrameLive();
 }
 
 }  // namespace
@@ -367,6 +411,7 @@ bool RenderFrameDevToolsAgentHost::AttachSession(DevToolsSession* session) {
   auto* browser_handler =
       session->CreateAndAddHandler<protocol::BrowserHandler>(
           session->GetClient()->MayWriteLocalFiles());
+  session->CreateAndAddHandler<protocol::DebuggerHandler>();
   session->CreateAndAddHandler<protocol::DeviceAccessHandler>();
   session->CreateAndAddHandler<protocol::DeviceOrientationHandler>();
   session->CreateAndAddHandler<protocol::DOMHandler>(
@@ -390,8 +435,7 @@ bool RenderFrameDevToolsAgentHost::AttachSession(DevToolsSession* session) {
 #endif
   RenderWidgetHostViewBase* view =
     static_cast<RenderWidgetHostViewBase*>(web_contents()->GetPrimaryMainFrame()->GetView());
-  if (!view->IsRenderWidgetHostViewChildFrame())
-  if (is_main_frame) {
+  if (!view->IsRenderWidgetHostViewChildFrame()) {
     session->CreateAndAddHandler<protocol::OverlayHandler>();
   }
   session->CreateAndAddHandler<protocol::NetworkHandler>(
@@ -444,6 +488,7 @@ bool RenderFrameDevToolsAgentHost::AttachSession(DevToolsSession* session) {
   }
   session->CreateAndAddHandler<protocol::LogHandler>();
   session->CreateAndAddHandler<protocol::FedCmHandler>();
+  session->CreateAndAddHandler<protocol::DigitalCredentialsHandler>();
 #if !BUILDFLAG(IS_ANDROID)
   session->CreateAndAddHandler<protocol::WebAuthnHandler>();
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -680,6 +725,9 @@ device::mojom::WakeLock* RenderFrameDevToolsAgentHost::GetWakeLock() {
 
 void RenderFrameDevToolsAgentHost::ChangeFrameHostAndObservedProcess(
     RenderFrameHostImpl* frame_host) {
+  if (frame_host_ != frame_host) {
+    did_try_to_initialize_prerender_primary_main_frame_ = false;
+  }
   if (frame_host_)
     frame_host_->GetProcess()->RemoveObserver(this);
   frame_host_ = frame_host;
@@ -788,8 +836,12 @@ std::string RenderFrameDevToolsAgentHost::GetParentId() {
   if (IsChildFrame()) {
     FrameTreeNode* frame_tree_node =
         GetFrameTreeNodeAncestor(frame_tree_node_->parent()->frame_tree_node());
-    return RenderFrameDevToolsAgentHost::GetOrCreateFor(frame_tree_node)
-        ->GetId();
+    // During teardown/disconnect of the parent frame, the parent's agent host
+    // may have been unmapped. Avoid recreating it here to prevent registering
+    // a duplicate agent host ID (which would cause a crash).
+    DevToolsAgentHostImpl* parent =
+        RenderFrameDevToolsAgentHost::GetFor(frame_tree_node);
+    return parent ? parent->GetId() : std::string();
   }
 
   WebContentsImpl* contents = static_cast<WebContentsImpl*>(web_contents());
@@ -969,6 +1021,16 @@ base::TimeTicks RenderFrameDevToolsAgentHost::GetLastActivityTime() {
 void RenderFrameDevToolsAgentHost::UpdateRendererChannel(bool force) {
   is_debugger_paused_ = false;
   is_debugger_pause_situation_recorded_ = false;
+
+  if (force && frame_host_ && !render_frame_alive_ &&
+      !did_try_to_initialize_prerender_primary_main_frame_) {
+    bool did_try_to_initialize = false;
+    if (MaybeInitializePrerenderPrimaryMainFrame(frame_host_,
+                                                 &did_try_to_initialize)) {
+      render_frame_alive_ = true;
+    }
+    did_try_to_initialize_prerender_primary_main_frame_ = did_try_to_initialize;
+  }
 
   mojo::PendingAssociatedRemote<blink::mojom::DevToolsAgent> agent_remote;
   mojo::PendingAssociatedReceiver<blink::mojom::DevToolsAgentHost>

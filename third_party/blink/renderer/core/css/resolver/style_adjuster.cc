@@ -136,8 +136,19 @@ TouchAction AdjustTouchActionForElement(TouchAction touch_action,
   bool is_child_document =
       element == document_element && element->GetDocument().LocalOwner();
   if (scrolls_overflow || is_child_document) {
-    return touch_action | TouchAction::kPan |
-           TouchAction::kInternalPanXScrolls |
+    // Only re-enable panning along axes the user can actually scroll:
+    // overflow: hidden is a scroll container, but is not user scrollable.
+    TouchAction enabled_touch_action = TouchAction::kNone;
+    if (is_child_document ||
+        ComputedStyle::ScrollsOverflow(builder.OverflowX())) {
+      enabled_touch_action |=
+          TouchAction::kPanX | TouchAction::kInternalPanXScrolls;
+    }
+    if (is_child_document ||
+        ComputedStyle::ScrollsOverflow(builder.OverflowY())) {
+      enabled_touch_action |= TouchAction::kPanY;
+    }
+    return touch_action | enabled_touch_action |
            TouchAction::kInternalNotWritable;
   }
   return touch_action;
@@ -732,8 +743,9 @@ static bool ForceStackingAndContainingBlockForCanvasLayoutSubtree(
   if (element && element->IsCanvasOrInCanvasSubtree() &&
       RuntimeEnabledFeatures::CanvasDrawElementEnabled(
           element->GetExecutionContext())) {
-    if (const auto* canvas =
-            DynamicTo<HTMLCanvasElement>(element->parentElement())) {
+    const Element* parent =
+        FlatTreeTraversal::ParentElementSkippingSlots(*element);
+    if (const auto* canvas = DynamicTo<HTMLCanvasElement>(parent)) {
       return canvas->layoutSubtree();
     }
   }
@@ -1388,6 +1400,11 @@ void StyleAdjuster::RunUncacheableStyleAdjustment(
           element.GetDocument().documentElement() == element;
       if (!is_document_element) {
         builder.SetContain(builder.Contain() | kContainsLayout);
+        if (view_transition->NeedsContainmentForDurationOfCapture() &&
+            RuntimeEnabledFeatures::
+                ScopedViewTransitionSizeContainmentEnabled()) {
+          builder.SetHasSizeContainmentForViewTransitionScope(true);
+        }
         builder.SetViewTransitionScope(EViewTransitionScope::kAll);
       }
       builder.SetForcesStackingContext(true);
@@ -1817,6 +1834,8 @@ StyleAdjuster::ElementTypeForCache StyleAdjuster::GetElementTypeCacheKey(
     case ElementType::kHTMLUListElement:
     case ElementType::kHTMLUnknownElement:
     case ElementType::kHTMLUserMediaElement:
+    case ElementType::kHTMLCameraElement:
+    case ElementType::kHTMLMicrophoneElement:
       return {ElementType::kHTMLDivElement};
 
       // Don't add a default here; new SVG/MathML elements need to be different

@@ -32,11 +32,9 @@ LINK_RESOURCE_ID(0, 0)
 LINK_RESOURCE_ID(IDR_INFOBAR_AUTOFILL_CC, R.drawable.ic_autofill_cc)
 
 // Android only infobars.
-DECLARE_RESOURCE_ID(IDR_ANDROID_INFOBAR_LITE_MODE, R.drawable.preview_pin_round)
-DECLARE_RESOURCE_ID(IDR_ANDROID_INFOBAR_NOTIFICATIONS_OFF,
+DECLARE_RESOURCE_ID(IDR_ANDROID_MESSAGE_NOTIFICATIONS_OFF,
                     R.drawable.permission_push_notification_off)
-DECLARE_RESOURCE_ID(IDR_ANDROID_INFOBAR_PREVIEWS, R.drawable.infobar_chrome)
-DECLARE_RESOURCE_ID(IDR_ANDROID_INFOBAR_SAFETYTIP_SHIELD,
+DECLARE_RESOURCE_ID(IDR_ANDROID_MESSAGE_SAFETYTIP_SHIELD,
                     R.drawable.safetytip_shield)
 LINK_RESOURCE_ID(IDR_AUTOFILL_GOOGLE_PAY_WITH_DIVIDER,
                  R.drawable.google_pay_with_divider)
@@ -94,6 +92,8 @@ DECLARE_RESOURCE_ID(IDR_ANDROID_IC_HELP_24DP, R.drawable.ic_help_24dp)
 
 DECLARE_RESOURCE_ID(IDR_ANDROID_IC_SPARK_24DP, R.drawable.ic_spark_24dp)
 DECLARE_RESOURCE_ID(IDR_ANDROID_IC_SPARK_BLUE, R.drawable.ic_spark_blue_24dp)
+DECLARE_RESOURCE_ID(IDR_ANDROID_IC_GOOGLE_SERVICES,
+                    R.drawable.ic_google_services_24dp)
 
 // About this site resources
 // Page insights logo is used for Google branded builds only.

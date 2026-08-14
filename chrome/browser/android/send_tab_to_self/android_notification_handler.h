@@ -13,8 +13,13 @@
 #include "base/containers/span.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_multi_source_observation.h"
+#include "base/scoped_observation.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list_observer.h"
+#include "chrome/browser/ui/android/tab_model/tab_model_observer.h"
+#include "components/send_tab_to_self/metrics_util.h"
 #include "components/send_tab_to_self/receiving_ui_handler.h"
+#include "components/send_tab_to_self/send_tab_to_self_model_observer.h"
 
 namespace content {
 class NavigationHandle;
@@ -33,11 +38,18 @@ class SendTabToSelfModel;
 // ReceivingUIHandler so that it is called for all updates to share
 // entries.
 class AndroidNotificationHandler : public ReceivingUiHandler,
-                                   public TabModelListObserver {
+                                   public TabModelListObserver,
+                                   public SendTabToSelfModelObserver,
+                                   public TabModelObserver {
  public:
   explicit AndroidNotificationHandler(
       SendTabToSelfModel* send_tab_to_self_model);
   ~AndroidNotificationHandler() override;
+
+  // ReceivingUiHandler implementation.
+  void DisplayNewEntries(
+      base::span<const SendTabToSelfEntry* const> new_entries) override;
+  void DismissEntries(base::span<const std::string> guids) override;
 
  protected:
   // Overridden in tests to mock actual Android JNI notification calls.
@@ -47,17 +59,15 @@ class AndroidNotificationHandler : public ReceivingUiHandler,
                                  content::WebContents* web_contents);
 
  private:
-  void DisplayNewEntriesOnUIThread(
-      const std::vector<SendTabToSelfEntry>& new_entries);
-
-  // ReceivingUiHandler implementation.
-  void DisplayNewEntries(
-      base::span<const SendTabToSelfEntry* const> new_entries) override;
-  void DismissEntries(base::span<const std::string> guids) override;
+  // SendTabToSelfModelObserver implementation.
+  void OnModelReady() override;
 
   // TabModelListObserver:
   void OnTabModelAdded(TabModel* tab_model) override;
   void OnTabModelRemoved(TabModel* tab_model) override;
+
+  // TabModelObserver:
+  void DidAddTab(TabAndroid* tab, TabModel::TabLaunchType type) override;
 
   void OnNavigationStarted(
       const std::string& guid,
@@ -75,14 +85,26 @@ class AndroidNotificationHandler : public ReceivingUiHandler,
   // available.
   void CheckAndOpenPendingEntries();
 
+  void OpenEntriesInBackground(
+      base::span<const SendTabToSelfEntry* const> entries,
+      content::WebContents& target_web_contents,
+      AutoOpenOutcome outcome);
+
   // Opens the given entry as a new background tab in the context of
   // `target_web_contents` and marks the entry as opened.
   // TODO(crbug.com/488072250): De-duplicate this function with the Desktop
   // alternate in chrome/browser/ui/send_tab_to_self/send_tab_to_self_util.h.
   void OpenEntryInBackgroundTab(const SendTabToSelfEntry& entry,
-                                content::WebContents& target_web_contents);
+                                content::WebContents& target_web_contents,
+                                int tabstrip_index);
 
   const raw_ptr<SendTabToSelfModel> send_tab_to_self_model_;
+
+  base::ScopedObservation<SendTabToSelfModel, SendTabToSelfModelObserver>
+      model_observation_{this};
+
+  base::ScopedMultiSourceObservation<TabModel, TabModelObserver>
+      tab_model_observations_{this};
 
   std::unique_ptr<base::android::ApplicationStatusListener>
       app_status_listener_;

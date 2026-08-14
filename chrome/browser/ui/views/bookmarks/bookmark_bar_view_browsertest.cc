@@ -4,9 +4,7 @@
 
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 
-#include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
-#include "base/test/bind.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
@@ -16,9 +14,9 @@
 #include "chrome/browser/bookmarks/bookmark_test_helpers.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
+#include "chrome/browser/page_load_metrics/chrome_initiator_location.h"
 #include "chrome/browser/preloading/bookmarkbar_preload/bookmarkbar_preload_pipeline_manager.h"
 #include "chrome/browser/preloading/chrome_preloading.h"
-#include "chrome/browser/preloading/preloading_features.h"
 #include "chrome/browser/preloading/scoped_prewarm_feature_list.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -26,12 +24,10 @@
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/views/bookmarks/bookmark_bar_view_observer.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view_test_helper.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/common/url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/bookmarks/browser/bookmark_model.h"
@@ -41,11 +37,9 @@
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
-#include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/navigation_handle_observer.h"
-#include "content/public/test/prefetch_test_util.h"
 #include "content/public/test/prerender_test_util.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "net/dns/mock_host_resolver.h"
@@ -53,7 +47,6 @@
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
-#include "services/metrics/public/cpp/ukm_recorder.h"
 #include "services/network/public/cpp/features.h"
 #include "ui/accessibility/ax_action_data.h"
 #include "ui/events/base_event_utils.h"
@@ -67,7 +60,7 @@ namespace {
 class BookmarkBarTestBase : public InProcessBrowserTest {
  public:
   void SetUpOnMainThread() override {
-    browser()->profile()->GetPrefs()->SetBoolean(
+    browser()->GetProfile()->GetPrefs()->SetBoolean(
         bookmarks::prefs::kShowBookmarkBar, true);
 
     test_helper_ = std::make_unique<BookmarkBarViewTestHelper>(bookmark_bar());
@@ -91,7 +84,7 @@ class BookmarkBarTestBase : public InProcessBrowserTest {
   void CreateBookmarkButton(const GURL& url) {
     // Populate bookmark bar with a single bookmark.
     bookmarks::BookmarkModel* model =
-        BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+        BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
     bookmarks::test::WaitForBookmarkModelToLoad(model);
     model->DisableWritesToDiskForTest();
     model->AddURL(model->bookmark_bar_node(), 0, u"Example", url);
@@ -101,7 +94,7 @@ class BookmarkBarTestBase : public InProcessBrowserTest {
   void CreateBookmarkFolder() {
     // Populate bookmark bar with a single folder.
     bookmarks::BookmarkModel* model =
-        BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+        BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
     bookmarks::test::WaitForBookmarkModelToLoad(model);
     model->DisableWritesToDiskForTest();
     model->AddFolder(model->bookmark_bar_node(), 0, u"Example");
@@ -159,9 +152,9 @@ class BookmarkBarNavigationTestBase : public BookmarkBarTestBase,
     // `/echoheader?` + |header|.
     WaitForBookmarkMergedSurfaceServiceToLoad(
         BookmarkMergedSurfaceServiceFactory::GetForProfile(
-            browser()->profile()));
+            browser()->GetProfile()));
     bookmarks::BookmarkModel* model =
-        BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+        BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
     model->DisableWritesToDiskForTest();
     std::string url = "/echoheader?";
     model->AddURL(model->bookmark_bar_node(), 0, u"Example",
@@ -393,7 +386,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkBarNavigationTest, ExternalHandlerAllowed) {
   const GURL external_url = GURL("fake://path");
 
   bookmarks::BookmarkModel* model =
-      BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+      BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
   bookmarks::test::WaitForBookmarkModelToLoad(model);
   model->DisableWritesToDiskForTest();
   model->AddURL(model->bookmark_bar_node(), 0, u"Example", external_url);
@@ -402,7 +395,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkBarNavigationTest, ExternalHandlerAllowed) {
   ExternalProtocolHandler::PermitLaunchUrl();
   EXPECT_NE(ExternalProtocolHandler::BLOCK,
             ExternalProtocolHandler::GetBlockState(external_protocol, nullptr,
-                                                   browser()->profile()));
+                                                   browser()->GetProfile()));
 
   // Next, try to launch a bookmark pointed at the url of an external handler.
   {
@@ -414,7 +407,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkBarNavigationTest, ExternalHandlerAllowed) {
     // Verify that the state has returned to block.
     EXPECT_EQ(ExternalProtocolHandler::BLOCK,
               ExternalProtocolHandler::GetBlockState(external_protocol, nullptr,
-                                                     browser()->profile()));
+                                                     browser()->GetProfile()));
   }
   // Finally, without first calling PermitLaunchUrl, try to launch the bookmark.
   {
@@ -426,7 +419,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkBarNavigationTest, ExternalHandlerAllowed) {
     // Verify the launch state has changed back.
     EXPECT_EQ(ExternalProtocolHandler::BLOCK,
               ExternalProtocolHandler::GetBlockState(external_protocol, nullptr,
-                                                     browser()->profile()));
+                                                     browser()->GetProfile()));
   }
 }
 
@@ -663,8 +656,8 @@ IN_PROC_BROWSER_TEST_F(
         test_ukm_recorder()->ExpectEntryMetric(
             entry,
             ukm::builders::PrerenderPageLoad::kNavigation_InitiatorLocationName,
-            static_cast<int>(page_load_metrics::NavigationHandleUserData::
-                                 InitiatorLocation::kBookmarkBar));
+            static_cast<int>(
+                GetInitiatorLocation(ChromeInitiatorLocation::kBookmarkBar)));
         witness_bookmarkbar_ukm = true;
       }
     }
@@ -684,8 +677,7 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_EQ(bookmark_navigation_list().size(), 2u);
   for (int i = 0; i < 2; ++i) {
     EXPECT_EQ(bookmark_navigation_list()[i],
-              page_load_metrics::NavigationHandleUserData::InitiatorLocation::
-                  kBookmarkBar);
+              GetInitiatorLocation(ChromeInitiatorLocation::kBookmarkBar));
   }
   histogram_tester.ExpectTotalCount(
       "Bookmarks.BookmarkBar.PrerenderNavigationToActivation", 1);
@@ -823,8 +815,7 @@ IN_PROC_BROWSER_TEST_F(PrerenderBookmarkBarDisabledNavigationTest,
   ASSERT_EQ(bookmark_navigation_list().size(), 1u);
   for (int i = 0; i < 1; ++i) {
     EXPECT_EQ(bookmark_navigation_list()[i],
-              page_load_metrics::NavigationHandleUserData::InitiatorLocation::
-                  kBookmarkBar);
+              GetInitiatorLocation(ChromeInitiatorLocation::kBookmarkBar));
   }
   histogram_tester.ExpectTotalCount(
       "Bookmarks.BookmarkBar.PrerenderNavigationToActivation", 0);
@@ -1078,9 +1069,9 @@ IN_PROC_BROWSER_TEST_F(
 
   gfx::Point center(10, 10);
 
-  EXPECT_EQ(0, browser()->profile()->GetPrefs()->GetInt64(
+  EXPECT_EQ(0, browser()->GetProfile()->GetPrefs()->GetInt64(
                    prefs::kBookmarkBarHoverCount));
-  EXPECT_EQ(0, browser()->profile()->GetPrefs()->GetInt64(
+  EXPECT_EQ(0, browser()->GetProfile()->GetPrefs()->GetInt64(
                    prefs::kBookmarkBarNavigationCount));
 
   // Trigger on-hover recording.
@@ -1089,9 +1080,9 @@ IN_PROC_BROWSER_TEST_F(
                                         /*flags=*/ui::EF_NONE,
                                         /*changed_button_flags=*/ui::EF_NONE));
 
-  EXPECT_EQ(1, browser()->profile()->GetPrefs()->GetInt64(
+  EXPECT_EQ(1, browser()->GetProfile()->GetPrefs()->GetInt64(
                    prefs::kBookmarkBarHoverCount));
-  EXPECT_EQ(0, browser()->profile()->GetPrefs()->GetInt64(
+  EXPECT_EQ(0, browser()->GetProfile()->GetPrefs()->GetInt64(
                    prefs::kBookmarkBarNavigationCount));
 
   content::TestNavigationObserver observer(
@@ -1106,7 +1097,7 @@ IN_PROC_BROWSER_TEST_F(
       ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON));
   observer.Wait();
 
-  EXPECT_EQ(1, browser()->profile()->GetPrefs()->GetInt64(
+  EXPECT_EQ(1, browser()->GetProfile()->GetPrefs()->GetInt64(
                    prefs::kBookmarkBarNavigationCount));
 }
 

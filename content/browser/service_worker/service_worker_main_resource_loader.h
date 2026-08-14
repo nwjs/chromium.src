@@ -33,6 +33,7 @@
 #include "third_party/blink/public/common/service_worker/service_worker_router_rule.h"
 #include "third_party/blink/public/mojom/blob/blob.mojom.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_response.mojom.h"
+#include "third_party/blink/public/mojom/service_worker/service_worker_fetch_response_callback.mojom-forward.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_stream_handle.mojom.h"
 
 namespace content {
@@ -133,6 +134,7 @@ class CONTENT_EXPORT ServiceWorkerMainResourceLoader
       blink::mojom::FetchAPIResponsePtr response,
       blink::mojom::ServiceWorkerStreamHandlePtr body_as_stream,
       blink::mojom::ServiceWorkerFetchEventTimingPtr timing,
+      blink::mojom::ServiceWorkerFetchHandlerErrorsPtr errors,
       scoped_refptr<ServiceWorkerVersion> version);
 
   void DidDispatchFetchEventForSyntheticResponse(
@@ -141,6 +143,7 @@ class CONTENT_EXPORT ServiceWorkerMainResourceLoader
       blink::mojom::FetchAPIResponsePtr response,
       blink::mojom::ServiceWorkerStreamHandlePtr body_as_stream,
       blink::mojom::ServiceWorkerFetchEventTimingPtr timing,
+      blink::mojom::ServiceWorkerFetchHandlerErrorsPtr errors,
       scoped_refptr<ServiceWorkerVersion> version);
 
   void StartResponse(blink::mojom::FetchAPIResponsePtr response,
@@ -182,8 +185,18 @@ class CONTENT_EXPORT ServiceWorkerMainResourceLoader
   void SetCommitResponsibility(FetchResponseFrom fetch_response_from) override;
 
   void OnConnectionClosed();
-  void InvalidateAndDeleteIfNeeded();
-  void DeleteIfNeeded();
+
+  // Invalidates the loader's internal state (e.g. invalidates weak pointers,
+  // resets receivers and dispatchers) and completes the request with
+  // net::ERR_ABORTED if it's not yet completed. This should only be called when
+  // we are ready to clean up (i.e. ShouldDelayDeletion() is false) and the
+  // Mojo receiver is still bound.
+  void Invalidate();
+
+  // Evaluates the current state of the loader and triggers invalidation and/or
+  // self-deletion if the conditions are met. This is the centralized manager
+  // for the loader's lifecycle.
+  void CheckLifecycle();
 
   network::mojom::ServiceWorkerStatus ConvertToServiceWorkerStatus(
       blink::EmbeddedWorkerStatus embedded_status,
@@ -230,6 +243,9 @@ class CONTENT_EXPORT ServiceWorkerMainResourceLoader
   // Records metrics related to the fetch event handler execution.
   void RecordFetchEventHandlerMetrics(
       ServiceWorkerFetchDispatcher::FetchEventResult fetch_result);
+
+  void MaybeRecordFetchHandlerErrorUkm(
+      const blink::mojom::ServiceWorkerFetchHandlerErrorsPtr& errors);
 
   void RecordFindRegistrationTiming(bool is_fallback);
 
@@ -330,7 +346,14 @@ class CONTENT_EXPORT ServiceWorkerMainResourceLoader
       initial_service_worker_status_;
   const bool is_browser_startup_completed_;
   const std::string frame_tree_node_type_;
+  // Set to true when DetachedFromRequest() is called, indicating that the
+  // navigation request handler (e.g. ServiceWorkerControlleeRequestHandler)
+  // has released this loader wrapper and no longer needs it.
   bool is_detached_ = false;
+  // Set to true when the Mojo connection to the client (URLLoaderClient) is
+  // closed. Used to defer invalidation/deletion if ShouldDelayDeletion() is
+  // true.
+  bool connection_closed_ = false;
 
   scoped_refptr<network::SharedURLLoaderFactory>
       race_network_request_url_loader_factory_;

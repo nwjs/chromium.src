@@ -7,9 +7,12 @@ package org.chromium.chrome.browser.omnibox.suggestions.base;
 import android.content.Context;
 import android.graphics.Typeface;
 import android.text.Spannable;
+import android.text.TextUtils;
+import android.text.style.ForegroundColorSpan;
 import android.text.style.StyleSpan;
 
 import androidx.annotation.CallSuper;
+import androidx.annotation.ColorInt;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.VisibleForTesting;
 
@@ -205,9 +208,10 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
      *
      * @param suggestion Selected suggestion.
      * @param position Position of the suggestion on the list.
+     * @param modifiers The modifier keys pressed during click/activation (metaState).
      */
-    protected void onSuggestionClicked(AutocompleteMatch suggestion, int position) {
-        mSuggestionHost.onSuggestionClicked(suggestion, position, suggestion.getUrl());
+    protected void onSuggestionClicked(AutocompleteMatch suggestion, int position, int modifiers) {
+        mSuggestionHost.onSuggestionClicked(suggestion, position, suggestion.getUrl(), modifiers);
     }
 
     /**
@@ -224,10 +228,12 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
      *
      * @param suggestion Selected suggestion.
      * @param position Position of the suggesiton on the list.
+     * @param eventTime Uptime of the touch down event in milliseconds.
      */
-    protected void onSuggestionTouchDownEvent(AutocompleteMatch suggestion, int position) {
+    protected void onSuggestionTouchDownEvent(
+            AutocompleteMatch suggestion, int position, long eventTime) {
         try (TimingMetric metric = OmniboxMetrics.recordTouchDownProcessTime()) {
-            mSuggestionHost.onSuggestionTouchDown(suggestion, position);
+            mSuggestionHost.onSuggestionTouchDown(suggestion, position, eventTime);
         }
     }
 
@@ -238,8 +244,8 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
             PropertyModel model,
             int position) {
         model.set(
-                BaseSuggestionViewProperties.ON_CLICK,
-                () -> onSuggestionClicked(suggestion, position));
+                BaseSuggestionViewProperties.ON_ACTIVATE,
+                (modifiers) -> onSuggestionClicked(suggestion, position, modifiers));
         model.set(
                 BaseSuggestionViewProperties.ON_LONG_CLICK,
                 () -> onSuggestionLongClicked(suggestion));
@@ -260,10 +266,12 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
                 && suggestion.isSearchSuggestion()) {
             model.set(
                     BaseSuggestionViewProperties.ON_TOUCH_DOWN_EVENT,
-                    () -> onSuggestionTouchDownEvent(suggestion, position));
+                    (eventTime) -> onSuggestionTouchDownEvent(suggestion, position, eventTime));
         }
 
-        if (allowOmniboxActions()) {
+        // Action chips should not be provided in the hub.
+        if (input.getPageClassification() != PageClassification.ANDROID_HUB_VALUE
+                && allowOmniboxActions()) {
             mActionChipsProcessor.populateModel(suggestion, model, position);
         }
 
@@ -387,5 +395,21 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
                         }
                     });
         }
+    }
+
+    /**
+     * Applies text color to a target spannable string.
+     *
+     * @param text Target spannable string to apply color to.
+     * @param color Target color integer.
+     */
+    protected static void applyTextColor(@Nullable Spannable text, @ColorInt int color) {
+        if (TextUtils.isEmpty(text)) return;
+
+        text.setSpan(
+                new ForegroundColorSpan(color),
+                /* start= */ 0,
+                /* end= */ text.length(),
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
     }
 }

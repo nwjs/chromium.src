@@ -153,7 +153,7 @@ void OnDeviceSpeechRecognitionImplBrowserTest::NavigateToUrl(
 
 void OnDeviceSpeechRecognitionImplBrowserTest::ClearSiteContentSettings() {
   content::BrowsingDataRemover* remover =
-      browser()->profile()->GetBrowsingDataRemover();
+      browser()->GetProfile()->GetBrowsingDataRemover();
   content::BrowsingDataRemoverCompletionObserver observer(remover);
   remover->RemoveAndReply(
       base::Time(), base::Time::Max(),
@@ -189,17 +189,17 @@ IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplBrowserTest,
   // partition.
   scoped_refptr<content::SiteInstance> guest_site_instance =
       content::SiteInstance::CreateForGuest(
-          browser()->profile(),
+          browser()->GetProfile(),
           content::StoragePartitionConfig::Create(
-              browser()->profile(), "my_domain", "my_partition", false));
+              browser()->GetProfile(), "my_domain", "my_partition", false));
 
-  content::WebContents::CreateParams params(browser()->profile(),
+  content::WebContents::CreateParams params(browser()->GetProfile(),
                                             guest_site_instance);
   std::unique_ptr<content::WebContents> guest_contents =
       content::WebContents::Create(params);
 
   EXPECT_NE(guest_contents->GetPrimaryMainFrame()->GetStoragePartition(),
-            browser()->profile()->GetDefaultStoragePartition());
+            browser()->GetProfile()->GetDefaultStoragePartition());
 
   // Navigate to about:blank directly.
   ASSERT_TRUE(
@@ -353,13 +353,13 @@ IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplBrowserTest,
 
   // Grant Mic permission
   GURL url = embedded_https_test_server().GetURL("bar.com", "/empty.html");
-  HostContentSettingsMapFactory::GetForProfile(browser()->profile())
+  HostContentSettingsMapFactory::GetForProfile(browser()->GetProfile())
       ->SetContentSettingDefaultScope(url, url,
                                       ContentSettingsType::MEDIASTREAM_MIC,
                                       CONTENT_SETTING_ALLOW);
 
   // Set Accept-Language to English.
-  browser()->profile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
+  browser()->GetProfile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
                                               "en-US,en");
 
   // Now it should be available.
@@ -385,13 +385,13 @@ IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplBrowserTest,
 
   // Grant Mic permission
   GURL url = embedded_https_test_server().GetURL("foo.com", "/empty.html");
-  HostContentSettingsMapFactory::GetForProfile(browser()->profile())
+  HostContentSettingsMapFactory::GetForProfile(browser()->GetProfile())
       ->SetContentSettingDefaultScope(url, url,
                                       ContentSettingsType::MEDIASTREAM_MIC,
                                       CONTENT_SETTING_ALLOW);
 
   // Set Accept-Language to French.
-  browser()->profile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
+  browser()->GetProfile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
                                               "fr-FR,fr");
 
   // Still masked because Accept-Language doesn't match the requested English.
@@ -403,7 +403,7 @@ IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplBrowserTest,
                      media::mojom::AvailabilityStatus::kDownloadable));
 
   // Set Accept-Language to English.
-  browser()->profile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
+  browser()->GetProfile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
                                               "en-US,en");
 
   // Now it should be downloadable without user activation because it's not
@@ -422,12 +422,12 @@ IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplBrowserTest,
   NavigateToUrl("foo.com");
 
   // Set Accept-Language to English.
-  browser()->profile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
+  browser()->GetProfile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
                                               "en-US,en");
 
   // Block Mic permission
   GURL url = embedded_https_test_server().GetURL("foo.com", "/empty.html");
-  HostContentSettingsMapFactory::GetForProfile(browser()->profile())
+  HostContentSettingsMapFactory::GetForProfile(browser()->GetProfile())
       ->SetContentSettingDefaultScope(url, url,
                                       ContentSettingsType::MEDIASTREAM_MIC,
                                       CONTENT_SETTING_BLOCK);
@@ -456,7 +456,7 @@ IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplPreemptiveBrowserTest,
   NavigateToUrl("foo.com");
 
   // Set Accept-Language to English to match the default language.
-  browser()->profile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
+  browser()->GetProfile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
                                               "en-US,en");
 
   // Install so it's available.
@@ -792,6 +792,57 @@ class OnDeviceSpeechRecognitionImplTinyGemmaBrowserTest
             {media::kOnDeviceWebSpeech,
              media::kOnDeviceWebSpeechSmallExpertModel}) {}
 };
+
+class OnDeviceSpeechRecognitionImplTinyGemmaMultiLanguageBrowserTest
+    : public OnDeviceSpeechRecognitionImplBrowserTest {
+ public:
+  OnDeviceSpeechRecognitionImplTinyGemmaMultiLanguageBrowserTest()
+      : OnDeviceSpeechRecognitionImplBrowserTest(
+            {media::kOnDeviceWebSpeech,
+             media::kOnDeviceWebSpeechSmallExpertModel,
+             media::kOnDeviceWebSpeechSmallExpertModelMultiLanguage}) {
+    feature_list_.InitAndEnableFeatureWithParameters(
+        media::kOnDeviceWebSpeechSmallExpertModelMultiLanguage,
+        {{"languages", "en-US,fr-FR"}});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(
+    OnDeviceSpeechRecognitionImplTinyGemmaMultiLanguageBrowserTest,
+    AvailableAndInstallSupportedLanguage) {
+  NavigateToUrl("foo.com");
+  on_device_speech_recognition()->Available(
+      {kFrenchLanguageCode}, media::mojom::SpeechRecognitionQuality::kDictation,
+      base::BindOnce(&OnDeviceSpeechRecognitionImplBrowserTest::
+                         OnDeviceWebSpeechAvailableCallbackAndAssertStatus,
+                     base::Unretained(this),
+                     media::mojom::AvailabilityStatus::kDownloadable));
+  on_device_speech_recognition()->Install(
+      {kFrenchLanguageCode}, media::mojom::SpeechRecognitionQuality::kDictation,
+      base::BindOnce(&OnDeviceSpeechRecognitionImplBrowserTest::InstallCallback,
+                     base::Unretained(this), true));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    OnDeviceSpeechRecognitionImplTinyGemmaMultiLanguageBrowserTest,
+    AvailableAndInstallUnsupportedLanguage) {
+  NavigateToUrl("foo.com");
+  on_device_speech_recognition()->Available(
+      {kInvalidLanguageCode},
+      media::mojom::SpeechRecognitionQuality::kDictation,
+      base::BindOnce(&OnDeviceSpeechRecognitionImplBrowserTest::
+                         OnDeviceWebSpeechAvailableCallbackAndAssertStatus,
+                     base::Unretained(this),
+                     media::mojom::AvailabilityStatus::kUnavailable));
+  on_device_speech_recognition()->Install(
+      {kInvalidLanguageCode},
+      media::mojom::SpeechRecognitionQuality::kDictation,
+      base::BindOnce(&OnDeviceSpeechRecognitionImplBrowserTest::InstallCallback,
+                     base::Unretained(this), false));
+}
 
 IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplTinyGemmaBrowserTest,
                        AvailableAndInstall) {

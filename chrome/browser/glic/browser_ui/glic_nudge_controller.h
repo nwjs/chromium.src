@@ -8,10 +8,14 @@
 #include <string>
 
 #include "base/functional/callback.h"
+#include "base/memory/weak_ptr.h"
+#include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 
 namespace content {
 class WebContents;
 }  // namespace content
+
+class BrowserWindowInterface;
 
 namespace glic {
 
@@ -29,18 +33,24 @@ enum class GlicNudgeActivity {
   kNudgeIgnoredOmniboxContextMenuInteraction = 8,
 };
 
-class GlicNudgeDelegate;
+class GlicSplitButtonDelegate;
 
 // Interface for the controller that mediates Glic Nudges.
 class GlicNudgeController {
  public:
+  DECLARE_USER_DATA(GlicNudgeController);
+
+  static std::unique_ptr<GlicNudgeController> CreateFor(
+      BrowserWindowInterface* browser);
+  static GlicNudgeController* From(BrowserWindowInterface* browser);
+
   using GlicNudgeActivityCallback =
       base::RepeatingCallback<void(GlicNudgeActivity)>;
 
   virtual ~GlicNudgeController();
 
-  virtual void SetTabStripDelegate(GlicNudgeDelegate* delegate) = 0;
-  virtual void SetToolbarDelegate(GlicNudgeDelegate* delegate) = 0;
+  virtual void SetHorizontalTabsDelegate(GlicSplitButtonDelegate* delegate) = 0;
+  virtual void SetVerticalTabsDelegate(GlicSplitButtonDelegate* delegate) = 0;
 
   // Updates the `nudge_label` for `web_contents`, if the WebContents is active.
   // The nudge will be removed from `web_contents` if `nudge_label` is empty.
@@ -49,7 +59,6 @@ class GlicNudgeController {
   virtual void UpdateNudgeLabel(content::WebContents* web_contents,
                                 const std::string& nudge_label,
                                 std::optional<std::string> prompt_suggestion,
-                                const std::string& anchored_message_text,
                                 std::optional<GlicNudgeActivity> activity,
                                 GlicNudgeActivityCallback callback) = 0;
 
@@ -57,6 +66,8 @@ class GlicNudgeController {
 
   virtual std::optional<std::string> GetPromptSuggestion() = 0;
   virtual void ClearPromptSuggestion() = 0;
+
+  virtual base::WeakPtr<GlicNudgeController> GetWeakPtr() = 0;
 };
 
 }  // namespace glic

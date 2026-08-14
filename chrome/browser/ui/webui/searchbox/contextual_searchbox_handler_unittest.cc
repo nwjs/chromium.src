@@ -22,9 +22,11 @@
 #include "base/types/expected.h"
 #include "base/unguessable_token.h"
 #include "base/version_info/channel.h"
+#include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/autocomplete/chrome_autocomplete_scheme_classifier.h"
 #include "chrome/browser/contextual_search/contextual_search_service_factory.h"
 #include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
+#include "chrome/browser/contextual_tasks/active_task_context_provider_impl.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_context_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_context_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
@@ -33,6 +35,7 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/tab_list/mock_tab_list_interface.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/contextual_search/tab_contextualization_controller.h"
@@ -67,6 +70,7 @@
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/autocomplete_result.h"
 #include "components/omnibox/browser/fake_autocomplete_controller.h"
+#include "components/omnibox/browser/mock_aim_eligibility_service.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
 #include "components/omnibox/common/composebox_features.h"
 #include "components/omnibox/common/omnibox_features.h"
@@ -74,6 +78,7 @@
 #include "components/omnibox/composebox/contextual_search_mojom_traits.h"
 #include "components/prefs/pref_service.h"
 #include "components/search/ntp_features.h"
+#include "components/tabs/public/mock_tab_interface.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
@@ -172,6 +177,10 @@ class FakeContextualSearchboxHandler : public ContextualSearchboxHandler {
     smart_tab_sharing_active_override_ = active;
   }
 
+  void clear_smart_tab_sharing_active_for_thread() {
+    smart_tab_sharing_active_for_thread_.reset();
+  }
+
   bool IsSmartTabSharingActive() const override {
     if (smart_tab_sharing_active_override_.has_value()) {
       return *smart_tab_sharing_active_override_;
@@ -201,6 +210,10 @@ class FakeContextualSearchboxHandler : public ContextualSearchboxHandler {
     ContextualSearchboxHandler::OnDrivePickerDisconnected();
   }
 
+  omnibox::InputState GetValidInputStateForTesting() {
+    return GetValidInputState();
+  }
+
   bool IsContextualSearchTabSharingEligible() const override {
     return tab_sharing_eligible_;
   }
@@ -216,9 +229,10 @@ class FakeContextualSearchboxHandler : public ContextualSearchboxHandler {
 
 class MockDrivePickerHostController : public DrivePickerHostController {
  public:
-  explicit MockDrivePickerHostController(
+  MockDrivePickerHostController(
+      Profile* profile,
       BrowserWindowInterface* browser_window_interface)
-      : DrivePickerHostController(browser_window_interface) {}
+      : DrivePickerHostController(profile, browser_window_interface) {}
   ~MockDrivePickerHostController() override = default;
   MOCK_METHOD(void,
               ShowDrivePickerHost,
@@ -283,8 +297,43 @@ class ContextualSearchboxHandlerTest
  public:
   ~ContextualSearchboxHandlerTest() override = default;
 
+  TestingProfile::TestingFactories GetTestingFactories() const override {
+    auto factories =
+        ContextualSearchboxHandlerTestHarness::GetTestingFactories();
+    factories.push_back(TestingProfile::TestingFactory{
+        AimEligibilityServiceFactory::GetInstance(),
+        base::BindRepeating([](content::BrowserContext* context)
+                                -> std::unique_ptr<KeyedService> {
+          Profile* profile = Profile::FromBrowserContext(context);
+          return std::make_unique<MockAimEligibilityService>(
+              *profile->GetPrefs(),
+              /*template_url_service=*/nullptr,
+              /*url_loader_factory=*/nullptr,
+              /*identity_manager=*/nullptr);
+        })});
+    return factories;
+  }
+
   void SetUp() override {
     ContextualSearchboxHandlerTestHarness::SetUp();
+
+    auto* aim_service = static_cast<MockAimEligibilityService*>(
+        AimEligibilityServiceFactory::GetForProfile(profile()));
+    if (aim_service) {
+      aim_service->config().add_input_type_configs()->set_input_type(
+          omnibox::InputType::INPUT_TYPE_LENS_IMAGE);
+      aim_service->config().add_input_type_configs()->set_input_type(
+          omnibox::InputType::INPUT_TYPE_LENS_FILE);
+      aim_service->config().add_input_type_configs()->set_input_type(
+          omnibox::InputType::INPUT_TYPE_BROWSER_TAB);
+
+      auto* canvas_config = aim_service->config().add_tool_configs();
+      canvas_config->set_tool(omnibox::ToolMode::TOOL_MODE_CANVAS);
+      auto* canvas_rule = canvas_config->mutable_rule();
+      canvas_rule->set_tool(omnibox::ToolMode::TOOL_MODE_CANVAS);
+      canvas_rule->add_allowed_input_types(
+          omnibox::InputType::INPUT_TYPE_LENS_IMAGE);
+    }
     // TODO(crbug.com/503732217): Fix tests to support lazy fetching of cluster
     // info and enable this feature by default in tests.
     scoped_feature_list_.InitWithFeatures(
@@ -323,6 +372,8 @@ class ContextualSearchboxHandlerTest
         .WillByDefault(testing::ReturnRef(unowned_user_data_host_));
     ON_CALL(mock_browser_window_interface_, GetWindow())
         .WillByDefault(testing::Return(&mock_base_window_));
+    ON_CALL(mock_browser_window_interface_, GetFeatures())
+        .WillByDefault(testing::ReturnRef(browser_window_features_));
     ON_CALL(mock_base_window_, GetNativeWindow())
         .WillByDefault(
             testing::Return(web_contents()->GetTopLevelNativeWindow()));
@@ -337,7 +388,7 @@ class ContextualSearchboxHandlerTest
 
     auto mock_drive_picker_controller =
         std::make_unique<MockDrivePickerHostController>(
-            &mock_browser_window_interface_);
+            profile(), &mock_browser_window_interface_);
     handler().SetDrivePickerController(std::move(mock_drive_picker_controller));
 
     // Drain the Mojo pipe and clear setup-related calls to searchbox page.
@@ -432,19 +483,20 @@ class ContextualSearchboxHandlerTest
   std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
       contextual_session_handle_;
   testing::NiceMock<MockBrowserWindowInterface> mock_browser_window_interface_;
+  BrowserWindowFeatures browser_window_features_;
   testing::NiceMock<ui::MockBaseWindow> mock_base_window_;
   ui::UnownedUserDataHost unowned_user_data_host_;
 #if BUILDFLAG(IS_CHROMEOS)
   ash::NetworkHandlerTestHelper network_handler_test_helper_;
 #endif  // BUILDFLAG(IS_CHROMEOS)
+  raw_ptr<MockQueryController> query_controller_;
+  raw_ptr<contextual_search::ContextualSearchService> service_;
+  raw_ptr<MockContextualSearchMetricsRecorder> metrics_recorder_;
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
   TestWebContentsDelegate delegate_;
-  raw_ptr<MockQueryController> query_controller_;
   raw_ptr<MockDrivePickerHostController> mock_drive_picker_controller_;
-  raw_ptr<contextual_search::ContextualSearchService> service_;
-  raw_ptr<MockContextualSearchMetricsRecorder> metrics_recorder_;
 };
 
 TEST_F(ContextualSearchboxHandlerTest,
@@ -1650,7 +1702,7 @@ TEST_F(ContextualSearchboxHandlerTest, OnDriveUploadClicked_DoubleClick) {
 
   auto mock_drive_picker_controller =
       std::make_unique<MockDrivePickerHostController>(
-          &mock_browser_window_interface_);
+          profile(), &mock_browser_window_interface_);
   auto* mock_ptr = mock_drive_picker_controller.get();
   handler().SetDrivePickerController(std::move(mock_drive_picker_controller));
 
@@ -1813,7 +1865,7 @@ TEST_F(ContextualSearchboxHandlerTest, OnDriveUploadClicked) {
 
   auto mock_drive_picker_controller =
       std::make_unique<MockDrivePickerHostController>(
-          &mock_browser_window_interface_);
+          profile(), &mock_browser_window_interface_);
   auto* mock_ptr = mock_drive_picker_controller.get();
   handler().SetDrivePickerController(std::move(mock_drive_picker_controller));
 
@@ -1865,6 +1917,7 @@ TEST_F(ContextualSearchboxHandlerTest, OnDriveUploadClicked) {
   EXPECT_FALSE(response->error.has_value());
 
   EXPECT_FALSE(handler().IsDrivePickerReceiverBound());
+  EXPECT_FALSE(handler().has_drive_picker_deactivation_blocker_for_testing());
 }
 
 TEST_F(ContextualSearchboxHandlerTest,
@@ -1915,7 +1968,7 @@ TEST_F(ContextualSearchboxHandlerTest, OnDriveUploadClicked_SizeLimitExceeded) {
 
   auto mock_drive_picker_controller =
       std::make_unique<MockDrivePickerHostController>(
-          &mock_browser_window_interface_);
+          profile(), &mock_browser_window_interface_);
   auto* mock_ptr = mock_drive_picker_controller.get();
   handler().SetDrivePickerController(std::move(mock_drive_picker_controller));
 
@@ -1964,7 +2017,7 @@ TEST_F(ContextualSearchboxHandlerTest, OnDriveUploadClicked_MaxFilesExceeded) {
 
   auto mock_drive_picker_controller =
       std::make_unique<MockDrivePickerHostController>(
-          &mock_browser_window_interface_);
+          profile(), &mock_browser_window_interface_);
   auto* mock_ptr = mock_drive_picker_controller.get();
   handler().SetDrivePickerController(std::move(mock_drive_picker_controller));
 
@@ -2035,9 +2088,10 @@ TEST_F(ContextualSearchboxHandlerTest, OpenAutocompleteMatch_ZeroSuggestClick) {
             GetMetricsRecorderPtr(),
             &MockContextualSearchMetricsRecorder::RecordZeroSuggestClickBase));
 
+    auto modifiers = searchbox::mojom::ActionModifiers::New();
     handler().OpenAutocompleteMatch(0, GURL("https://www.google.com"),
-                                    /*are_matches_showing=*/true, 0, false,
-                                    false, false, false,
+                                    /*are_matches_showing=*/true,
+                                    /*mouse_button=*/0, std::move(modifiers),
                                     /*via_keyboard=*/false);
 
     histogram_tester().ExpectBucketCount(
@@ -2070,9 +2124,10 @@ TEST_F(ContextualSearchboxHandlerTest, OpenAutocompleteMatch_ZeroSuggestClick) {
             GetMetricsRecorderPtr(),
             &MockContextualSearchMetricsRecorder::RecordZeroSuggestClickBase));
 
+    auto modifiers = searchbox::mojom::ActionModifiers::New();
     handler().OpenAutocompleteMatch(0, GURL("https://www.contextual.com"),
-                                    /*are_matches_showing=*/true, 0, false,
-                                    false, false, false,
+                                    /*are_matches_showing=*/true,
+                                    /*mouse_button=*/0, std::move(modifiers),
                                     /*via_keyboard=*/false);
 
     histogram_tester().ExpectBucketCount(
@@ -2118,9 +2173,10 @@ TEST_F(ContextualSearchboxHandlerTest,
                                   &MockContextualSearchMetricsRecorder::
                                       RecordTypedSuggestNavigationBase));
 
+    auto modifiers = searchbox::mojom::ActionModifiers::New();
     handler().OpenAutocompleteMatch(0, GURL("https://www.google.com"),
-                                    /*are_matches_showing=*/true, 0, false,
-                                    false, false, false,
+                                    /*are_matches_showing=*/true,
+                                    /*mouse_button=*/0, std::move(modifiers),
                                     /*via_keyboard=*/false);
 
     histogram_tester().ExpectBucketCount(
@@ -2157,9 +2213,10 @@ TEST_F(ContextualSearchboxHandlerTest,
                                   &MockContextualSearchMetricsRecorder::
                                       RecordTypedSuggestNavigationBase));
 
+    auto modifiers = searchbox::mojom::ActionModifiers::New();
     handler().OpenAutocompleteMatch(
         1, GURL("https://www.google.com/search?q=suggestion"),
-        /*are_matches_showing=*/true, 0, false, false, false, false,
+        /*are_matches_showing=*/true, /*mouse_button=*/0, std::move(modifiers),
         /*via_keyboard=*/false);
 
     histogram_tester().ExpectBucketCount(
@@ -2241,7 +2298,10 @@ TEST_F(ContextualSearchboxHandlerTest, QueryAutocomplete_SetsLensInputs) {
   handler().SetAutocompleteControllerForTesting(
       std::move(autocomplete_controller));
 
-  handler().QueryAutocomplete(0, u"test", false, 0);
+  handler().QueryAutocomplete(
+      0, u"test", /*prevent_inline_autocomplete=*/false, 0,
+      omnibox::SuggestInventory::SUGGEST_INVENTORY_DEFAULT,
+      /*is_on_focus=*/false, /*keyword=*/"");
 
   EXPECT_TRUE(input.lens_overlay_suggest_inputs().has_value());
   EXPECT_EQ(input.lens_overlay_suggest_inputs()->encoded_image_signals(),
@@ -2273,7 +2333,10 @@ TEST_F(ContextualSearchboxHandlerTest,
     handler().SetAutocompleteControllerForTesting(
         std::move(autocomplete_controller));
 
-    handler().QueryAutocomplete(0, u"test", false, 0);
+    handler().QueryAutocomplete(
+        0, u"test", /*prevent_inline_autocomplete=*/false, 0,
+        omnibox::SuggestInventory::SUGGEST_INVENTORY_DEFAULT,
+        /*is_on_focus=*/false, /*keyword=*/"");
     EXPECT_TRUE(input.lens_overlay_suggest_inputs().has_value());
     EXPECT_EQ(input.lens_overlay_suggest_inputs()->encoded_image_signals(),
               "xyz");
@@ -2296,7 +2359,10 @@ TEST_F(ContextualSearchboxHandlerTest,
     handler().SetAutocompleteControllerForTesting(
         std::move(autocomplete_controller));
 
-    handler().QueryAutocomplete(0, u"test", false, 0);
+    handler().QueryAutocomplete(
+        0, u"test", /*prevent_inline_autocomplete=*/false, 0,
+        omnibox::SuggestInventory::SUGGEST_INVENTORY_DEFAULT,
+        /*is_on_focus=*/false, /*keyword=*/"");
     EXPECT_TRUE(input.lens_overlay_suggest_inputs().has_value());
     EXPECT_EQ(input.lens_overlay_suggest_inputs()->encoded_image_signals(),
               "xyz");
@@ -2312,6 +2378,14 @@ class ContextualSearchboxHandlerTestTabsTest
 
   void SetUp() override {
     ContextualSearchboxHandlerTest::SetUp();
+    contextual_tasks::ContextualTasksServiceFactory::GetInstance()
+        ->SetTestingFactory(
+            profile(),
+            base::BindRepeating([](content::BrowserContext* context)
+                                    -> std::unique_ptr<KeyedService> {
+              return std::make_unique<testing::NiceMock<
+                  contextual_tasks::MockContextualTasksService>>();
+            }));
     tab_list_ = std::make_unique<testing::NiceMock<MockTabListInterface>>();
     tab_list_registration_ =
         std::make_unique<ui::ScopedUnownedUserData<TabListInterface>>(
@@ -2520,7 +2594,7 @@ TEST_F(ContextualSearchboxHandlerTestTabsTest, ClearFiles_KeepTabs) {
   EXPECT_EQ(handler().GetUploadedContextTokens().size(), 0u);
 
   // Verify tab token remains in submitted tabs:
-  const auto& submitted_tabs = contextual_session_handle_->submitted_tabs();
+  const auto& submitted_tabs = contextual_session_handle_->persisted_tabs();
   EXPECT_EQ(submitted_tabs.size(), 1u);
   auto it = submitted_tabs.find(SessionID::FromSerializedValue(sample_tab_id));
   ASSERT_NE(it, submitted_tabs.end());
@@ -2894,6 +2968,154 @@ TEST_F(ContextualSearchboxHandlerTestTabsTest, TabContextAddedMetric) {
 }
 
 TEST_F(ContextualSearchboxHandlerTestTabsTest,
+       OnContextUploadStatusChanged_TerminalFailureRemovesUnderline) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(omnibox::kContextManagementInComposebox);
+
+  auto* contextual_tasks_service =
+      static_cast<contextual_tasks::MockContextualTasksService*>(
+          contextual_tasks::ContextualTasksServiceFactory::GetForProfile(
+              profile()));
+  ASSERT_TRUE(contextual_tasks_service);
+
+  auto active_task_context_provider =
+      std::make_unique<contextual_tasks::ActiveTaskContextProviderImpl>(
+          browser_window_interface(), contextual_tasks_service);
+
+  base::UnguessableToken context_token = base::UnguessableToken::Create();
+  int32_t tab_id = 456;
+
+  struct TestObserver
+      : public contextual_tasks::ActiveTaskContextProvider::Observer {
+    void OnContextTabsChanged(
+        const std::set<tabs::TabHandle>& context_tabs) override {
+      context_tabs_ = context_tabs;
+    }
+    std::set<tabs::TabHandle> context_tabs_;
+  } observer;
+  active_task_context_provider->AddObserver(&observer);
+
+  handler().selected_tabs[context_token] = tab_id;
+  active_task_context_provider->AddLocalTabUnderline(tabs::TabHandle(tab_id));
+
+  // Verify that the underline is initially added.
+  EXPECT_FALSE(observer.context_tabs_.find(tabs::TabHandle(tab_id)) ==
+               observer.context_tabs_.end());
+
+  handler().OnContextUploadStatusChanged(
+      context_token, lens::MimeType::kUnknown,
+      contextual_search::ContextUploadStatus::kValidationFailed,
+      contextual_search::ContextUploadErrorType::kImageProcessingError);
+
+  EXPECT_TRUE(handler().selected_tabs.find(context_token) ==
+              handler().selected_tabs.end());
+  EXPECT_TRUE(observer.context_tabs_.find(tabs::TabHandle(tab_id)) ==
+              observer.context_tabs_.end());
+
+  active_task_context_provider->RemoveObserver(&observer);
+}
+
+TEST_F(ContextualSearchboxHandlerTestTabsTest,
+       OnContextUploadStatusChanged_SuccessDoesNotRemoveUnderline) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(omnibox::kContextManagementInComposebox);
+
+  auto* contextual_tasks_service =
+      static_cast<contextual_tasks::MockContextualTasksService*>(
+          contextual_tasks::ContextualTasksServiceFactory::GetForProfile(
+              profile()));
+  ASSERT_TRUE(contextual_tasks_service);
+
+  auto active_task_context_provider =
+      std::make_unique<contextual_tasks::ActiveTaskContextProviderImpl>(
+          browser_window_interface(), contextual_tasks_service);
+
+  base::UnguessableToken context_token = base::UnguessableToken::Create();
+  int32_t tab_id = 456;
+
+  struct TestObserver
+      : public contextual_tasks::ActiveTaskContextProvider::Observer {
+    void OnContextTabsChanged(
+        const std::set<tabs::TabHandle>& context_tabs) override {
+      context_tabs_ = context_tabs;
+    }
+    std::set<tabs::TabHandle> context_tabs_;
+  } observer;
+  active_task_context_provider->AddObserver(&observer);
+
+  handler().selected_tabs[context_token] = tab_id;
+  active_task_context_provider->AddLocalTabUnderline(tabs::TabHandle(tab_id));
+
+  // Verify that the underline is initially added.
+  EXPECT_FALSE(observer.context_tabs_.find(tabs::TabHandle(tab_id)) ==
+               observer.context_tabs_.end());
+
+  handler().OnContextUploadStatusChanged(
+      context_token, lens::MimeType::kUnknown,
+      contextual_search::ContextUploadStatus::kUploadSuccessful, std::nullopt);
+
+  EXPECT_FALSE(handler().selected_tabs.find(context_token) ==
+               handler().selected_tabs.end());
+  EXPECT_FALSE(observer.context_tabs_.find(tabs::TabHandle(tab_id)) ==
+               observer.context_tabs_.end());
+
+  active_task_context_provider->RemoveObserver(&observer);
+}
+
+TEST_F(ContextualSearchboxHandlerTestTabsTest,
+       OnContextUploadStatusChanged_MissingTokenDoesNotAffectOtherUnderlines) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(omnibox::kContextManagementInComposebox);
+
+  auto* contextual_tasks_service =
+      static_cast<contextual_tasks::MockContextualTasksService*>(
+          contextual_tasks::ContextualTasksServiceFactory::GetForProfile(
+              profile()));
+  ASSERT_TRUE(contextual_tasks_service);
+
+  auto active_task_context_provider =
+      std::make_unique<contextual_tasks::ActiveTaskContextProviderImpl>(
+          browser_window_interface(), contextual_tasks_service);
+
+  base::UnguessableToken context_token1 = base::UnguessableToken::Create();
+  base::UnguessableToken context_token2 = base::UnguessableToken::Create();
+  int32_t tab_id1 = 456;
+  int32_t tab_id2 = 789;
+
+  struct TestObserver
+      : public contextual_tasks::ActiveTaskContextProvider::Observer {
+    void OnContextTabsChanged(
+        const std::set<tabs::TabHandle>& context_tabs) override {
+      context_tabs_ = context_tabs;
+    }
+    std::set<tabs::TabHandle> context_tabs_;
+  } observer;
+  active_task_context_provider->AddObserver(&observer);
+
+  handler().selected_tabs[context_token1] = tab_id1;
+  active_task_context_provider->AddLocalTabUnderline(tabs::TabHandle(tab_id1));
+  active_task_context_provider->AddLocalTabUnderline(tabs::TabHandle(tab_id2));
+
+  // Verify both underlines are initially added.
+  EXPECT_FALSE(observer.context_tabs_.find(tabs::TabHandle(tab_id1)) ==
+               observer.context_tabs_.end());
+  EXPECT_FALSE(observer.context_tabs_.find(tabs::TabHandle(tab_id2)) ==
+               observer.context_tabs_.end());
+
+  handler().OnContextUploadStatusChanged(
+      context_token2, lens::MimeType::kUnknown,
+      contextual_search::ContextUploadStatus::kValidationFailed,
+      contextual_search::ContextUploadErrorType::kImageProcessingError);
+
+  EXPECT_FALSE(observer.context_tabs_.find(tabs::TabHandle(tab_id1)) ==
+               observer.context_tabs_.end());
+  EXPECT_FALSE(observer.context_tabs_.find(tabs::TabHandle(tab_id2)) ==
+               observer.context_tabs_.end());
+
+  active_task_context_provider->RemoveObserver(&observer);
+}
+
+TEST_F(ContextualSearchboxHandlerTestTabsTest,
        TabStripModelObserverIsAddedWithValidSession) {
   EXPECT_CALL(mock_searchbox_page_, OnTabStripChanged).Times(1);
   handler().OnTabAdded(*tab_list(), nullptr, 0);
@@ -2933,6 +3155,27 @@ TEST_F(ContextualSearchboxHandlerTestTabsTest,
   content::WebContents* active_contents = tab->GetContents();
   content::WebContentsTester::For(active_contents)
       ->NavigateAndCommit(GURL("https://example.com/new_path"));
+
+  mock_searchbox_page_.FlushForTesting();
+}
+
+TEST_F(ContextualSearchboxHandlerTestTabsTest,
+       ActiveTabNavigationObserverNotifiesOnTitleSet) {
+  tabs::TabInterface* tab = AddTab(GURL("https://example.com"));
+
+  mock_searchbox_page_.receiver_.reset();
+  handler_ = std::make_unique<FakeContextualSearchboxHandler>(
+      mojo::PendingReceiver<searchbox::mojom::PageHandler>(),
+      mock_searchbox_page_.BindAndGetRemote(), profile(), web_contents(),
+      std::make_unique<TestOmniboxClient>(), base::BindLambdaForTesting([&]() {
+        return contextual_session_handle_.get();
+      }));
+
+  EXPECT_CALL(mock_searchbox_page_, OnTabStripChanged).Times(1);
+
+  content::WebContents* active_contents = tab->GetContents();
+  active_contents->UpdateTitleForEntry(
+      active_contents->GetController().GetActiveEntry(), u"New Title");
 
   mock_searchbox_page_.FlushForTesting();
 }
@@ -3231,6 +3474,79 @@ TEST_F(ContextualSearchboxHandlerTestTabsTest, GetRecentTabs) {
   }
 }
 
+TEST_F(ContextualSearchboxHandlerTestTabsTest,
+       GetRecentTabs_IncludesUnloadedTab) {
+  auto* loaded_tab = AddTab(GURL("https://www.google.com"));
+  auto unloaded_mock_tab = std::make_unique<tabs::MockTabInterface>();
+  tabs::TabInterface* unloaded_tab = unloaded_mock_tab.get();
+
+  ui::UnownedUserDataHost unloaded_user_data_host;
+  ON_CALL(*unloaded_mock_tab, GetUnownedUserDataHost())
+      .WillByDefault(testing::ReturnRef(unloaded_user_data_host));
+  ON_CALL(testing::Const(*unloaded_mock_tab), GetUnownedUserDataHost())
+      .WillByDefault(testing::ReturnRef(unloaded_user_data_host));
+  ON_CALL(*unloaded_mock_tab, GetTabFeatures())
+      .WillByDefault(testing::Return(nullptr));
+  ON_CALL(testing::Const(*unloaded_mock_tab), GetTabFeatures())
+      .WillByDefault(testing::Return(nullptr));
+  ON_CALL(*unloaded_mock_tab, GetContents)
+      .WillByDefault(testing::Return(nullptr));
+  ON_CALL(*unloaded_mock_tab, GetURL)
+      .WillByDefault(testing::Return(GURL("https://www.unloaded.com")));
+  ON_CALL(*unloaded_mock_tab, GetTitle)
+      .WillByDefault(testing::Return(u"Unloaded Tab"));
+  ON_CALL(*unloaded_mock_tab, GetLastActiveTime)
+      .WillByDefault(testing::Return(base::Time::Now() - base::Days(10)));
+  ON_CALL(*unloaded_mock_tab, GetTabHandle).WillByDefault(testing::Return(999));
+
+  all_tabs_.push_back(unloaded_tab);
+  ON_CALL(*tab_list(), GetAllTabs()).WillByDefault(testing::Return(all_tabs_));
+
+  base::test::TestFuture<std::vector<searchbox::mojom::TabInfoPtr>> future;
+  handler().GetRecentTabs(future.GetCallback());
+  auto tabs = future.Take();
+
+  ASSERT_EQ(tabs.size(), 2u);
+  EXPECT_EQ(tabs[0]->tab_id, loaded_tab->GetHandle().raw_value());
+  EXPECT_EQ(tabs[1]->tab_id, unloaded_tab->GetHandle().raw_value());
+  EXPECT_EQ(tabs[1]->url, GURL("https://www.unloaded.com"));
+  EXPECT_EQ(tabs[1]->title, "Unloaded Tab");
+
+  all_tabs_.pop_back();
+}
+
+TEST_F(ContextualSearchboxHandlerTestTabsTest,
+       WaitForTabFaviconLoad_UnloadedTab) {
+  auto unloaded_mock_tab = std::make_unique<tabs::MockTabInterface>();
+  tabs::TabInterface* unloaded_tab = unloaded_mock_tab.get();
+
+  ui::UnownedUserDataHost unloaded_user_data_host;
+  ON_CALL(*unloaded_mock_tab, GetUnownedUserDataHost())
+      .WillByDefault(testing::ReturnRef(unloaded_user_data_host));
+  ON_CALL(testing::Const(*unloaded_mock_tab), GetUnownedUserDataHost())
+      .WillByDefault(testing::ReturnRef(unloaded_user_data_host));
+  ON_CALL(*unloaded_mock_tab, GetTabFeatures())
+      .WillByDefault(testing::Return(nullptr));
+  ON_CALL(testing::Const(*unloaded_mock_tab), GetTabFeatures())
+      .WillByDefault(testing::Return(nullptr));
+  ON_CALL(*unloaded_mock_tab, GetContents)
+      .WillByDefault(testing::Return(nullptr));
+  ON_CALL(*unloaded_mock_tab, GetURL)
+      .WillByDefault(testing::Return(GURL("https://www.unloaded.com")));
+  ON_CALL(*unloaded_mock_tab, GetTabHandle).WillByDefault(testing::Return(999));
+
+  all_tabs_.push_back(unloaded_tab);
+  ON_CALL(*tab_list(), GetAllTabs()).WillByDefault(testing::Return(all_tabs_));
+
+  base::test::TestFuture<const std::optional<GURL>&> future;
+  handler().WaitForTabFaviconLoad(999, future.GetCallback());
+  auto result = future.Take();
+
+  EXPECT_EQ(result, std::nullopt);
+
+  all_tabs_.pop_back();
+}
+
 TEST_F(ContextualSearchboxHandlerTestTabsTest, GetRecentTabs_UsesServerLimit) {
   base::FieldTrialParams params;
   params[ntp_composebox::kContextMenuMaxTabSuggestions.name] = "2";
@@ -3419,6 +3735,100 @@ TEST_F(ContextualSearchboxHandlerTestTabsTest, GetTabPreview_Success) {
   std::optional<std::string> preview = future.Get();
   ASSERT_TRUE(preview.has_value());
   EXPECT_EQ(preview.value(), webui::GetBitmapDataUrl(bitmap));
+}
+
+TEST_F(ContextualSearchboxHandlerTest,
+       IncompatibleToolDisablesSmartTabSharing) {
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitWithFeaturesAndParameters(
+      {{contextual_tasks::kContextualTasksContext,
+        {{"ContextualTasksContextSmartTabSharing", "true"}}},
+       {contextual_tasks::kContextualTasksForceEntryPointEligibility, {}}},
+      {});
+
+  // Enable STS.
+  EXPECT_CALL(mock_searchbox_page_, UpdateSmartTabSharingActive(true)).Times(1);
+  handler().SetSmartTabSharingActive(true);
+  mock_searchbox_page_.FlushForTesting();
+  EXPECT_TRUE(handler().IsSmartTabSharingActive());
+
+  // Select Canvas.
+  EXPECT_CALL(mock_searchbox_page_, UpdateSmartTabSharingActive(false))
+      .Times(1);
+  handler().SetActiveToolMode(omnibox::TOOL_MODE_CANVAS);
+  mock_searchbox_page_.FlushForTesting();
+
+  // STS should now be effectively inactive.
+  EXPECT_FALSE(handler().IsSmartTabSharingActive());
+
+  // Select Unspecified again.
+  EXPECT_CALL(mock_searchbox_page_, UpdateSmartTabSharingActive(true)).Times(1);
+  handler().SetActiveToolMode(omnibox::TOOL_MODE_UNSPECIFIED);
+  mock_searchbox_page_.FlushForTesting();
+
+  // STS should be active again.
+  EXPECT_TRUE(handler().IsSmartTabSharingActive());
+}
+
+TEST_F(ContextualSearchboxHandlerTest,
+       NewSessionModelInheritsSmartTabSharingActiveState) {
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitWithFeaturesAndParameters(
+      {{contextual_tasks::kContextualTasksContext,
+        {{"ContextualTasksContextSmartTabSharing", "true"}}},
+       {contextual_tasks::kContextualTasksForceEntryPointEligibility, {}}},
+      {});
+
+  // Enable STS on current handler.
+  handler().SetSmartTabSharingActive(true);
+  EXPECT_TRUE(handler().IsSmartTabSharingActive());
+  ASSERT_TRUE(handler().input_state_model());
+  EXPECT_TRUE(handler().input_state_model()->IsSmartTabSharingActive());
+
+  // Simulate starting a new session (new model).
+  query_controller_ = nullptr;
+  metrics_recorder_ = nullptr;
+
+  auto query_controller_config_params = std::make_unique<
+      contextual_search::ContextualSearchContextController::ConfigParams>();
+  auto query_controller_ptr = std::make_unique<MockQueryController>(
+      /*identity_manager=*/nullptr, url_loader_factory(),
+      version_info::Channel::UNKNOWN, "en-US", template_url_service(),
+      fake_variations_client(), std::move(query_controller_config_params));
+  auto metrics_recorder_ptr =
+      std::make_unique<MockContextualSearchMetricsRecorder>();
+
+  query_controller_ = query_controller_ptr.get();
+  metrics_recorder_ = metrics_recorder_ptr.get();
+
+  contextual_session_handle_ = service_->CreateSessionForTesting(
+      std::move(query_controller_ptr), std::move(metrics_recorder_ptr));
+  contextual_session_handle_->CheckSearchContentSharingSettings(
+      profile()->GetPrefs());
+
+  handler().ResetInputStateModel();
+  handler().NotifySessionStarted();
+
+  // Trigger model recreation.
+  handler().GetValidInputStateForTesting();
+
+  // The new model should have inherited the active state (true) from the
+  // handler.
+  ASSERT_TRUE(handler().input_state_model());
+  EXPECT_TRUE(handler().input_state_model()->IsSmartTabSharingActive());
+  EXPECT_TRUE(handler().IsSmartTabSharingActive());
+
+  // Clear thread state to simulate new handler instance.
+  handler().clear_smart_tab_sharing_active_for_thread();
+  handler().ResetInputStateModel();
+
+  // Trigger model recreation.
+  handler().GetValidInputStateForTesting();
+
+  // The new model should now fallback to the pref default (false).
+  ASSERT_TRUE(handler().input_state_model());
+  EXPECT_FALSE(handler().input_state_model()->IsSmartTabSharingActive());
+  EXPECT_FALSE(handler().IsSmartTabSharingActive());
 }
 
 class ContextualSearchboxHandlerContextUploadStatusTest

@@ -13,12 +13,31 @@
 #include "base/containers/span.h"
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
+#include "base/types/expected.h"
 #include "chrome/browser/autofill/actor/one_time_tokens/actor_login_context.h"
 #include "components/autofill/core/common/unique_ids.h"
+#include "components/one_time_tokens/core/browser/one_time_token_retrieval_error.h"
 #include "components/tabs/public/tab_interface.h"
 #include "url/origin.h"
 
+namespace content {
+class RenderFrameHost;
+}  // namespace content
+
 namespace autofill {
+
+// Describes the status of the target form filling context during validation.
+enum class FormFillingContextStatus {
+  // The tab, form, and security state are valid and cryptographic HTTPS is
+  // verified.
+  kSecure,
+  // The page or form is insecure (e.g., mixed content or HTTP submission).
+  kInsecureContext,
+  // The form structure or Autofill manager could not be found.
+  kFormNotFound,
+  // The target tab is null or has no WebContents.
+  kTabNotAvailable,
+};
 
 // Interface for the Actor tooling to interact with One-Time Tokens (OTT) or
 // one-time passwords (OTP) filling.
@@ -66,9 +85,15 @@ class ActorOneTimeTokenFillingService {
   //
   // The `callback` will be invoked with the retrieved OTP string, or an empty
   // string if retrieval fails or no OTP is available.
-  virtual void RetrieveOtp(tabs::TabHandle tab_handle,
-                           const std::vector<FieldGlobalId>& trigger_field_ids,
-                           base::OnceCallback<void(std::string)> callback) = 0;
+  virtual void RetrieveOtp(
+      tabs::TabHandle tab_handle,
+      const url::Origin& otp_frame_origin,
+      const std::vector<FieldGlobalId>& trigger_field_ids,
+      bool is_login_flow,
+      base::OnceCallback<
+          void(base::expected<std::string,
+                              one_time_tokens::OneTimeTokenRetrievalError>)>
+          callback) = 0;
 
   // Asynchronously fills the `otp` into the field(s) identified by
   // `trigger_field_ids` for the given `tab`.
@@ -79,6 +104,18 @@ class ActorOneTimeTokenFillingService {
                        const std::vector<FieldGlobalId>& trigger_field_ids,
                        const std::string& otp,
                        base::OnceCallback<void(bool)> callback) = 0;
+
+  // Validates whether the page in `tab_handle` and its subresources are
+  // loaded over secure HTTPS, whether the `BrowserAutofillManager` cache
+  // contains a `FormStructure` for `trigger_field_ids`, and whether the form
+  // submits to a secure endpoint. Note that the last check is more of an early
+  // warning system, rather than a strong security guarantee, since it is not
+  // impossible to bypass. The actual security restrictions are enforced via
+  // other means (e.g `InsecureFormNavigationThrottle` and
+  // `MixedContentChecker`).
+  virtual FormFillingContextStatus ValidateFormFillingContext(
+      tabs::TabHandle tab_handle,
+      base::span<const FieldGlobalId> trigger_field_ids) const = 0;
 
   // Returns a weak pointer to this service.
   virtual base::WeakPtr<ActorOneTimeTokenFillingService> GetWeakPtr() = 0;

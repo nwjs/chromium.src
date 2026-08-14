@@ -5,34 +5,13 @@
 import {aimBrowserProxyFactory, OmniboxPopupAimPageHandlerRemote} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
 import type {OmniboxAimAppElement, OmniboxPopupAimPageRemote} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
-import type {InputState} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
 import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
-function createDefaultInputState(): InputState {
-  return {
-    allowedModels: [],
-    allowedTools: [],
-    allowedInputTypes: [],
-    activeModel: 0,
-    activeTool: 0,
-    disabledModels: [],
-    disabledTools: [],
-    disabledInputTypes: [],
-    toolConfigs: [],
-    modelConfigs: [],
-    inputTypeConfigs: [],
-    toolsSectionConfig: null,
-    modelSectionConfig: null,
-    hintText: '',
-    maxInputsByType: {},
-    maxTotalInputs: 0,
-    isCanvasQuerySubmitted: false,
-  };
-}
+import {createDefaultInputState} from './test_searchbox_browser_proxy.js';
 
 suite('AimAppTest', function() {
   let handler: TestMock<OmniboxPopupAimPageHandlerRemote>&
@@ -139,6 +118,29 @@ suite('AimAppTest', function() {
         0,
         metrics.count(
             'ContextualSearch.ContextAdded.ContextAddedMethod.Omnibox'));
+  });
+
+  test('ResetsPreserveContextOnAddContext', async function() {
+    const app = document.createElement('omnibox-aim-app');
+    document.body.appendChild(app);
+
+    // Set preserve context on close.
+    page.setPreserveContextOnClose(true);
+    await microtasksFinished();
+
+    // Adding context should reset `preserveContextOnClose` to false.
+    page.addContext({
+      input: 'test context',
+      attachments: [],
+      toolMode: 0,
+    });
+    await microtasksFinished();
+
+    // Clear popup should clear inputs because `preserveContextOnClose` was
+    // reset to false.
+    page.clearPopup();
+    await microtasksFinished();
+    assertTrue(!app.$.composebox.input);
   });
 
   test('PlaysGlowAnimationOnShowByDefault', async function() {

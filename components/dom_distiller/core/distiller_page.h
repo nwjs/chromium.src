@@ -22,6 +22,19 @@ class SourcePageHandle {
   virtual ~SourcePageHandle() = default;
 };
 
+// This enum is used to record histograms for OnDistillationDone results.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(DistillationParseResult)
+enum class DistillationParseResult {
+  kSuccess = 0,
+  kParseFailure = 1,
+  kNoData = 2,
+  kContentTooShort = 3,
+  kMaxValue = kContentTooShort,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/accessibility/enums.xml:DistillationParseResult)
+
 // Injects JavaScript into a page, and uses it to extract and return long-form
 // content. The class can be reused to load and distill multiple pages,
 // following the state transitions described along with the class's states.
@@ -31,7 +44,7 @@ class DistillerPage {
  public:
   using DistillerPageCallback = base::OnceCallback<void(
       std::unique_ptr<proto::DomDistillerResult> distilled_page,
-      bool distillation_successful)>;
+      DistillationParseResult result)>;
 
   DistillerPage();
   virtual ~DistillerPage();
@@ -44,17 +57,21 @@ class DistillerPage {
                    const proto::DomDistillerOptions options,
                    DistillerPageCallback callback);
 
-  // Called when the JavaScript execution completes. |page_url| is the url of
-  // the distilled page. |value| contains data returned by the script.
-  virtual void OnDistillationDone(const GURL& page_url,
-                                  const base::Value* value);
-
   // Returns true if the distiller page should fetch distillation data for
   // offline consumption.
   virtual bool ShouldFetchOfflineData() = 0;
 
   // Returns the distillation type to use to retrieve simplified page content.
   virtual DistillerType GetDistillerType() = 0;
+
+  // Called when the JavaScript execution completes. |page_url| is the url of
+  // the distilled page. |value| contains data returned by the script.
+  virtual void OnDistillationDone(const GURL& page_url,
+                                  const base::Value* value);
+
+  void SetMinimumAllowableDistilledContentLengthForTesting(int length) {
+    min_content_length_ = length;
+  }
 
   DistillerPage(const DistillerPage&) = delete;
   DistillerPage& operator=(const DistillerPage&) = delete;
@@ -65,9 +82,14 @@ class DistillerPage {
   // should be the same regardless of the DistillerPage implementation.
   virtual void DistillPageImpl(const GURL& url, const std::string& script) = 0;
 
+  int GetMinimumAllowableDistilledContentLength() const {
+    return min_content_length_;
+  }
+
  private:
   bool ready_;
   DistillerPageCallback distiller_page_callback_;
+  int min_content_length_;
 };
 
 // Factory for generating a |DistillerPage|.

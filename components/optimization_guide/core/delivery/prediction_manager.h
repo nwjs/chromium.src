@@ -6,6 +6,7 @@
 #define COMPONENTS_OPTIMIZATION_GUIDE_CORE_DELIVERY_PREDICTION_MANAGER_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -22,6 +23,7 @@
 #include "base/types/optional_ref.h"
 #include "components/download/public/background_service/download_params.h"
 #include "components/optimization_guide/core/delivery/model_enums.h"
+#include "components/optimization_guide/core/delivery/model_info.h"
 #include "components/optimization_guide/core/delivery/model_provider_registry.h"
 #include "components/optimization_guide/core/delivery/prediction_model_download_observer.h"
 #include "components/optimization_guide/core/delivery/prediction_model_fetch_timer.h"
@@ -54,7 +56,6 @@ class OptimizationTargetModelObserver;
 class PredictionModelDownloadManager;
 class PredictionModelFetcher;
 class PredictionModelStore;
-class ModelInfo;
 class ProfileDownloadServiceTracker;
 
 // A PredictionManager supported by the optimization guide that makes an
@@ -98,11 +99,11 @@ class PredictionManager : public PredictionModelDownloadObserver,
       const;
 
   // Override the model file returned to observers for |optimization_target|.
-  // Use |TestModelInfoBuilder| to construct the model files. For
+  // Use ModelInfo aggregate initialization to construct the model files. For
   // testing purposes only.
   void OverrideTargetModelForTesting(
       proto::OptimizationTarget optimization_target,
-      std::unique_ptr<ModelInfo> model_info);
+      std::optional<ModelInfo> model_info);
 
   // PredictionModelDownloadObserver:
   void OnModelReady(const base::FilePath& base_model_dir,
@@ -216,10 +217,10 @@ class PredictionManager : public PredictionModelDownloadObserver,
       proto::OptimizationTarget optimization_target,
       int64_t new_version) const;
 
-  // Updates the in-memory model file for |optimization_target| to
-  // |prediction_model_file|.
+  // Updates the in-memory model file for `optimization_target` to
+  // `model_info`.
   void StoreLoadedModelInfo(proto::OptimizationTarget optimization_target,
-                            std::unique_ptr<ModelInfo> prediction_model_file);
+                            ModelInfo model_info);
 
   // Post-processing callback invoked after processing |model|.
   void OnProcessLoadedModel(const proto::PredictionModel& model, bool success);

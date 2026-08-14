@@ -7,7 +7,7 @@
 
 #import <UIKit/UIKit.h>
 
-#import <string>
+#import <string_view>
 
 #import "ios/chrome/browser/scoped_ui_blocker/ui_bundled/ui_blocker_target.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_activation_level.h"
@@ -24,6 +24,7 @@
 @class SceneState;
 @class SceneStatePrefs;
 class SigninInProgress;
+struct SceneStateOptions;
 @class SceneUIBlockerState;
 @class TabGridState;
 
@@ -60,8 +61,8 @@ class SigninInProgress;
 // TODO(b/326186137): This class should implement BrowserProviderInterface.
 @interface SceneState : NSObject <UIBlockerTarget>
 
-- (instancetype)initWithAppState:(AppState*)appState NS_DESIGNATED_INITIALIZER;
-- (instancetype)init NS_UNAVAILABLE;
+// Designated initializer.
+- (instancetype)init NS_DESIGNATED_INITIALIZER;
 
 // The profile state for profile that owns this scene.
 @property(nonatomic, weak) ProfileState* profileState;
@@ -77,7 +78,7 @@ class SigninInProgress;
 @property(nonatomic, assign) WindowActivityOrigin currentOrigin;
 
 // Window for the associated scene, if any.
-@property(nonatomic, readonly) UIWindow* window;
+@property(nonatomic, weak) UIWindow* window;
 
 // The scene object backing this scene state. It's in a 1-to-1 relationship and
 // the window scene owns this object (indirectly through scene delegate).
@@ -92,11 +93,10 @@ class SigninInProgress;
 
 // The persistent identifier for the scene session. This should be used instead
 // of -[UISceneSession persistentIdentifier].
-@property(nonatomic, readonly) const std::string& sceneSessionID;
+@property(nonatomic, readonly) std::string_view sceneSessionID;
 
 // The controller for this scene.
 @property(nonatomic, weak) SceneController* controller;
-
 
 // When this is YES, the scene either resumed or started up in response to an
 // external intent.
@@ -159,6 +159,9 @@ class SigninInProgress;
 // Records that an extra sign-in process started. When the returned value is
 // destructed, the sign-in ended.
 - (std::unique_ptr<SigninInProgress>)createSigninInProgress;
+
+// Connects the SceneState with the given `options`.
+- (void)connectWithOptions:(SceneStateOptions)options;
 
 @end
 

@@ -82,17 +82,7 @@ class AiModePageActionControllerInteractiveUiTest
 
   virtual void InitializeFeatures() {
     features_.InitWithFeaturesAndParameters(
-        /*enabled_features*/ {{
-                                  features::kPageActionsMigration,
-                                  {
-                                      {
-                                          features::kPageActionsMigrationAiMode
-                                              .name,
-                                          "true",
-                                      },
-                                  },
-                              },
-                              {omnibox::internal::kWebUIOmniboxPopup, {}},
+        /*enabled_features*/ {{omnibox::internal::kWebUIOmniboxPopup, {}},
                               {omnibox::internal::kWebUIOmniboxAimPopup, {}}},
         /*disabled_features*/ {kHideAimEntrypointOnUserInput,
                                kHideAimEntrypointForUrlSuggestions});
@@ -121,12 +111,22 @@ class AiModePageActionControllerInteractiveUiTest
   }
 
   InteractiveTestApi::MultiStep CheckChipVisible(bool visible) {
+    BrowserWindowInterface* bwi = browser();
     return visible
-               ? PageActionInteractiveTestMixin::WaitForPageActionChipVisible(
-                     kActionAiMode)
+               ? ui::test::InteractiveTestApi::Steps(
+                     PageActionInteractiveTestMixin::
+                         WaitForPageActionChipVisible(kActionAiMode),
+                     Do([bwi]() {
+                       EXPECT_TRUE(
+                           AiModePageActionController::From(bwi)->IsVisible());
+                     }))
                : ui::test::InteractiveTestApi::Steps(
                      ui::test::InteractiveTestApi::WaitForHide(
-                         kAiModePageActionIconElementId));
+                         kAiModePageActionIconElementId),
+                     Do([bwi]() {
+                       EXPECT_FALSE(
+                           AiModePageActionController::From(bwi)->IsVisible());
+                     }));
   }
 
   ui::InteractionSequence::StepBuilder WaitForAimPopup() {
@@ -207,16 +207,6 @@ class AiModePageActionControllerHideEntryPointOnEditInteractiveUiTest
   void InitializeFeatures() override {
     features_.InitWithFeaturesAndParameters(
         /*enabled_features*/ {{kHideAimEntrypointOnUserInput, {}},
-                              {
-                                  features::kPageActionsMigration,
-                                  {
-                                      {
-                                          features::kPageActionsMigrationAiMode
-                                              .name,
-                                          "true",
-                                      },
-                                  },
-                              },
                               {omnibox::internal::kWebUIOmniboxPopup, {}},
                               {omnibox::internal::kWebUIOmniboxAimPopup, {}}},
         /*disabled_features*/ {});
@@ -246,16 +236,6 @@ class AiModePageActionControllerHideEntryPointForUrlInteractiveUiTest
   void InitializeFeatures() override {
     features_.InitWithFeaturesAndParameters(
         /*enabled_features*/ {{kHideAimEntrypointForUrlSuggestions, {}},
-                              {
-                                  features::kPageActionsMigration,
-                                  {
-                                      {
-                                          features::kPageActionsMigrationAiMode
-                                              .name,
-                                          "true",
-                                      },
-                                  },
-                              },
                               {omnibox::internal::kWebUIOmniboxPopup, {}},
                               {omnibox::internal::kWebUIOmniboxAimPopup, {}}},
         /*disabled_features*/ {});
@@ -280,16 +260,6 @@ class AiModePageActionControllerDynamicAiModeButtonInteractiveUiTest
         /*enabled_features*/ {{kWebUIOmniboxDynamicAiModeButton,
                                {{"Omnibox_DynamicAnimation", "true"},
                                 {"Omnibox_DynamicColorScheme", "true"}}},
-                              {
-                                  features::kPageActionsMigration,
-                                  {
-                                      {
-                                          features::kPageActionsMigrationAiMode
-                                              .name,
-                                          "true",
-                                      },
-                                  },
-                              },
                               {omnibox::internal::kWebUIOmniboxPopup, {}},
                               {omnibox::internal::kWebUIOmniboxAimPopup, {}}},
         /*disabled_features*/ {});

@@ -76,7 +76,8 @@
   },
   "chromium.gpu.fyi": {
     "GPU FYI Android arm64 Builder": "ci/GPU FYI Android arm64 Builder/gn-args.json",
-    "GPU FYI Mac arm64 Builder": "ci/GPU FYI Mac arm64 Builder/gn-args.json"
+    "GPU FYI Mac arm64 Builder": "ci/GPU FYI Mac arm64 Builder/gn-args.json",
+    "GPU FYI Win arm64 Builder": "ci/GPU FYI Win arm64 Builder/gn-args.json"
   },
   "chromium.linux": {
     "Linux Builder": "ci/Linux Builder/gn-args.json",
@@ -216,11 +217,13 @@
     "mac14-tests": "try/mac14-tests/gn-args.json",
     "mac15-arm64-rel": "try/mac15-arm64-rel/gn-args.json",
     "mac15-x64-rel-tests": "try/mac15-x64-rel-tests/gn-args.json",
-    "mac26-arm64-rel-tests": "try/mac26-arm64-rel-tests/gn-args.json",
+    "mac26-arm64-rel": "try/mac26-arm64-rel/gn-args.json",
+    "mac26-x64-rel-tests": "try/mac26-x64-rel-tests/gn-args.json",
     "mac_chromium_compile_dbg_ng": "try/mac_chromium_compile_dbg_ng/gn-args.json",
     "mac_optional_gpu_tests_rel": "try/mac_optional_gpu_tests_rel/gn-args.json"
   },
   "tryserver.chromium.win": {
+    "gpu-fyi-cq-win-arm64": "try/gpu-fyi-cq-win-arm64/gn-args.json",
     "win-arm64-compile-dbg": "try/win-arm64-compile-dbg/gn-args.json",
     "win-arm64-rel": "try/win-arm64-rel/gn-args.json",
     "win-libfuzzer-asan-rel": "try/win-libfuzzer-asan-rel/gn-args.json",

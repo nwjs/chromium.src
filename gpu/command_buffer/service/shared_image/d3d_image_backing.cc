@@ -64,8 +64,13 @@ namespace gpu {
 
 namespace {
 
+// Returns true if `d3d11_device` is a D3D11On12 device whose texture can be
+// unwrapped to a D3D12 resource. Requires the kDCompOnD3D12 feature.
 bool CanUseD3D12(ID3D11Device* d3d11_device,
                  const D3D11_TEXTURE2D_DESC& d3d11_texture_desc) {
+  if (!base::FeatureList::IsEnabled(features::kDCompOnD3D12)) {
+    return false;
+  }
   Microsoft::WRL::ComPtr<ID3D11On12Device2> d3d11on12_device;
   HRESULT hr = d3d11_device->QueryInterface(IID_PPV_ARGS(&d3d11on12_device));
   // D3D11 keyed mutex resources can not be unwrapped to D3D12 resources by
@@ -546,7 +551,7 @@ std::unique_ptr<D3DImageBacking> D3DImageBacking::CreateFromSwapChainBuffers(
     gpu::SharedImageUsageSet usage,
     Microsoft::WRL::ComPtr<ID3D11Texture2D> back_buffer_texture,
     Microsoft::WRL::ComPtr<ID3D11Texture2D> front_buffer_texture,
-    Microsoft::WRL::ComPtr<IDXGISwapChain1> swap_chain,
+    Microsoft::WRL::ComPtr<IDXGISwapChain3> swap_chain,
     const GLFormatCaps& gl_format_caps) {
   DCHECK(format.is_single_plane());
   auto backing = base::WrapUnique(new D3DImageBacking(
@@ -1540,7 +1545,12 @@ bool D3DImageBacking::BeginAccessD3D(
     Microsoft::WRL::ComPtr<ID3D11Device> d3d11_device,
     bool write_access,
     bool is_overlay_access) {
-  if (CanUseD3D12(d3d11_device.Get(), d3d11_texture_desc_)) {
+  // The backing's D3D12 resource and unwrap state are bound to
+  // `texture_d3d11_device_`, so only that device can take the D3D12 path. A
+  // different accessing device (only possible with a DXGI shared handle) uses
+  // the D3D11 path even if it is itself a D3D11On12 device, since it accesses
+  // through its own shared-handle rather than the texture device's resource.
+  if (texture_device_can_use_d3d12_ && d3d11_device == texture_d3d11_device_) {
     return BeginAccessD3D12(d3d11_device, write_access, is_overlay_access);
   } else {
     return BeginAccessD3D11(d3d11_device, write_access, is_overlay_access);

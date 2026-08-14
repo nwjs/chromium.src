@@ -305,6 +305,10 @@ InputStateModel::InputStateModel(
   configured_input_types_ = new_input_state_model.configured_input_types_;
   is_smart_tab_sharing_active_ =
       new_input_state_model.is_smart_tab_sharing_active_;
+  permanently_disabled_tools_ =
+      new_input_state_model.permanently_disabled_tools_;
+  permanently_disabled_input_types_ =
+      new_input_state_model.permanently_disabled_input_types_;
   if (new_input_state_model.pref_service_) {
     SetPrefService(new_input_state_model.pref_service_);
   }
@@ -431,6 +435,19 @@ void InputStateModel::notifySubscribers() {
 }
 
 void InputStateModel::setActiveTool(ToolMode tool) {
+  // Track tools that user just actually removed to avoid setting a tool
+  // from an outdated URL right after submitting a query. Clear the
+  // removed tool if a tool was just added.
+  // TODO(crbug.com/539684815): Remove this code/set once Google3 fixes
+  // the slow-to-update URL.
+  if (tool == omnibox::ToolMode::TOOL_MODE_UNSPECIFIED &&
+      state_.active_tool != omnibox::ToolMode::TOOL_MODE_UNSPECIFIED) {
+    // `active_tool` represents last tool set before this change.
+    user_removed_tools_.insert(state_.active_tool);
+    state_.is_canvas_query_submitted = false;
+  } else if (tool != omnibox::ToolMode::TOOL_MODE_UNSPECIFIED) {
+    user_removed_tools_.erase(tool);
+  }
   updateSelectedState(tool, state_.active_model);
 }
 
@@ -439,11 +456,21 @@ void InputStateModel::setActiveModel(ModelMode model) {
 }
 
 void InputStateModel::UpdateStateFromUrl(const GURL& url) {
+  // `GetActiveToolFromUrl` is still needed for thread changes and deep links.
   auto matched_tool =
       GetActiveToolFromUrl(url, state_.tool_configs, state_.allowed_tools);
 
   bool thread_changed = GetThreadId(url) != GetThreadId(current_url_);
   current_url_ = url;
+
+  // Ignore tools removed by user in last turn unless thread changes.
+  if (thread_changed) {
+    user_removed_tools_.clear();
+  }
+
+  if (matched_tool.has_value() && user_removed_tools_.contains(*matched_tool)) {
+    matched_tool = std::nullopt;
+  }
 
   ToolMode new_tool = matched_tool.value_or(
       thread_changed ? ToolMode::TOOL_MODE_UNSPECIFIED : state_.active_tool);
@@ -452,6 +479,10 @@ void InputStateModel::UpdateStateFromUrl(const GURL& url) {
       thread_changed ? false : state_.is_canvas_query_submitted;
   if (matched_tool.has_value()) {
     new_canvas_submitted = (*matched_tool == ToolMode::TOOL_MODE_CANVAS);
+  }
+
+  if (user_removed_tools_.contains(omnibox::ToolMode::TOOL_MODE_CANVAS)) {
+    new_canvas_submitted = false;
   }
 
   auto matched_model =
@@ -494,6 +525,19 @@ void InputStateModel::SetPermanentlyDisabledTools(
 void InputStateModel::SetPermanentlyDisabledInputTypes(
     const std::vector<InputType>& input_types) {
   permanently_disabled_input_types_ = input_types;
+  updateDisabledState();
+  notifySubscribers();
+}
+
+void InputStateModel::TogglePermanentlyDisabledInputType(InputType input_type,
+                                                         bool disabled) {
+  if (disabled) {
+    if (!std::ranges::contains(permanently_disabled_input_types_, input_type)) {
+      permanently_disabled_input_types_.push_back(input_type);
+    }
+  } else {
+    std::erase(permanently_disabled_input_types_, input_type);
+  }
   updateDisabledState();
   notifySubscribers();
 }

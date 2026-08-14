@@ -9,23 +9,34 @@
 #include <utility>
 
 #include "base/functional/callback.h"
+#include "base/run_loop.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/test_future.h"
 #include "base/test/test_reg_util_win.h"
 #include "base/win/registry.h"
+#include "chrome/browser/feature_engagement/tracker_factory.h"
+#include "chrome/browser/platform_experience/delegated_tasks/delegated_task_runner.h"
+#include "chrome/browser/platform_experience/delegated_tasks/test_support/mock_delegated_task_runner.h"
+#include "chrome/browser/platform_experience/delegated_tasks/test_support/mock_peh_launcher.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/segmentation_platform/segmentation_platform_service_factory.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
+#include "chrome/browser/ui/search_promotion/register_search_promotion_task.h"
 #include "chrome/browser/ui/search_promotion/search_promotion_manager_factory.h"
 #include "chrome/browser/ui/search_promotion/search_promotion_navigation_observer.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/user_education/mock_browser_user_education_interface.h"
+#include "components/feature_engagement/public/event_constants.h"
 #include "components/feature_engagement/public/feature_constants.h"
+#include "components/feature_engagement/test/mock_tracker.h"
+#include "components/keyed_service/content/browser_context_keyed_service_factory.h"
 #include "components/segmentation_platform/public/constants.h"
 #include "components/segmentation_platform/public/proto/segmentation_platform.pb.h"
-#include "components/segmentation_platform/public/segment_selection_result.h"
+#include "components/segmentation_platform/public/result.h"
 #include "components/segmentation_platform/public/testing/mock_segmentation_platform_service.h"
 #include "components/tabs/public/mock_tab_interface.h"
 #include "components/tabs/public/tab_interface.h"
@@ -40,24 +51,47 @@ namespace {
 
 class MockSearchPromotionManager : public SearchPromotionManager {
  public:
-  explicit MockSearchPromotionManager(Profile& profile)
-      : SearchPromotionManager(profile) {}
+  MockSearchPromotionManager(Profile& profile,
+                             CreateTaskRunnerCallback callback)
+      : SearchPromotionManager(profile, std::move(callback)) {}
   MOCK_METHOD(void,
               OnTargetURLVisited,
               (BrowserUserEducationInterface & user_education),
               (override));
 };
 
+std::unique_ptr<platform_experience::DelegatedTaskRunner>
+CreateMockTaskRunner() {
+  return std::make_unique<platform_experience::MockDelegatedTaskRunner>();
+}
+
+SearchPromotionManager::CreateTaskRunnerCallback
+GetCreateMockTaskRunnerCallback() {
+  return base::BindRepeating([]() { return CreateMockTaskRunner(); });
+}
+
 std::unique_ptr<KeyedService> BuildMockSearchPromotionManager(
     content::BrowserContext* context) {
   return std::make_unique<MockSearchPromotionManager>(
-      *Profile::FromBrowserContext(context));
+      *Profile::FromBrowserContext(context), GetCreateMockTaskRunnerCallback());
+}
+
+std::unique_ptr<KeyedService> BuildSearchPromotionManager(
+    content::BrowserContext* context) {
+  return std::make_unique<SearchPromotionManager>(
+      *Profile::FromBrowserContext(context), GetCreateMockTaskRunnerCallback());
 }
 
 std::unique_ptr<KeyedService> BuildMockSegmentationPlatformService(
     content::BrowserContext* context) {
   return std::make_unique<testing::NiceMock<
       segmentation_platform::MockSegmentationPlatformService>>();
+}
+
+std::unique_ptr<KeyedService> BuildMockTracker(
+    content::BrowserContext* context) {
+  return std::make_unique<
+      testing::NiceMock<feature_engagement::test::MockTracker>>();
 }
 
 }  // namespace
@@ -97,6 +131,18 @@ class SearchPromotionManagerTest : public ChromeRenderViewHostTestHarness {
     return manager.IsPromoAllowedForTesting();
   }
 
+  void InitSearchPromotionFeature() {
+    feature_list_.InitAndEnableFeatureWithParameters(
+        feature_engagement::kIPHSearchPromotionFeature,
+        {{"arm", feature_engagement::kSearchPromotionArmA}});
+  }
+
+  SearchPromotionManager* RecreateSearchPromotionManager() {
+    return static_cast<SearchPromotionManager*>(
+        SearchPromotionManagerFactory::GetInstance()->SetTestingFactoryAndUse(
+            profile(), base::BindRepeating(&BuildSearchPromotionManager)));
+  }
+
   base::test::ScopedFeatureList feature_list_;
   registry_util::RegistryOverrideManager registry_override_manager_;
 };
@@ -105,23 +151,22 @@ TEST_F(SearchPromotionManagerTest, IsPromoAllowedGuardedByFeature) {
   feature_list_.InitAndDisableFeature(
       feature_engagement::kIPHSearchPromotionFeature);
   {
-    SearchPromotionManager manager(*profile());
+    SearchPromotionManager manager(*profile(),
+                                   GetCreateMockTaskRunnerCallback());
     EXPECT_FALSE(IsPromoAllowed(manager));
   }
 
   feature_list_.Reset();
-  feature_list_.InitAndEnableFeatureWithParameters(
-      feature_engagement::kIPHSearchPromotionFeature,
-      {{"arm", feature_engagement::kSearchPromotionArmA}});
+  InitSearchPromotionFeature();
   {
-    SearchPromotionManager manager(*profile());
+    SearchPromotionManager manager(*profile(),
+                                   GetCreateMockTaskRunnerCallback());
     EXPECT_TRUE(IsPromoAllowed(manager));
   }
 }
 
-TEST_F(SearchPromotionManagerTest, EngagementThresholdGating) {
-  feature_list_.InitAndEnableFeature(
-      feature_engagement::kIPHSearchPromotionFeature);
+TEST_F(SearchPromotionManagerTest, EngagementThresholdGating_NotReady) {
+  InitSearchPromotionFeature();
 
   segmentation_platform::MockSegmentationPlatformService* mock_service =
       static_cast<segmentation_platform::MockSegmentationPlatformService*>(
@@ -131,60 +176,95 @@ TEST_F(SearchPromotionManagerTest, EngagementThresholdGating) {
                       profile(), base::BindRepeating(
                                      &BuildMockSegmentationPlatformService)));
 
-  SearchPromotionManager* manager =
-      SearchPromotionManagerFactory::GetForProfile(profile());
-  ASSERT_TRUE(manager);
+  segmentation_platform::ClassificationResult not_ready_result(
+      segmentation_platform::PredictionStatus::kNotReady);
 
-  // Case 1: Backend is not ready in cache, returns false (skips promo).
-  segmentation_platform::SegmentSelectionResult not_ready_result;
-  not_ready_result.is_ready = false;
   EXPECT_CALL(
       *mock_service,
-      GetCachedSegmentResult(
-          segmentation_platform::kChromeLowUserEngagementSegmentationKey))
-      .WillOnce(testing::Return(not_ready_result));
+      GetClassificationResult(
+          segmentation_platform::kChromeLowUserEngagementSegmentationKey,
+          testing::_, testing::_, testing::_))
+      .WillOnce(base::test::RunOnceCallback<3>(not_ready_result));
 
+  SearchPromotionManager* manager = RecreateSearchPromotionManager();
   EXPECT_FALSE(manager->IsEngagementLowEnoughForTesting());
+}
 
-  segmentation_platform::SegmentSelectionResult low_engagement_result;
-  low_engagement_result.is_ready = true;
-  low_engagement_result.segment = segmentation_platform::proto::SegmentId::
-      OPTIMIZATION_TARGET_SEGMENTATION_CHROME_LOW_USER_ENGAGEMENT;
+TEST_F(SearchPromotionManagerTest, EngagementThresholdGating_NoSegment) {
+  InitSearchPromotionFeature();
 
-  // Case 2: Backend is ready in cache, but no segment selected (e.g.
-  // insufficient data).
-  segmentation_platform::SegmentSelectionResult no_segment_result;
-  no_segment_result.is_ready = true;
-  no_segment_result.segment = std::nullopt;
+  segmentation_platform::MockSegmentationPlatformService* mock_service =
+      static_cast<segmentation_platform::MockSegmentationPlatformService*>(
+          segmentation_platform::SegmentationPlatformServiceFactory::
+              GetInstance()
+                  ->SetTestingFactoryAndUse(
+                      profile(), base::BindRepeating(
+                                     &BuildMockSegmentationPlatformService)));
+
+  segmentation_platform::ClassificationResult no_segment_result(
+      segmentation_platform::PredictionStatus::kSucceeded);
+
   EXPECT_CALL(
       *mock_service,
-      GetCachedSegmentResult(
-          segmentation_platform::kChromeLowUserEngagementSegmentationKey))
-      .WillOnce(testing::Return(no_segment_result));
+      GetClassificationResult(
+          segmentation_platform::kChromeLowUserEngagementSegmentationKey,
+          testing::_, testing::_, testing::_))
+      .WillOnce(base::test::RunOnceCallback<3>(no_segment_result));
 
+  SearchPromotionManager* manager = RecreateSearchPromotionManager();
   EXPECT_FALSE(manager->IsEngagementLowEnoughForTesting());
+}
 
-  // Case 3: Backend is ready in cache, but user is in a different segment (high
-  // engagement).
-  segmentation_platform::SegmentSelectionResult high_engagement_result;
-  high_engagement_result.is_ready = true;
-  high_engagement_result.segment = segmentation_platform::proto::SegmentId::
-      OPTIMIZATION_TARGET_SEGMENTATION_DUMMY;
+TEST_F(SearchPromotionManagerTest, EngagementThresholdGating_HighEngagement) {
+  InitSearchPromotionFeature();
+
+  segmentation_platform::MockSegmentationPlatformService* mock_service =
+      static_cast<segmentation_platform::MockSegmentationPlatformService*>(
+          segmentation_platform::SegmentationPlatformServiceFactory::
+              GetInstance()
+                  ->SetTestingFactoryAndUse(
+                      profile(), base::BindRepeating(
+                                     &BuildMockSegmentationPlatformService)));
+
+  segmentation_platform::ClassificationResult high_engagement_result(
+      segmentation_platform::PredictionStatus::kSucceeded);
+  high_engagement_result.ordered_labels.push_back("LegacyNegativeLabel");
+
   EXPECT_CALL(
       *mock_service,
-      GetCachedSegmentResult(
-          segmentation_platform::kChromeLowUserEngagementSegmentationKey))
-      .WillOnce(testing::Return(high_engagement_result));
+      GetClassificationResult(
+          segmentation_platform::kChromeLowUserEngagementSegmentationKey,
+          testing::_, testing::_, testing::_))
+      .WillOnce(base::test::RunOnceCallback<3>(high_engagement_result));
 
+  SearchPromotionManager* manager = RecreateSearchPromotionManager();
   EXPECT_FALSE(manager->IsEngagementLowEnoughForTesting());
+}
 
-  // Case 4: Backend is ready in cache, and user is in low engagement segment.
+TEST_F(SearchPromotionManagerTest, EngagementThresholdGating_LowEngagement) {
+  InitSearchPromotionFeature();
+
+  segmentation_platform::MockSegmentationPlatformService* mock_service =
+      static_cast<segmentation_platform::MockSegmentationPlatformService*>(
+          segmentation_platform::SegmentationPlatformServiceFactory::
+              GetInstance()
+                  ->SetTestingFactoryAndUse(
+                      profile(), base::BindRepeating(
+                                     &BuildMockSegmentationPlatformService)));
+
+  segmentation_platform::ClassificationResult low_engagement_result(
+      segmentation_platform::PredictionStatus::kSucceeded);
+  low_engagement_result.ordered_labels.push_back(
+      segmentation_platform::kChromeLowUserEngagementUmaName);
+
   EXPECT_CALL(
       *mock_service,
-      GetCachedSegmentResult(
-          segmentation_platform::kChromeLowUserEngagementSegmentationKey))
-      .WillOnce(testing::Return(low_engagement_result));
+      GetClassificationResult(
+          segmentation_platform::kChromeLowUserEngagementSegmentationKey,
+          testing::_, testing::_, testing::_))
+      .WillOnce(base::test::RunOnceCallback<3>(low_engagement_result));
 
+  SearchPromotionManager* manager = RecreateSearchPromotionManager();
   EXPECT_TRUE(manager->IsEngagementLowEnoughForTesting());
 }
 
@@ -255,9 +335,7 @@ TEST_F(SearchPromotionManagerTest, ObserverIgnoresNonGoogleSearch) {
 }
 
 TEST_F(SearchPromotionManagerTest, GatingEligibleRecordsDefaultBrowserState) {
-  feature_list_.InitAndEnableFeatureWithParameters(
-      feature_engagement::kIPHSearchPromotionFeature,
-      {{"arm", feature_engagement::kSearchPromotionArmA}});
+  InitSearchPromotionFeature();
 
   segmentation_platform::MockSegmentationPlatformService* mock_service =
       static_cast<segmentation_platform::MockSegmentationPlatformService*>(
@@ -267,20 +345,19 @@ TEST_F(SearchPromotionManagerTest, GatingEligibleRecordsDefaultBrowserState) {
                       profile(), base::BindRepeating(
                                      &BuildMockSegmentationPlatformService)));
 
-  SearchPromotionManager* manager =
-      SearchPromotionManagerFactory::GetForProfile(profile());
-  ASSERT_TRUE(manager);
-
-  segmentation_platform::SegmentSelectionResult low_engagement_result;
-  low_engagement_result.is_ready = true;
-  low_engagement_result.segment = segmentation_platform::proto::SegmentId::
-      OPTIMIZATION_TARGET_SEGMENTATION_CHROME_LOW_USER_ENGAGEMENT;
+  segmentation_platform::ClassificationResult low_engagement_result(
+      segmentation_platform::PredictionStatus::kSucceeded);
+  low_engagement_result.ordered_labels.push_back(
+      segmentation_platform::kChromeLowUserEngagementUmaName);
 
   EXPECT_CALL(
       *mock_service,
-      GetCachedSegmentResult(
-          segmentation_platform::kChromeLowUserEngagementSegmentationKey))
-      .WillOnce(testing::Return(low_engagement_result));
+      GetClassificationResult(
+          segmentation_platform::kChromeLowUserEngagementSegmentationKey,
+          testing::_, testing::_, testing::_))
+      .WillOnce(base::test::RunOnceCallback<3>(low_engagement_result));
+
+  SearchPromotionManager* manager = RecreateSearchPromotionManager();
 
   testing::NiceMock<MockBrowserWindowInterface> mock_browser_window_interface;
   // Instantiating a dummy UnownedUserDataHost for the
@@ -314,9 +391,7 @@ TEST_F(SearchPromotionManagerTest, GatingEligibleRecordsDefaultBrowserState) {
 
 TEST_F(SearchPromotionManagerTest,
        PromoInteractionRecordsDefaultBrowserType_Accepted_ArmA) {
-  feature_list_.InitAndEnableFeatureWithParameters(
-      feature_engagement::kIPHSearchPromotionFeature,
-      {{"arm", feature_engagement::kSearchPromotionArmA}});
+  InitSearchPromotionFeature();
 
   segmentation_platform::MockSegmentationPlatformService* mock_service =
       static_cast<segmentation_platform::MockSegmentationPlatformService*>(
@@ -326,20 +401,19 @@ TEST_F(SearchPromotionManagerTest,
                       profile(), base::BindRepeating(
                                      &BuildMockSegmentationPlatformService)));
 
-  SearchPromotionManager* manager =
-      SearchPromotionManagerFactory::GetForProfile(profile());
-  ASSERT_TRUE(manager);
-
-  segmentation_platform::SegmentSelectionResult low_engagement_result;
-  low_engagement_result.is_ready = true;
-  low_engagement_result.segment = segmentation_platform::proto::SegmentId::
-      OPTIMIZATION_TARGET_SEGMENTATION_CHROME_LOW_USER_ENGAGEMENT;
+  segmentation_platform::ClassificationResult low_engagement_result(
+      segmentation_platform::PredictionStatus::kSucceeded);
+  low_engagement_result.ordered_labels.push_back(
+      segmentation_platform::kChromeLowUserEngagementUmaName);
 
   EXPECT_CALL(
       *mock_service,
-      GetCachedSegmentResult(
-          segmentation_platform::kChromeLowUserEngagementSegmentationKey))
-      .WillOnce(testing::Return(low_engagement_result));
+      GetClassificationResult(
+          segmentation_platform::kChromeLowUserEngagementSegmentationKey,
+          testing::_, testing::_, testing::_))
+      .WillOnce(base::test::RunOnceCallback<3>(low_engagement_result));
+
+  SearchPromotionManager* manager = RecreateSearchPromotionManager();
 
   testing::NiceMock<MockBrowserWindowInterface> mock_browser_window_interface;
   // Instantiating a dummy UnownedUserDataHost for the
@@ -389,4 +463,143 @@ TEST_F(SearchPromotionManagerTest,
   // 4, since we mocked "Firefox" in SetUp).
   histogram_tester.ExpectBucketCount(
       "Search.SearchPromotion.DefaultBrowserType.Accepted.ArmA", 4, 1);
+}
+
+TEST_F(SearchPromotionManagerTest,
+       OnPromoAcceptedNotifiesFeatureEngagementTracker) {
+  InitSearchPromotionFeature();
+
+  auto* mock_tracker = static_cast<feature_engagement::test::MockTracker*>(
+      feature_engagement::TrackerFactory::GetInstance()
+          ->SetTestingFactoryAndUse(profile(),
+                                    base::BindRepeating(&BuildMockTracker)));
+
+  EXPECT_CALL(*mock_tracker,
+              NotifyEvent(feature_engagement::events::kSearchPromotionAccepted))
+      .Times(1);
+
+  SearchPromotionManager* manager = RecreateSearchPromotionManager();
+  manager->OnPromoAccepted();
+  // Subsequent calls should be ignored due to idempotency guard.
+  manager->OnPromoAccepted();
+}
+
+TEST_F(SearchPromotionManagerTest, OnPromoAcceptedWithNullTrackerDoesNotCrash) {
+  InitSearchPromotionFeature();
+
+  // Explicitly ensure TrackerFactory returns nullptr for profile.
+  feature_engagement::TrackerFactory::GetInstance()->SetTestingFactory(
+      profile(), BrowserContextKeyedServiceFactory::TestingFactory());
+
+  SearchPromotionManager* manager = RecreateSearchPromotionManager();
+  manager->OnPromoAccepted();
+}
+
+class SearchPromotionManagerTaskRunnerTest : public SearchPromotionManagerTest {
+ protected:
+  void SetUp() override {
+    mock_runner_ =
+        std::make_unique<platform_experience::MockDelegatedTaskRunner>();
+
+    SearchPromotionManagerTest::SetUp();
+    SearchPromotionManagerFactory::GetInstance()->SetTestingFactory(
+        profile(), base::BindRepeating(&SearchPromotionManagerTaskRunnerTest::
+                                           BuildMockSearchPromotionManager,
+                                       base::Unretained(this)));
+  }
+
+  std::unique_ptr<KeyedService> BuildMockSearchPromotionManager(
+      content::BrowserContext* context) {
+    return std::make_unique<MockSearchPromotionManager>(
+        *Profile::FromBrowserContext(context),
+        base::BindRepeating(
+            &SearchPromotionManagerTaskRunnerTest::CreateMockTaskRunner,
+            base::Unretained(this)));
+  }
+
+  std::unique_ptr<platform_experience::DelegatedTaskRunner>
+  CreateMockTaskRunner() {
+    return std::move(mock_runner_);
+  }
+
+  SearchPromotionManager* manager() {
+    return SearchPromotionManagerFactory::GetForProfile(profile());
+  }
+
+  // Holds ownership until CreateMockTaskRunner() moves it out.
+  std::unique_ptr<platform_experience::MockDelegatedTaskRunner> mock_runner_;
+};
+
+TEST_F(SearchPromotionManagerTaskRunnerTest, PerformArmASuccess) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      feature_engagement::kIPHSearchPromotionFeature,
+      {{"arm", "arm_a"}, {"store_url", "https://google.com/store"}});
+
+  base::test::TestFuture<void> future;
+  EXPECT_CALL(*mock_runner_, Run(testing::_, testing::_))
+      .WillOnce(
+          [&](std::unique_ptr<platform_experience::DelegatedTask> task,
+              platform_experience::DelegatedTaskCompletionCallback callback) {
+            std::move(callback).Run({});
+            future.GetCallback().Run();
+          });
+
+  manager()->OnPromoAccepted();
+  EXPECT_TRUE(future.Wait());
+}
+
+TEST_F(SearchPromotionManagerTaskRunnerTest, PerformArmBSuccess) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      feature_engagement::kIPHSearchPromotionFeature,
+      {{"arm", "arm_b"},
+       {"extension_id", "test_extension_id"},
+       {"instructions_url", "https://google.com/instructions"}});
+
+  base::test::TestFuture<void> future;
+  EXPECT_CALL(*mock_runner_, Run(testing::_, testing::_))
+      .WillOnce(
+          [&](std::unique_ptr<platform_experience::DelegatedTask> task,
+              platform_experience::DelegatedTaskCompletionCallback callback) {
+            std::move(callback).Run({});
+            future.GetCallback().Run();
+          });
+
+  manager()->OnPromoAccepted();
+  EXPECT_TRUE(future.Wait());
+}
+
+TEST_F(SearchPromotionManagerTaskRunnerTest, InvalidAndEmptyPostInstallUrl) {
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeatureWithParameters(
+        feature_engagement::kIPHSearchPromotionFeature,
+        {{"arm", "arm_a"}, {"store_url", "1234"}});
+
+    EXPECT_CALL(*mock_runner_, Run(testing::_, testing::_)).Times(0);
+
+    manager()->OnPromoAccepted();
+  }
+
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeatureWithParameters(
+        feature_engagement::kIPHSearchPromotionFeature,
+        {{"arm", "arm_a"}, {"store_url", ""}});
+
+    EXPECT_CALL(*mock_runner_, Run(testing::_, testing::_)).Times(0);
+
+    manager()->OnPromoAccepted();
+  }
+}
+
+TEST_F(SearchPromotionManagerTaskRunnerTest, PromoFeatureDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      feature_engagement::kIPHSearchPromotionFeature);
+
+  EXPECT_CALL(*mock_runner_, Run(testing::_, testing::_)).Times(0);
+
+  manager()->OnPromoAccepted();
 }

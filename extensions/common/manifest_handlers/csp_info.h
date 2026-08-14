@@ -16,6 +16,8 @@ namespace extensions {
 
 // A structure to hold the Content-Security-Policy information.
 struct CSPInfo : public Extension::ManifestData {
+  static const char* kManifestDataKey;
+
   explicit CSPInfo(std::string extension_pages_csp, std::string sandbox_csp);
   ~CSPInfo() override;
 
@@ -104,7 +106,7 @@ class CSPHandler : public ManifestHandler {
                        const base::Value* sandbox_csp,
                        bool allow_remote_sources);
 
-  // Helper to DCHECK() the extension pages content security policy.
+  // Helper to CHECK() the extension pages content security policy.
   void ValidateExtensionPagesCSP(const Extension& extension,
                                  std::string_view manifest_key,
                                  const std::string& content_security_policy);

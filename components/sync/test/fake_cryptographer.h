@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "base/containers/span.h"
 #include "base/notreached.h"
 #include "components/sync/engine/cryptographer.h"
 #include "components/sync/nigori/cross_user_sharing_public_private_key_pair.h"
@@ -39,7 +40,7 @@ class FakeCryptographer : public Cryptographer {
   // `key_name` must have been previously added. Once this is called, `key_name`
   // will be the return value of GetDefaultEncryptionKeyName();
   void SelectDefaultEncryptionKey(const std::string& key_name);
-  void ClearDefaultEncryptionKey();
+  void InvalidateDefaultEncryptionKey();
 
   std::array<uint8_t, 32> GetCrossUserSharingRawPublicKey() const;
 

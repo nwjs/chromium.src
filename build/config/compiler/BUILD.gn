@@ -557,7 +557,9 @@ config("compiler") {
 
     # Enable std::vector []-operator bounds checking.
     cflags_cc += [ "-D__google_stl_debug_vector=1" ]
+  }
 
+  if (is_chromeos || is_fuchsia) {
     # Use -fdebug-types-section to avoid out-of-range relocations
     # (crbug.com/1050819). When using ThinLTO, pass the equivalent
     # to the code generator.
@@ -2042,19 +2044,18 @@ config("default_clippy_lints") {
     # `config("rustc_revision")` - a custom `--cfg` flag is used to force
     # rebuilding of all `.rs` files (which as a side-effect should also trigger
     # a Clippy check if `enable_rust_clippy = true`).
-    "--cfg=cr_clippy_revision=\"2026-03-17\"",
+    "--cfg=cr_clippy_revision=\"2026-07-20\"",
 
     # Treat all default Clippy lints as warnings.
     # See also `config("treat_warnings_as_errors")`.
     "-Wclippy::all",
 
+    # Additional lints that we enable beyond the defaults
+    "-Wclippy::undocumented_unsafe_blocks",
+
     # Lints disabled during the initial rollout period (when any objection
     # coming from a Chromium engineer would get a lint disabled):
     "-Aclippy::needless_return",
-
-    # TODO(crbug.com/514692100): Fix or otherwise handle these.
-    "-Aclippy::manual-filter",
-    "-Aclippy::useless-borrows-in-formatting",
   ]
 }
 
@@ -2194,6 +2195,9 @@ config("chromium_code") {
       # Thread safety analysis. See base/thread_annotations.h and
       # https://clang.llvm.org/docs/ThreadSafetyAnalysis.html
       "-Wthread-safety",
+
+      # TODO(crbug.com/533026470): Should probably clean this up.
+      "-Wno-unused-template",
     ]
 
     if (is_chromeos) {
@@ -2236,6 +2240,9 @@ config("no_chromium_code") {
       # Lots of third-party libraries have unused variables. Instead of
       # suppressing them individually, we just blanket suppress them here.
       "-Wno-unused-variable",
+
+      # Third-party code has unused templates. Probably not worth cleaning up.
+      "-Wno-unused-template",
 
       # Similarly, we're not going to fix all the C++11 narrowing issues in
       # third-party libraries.

@@ -3734,7 +3734,9 @@ bool GLES2DecoderImpl::InitializeShaderTranslator() {
               : 0;
       break;
     case CONTEXT_TYPE_OPENGLES2:
-      shader_spec = SH_GLES2_SPEC;
+      // Map OpenGLES contexts to WebGL shader specs to enforce WebGL-specific
+      // safety mitigations and shader sanitization.
+      shader_spec = SH_WEBGL_SPEC;
       resources.OES_standard_derivatives =
           features().oes_standard_derivatives ? 1 : 0;
       resources.ARB_texture_rectangle =
@@ -3755,7 +3757,9 @@ bool GLES2DecoderImpl::InitializeShaderTranslator() {
           features().ext_blend_func_extended ? 1 : 0;
       break;
     case CONTEXT_TYPE_OPENGLES3:
-      shader_spec = SH_GLES3_SPEC;
+      // Map OpenGLES contexts to WebGL shader specs to enforce WebGL-specific
+      // safety mitigations and shader sanitization.
+      shader_spec = SH_WEBGL2_SPEC;
       resources.ARB_texture_rectangle =
           features().arb_texture_rectangle ? 1 : 0;
       resources.OES_EGL_image_external =
@@ -3769,12 +3773,12 @@ bool GLES2DecoderImpl::InitializeShaderTranslator() {
       NOTREACHED();
   }
 
-  if (shader_spec == SH_WEBGL_SPEC || shader_spec == SH_WEBGL2_SPEC) {
+  if (feature_info_->IsWebGLContext()) {
     resources.ANGLE_multi_draw =
         multi_draw_explicitly_enabled_ && features().webgl_multi_draw;
   }
 
-  if (shader_spec == SH_WEBGL2_SPEC) {
+  if (feature_info_->context_type() == CONTEXT_TYPE_WEBGL2) {
     // The gl_BaseVertex/BaseInstance shader builtins is disabled in ANGLE for
     // WebGL As they are removed in
     // https://github.com/KhronosGroup/WebGL/pull/3278
@@ -3788,7 +3792,7 @@ bool GLES2DecoderImpl::InitializeShaderTranslator() {
          features().webgl_multi_draw_instanced_base_vertex_base_instance);
   }
 
-  if (((shader_spec == SH_WEBGL_SPEC || shader_spec == SH_WEBGL2_SPEC) &&
+  if ((feature_info_->IsWebGLContext() &&
        features().enable_shader_name_hashing) ||
       force_shader_name_hashing_for_test) {
     // TODO(crbug.com/40601370): In theory, it should be OK to change this
@@ -3813,6 +3817,9 @@ bool GLES2DecoderImpl::InitializeShaderTranslator() {
     driver_bug_workarounds.removeDynamicIndexingOfSwizzledVector = true;
   if (workarounds().validate_max_per_stage_uniform_blocks_at_compile_time) {
     driver_bug_workarounds.validatePerStageMaxUniformBlocks = true;
+  }
+  if (workarounds().limit_output_varyings_at_compile_time) {
+    driver_bug_workarounds.limitOutputVaryingsTo256 = true;
   }
 
   // Initialize uninitialized locals and shared variables by default
@@ -7290,14 +7297,42 @@ bool GLES2DecoderImpl::ClearUnclearedAttachments(GLenum target,
     }
   }
 
-  if (framebuffer->HasUnclearedAttachment(GL_STENCIL_ATTACHMENT)) {
+  const Framebuffer::Attachment* depth_attachment =
+      framebuffer->GetAttachment(GL_DEPTH_ATTACHMENT);
+  const Framebuffer::Attachment* stencil_attachment =
+      framebuffer->GetAttachment(GL_STENCIL_ATTACHMENT);
+  bool clear_depth = depth_attachment && !depth_attachment->cleared();
+  bool clear_stencil = stencil_attachment && !stencil_attachment->cleared();
+
+  // A packed depth-stencil image attached at only one of the depth/stencil
+  // points must be bound and cleared at both points so that both components
+  // are initialized before the image is marked as cleared.
+  GLenum filled_depth_stencil_point = 0;
+  if (clear_depth && !stencil_attachment &&
+      (GLES2Util::GetChannelsForFormat(depth_attachment->internal_format()) &
+       GLES2Util::kStencil) != 0) {
+    filled_depth_stencil_point = GL_STENCIL_ATTACHMENT;
+    Framebuffer::BindAttachmentToPoint(target, GL_STENCIL_ATTACHMENT,
+                                       depth_attachment);
+    clear_stencil = true;
+  } else if (clear_stencil && !depth_attachment &&
+             (GLES2Util::GetChannelsForFormat(
+                  stencil_attachment->internal_format()) &
+              GLES2Util::kDepth) != 0) {
+    filled_depth_stencil_point = GL_DEPTH_ATTACHMENT;
+    Framebuffer::BindAttachmentToPoint(target, GL_DEPTH_ATTACHMENT,
+                                       stencil_attachment);
+    clear_depth = true;
+  }
+
+  if (clear_stencil) {
     api()->glClearStencilFn(0);
     state_.SetDeviceStencilMaskSeparate(GL_FRONT, kDefaultStencilMask);
     state_.SetDeviceStencilMaskSeparate(GL_BACK, kDefaultStencilMask);
     clear_bits |= GL_STENCIL_BUFFER_BIT;
   }
 
-  if (framebuffer->HasUnclearedAttachment(GL_DEPTH_ATTACHMENT)) {
+  if (clear_depth) {
     api()->glClearDepthFn(1.0f);
     state_.SetDeviceDepthMask(GL_TRUE);
     clear_bits |= GL_DEPTH_BUFFER_BIT;
@@ -7317,6 +7352,11 @@ bool GLES2DecoderImpl::ClearUnclearedAttachments(GLenum target,
     } else {
       api()->glClearFn(clear_bits);
     }
+  }
+
+  if (filled_depth_stencil_point) {
+    Framebuffer::BindAttachmentToPoint(target, filled_depth_stencil_point,
+                                       nullptr);
   }
 
   if (cleared_int_renderbuffers || clear_bits) {
@@ -8730,7 +8770,8 @@ bool GLES2DecoderImpl::ValidateUniformBlockBackings(const char* func_name) {
     uniform_block_sizes[ii] = 0;
   for (auto info : state_.current_program->uniform_block_size_info()) {
     uint32_t index = info.binding;
-    uniform_block_sizes[index] = static_cast<GLsizeiptr>(info.data_size);
+    uniform_block_sizes[index] = std::max(
+        uniform_block_sizes[index], static_cast<GLsizeiptr>(info.data_size));
   }
   return buffer_manager()->RequestBuffersAccess(
       error_state_.get(), state_.indexed_uniform_buffer_bindings.get(),

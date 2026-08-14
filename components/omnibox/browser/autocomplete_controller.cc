@@ -112,6 +112,7 @@
 #if !BUILDFLAG(IS_IOS)
 #include "components/history_clusters/core/config.h"  // nogncheck
 #include "components/omnibox/browser/actions/history_clusters_action.h"
+#include "components/omnibox/browser/geolocation_header_service.h"
 #include "components/omnibox/browser/history_cluster_provider.h"
 #include "components/open_from_clipboard/clipboard_recent_content_generic.h"
 #endif
@@ -122,6 +123,7 @@ namespace {
 
 using ScoringSignals = ::metrics::OmniboxScoringSignals;
 using ProviderType = AutocompleteProvider::Type;
+using OEP = metrics::OmniboxEventProto;
 
 constexpr bool kIsDesktop =
     !(BUILDFLAG(IS_IOS) ||
@@ -545,8 +547,7 @@ AutocompleteController::AutocompleteController(
       template_url_service_(provider_client_->GetTemplateURLService()),
       triggered_feature_service_(
           provider_client_->GetOmniboxTriggeredFeatureService()),
-      steady_state_omnibox_position_(
-          metrics::OmniboxEventProto::UNKNOWN_POSITION),
+      steady_state_omnibox_position_(OEP::UNKNOWN_POSITION),
       config_(config) {
   config_.provider_types &= ~OmniboxFieldTrial::GetDisabledProviderTypes();
 
@@ -947,6 +948,22 @@ void AutocompleteController::ResetSession() {
   smart_compose_stats_.reset();
 }
 
+void AutocompleteController::MaybeProcessInlineLocationSuggestionMatch(
+    const AutocompleteMatch& match) {
+#if !BUILDFLAG(IS_IOS)
+  if (auto* geolocation_header_service =
+          provider_client_->GetGeolocationHeaderService()) {
+    geolocation_header_service->MaybeRecordInlineLocationSuggestionClicked(
+        match);
+  }
+#endif
+
+  if (match.subtypes.contains(omnibox::SUBTYPE_LOCATION_SUGGEST_TRIGGER) &&
+      match.extra_headers.contains(kXGeoHeader)) {
+    provider_client_->ResetGeolocationPermissionToAsk(match.destination_url);
+  }
+}
+
 void AutocompleteController::
     UpdateMatchDestinationURLWithAdditionalSearchboxStats(
         base::TimeDelta query_formulation_time,
@@ -992,8 +1009,7 @@ void AutocompleteController::UpdateSearchTermsArgsWithAdditionalSearchboxStats(
 
 #if BUILDFLAG(IS_IOS)
   // Append the omnibox position when it's set to experiment_stats_v2.
-  if (steady_state_omnibox_position_ !=
-      metrics::OmniboxEventProto::UNKNOWN_POSITION) {
+  if (steady_state_omnibox_position_ != OEP::UNKNOWN_POSITION) {
     const auto omnibox_position_stat = GetOmniboxPositionExperimentStatsV2();
     auto* reported_experiment_stats_v2 =
         search_terms_args.searchbox_stats.add_experiment_stats_v2();
@@ -1105,8 +1121,7 @@ bool AutocompleteController::ShouldRunProvider(
   // If zero prefix suggest is disabled for the Lens contextual searchbox, only
   // run the typed search provider. Else, will use the IsLensSearchbox check
   // below.
-  if (omnibox::IsLensContextualSearchbox(
-          input_.current_page_classification()) &&
+  if (input_.current_page_classification() == OEP::CONTEXTUAL_SEARCHBOX &&
       !lens::features::ShowContextualSearchboxZeroPrefixSuggest()) {
     return provider->type() == AutocompleteProvider::TYPE_SEARCH;
   }
@@ -1132,7 +1147,7 @@ bool AutocompleteController::ShouldRunProvider(
 
   // For contextual realbox queries, we only want to run a subset of providers
   // to filter out irrelevant suggestions (like history suggestions).
-  if (omnibox::IsNTPRealbox(input_.current_page_classification()) &&
+  if (input_.current_page_classification() == OEP::NTP_REALBOX &&
       input_.lens_overlay_suggest_inputs().has_value()) {
     return provider->type() == AutocompleteProvider::TYPE_ZERO_SUGGEST ||
            provider->type() == AutocompleteProvider::TYPE_SEARCH;
@@ -1772,7 +1787,7 @@ void AutocompleteController::AttachActions() {
     return;
   }
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if !BUILDFLAG(IS_IOS)
   if (omnibox_feature_configs::ContextualSearch::Get()
           .contextual_zero_suggest_lens_fulfillment &&
       input_.IsZeroSuggest()) {
@@ -1804,7 +1819,7 @@ void AutocompleteController::AttachActions() {
       return;
     }
   }
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#endif  // !BUILDFLAG(IS_IOS)
 
   // TabMatcher should run for ZPS for the Hub since open tab suggestions are
   // shown there.
@@ -2377,7 +2392,7 @@ size_t AutocompleteController::InjectAdHocMatch(AutocompleteMatch match) {
 
 #if BUILDFLAG(IS_IOS)
 void AutocompleteController::SetSteadyStateOmniboxPosition(
-    metrics::OmniboxEventProto::OmniboxPosition position) {
+    OEP::OmniboxPosition position) {
   steady_state_omnibox_position_ = position;
 }
 #endif
@@ -2394,10 +2409,10 @@ AutocompleteController::GetOmniboxPositionExperimentStatsV2() const {
   omnibox::metrics::ChromeSearchboxStats::ExperimentStatsV2 experiment_stats_v2;
   experiment_stats_v2.set_type_int(kOmniboxPositionFieldNumber);
   switch (steady_state_omnibox_position_) {
-    case metrics::OmniboxEventProto::TOP_POSITION:
+    case OEP::TOP_POSITION:
       experiment_stats_v2.set_int_value(kTopOmniboxValue);
       break;
-    case metrics::OmniboxEventProto::BOTTOM_POSITION:
+    case OEP::BOTTOM_POSITION:
       experiment_stats_v2.set_int_value(kBottomOmniboxValue);
       break;
     default:
@@ -2850,8 +2865,7 @@ void AutocompleteController::MaybeRemoveCompanyEntityImages(
 void AutocompleteController::MaybeCleanSuggestionsForKeywordMode(
     const AutocompleteInput& input,
     AutocompleteResult* result) {
-  if (!kIsDesktop || input.current_page_classification() ==
-                         metrics::OmniboxEventProto::NTP_REALBOX) {
+  if (!kIsDesktop || input.current_page_classification() == OEP::NTP_REALBOX) {
     // Realbox doesn't support keyword mode yet, so keep original list intact.
     return;
   }

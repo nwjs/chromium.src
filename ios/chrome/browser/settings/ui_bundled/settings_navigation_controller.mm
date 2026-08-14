@@ -20,6 +20,7 @@
 #import "ios/chrome/browser/keyboard/ui_bundled/UIKeyCommand+Chrome.h"
 #import "ios/chrome/browser/metrics/model/activity_reporter.h"
 #import "ios/chrome/browser/settings/autofill/autofill_and_passwords/coordinator/autofill_and_passwords_coordinator.h"
+#import "ios/chrome/browser/settings/autofill/autofill_and_passwords/coordinator/autofill_settings_coordinator.h"
 #import "ios/chrome/browser/settings/google_services/coordinator/google_services_settings_coordinator.h"
 #import "ios/chrome/browser/settings/google_services/ui/google_services_settings_view_controller.h"
 #import "ios/chrome/browser/settings/manage_accounts/coordinator/manage_accounts_coordinator.h"
@@ -88,8 +89,9 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
 @interface SettingsNavigationController () <
     AutofillAndPasswordsCoordinatorDelegate,
     AutofillProfileEditCoordinatorDelegate,
-    GeminiSettingsCoordinatorDelegate,
+    AutofillSettingsCoordinatorDelegate,
     ContentSettingsCoordinatorDelegate,
+    GeminiSettingsCoordinatorDelegate,
     GoogleServicesSettingsCoordinatorDelegate,
     ManageAccountsCoordinatorDelegate,
     ManageSyncSettingsCoordinatorDelegate,
@@ -180,6 +182,8 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
   BOOL _dismissalUserActionReported;
   // Autofill and Passwords coordinator.
   AutofillAndPasswordsCoordinator* _autofillAndPasswordsCoordinator;
+  // Autofill settings coordinator.
+  AutofillSettingsCoordinator* _autofillSettingsCoordinator;
   ActivityReporter* _activityReporter;
 }
 
@@ -350,6 +354,7 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
 
 + (instancetype)
     savePasswordsControllerForBrowser:(Browser*)browser
+      shouldShowLevelUpWalkthroughIPH:(BOOL)shouldShowLevelUpWalkthroughIPH
                              delegate:(id<SettingsNavigationControllerDelegate>)
                                           delegate {
   SettingsNavigationController* navigationController =
@@ -357,7 +362,8 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
           initWithRootViewController:nil
                              browser:browser
                             delegate:delegate];
-  [navigationController showSavedPasswords];
+  [navigationController showSavedPasswordsWithLevelUpWalkthroughIPH:
+                            shouldShowLevelUpWalkthroughIPH];
 
   return navigationController;
 }
@@ -743,6 +749,7 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
   [self stopAutofillProfileEditCoordinator];
   [self stopNotificationsCoordinator];
   [self stopGeminiSettingsCoordinator];
+  [self stopAutofillSettingsCoordinator];
 
   // Reset the delegate to prevent any queued transitions from attempting to
   // close the settings.
@@ -925,9 +932,15 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
 
 // Shows the saved passwords.
 - (void)showSavedPasswords {
+  [self showSavedPasswordsWithLevelUpWalkthroughIPH:NO];
+}
+
+// Shows the saved passwords with optional Level Up walkthrough IPH.
+- (void)showSavedPasswordsWithLevelUpWalkthroughIPH:(BOOL)levelUpIPH {
   self.savedPasswordsCoordinator = [[PasswordsCoordinator alloc]
       initWithBaseNavigationController:self
                                browser:self.browser];
+  self.savedPasswordsCoordinator.shouldShowLevelUpWalkthroughIPH = levelUpIPH;
   self.savedPasswordsCoordinator.delegate = self;
   [self.savedPasswordsCoordinator start];
 }
@@ -1019,6 +1032,13 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
   [self.notificationsCoordinator stop];
   self.notificationsCoordinator.delegate = nil;
   self.notificationsCoordinator = nil;
+}
+
+// Stops the underlying Autofill settings coordinator.
+- (void)stopAutofillSettingsCoordinator {
+  [_autofillSettingsCoordinator stop];
+  _autofillSettingsCoordinator.delegate = nil;
+  _autofillSettingsCoordinator = nil;
 }
 
 #pragma mark - ContentSettingsCoordinatorDelegate
@@ -1118,6 +1138,14 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
     (NotificationsCoordinator*)coordinator {
   DCHECK_EQ(self.notificationsCoordinator, coordinator);
   [self stopNotificationsCoordinator];
+}
+
+#pragma mark - AutofillSettingsCoordinatorDelegate
+
+- (void)autofillSettingsCoordinatorDidRemove:
+    (AutofillSettingsCoordinator*)coordinator {
+  DCHECK_EQ(_autofillSettingsCoordinator, coordinator);
+  [self stopAutofillSettingsCoordinator];
 }
 
 #pragma mark - UIAdaptivePresentationControllerDelegate
@@ -1276,7 +1304,16 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
 
 - (void)showSavedPasswordsSettingsFromViewController:
     (UIViewController*)baseViewController {
-  [self showSavedPasswords];
+  [self showSavedPasswordsSettingsFromViewController:baseViewController
+                     shouldShowLevelUpWalkthroughIPH:NO];
+}
+
+- (void)showSavedPasswordsSettingsFromViewController:
+            (UIViewController*)baseViewController
+                     shouldShowLevelUpWalkthroughIPH:
+                         (BOOL)shouldShowLevelUpWalkthroughIPH {
+  [self showSavedPasswordsWithLevelUpWalkthroughIPH:
+            shouldShowLevelUpWalkthroughIPH];
 }
 
 - (void)showAutofillAndPasswordsSettings {
@@ -1422,6 +1459,14 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
   self.notificationsCoordinator.delegate = self;
   [self.notificationsCoordinator start];
   [self.notificationsCoordinator showTrackingPrice];
+}
+
+- (void)showAutofillSettings {
+  _autofillSettingsCoordinator = [[AutofillSettingsCoordinator alloc]
+      initWithBaseNavigationController:self
+                               browser:self.browser];
+  _autofillSettingsCoordinator.delegate = self;
+  [_autofillSettingsCoordinator start];
 }
 
 #pragma mark - SyncEncryptionPassphraseTableViewControllerPresentationDelegate

@@ -12,15 +12,13 @@ constexpr const char16_t* kShouldDetachPageContextScript = u"return false;";
 void ConfigureWithStartupConfiguration(
     GeminiStartupConfiguration* gemini_startup_configuration) {}
 
-// TODO(crbug.com/478259873): Replace with StartGeminiOverlay
-void StartBwgOverlay(GeminiConfiguration* gemini_configuration) {}
+void StartGeminiOverlay(GeminiConfiguration* gemini_configuration) {}
 
 const std::u16string GetPageContextShouldDetachScript() {
   return kShouldDetachPageContextScript;
 }
 
-// TODO(crbug.com/478259873): Replace with CreateGeminiGateway
-id<BWGGatewayProtocol> CreateBWGGateway() {
+id<BWGGatewayProtocol> CreateGeminiGateway() {
   return nil;
 }
 
@@ -54,6 +52,8 @@ GeminiSettingsAction* ActionForSettingsContext(GeminiSettingsContext context) {
 }
 
 void UpdateOverlayOffsetWithOpacity(CGFloat offset, CGFloat opacity) {}
+
+void UpdateDetentHeights(CGFloat collapsed_height, CGFloat extended_height) {}
 
 void UpdateGeminiViewState(GeminiViewState view_state, bool animated) {}
 
@@ -90,6 +90,10 @@ void SetLiveCaptionsNumberOfLines(int number_of_lines) {}
 int GetLiveCaptionsNumberOfLines() {
   return 0;
 }
+
+void SetShouldShowSuggestionChips(bool should_show) {}
+
+void ShowAccountSnackbar() {}
 
 UIViewController* GetFloatyViewControllerWithConfiguration(
     GeminiConfiguration* gemini_configuration) {

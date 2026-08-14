@@ -279,8 +279,6 @@ class VIEWS_EXPORT DesktopWindowTreeHostWin
   void PostHandleMSG(UINT message, WPARAM w_param, LPARAM l_param) override;
   bool HandleScrollEvent(ui::ScrollEvent* event) override;
   bool HandleGestureEvent(ui::GestureEvent* event) override;
-  void HandleWindowSizeChanging() override;
-  void HandleWindowSizeUnchanged() override;
   void HandleWindowScaleFactorChanged(float window_scale_factor) override;
   void HandleHeadlessWindowBoundsChanged(const gfx::Rect& bounds) override;
   HBRUSH GetBackgroundPaintBrush() override;
@@ -376,6 +374,12 @@ class VIEWS_EXPORT DesktopWindowTreeHostWin
   // member static ensures that ::ShowCursor() is always called exactly once
   // whenever the cursor visibility state changes.
   static bool is_cursor_visible_;
+
+  // Modality of the window should be immutable, so we can cache it here for
+  // later interrogation. This ensures that any owner window is properly enabled
+  // when a modal window is destroyed/hidden, regardless of whether or not the
+  // native_widget_delegate_ is still present.
+  const bool is_modal_;
 
   // Captures system key events when keyboard lock is requested.
   std::unique_ptr<ui::KeyboardHook> keyboard_hook_;

@@ -6,89 +6,117 @@
 
 #include <utility>
 
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
-#include "components/personal_context/core/personal_context_enablement_service.h"
+#include "components/personal_context/core/personal_context_debug_features.h"
+#include "components/personal_context/core/personal_context_eligibility_service.h"
 #include "components/personal_context/core/personal_context_features.h"
 #include "components/personal_context/core/personal_context_prefs.h"
 #include "components/prefs/pref_service.h"
 
 namespace personal_context {
+
+namespace {
+
+bool AreServicesAvailableAndAccountEligibleForPersonalIntelligence(
+    PersonalContextEligibilityService* eligibility_service,
+    PrefService* pref_service) {
+  if (!eligibility_service || !pref_service) {
+    return false;
+  }
+
+  if (eligibility_service->GetEligibilityState() !=
+      PersonalContextEligibilityState::kEligible) {
+    // Account not eligible.
+    return false;
+  }
+  return true;
+}
+
+void ResetNoticePrefs(PrefService* pref_service) {
+  if (!pref_service) {
+    return;
+  }
+  pref_service->ClearPref(
+      prefs::kPersonalContextAmbientAutofillNoticeShouldBeShown);
+  pref_service->ClearPref(prefs::kPersonalContextAtMemoryNoticeShouldBeShown);
+  pref_service->ClearPref(
+      prefs::kPersonalContextInAutofillSettingsToggleStatus);
+}
+
+}  // namespace
+
 PersonalContextFirstRunServiceImpl::PersonalContextFirstRunServiceImpl(
-    std::unique_ptr<PersonalContextFirstRunClient> client,
-    PersonalContextEnablementService* enablement_service,
-    PrefService* pref_service)
-    : client_(std::move(client)),
-      enablement_service_(enablement_service),
-      pref_service_(pref_service) {}
+    PersonalContextEligibilityService* eligibility_service,
+    PrefService* pref_service,
+    signin::IdentityManager* identity_manager)
+    : eligibility_service_(eligibility_service),
+      pref_service_(pref_service),
+      identity_manager_(identity_manager) {
+  if (identity_manager_) {
+    identity_manager_observation_.Observe(identity_manager_);
+  }
+  if (base::FeatureList::IsEnabled(
+          features::debug::kPersonalContextResetNoticePrefsOnStartup)) {
+    ResetNoticePrefs(pref_service_);
+  }
+}
 
 PersonalContextFirstRunServiceImpl::~PersonalContextFirstRunServiceImpl() =
     default;
 
-void PersonalContextFirstRunServiceImpl::MaybeTriggerFirstRun(
-    content::WebContents* web_contents,
-    FirstRunInvocationSource invocation_source,
-    base::OnceCallback<void(FirstRunTriggerResult)> callback) {
-  if (!enablement_service_) {
-    std::move(callback).Run(FirstRunTriggerResult::kIgnoredNotEligible);
-    return;
-  }
-
-  PersonalContextEnablementState state =
-      enablement_service_->GetEnablementState();
-  if (state == PersonalContextEnablementState::kDisabledNotEligible) {
-    std::move(callback).Run(FirstRunTriggerResult::kIgnoredNotEligible);
-    return;
-  }
-  if (state == PersonalContextEnablementState::kEnabled) {
-    std::move(callback).Run(FirstRunTriggerResult::kIgnoredAlreadyEnabled);
-    return;
-  }
-
-  auto wrapped_callback = base::BindOnce(
-      &PersonalContextFirstRunServiceImpl::OnNoticeDialogCompleted,
-      weak_ptr_factory_.GetWeakPtr(), std::move(callback));
-
-  switch (state) {
-    case PersonalContextEnablementState::kEnabledShouldShowNotice:
-      client_->ShowNotice(web_contents, invocation_source,
-                          std::move(wrapped_callback));
-      break;
-    default:
-      break;
+void PersonalContextFirstRunServiceImpl::OnPrimaryAccountChanged(
+    const signin::PrimaryAccountChangeEvent& event_details) {
+  if (event_details.GetEventTypeFor(signin::ConsentLevel::kSignin) ==
+      signin::PrimaryAccountChangeEvent::Type::kCleared) {
+    ResetNoticePrefs(pref_service_);
   }
 }
 
 void PersonalContextFirstRunServiceImpl::
-    MarkPersonalContextInAutofillNoticeAsAcknowledged() {
+    MarkPersonalContextAmbientAutofillNoticeAsAcknowledged() {
   if (pref_service_) {
     pref_service_->SetBoolean(
-        prefs::kPersonalContextInAutofillNoticeShouldBeShown, false);
+        prefs::kPersonalContextAmbientAutofillNoticeShouldBeShown, false);
   }
 }
 
 bool PersonalContextFirstRunServiceImpl::
-    ShouldShowPersonalContextAutofillNotice() const {
-  if (!features::IsPersonalContextFirstRunNoticePhase2Enabled()) {
-    return false;
-  }
-  if (!enablement_service_) {
+    ShouldShowPersonalContextAmbientAutofillNotice() const {
+  if (!AreServicesAvailableAndAccountEligibleForPersonalIntelligence(
+          eligibility_service_, pref_service_)) {
     return false;
   }
 
-  return enablement_service_->GetEnablementState() ==
-         PersonalContextEnablementState::kEnabledShouldShowNotice;
+  return pref_service_->GetBoolean(
+             prefs::kPersonalContextInAutofillSettingsToggleStatus) &&
+         pref_service_->GetBoolean(
+             prefs::kPersonalContextAmbientAutofillNoticeShouldBeShown);
 }
 
-void PersonalContextFirstRunServiceImpl::OnNoticeDialogCompleted(
-    base::OnceCallback<void(FirstRunTriggerResult)> callback,
-    NoticeResult result) {
-  if (result == NoticeResult::kAcknowledged) {
-    if (pref_service_) {
-      pref_service_->SetBoolean(
-          prefs::kPersonalContextInAutofillNoticeShouldBeShown, false);
-    }
+void PersonalContextFirstRunServiceImpl::
+    MarkPersonalContextInAtMemoryNoticeAsAcknowledged() {
+  if (pref_service_) {
+    // Acknowledging the AtMemory notice also counts as acknowledging the
+    // Autofill notice.
+    pref_service_->SetBoolean(
+        prefs::kPersonalContextAmbientAutofillNoticeShouldBeShown, false);
+    pref_service_->SetBoolean(
+        prefs::kPersonalContextAtMemoryNoticeShouldBeShown, false);
   }
-  std::move(callback).Run(FirstRunTriggerResult::kSuccess);
+}
+
+bool PersonalContextFirstRunServiceImpl::
+    ShouldShowPersonalContextAtMemoryNotice() const {
+  if (!AreServicesAvailableAndAccountEligibleForPersonalIntelligence(
+          eligibility_service_, pref_service_)) {
+    return false;
+  }
+
+  return pref_service_->GetBoolean(
+             prefs::kPersonalContextInAutofillSettingsToggleStatus) &&
+         pref_service_->GetBoolean(
+             prefs::kPersonalContextAtMemoryNoticeShouldBeShown);
 }
 
 }  // namespace personal_context

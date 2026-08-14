@@ -5,12 +5,13 @@
 #include "chrome/browser/glic/browser_ui/glic_button_controller.h"
 
 #include <memory>
+#include <utility>
 
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "chrome/browser/actor/actor_keyed_service_fake.h"
-#include "chrome/browser/glic/browser_ui/glic_button_controller_delegate.h"
+#include "chrome/browser/glic/browser_ui/glic_split_button_delegate.h"
 #include "chrome/browser/glic/browser_ui/glic_vector_icon_manager.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
@@ -26,10 +27,10 @@
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_features.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
+#include "components/optimization_guide/core/feature_registry/feature_registration.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "content/public/test/browser_task_environment.h"
@@ -55,11 +56,6 @@ class TestingGlicInstanceCoordinator
 
   void NotifyShowHide() { global_show_hide_subscriptions_.Notify(); }
 
-  void GetExperimentalTriggeringUpdates(
-      mojo::PendingRemote<mojom::ExperimentalTriggeringUpdatesHandler> handler,
-      base::OnceCallback<void(bool)> success_status_callback) override {
-    std::move(success_status_callback).Run(true);
-  }
 
  private:
   base::RepeatingClosureList global_show_hide_subscriptions_;
@@ -108,25 +104,19 @@ class MockGlicKeyedServiceForButtonController : public MockGlicKeyedService {
   std::unique_ptr<TestingGlicInstanceCoordinator> window_controller_;
 };
 
-class MockGlicButtonControllerDelegate
-    : public glic::GlicButtonControllerDelegate {
+class MockGlicButtonControllerDelegate : public glic::GlicSplitButtonDelegate {
  public:
   void SetGlicShowState(bool show) override { show_state_ = show; }
   void SetGlicPanelIsOpen(bool panel_open) override {
     panel_open_ = panel_open;
   }
-  void SetButtonController(GlicButtonController* controller) override {
-    controller_ = controller;
-  }
 
   bool show_state() const { return show_state_; }
   bool panel_open() const { return panel_open_; }
-  GlicButtonController* controller() const { return controller_; }
 
  private:
   bool show_state_ = false;
   bool panel_open_ = false;
-  raw_ptr<GlicButtonController> controller_ = nullptr;
 };
 
 }  // namespace
@@ -168,16 +158,19 @@ class GlicButtonControllerTest : public testing::Test {
     histograms_ = std::make_unique<base::HistogramTester>();
 
     glic_button_controller_ = std::make_unique<GlicButtonController>(
-        profile_, *mock_browser_window_interface_,
-        &mock_tab_strip_glic_controller_delegate_,
-        &mock_toolbar_glic_controller_delegate_, mock_glic_service_.get());
+        profile_, *mock_browser_window_interface_, mock_glic_service_.get());
+    glic_button_controller_->SetHorizontalTabsDelegate(
+        &mock_tab_strip_glic_controller_delegate_);
+    glic_button_controller_->SetVerticalTabsDelegate(
+        &mock_toolbar_glic_controller_delegate_);
 
     glic_test_env_.SetupProfile(profile());
 
     PrefService* prefs = profile()->GetPrefs();
     prefs->SetInteger(
-        ::prefs::kGeminiSettings,
-        static_cast<int>(glic::prefs::SettingsPolicyState::kEnabled));
+        optimization_guide::prefs::kGeminiSettings,
+        std::to_underlying(
+            optimization_guide::prefs::GeminiSettingsPolicyState::kEnabled));
     prefs->SetBoolean(glic::prefs::kGlicPinnedToTabstrip, true);
   }
 
@@ -247,29 +240,33 @@ TEST_F(GlicButtonControllerTest, GlicSettings) {
   PrefService* prefs = profile()->GetPrefs();
 
   prefs->SetInteger(
-      ::prefs::kGeminiSettings,
-      static_cast<int>(glic::prefs::SettingsPolicyState::kEnabled));
+      optimization_guide::prefs::kGeminiSettings,
+      std::to_underlying(
+          optimization_guide::prefs::GeminiSettingsPolicyState::kEnabled));
   prefs->SetBoolean(glic::prefs::kGlicPinnedToTabstrip, true);
   EXPECT_TRUE(tab_strip_controller_delegate()->show_state());
   EXPECT_TRUE(toolbar_controller_delegate()->show_state());
 
   prefs->SetInteger(
-      ::prefs::kGeminiSettings,
-      static_cast<int>(glic::prefs::SettingsPolicyState::kDisabled));
+      optimization_guide::prefs::kGeminiSettings,
+      std::to_underlying(
+          optimization_guide::prefs::GeminiSettingsPolicyState::kDisabled));
   prefs->SetBoolean(glic::prefs::kGlicPinnedToTabstrip, true);
   EXPECT_FALSE(tab_strip_controller_delegate()->show_state());
   EXPECT_FALSE(toolbar_controller_delegate()->show_state());
 
   prefs->SetInteger(
-      ::prefs::kGeminiSettings,
-      static_cast<int>(glic::prefs::SettingsPolicyState::kEnabled));
+      optimization_guide::prefs::kGeminiSettings,
+      std::to_underlying(
+          optimization_guide::prefs::GeminiSettingsPolicyState::kEnabled));
   prefs->SetBoolean(glic::prefs::kGlicPinnedToTabstrip, false);
   EXPECT_FALSE(tab_strip_controller_delegate()->show_state());
   EXPECT_FALSE(toolbar_controller_delegate()->show_state());
 
   prefs->SetInteger(
-      ::prefs::kGeminiSettings,
-      static_cast<int>(glic::prefs::SettingsPolicyState::kDisabled));
+      optimization_guide::prefs::kGeminiSettings,
+      std::to_underlying(
+          optimization_guide::prefs::GeminiSettingsPolicyState::kDisabled));
   prefs->SetBoolean(glic::prefs::kGlicPinnedToTabstrip, false);
   EXPECT_FALSE(tab_strip_controller_delegate()->show_state());
   EXPECT_FALSE(toolbar_controller_delegate()->show_state());
@@ -303,6 +300,12 @@ TEST_F(GlicButtonControllerTest, RecordStartupMetrics) {
   // Startup metrics should not have been logged again.
   histograms().ExpectUniqueSample("Glic.ProfileEnablement.IsEnabled.Startup",
                                   false, 1);
+}
+
+TEST_F(GlicButtonControllerTest, FromBrowserWindowInterface) {
+  EXPECT_EQ(GlicButtonController::From(browser_window_interface()),
+            controller());
+  EXPECT_EQ(GlicButtonController::From(nullptr), nullptr);
 }
 
 }  // namespace glic

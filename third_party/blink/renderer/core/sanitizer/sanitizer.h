@@ -51,6 +51,8 @@ class CORE_EXPORT Sanitizer final : public ScriptWrappable {
 
   static Sanitizer* CreateEmpty();
 
+  Sanitizer* Clone() const;
+
   Sanitizer() = default;
   ~Sanitizer() override = default;
   Sanitizer(const Sanitizer&) = delete;  // Use MakeGarbageCollected + setFrom.
@@ -64,6 +66,8 @@ class CORE_EXPORT Sanitizer final : public ScriptWrappable {
             std::unique_ptr<SanitizerNameSet>,
             SanitizerNameMap,
             SanitizerNameMap,
+            std::unique_ptr<HashSet<AtomicString>>,
+            std::unique_ptr<HashSet<AtomicString>>,
             bool,
             bool);
 

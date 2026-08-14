@@ -27,6 +27,7 @@ import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.bookmarks.BookmarkManagerOpenerImpl;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.BookmarkUtils;
+import org.chromium.chrome.browser.contextual_tasks.ContextualTasksUtils;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.dom_distiller.ReaderModeManager;
 import org.chromium.chrome.browser.download.DownloadUtils;
@@ -151,14 +152,17 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
 
     @Override
     public boolean isPrintSupported() {
+        if (mTab == null) return false;
+        if (ContextualTasksUtils.isContextualTasksUrl(mTab.getUrl())) {
+            return false;
+        }
         return UserPrefs.get(mTab.getProfile()).getBoolean(Pref.PRINTING_ENABLED);
     }
 
     @Override
     public boolean isOpenInOtherWindowSupported() {
-        Activity activity = TabUtils.getActivity(mTab);
-        return activity != null
-                && MultiWindowUtils.getInstance().isLinkNavigationToOtherWindowSupported(activity);
+        return mActivity != null
+                && MultiWindowUtils.getInstance().isLinkNavigationToOtherWindowSupported(mActivity);
     }
 
     @Override
@@ -563,6 +567,7 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
         }
 
         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url.getSpec()));
+        intent.addCategory(Intent.CATEGORY_BROWSABLE);
         CustomTabsIntent.setAlwaysUseBrowserUI(intent);
         IntentUtils.safeStartActivity(mTab.getContext(), intent);
     }

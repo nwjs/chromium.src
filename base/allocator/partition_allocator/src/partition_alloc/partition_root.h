@@ -30,6 +30,7 @@
 //   might be placed into a 4096-byte bucket. Bucket sizes are chosen to try and
 //   keep worst-case waste to ~10%.
 
+#include <array>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -55,16 +56,17 @@
 
 // When a memory tool is replacing malloc to keep aligned behaviour working we
 // use window's aligned_malloc and aligned_free, but otherwise we need memalign.
-#if defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
+#if PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR)
 #if PA_BUILDFLAG(PA_COMPILER_MSVC)
 #include <malloc.h>
 #else
 #include <stdlib.h>
 #endif  // PA_BUILDFLAG(PA_COMPILER_MSVC)
-#endif  // defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
+#endif  // PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR)
 
 namespace partition_alloc::internal {
 
+template <bool>
 class BatchFreeQueue;
 class PartitionRootEnumerator;
 struct SlotSpanMetadata;
@@ -330,9 +332,9 @@ class alignas(internal::kPartitionCachelineSize)
   SuperPageExtentEntry* first_extent_ = nullptr;
   DirectMapExtent* direct_map_list_
       PA_GUARDED_BY(internal::PartitionRootLock(this)) = nullptr;
-  SlotSpanMetadata* global_empty_slot_span_ring_
-      [internal::kMaxEmptySlotSpanRingSize] PA_GUARDED_BY(
-          internal::PartitionRootLock(this)) = {};
+  std::array<SlotSpanMetadata*, internal::kMaxEmptySlotSpanRingSize>
+      global_empty_slot_span_ring_
+          PA_GUARDED_BY(internal::PartitionRootLock(this)) = {};
   int16_t global_empty_slot_span_ring_index_
       PA_GUARDED_BY(internal::PartitionRootLock(this)) = 0;
   int16_t global_empty_slot_span_ring_size_
@@ -352,7 +354,7 @@ class alignas(internal::kPartitionCachelineSize)
   size_t scheduler_loop_quarantine_branch_capacity_in_bytes_ = 0;
   internal::SchedulerLoopQuarantineRoot scheduler_loop_quarantine_root_;
   internal::GlobalSchedulerLoopQuarantineBranch scheduler_loop_quarantine_;
-  internal::GlobalSchedulerLoopQuarantineBranch
+  internal::SanitizedObjectSchedulerLoopQuarantineBranch
       scheduler_loop_quarantine_for_advanced_memory_safety_checks_;
 
   static constexpr internal::base::TimeDelta kMaxPurgeDuration =
@@ -479,14 +481,8 @@ class alignas(internal::kPartitionCachelineSize)
   // |type_name == nullptr|: ONLY FOR TESTS except internal uses.
   // You should provide |type_name| to make debugging easier.
   template <AllocFlags flags = AllocFlags::kNone>
-  PA_ALWAYS_INLINE PA_MALLOC_FN void* Alloc(size_t requested_size,
-                                            const char* type_name = nullptr) {
-    return AllocInline<flags>(requested_size, type_name);
-  }
-  // PartitionAlloc should provide only NOINLINE methods as public interfaces.
-  template <AllocFlags flags = AllocFlags::kNone>
-  PA_NOINLINE PA_MALLOC_FN void* AllocInline(size_t requested_size,
-                                             const char* type_name = nullptr);
+  PA_NOINLINE PA_MALLOC_FN void* Alloc(size_t requested_size,
+                                       const char* type_name = nullptr);
 
   // AllocInternal exposed for testing.
   template <AllocFlags flags = AllocFlags::kNone>
@@ -791,6 +787,9 @@ class alignas(internal::kPartitionCachelineSize)
   PA_NOINLINE size_t
   GetSlotSizeFromRequestedSizeForTesting(size_t requested_size) const;
 
+  PA_ALWAYS_INLINE bool IsSchedulerLoopQuarantineTarget(
+      const internal::BucketSizeDetails& size_details);
+
  private:
   static inline StraightenLargerSlotSpanFreeListsMode
       straighten_larger_slot_span_free_lists_ =
@@ -914,6 +913,11 @@ class alignas(internal::kPartitionCachelineSize)
   PA_ALWAYS_INLINE internal::SchedulerLoopQuarantineRoot&
   GetSchedulerLoopQuarantineRoot();
 
+  PA_ALWAYS_INLINE void SchedulerLoopQuarantine(
+      internal::SlotStart slot_start,
+      SlotSpanMetadata* slot_span,
+      const internal::BucketSizeDetails& size_details);
+
   PA_ALWAYS_INLINE AllocationNotificationData
   CreateAllocationNotificationData(void* object,
                                    size_t size,
@@ -947,11 +951,12 @@ class alignas(internal::kPartitionCachelineSize)
   std::atomic<uint64_t> intended_leak_size_;
 
   friend class internal::ThreadCache;
+  template <bool>
   friend class internal::BatchFreeQueue;
 #if PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
   friend class internal::InSlotMetadata;
 #endif  // PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
-  template <bool>
+  template <bool, bool>
   friend class internal::SchedulerLoopQuarantineBranch;
 };
 

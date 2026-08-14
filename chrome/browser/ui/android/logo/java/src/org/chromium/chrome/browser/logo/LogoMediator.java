@@ -104,6 +104,7 @@ public class LogoMediator implements TemplateUrlServiceObserver {
     private @Nullable String mAnimatedLogoUrl;
     private boolean mShouldRecordLoadTime = true;
     private @Nullable String mSearchEngineKeyword;
+    private @Nullable String mRecordedImpressionUrl;
 
     private final ObserverList<LogoCoordinator.VisibilityObserver> mVisibilityObservers =
             new ObserverList<>();
@@ -248,7 +249,8 @@ public class LogoMediator implements TemplateUrlServiceObserver {
     boolean isDefaultGoogleLogoShown() {
         return mIsDefaultSearchEngineGoogle
                 && mShouldShowLogo
-                && mLogoModel.get(LogoProperties.VISIBILITY);
+                && mLogoModel.get(LogoProperties.VISIBILITY)
+                && mLogoModel.get(LogoProperties.LOGO) == null;
     }
 
     /**
@@ -260,6 +262,10 @@ public class LogoMediator implements TemplateUrlServiceObserver {
         // If logo is already updated for the current search provider, or profile is null or off the
         // record, don't bother loading the logo image.
         if (mHasLogoLoadedForCurrentSearchEngine || mProfile == null || !mShouldShowLogo) return;
+
+        if (mLogoBridge == null) {
+            mLogoBridge = new LogoBridge(mProfile);
+        }
 
         @Nullable Logo cachedDoodle =
                 DoodleCache.getInstance().getCachedDoodle(mSearchEngineKeyword);
@@ -281,14 +287,19 @@ public class LogoMediator implements TemplateUrlServiceObserver {
                     LOGO_SHOWN_UMA_NAME, logoType, LogoShownId.LOGO_SHOWN_COUNT);
             RecordHistogram.recordEnumeratedHistogram(
                     LOGO_SHOWN_FROM_CACHE_UMA_NAME, logoType, LogoShownId.LOGO_SHOWN_COUNT);
+
+            // Deduplicate impression pings. While the mHasLogoLoadedForCurrentSearchEngine flag
+            // usually prevents this block from running twice, edge cases like toggling the Default
+            // Search Engine will reset the flag while keeping this Mediator alive.
+            if (cachedDoodle.logUrl != null
+                    && !cachedDoodle.logUrl.equals(mRecordedImpressionUrl)) {
+                mLogoBridge.recordImpression(cachedDoodle.logUrl);
+                mRecordedImpressionUrl = cachedDoodle.logUrl;
+            }
             return;
         }
 
         showSearchProviderInitialView();
-
-        if (mLogoBridge == null) {
-            mLogoBridge = new LogoBridge(mProfile);
-        }
 
         getSearchProviderLogo(
                 new LogoBridge.LogoObserver() {
@@ -363,8 +374,9 @@ public class LogoMediator implements TemplateUrlServiceObserver {
      * @param drawable The updated drawable for default Google logo.
      */
     void updateDefaultGoogleLogo(Drawable drawable) {
-        mDefaultGoogleLogoDrawable = drawable;
+        assert mLogoModel.get(LogoProperties.LOGO) == null;
 
+        mDefaultGoogleLogoDrawable = drawable;
         mLogoModel.set(LogoProperties.DEFAULT_GOOGLE_LOGO_DRAWABLE, mDefaultGoogleLogoDrawable);
         mLogoModel.set(LogoProperties.SHOW_DEFAULT_GOOGLE_LOGO, true);
     }
@@ -487,6 +499,16 @@ public class LogoMediator implements TemplateUrlServiceObserver {
 
                         mOnLogoClickUrl = logo != null ? logo.onClickUrl : null;
                         mAnimatedLogoUrl = getAnimatedLogoUrl(logo);
+
+                        // The C++ LogoService fires this callback up to twice (once for disk cache,
+                        // once for network fetch). Deduplicate the impression pings to ensure we
+                        // only record exactly 1 impression per NTP session.
+                        if (logo != null
+                                && logo.logUrl != null
+                                && !logo.logUrl.equals(mRecordedImpressionUrl)) {
+                            mLogoBridge.recordImpression(logo.logUrl);
+                            mRecordedImpressionUrl = logo.logUrl;
+                        }
 
                         logoObserver.onLogoAvailable(logo, fromCache);
                     }

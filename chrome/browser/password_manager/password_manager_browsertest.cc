@@ -76,6 +76,7 @@
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
+#include "components/signin/public/identity_manager/tribool.h"
 #include "components/sync/base/features.h"
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/test/test_sync_user_settings.h"
@@ -144,7 +145,7 @@ class PasswordManagerBrowserTest : public PasswordManagerBrowserTestBase {
     PasswordManagerBrowserTestBase::SetUpOnMainThread();
 
     signin::MakePrimaryAccountAvailable(
-        IdentityManagerFactory::GetForProfile(browser()->profile()),
+        IdentityManagerFactory::GetForProfile(browser()->GetProfile()),
         "user@example.com",
         syncer::IsReplaceSyncPromosWithSignInPromosEnabled()
             ? signin::ConsentLevel::kSignin
@@ -514,7 +515,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, PromptForDynamicForm) {
   // Adding a PSL matching form is a workaround explained later.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   GURL psl_orogin = embedded_test_server()->GetURL("psl.example.com", "/");
   signin_form.signon_realm = psl_orogin.spec();
@@ -1214,7 +1215,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        NoFillOnPageloadIfUsernameAndPasswordAreNonEmpty) {
   // Add credentials to the password store.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm saved_form;
   const std::string kTestSignonRealm =
       embedded_test_server()->GetURL("example.com", "/").spec();
@@ -1249,7 +1250,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        UsernameAndPasswordValueAccessible) {
   // At first let us save a credential to the password store.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.url = embedded_test_server()->base_url();
@@ -1291,7 +1292,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        PasswordValueAccessibleOnSubmit) {
   // At first let us save a credential to the password store.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.url = embedded_test_server()->base_url();
@@ -1399,7 +1400,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        HiddenFormAddedBetweenParsingAndRendering) {
   // At first let us save a credential to the password store.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.url = embedded_test_server()->base_url();
@@ -1428,7 +1429,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, SlowPageFill) {
   // At first let us save a credential to the password store.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.url = embedded_test_server()->base_url();
@@ -1473,7 +1474,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, NoLastLoadGoodLastLoad) {
   ASSERT_TRUE(http_test_server.Start());
 
   password_manager::TestPasswordStore* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   ASSERT_TRUE(GetAllLoginsSync(password_store).empty());
 
   // Navigate to a page requiring HTTP auth.
@@ -1602,7 +1603,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   http_form.username_value = u"user";
   http_form.password_value = u"12345";
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_store->AddLogin(password_manager::FromPasswordForm(http_form));
 
   PasswordsNavigationObserver form_observer(WebContents());
@@ -1643,7 +1644,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   http_form.username_value = u"user";
   http_form.password_value = u"12345";
   password_manager::TestPasswordStore* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_store->AddLogin(password_manager::FromPasswordForm(http_form));
 
   // Treat the host of the HTTPS test server as HSTS.
@@ -1682,7 +1683,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        PromptWhenPasswordFormWithoutUsernameFieldSubmitted) {
   password_manager::TestPasswordStore* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
 
   EXPECT_TRUE(GetAllLoginsSync(password_store).empty());
 
@@ -1708,7 +1709,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, ReCreatedFormsGetFilled) {
   // At first let us save a credential to the password store.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.url = embedded_test_server()->base_url();
@@ -1739,7 +1740,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, ReCreatedFormsGetFilled) {
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, DuplicateFormsGetFilled) {
   // At first let us save a credential to the password store.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.url = embedded_test_server()->base_url();
@@ -1767,7 +1768,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        DeletedPasswordIsNotRevived) {
   // At first let us save a credential to the password store.
   password_manager::TestPasswordStore* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.url = embedded_test_server()->base_url();
@@ -1929,7 +1930,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 IN_PROC_BROWSER_TEST_F(PasswordManagerAutofillPopupBrowserTest,
                        InFrameNavigationDoesNotClearPopupState) {
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.username_value = u"temp";
@@ -2089,7 +2090,7 @@ IN_PROC_BROWSER_TEST_F(
     PasswordManagerBrowserTest,
     DISABLED_IFrameDetachedRightAfterFormSubmission_UpdateBubbleShown) {
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.password_value = u"pw";
@@ -2147,7 +2148,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 
   // Store a password for autofill later.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = iframe_url.DeprecatedGetOriginAsURL().spec();
   signin_form.url = iframe_url;
@@ -2207,7 +2208,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 
   // Store a password for autofill later.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = iframe_url.DeprecatedGetOriginAsURL().spec();
   signin_form.url = iframe_url;
@@ -2297,7 +2298,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, ChangePwdNoAccountStored) {
-  SyncServiceFactory::GetForProfile(browser()->profile())
+  SyncServiceFactory::GetForProfile(browser()->GetProfile())
       ->GetUserSettings()
       ->SetSelectedType(syncer::UserSelectableType::kPasswords, false);
   NavigateToFile("/password/password_form.html");
@@ -2328,7 +2329,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, ChangePwdNoAccountStored) {
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, ChangePwd1AccountStored) {
   // At first let us save credentials to the PasswordManager.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.password_value = u"pw";
@@ -2376,7 +2377,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        DeleteBackUpPasswordUpdateBubbleAccepted) {
   // At first let us save credentials to the PasswordManager.
   scoped_refptr<password_manager::TestPasswordStore> password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.password_value = u"random";
@@ -2420,7 +2421,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTestWithAutofillDisabled,
                        PasswordOverriddenUpdateBubbleShown) {
   // At first let us save credentials to the PasswordManager.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.username_value = u"temp";
@@ -2450,7 +2451,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        PasswordNotOverriddenUpdateBubbleNotShown) {
   // At first let us save credentials to the PasswordManager.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.username_value = u"temp";
@@ -2522,7 +2523,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        ChangePwdWhenTheFormContainNotUsernameTextfield) {
   // At first let us save credentials to the PasswordManager.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.password_value = u"pw";
@@ -2558,7 +2559,7 @@ IN_PROC_BROWSER_TEST_F(
     AutofillSuggestionsForPasswordFormWithAmbiguousIdAttribute) {
   // At first let us save credentials to the PasswordManager.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm login_form;
   login_form.signon_realm = embedded_test_server()->base_url().spec();
   login_form.action = embedded_test_server()->GetURL("/password/done.html");
@@ -2586,7 +2587,7 @@ IN_PROC_BROWSER_TEST_F(
     AutofillSuggestionsForPasswordFormWithoutNameOrIdAttribute) {
   // At first let us save credentials to the PasswordManager.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm login_form;
   login_form.signon_realm = embedded_test_server()->base_url().spec();
   login_form.action = embedded_test_server()->GetURL("/password/done.html");
@@ -2613,7 +2614,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        AutofillSuggestionsForChangePwdWithEmptyNames) {
   // At first let us save credentials to the PasswordManager.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm login_form;
   login_form.signon_realm = embedded_test_server()->base_url().spec();
   login_form.action = embedded_test_server()->GetURL("/password/done.html");
@@ -2650,7 +2651,7 @@ IN_PROC_BROWSER_TEST_F(
     AutofillSuggestionsForChangePwdWithEmptyNamesAndAutocomplete) {
   // At first let us save credentials to the PasswordManager.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm login_form;
   login_form.signon_realm = embedded_test_server()->base_url().spec();
   login_form.action = embedded_test_server()->GetURL("/password/done.html");
@@ -2684,7 +2685,7 @@ IN_PROC_BROWSER_TEST_F(
     AutofillSuggestionsForChangePwdWithEmptyNamesButOnlyNewPwdField) {
   // At first let us save credentials to the PasswordManager.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm login_form;
   login_form.signon_realm = embedded_test_server()->base_url().spec();
   login_form.action = embedded_test_server()->GetURL("/password/done.html");
@@ -2734,7 +2735,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, BasicAuthSeparateRealms) {
 
   // Save credentials for "test realm" in the store.
   password_manager::TestPasswordStore* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm creds;
   creds.scheme = password_manager::PasswordForm::Scheme::kBasic;
   creds.signon_realm = http_test_server.base_url().spec() + "test realm";
@@ -2777,7 +2778,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, ProxyAuthFilling) {
 
   // Save credentials for "testrealm" in the store.
   password_manager::TestPasswordStore* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm creds;
   creds.scheme = password_manager::PasswordForm::Scheme::kBasic;
   creds.url = test_page;
@@ -2802,7 +2803,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        AutofillSuggestionsHiddenPasswordForm) {
   // At first let us save credentials to the PasswordManager.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm login_form;
   login_form.signon_realm = embedded_test_server()->base_url().spec();
   login_form.action = embedded_test_server()->GetURL("/password/done.html");
@@ -2829,7 +2830,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        AutofillSuggestionsForProblematicPasswordForm) {
   // At first let us save credentials to the PasswordManager.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm login_form;
   login_form.signon_realm = embedded_test_server()->base_url().spec();
   login_form.action = embedded_test_server()->GetURL("/password/done.html");
@@ -2856,7 +2857,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        AutofillSuggestionsForProblematicAmbiguousPasswordForm) {
   // At first let us save credentials to the PasswordManager.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm login_form;
   login_form.signon_realm = embedded_test_server()->base_url().spec();
   login_form.action = embedded_test_server()->GetURL("/password/done.html");
@@ -2975,7 +2976,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        PasswordRetryFormNoBubbleWhenPasswordTheSame) {
   // At first let us save credentials to the PasswordManager.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.username_value = u"temp";
@@ -3005,7 +3006,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        PasswordRetryFormUpdateBubbleShown) {
   // At first let us save credentials to the PasswordManager.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.username_value = u"temp";
@@ -3034,7 +3035,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        NoCrashWhenNavigatingWithOpenAccountPicker) {
   // Save credentials with 'skip_zero_click'.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.password_value = u"password";
@@ -3079,7 +3080,7 @@ IN_PROC_BROWSER_TEST_F(
     SkipZeroClickNotToggledAfterSuccessfulSubmissionWithAPI) {
   // Save credentials with 'skip_zero_click'
   password_manager::TestPasswordStore* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.password_value = u"password";
@@ -3121,7 +3122,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        SkipZeroClickNotToggledAfterSuccessfulAutofill) {
   // Save credentials with 'skip_zero_click'
   password_manager::TestPasswordStore* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.password_value = u"password";
@@ -3184,7 +3185,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        FillWhenFormWithHiddenUsername) {
   // At first let us save a credential to the password store.
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.url = embedded_test_server()->base_url();
@@ -3307,7 +3308,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, AboutBlankPopupsAreIgnored) {
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        ExistingAboutBlankPasswordsAreNotUsed) {
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.url = GURL(url::kAboutBlankURL);
   signin_form.signon_realm = "about:";
@@ -3466,7 +3467,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   ASSERT_TRUE(http_test_server.Start());
 
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
 
   password_manager::PasswordForm blocked_form;
   blocked_form.scheme = password_manager::PasswordForm::Scheme::kHtml;
@@ -3499,7 +3500,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        HTMLLoginAfterHTTPAuthBlocklistedIsNotBlocked) {
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
 
   password_manager::PasswordForm blocked_form;
   blocked_form.scheme = password_manager::PasswordForm::Scheme::kBasic;
@@ -3525,7 +3526,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        HTMLLoginAfterHTMLBlocklistedIsBlocklisted) {
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
 
   password_manager::PasswordForm blocked_form;
   blocked_form.scheme = password_manager::PasswordForm::Scheme::kHtml;
@@ -3558,7 +3559,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   // Store a password at origin A.
   const GURL url_A = embedded_test_server()->GetURL("abc.foo.com", "/");
   password_manager::TestPasswordStore* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = url_A.DeprecatedGetOriginAsURL().spec();
   signin_form.url = url_A;
@@ -3615,7 +3616,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        NoFillGaiaReauthenticationForm) {
   password_manager::TestPasswordStore* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
 
   // Visit Gaia reath page.
   const GURL url = https_test_server().GetURL("accounts.google.com",
@@ -3639,7 +3640,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
                        NoFillGaiaWithSkipSavePasswordForm) {
   password_manager::TestPasswordStore* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
 
   // Visit Gaia form with ssp=1 as query (ssp stands for Skip Save Password).
   const GURL url = https_test_server().GetURL(
@@ -3663,7 +3664,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, FormDynamicallyChanged) {
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.username_value = u"temp";
@@ -3958,7 +3959,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   // Create a WebContent without tab helpers so it has no associated browser.
   std::unique_ptr<content::WebContents> new_web_contents =
       content::WebContents::Create(
-          content::WebContents::CreateParams(browser()->profile()));
+          content::WebContents::CreateParams(browser()->GetProfile()));
 
   // Verify that there is no browser.
   ASSERT_FALSE(GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
@@ -4030,11 +4031,11 @@ class PasswordManagerBrowserTestWithSigninInterception
 // Checks that password update suppresses signin interception.
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTestWithSigninInterception,
                        InterceptionBubbleSuppressedByPasswordUpdate) {
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
   helper_.SetupProfilesForInterception(profile);
   // Prepopulate Gaia credentials to trigger an update bubble.
   scoped_refptr<password_manager::TestPasswordStore> password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   helper_.StoreGaiaCredentials(password_store);
 
   helper_.NavigateToGaiaSigninPage(WebContents());
@@ -4063,7 +4064,8 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTestWithSigninInterception,
   signin_interceptor->MaybeInterceptWebSignin(
       WebContents(), account_id, signin_metrics::AccessPoint::kStartPage,
       /*is_new_account=*/true,
-      /*is_sync_signin=*/false);
+      /*is_sync_signin=*/false,
+      /*primary_is_connected=*/signin::Tribool::kUnknown);
   EXPECT_FALSE(signin_interceptor->is_interception_in_progress());
   histogram_tester.ExpectUniqueSample(
       "Signin.Intercept.HeuristicOutcome",
@@ -4081,7 +4083,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTestWithSigninInterception,
   prompt_observer.WaitForAutomaticSavePrompt();
 
   // Complete the Gaia signin.
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
   CoreAccountId account_id = helper_.AddGaiaAccountToProfile(
       profile, helper_.gaia_email(), helper_.gaia_id());
 
@@ -4092,7 +4094,8 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTestWithSigninInterception,
   signin_interceptor->MaybeInterceptWebSignin(
       WebContents(), account_id, signin_metrics::AccessPoint::kStartPage,
       /*is_new_account=*/true,
-      /*is_sync_signin=*/false);
+      /*is_sync_signin=*/false,
+      /*primary_is_connected=*/signin::Tribool::kUnknown);
   EXPECT_FALSE(signin_interceptor->is_interception_in_progress());
   histogram_tester.ExpectUniqueSample(
       "Signin.Intercept.HeuristicOutcome",
@@ -4103,7 +4106,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTestWithSigninInterception,
 // processed before the signin completes.
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTestWithSigninInterception,
                        SavePasswordSuppressedBeforeSignin) {
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
   helper_.SetupProfilesForInterception(profile);
   helper_.NavigateToGaiaSigninPage(WebContents());
 
@@ -4123,7 +4126,8 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTestWithSigninInterception,
   signin_interceptor->MaybeInterceptWebSignin(
       WebContents(), account_id, signin_metrics::AccessPoint::kStartPage,
       /*is_new_account=*/true,
-      /*is_sync_signin=*/false);
+      /*is_sync_signin=*/false,
+      /*primary_is_connected=*/signin::Tribool::kUnknown);
   EXPECT_TRUE(signin_interceptor->is_interception_in_progress());
 }
 
@@ -4131,7 +4135,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTestWithSigninInterception,
 // processed after the signin completes.
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTestWithSigninInterception,
                        SavePasswordSuppressedAfterSignin) {
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
   helper_.SetupProfilesForInterception(profile);
   helper_.NavigateToGaiaSigninPage(WebContents());
 
@@ -4146,7 +4150,8 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTestWithSigninInterception,
   signin_interceptor->MaybeInterceptWebSignin(
       WebContents(), account_id, signin_metrics::AccessPoint::kStartPage,
       /*is_new_account=*/true,
-      /*is_sync_signin=*/false);
+      /*is_sync_signin=*/false,
+      /*primary_is_connected=*/signin::Tribool::kUnknown);
   EXPECT_TRUE(signin_interceptor->is_interception_in_progress());
 
   // Add the new password, password bubble not triggered.
@@ -4411,7 +4416,7 @@ class PasswordManagerPrerenderBrowserTest : public PasswordManagerBrowserTest {
         browser()->tab_strip_model()->GetActiveWebContents();
     std::unique_ptr<content::WebContents> owned_web_contents =
         content::WebContents::Create(
-            content::WebContents::CreateParams(browser()->profile()));
+            content::WebContents::CreateParams(browser()->GetProfile()));
     ASSERT_TRUE(owned_web_contents.get());
 
     // ManagePasswordsUIController needs ChromePasswordManagerClient for
@@ -4674,7 +4679,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerCredentiallessIframeTest,
 
   // 1. Store the username/password
   password_manager::PasswordStoreInterface* password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = base_url.spec();
   signin_form.url = base_url;

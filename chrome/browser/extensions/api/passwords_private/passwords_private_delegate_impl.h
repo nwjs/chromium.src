@@ -20,6 +20,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/scoped_observation.h"
+#include "base/timer/timer.h"
 #include "build/build_config.h"
 #include "chrome/browser/extensions/api/passwords_private/password_access_auth_timeout_handler.h"
 #include "chrome/browser/extensions/api/passwords_private/password_check_delegate.h"
@@ -41,8 +42,8 @@
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_service_observer.h"
 #include "extensions/browser/extension_function.h"
+#include "ui/base/clipboard/clipboard_sequence_number_token.h"
 
-class ChromePasswordChangeService;
 class EnclaveManagerInterface;
 class PrefService;
 class TrustSafetySentimentService;
@@ -111,7 +112,6 @@ class PasswordsPrivateDelegateImpl
       password_manager::PasswordSenderService* password_sender_service,
       syncer::SyncService* sync_service,
       TrustSafetySentimentService* trust_safety_sentiment_service,
-      ChromePasswordChangeService* password_change_service,
       affiliations::AffiliationService* affiliation_service,
       scoped_refptr<password_manager::PasswordStoreInterface>
           profile_password_store,
@@ -190,8 +190,6 @@ class PasswordsPrivateDelegateImpl
   bool UnmuteInsecureCredential(
       const api::passwords_private::PasswordUiEntry& credential) override;
   void StartPasswordCheck(StartPasswordCheckCallback callback) override;
-  void StartPasswordChange(int credential_id,
-                           content::WebContents* web_contents) override;
   api::passwords_private::PasswordCheckStatus GetPasswordCheckStatus() override;
   password_manager::InsecureCredentialsManager* GetInsecureCredentialsManager()
       override;
@@ -212,6 +210,9 @@ class PasswordsPrivateDelegateImpl
   password_manager::ActionableError GetActionableError() override;
   void DeleteAllPasswordManagerData(
       base::OnceCallback<void(bool)> success_callback) override;
+
+  std::optional<password_manager::CredentialUIEntry> GetCredentialFromId(
+      int credential_id) override;
 
   base::WeakPtr<PasswordsPrivateDelegate> AsWeakPtr() override;
 
@@ -333,6 +334,11 @@ class PasswordsPrivateDelegateImpl
   // Invokes PasswordsPrivateEventRouter::OnPasswordManagerAuthTimeout().
   void OsReauthTimeoutCall();
 
+  void ClearClipboard(ui::ClipboardSequenceNumberToken sequence_number);
+
+  // Writes the given password to the clipboard and starts a timer to clear it.
+  void WriteToClipboardAndScheduleClear(const std::u16string& password);
+
   // Authenticate the user using os-authentication.
   void AuthenticateUser(base::TimeDelta auth_validity_period,
                         const std::u16string& message,
@@ -349,7 +355,6 @@ class PasswordsPrivateDelegateImpl
       password_sender_service_;
   const raw_ptr<syncer::SyncService> sync_service_;
   const raw_ptr<TrustSafetySentimentService> trust_safety_sentiment_service_;
-  const raw_ptr<ChromePasswordChangeService> password_change_service_;
   const scoped_refptr<password_manager::PasswordStoreInterface>
       profile_password_store_;
   const scoped_refptr<password_manager::PasswordStoreInterface>
@@ -414,6 +419,8 @@ class PasswordsPrivateDelegateImpl
 
   std::unique_ptr<device_reauth::DeviceAuthenticator>
       test_device_authenticator_;
+
+  base::OneShotTimer clipboard_clear_timer_;
 
   base::WeakPtrFactory<PasswordsPrivateDelegateImpl> weak_ptr_factory_{this};
 };

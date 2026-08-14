@@ -36,9 +36,6 @@ class PaymentsChurnedUsersBubbleView : public AutofillLocationBarBubble {
   void AddedToWidget() override;
   std::u16string GetWindowTitle() const override;
   void WindowClosing() override;
-
- private:
-  // LocationBarBubbleDelegateView:
   void Init() override;
 
   raw_ptr<PaymentsChurnedUsersBubbleController> controller_;

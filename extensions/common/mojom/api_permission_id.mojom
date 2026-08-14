@@ -112,7 +112,7 @@ enum APIPermissionID {
   kIdentity = 85,
   kIdentityEmail = 86,
   kDeleted_IdentityPrivate = 87,
-  kIdltest = 88,
+  kDeleted_Idltest = 88,
   kIdle = 89,
   kImeWindowEnabled = 90,
   kDeleted_InlineInstallPrivate = 91,
@@ -294,6 +294,9 @@ enum APIPermissionID {
   kIndigoPrivate = 267,
   kContextualTasksPrivate = 268,
   kDictationPrivate = 269,
+  kBluetoothSocket = 270,
+  kBluetoothLowEnergy = 271,
+  kBluetoothPeripheral = 272,
 
   // Add new entries at the end of the enum and be sure to update the
   // "ExtensionPermission3" enum in

@@ -11,9 +11,13 @@
 
 namespace autofill::features::debug {
 
+// When enabled, SPII data is not removed from AtMemory search results when the
+// client does not support device reauth.
+BASE_FEATURE(kAtMemoryNoDeviceReauthCheck, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Bypasses the eligibility checks (PersonalContext, Gemini subscription tier
 // and other) for local testing and teamfooding.
-BASE_FEATURE(kAtMemorySkipEligibilityChecks, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAtMemorySkipEnablementChecks, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, Wallet private passes are supported on devices without re-auth.
 BASE_FEATURE(kAutofillAiDisableReauthRequirement,
@@ -124,6 +128,18 @@ BASE_FEATURE_PARAM(std::string,
 // "upload" resources.
 // i.e., https://other.autofill.server:port/tbproxy/af/
 BASE_FEATURE(kAutofillServerCommunication, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When set to a non-zero value, the value is attached as an experiment ID to
+// all predictions requests to the Autofill server, as if it were an active GWS
+// experiment. Note that the same result can be archived using
+// --force-variation-ids. Using this flag parameter has the advantage that it
+// can be tied to Chrome flags and that it can be rolled out without a
+// GWS-visible experiment.
+BASE_FEATURE_PARAM(int,
+                   kAutofillServerCommunicationExperimentId,
+                   &kAutofillServerCommunication,
+                   "experiment_id",
+                   0);
 
 // Controls attaching the autofill type predictions to their respective
 // element in the DOM.

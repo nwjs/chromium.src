@@ -122,6 +122,8 @@ source_set("audio") {
       "processing_audio_fifo.h",
       "sync_mixing_graph_input.cc",
       "sync_mixing_graph_input.h",
+      "voice_isolation_handler.cc",
+      "voice_isolation_handler.h",
     ]
 
     deps += [ "//third_party/abseil-cpp:absl" ]
@@ -203,6 +205,7 @@ source_set("tests") {
     "//services/audio/test:test_support",
     "//testing/gmock",
     "//testing/gtest",
+    "//third_party/flatbuffers",
     "//third_party/tflite",
   ]
 
@@ -219,6 +222,7 @@ source_set("tests") {
 
   if (chrome_wide_echo_cancellation_supported) {
     sources += [
+      "audio_processor_handler_unittest.cc",
       "loopback_reference_manager_unittest.cc",
       "mixing_graph_impl_unittest.cc",
       "mixing_graph_input_unittest.cc",
@@ -227,6 +231,7 @@ source_set("tests") {
       "output_device_mixer_manager_unittest.cc",
       "processing_audio_fifo_unittest.cc",
     ]
+    data += [ "//media/webrtc/voice_isolation/test_model_1_2_160_2.tflite" ]
   }
 
   # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and

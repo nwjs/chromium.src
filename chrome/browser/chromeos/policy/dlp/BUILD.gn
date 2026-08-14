@@ -164,6 +164,7 @@ source_set("unit_tests") {
     "//chrome/browser/chromeos/policy/dlp/test:test_support",
     "//chrome/browser/enterprise/data_controls",
     "//chrome/browser/enterprise/data_controls:test_support",
+    "//chrome/browser/policy:test_support",
     "//chrome/browser/profiles",
     "//chrome/browser/ui",
     "//chrome/browser/ui/tabs:test_support",
@@ -261,8 +262,8 @@ if (!is_chromeos_device) {
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
     sources = [
-      "data_transfer_dlp_controller_browsertest.cc",
-      "dlp_content_manager_browsertest.cc",
+      "data_transfer_dlp_controller_interactive_uitest.cc",
+      "dlp_content_manager_interactive_uitest.cc",
       "dlp_scoped_file_access_delegate_interactive_uitest.cc",
     ]
 
@@ -275,10 +276,11 @@ if (!is_chromeos_device) {
       "//chrome/browser/chromeos/policy/dlp/test:test_support",
       "//chrome/browser/enterprise/data_controls",
       "//chrome/browser/enterprise/data_controls:test_support",
+      "//chrome/browser/policy:test_support",
       "//chrome/browser/printing",
+      "//chrome/browser/printing:test_support",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ui",
-      "//chrome/test:print_preview_test_support",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
       "//chromeos/dbus/dlp",

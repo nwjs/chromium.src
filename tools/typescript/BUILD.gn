@@ -2,20 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Note: Using a custom action to copy the file instead of copy() since GN's
-# copy() is not guaranteed to be atomic, which in turn causes problems with
-# DevTools esbuild invocations, which while do not depend on this target
-# they are broken if an empty package.json file is encountered when they run.
-action("copy_package_json") {
-  script = "copy_atomic.py"
-  inputs = [
-    "//build/action_helpers.py",
-    "//build/gn_helpers.py",
-  ]
-  sources = [ "//package.json" ]
-  outputs = [ "$root_out_dir/package.json" ]
-  args = [
-    rebase_path(sources[0], root_build_dir),
-    rebase_path(outputs[0], root_build_dir),
-  ]
+# NW.js: This target originally copied //package.json to $root_out_dir. NW.js
+# launches its app from the build output directory, and a stray package.json
+# there is picked up as the app manifest (it has no "name"), crashing startup
+# in extensions::file_util::LoadExtension. Make it a no-op group so dependents
+# (e.g. devtools-frontend) still resolve without polluting the output root.
+group("copy_package_json") {
 }

@@ -32,12 +32,14 @@
 #include "components/permissions/notifications_engagement_service.h"
 #include "components/safe_browsing/content/browser/notification_content_detection/notification_content_detection_constants.h"
 #include "components/safe_browsing/core/browser/db/util.h"
+#include "components/safe_browsing/core/browser/db/v5_get_hash_protocol_manager.h"
 #include "components/safe_browsing/core/browser/safe_browsing_metrics_collector.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/browser/browser_context.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 namespace {
@@ -46,6 +48,33 @@ const char url1[] = "https://example1.com";
 const char url2[] = "https://example2.com";
 const char url3[] = "https://example3.com";
 const char url4[] = "https://example4.com";
+
+class V5TestingDatabaseManager : public MockSafeBrowsingDatabaseManager {
+ public:
+  V5TestingDatabaseManager() = default;
+
+  bool CheckBrowseUrl(const GURL& gurl,
+                      const safe_browsing::SBThreatTypeSet& threat_types,
+                      Client* client,
+                      safe_browsing::CheckBrowseUrlType check_type) override {
+    if (client) {
+      v5_manager_from_client_ = client->GetV5GetHashProtocolManager();
+    }
+    return MockSafeBrowsingDatabaseManager::CheckBrowseUrl(gurl, threat_types,
+                                                           client, check_type);
+  }
+
+  base::WeakPtr<safe_browsing::V5GetHashProtocolManager>
+  v5_manager_from_client() const {
+    return v5_manager_from_client_;
+  }
+
+ private:
+  ~V5TestingDatabaseManager() override = default;
+
+  base::WeakPtr<safe_browsing::V5GetHashProtocolManager>
+      v5_manager_from_client_;
+};
 
 const int kTestMinSuspiciousCount = 2;
 const double kTestSiteEngagementCutOff = 50.0;
@@ -217,7 +246,8 @@ TEST_F(AbusiveNotificationPermissionsManagerTest,
   base::HistogramTester histogram_tester;
 
   auto manager = AbusiveNotificationPermissionsManager(
-      mock_database_manager(), hcsm(), profile()->GetTestingPrefService());
+      mock_database_manager(), /*v5_get_hash_protocol_manager=*/nullptr, hcsm(),
+      profile()->GetTestingPrefService());
   EXPECT_EQ(
       safety_hub_util::GetRevokedAbusiveNotificationPermissions(hcsm()).size(),
       0u);
@@ -244,6 +274,10 @@ TEST_F(AbusiveNotificationPermissionsManagerTest,
       "SafeBrowsing.NotificationRevocationSource",
       safe_browsing::NotificationRevocationSource::kSocialEngineeringBlocklist,
       /* expected_count */ 2);
+  histogram_tester.ExpectUniqueSample(
+      "Settings.SafetyHub.AbusiveNotificationPermissionRevocation.CheckResult",
+      AbusiveNotificationPermissionsManager::CheckResult::kPhishing,
+      /* expected_count */ 2);
 }
 
 TEST_F(AbusiveNotificationPermissionsManagerTest,
@@ -253,7 +287,8 @@ TEST_F(AbusiveNotificationPermissionsManagerTest,
   base::HistogramTester histogram_tester;
 
   auto manager = AbusiveNotificationPermissionsManager(
-      mock_database_manager(), hcsm(), profile()->GetTestingPrefService());
+      mock_database_manager(), /*v5_get_hash_protocol_manager=*/nullptr, hcsm(),
+      profile()->GetTestingPrefService());
   EXPECT_EQ(
       safety_hub_util::GetRevokedAbusiveNotificationPermissions(hcsm()).size(),
       0u);
@@ -278,6 +313,12 @@ TEST_F(AbusiveNotificationPermissionsManagerTest,
   histogram_tester.ExpectUniqueSample(
       safety_hub::kBlocklistCheckCountHistogramName, /* sample */ 2,
       /* expected_count */ 1);
+  histogram_tester.ExpectBucketCount(
+      "Settings.SafetyHub.AbusiveNotificationPermissionRevocation.CheckResult",
+      AbusiveNotificationPermissionsManager::CheckResult::kSafe, 1);
+  histogram_tester.ExpectBucketCount(
+      "Settings.SafetyHub.AbusiveNotificationPermissionRevocation.CheckResult",
+      AbusiveNotificationPermissionsManager::CheckResult::kPhishing, 1);
 }
 
 TEST_F(AbusiveNotificationPermissionsManagerTest,
@@ -289,7 +330,8 @@ TEST_F(AbusiveNotificationPermissionsManagerTest,
   base::HistogramTester histogram_tester;
 
   auto manager = AbusiveNotificationPermissionsManager(
-      mock_database_manager(), hcsm(), profile()->GetTestingPrefService());
+      mock_database_manager(), /*v5_get_hash_protocol_manager=*/nullptr, hcsm(),
+      profile()->GetTestingPrefService());
   EXPECT_EQ(
       safety_hub_util::GetRevokedAbusiveNotificationPermissions(hcsm()).size(),
       0u);
@@ -331,7 +373,8 @@ TEST_F(AbusiveNotificationPermissionsManagerTest,
   base::HistogramTester histogram_tester;
 
   auto manager = AbusiveNotificationPermissionsManager(
-      mock_database_manager(), hcsm(), profile()->GetTestingPrefService());
+      mock_database_manager(), /*v5_get_hash_protocol_manager=*/nullptr, hcsm(),
+      profile()->GetTestingPrefService());
   RunUntilSafeBrowsingChecksComplete(&manager);
   ContentSettingsForOneType content_settings =
       safety_hub_util::GetRevokedAbusiveNotificationPermissions(hcsm());
@@ -363,7 +406,8 @@ TEST_F(AbusiveNotificationPermissionsManagerTest,
   AddAbusiveNotification(url2, ContentSetting::CONTENT_SETTING_ALLOW);
 
   auto manager = AbusiveNotificationPermissionsManager(
-      mock_database_manager(), hcsm(), profile()->GetTestingPrefService());
+      mock_database_manager(), /*v5_get_hash_protocol_manager=*/nullptr, hcsm(),
+      profile()->GetTestingPrefService());
   manager.SetNullSBCheckDelayForTesting();
   EXPECT_FALSE(mock_database_manager()->HasCalledCancelCheck());
   RunUntilSafeBrowsingChecksComplete(&manager);
@@ -380,7 +424,8 @@ TEST_F(AbusiveNotificationPermissionsManagerTest,
   AddAbusiveNotification(url2, ContentSetting::CONTENT_SETTING_ALLOW);
 
   auto manager = AbusiveNotificationPermissionsManager(
-      mock_database_manager(), hcsm(), profile()->GetTestingPrefService());
+      mock_database_manager(), /*v5_get_hash_protocol_manager=*/nullptr, hcsm(),
+      profile()->GetTestingPrefService());
   RunUntilSafeBrowsingChecksComplete(&manager);
   ContentSettingsForOneType content_settings =
       safety_hub_util::GetRevokedAbusiveNotificationPermissions(hcsm());
@@ -446,7 +491,8 @@ TEST_F(AbusiveNotificationPermissionsManagerTest, ClearRevokedPermissionsList) {
   AddAbusiveNotification(url2, ContentSetting::CONTENT_SETTING_ALLOW);
 
   auto manager = AbusiveNotificationPermissionsManager(
-      mock_database_manager(), hcsm(), profile()->GetTestingPrefService());
+      mock_database_manager(), /*v5_get_hash_protocol_manager=*/nullptr, hcsm(),
+      profile()->GetTestingPrefService());
   RunUntilSafeBrowsingChecksComplete(&manager);
   ContentSettingsForOneType content_settings =
       safety_hub_util::GetRevokedAbusiveNotificationPermissions(hcsm());
@@ -475,7 +521,8 @@ TEST_F(AbusiveNotificationPermissionsManagerTest, ClearRevokedPermissionsList) {
 TEST_F(AbusiveNotificationPermissionsManagerTest,
        RestoreDeletedRevokedPermissionsList) {
   auto manager = AbusiveNotificationPermissionsManager(
-      mock_database_manager(), hcsm(), profile()->GetTestingPrefService());
+      mock_database_manager(), /*v5_get_hash_protocol_manager=*/nullptr, hcsm(),
+      profile()->GetTestingPrefService());
   RunUntilSafeBrowsingChecksComplete(&manager);
 
   content_settings::ContentSettingConstraints constraints;
@@ -499,7 +546,8 @@ TEST_F(AbusiveNotificationPermissionsManagerTest,
   AddAbusiveNotification(url2, ContentSetting::CONTENT_SETTING_ALLOW);
 
   auto manager = AbusiveNotificationPermissionsManager(
-      mock_database_manager(), hcsm(), profile()->GetTestingPrefService());
+      mock_database_manager(), /*v5_get_hash_protocol_manager=*/nullptr, hcsm(),
+      profile()->GetTestingPrefService());
   RunUntilSafeBrowsingChecksComplete(&manager);
   ContentSettingsForOneType content_settings =
       safety_hub_util::GetRevokedAbusiveNotificationPermissions(hcsm());
@@ -614,7 +662,8 @@ TEST_F(AbusiveNotificationPermissionsManagerTest,
   AddAbusiveNotification(url2, ContentSetting::CONTENT_SETTING_ALLOW);
 
   auto manager = AbusiveNotificationPermissionsManager(
-      mock_database_manager(), hcsm(), profile()->GetTestingPrefService());
+      mock_database_manager(), /*v5_get_hash_protocol_manager=*/nullptr, hcsm(),
+      profile()->GetTestingPrefService());
   RunUntilSafeBrowsingChecksComplete(&manager);
   ContentSettingsForOneType content_settings =
       safety_hub_util::GetRevokedAbusiveNotificationPermissions(hcsm());
@@ -696,7 +745,8 @@ TEST_F(AbusiveNotificationPermissionsManagerTest,
                    kSafeBrowsingUnwantedRevocationStr)),
       constraint);
   auto manager = AbusiveNotificationPermissionsManager(
-      mock_database_manager(), hcsm(), profile()->GetTestingPrefService());
+      mock_database_manager(), /*v5_get_hash_protocol_manager=*/nullptr, hcsm(),
+      profile()->GetTestingPrefService());
 
   // Re-grant.
   manager.RegrantPermissionForOriginIfNecessary(GURL(url1));
@@ -724,7 +774,8 @@ TEST_F(AbusiveNotificationPermissionsManagerTest,
   // Set up 2 urls with `REVOKED_ABUSIVE_NOTIFICATION_PERMISSIONS` settings,
   // then regrant one of them.
   auto manager = AbusiveNotificationPermissionsManager(
-      mock_database_manager(), hcsm(), profile()->GetTestingPrefService());
+      mock_database_manager(), /*v5_get_hash_protocol_manager=*/nullptr, hcsm(),
+      profile()->GetTestingPrefService());
   RunUntilSafeBrowsingChecksComplete(&manager);
   ContentSettingsForOneType content_settings =
       safety_hub_util::GetRevokedAbusiveNotificationPermissions(hcsm());
@@ -770,7 +821,8 @@ TEST_F(AbusiveNotificationPermissionsManagerTest,
   base::HistogramTester histogram_tester;
 
   auto manager = AbusiveNotificationPermissionsManager(
-      mock_database_manager(), hcsm(), profile()->GetTestingPrefService());
+      mock_database_manager(), /*v5_get_hash_protocol_manager=*/nullptr, hcsm(),
+      profile()->GetTestingPrefService());
   RunUntilSafeBrowsingChecksComplete(&manager);
   ContentSettingsForOneType content_settings =
       safety_hub_util::GetRevokedAbusiveNotificationPermissions(hcsm());
@@ -840,7 +892,8 @@ TEST_F(AbusiveNotificationPermissionsManagerTest, OnPermissionChanged) {
   EXPECT_TRUE(safety_hub_util::IsAbusiveNotificationRevocationIgnored(
       hcsm(), GURL(url4)));
   auto manager = AbusiveNotificationPermissionsManager(
-      mock_database_manager(), hcsm(), profile()->GetTestingPrefService());
+      mock_database_manager(), /*v5_get_hash_protocol_manager=*/nullptr, hcsm(),
+      profile()->GetTestingPrefService());
   base::HistogramTester histogram_tester;
 
   // Simulate permission changed by the user.
@@ -899,7 +952,8 @@ TEST_F(AbusiveNotificationPermissionsManagerTest,
                                 safe_browsing::NotificationRevocationSource::
                                     kSuspiciousContentAutoRevocation);
   auto manager = AbusiveNotificationPermissionsManager(
-      mock_database_manager(), hcsm(), profile()->GetTestingPrefService());
+      mock_database_manager(), /*v5_get_hash_protocol_manager=*/nullptr, hcsm(),
+      profile()->GetTestingPrefService());
   base::HistogramTester histogram_tester;
 
   manager.OnPermissionChanged(
@@ -917,6 +971,29 @@ TEST_F(AbusiveNotificationPermissionsManagerTest,
       /* sample */ ContentSetting::CONTENT_SETTING_ALLOW,
       /* expected_count */ 1);
 }
+
+TEST_F(AbusiveNotificationPermissionsManagerTest, GetV5GetHashProtocolManager) {
+  scoped_refptr<V5TestingDatabaseManager> v5_db_manager =
+      base::MakeRefCounted<V5TestingDatabaseManager>();
+
+  safe_browsing::V5GetHashProtocolManager v5_protocol_manager(
+      /*url_loader_factory=*/nullptr,
+      safe_browsing::V4ProtocolConfig("test", false, "key", "1.0"),
+      /*cache=*/nullptr);
+
+  auto manager = AbusiveNotificationPermissionsManager(
+      v5_db_manager, v5_protocol_manager.GetWeakPtr(), hcsm(),
+      profile()->GetTestingPrefService());
+
+  const GURL origin_to_revoke = GURL("https://origin.com/");
+  SetNotificationPermission(origin_to_revoke, CONTENT_SETTING_ALLOW);
+
+  manager.CheckNotificationPermissionOrigins();
+
+  EXPECT_EQ(v5_db_manager->v5_manager_from_client().get(),
+            &v5_protocol_manager);
+}
+
 class ShowManualNotificationRevocationsTest
     : public AbusiveNotificationPermissionsManagerTest {
  public:
@@ -956,9 +1033,7 @@ class ShowManualNotificationRevocationsTest
   }
 
   void AddToSafeBrowsingBlocklist(const GURL& url) {
-    safe_browsing::ThreatMetadata test_metadata;
-    test_metadata.api_permissions.emplace("NOTIFICATIONS");
-    fake_database_manager_->SetSimulatedMetadataForUrl(url, test_metadata);
+    fake_database_manager_->SetSimulatedVerdictForUrl(url, /*is_abusive=*/true);
   }
 
  private:
@@ -973,7 +1048,8 @@ class ShowManualNotificationRevocationsTest
 TEST_F(ShowManualNotificationRevocationsTest,
        ManualRevocationAcklowedgeThenUndo) {
   auto manager = AbusiveNotificationPermissionsManager(
-      mock_database_manager(), hcsm(), profile()->GetTestingPrefService());
+      mock_database_manager(), /*v5_get_hash_protocol_manager=*/nullptr, hcsm(),
+      profile()->GetTestingPrefService());
   base::HistogramTester histogram_tester;
 
   // Setup notification subscription.
@@ -1052,7 +1128,8 @@ TEST_F(ShowManualNotificationRevocationsTest,
 TEST_F(ShowManualNotificationRevocationsTest,
        ManualRevocationRegrantPermission) {
   auto manager = AbusiveNotificationPermissionsManager(
-      mock_database_manager(), hcsm(), profile()->GetTestingPrefService());
+      mock_database_manager(), /*v5_get_hash_protocol_manager=*/nullptr, hcsm(),
+      profile()->GetTestingPrefService());
 
   // Setup notification subscription.
   const GURL origin_to_revoke = GURL("https://origin.com/");
@@ -1112,7 +1189,8 @@ TEST_F(ShowManualNotificationRevocationsTest,
 TEST_F(ShowManualNotificationRevocationsTest,
        ManualRevocationUndoRegrantPermission) {
   auto manager = AbusiveNotificationPermissionsManager(
-      mock_database_manager(), hcsm(), profile()->GetTestingPrefService());
+      mock_database_manager(), /*v5_get_hash_protocol_manager=*/nullptr, hcsm(),
+      profile()->GetTestingPrefService());
 
   // Setup notification subscription.
   const GURL origin_to_revoke = GURL("https://origin.com/");

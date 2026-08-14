@@ -93,7 +93,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.DiskCleanupResult"
-    enum="CryptohomeDiskCleanupResult" expires_after="2026-10-01">
+    enum="CryptohomeDiskCleanupResult" expires_after="2027-01-03">
   <owner>vsavu@google.com</owner>
   <owner>chromeos-disk-cleanup@google.com</owner>
   <summary>Records the result of triggering disk cleanup.</summary>
@@ -168,7 +168,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.FreedCacheVaultDiskSpaceInMb" units="MB"
-    expires_after="2026-10-01">
+    expires_after="2027-01-03">
   <owner>vsavu@google.com</owner>
   <owner>chromeos-disk-cleanup@google.com</owner>
   <summary>
@@ -179,7 +179,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.FreeDiskSpaceDuringLoginTotalFreedInMb" units="MiB"
-    expires_after="2026-10-01">
+    expires_after="2027-01-03">
   <owner>vsavu@google.com</owner>
   <owner>chromeos-disk-cleanup@google.com</owner>
   <summary>
@@ -194,7 +194,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.FreeDiskSpaceTotalFreedInMb" units="MiB"
-    expires_after="2026-10-01">
+    expires_after="2027-01-03">
   <owner>vsavu@google.com</owner>
   <owner>chromeos-disk-cleanup@google.com</owner>
   <summary>
@@ -208,7 +208,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.FreeDiskSpaceTotalTime2" units="ms"
-    expires_after="2026-10-01">
+    expires_after="2027-01-03">
   <owner>vsavu@google.com</owner>
   <owner>chromeos-disk-cleanup@google.com</owner>
   <summary>
@@ -220,7 +220,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.GCache.FreedDiskSpaceInMb" units="MB"
-    expires_after="2026-10-01">
+    expires_after="2027-01-03">
   <owner>vsavu@google.com</owner>
   <owner>chromeos-disk-cleanup@google.com</owner>
   <summary>
@@ -240,7 +240,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.LoginDiskCleanupAvailableSpace" units="MiB"
-    expires_after="2026-10-01">
+    expires_after="2027-01-03">
   <owner>vsavu@google.com</owner>
   <owner>chromeos-disk-cleanup@google.com</owner>
   <summary>
@@ -250,7 +250,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.LoginDiskCleanupProgress"
-    enum="CryptohomeLoginDiskCleanupProgress" expires_after="2026-10-01">
+    enum="CryptohomeLoginDiskCleanupProgress" expires_after="2027-01-03">
   <owner>vsavu@google.com</owner>
   <owner>chromeos-disk-cleanup@google.com</owner>
   <summary>
@@ -265,7 +265,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.LoginDiskCleanupResult"
-    enum="CryptohomeDiskCleanupResult" expires_after="2026-10-01">
+    enum="CryptohomeDiskCleanupResult" expires_after="2027-01-03">
   <owner>vsavu@google.com</owner>
   <owner>chromeos-disk-cleanup@google.com</owner>
   <summary>
@@ -276,7 +276,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.LoginDiskCleanupTotalTime" units="ms"
-    expires_after="2026-10-01">
+    expires_after="2027-01-03">
   <owner>vsavu@google.com</owner>
   <owner>chromeos-disk-cleanup@google.com</owner>
   <summary>
@@ -427,7 +427,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.TimeToCreatePersistentUser" units="ms"
-    expires_after="2026-10-25">
+    expires_after="2026-12-27">
   <owner>thomascedeno@google.com</owner>
   <owner>cros-security-cryptohome+uma@google.com</owner>
   <summary>
@@ -623,40 +623,6 @@ chromium-metrics-reviews@google.com.
     credentials revocation is deleted.
   </summary>
   <token key="AuthBlockType" variants="CryptohomeAuthBlockTypes"/>
-</histogram>
-
-<histogram name="Cryptohome.{AuthSessionFunction}.{AuthBlockType}" units="ms"
-    expires_after="2026-08-13">
-  <owner>thomascedeno@google.com</owner>
-  <owner>cros-security-cryptohome+uma@google.com</owner>
-  <summary>
-    AuthSession is a DBus API for various operations dealing with credential
-    storage, processing, and authentication. These metrics record the time an
-    {AuthSessionFunction} takes to complete. Each function is parameterized by
-    an {AuthBlockType}, or credential backend, which significantly influences
-    results. The metric is emitted when the respective {AuthSessionFunction} is
-    requested through the DBus API.
-  </summary>
-  <token key="AuthSessionFunction">
-    <variant name="TimeToAuthSessionAddAuthFactorUSS"/>
-    <variant name="TimeToAuthSessionAddAuthFactorVK"/>
-    <variant name="TimeToAuthSessionAuthenticateAuthFactorUSS"/>
-    <variant name="TimeToAuthSessionAuthenticateAuthFactorVK"/>
-    <variant name="TimeToAuthSessionUpdateAuthFactorUSS"/>
-    <variant name="TimeToAuthSessionUpdateAuthFactorVK"/>
-  </token>
-  <token key="AuthBlockType">
-    <variant name="ChallengeCredential"/>
-    <variant name="CryptohomeRecovery"/>
-    <variant name="DoubleWrappedCompat"/>
-    <variant name="Fingerprint"/>
-    <variant name="LibScryptCompat"/>
-    <variant name="PinWeaver"/>
-    <variant name="Scrypt"/>
-    <variant name="TpmBoundToPcr"/>
-    <variant name="TpmEcc"/>
-    <variant name="TpmNotBoundToPcr"/>
-  </token>
 </histogram>
 
 <histogram name="Cryptohome.{AuthSessionLifetime}.{Type}" units="ms"

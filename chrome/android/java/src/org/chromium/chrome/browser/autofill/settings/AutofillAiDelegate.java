@@ -27,9 +27,9 @@ import org.chromium.chrome.browser.autofill.GoogleWalletLauncher;
 import org.chromium.chrome.browser.autofill.autofill_ai.EntityDataManager;
 import org.chromium.chrome.browser.autofill.autofill_ai.EntityDataManagerFactory;
 import org.chromium.chrome.browser.autofill.editors.autofill_ai.EntityEditorCoordinator;
-import org.chromium.chrome.browser.autofill.options.AutofillOptionsFragment;
-import org.chromium.chrome.browser.autofill.options.AutofillOptionsFragment.AutofillOptionsReferrer;
-import org.chromium.chrome.browser.autofill.personal_context.AutofillPersonalContextFragment;
+import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsFragment;
+import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsReferrer;
+import org.chromium.chrome.browser.autofill.settings.personal_context.AutofillPersonalContextFragment;
 import org.chromium.chrome.browser.device_reauth.BiometricStatus;
 import org.chromium.chrome.browser.device_reauth.DeviceAuthSource;
 import org.chromium.chrome.browser.device_reauth.ReauthenticatorBridge;
@@ -318,7 +318,8 @@ public class AutofillAiDelegate {
                         }
 
                         SettingsNavigationHelper.showAutofillPersonalContextSettings(
-                                mFragment.requireActivity());
+                                mFragment.requireActivity(),
+                                AutofillOptionsReferrer.AUTOFILL_AND_PASSWORDS_FRAGMENT);
                         return true;
                     });
 
@@ -731,7 +732,7 @@ public class AutofillAiDelegate {
         final String buttonText =
                 activity.getString(
                         R.string
-                                .autofill_ai_save_or_update_entity_failed_wallet_save_dialog_confirmation_button_label);
+                                .autofill_ai_snack_bar_confirmation_button_label);
 
         dialog.show(
                 new ConfirmationDialogParams.Builder(activity)
@@ -770,7 +771,7 @@ public class AutofillAiDelegate {
                         .getActivity()
                         .getString(
                                 R.string
-                                        .autofill_ai_save_or_update_entity_failed_wallet_save_dialog_confirmation_button_label);
+                                        .autofill_ai_snack_bar_confirmation_button_label);
         snackBar.setAction(snackbarButton, /* actionData= */ null);
         // Wrap the message text if it doesn't fit on a single line. The action text will not wrap
         // though.

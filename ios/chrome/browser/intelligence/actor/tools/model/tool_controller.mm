@@ -132,7 +132,7 @@ void ToolController::CreateToolAndValidate(const ActorToolRequest& request,
 
   ActorToolFactory& factory = tool_delegate_->GetToolFactory();
   base::expected<std::unique_ptr<ActorTool>, ToolExecutionResult> tool_result =
-      factory.CreateTool(request.action(), tool_delegate_);
+      factory.CreateTool(request, tool_delegate_);
 
   if (!tool_result.has_value()) {
     LogToolExecutionResult(journal(), GURL(), task_id(),
@@ -158,8 +158,8 @@ void ToolController::CreateToolAndValidate(const ActorToolRequest& request,
                         std::move(journal_entry));
 
   SetState(State::kValidating);
-  // TODO(crbug.com/520098751): Call ActorTool::Validate here.
-  PostValidate(ToolExecutionResult::Ok());
+  active_state_->tool->Validate(base::BindOnce(&ToolController::PostValidate,
+                                               weak_ptr_factory_.GetWeakPtr()));
 }
 
 void ToolController::PostValidate(ToolExecutionResult result) {
@@ -238,7 +238,28 @@ void ToolController::ObservationDelayComplete(
     ToolExecutionResult action_result,
     ObservationDelayController::Result observation_result) {
   // TODO(crbug.com/498991756): Record UMA about what observation_result is.
-  PostInvokeTool(std::move(action_result));
+  switch (observation_result) {
+    case ObservationDelayController::Result::kOk:
+      PostInvokeTool(std::move(action_result));
+      break;
+    case ObservationDelayController::Result::kPageNavigated: {
+      size_t last_navigation_count = observation_delayer_->NavigationCount();
+      GURL journal_url;
+      if (active_state_ && active_state_->tool) {
+        if (base::WeakPtr<web::WebState> target_web_state =
+                active_state_->tool->GetTargetWebState()) {
+          journal_url = target_web_state->GetLastCommittedURL();
+        }
+      }
+      journal().Log(journal_url, task_id(),
+                    "ToolController Restarting Observation", /*details=*/{});
+      observation_delayer_ =
+          std::make_unique<ObservationDelayController>(task_id(), &journal());
+      observation_delayer_->SetNavigationCount(last_navigation_count + 1);
+      WaitForObservation(std::move(action_result));
+      break;
+    }
+  }
 }
 
 void ToolController::PostInvokeTool(ToolExecutionResult result) {

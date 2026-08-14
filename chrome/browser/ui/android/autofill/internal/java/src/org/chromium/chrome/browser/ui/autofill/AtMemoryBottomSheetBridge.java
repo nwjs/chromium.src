@@ -63,17 +63,26 @@ public class AtMemoryBottomSheetBridge implements AtMemoryBottomSheetCoordinator
         mCoordinator.show(suggestions);
     }
 
+    // TODO(crbug.com/534668889): Refactor isAcceptable and hasDeactivatedStyle to enum.
     @CalledByNative
     public static AutofillSuggestion createAutofillSuggestion(
             @JniType("std::u16string") String label,
+            @JniType("std::u16string") String secondaryLabel,
             @JniType("std::u16string") String subLabel,
             int iconId,
-            int suggestionType) {
+            int suggestionType,
+            @JniType("std::vector") List<AutofillSuggestion> children,
+            boolean isAcceptable,
+            boolean hasDeactivatedStyle) {
         return new AutofillSuggestion.Builder()
                 .setLabel(label)
+                .setSecondaryLabel(secondaryLabel)
                 .setSubLabel(subLabel)
                 .setIconId(iconId)
                 .setSuggestionType(suggestionType)
+                .setChildren(children)
+                .setIsAcceptable(isAcceptable)
+                .setApplyDeactivatedStyle(hasDeactivatedStyle)
                 .build();
     }
 
@@ -112,10 +121,40 @@ public class AtMemoryBottomSheetBridge implements AtMemoryBottomSheetCoordinator
     }
 
     @Override
+    public void requestExpandSheet(boolean expandInFullHeight) {
+        mCoordinator.expand(expandInFullHeight);
+    }
+
+    @Override
     public void onSuggestionClicked(int position) {
         if (mNativeAtMemoryBottomSheetBridge != 0) {
             AtMemoryBottomSheetBridgeJni.get()
                     .onSuggestionSelected(mNativeAtMemoryBottomSheetBridge, position);
+        }
+    }
+
+    @Override
+    public void onSuggestionDismissed(int position) {
+        if (mNativeAtMemoryBottomSheetBridge != 0) {
+            AtMemoryBottomSheetBridgeJni.get()
+                    .onSuggestionDismissed(mNativeAtMemoryBottomSheetBridge, position);
+        }
+    }
+
+    @Override
+    public void onChildSuggestionsShown(int parentPosition) {
+        if (mNativeAtMemoryBottomSheetBridge != 0) {
+            AtMemoryBottomSheetBridgeJni.get()
+                    .onChildSuggestionsShown(mNativeAtMemoryBottomSheetBridge, parentPosition);
+        }
+    }
+
+    @Override
+    public void onChildSuggestionClicked(int parentPosition, int childPosition) {
+        if (mNativeAtMemoryBottomSheetBridge != 0) {
+            AtMemoryBottomSheetBridgeJni.get()
+                    .onChildSuggestionSelected(
+                            mNativeAtMemoryBottomSheetBridge, parentPosition, childPosition);
         }
     }
 
@@ -136,6 +175,13 @@ public class AtMemoryBottomSheetBridge implements AtMemoryBottomSheetCoordinator
                 long nativeAtMemoryBottomSheetBridge, @JniType("std::u16string") String query);
 
         void onSuggestionSelected(long nativeAtMemoryBottomSheetBridge, int position);
+
+        void onSuggestionDismissed(long nativeAtMemoryBottomSheetBridge, int position);
+
+        void onChildSuggestionsShown(long nativeAtMemoryBottomSheetBridge, int parentPosition);
+
+        void onChildSuggestionSelected(
+                long nativeAtMemoryBottomSheetBridge, int parentPosition, int childPosition);
 
         boolean isSearching(long nativeAtMemoryBottomSheetBridge);
     }

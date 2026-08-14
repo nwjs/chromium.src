@@ -181,11 +181,6 @@ class LaunchCommand(object):
       cmd_list = self.egtests_app.command(outdir_attempt, 'id=%s' % self.udid,
                                           clones)
 
-      # TODO(crbug.com/340857498): temporarily turning this off on all
-      # device testing due to Xcode hang on iOS17.4+. In the future
-      # we should have a testing config flag to toggle this on/off
-      if not iossim_util.is_device_with_udid_simulator(self.udid):
-        cmd_list.extend(['-collect-test-diagnostics', 'never'])
 
       # TODO(crbug.com/40606422): add heartbeat logging to xcodebuild_runner.
       LOGGER.info('Start test attempt #%d for command [%s]' %
@@ -301,9 +296,11 @@ class SimulatorParallelTestRunner(test_runner.SimulatorTestRunner):
     self.use_simulator_cache = kwargs.get('use_simulator_cache') or False
 
     self.record_video_option = kwargs.get('record_video_option')
+    self.skip_enumerate_tests = kwargs.get('skip_enumerate_tests') or False
 
     self.all_eg_test_names = []
-    self.all_eg_test_names = self.fetch_test_names()
+    if not self._should_skip_enumerate_tests():
+      self.all_eg_test_names = self.fetch_test_names()
     self.resolve_eg_test_cases()
 
     # initializing test plugin service
@@ -320,6 +317,14 @@ class SimulatorParallelTestRunner(test_runner.SimulatorTestRunner):
           TestPluginServicer(enabled_plugins))
     else:
       LOGGER.info('No plugins are enabled, test plugin service will not start.')
+
+  def _should_skip_enumerate_tests(self) -> bool:
+    """Returns whether to skip enumerating tests in the EG test bundle."""
+    if self.skip_enumerate_tests:
+      return True
+    if shard_util.gtest_total_shards() <= 1 and self.test_cases:
+      return True
+    return False
 
   @property
   def xcode_platform_dir_name(self):
@@ -366,7 +371,8 @@ class SimulatorParallelTestRunner(test_runner.SimulatorTestRunner):
           "xcodebuild", "test-without-building", "-enumerate-tests",
           "-xctestrun", xctestrun, "-destination",
           'id=%s' % self.udid, "-test-enumeration-format", "json",
-          "-test-enumeration-output-path", enumerate_tests_json
+          "-test-enumeration-output-path", enumerate_tests_json,
+          "-collect-test-diagnostics", "never"
       ]
       LOGGER.info(cmd)
 
@@ -493,14 +499,15 @@ class SimulatorParallelTestRunner(test_runner.SimulatorTestRunner):
       # dividing up disabled tests across swarming shards we should only bother
       # outputting them on the first shard
       if self.output_disabled_tests and shard_util.gtest_shard_index() == 0:
-        disabled_tests = self.fetch_test_names(include_disabled=True)
-        test_app.disabled_tests = list(
-            map(lambda test: f'{test[0]}/{test[1]}', disabled_tests))
-        overall_result.add_and_report_test_names_status(
-            test_app.disabled_tests,
-            TestStatus.SKIP,
-            expected_status=TestStatus.SKIP,
-            test_log='Test disabled.')
+        if not self._should_skip_enumerate_tests():
+          disabled_tests = self.fetch_test_names(include_disabled=True)
+          test_app.disabled_tests = list(
+              map(lambda test: f'{test[0]}/{test[1]}', disabled_tests))
+          overall_result.add_and_report_test_names_status(
+              test_app.disabled_tests,
+              TestStatus.SKIP,
+              expected_status=TestStatus.SKIP,
+              test_log='Test disabled.')
 
       # Deletes simulator used in the tests after tests end.
       if iossim_util.is_device_with_udid_simulator(self.udid):
@@ -626,9 +633,11 @@ class DeviceXcodeTestRunner(SimulatorParallelTestRunner,
     self.start_time = time.strftime('%Y-%m-%d-%H%M%S', time.localtime())
     self.test_results['path_delimiter'] = '/'
     self.record_video_option = kwargs.get('record_video_option')
+    self.skip_enumerate_tests = kwargs.get('skip_enumerate_tests') or False
     self.test_plugin_service = None
     self.all_eg_test_names = []
-    self.all_eg_test_names = self.fetch_test_names()
+    if not self._should_skip_enumerate_tests():
+      self.all_eg_test_names = self.fetch_test_names()
     self.resolve_eg_test_cases()
 
   @property

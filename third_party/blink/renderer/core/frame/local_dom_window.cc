@@ -40,7 +40,6 @@
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/storage_access_api/status.h"
 #include "third_party/blink/public/common/features.h"
-#include "third_party/blink/public/common/navigation/impression.h"
 #include "third_party/blink/public/common/switches.h"
 #include "third_party/blink/public/mojom/devtools/inspector_issue.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-blink.h"
@@ -87,7 +86,6 @@
 #include "third_party/blink/renderer/core/events/pop_state_event.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/execution_context/window_agent.h"
-#include "third_party/blink/renderer/core/frame/attribution_src_loader.h"
 #include "third_party/blink/renderer/core/frame/bar_prop.h"
 #include "third_party/blink/renderer/core/frame/crash_report_context.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
@@ -110,6 +108,7 @@
 #include "third_party/blink/renderer/core/frame/viewport_data.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element_registry.h"
+#include "third_party/blink/renderer/core/html/custom/custom_element_registry_assignment.h"
 #include "third_party/blink/renderer/core/html/fenced_frame/fence.h"
 #include "third_party/blink/renderer/core/html/forms/form_controller.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
@@ -133,6 +132,7 @@
 #include "third_party/blink/renderer/core/page/scrolling/sync_scroll_attempt_heuristic.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
+#include "third_party/blink/renderer/core/route_matching/route_map.h"
 #include "third_party/blink/renderer/core/scheduler/scripted_idle_task_controller.h"
 #include "third_party/blink/renderer/core/scheduler/task_attribution_util.h"
 #include "third_party/blink/renderer/core/script/modulator.h"
@@ -197,7 +197,8 @@ int RequestAnimationFrame(Document* document,
 
   auto* frame_callback = MakeGarbageCollected<V8FrameCallback>(callback);
   frame_callback->SetUseLegacyTimeBase(legacy);
-  return document->RequestAnimationFrame(frame_callback);
+  return document->RequestAnimationFrame(frame_callback,
+                                         FrameCallbackType::kWebExposed);
 }
 
 }  // namespace
@@ -345,14 +346,14 @@ TrustedTypePolicyFactory* LocalDOMWindow::GetTrustedTypesForWorld(
     const DOMWrapperWorld& world) const {
   DCHECK(world.IsMainWorld() || world.IsIsolatedWorld());
   DCHECK(IsMainThread());
-  auto iter = trusted_types_map_.find(&world);
-  if (iter != trusted_types_map_.end()) {
-    return iter->value.Get();
+  // Look up (or create) the factory for this world in a single hash lookup,
+  // constructing it only when the entry is new.
+  auto add_result = trusted_types_map_.insert(&world, nullptr);
+  if (add_result.is_new_entry) {
+    add_result.stored_value->value =
+        MakeGarbageCollected<TrustedTypePolicyFactory>(GetExecutionContext());
   }
-  return trusted_types_map_
-      .insert(&world, MakeGarbageCollected<TrustedTypePolicyFactory>(
-                          GetExecutionContext()))
-      .stored_value->value;
+  return add_result.stored_value->value.Get();
 }
 
 bool LocalDOMWindow::IsCrossSiteSubframe() const {
@@ -1035,6 +1036,12 @@ void LocalDOMWindow::DispatchPagehideEvent(
     return;
   }
 
+  if (auto* route_map = RouteMap::Get(document_)) {
+    // In case we come back to this document later via BFCache, there must not
+    // be a dangling active navigation.
+    route_map->OnNavigationDone();
+  }
+
   // The navigation that triggered this pagehide is past the point of being
   // canceled (beforeunload has run without canceling). Promote any pending
   // navigationDestinationURL stashed during the navigate event so that JS
@@ -1683,7 +1690,12 @@ int LocalDOMWindow::outerHeight() const {
         lroundf(chrome_client.RootWindowRect(*frame).height() *
                 chrome_client.GetScreenInfo(*frame).device_scale_factor));
   }
-  return chrome_client.RootWindowRect(*frame).height();
+  int height = chrome_client.RootWindowRect(*frame).height();
+  if (document() && document()->TextScaleMetaTagPresent()) {
+    height = static_cast<int>(lroundf(
+        height * chrome_client.GetScreenInfo(*frame).text_scale_multiplier));
+  }
+  return height;
 }
 
 int LocalDOMWindow::outerWidth() const {
@@ -1710,7 +1722,12 @@ int LocalDOMWindow::outerWidth() const {
         lroundf(chrome_client.RootWindowRect(*frame).width() *
                 chrome_client.GetScreenInfo(*frame).device_scale_factor));
   }
-  return chrome_client.RootWindowRect(*frame).width();
+  int width = chrome_client.RootWindowRect(*frame).width();
+  if (document() && document()->TextScaleMetaTagPresent()) {
+    width = static_cast<int>(lroundf(
+        width * chrome_client.GetScreenInfo(*frame).text_scale_multiplier));
+  }
+  return width;
 }
 
 gfx::Size LocalDOMWindow::GetViewportSize() const {
@@ -1781,7 +1798,12 @@ int LocalDOMWindow::screenX() const {
         lroundf(chrome_client.RootWindowRect(*frame).x() *
                 chrome_client.GetScreenInfo(*frame).device_scale_factor));
   }
-  return chrome_client.RootWindowRect(*frame).x();
+  int screenX = chrome_client.RootWindowRect(*frame).x();
+  if (document() && document()->TextScaleMetaTagPresent()) {
+    screenX = static_cast<int>(lroundf(
+        screenX * chrome_client.GetScreenInfo(*frame).text_scale_multiplier));
+  }
+  return screenX;
 }
 
 int LocalDOMWindow::screenY() const {
@@ -1801,7 +1823,12 @@ int LocalDOMWindow::screenY() const {
         lroundf(chrome_client.RootWindowRect(*frame).y() *
                 chrome_client.GetScreenInfo(*frame).device_scale_factor));
   }
-  return chrome_client.RootWindowRect(*frame).y();
+  int screenY = chrome_client.RootWindowRect(*frame).y();
+  if (document() && document()->TextScaleMetaTagPresent()) {
+    screenY = static_cast<int>(lroundf(
+        screenY * chrome_client.GetScreenInfo(*frame).text_scale_multiplier));
+  }
+  return screenY;
 }
 
 double LocalDOMWindow::scrollX() const {
@@ -2191,7 +2218,7 @@ int LocalDOMWindow::webkitRequestAnimationFrame(
 }
 
 void LocalDOMWindow::cancelAnimationFrame(int id) {
-  document()->CancelAnimationFrame(id);
+  document()->CancelAnimationFrame(id, FrameCallbackType::kWebExposed);
 }
 
 bool LocalDOMWindow::originAgentCluster() const {
@@ -2212,7 +2239,8 @@ CustomElementRegistry* LocalDOMWindow::customElements() const {
         this, DOMWrapperWorld::kMainWorldId);
     custom_elements_->MarkAsGlobalRegistry();
     custom_elements_->AssociatedWith(*document_);
-    document_->SetCustomElementRegistry(custom_elements_);
+    document_->SetCustomElementRegistry(
+        CustomElementRegistryAssignment::Explicit(custom_elements_.Get()));
   }
   return custom_elements_.Get();
 }
@@ -2403,6 +2431,10 @@ void LocalDOMWindow::FinishedLoading(FrameLoader::NavigationFinishState state) {
       state == FrameLoader::NavigationFinishState::kSuccess) {
     print(nullptr);
   }
+
+  if (auto* route_map = RouteMap::Get(document_)) {
+    route_map->OnNavigationDone();
+  }
 }
 
 void LocalDOMWindow::PrintErrorMessage(const String& message) const {
@@ -2505,20 +2537,6 @@ DOMWindow* LocalDOMWindow::open(v8::Isolate* isolate,
 
   bool has_user_gesture = LocalFrame::HasTransientUserActivation(GetFrame());
   frame_request.GetResourceRequest().SetHasUserGesture(has_user_gesture);
-
-  if (window_features.attribution_srcs.has_value()) {
-    // An impression must be attached prior to the
-    // `FindOrCreateFrameForNavigation()` call, as that call may result in
-    // performing a navigation if the call results in creating a new window with
-    // noopener set.
-    frame_request.SetImpression(entered_window->GetFrame()
-                                    ->GetAttributionSrcLoader()
-                                    ->RegisterNavigation(
-                                        /*navigation_url=*/completed_url,
-                                        *window_features.attribution_srcs,
-                                        has_user_gesture,
-                                        referrer.referrer_policy));
-  }
 
   FrameTree::FindResult result =
       GetFrame()->Tree().FindOrCreateFrameForNavigation(

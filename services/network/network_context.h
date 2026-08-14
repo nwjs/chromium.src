@@ -46,6 +46,7 @@
 #include "net/dns/public/dns_config_overrides.h"
 #include "net/first_party_sets/first_party_set_metadata.h"
 #include "net/http/http_auth_preferences.h"
+#include "net/http/http_cache.h"
 #include "net/net_buildflags.h"
 #include "net/reporting/reporting_target_type.h"
 #include "net/storage_access_api/status.h"
@@ -54,6 +55,7 @@
 #include "services/network/first_party_sets/first_party_sets_access_delegate.h"
 #include "services/network/http_cache_data_counter.h"
 #include "services/network/http_cache_data_remover.h"
+#include "services/network/logical_invalidation_store.h"
 #include "services/network/network_qualities_pref_delegate.h"
 #include "services/network/oblivious_http_request_handler.h"
 #include "services/network/public/cpp/cors/origin_access_list.h"
@@ -108,6 +110,10 @@ class URLRequestContext;
 class URLRequestContextBuilder;
 }  // namespace net
 
+namespace net::device_bound_sessions {
+struct CookieAccessCheckParams;
+}  // namespace net::device_bound_sessions
+
 namespace certificate_transparency {
 class ChromeRequireCTDelegate;
 }  // namespace certificate_transparency
@@ -132,6 +138,10 @@ class MojoBackendFileOperationsFactory;
 class NetworkService;
 class NetworkServiceNetworkDelegate;
 class P2PSocketManager;
+
+#if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
+class DeviceBoundSessionServiceDelegate;
+#endif
 class PendingTrustTokenStore;
 class PrefetchCache;
 class PrefetchMatchingURLLoaderFactory;
@@ -146,6 +156,7 @@ class SharedResourceChecker;
 class WebSocketFactory;
 class WebTransport;
 class DeviceBoundSessionManager;
+class LogicalInvalidationStore;
 
 struct ResourceRequest;
 
@@ -155,14 +166,13 @@ struct ResourceRequest;
 // NetworkService's mojo interface and are owned jointly by the NetworkService
 // and the mojo::Remote<NetworkContext> used to talk to them, and the
 // NetworkContext is destroyed when either one is torn down.
+class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
+    : public mojom::NetworkContext
 #if BUILDFLAG(ENABLE_REPORTING)
-class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
-    : public mojom::NetworkContext,
-      public net::ReportingCacheObserver {
-#else
-class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
-    : public mojom::NetworkContext {
-#endif  // BUILDFLAG(ENABLE_REPORTING)
+    ,
+      public net::ReportingCacheObserver
+#endif
+{
 
  public:
   using OnConnectionCloseCallback =
@@ -259,6 +269,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   // mojom::NetworkContext implementation:
   void SetClient(
       mojo::PendingRemote<mojom::NetworkContextClient> client) override;
+  void CreateSocketFactory(
+      mojo::PendingReceiver<mojom::SocketFactory> receiver) override;
   void CreateURLLoaderFactory(
       mojo::PendingReceiver<mojom::URLLoaderFactory> receiver,
       mojom::URLLoaderFactoryParamsPtr params) override;
@@ -359,6 +371,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   void CanSendSCTAuditingReport(base::OnceCallback<void(bool)> callback);
   void OnNewSCTAuditingReportSent();
 #endif  // BUILDFLAG(IS_CT_SUPPORTED)
+  LogicalInvalidationStore* logical_invalidation_store() {
+    return logical_invalidation_store_.get();
+  }
+
   void CreateUDPSocket(
       mojo::PendingReceiver<mojom::UDPSocket> receiver,
       mojo::PendingRemote<mojom::UDPSocketListener> listener) override;
@@ -593,11 +609,12 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       RestrictNetworkForIdsCallback callback) override;
   void ClearNetworkRestrictions(const std::vector<base::UnguessableToken>&
                                     network_restrictions_ids) override;
-  void Prefetch(int32_t request_id,
-                uint32_t options,
-                const ResourceRequest& request,
-                const net::MutableNetworkTrafficAnnotationTag&
-                    traffic_annotation) override;
+  void Prefetch(
+      int32_t request_id,
+      uint32_t options,
+      const ResourceRequest& request,
+      const net::MutableNetworkTrafficAnnotationTag& traffic_annotation,
+      const base::UnguessableToken& network_restrictions_id) override;
 
   void GetBoundNetworkForTesting(
       GetBoundNetworkForTestingCallback callback) override;
@@ -612,6 +629,13 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   void GetDeviceBoundSessionManager(
       mojo::PendingReceiver<network::mojom::DeviceBoundSessionManager>
           device_bound_session_manager) override;
+
+  bool HasCookieAccessForDeviceBoundSession(
+      const net::device_bound_sessions::CookieAccessCheckParams& params);
+
+  void OnLogicalFilterAdded(const net::HttpCache::InvalidationFilter& filter,
+                            base::OnceClosure callback = base::OnceClosure());
+  void OnLogicalFilterRemoved(const net::HttpCache::InvalidationFilter& filter);
 
   void SetTLS13EarlyDataEnabled(bool enabled);
 
@@ -828,6 +852,18 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   void OnHttpCacheCleared(base::OnceClosure callback,
                           HttpCacheDataRemover* remover);
 
+  void OnInvalidationFiltersLoaded(
+      LogicalInvalidationStore::LoadResult result,
+      std::vector<net::HttpCache::InvalidationFilter> filters);
+  void StartHttpCacheDataRemover(mojom::ClearDataFilterPtr filter,
+                                 base::Time start_time,
+                                 base::Time end_time,
+                                 base::OnceClosure done_callback);
+  void UpdatePersistenceQueueOrSave(
+      const net::HttpCache::InvalidationFilter& filter,
+      std::vector<net::HttpCache::InvalidationFilter>* pending_queue,
+      base::OnceClosure callback = base::OnceClosure());
+
   void OnHostResolverShutdown(HostResolver* resolver);
 
   // Invoked when the computation for ComputeHttpCacheSize() has been completed,
@@ -914,6 +950,13 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   std::unique_ptr<domain_reliability::DomainReliabilityMonitor>
       domain_reliability_monitor_;
 
+#if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
+  // This must be declared before `url_request_context_owner_` because the
+  // context builder takes a repeating callback referencing it via Unretained.
+  std::unique_ptr<DeviceBoundSessionServiceDelegate>
+      device_bound_session_service_delegate_;
+#endif
+
   // Holds owning pointer to |url_request_context_|. Will contain a nullptr for
   // |url_request_context| when the NetworkContextImpl doesn't own its own
   // URLRequestContext.
@@ -964,6 +1007,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
 
   mojo::UniqueReceiverSet<mojom::ProxyResolvingSocketFactory>
       proxy_resolving_socket_factories_;
+
+  mojo::ReceiverSet<mojom::SocketFactory> socket_factory_receivers_;
 
   // See the comment for |trust_token_store()|.
   std::unique_ptr<PendingTrustTokenStore> trust_token_store_;
@@ -1164,6 +1209,12 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
 
   // Manager for device bound sessions.
   std::unique_ptr<DeviceBoundSessionManager> device_bound_session_manager_;
+
+  std::unique_ptr<LogicalInvalidationStore> logical_invalidation_store_;
+
+  bool initial_filters_loaded_ = false;
+  std::vector<net::HttpCache::InvalidationFilter> pending_additions_;
+  std::vector<net::HttpCache::InvalidationFilter> pending_removals_;
 
   // Used only when network::features::kCacheSharingForPervasiveResources is
   // enabled to determine if a given request is for a well-known

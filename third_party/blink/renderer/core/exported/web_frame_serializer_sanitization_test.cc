@@ -104,7 +104,7 @@ class WebFrameSerializerSanitizationTest : public testing::Test {
     ShadowRoot* shadow_root;
     shadow_root = &host_element->AttachShadowRootInternal(
         shadow_type, focus_delegation, SlotAssignmentMode::kNamed,
-        /*registry*/ nullptr, /*waiting_for_scoped_registry*/ false,
+        CustomElementRegistryAssignment::Inherit(),
         /*serializable*/ false, /*clonable*/ false,
         /*reference_target*/ g_null_atom);
     shadow_root->SetDelegatesFocus(focus_delegation ==
@@ -221,7 +221,7 @@ TEST_F(WebFrameSerializerSanitizationTest, ImageLoadedFromSrcsetForHiDPI) {
                             "frameserialization/2x.png");
 
   // Set high DPR in order to load image from srcset, instead of src.
-  WebView()->SetZoomFactorForDeviceScaleFactor(2.0f);
+  WebView()->SetZoomFactorForDeviceScaleFactor(2.0f, 1.0f);
 
   String mhtml =
       GenerateMHTMLFromHtml("http://www.test.com", "img_srcset.html");

@@ -44,6 +44,7 @@
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 #include "components/autofill/core/browser/payments/desktop_bnpl_strategy.h"
+#include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
 #include "components/autofill/core/browser/ui/payments/omnibox_autofill_delegate.h"
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
@@ -459,7 +460,7 @@ void TestPaymentsAutofillClient::ShowCreditCardSaveAndFillPendingDialog(
 
 void TestPaymentsAutofillClient::HideCreditCardSaveAndFillDialog() {}
 
-bool TestPaymentsAutofillClient::IsTabModalPopupDeprecated() const {
+bool TestPaymentsAutofillClient::IsTabModalPopup() const {
   return is_tab_model_popup_;
 }
 
@@ -486,17 +487,23 @@ TestPaymentsAutofillClient::GetOmniboxAutofillDelegate() {
   return omnibox_autofill_delegate_.get();
 }
 
-void TestPaymentsAutofillClient::ShowOmniboxAutofillChip(
+void TestPaymentsAutofillClient::ShowExpandedOmniboxAutofillChip(
     std::vector<Suggestion> suggestions,
+    base::OnceClosure on_chip_shown,
     base::RepeatingCallback<void(base::span<const Suggestion>)>
         on_suggestions_shown,
+    base::RepeatingCallback<void(SuggestionHidingReason)> on_suggestions_hidden,
     base::RepeatingCallback<void(const Suggestion&)> did_select_suggestion,
+    base::RepeatingClosure did_deselect_suggestion,
     base::RepeatingCallback<
         void(const Suggestion&,
              const AutofillSuggestionDelegate::SuggestionMetadata&)>
         did_accept_suggestion) {
   omnibox_autofill_chip_shown_ = true;
   omnibox_autofill_chip_hidden_ = false;
+  if (on_chip_shown) {
+    std::move(on_chip_shown).Run();
+  }
 }
 
 void TestPaymentsAutofillClient::HideOmniboxAutofillChip() {

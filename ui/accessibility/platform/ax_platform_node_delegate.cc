@@ -194,6 +194,12 @@ std::optional<size_t> AXPlatformNodeDelegate::GetIndexInParent() const {
   if (!parent)
     return std::nullopt;
 
+  // An ignored node is left out of the children its parent exposes, so it has
+  // no index there.
+  if (IsIgnored()) {
+    return std::nullopt;
+  }
+
   for (size_t i = 0; i < parent->GetChildCount(); i++) {
     AXPlatformNode* child_node =
         AXPlatformNode::FromNativeViewAccessible(parent->ChildAtIndex(i));
@@ -619,9 +625,7 @@ bool AXPlatformNodeDelegate::IsValidRelationTarget(
 }
 
 std::u16string AXPlatformNodeDelegate::GetAuthorUniqueId() const {
-  if (node_)
-    return node_->GetString16Attribute(ax::mojom::StringAttribute::kHtmlId);
-  return std::u16string();
+  return GetString16Attribute(ax::mojom::StringAttribute::kHtmlId);
 }
 
 AXPlatformNodeId AXPlatformNodeDelegate::GetUniqueId() const {
@@ -1354,6 +1358,10 @@ std::string AXPlatformNodeDelegate::SubtreeToStringHelper(size_t level) {
   }
 
   return result;
+}
+
+BrowserAccessibility* AXPlatformNodeDelegate::ToBrowserAccessibility() {
+  return nullptr;
 }
 
 }  // namespace ui

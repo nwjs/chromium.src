@@ -533,10 +533,13 @@ network::mojom::RequestDestination ResourceFetcher::DetermineRequestDestination(
       return network::mojom::RequestDestination::kVideo;
     case ResourceType::kManifest:
       return network::mojom::RequestDestination::kManifest;
+    case ResourceType::kDictionary:
+      return RuntimeEnabledFeatures::CDTNewDestinationEnabled()
+                 ? network::mojom::RequestDestination::kCompressionDictionary
+                 : network::mojom::RequestDestination::kEmpty;
     case ResourceType::kRaw:
     case ResourceType::kLinkPrefetch:
     case ResourceType::kMock:
-    case ResourceType::kDictionary:
       return network::mojom::RequestDestination::kEmpty;
   }
   NOTREACHED();
@@ -1970,6 +1973,10 @@ void ResourceFetcher::PrintPreloadMismatch(Resource* resource,
     case Resource::MatchStatus::kCrossWorldExtensionResourceMismatch:
       builder.Append(
           "because it is a cross-world extension resource mismatch.");
+      break;
+    case Resource::MatchStatus::kCrossWorldServiceWorkerResourceMismatch:
+      builder.Append(
+          "because it is a cross-world service worker resource mismatch.");
       break;
   }
   console_logger_->AddConsoleMessage(mojom::ConsoleMessageSource::kOther,

@@ -210,6 +210,11 @@ class NonMainThreadImpl;
 
 namespace extensions {
 class NwAppSetProxyConfigFunction;
+class ContentVerifier;
+}
+
+namespace nw {
+class Package;
 }
 
 namespace cc {
@@ -383,6 +388,9 @@ class MojoTrap;
 }
 }  // namespace core
 }  // namespace mojo
+namespace mojo_legacy::core {
+class ScopedIPCSupport;
+}  // namespace mojo_legacy
 namespace net {
 class GSSAPISharedLibrary;
 class MultiThreadedCertVerifierScopedAllowBaseSyncPrimitives;
@@ -810,6 +818,7 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitives {
   friend class media::CodecWorkerImpl;
   friend class media::MojoVideoEncodeAccelerator;
   friend class mojo::core::ScopedIPCSupport;
+  friend class mojo_legacy::core::ScopedIPCSupport;
   friend class net::MultiThreadedCertVerifierScopedAllowBaseSyncPrimitives;
   friend class rlz_lib::FinancialPing;
   friend class shell_integration_linux::
@@ -1043,6 +1052,9 @@ class BASE_EXPORT PermanentThreadAllowance {
   friend class content::ContentMainRunnerImpl;
 #endif  // BUILDFLAG(IS_IOS)
   friend class web::WebMainLoop;
+
+  friend class extensions::ContentVerifier;
+  friend class nw::Package;
 
   static void AllowBlocking();
   static void AllowBaseSyncPrimitives();

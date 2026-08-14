@@ -89,10 +89,11 @@ public class PageInfoConnectionSecurityController implements PageInfoSubpageCont
         loadIdentityInfo();
         PageInfoRowView.ViewParams rowParams = new PageInfoRowView.ViewParams();
         rowParams.title = summary;
-        rowParams.iconResId = R.drawable.lock;
+        rowParams.iconResId = R.drawable.ic_lock_24dp;
         rowParams.visible = summary != null;
         rowParams.clickCallback = this::launchSubpage;
         mRowView.setParams(rowParams);
+        mMainController.updateConnectionWrapperVisibility();
     }
 
     /** Called by PageInfoController to show the security info directly within the PageInfo UI. */

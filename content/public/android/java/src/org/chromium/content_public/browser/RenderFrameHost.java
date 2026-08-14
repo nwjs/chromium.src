@@ -72,6 +72,11 @@ public interface RenderFrameHost {
     @Nullable RenderFrameHost getMainFrame();
 
     /**
+     * @return Whether the frame is an outermost main frame.
+     */
+    boolean isOutermostMainFrame();
+
+    /**
      * Fetch the canonical URL associated with the fame.
      *
      * @param callback The callback to be notified once the canonical URL has been fetched.

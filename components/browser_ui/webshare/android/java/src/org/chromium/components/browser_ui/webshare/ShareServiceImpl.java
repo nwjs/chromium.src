@@ -130,7 +130,7 @@ public class ShareServiceImpl implements ShareService {
         /**
          * @return The current {@link WindowAndroid} used to perform sharing.
          */
-        WindowAndroid getWindowAndroid();
+        @Nullable WindowAndroid getWindowAndroid();
 
         /**
          * Kills the renderer process when it is detected to have made a bad request.
@@ -176,7 +176,7 @@ public class ShareServiceImpl implements ShareService {
                             || UrlConstants.HTTP_SCHEME.equals(shareUrl.getScheme());
             if (GURL.isEmptyOrInvalid(shareUrl) || !hasAllowedSchemes) {
                 callback.call(ShareError.PERMISSION_DENIED);
-                mDelegate.terminateRendererDueToBadMessage(11 /* RFH_INVALID_WEB_FRAME_URL */);
+                mDelegate.terminateRendererDueToBadMessage(11); // RFH_INVALID_WEB_FRAME_URL
                 return;
             }
         }
@@ -202,8 +202,14 @@ public class ShareServiceImpl implements ShareService {
                     }
                 };
 
+        WindowAndroid windowAndroid = mDelegate.getWindowAndroid();
+        if (windowAndroid == null) {
+            callback.call(ShareError.INTERNAL_ERROR);
+            return;
+        }
+
         final ShareParams.Builder paramsBuilder =
-                new ShareParams.Builder(mDelegate.getWindowAndroid(), title, url.url)
+                new ShareParams.Builder(windowAndroid, title, url.url)
                         .setText(text)
                         .setCallback(innerCallback);
         if (files == null || files.length == 0) {

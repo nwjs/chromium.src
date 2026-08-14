@@ -17,6 +17,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/interaction/element_identifier.h"
+#include "ui/webui/resources/js/tracked_element/tracked_element.mojom-forward.h"
 #include "ui/webui/resources/js/tracked_element/tracked_element.mojom.h"
 #include "ui/webui/tracked_element/tracked_element_handler.h"
 #include "ui/webui/tracked_element/tracked_element_web_ui.h"
@@ -24,6 +25,7 @@
 namespace {
 
 DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kTestElementId);
+constexpr std::string_view kTestElementSecondaryId = "3";
 
 class MockHelpBubbleClient : public help_bubble::mojom::HelpBubbleClient {
  public:
@@ -33,15 +35,15 @@ class MockHelpBubbleClient : public help_bubble::mojom::HelpBubbleClient {
               (override));
   MOCK_METHOD(void,
               ToggleFocusForAccessibility,
-              (const std::string& native_identifier),
+              (tracked_element::mojom::TrackedElementIdentifierPtr),
               (override));
   MOCK_METHOD(void,
               HideHelpBubble,
-              (const std::string& native_identifier),
+              (tracked_element::mojom::TrackedElementIdentifierPtr),
               (override));
   MOCK_METHOD(void,
               ExternalHelpBubbleUpdated,
-              (const std::string& native_identifier, bool shown),
+              (tracked_element::mojom::TrackedElementIdentifierPtr, bool shown),
               (override));
 };
 
@@ -118,7 +120,8 @@ class BrowserHelpBubbleUnitTest : public ChromeRenderViewHostTestHarness {
     handler_ = std::make_unique<TestHelpBubbleHandler>(
         tracked_element_handler_->GetWeakPtr());
     anchor_ = std::make_unique<ui::TrackedElementWebUI>(
-        tracked_element_handler_.get(), kTestElementId, context);
+        tracked_element_handler_.get(), kTestElementId, kTestElementSecondaryId,
+        context);
   }
 
   void TearDown() override {

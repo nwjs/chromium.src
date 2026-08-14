@@ -82,7 +82,7 @@ class FileHandlerLaunchDialogTest : public WebAppBrowserTestBase {
   }
 
   void TearDownOnMainThread() override {
-    test::UninstallAllWebApps(browser()->profile());
+    test::UninstallAllWebApps(browser()->GetProfile());
   }
 
   void LaunchAppWithFiles(const std::vector<base::FilePath>& paths) {
@@ -96,7 +96,7 @@ class FileHandlerLaunchDialogTest : public WebAppBrowserTestBase {
 
     browser_creator.Start(
         command_line, profile_manager->user_data_dir(),
-        {browser()->profile(), StartupProfileMode::kBrowserWindow}, {});
+        {browser()->GetProfile(), StartupProfileMode::kBrowserWindow}, {});
   }
 
   void InstallTestWebApp() {
@@ -206,7 +206,7 @@ class FileHandlerLaunchDialogTest : public WebAppBrowserTestBase {
 
  protected:
   WebAppProvider* provider() {
-    return WebAppProvider::GetForTest(browser()->profile());
+    return WebAppProvider::GetForTest(browser()->GetProfile());
   }
 
  private:

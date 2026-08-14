@@ -9,6 +9,7 @@
 #include "components/safe_browsing/core/browser/db/database_manager.h"
 #include "components/safe_browsing/core/browser/db/util.h"
 #include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
+#include "components/safe_browsing/core/browser/db/v5_get_hash_protocol_manager.h"
 #include "components/safe_browsing/core/browser/hash_realtime_mechanism.h"
 #include "components/safe_browsing/core/browser/realtime/url_lookup_service_base.h"
 #include "components/safe_browsing/core/browser/safe_browsing_lookup_mechanism.h"
@@ -70,7 +71,9 @@ UrlRealTimeMechanism::UrlRealTimeMechanism(
     const base::RepeatingCallback<content::WebContents*()>& web_contents_getter,
     SessionID tab_id,
     std::unique_ptr<SafeBrowsingLookupMechanism> hash_realtime_lookup_mechanism,
-    std::optional<internal::ReferringAppInfo> referring_app_info)
+    std::optional<internal::ReferringAppInfo> referring_app_info,
+    base::WeakPtr<safe_browsing::V5GetHashProtocolManager>
+        v5_get_hash_protocol_manager)
     : SafeBrowsingLookupMechanism(url, threat_types, database_manager),
       can_check_db_(can_check_db),
       can_check_high_confidence_allowlist_(can_check_high_confidence_allowlist),
@@ -82,7 +85,8 @@ UrlRealTimeMechanism::UrlRealTimeMechanism(
       tab_id_(tab_id),
       hash_realtime_lookup_mechanism_(
           std::move(hash_realtime_lookup_mechanism)),
-      referring_app_info_(referring_app_info) {}
+      referring_app_info_(referring_app_info),
+      v5_get_hash_protocol_manager_(v5_get_hash_protocol_manager) {}
 
 UrlRealTimeMechanism::~UrlRealTimeMechanism() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -250,6 +254,10 @@ void UrlRealTimeMechanism::OnLookupResponse(
             response->threat_info(0).threat_type(), rt_verdict_type);
   }
 
+  base::UmaHistogramBoolean(
+      "SafeBrowsing.SuspiciousSiteWarning.VerdictReceived",
+      sb_threat_type == SBThreatType::SB_THREAT_TYPE_WARNABLE_SUSPICIOUS_SITE);
+
   MaybePerformSuspiciousSiteDetection(rt_verdict_type);
 
   if (is_cached_response &&
@@ -261,8 +269,8 @@ void UrlRealTimeMechanism::OnLookupResponse(
     // return.
   } else {
     CompleteCheckInternal(std::make_unique<CompleteCheckResult>(
-        url_, sb_threat_type, ThreatMetadata(),
-        ThreatSource::URL_REAL_TIME_CHECK, std::move(response)));
+        url_, sb_threat_type, ThreatSource::URL_REAL_TIME_CHECK,
+        std::move(response)));
     // NOTE: Calling CompleteCheckInternal results in the synchronous
     // destruction of this object, so there is nothing safe to do here but
     // return.
@@ -373,8 +381,8 @@ void UrlRealTimeMechanism::PerformHashBasedCheck(
   if (can_check_db_) {
     hash_database_mechanism_ = std::make_unique<DatabaseManagerMechanism>(
         url, threat_types_, database_manager_,
-        CheckBrowseUrlType::kHashDatabase,
-        /*check_allowlist=*/false);
+        /*check_type=*/CheckBrowseUrlType::kHashDatabase,
+        /*check_allowlist=*/false, v5_get_hash_protocol_manager_);
     result = hash_database_mechanism_->StartCheck(
         base::BindOnce(&UrlRealTimeMechanism::OnHashDatabaseCompleteCheckResult,
                        weak_factory_.GetWeakPtr(), fallback_trigger));
@@ -382,7 +390,7 @@ void UrlRealTimeMechanism::PerformHashBasedCheck(
   if (result.is_safe_synchronously || !can_check_db_) {
     // No match found in the database, so conclude this is safe.
     OnHashDatabaseCompleteCheckResultInternal(
-        SBThreatType::SB_THREAT_TYPE_SAFE, ThreatMetadata(),
+        SBThreatType::SB_THREAT_TYPE_SAFE,
         /*threat_source=*/result.threat_source, fallback_trigger);
     // NOTE: Calling OnHashDatabaseCompleteCheckResultInternal results in the
     // synchronous destruction of this object, so there is nothing safe to do
@@ -394,8 +402,7 @@ void UrlRealTimeMechanism::OnHashDatabaseCompleteCheckResult(
     HashDatabaseFallbackTrigger fallback_trigger,
     std::unique_ptr<SafeBrowsingLookupMechanism::CompleteCheckResult> result) {
   OnHashDatabaseCompleteCheckResultInternal(
-      result->threat_type, result->metadata, result->threat_source,
-      fallback_trigger);
+      result->threat_type, result->threat_source, fallback_trigger);
   // NOTE: Calling OnHashDatabaseCompleteCheckResultInternal results in the
   // synchronous destruction of this object, so there is nothing safe to do here
   // but return.
@@ -403,7 +410,6 @@ void UrlRealTimeMechanism::OnHashDatabaseCompleteCheckResult(
 
 void UrlRealTimeMechanism::OnHashDatabaseCompleteCheckResultInternal(
     SBThreatType threat_type,
-    const ThreatMetadata& metadata,
     std::optional<ThreatSource> threat_source,
     HashDatabaseFallbackTrigger fallback_trigger) {
   if (is_cached_safe_url_) {
@@ -412,7 +418,7 @@ void UrlRealTimeMechanism::OnHashDatabaseCompleteCheckResultInternal(
   }
   LogHashDatabaseFallbackResult("RT", fallback_trigger, threat_type);
   CompleteCheckInternal(std::make_unique<CompleteCheckResult>(
-      url_, threat_type, metadata, threat_source,
+      url_, threat_type, threat_source,
       /*url_real_time_lookup_response=*/nullptr));
   // NOTE: Calling CompleteCheckInternal results in the synchronous destruction
   // of this object, so there is nothing safe to do here but return.

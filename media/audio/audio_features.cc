@@ -29,8 +29,7 @@ BASE_FEATURE(kUseAAudioInput, base::FEATURE_ENABLED_BY_DEFAULT);
 //
 // Requires `UseAAudioDriver` and `UseAAudioInput`, otherwise it will have no
 // effect.
-BASE_FEATURE(kAAudioPerStreamDeviceSelection,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAAudioPerStreamDeviceSelection, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Use buffer size from AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER for
 // optimal output frame size.
@@ -44,6 +43,12 @@ BASE_FEATURE(kAudioStereoInputStreamParameters,
 
 // Enables support for variable sized callbacks in AAudio.
 BASE_FEATURE(kAAudioVariableSizedCallbacks, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
+#if BUILDFLAG(IS_WIN)
+// Enable retry loop for WASAPI input stream initialization when the device
+// is in use.
+BASE_FEATURE(kWasapiInputDeviceInUseRetry, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 // This feature flag controls whether the WebAudio destination resampler is
@@ -84,4 +89,3 @@ BASE_FEATURE(kMacCatapRestartAudioProcessOnTimeout,
 #endif
 
 }  // namespace features
-

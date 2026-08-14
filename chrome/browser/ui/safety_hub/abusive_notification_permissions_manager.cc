@@ -27,6 +27,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/content/browser/notification_content_detection/notification_content_detection_constants.h"
 #include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
+#include "components/safe_browsing/core/browser/db/v5_get_hash_protocol_manager.h"
 #include "components/safe_browsing/core/browser/safe_browsing_metrics_collector.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/site_engagement/content/site_engagement_service.h"
@@ -176,11 +177,14 @@ bool ShouldCheckSuspiciousContentRevocationThreshold(
 
 AbusiveNotificationPermissionsManager::AbusiveNotificationPermissionsManager(
     scoped_refptr<safe_browsing::SafeBrowsingDatabaseManager> database_manager,
+    base::WeakPtr<safe_browsing::V5GetHashProtocolManager>
+        v5_get_hash_protocol_manager,
     scoped_refptr<HostContentSettingsMap> hcsm,
     PrefService* pref_service)
     : database_manager_(database_manager),
       hcsm_(hcsm),
       pref_service_(pref_service),
+      v5_get_hash_protocol_manager_(v5_get_hash_protocol_manager),
       safe_browsing_check_delay_(kCheckUrlTimeoutMs) {}
 
 AbusiveNotificationPermissionsManager::
@@ -519,6 +523,8 @@ AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
         base::PassKey<safe_browsing::SafeBrowsingDatabaseManager::Client>
             pass_key,
         safe_browsing::SafeBrowsingDatabaseManager* database_manager,
+        base::WeakPtr<safe_browsing::V5GetHashProtocolManager>
+            v5_get_hash_protocol_manager,
         raw_ptr<std::map<SafeBrowsingCheckClient*,
                          std::unique_ptr<SafeBrowsingCheckClient>>>
             safe_browsing_request_clients,
@@ -529,6 +535,7 @@ AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
         const base::Clock* clock)
     : safe_browsing::SafeBrowsingDatabaseManager::Client(std::move(pass_key)),
       database_manager_(database_manager),
+      v5_get_hash_protocol_manager_(v5_get_hash_protocol_manager),
       safe_browsing_request_clients_(safe_browsing_request_clients),
       hcsm_(hcsm),
       pref_service_(pref_service),
@@ -543,6 +550,12 @@ AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
     database_manager_->CancelCheck(this);
     timer_.Stop();
   }
+}
+
+base::WeakPtr<safe_browsing::V5GetHashProtocolManager>
+AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
+    GetV5GetHashProtocolManager() {
+  return v5_get_hash_protocol_manager_;
 }
 
 void AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
@@ -572,6 +585,7 @@ void AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
   // `OnCheckBrowseUrlResult` won't be called.
   if (is_safe_synchronously) {
     timer_.Stop();
+    LogCheckResult(CheckResult::kSafe);
     safe_browsing_request_clients_->erase(this);
     // The previous line results in deleting this object.
     // No further access to the object's attributes is permitted here.
@@ -580,12 +594,15 @@ void AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
 
 void AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
     OnCheckBrowseUrlResult(const GURL& url,
-                           safe_browsing::SBThreatType threat_type,
-                           const safe_browsing::ThreatMetadata& metadata) {
+                           safe_browsing::SBThreatType threat_type) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   // Stop the timer to avoid `OnCheckBlocklistTimeout` from being called, since
   // we got a blocklist check result in time.
   timer_.Stop();
+  LogCheckResult(
+      threat_type == safe_browsing::SBThreatType::SB_THREAT_TYPE_URL_PHISHING
+          ? CheckResult::kPhishing
+          : CheckResult::kSafe);
   if (threat_type == safe_browsing::SBThreatType::SB_THREAT_TYPE_URL_PHISHING) {
     ExecuteAbusiveNotificationAutoRevocation(
         hcsm_.get(), url,
@@ -618,9 +635,17 @@ void AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK(database_manager_);
   database_manager_->CancelCheck(this);
+  LogCheckResult(CheckResult::kTimeout);
   safe_browsing_request_clients_->erase(this);
   // The previous line results in deleting this object.
   // No further access to the object's attributes is permitted here.
+}
+
+void AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
+    LogCheckResult(CheckResult result) {
+  base::UmaHistogramEnumeration(
+      "Settings.SafetyHub.AbusiveNotificationPermissionRevocation.CheckResult",
+      result);
 }
 
 void AbusiveNotificationPermissionsManager::PerformSafeBrowsingChecks(
@@ -629,8 +654,9 @@ void AbusiveNotificationPermissionsManager::PerformSafeBrowsingChecks(
   DCHECK(database_manager_);
   auto new_sb_check = std::make_unique<SafeBrowsingCheckClient>(
       safe_browsing::SafeBrowsingDatabaseManager::Client::GetPassKey(),
-      database_manager_.get(), &safe_browsing_request_clients_, hcsm_.get(),
-      pref_service_, url, safe_browsing_check_delay_, GetClock());
+      database_manager_.get(), v5_get_hash_protocol_manager_,
+      &safe_browsing_request_clients_, hcsm_.get(), pref_service_, url,
+      safe_browsing_check_delay_, GetClock());
   auto new_sb_check_ptr = new_sb_check.get();
   safe_browsing_request_clients_[new_sb_check_ptr] = std::move(new_sb_check);
   new_sb_check_ptr->CheckSocialEngineeringBlocklist();

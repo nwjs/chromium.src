@@ -5,11 +5,11 @@
 import '//resources/cr_elements/cr_icon/cr_icon.js';
 import '//resources/cr_elements/cr_button/cr_button.js';
 import '//resources/cr_elements/cr_checkbox/cr_checkbox.js';
+import '//resources/cr_elements/cr_search_field/cr_search_field.js';
 
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 
-import {BrowserProxyImpl} from '../browser_proxy.js';
-import {EntryType} from '../context_hub.mojom-webui.js';
+import {browserProxyFactory, EntryType} from '../context_hub.mojom-webui.js';
 import type {MemoryBankEntry} from '../context_hub.mojom-webui.js';
 
 import {getCss} from './memory_banks.css.js';
@@ -32,11 +32,13 @@ export class MemoryBanksElement extends CrLitElement {
     return {
       entries: {type: Array},
       selectedIds: {type: Object},
+      searchQuery: {type: String},
     };
   }
 
   accessor entries: MemoryBankEntry[] = [];
   accessor selectedIds: Set<bigint> = new Set();
+  accessor searchQuery: string = '';
 
   override connectedCallback() {
     super.connectedCallback();
@@ -44,8 +46,8 @@ export class MemoryBanksElement extends CrLitElement {
   }
 
   private async fetchEntries() {
-    const {entries} =
-        await BrowserProxyImpl.getInstance().handler.getAllEntries();
+    const {entries} = await browserProxyFactory.getInstance()
+                          .handler.getAllMemoryBankEntries();
     this.entries = entries;
   }
 
@@ -53,7 +55,20 @@ export class MemoryBanksElement extends CrLitElement {
     return this.entries.slice(0, 3);
   }
 
-  protected convertMojoTimeToDate_(mojoTime: {internalValue: bigint}): Date {
+  protected getFilteredEntries_(): MemoryBankEntry[] {
+    if (!this.searchQuery) {
+      return this.entries;
+    }
+    const query = this.searchQuery.toLowerCase();
+    return this.entries.filter(entry => {
+      return entry.tabTitle.toLowerCase().includes(query) ||
+          entry.url.toLowerCase().includes(query) ||
+          (entry.selectedText &&
+           entry.selectedText.toLowerCase().includes(query));
+    });
+  }
+
+  convertMojoTimeToDate(mojoTime: {internalValue: bigint}): Date {
     // Mojo Time represents microseconds since the Windows epoch (January 1,
     // 1601). JavaScript Date expects milliseconds since the Unix epoch (January
     // 1, 1970).
@@ -64,25 +79,32 @@ export class MemoryBanksElement extends CrLitElement {
     return new Date(Number(unixEpochUs / 1000n));
   }
 
-  protected isSelected_(id: bigint): boolean {
+  isSelected(id: bigint): boolean {
     return this.selectedIds.has(id);
   }
 
   protected isAllSelected_(): boolean {
-    return this.entries.length > 0 &&
-        this.selectedIds.size === this.entries.length;
+    const filtered = this.getFilteredEntries_();
+    return filtered.length > 0 &&
+        filtered.every(entry => this.selectedIds.has(entry.id));
   }
 
   protected isSomeSelected_(): boolean {
-    return this.selectedIds.size > 0 &&
-        this.selectedIds.size < this.entries.length;
+    if (this.selectedIds.size === 0) {
+      return false;
+    }
+    const filtered = this.getFilteredEntries_();
+    const filteredSelected =
+        filtered.filter(entry => this.selectedIds.has(entry.id));
+    return filteredSelected.length > 0 &&
+        filteredSelected.length < filtered.length;
   }
 
-  protected onCheckboxClick_(e: Event) {
+  onCheckboxClick(e: Event) {
     e.stopPropagation();
   }
 
-  protected onCheckboxChange_(e: Event) {
+  onCheckboxChange(e: Event) {
     const checkbox = e.target as HTMLElement & {checked: boolean};
     const id = BigInt(checkbox.dataset['id']!);
     if (checkbox.checked) {
@@ -96,11 +118,16 @@ export class MemoryBanksElement extends CrLitElement {
   protected onSelectAllChange_(e: Event) {
     const checkbox = e.target as HTMLElement & {checked: boolean};
     if (checkbox.checked) {
-      this.selectedIds = new Set(this.entries.map(entry => entry.id));
+      this.selectedIds =
+          new Set(this.getFilteredEntries_().map(entry => entry.id));
     } else {
-      this.selectedIds.clear();
-      this.selectedIds = new Set(this.selectedIds);
+      this.selectedIds = new Set();
     }
+  }
+
+  protected onSearchChanged_(e: CustomEvent<string>) {
+    this.searchQuery = e.detail;
+    this.selectedIds = new Set();
   }
 
   protected async onCopyClick_() {
@@ -125,23 +152,35 @@ export class MemoryBanksElement extends CrLitElement {
     URL.revokeObjectURL(url);
   }
 
+  protected async onDeleteClick_() {
+    const ids = Array.from(this.selectedIds);
+    await browserProxyFactory.getInstance().handler.deleteMemoryBankEntries(
+        ids);
+    this.selectedIds = new Set();
+    await this.fetchEntries();
+  }
+
+
   private getSelectedEntriesAsText_(): string {
-    const selectedEntries =
-        this.entries.filter(entry => this.selectedIds.has(entry.id));
-    return selectedEntries
+    return this.entries.filter(entry => this.selectedIds.has(entry.id))
         .map(entry => {
           const dateStr =
-              this.convertMojoTimeToDate_(entry.timestamp).toLocaleString();
-          if (entry.type === EntryType.kTextSelection) {
-            return `[Text Selection] "${
-                entry.selectedText || ''}"\nPage Title: ${
-                entry.tabTitle}\nURL: ${entry.url}\nSaved: ${dateStr}\n`;
-          } else {
-            return `[Tab] Title: ${entry.tabTitle}\nURL: ${entry.url}\nSaved: ${
-                dateStr}\n`;
+              this.convertMojoTimeToDate(entry.timestamp).toLocaleString();
+          const typeStr = entry.type === EntryType.kTextSelection ?
+              'Saved Text' :
+              'Saved Tab';
+          const lines = [
+            `[${typeStr}]`,
+            `Title: ${entry.tabTitle}`,
+            `URL: ${entry.url}`,
+          ];
+          if (entry.selectedText) {
+            lines.push(`Content: "${entry.selectedText}"`);
           }
+          lines.push(`Saved Date: ${dateStr}`);
+          return lines.join('\n');
         })
-        .join('\n---\n\n');
+        .join('\n\n---\n\n');
   }
 }
 

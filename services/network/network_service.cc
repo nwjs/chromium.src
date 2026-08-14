@@ -38,6 +38,7 @@
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/timer/timer.h"
+#include "base/trace_event/trace_event.h"
 #include "base/types/pass_key.h"
 #include "base/values.h"
 #include "build/build_config.h"
@@ -68,6 +69,7 @@
 #include "net/dns/public/dns_config_overrides.h"
 #include "net/dns/public/dns_over_https_config.h"
 #include "net/dns/public/doh_provider_entry.h"
+#include "net/dns/public/insecure_dns_mode.h"
 #include "net/dns/system_dns_config_change_notifier.h"
 #include "net/dns/test_dns_config_service.h"
 #include "net/filter/filter_source_stream.h"
@@ -425,6 +427,8 @@ void NetworkService::Initialize(mojom::NetworkServiceParamsPtr params,
     return;
   }
 
+  TRACE_EVENT0("loading", "NetworkService::Initialize");
+
   initialized_ = true;
 
 #if BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_ARMEL)
@@ -674,13 +678,15 @@ void NetworkService::SetSystemDnsResolver(
 void NetworkService::StartNetLog(base::File file,
                                  uint64_t max_total_size,
                                  net::NetLogCaptureMode capture_mode,
+                                 net::NetLogFileFormat file_format,
                                  base::DictValue constants,
                                  std::optional<base::TimeDelta> duration) {
   if (max_total_size == net::FileNetLogObserver::kNoLimit) {
-    StartNetLogUnbounded(std::move(file), capture_mode, std::move(constants));
+    StartNetLogUnbounded(std::move(file), capture_mode, file_format,
+                         std::move(constants));
   } else {
     StartNetLogBounded(std::move(file), max_total_size, capture_mode,
-                       std::move(constants));
+                       file_format, std::move(constants));
   }
   if (duration.has_value() && !duration->is_zero()) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
@@ -727,6 +733,7 @@ void NetworkService::SetSSLKeyLogFile(base::File file) {
 void NetworkService::CreateNetworkContext(
     mojo::PendingReceiver<mojom::NetworkContext> receiver,
     mojom::NetworkContextParamsPtr params) {
+  TRACE_EVENT0("loading", "NetworkService::CreateNetworkContext");
   if (time_to_first_context_timer_) {
     base::UmaHistogramMediumTimes(
         "NetworkService.TimeToFirstCreateNetworkContext",
@@ -763,13 +770,13 @@ void NetworkService::ConfigureStubHostResolver(
     bool insecure_dns_via_platform_apis_enabled) {
   // Enable or disable the insecure part of DnsClient. "DnsClient" is the class
   // that implements the stub resolver.
-  net::HostResolverManager::InsecureDnsMode mode;
+  net::InsecureDnsMode mode;
   if (insecure_dns_client_enabled && insecure_dns_via_platform_apis_enabled) {
-    mode = net::HostResolverManager::InsecureDnsMode::kEnabledPlatform;
+    mode = net::InsecureDnsMode::kEnabledPlatform;
   } else if (insecure_dns_client_enabled) {
-    mode = net::HostResolverManager::InsecureDnsMode::kEnabledBuiltIn;
+    mode = net::InsecureDnsMode::kEnabledBuiltIn;
   } else {
-    mode = net::HostResolverManager::InsecureDnsMode::kDisabled;
+    mode = net::InsecureDnsMode::kDisabled;
   }
 
   host_resolver_manager_->SetInsecureDnsClientEnabled(
@@ -1145,6 +1152,7 @@ void NetworkService::SetTLS13EarlyDataEnabled(bool enabled) {
 void NetworkService::StartNetLogBounded(base::File file,
                                         uint64_t max_total_size,
                                         net::NetLogCaptureMode capture_mode,
+                                        net::NetLogFileFormat file_format,
                                         base::DictValue client_constants) {
   base::DictValue constants = net::GetNetConstants();
   constants.Merge(std::move(client_constants));
@@ -1158,13 +1166,14 @@ void NetworkService::StartNetLogBounded(base::File file,
       base::BindOnce(
           &NetworkService::OnStartNetLogBoundedScratchDirectoryCreated,
           weak_factory_.GetWeakPtr(), std::move(file), max_total_size,
-          capture_mode, std::move(constants)));
+          capture_mode, file_format, std::move(constants)));
 }
 
 void NetworkService::OnStartNetLogBoundedScratchDirectoryCreated(
     base::File file,
     uint64_t max_total_size,
     net::NetLogCaptureMode capture_mode,
+    net::NetLogFileFormat file_format,
     base::DictValue constants,
     const base::FilePath& in_progress_dir_path) {
   if (in_progress_dir_path.empty()) {
@@ -1174,19 +1183,20 @@ void NetworkService::OnStartNetLogBoundedScratchDirectoryCreated(
 
   file_net_log_observer_ = net::FileNetLogObserver::CreateBoundedPreExisting(
       in_progress_dir_path, std::move(file), max_total_size, capture_mode,
-      std::make_unique<base::DictValue>(std::move(constants)));
+      std::make_unique<base::DictValue>(std::move(constants)), file_format);
   file_net_log_observer_->StartObserving(net_log_);
 }
 
 void NetworkService::StartNetLogUnbounded(base::File file,
                                           net::NetLogCaptureMode capture_mode,
+                                          net::NetLogFileFormat file_format,
                                           base::DictValue client_constants) {
   base::DictValue constants = net::GetNetConstants();
   constants.Merge(std::move(client_constants));
 
   file_net_log_observer_ = net::FileNetLogObserver::CreateUnboundedPreExisting(
       std::move(file), capture_mode,
-      std::make_unique<base::DictValue>(std::move(constants)));
+      std::make_unique<base::DictValue>(std::move(constants)), file_format);
   file_net_log_observer_->StartObserving(net_log_);
 }
 

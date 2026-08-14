@@ -35,15 +35,11 @@ using InsetValueSequence =
 
 namespace {
 
-bool IsBlockDirection(ViewTimeline::ScrollAxis axis, WritingMode writing_mode) {
+bool IsBlockDirection(PhysicalAxis axis, WritingMode writing_mode) {
   switch (axis) {
-    case ViewTimeline::ScrollAxis::kBlock:
-      return true;
-    case ViewTimeline::ScrollAxis::kInline:
-      return false;
-    case ViewTimeline::ScrollAxis::kX:
+    case PhysicalAxis::kHorizontal:
       return !blink::IsHorizontalWritingMode(writing_mode);
-    case ViewTimeline::ScrollAxis::kY:
+    case PhysicalAxis::kVertical:
       return blink::IsHorizontalWritingMode(writing_mode);
   }
 }
@@ -56,23 +52,26 @@ bool IsBlockDirection(ViewTimeline::ScrollAxis axis, WritingMode writing_mode) {
 //
 // https://drafts.csswg.org/scroll-animations-1/#valdef-view-timeline-inset-auto
 TimelineInset ResolveAuto(const TimelineInset& inset,
-                          Element& source,
-                          ViewTimeline::ScrollAxis axis) {
-  const ComputedStyle* style = source.GetComputedStyle();
-  if (!style)
+                          const Node* resolved_source,
+                          PhysicalAxis axis) {
+  const LayoutObject* layout_object =
+      resolved_source ? resolved_source->GetLayoutObject() : nullptr;
+  if (!layout_object) {
     return inset;
+  }
 
+  const ComputedStyle& style = layout_object->StyleRef();
   const Length& start = inset.GetStart();
   const Length& end = inset.GetEnd();
 
-  if (IsBlockDirection(axis, style->GetWritingMode())) {
+  if (IsBlockDirection(axis, style.GetWritingMode())) {
     return TimelineInset(
-        start.IsAuto() ? style->ScrollPaddingBlockStart() : start,
-        end.IsAuto() ? style->ScrollPaddingBlockEnd() : end);
+        start.IsAuto() ? style.ScrollPaddingBlockStart() : start,
+        end.IsAuto() ? style.ScrollPaddingBlockEnd() : end);
   }
   return TimelineInset(
-      start.IsAuto() ? style->ScrollPaddingInlineStart() : start,
-      end.IsAuto() ? style->ScrollPaddingInlineEnd() : end);
+      start.IsAuto() ? style.ScrollPaddingInlineStart() : start,
+      end.IsAuto() ? style.ScrollPaddingInlineEnd() : end);
 }
 
 LayoutUnit ComputeInset(const Length& inset, LayoutUnit viewport_size) {
@@ -302,12 +301,13 @@ ViewTimeline::ViewTimeline(Document* document,
       inset_(inset) {}
 
 void ViewTimeline::CalculateOffsets(PaintLayerScrollableArea* scrollable_area,
-                                    ScrollOrientation physical_orientation,
+                                    PhysicalAxis physical_orientation,
                                     TimelineState* state) const {
   // Do not call this method with an unresolved timeline.
   // Called from ScrollTimeline::ComputeTimelineState, which has safeguard.
   // Any new call sites will require a similar safeguard.
-  LayoutBox* scroll_container = ComputeScrollContainer(state->resolved_source);
+  LayoutBox* scroll_container =
+      ComputeScrollContainer(state->resolved_source, physical_orientation);
   DCHECK(scroll_container);
   DCHECK(subject());
 
@@ -322,12 +322,12 @@ void ViewTimeline::CalculateOffsets(PaintLayerScrollableArea* scrollable_area,
   DCHECK(subject_position);
 
   // TODO(crbug.com/1448801): Handle nested sticky elements.
-  double target_offset = physical_orientation == kHorizontalScroll
+  double target_offset = physical_orientation == PhysicalAxis::kHorizontal
                              ? subject_position->x()
                              : subject_position->y();
   double target_size;
   LayoutUnit viewport_size;
-  if (physical_orientation == kHorizontalScroll) {
+  if (physical_orientation == PhysicalAxis::kHorizontal) {
     target_size = subject_size->width();
     viewport_size = scrollable_area->LayoutContentRect().Width();
   } else {
@@ -335,9 +335,8 @@ void ViewTimeline::CalculateOffsets(PaintLayerScrollableArea* scrollable_area,
     viewport_size = scrollable_area->LayoutContentRect().Height();
   }
 
-  Element* source = ComputeSourceNoLayout();
-  DCHECK(source);
-  TimelineInset inset = ResolveAuto(GetInset(), *source, GetAxis());
+  TimelineInset inset =
+      ResolveAuto(GetInset(), state->resolved_source, physical_orientation);
 
   // Update inset lengths if style dependent.
   if (style_dependant_start_inset_ || style_dependant_end_inset_) {
@@ -383,7 +382,7 @@ void ViewTimeline::ApplyStickyAdjustments(ScrollOffsets& scroll_offsets,
                                           double viewport_size,
                                           double target_size,
                                           double target_offset,
-                                          ScrollOrientation orientation,
+                                          PhysicalAxis orientation,
                                           LayoutBox* scroll_container) const {
   if (!subject()) {
     return;
@@ -403,10 +402,7 @@ void ViewTimeline::ApplyStickyAdjustments(ScrollOffsets& scroll_offsets,
   StickyPositionScrollingConstraints constraints =
       sticky_container->StickyConstraints();
 
-  const PhysicalAxis axis = orientation == kHorizontalScroll
-                                ? PhysicalAxis::kHorizontal
-                                : PhysicalAxis::kVertical;
-  const auto* axis_data = constraints.AxisData(axis);
+  const auto* axis_data = constraints.AxisData(orientation);
   if (!axis_data) {
     return;
   }
@@ -531,17 +527,14 @@ std::optional<gfx::PointF> ViewTimeline::SubjectPosition(
   gfx::PointF subject_pos = subject_layout_object->LocalToAncestorPoint(
       gfx::PointF(), scroll_container, flags);
 
-  // We call LayoutObject::ClientLeft/Top directly and avoid
-  // Element::clientLeft/Top because:
-  //
-  // - We may reach this function during style resolution,
-  //   and clientLeft/Top also attempt to update style/layout.
-  // - Those functions return the unzoomed values, and we require the zoomed
-  //   values.
-
-  return gfx::PointF(
-      subject_pos.x() - scroll_container->ClientLeft().ToDouble(),
-      subject_pos.y() - scroll_container->ClientTop().ToDouble());
+  // We call LayoutObject::PhysicalPaddingBoxRect directly and avoid
+  // Element::clientLeft, Element::clientTop because:
+  //  - We may reach this function during style resolution, and
+  //    clientLeft/clientTop also attempt to update style/layout.
+  //  - Those functions return the unzoomed values, and we require
+  //    the zoomed values.
+  return subject_pos -
+         gfx::Vector2dF(scroll_container->PhysicalPaddingBoxRect().offset);
 }
 
 // https://www.w3.org/TR/scroll-animations-1/#named-range-getTime

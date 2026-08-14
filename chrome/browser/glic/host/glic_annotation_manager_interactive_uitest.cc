@@ -201,8 +201,8 @@ class GlicAnnotationManagerUiTestBase : public InteractiveGlicTest {
 
       base::RunLoop run_loop(base::RunLoop::Type::kNestableTasksAllowed);
 
-      auto options = mojom::GetTabContextOptions::New();
-      options->include_annotated_page_content = true;
+      auto options = mojom::TabContextOptions::New();
+      options->annotated_page_content = true;
 
       FocusedTabData data =
           GetHost()->GetSharingManagerInternal().GetFocusedTabData();
@@ -469,7 +469,7 @@ class GlicAnnotationManagerUiTestBase : public InteractiveGlicTest {
   auto UserSwitchesConversation() {
     const DeepQuery kOnActiveThreadChanged{{"#dropScrollToHighlightBtn"}};
     static constexpr char kClickFn[] = "el => el.click()";
-    return ExecuteJsAt(test::kGlicContentsElementId, kOnActiveThreadChanged,
+    return ExecuteJsAt(kGlicContentsElementId, kOnActiveThreadChanged,
                        kClickFn);
   }
 
@@ -1282,11 +1282,9 @@ IN_PROC_BROWSER_TEST_F(
       // contents isn't visible.
       CheckResult(
           [&]() {
-            return content::EvalJs(GetGlicInstance()
-                                       ->host()
-                                       .webui_contents()
-                                       ->GetInnerWebContents()[0],
-                                   R"js(
+            return content::EvalJs(
+                       GetHost()->webui_contents()->GetInnerWebContents()[0],
+                       R"js(
               new Promise(resolve => {
                 window.scrollToPromise.catch(e => {
                   resolve(e.reason);
@@ -1490,7 +1488,7 @@ class MAYBE_GlicAnnotationManagerTabContextPermissionUiTest
       // When GlicDefaultTabContextSetting is disabled, we rely on a pref to
       // determine if tab context permission is enabled.
       return Steps(Do([this, enabled]() {
-        browser()->profile()->GetPrefs()->SetBoolean(
+        browser()->GetProfile()->GetPrefs()->SetBoolean(
             glic::prefs::kGlicTabContextEnabled, enabled);
       }));
     }

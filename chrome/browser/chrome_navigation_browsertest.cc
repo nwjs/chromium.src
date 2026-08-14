@@ -28,7 +28,6 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
-#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/sad_tab_helper.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -724,7 +723,8 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
       )");
 
   ExtensionTestMessageListener ready_listener("ready");
-  extensions::ChromeTestExtensionLoader extension_loader(browser()->profile());
+  extensions::ChromeTestExtensionLoader extension_loader(
+      browser()->GetProfile());
   extension_loader.LoadExtension(test_extension_dir.UnpackedPath());
 
   // Wait for the background page to load.
@@ -813,13 +813,14 @@ IN_PROC_BROWSER_TEST_F(
   ext_dir.WriteManifest(kManifest);
   ext_dir.WriteFile(FILE_PATH_LITERAL("background.js"), kRulesScript);
   ExtensionTestMessageListener ready_listener("ready");
-  extensions::ChromeTestExtensionLoader extension_loader(browser()->profile());
+  extensions::ChromeTestExtensionLoader extension_loader(
+      browser()->GetProfile());
   scoped_refptr<const extensions::Extension> extension =
       extension_loader.LoadExtension(ext_dir.UnpackedPath());
   ASSERT_TRUE(extension);
   ASSERT_TRUE(ready_listener.WaitUntilSatisfied());
   browser()
-      ->profile()
+      ->GetProfile()
       ->GetDefaultStoragePartition()
       ->FlushNetworkInterfaceForTesting();
 
@@ -956,13 +957,14 @@ IN_PROC_BROWSER_TEST_F(
       FILE_PATH_LITERAL("background.js"),
       content::JsReplace(kRulesScriptTemplate, kRedirectTargetUrl));
   ExtensionTestMessageListener ready_listener("ready");
-  extensions::ChromeTestExtensionLoader extension_loader(browser()->profile());
+  extensions::ChromeTestExtensionLoader extension_loader(
+      browser()->GetProfile());
   scoped_refptr<const extensions::Extension> extension =
       extension_loader.LoadExtension(ext_dir.UnpackedPath());
   ASSERT_TRUE(extension);
   ASSERT_TRUE(ready_listener.WaitUntilSatisfied());
   browser()
-      ->profile()
+      ->GetProfile()
       ->GetDefaultStoragePartition()
       ->FlushNetworkInterfaceForTesting();
 
@@ -1126,13 +1128,14 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
       FILE_PATH_LITERAL("background.js"),
       content::JsReplace(kRulesScriptTemplate, kRedirectTargetUrl));
   ExtensionTestMessageListener ready_listener("ready");
-  extensions::ChromeTestExtensionLoader extension_loader(browser()->profile());
+  extensions::ChromeTestExtensionLoader extension_loader(
+      browser()->GetProfile());
   scoped_refptr<const extensions::Extension> extension =
       extension_loader.LoadExtension(ext_dir.UnpackedPath());
   ASSERT_TRUE(extension);
   ASSERT_TRUE(ready_listener.WaitUntilSatisfied());
   browser()
-      ->profile()
+      ->GetProfile()
       ->GetDefaultStoragePartition()
       ->FlushNetworkInterfaceForTesting();
 
@@ -1267,13 +1270,14 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
       FILE_PATH_LITERAL("background.js"),
       content::JsReplace(kRulesScriptTemplate, kRedirectTargetUrl));
   ExtensionTestMessageListener ready_listener("ready");
-  extensions::ChromeTestExtensionLoader extension_loader(browser()->profile());
+  extensions::ChromeTestExtensionLoader extension_loader(
+      browser()->GetProfile());
   scoped_refptr<const extensions::Extension> extension =
       extension_loader.LoadExtension(ext_dir.UnpackedPath());
   ASSERT_TRUE(extension);
   ASSERT_TRUE(ready_listener.WaitUntilSatisfied());
   browser()
-      ->profile()
+      ->GetProfile()
       ->GetDefaultStoragePartition()
       ->FlushNetworkInterfaceForTesting();
 
@@ -1391,13 +1395,14 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
       FILE_PATH_LITERAL("background.js"),
       content::JsReplace(kRulesScriptTemplate, kRedirectTargetUrl));
   ExtensionTestMessageListener ready_listener("ready");
-  extensions::ChromeTestExtensionLoader extension_loader(browser()->profile());
+  extensions::ChromeTestExtensionLoader extension_loader(
+      browser()->GetProfile());
   scoped_refptr<const extensions::Extension> extension =
       extension_loader.LoadExtension(ext_dir.UnpackedPath());
   ASSERT_TRUE(extension);
   ASSERT_TRUE(ready_listener.WaitUntilSatisfied());
   browser()
-      ->profile()
+      ->GetProfile()
       ->GetDefaultStoragePartition()
       ->FlushNetworkInterfaceForTesting();
 
@@ -1911,8 +1916,8 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
                        OpenerNavigation_DownloadPolicy_Disallowed) {
-  browser()->profile()->GetPrefs()->SetBoolean(prefs::kPromptForDownload,
-                                               false);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kPromptForDownload,
+                                                  false);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(), embedded_test_server()->GetURL("a.com", "/title1.html")));
 
@@ -1952,7 +1957,7 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
   std::vector<raw_ptr<download::DownloadItem, VectorExperimental>>
       download_items;
   content::DownloadManager* manager =
-      browser()->profile()->GetDownloadManager();
+      browser()->GetProfile()->GetDownloadManager();
   manager->GetAllDownloads(&download_items);
   EXPECT_TRUE(download_items.empty());
 }
@@ -1960,8 +1965,8 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
 // Opener navigations from a same-origin popup should be allowed.
 IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
                        OpenerNavigation_DownloadPolicy_Allowed) {
-  browser()->profile()->GetPrefs()->SetBoolean(prefs::kPromptForDownload,
-                                               false);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kPromptForDownload,
+                                                  false);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(), embedded_test_server()->GetURL("a.com", "/title1.html")));
 
@@ -1986,7 +1991,7 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
   EXPECT_TRUE(WaitForLoadStop(popup));
 
   content::DownloadTestObserverInProgress observer(
-      browser()->profile()->GetDownloadManager(), 1 /* wait_count */);
+      browser()->GetProfile()->GetDownloadManager(), 1 /* wait_count */);
   EXPECT_TRUE(content::ExecJs(
       popup,
       "window.opener.location ='data:html/text;base64,'+btoa('payload');"));
@@ -2000,7 +2005,7 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
   std::vector<raw_ptr<download::DownloadItem, VectorExperimental>>
       download_items;
   content::DownloadManager* manager =
-      browser()->profile()->GetDownloadManager();
+      browser()->GetProfile()->GetDownloadManager();
   manager->GetAllDownloads(&download_items);
   for (download::DownloadItem* item : download_items) {
     if (!item->IsDone())
@@ -2132,7 +2137,7 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
                        NavigationCanceledOnProfileShutdown) {
   Browser* incognito = CreateIncognitoBrowser();
   Profile* incognito_profile =
-      browser()->profile()->GetPrimaryOTRProfile(/*create_if_needed=*/false);
+      browser()->GetProfile()->GetPrimaryOTRProfile(/*create_if_needed=*/false);
   ASSERT_TRUE(incognito_profile);
 
   // Create a custom WebContents in which to perform a navigation. Note that we
@@ -2558,7 +2563,7 @@ class SiteIsolationForPasswordSitesBrowserTest
   }
 
   std::vector<std::string> GetSavedIsolatedSites() {
-    return GetSavedIsolatedSites(browser()->profile());
+    return GetSavedIsolatedSites(browser()->GetProfile());
   }
 
   std::vector<std::string> GetSavedIsolatedSites(Profile* profile) {
@@ -2671,10 +2676,10 @@ IN_PROC_BROWSER_TEST_F(SiteIsolationForPasswordSitesBrowserTest,
   // Isolate saved.com and saved2.com persistently.
   GURL saved_url(
       embedded_https_test_server().GetURL("saved.com", "/title1.html"));
-  StartIsolatingSite(browser()->profile(), saved_url);
+  StartIsolatingSite(browser()->GetProfile(), saved_url);
   GURL saved2_url(
       embedded_https_test_server().GetURL("saved2.com", "/title1.html"));
-  StartIsolatingSite(browser()->profile(), saved2_url);
+  StartIsolatingSite(browser()->GetProfile(), saved2_url);
 
   // Check that saved.com utilizes a dedicated process in future navigations.
   // Open a new tab to force creation of a new BrowsingInstance.
@@ -2730,9 +2735,9 @@ IN_PROC_BROWSER_TEST_F(SiteIsolationForPasswordSitesBrowserTest,
                        IsolatedSiteIsSavedOnlyOnce) {
   GURL saved_url(
       embedded_https_test_server().GetURL("saved.com", "/title1.html"));
-  StartIsolatingSite(browser()->profile(), saved_url);
-  StartIsolatingSite(browser()->profile(), saved_url);
-  StartIsolatingSite(browser()->profile(), saved_url);
+  StartIsolatingSite(browser()->GetProfile(), saved_url);
+  StartIsolatingSite(browser()->GetProfile(), saved_url);
+  StartIsolatingSite(browser()->GetProfile(), saved_url);
   EXPECT_THAT(GetSavedIsolatedSites(),
               UnorderedElementsAre("https://saved.com"));
 }
@@ -2745,7 +2750,7 @@ IN_PROC_BROWSER_TEST_F(SiteIsolationForPasswordSitesBrowserTest,
   // Isolate saved.com and verify it's been saved to disk.
   GURL saved_url(
       embedded_https_test_server().GetURL("saved.com", "/title1.html"));
-  StartIsolatingSite(browser()->profile(), saved_url);
+  StartIsolatingSite(browser()->GetProfile(), saved_url);
   EXPECT_THAT(GetSavedIsolatedSites(),
               UnorderedElementsAre("https://saved.com"));
 
@@ -2769,7 +2774,7 @@ IN_PROC_BROWSER_TEST_F(SiteIsolationForPasswordSitesBrowserTest,
   // process, and the site is not persisted for either the main or incognito
   // profiles.
   GURL foo_url(embedded_https_test_server().GetURL("foo.com", "/title1.html"));
-  StartIsolatingSite(incognito->profile(), foo_url);
+  StartIsolatingSite(incognito->GetProfile(), foo_url);
 
   AddBlankTabAndShow(incognito);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(incognito, foo_url));
@@ -2785,9 +2790,9 @@ IN_PROC_BROWSER_TEST_F(SiteIsolationForPasswordSitesBrowserTest,
                    ->GetSiteInstance()
                    ->RequiresDedicatedProcess());
 
-  EXPECT_THAT(GetSavedIsolatedSites(browser()->profile()),
+  EXPECT_THAT(GetSavedIsolatedSites(browser()->GetProfile()),
               testing::Not(testing::Contains("https://foo.com")));
-  EXPECT_THAT(GetSavedIsolatedSites(incognito->profile()),
+  EXPECT_THAT(GetSavedIsolatedSites(incognito->GetProfile()),
               testing::Not(testing::Contains("https://foo.com")));
 }
 
@@ -2799,7 +2804,7 @@ IN_PROC_BROWSER_TEST_F(SiteIsolationForPasswordSitesBrowserTest,
   // Isolate saved.com and verify it's been saved to disk.
   GURL saved_url(embedded_https_test_server().GetURL("saved.com",
                                                      "/clear_site_data.html"));
-  StartIsolatingSite(browser()->profile(), saved_url);
+  StartIsolatingSite(browser()->GetProfile(), saved_url);
   EXPECT_THAT(GetSavedIsolatedSites(),
               UnorderedElementsAre("https://saved.com"));
 
@@ -2821,13 +2826,9 @@ class SiteIsolationForOAuthSitesBrowserTest
   SiteIsolationForOAuthSitesBrowserTest()
       : https_server_(net::EmbeddedTestServer::TYPE_HTTPS) {
     feature_list_.InitWithFeatures(
-        /*enabled_features=*/
         {login_detection::kLoginDetection,
          site_isolation::features::kSiteIsolationForOAuthSites},
-        /*disabled_features=*/
-        {features::kSitePerProcess,
-         omnibox::internal::kWebUIOmniboxPopup,
-         omnibox::internal::kWebUIOmniboxAimPopup});
+        {features::kSitePerProcess});
   }
 
   using IsolatedOriginSource =
@@ -2884,17 +2885,17 @@ IN_PROC_BROWSER_TEST_F(SiteIsolationForOAuthSitesBrowserTest, PopupFlow) {
       IsolatedOriginSource::USER_TRIGGERED));
 
   // Create a popup that emulates an OAuth sign-in flow.
-  content::WebContentsAddedObserver web_contents_added_observer;
-  content::TestNavigationObserver navigation_observer(nullptr, 1);
-  navigation_observer.StartWatchingNewWebContents();
+  content::CreateAndLoadWebContentsObserver create_and_load_observer(
+      1, base::BindRepeating([](content::WebContents* wc) {
+        return wc->GetWebUI() == nullptr;
+      }));
   ASSERT_TRUE(content::ExecJs(
       browser()->tab_strip_model()->GetActiveWebContents(),
       content::JsReplace(
           "window.open($1, 'oauth_window', 'width=10,height=10');",
           https_server()->GetURL("www.oauthprovider.com",
                                  "/title2.html?client_id=123"))));
-  auto* popup_contents = web_contents_added_observer.GetWebContents();
-  navigation_observer.WaitForNavigationFinished();
+  auto* popup_contents = create_and_load_observer.Wait();
 
   // When the popup is closed, it will be detected as an OAuth login.
   content::WebContentsDestroyedWatcher destroyed_watcher(popup_contents);
@@ -3051,7 +3052,7 @@ class SiteIsolationForCOOPBrowserTest : public ChromeNavigationBrowserTest {
 // interacting with it via a user activation.  Part 1/2.
 IN_PROC_BROWSER_TEST_F(SiteIsolationForCOOPBrowserTest,
                        PRE_PersistAcrossRestarts) {
-  EXPECT_THAT(GetSavedIsolatedSites(browser()->profile()), IsEmpty());
+  EXPECT_THAT(GetSavedIsolatedSites(browser()->GetProfile()), IsEmpty());
 
   content::WebContents* contents =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -3077,7 +3078,7 @@ IN_PROC_BROWSER_TEST_F(SiteIsolationForCOOPBrowserTest,
                   ->RequiresDedicatedProcess());
 
   // Check that saved.com and saved2.com were saved to disk.
-  EXPECT_THAT(GetSavedIsolatedSites(browser()->profile()),
+  EXPECT_THAT(GetSavedIsolatedSites(browser()->GetProfile()),
               UnorderedElementsAre("https://saved.com", "https://saved2.com"));
 }
 
@@ -3085,7 +3086,7 @@ IN_PROC_BROWSER_TEST_F(SiteIsolationForCOOPBrowserTest,
 // persisted across restarts.  Part 2/2.
 IN_PROC_BROWSER_TEST_F(SiteIsolationForCOOPBrowserTest, PersistAcrossRestarts) {
   // Check that saved.com and saved2.com are still saved after a restart.
-  EXPECT_THAT(GetSavedIsolatedSites(browser()->profile()),
+  EXPECT_THAT(GetSavedIsolatedSites(browser()->GetProfile()),
               UnorderedElementsAre("https://saved.com", "https://saved2.com"));
 
   // Check that these sites have been loaded as isolated on startup and utilize
@@ -3149,8 +3150,8 @@ IN_PROC_BROWSER_TEST_F(SiteIsolationForCOOPBrowserTest, Incognito) {
                    ->RequiresDedicatedProcess());
 
   // Neither profile should've saved foo.com to COOP isolated sites prefs.
-  EXPECT_THAT(GetSavedIsolatedSites(browser()->profile()), IsEmpty());
-  EXPECT_THAT(GetSavedIsolatedSites(incognito->profile()), IsEmpty());
+  EXPECT_THAT(GetSavedIsolatedSites(browser()->GetProfile()), IsEmpty());
+  EXPECT_THAT(GetSavedIsolatedSites(incognito->GetProfile()), IsEmpty());
 }
 
 // Verify that when a COOP-isolated site is visited again, the timestamp in its
@@ -3158,7 +3159,7 @@ IN_PROC_BROWSER_TEST_F(SiteIsolationForCOOPBrowserTest, Incognito) {
 // trimming the list of stored COOP sites to its maximum size.
 IN_PROC_BROWSER_TEST_F(SiteIsolationForCOOPBrowserTest,
                        TimestampUpdateOnSecondVisit) {
-  EXPECT_THAT(GetSavedIsolatedSites(browser()->profile()), IsEmpty());
+  EXPECT_THAT(GetSavedIsolatedSites(browser()->GetProfile()), IsEmpty());
 
   content::WebContents* contents =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -3180,7 +3181,7 @@ IN_PROC_BROWSER_TEST_F(SiteIsolationForCOOPBrowserTest,
   EXPECT_TRUE(ExecJs(contents, "// no-op"));  // Simulate user activation.
 
   // At this point, the first three sites should be saved to prefs.
-  EXPECT_THAT(GetSavedIsolatedSites(browser()->profile()),
+  EXPECT_THAT(GetSavedIsolatedSites(browser()->GetProfile()),
               UnorderedElementsAre("https://coop1.com", "https://coop2.com",
                                    "https://coop3.com"));
 
@@ -3190,7 +3191,7 @@ IN_PROC_BROWSER_TEST_F(SiteIsolationForCOOPBrowserTest,
   contents = browser()->tab_strip_model()->GetActiveWebContents();
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), coop1));
   EXPECT_TRUE(ExecJs(contents, "// no-op"));  // Simulate user activation.
-  EXPECT_THAT(GetSavedIsolatedSites(browser()->profile()),
+  EXPECT_THAT(GetSavedIsolatedSites(browser()->GetProfile()),
               UnorderedElementsAre("https://coop1.com", "https://coop2.com",
                                    "https://coop3.com"));
 
@@ -3199,7 +3200,7 @@ IN_PROC_BROWSER_TEST_F(SiteIsolationForCOOPBrowserTest,
   // be coop2.com, since coop1.com's timestamp was just updated.
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), coop4));
   EXPECT_TRUE(ExecJs(contents, "// no-op"));  // Simulate user activation.
-  EXPECT_THAT(GetSavedIsolatedSites(browser()->profile()),
+  EXPECT_THAT(GetSavedIsolatedSites(browser()->GetProfile()),
               UnorderedElementsAre("https://coop1.com", "https://coop3.com",
                                    "https://coop4.com"));
 }

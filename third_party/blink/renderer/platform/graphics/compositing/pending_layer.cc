@@ -203,24 +203,64 @@ bool PendingLayer::Matches(const PendingLayer& old_pending_layer) const {
 // merged_area - (home_area + guest_area) <= kMergeSparsityAreaTolerance
 static constexpr float kMergeSparsityAreaTolerance = 10000;
 
-bool PendingLayer::CanMerge(
-    const PendingLayer& guest,
-    LCDTextPreference lcd_text_preference,
-    float device_pixel_ratio,
-    IsCompositedScrollFunction is_composited_scroll,
-    gfx::RectF& merged_bounds,
-    PropertyTreeState& merged_state,
-    gfx::RectF& merged_rect_known_to_be_opaque,
-    bool& merged_text_known_to_be_on_opaque_background,
-    wtf_size_t& merged_solid_color_chunk_index,
-    cc::HitTestOpaqueness& merged_hit_test_opaqueness) const {
-  std::optional<PropertyTreeState> optional_merged_state =
-      CanUpcastWith(guest, guest.GetPropertyTreeState(), is_composited_scroll);
-  if (!optional_merged_state) {
+static DOMNodeId GetCanvasChildId(const EffectPaintPropertyNode& effect) {
+  if (!effect.IsInCanvasSubtree()) {
+    return kInvalidDOMNodeId;
+  }
+  for (const auto* e = &effect; e; e = e->UnaliasedParent()) {
+    if (e->HasCanvasChildState()) {
+      return e->CanvasChildId();
+    }
+  }
+  return kInvalidDOMNodeId;
+}
+
+bool PendingLayer::CanMerge(const PendingLayer& guest,
+                            LCDTextPreference lcd_text_preference,
+                            float device_pixel_ratio,
+                            IsCompositedScrollFunction is_composited_scroll,
+                            gfx::RectF& merged_bounds,
+                            PropertyTreeState& merged_state,
+                            gfx::RectF& merged_rect_known_to_be_opaque,
+                            bool& merged_text_known_to_be_on_opaque_background,
+                            wtf_size_t& merged_solid_color_chunk_index,
+                            cc::HitTestOpaqueness& merged_hit_test_opaqueness,
+                            bool& scroll_range_dependent) const {
+  DOMNodeId home_canvas_child_id =
+      GetCanvasChildId(GetPropertyTreeState().Effect());
+  DOMNodeId guest_canvas_child_id =
+      GetCanvasChildId(guest.GetPropertyTreeState().Effect());
+  if (home_canvas_child_id != guest_canvas_child_id &&
+      (home_canvas_child_id != kInvalidDOMNodeId ||
+       guest_canvas_child_id != kInvalidDOMNodeId)) {
     return false;
   }
 
-  merged_state = *optional_merged_state;
+  // Force merge all content under canvas so that it can be drawn using
+  // html-in-canvas APIs, and so that it is not drawn as a regular
+  // cc::Layer.
+  bool force_merge =
+      GetPropertyTreeState().Effect().IsInCanvasSubtree() &&
+      guest.GetPropertyTreeState().Effect().IsInCanvasSubtree() &&
+      home_canvas_child_id == guest_canvas_child_id;
+
+  std::optional<PropertyTreeState::UpcastResult> upcast_result =
+      CanUpcastWith(guest, guest.GetPropertyTreeState(), is_composited_scroll);
+  if (!upcast_result) {
+    // TODO(paint-dev): what should we do when the property tree state of the
+    // descendant of a canvas child fails CanUpcastWith with the canvas child's
+    // property state? Our solution here is to force the descendant to paint
+    // into the property state of the canvas child, which will do *something*
+    // but not the right thing.
+    if (force_merge) {
+      upcast_result.emplace(GetPropertyTreeState(), false);
+    } else {
+      return false;
+    }
+  }
+
+  merged_state = upcast_result->upcasted_state;
+  scroll_range_dependent = upcast_result->scroll_range_dependent;
   const std::optional<gfx::RectF>& merged_visibility_limit =
       GeometryMapper::VisibilityLimit(merged_state);
   merged_solid_color_chunk_index = kNotFound;
@@ -261,7 +301,6 @@ bool PendingLayer::CanMerge(
   merged_bounds =
       gfx::UnionRects(new_home_bounds.Rect(), new_guest_bounds.Rect());
 
-  bool force_merge = false;
   // If guest.has_decomposited_blend_mode_ is true, this function must merge
   // unconditionally and return because the decomposited blend mode requires
   // the merge. See PaintArtifactCompositor::DecompositeEffect().
@@ -272,14 +311,6 @@ bool PendingLayer::CanMerge(
   // - LCD text will be disabled with exotic blend mode.
   if (guest.has_decomposited_blend_mode_) {
     force_merge = true;
-  }
-
-  // Force merge all content under canvas so that it can be drawn using
-  // html-in-canvas APIs, and so that it is not drawn as a regular
-  // cc::Layer.
-  if (!force_merge) {
-    force_merge = GetPropertyTreeState().Effect().IsInCanvasSubtree() &&
-                  guest.GetPropertyTreeState().Effect().IsInCanvasSubtree();
   }
 
   if (!force_merge) {
@@ -372,10 +403,11 @@ bool PendingLayer::CanMerge(
   return true;
 }
 
-bool PendingLayer::Merge(const PendingLayer& guest,
-                         LCDTextPreference lcd_text_preference,
-                         float device_pixel_ratio,
-                         IsCompositedScrollFunction is_composited_scroll) {
+PendingLayer::MergeResult PendingLayer::Merge(
+    const PendingLayer& guest,
+    LCDTextPreference lcd_text_preference,
+    float device_pixel_ratio,
+    IsCompositedScrollFunction is_composited_scroll) {
   gfx::RectF merged_bounds;
   PropertyTreeState merged_state(PropertyTreeState::kUninitialized);
   gfx::RectF merged_rect_known_to_be_opaque;
@@ -383,13 +415,15 @@ bool PendingLayer::Merge(const PendingLayer& guest,
   wtf_size_t merged_solid_color_chunk_index = kNotFound;
   cc::HitTestOpaqueness merged_hit_test_opaqueness =
       cc::HitTestOpaqueness::kMixed;
+  bool scroll_range_dependent = false;
 
   if (!CanMerge(guest, lcd_text_preference, device_pixel_ratio,
                 is_composited_scroll, merged_bounds, merged_state,
                 merged_rect_known_to_be_opaque,
                 merged_text_known_to_be_on_opaque_background,
-                merged_solid_color_chunk_index, merged_hit_test_opaqueness)) {
-    return false;
+                merged_solid_color_chunk_index, merged_hit_test_opaqueness,
+                scroll_range_dependent)) {
+    return {.merged = false};
   }
 
   chunks_.Merge(guest.Chunks());
@@ -422,10 +456,10 @@ bool PendingLayer::Merge(const PendingLayer& guest,
     merged_across_compositing_boundary_count_++;
   }
 
-  return true;
+  return {.merged = true, .scroll_range_dependent = scroll_range_dependent};
 }
 
-std::optional<PropertyTreeState> PendingLayer::CanUpcastWith(
+std::optional<PropertyTreeState::UpcastResult> PendingLayer::CanUpcastWith(
     const PendingLayer& guest,
     const PropertyTreeState& guest_state,
     IsCompositedScrollFunction is_composited_scroll) const {
@@ -436,7 +470,7 @@ std::optional<PropertyTreeState> PendingLayer::CanUpcastWith(
   if (&GetPropertyTreeState().Effect() != &guest_state.Effect()) {
     return std::nullopt;
   }
-  std::optional<PropertyTreeState> result =
+  std::optional<PropertyTreeState::UpcastResult> result =
       GetPropertyTreeState().CanUpcastWith(guest_state, is_composited_scroll);
   if (!result) {
     return result;
@@ -453,7 +487,7 @@ std::optional<PropertyTreeState> PendingLayer::CanUpcastWith(
     return result;
   }
   const auto& lca_scroll_translation =
-      result->Transform().NearestScrollTranslationNode();
+      result->upcasted_state.Transform().NearestScrollTranslationNode();
   if ((&guest_scroll_translation == &lca_scroll_translation ||
        non_composited_scroll_translations_.Contains(
            &guest_scroll_translation)) &&

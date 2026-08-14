@@ -23,6 +23,7 @@
 #include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/tabs/groups/tab_group_accessibility.h"
 #include "chrome/browser/ui/views/tabs/groups/tab_group_editor_bubble_tracker.h"
 #include "chrome/browser/ui/views/tabs/groups/tab_group_editor_bubble_view.h"
 #include "chrome/browser/ui/views/tabs/shared/tab_strip_types.h"
@@ -38,6 +39,7 @@
 #include "components/strings/grit/components_strings.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tabs/public/tab_group.h"
+#include "components/vector_icons/vector_icons.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "third_party/skia/include/core/SkRRect.h"
 #include "ui/base/interaction/element_identifier.h"
@@ -634,7 +636,7 @@ void TabGroupHeader::UpdateSyncIconView() {
     sync_icon_->SetImage(ui::ImageModel::FromVectorIcon(
         use_share_icon ? features::IsRoundedIconsEnabled() ? kGroupCustomIcon
                                                            : kPeopleGroupOldIcon
-        : features::IsRoundedIconsEnabled() ? kSyncIcon
+        : features::IsRoundedIconsEnabled() ? vector_icons::kSyncIcon
                                             : kTabGroupsSyncOldIcon,
         color_utils::GetColorWithMaxContrast(color_),
         group_style_->GetSyncIconWidth()));
@@ -819,6 +821,12 @@ void TabGroupHeader::UpdateTooltipText() {
 }
 
 void TabGroupHeader::UpdateAccessibleName() {
+  if (features::IsTabGroupHoverCardsEnabled()) {
+    GetViewAccessibility().SetName(tab_groups::GetHoverCardAccessibilityText(
+        tab_group_data_observer_->tab_group_data()));
+    return;
+  }
+
   TabGroup* tab_group = tab_slot_controller_->GetTabGroup(group().value());
   if (tab_group && tab_group->ListTabs().length() == 0) {
     return;
@@ -869,6 +877,7 @@ void TabGroupHeader::OnTabGroupDataChanged() {
       tab_group_data_observer_->tab_group_data();
   SetHoverCardDataFrom(tab_group_data);
   UpdateAttentionIndicatorView();
+  UpdateAccessibleName();
 }
 
 BEGIN_METADATA(TabGroupHeader)

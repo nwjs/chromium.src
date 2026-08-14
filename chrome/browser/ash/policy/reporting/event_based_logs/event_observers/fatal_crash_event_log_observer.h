@@ -15,7 +15,11 @@
 #include "chrome/browser/policy/messaging_layer/proto/synced/log_upload_event.pb.h"
 #include "chrome/browser/support_tool/data_collection_module.pb.h"
 
+class PrefService;
+
 namespace policy {
+
+class DeviceCloudPolicyManagerAsh;
 
 // Observes `reporting::FatalCrashEventsObserver` for fatal crashes. When fatal
 // crash event is observed, uploads the related log files to server.
@@ -25,7 +29,9 @@ class FatalCrashEventLogObserver
     : public EventObserverBase,
       public reporting::FatalCrashEventsObserver::FatalCrashEventLogObserver {
  public:
-  FatalCrashEventLogObserver();
+  // `local_state` must be non-null and must outlive `this`.
+  FatalCrashEventLogObserver(PrefService* local_state,
+                             DeviceCloudPolicyManagerAsh& policy_manager);
   ~FatalCrashEventLogObserver() override;
 
   // EventObserverBase

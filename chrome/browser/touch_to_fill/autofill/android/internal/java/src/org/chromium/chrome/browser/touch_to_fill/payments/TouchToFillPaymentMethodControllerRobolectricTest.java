@@ -15,6 +15,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -126,6 +127,9 @@ import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaym
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.LoyaltyCardProperties.LOYALTY_CARD;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.LoyaltyCardProperties.LOYALTY_CARD_ICON;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.LoyaltyCardProperties.ON_LOYALTY_CARD_CLICK_ACTION;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.PaymentMethodTabId.PAY_LATER;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.PaymentMethodTabId.PAY_NOW;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.SELECTED_TAB_INDEX;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.SHEET_CLOSED_DESCRIPTION_ID;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.SHEET_CONTENT_DESCRIPTION_ID;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.SHEET_FULL_HEIGHT_DESCRIPTION_ID;
@@ -137,6 +141,10 @@ import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaym
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ScreenId.ERROR_SCREEN;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ScreenId.HOME_SCREEN;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ScreenId.PROGRESS_SCREEN;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ScreenId.TABBED_HOME_SCREEN;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.TABBED_HEADER_LOGO_DRAWABLE_ID;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.TABBED_HEADER_TITLE_ID;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.TAB_SELECTION_HANDLER;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.TermsLabelProperties.TERMS_LABEL_TEXT_ID;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.TosFooterProperties.LEGAL_MESSAGE_LINES;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.TosFooterProperties.LINK_OPENER;
@@ -237,7 +245,8 @@ import java.util.stream.StreamSupport;
 @DisableFeatures({
     AutofillFeatures.AUTOFILL_ENABLE_SECURITY_TOUCH_EVENT_FILTERING_ANDROID,
     AutofillFeatures.AUTOFILL_ENABLE_WALLET_BRANDING,
-    AutofillFeatures.AUTOFILL_ENABLE_AI_BASED_AMOUNT_EXTRACTION
+    AutofillFeatures.AUTOFILL_ENABLE_AI_BASED_AMOUNT_EXTRACTION,
+    AutofillFeatures.AUTOFILL_ENABLE_PAY_NOW_PAY_LATER_TABS
 })
 public class TouchToFillPaymentMethodControllerRobolectricTest {
     private static final CreditCard VISA =
@@ -588,6 +597,7 @@ public class TouchToFillPaymentMethodControllerRobolectricTest {
 
     public TouchToFillPaymentMethodControllerRobolectricTest() {
         mActivity = Robolectric.buildActivity(Activity.class).get();
+        mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
     }
 
     @Before
@@ -3353,6 +3363,78 @@ public class TouchToFillPaymentMethodControllerRobolectricTest {
 
         mTouchToFillPaymentMethodModel.get(DISMISS_HANDLER).onResult(StateChangeReason.SWIPE);
         histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @EnableFeatures({AutofillFeatures.AUTOFILL_ENABLE_PAY_NOW_PAY_LATER_TABS})
+    public void testShowPaymentMethodsWithTabsEnabled() {
+        mCoordinator.showPaymentMethods(
+                List.of(VISA_SUGGESTION, BNPL_SUGGESTION), new TouchToFillDisplayOptions());
+
+        // Verify we are on the tabbed home screen
+        assertThat(mTouchToFillPaymentMethodModel.get(CURRENT_SCREEN), is(TABBED_HOME_SCREEN));
+
+        // Verify the flat header properties are set
+        assertThat(
+                mTouchToFillPaymentMethodModel.get(TABBED_HEADER_LOGO_DRAWABLE_ID),
+                is(R.drawable.google_pay));
+        assertThat(
+                mTouchToFillPaymentMethodModel.get(TABBED_HEADER_TITLE_ID),
+                is(R.string.autofill_payment_method_bottom_sheet_title));
+
+        // Verify default selected tab is PAY_NOW (Pay Now)
+        assertThat(mTouchToFillPaymentMethodModel.get(SELECTED_TAB_INDEX), is(PAY_NOW));
+
+        // Verify only credit cards are shown in the list (Pay Now tab)
+        ModelList itemList = mTouchToFillPaymentMethodModel.get(SHEET_ITEMS);
+        assertThat(getModelsOfType(itemList, CREDIT_CARD).size(), is(1));
+        assertThat(getModelsOfType(itemList, BNPL).size(), is(0));
+    }
+
+    @Test
+    @EnableFeatures({AutofillFeatures.AUTOFILL_ENABLE_PAY_NOW_PAY_LATER_TABS})
+    public void testSwitchingTabsUpdatesSheetItems() {
+        // Stub the delegate to show BNPL issuers when Pay Later tab is selected
+        doAnswer(
+                        invocation -> {
+                            mCoordinator.onPurchaseAmountExtracted(
+                                    List.of(
+                                            BNPL_ISSUER_CONTEXT_AFFIRM_LINKED,
+                                            BNPL_ISSUER_CONTEXT_KLARNA_LINKED),
+                                    /* extractedAmount= */ null,
+                                    /* isAmountSupportedByAnyIssuer= */ false);
+                            return null;
+                        })
+                .when(mDelegateMock)
+                .bnplSuggestionSelected(null);
+
+        mCoordinator.showPaymentMethods(
+                List.of(VISA_SUGGESTION, BNPL_SUGGESTION), new TouchToFillDisplayOptions());
+
+        // Switch to tab PAY_LATER (Pay Later) by invoking the selection callback
+        mTouchToFillPaymentMethodModel.get(TAB_SELECTION_HANDLER).onResult(PAY_LATER);
+
+        // Verify selected tab index is updated
+        assertThat(mTouchToFillPaymentMethodModel.get(SELECTED_TAB_INDEX), is(PAY_LATER));
+
+        // Verify the list now contains the BNPL issuers and terms, but no credit cards
+        ModelList itemList = mTouchToFillPaymentMethodModel.get(SHEET_ITEMS);
+        assertThat(getModelsOfType(itemList, CREDIT_CARD).size(), is(0));
+        assertThat(getModelsOfType(itemList, BNPL_ISSUER).size(), is(2));
+        assertThat(getModelsOfType(itemList, BNPL_SELECTION_PROGRESS_TERMS).size(), is(1));
+        assertThat(getModelsOfType(itemList, PROGRESS_ICON).size(), is(0));
+
+        // Switch back to tab PAY_NOW (Pay Now) by invoking the selection callback
+        mTouchToFillPaymentMethodModel.get(TAB_SELECTION_HANDLER).onResult(PAY_NOW);
+
+        // Verify selected tab index is updated
+        assertThat(mTouchToFillPaymentMethodModel.get(SELECTED_TAB_INDEX), is(PAY_NOW));
+
+        // Verify only credit cards are shown again
+        itemList = mTouchToFillPaymentMethodModel.get(SHEET_ITEMS);
+        assertThat(getModelsOfType(itemList, CREDIT_CARD).size(), is(1));
+        assertThat(getModelsOfType(itemList, BNPL).size(), is(0));
+        assertThat(getModelsOfType(itemList, BNPL_ISSUER).size(), is(0));
     }
 
     private static List<PropertyModel> getModelsOfType(ModelList items, int type) {

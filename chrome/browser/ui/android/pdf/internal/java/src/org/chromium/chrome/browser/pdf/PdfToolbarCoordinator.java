@@ -90,11 +90,17 @@ public class PdfToolbarCoordinator implements View.OnClickListener, View.OnKeyLi
         int currentPageNumber = mModel.get(PdfToolbarProperties.CURRENT_PAGE_NUMBER);
 
         if (actionId == R.id.zoom_increase_button) {
+            PdfUtils.recordToolbarAction(PdfUtils.PdfToolbarAction.ZOOM_IN);
             mDelegate.changeZoomLevel(getNextZoomLevel(currentZoomFactor, true));
         } else if (actionId == R.id.zoom_decrease_button) {
+            PdfUtils.recordToolbarAction(PdfUtils.PdfToolbarAction.ZOOM_OUT);
             mDelegate.changeZoomLevel(getNextZoomLevel(currentZoomFactor, false));
         } else if (actionId == R.id.fit_to_page_button) {
             boolean showFitToHeight = mModel.get(PdfToolbarProperties.SHOW_FIT_TO_HEIGHT_ICON);
+            PdfUtils.recordToolbarAction(
+                    showFitToHeight
+                            ? PdfUtils.PdfToolbarAction.FIT_TO_PAGE_VERTICAL
+                            : PdfUtils.PdfToolbarAction.FIT_TO_PAGE_HORIZONTAL);
             mDelegate.toggleFitToPage(showFitToHeight, currentPageNumber - 1);
             mModel.set(PdfToolbarProperties.SHOW_FIT_TO_HEIGHT_ICON, !showFitToHeight);
         } else if (actionId == R.id.download_button) {
@@ -103,6 +109,7 @@ public class PdfToolbarCoordinator implements View.OnClickListener, View.OnKeyLi
         } else if (actionId == R.id.more_menu_button) {
             showMenu(view);
         } else if (actionId == R.id.print_button) {
+            PdfUtils.recordToolbarAction(PdfUtils.PdfToolbarAction.PRINT);
             mDelegate.print();
         } else if (actionId == R.id.done_button) {
             mDelegate.setEditMode(false);
@@ -116,6 +123,11 @@ public class PdfToolbarCoordinator implements View.OnClickListener, View.OnKeyLi
         int currentPageNumber = mModel.get(PdfToolbarProperties.CURRENT_PAGE_NUMBER);
         boolean isCurrentlyActive = mModel.get(PdfToolbarProperties.TWO_PAGES_PER_ROW_ACTIVE);
         boolean newState = !isCurrentlyActive;
+        if (newState) {
+            PdfUtils.recordToolbarAction(PdfUtils.PdfToolbarAction.TWO_PAGE_VIEW);
+        } else {
+            PdfUtils.recordToolbarAction(PdfUtils.PdfToolbarAction.SINGLE_PAGE_VIEW);
+        }
         mModel.set(PdfToolbarProperties.TWO_PAGES_PER_ROW_ACTIVE, newState);
         mDelegate.toggleTwoPagesPerRow(newState, currentZoomFactor, currentPageNumber - 1);
     }
@@ -147,6 +159,12 @@ public class PdfToolbarCoordinator implements View.OnClickListener, View.OnKeyLi
                                         int currentPageNumber =
                                                 mModel.get(
                                                         PdfToolbarProperties.CURRENT_PAGE_NUMBER);
+                                        PdfUtils.recordToolbarAction(
+                                                showFitToHeight
+                                                        ? PdfUtils.PdfToolbarAction
+                                                                .FIT_TO_PAGE_VERTICAL
+                                                        : PdfUtils.PdfToolbarAction
+                                                                .FIT_TO_PAGE_HORIZONTAL);
                                         mDelegate.toggleFitToPage(
                                                 showFitToHeight, currentPageNumber - 1);
                                         mModel.set(
@@ -177,6 +195,8 @@ public class PdfToolbarCoordinator implements View.OnClickListener, View.OnKeyLi
                             .withTitleRes(R.string.pdf_document_properties)
                             .withClickListener(
                                     v -> {
+                                        PdfUtils.recordToolbarAction(
+                                                PdfUtils.PdfToolbarAction.DOCUMENT_PROPERTIES);
                                         mDelegate.showDocumentProperties();
                                         dismissMenu();
                                     })
@@ -283,6 +303,7 @@ public class PdfToolbarCoordinator implements View.OnClickListener, View.OnKeyLi
     private void onPageNumberSubmitted(int pageNumber) {
         int totalPageCount = mModel.get(PdfToolbarProperties.TOTAL_PAGE_COUNT);
         if (pageNumber >= 1 && pageNumber <= totalPageCount) {
+            PdfUtils.recordToolbarAction(PdfUtils.PdfToolbarAction.PAGE_NAVIGATION);
             // Convert to 0-based index for the delegate.
             mDelegate.navigateToPage(pageNumber - 1);
         }

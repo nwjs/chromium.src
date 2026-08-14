@@ -23,50 +23,47 @@ namespace actor {
 TypeTool::~TypeTool() = default;
 
 // static
-base::expected<std::unique_ptr<TypeTool>, ToolExecutionResult> TypeTool::Create(
-    const optimization_guide::proto::TypeAction& action,
-    ProfileIOS* profile) {
-  if (!action.has_tab_id()) {
-    return base::unexpected(
+std::unique_ptr<TypeTool> TypeTool::Create(
+    base::WeakPtr<web::WebState> web_state,
+    const optimization_guide::proto::TypeAction& action) {
+  return std::unique_ptr<TypeTool>(new TypeTool(web_state, action));
+}
+
+void TypeTool::Validate(ToolExecutionCallback callback) {
+  if (!action_.has_text() || !action_.has_mode()) {
+    std::move(callback).Run(
         ToolExecutionResult(mojom::ActionResultCode::kArgumentsInvalid));
+    return;
   }
 
-  base::expected<TabResolutionResult, ToolExecutionResult> resolution_result =
-      ResolveTab(action.tab_id(), profile);
-  if (!resolution_result.has_value()) {
-    return base::unexpected(resolution_result.error());
-  }
-
-  if (!action.has_text() || !action.has_mode()) {
-    return base::unexpected(
+  if (!action_.has_target()) {
+    std::move(callback).Run(
         ToolExecutionResult(mojom::ActionResultCode::kArgumentsInvalid));
+    return;
   }
 
-  if (!action.has_target()) {
-    return base::unexpected(
-        ToolExecutionResult(mojom::ActionResultCode::kArgumentsInvalid));
-  }
-
-  const optimization_guide::proto::ActionTarget& target = action.target();
+  const optimization_guide::proto::ActionTarget& target = action_.target();
+  // TODO(crbug.com/537772128): Share common target validation logic.
   // Callers must either target by coordinate or (document_identifier, node_id).
   if (target.has_content_node_id() && !target.has_document_identifier()) {
-    return base::unexpected(
+    std::move(callback).Run(
         ToolExecutionResult(mojom::ActionResultCode::kArgumentsInvalid));
+    return;
   }
   bool can_target_by_coordinate = target.has_coordinate();
   bool can_target_by_node_id =
       target.has_content_node_id() && target.has_document_identifier();
   if (!can_target_by_coordinate && !can_target_by_node_id) {
-    return base::unexpected(
+    std::move(callback).Run(
         ToolExecutionResult(mojom::ActionResultCode::kArgumentsInvalid));
+    return;
   }
   if (can_target_by_coordinate && can_target_by_node_id) {
-    return base::unexpected(
+    std::move(callback).Run(
         ToolExecutionResult(mojom::ActionResultCode::kArgumentsInvalid));
+    return;
   }
-
-  return std::unique_ptr<TypeTool>(
-      new TypeTool(action, resolution_result.value().web_state));
+  std::move(callback).Run(ToolExecutionResult::Ok());
 }
 
 void TypeTool::Execute(ToolExecutionCallback callback) {
@@ -98,8 +95,8 @@ ToolType TypeTool::GetToolType() const {
   return ToolType::kType;
 }
 
-TypeTool::TypeTool(const optimization_guide::proto::TypeAction& action,
-                   base::WeakPtr<web::WebState> web_state)
+TypeTool::TypeTool(base::WeakPtr<web::WebState> web_state,
+                   const optimization_guide::proto::TypeAction& action)
     : action_(action),
       web_state_(web_state),
       js_feature_(TypeToolJavaScriptFeature::GetInstance()) {}

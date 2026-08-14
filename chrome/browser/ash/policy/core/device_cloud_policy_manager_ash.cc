@@ -43,9 +43,13 @@
 #include "chrome/browser/ash/policy/status_collector/managed_session_service.h"
 #include "chrome/browser/ash/policy/uploading/status_uploader.h"
 #include "chrome/browser/ash/policy/uploading/system_log_uploader.h"
+#include "chrome/browser/ash/policy/uploading/system_log_uploader_delegate.h"
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "chromeos/ash/components/system/statistics_provider.h"
 #include "chromeos/constants/chromeos_features.h"
+#include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/policy/core/common/cloud/cloud_external_data_manager.h"
 #include "components/policy/core/common/cloud/cloud_policy_client.h"
 #include "components/policy/core/common/cloud/cloud_policy_core.h"
@@ -70,6 +74,15 @@ namespace {
 // Keep the default value in sync with device_status_frequency in
 // DeviceReportingProto in components/policy/proto/chrome_device_policy.proto.
 constexpr base::TimeDelta kDeviceStatusUploadFrequency = base::Hours(3);
+
+constexpr char kSystemLogUploadUrlTail[] = "/upload";
+
+GURL GetSystemLogUploadUrl() {
+  std::string url =
+      g_browser_process->browser_policy_connector()->GetDeviceManagementUrl() +
+      kSystemLogUploadUrlTail;
+  return GURL(url);
+}
 
 }  // namespace
 
@@ -183,6 +196,13 @@ void DeviceCloudPolicyManagerAsh::StartConnection(
     std::unique_ptr<CloudPolicyClient> client_to_connect,
     ash::InstallAttributes* install_attributes) {
   CHECK(!service());
+  CHECK(local_state_);
+  CHECK(shared_url_loader_factory_);
+
+  // TODO(crbug.com/404133022): Inject NetworkQualityTracker to this class.
+  // Since NetworkQualityTracker is created after DeviceCommandsFactoryAsh, it
+  // should be injected via StartConnection or a dedicated call.
+  auto* network_quality_tracker = g_browser_process->network_quality_tracker();
 
   // If supported, set state keys here so the first policy fetch submits them to
   // the server.
@@ -216,7 +236,6 @@ void DeviceCloudPolicyManagerAsh::StartConnection(
   core()->TrackRefreshDelayPref(local_state_,
                                 ash::prefs::kDevicePolicyRefreshRate);
 
-  CHECK(shared_url_loader_factory_);
   external_data_manager_->Connect(shared_url_loader_factory_);
 
   enrollment_certificate_uploader_ =
@@ -225,7 +244,6 @@ void DeviceCloudPolicyManagerAsh::StartConnection(
   enrollment_id_upload_manager_ =
       std::make_unique<ash::attestation::EnrollmentIdUploadManager>(
           client(), enrollment_certificate_uploader_.get());
-  CHECK(local_state_);
   lookup_key_uploader_ = std::make_unique<LookupKeyUploader>(
       device_store(), local_state_, enrollment_certificate_uploader_.get());
   euicc_status_uploader_ =
@@ -244,6 +262,7 @@ void DeviceCloudPolicyManagerAsh::StartConnection(
   // Start remote commands services now that we have setup everything they need.
   core()->StartRemoteCommandsService(
       std::make_unique<DeviceCommandsFactoryAsh>(
+          local_state_, shared_url_loader_factory_,
           machine_certificate_uploader_.get(), *crd_delegate_),
       PolicyInvalidationScope::kDevice);
 
@@ -255,12 +274,16 @@ void DeviceCloudPolicyManagerAsh::StartConnection(
   if (install_attributes->IsCloudManaged()) {
     CreateManagedSessionServiceAndReporters();
     CreateStatusUploader(managed_session_service_.get());
-    syslog_uploader_ =
-        std::make_unique<SystemLogUploader>(nullptr, task_runner_);
+    syslog_uploader_ = std::make_unique<SystemLogUploader>(
+        local_state_,
+        std::make_unique<SystemLogUploaderDelegate>(shared_url_loader_factory_,
+                                                    task_runner_),
+        task_runner_, GetSystemLogUploadUrl());
     metric_reporting_manager_ = reporting::MetricReportingManager::Create(
-        managed_session_service_.get());
+        network_quality_tracker, managed_session_service_.get());
     os_updates_reporter_ = reporting::OsUpdatesReporter::Create();
-    event_based_log_manager_ = std::make_unique<EventBasedLogManager>();
+    event_based_log_manager_ =
+        std::make_unique<EventBasedLogManager>(local_state_, this);
   }
 
   NotifyConnected();

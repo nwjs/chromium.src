@@ -639,6 +639,24 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
+                       AccessibilityEventsAriaSpinbuttonAppendingTextChanged) {
+  RunEventTest(
+      FILE_PATH_LITERAL("aria-spinbutton-appending-text-changed.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(
+    DumpAccessibilityEventsTest,
+    AccessibilityEventsNativeSpinbuttonAppendingTextChanged) {
+  RunEventTest(
+      FILE_PATH_LITERAL("native-spinbutton-appending-text-changed.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
+                       AccessibilityEventsNativeSpinbuttonArrowUpChanged) {
+  RunEventTest(FILE_PATH_LITERAL("native-spinbutton-arrow-up-changed.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
                        AccessibilityEventsAddAlert) {
   RunEventTest(FILE_PATH_LITERAL("add-alert.html"));
 }
@@ -722,6 +740,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
   }
 
   RunEventTest(FILE_PATH_LITERAL("checked-state-changed.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
+                       AccessibilityEventsButtonHasPopupCheckedStateChanged) {
+  RunEventTest(FILE_PATH_LITERAL("button-haspopup-checked-state-changed.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,

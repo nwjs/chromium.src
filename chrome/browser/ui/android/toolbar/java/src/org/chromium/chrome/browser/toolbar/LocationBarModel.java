@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.toolbar;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
 import android.util.LruCache;
@@ -828,11 +829,22 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
             return R.drawable.omnibox_info;
         }
 
-        // Return early if native initialization hasn't been done yet.
+        // Return early if native initialization hasn't been done yet. Keep hidden until native is
+        // ready if the toolbar refactor is enabled.
         if ((securityLevel == ConnectionSecurityLevel.NONE
                         || securityLevel == ConnectionSecurityLevel.WARNING)
                 && mNativeLocationBarModelAndroid == 0) {
-            return R.drawable.omnibox_info;
+            return ToolbarVariationUtils.isToolbarUiRefactorEnabled(mContext)
+                    ? Resources.ID_NULL
+                    : R.drawable.omnibox_info;
+        }
+
+        // Suppress neutral/info icon during page load to avoid transition jank if the toolbar
+        // refactor is enabled.
+        if (ToolbarVariationUtils.isToolbarUiRefactorEnabled(mContext)
+                && securityLevel == ConnectionSecurityLevel.NONE
+                && isLoading()) {
+            return Resources.ID_NULL;
         }
 
         boolean skipIconForNeutralState = mNtpDelegate.isCurrentlyVisible();
@@ -881,6 +893,12 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
             boolean isIncognito) {
         // Return regular color scheme if the website does not show warning.
         if (connectionSecurityLevel == ConnectionSecurityLevel.DANGEROUS) {
+            if (getMaliciousContentStatus()
+                    == ConnectionMaliciousContentStatus.WARNABLE_SUSPICIOUS_SITE) {
+                // Return Resources.ID_NULL to skip color tinting so the shield_question icon
+                // retains its internal red fill and white question mark vector colors.
+                return Resources.ID_NULL;
+            }
             // Assign red color only on light or dark background including Incognito mode.
             // We will not change the security icon to red when BrandedColorScheme is
             // LIGHT_BRANDED_THEME for the purpose of improving contrast.

@@ -12,7 +12,6 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/devtools/protocol/autofill.h"
-#include "chrome/browser/ui/autofill/autofill_popup_controller_impl.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
@@ -302,6 +301,8 @@ void AutofillHandler::OnFillOrPreviewForm(
     autofill::FieldGlobalId trigger_field_id,
     autofill::mojom::ActionPersistence action_persistence,
     const base::flat_set<autofill::FieldGlobalId>& filled_field_ids,
+    const base::flat_map<autofill::FieldGlobalId,
+                         autofill::DenseSet<autofill::FieldFillingSkipReason>>&,
     const autofill::FillingPayload& filling_payload) {
   // We only care about address forms that were filled.
   if (action_persistence != autofill::mojom::ActionPersistence::kFill ||

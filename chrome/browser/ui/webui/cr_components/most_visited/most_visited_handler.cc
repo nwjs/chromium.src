@@ -14,8 +14,9 @@
 #include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/new_tab_page/new_tab_page_util.h"
-#include "chrome/browser/new_tab_page/ntp_pref_names.h"
+#include "chrome/browser/new_tab_page/prefs/ntp_pref_names.h"
 #include "chrome/browser/ntp_tiles/chrome_most_visited_sites_factory.h"
+#include "chrome/browser/page_load_metrics/chrome_initiator_location.h"
 #include "chrome/browser/predictors/loading_predictor.h"
 #include "chrome/browser/predictors/loading_predictor_config.h"
 #include "chrome/browser/predictors/loading_predictor_factory.h"
@@ -41,6 +42,7 @@
 #include "components/search_engines/template_url_service.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
+#include "services/network/public/cpp/constants.h"
 #include "ui/base/window_open_disposition_utils.h"
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -77,12 +79,13 @@ MostVisitedHandler::MostVisitedHandler(
     Profile* profile,
     content::WebContents* web_contents,
     const GURL& ntp_url,
-    const base::Time& ntp_navigation_start_time)
+    const base::Time& ntp_navigation_start_time,
+    base::TimeTicks ntp_navigation_start_time_ticks)
     : profile_(profile),
       most_visited_sites_(
           ChromeMostVisitedSitesFactory::NewForProfile(profile)),
       web_contents_(web_contents),
-      logger_(profile, ntp_url, ntp_navigation_start_time),
+      logger_(profile, ntp_url, ntp_navigation_start_time_ticks),
       ntp_navigation_start_time_(ntp_navigation_start_time),
       page_handler_(this, std::move(pending_page_handler)),
       page_(std::move(pending_page)) {
@@ -288,8 +291,7 @@ void MostVisitedHandler::OnMostVisitedTileNavigation(
   // is enabled.
   base::OnceCallback<void(content::NavigationHandle&)>
       navigation_handle_callback =
-          base::BindRepeating(&page_load_metrics::NavigationHandleUserData::
-                                  AttachNewTabPageNavigationHandleUserData);
+          base::BindRepeating(&AttachNewTabPageNavigationHandleUserData);
   web_contents_->OpenURL(
       content::OpenURLParams(tile->url, content::Referrer(), disposition,
                              tile->is_query_tile
@@ -371,10 +373,11 @@ void MostVisitedHandler::PreconnectMostVisitedTile(
   auto* loading_predictor =
       predictors::LoadingPredictorFactory::GetForProfile(profile_);
   if (loading_predictor) {
-    loading_predictor->PrepareForPageLoad(/*initiator_origin=*/std::nullopt,
-                                          tile->url,
-                                          predictors::HintOrigin::NEW_TAB_PAGE,
-                                          /*preconnectable=*/true);
+    loading_predictor->PrepareForPageLoad(
+        /*initiator_origin=*/std::nullopt, tile->url,
+        predictors::HintOrigin::NEW_TAB_PAGE,
+        network::GetNoOpNetworkRestrictionsId(),
+        /*preconnectable=*/true);
   }
 }
 
@@ -435,12 +438,7 @@ void MostVisitedHandler::OnURLsAvailable(
   result->custom_links_enabled = most_visited_sites_->IsCustomLinksEnabled();
   result->enterprise_shortcuts_enabled =
       most_visited_sites_->IsEnterpriseShortcutsEnabled();
-#if BUILDFLAG(IS_ANDROID)
-  // TODO(b/502297163): Implement for Android.
-  result->visible = true;
-#else
   result->visible = most_visited_sites_->IsShortcutsVisible();
-#endif
   page_->SetMostVisitedInfo(std::move(result));
 }
 

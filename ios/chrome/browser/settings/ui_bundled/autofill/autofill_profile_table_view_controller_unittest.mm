@@ -85,8 +85,7 @@ class AutofillProfileTableViewControllerTest
   void SetUp() override {
     LegacyChromeTableViewControllerTest::SetUp();
     feature_list_.InitWithFeatures(
-        {autofill::features::kAutofillAiCreateEntityDataManager,
-         autofill::features::kAutofillAiWithDataSchema,
+        {autofill::features::kAutofillAiWithDataSchema,
          autofill::features::kAutofillAiReauthRequired},
         /*disabled_features=*/{});
   }
@@ -239,6 +238,23 @@ TEST_F(AutofillProfileTableViewControllerTest,
 // enabled.
 TEST_F(AutofillProfileTableViewControllerTest,
        TestEnhancedAutofillMenuPresent) {
+  CreateController();
+  CheckController();
+
+  TableViewDetailIconItem* item =
+      base::apple::ObjCCastStrict<TableViewDetailIconItem>(
+          GetTableViewItem(/*section=*/1, /*item=*/0));
+
+  NSString* text =
+      l10n_util::GetNSString(IDS_SETTINGS_AUTOFILL_AI_PAGE_TITLE_V2);
+  EXPECT_NSEQ(text, item.text);
+}
+
+TEST_F(AutofillProfileTableViewControllerTest,
+       TestEnhancedAutofillMenuPresent_OldTitle) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      autofill::features::kAutofillAiOnlineModelToggleNewTitle);
   CreateController();
   CheckController();
 
@@ -445,7 +461,6 @@ class AutofillProfileTableViewControllerYourSavedInfoEnabledTest
     LegacyChromeTableViewControllerTest::SetUp();
     feature_list_.InitWithFeatures(
         {kYourSavedInfoSettingsPageIos,
-         autofill::features::kAutofillAiCreateEntityDataManager,
          autofill::features::kAutofillAiWithDataSchema,
          autofill::features::kAutofillAiReauthRequired},
         /*disabled_features=*/{});

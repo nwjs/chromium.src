@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/compiler_specific.h"
+#include "base/containers/flat_map.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/logging.h"
@@ -18,6 +19,8 @@
 #include "cc/layers/solid_color_scrollbar_layer.h"
 #include "cc/paint/display_item_list.h"
 #include "cc/paint/paint_flags.h"
+#include "cc/paint/paint_op.h"
+#include "cc/paint/paint_op_buffer_iterator.h"
 #include "cc/trees/effect_node.h"
 #include "cc/trees/layer_tree_host.h"
 #include "cc/trees/mutator_host.h"
@@ -52,6 +55,28 @@ namespace blink {
 // the sequence number through the use of a dirty bit or similar. See
 // http://crbug.com/692842#c4.
 static int g_s_property_tree_sequence_number = 1;
+
+namespace {
+
+void FindCustomDataPlaceholders(
+    const cc::PaintOpBuffer& buffer,
+    const PaintArtifactCompositor::GetCanvasSnapshotCallback& callback,
+    base::flat_map<uint32_t, cc::PaintRecord>& replacements) {
+  for (const cc::PaintOp& op : buffer) {
+    if (op.GetType() == cc::PaintOpType::kCustomData) {
+      uint32_t id = static_cast<const cc::CustomDataOp&>(op).id;
+      if (std::optional<cc::PaintRecord> snapshot = callback.Run(id)) {
+        replacements[id] = std::move(*snapshot);
+      }
+    } else if (op.GetType() == cc::PaintOpType::kDrawRecord) {
+      FindCustomDataPlaceholders(
+          static_cast<const cc::DrawRecordOp&>(op).record.buffer(), callback,
+          replacements);
+    }
+  }
+}
+
+}  // namespace
 
 class PaintArtifactCompositor::OldPendingLayerMatcher {
   STACK_ALLOCATED();
@@ -97,6 +122,7 @@ void PaintArtifactCompositor::Trace(Visitor* visitor) const {
   visitor->Trace(pending_layers_);
   visitor->Trace(painted_scroll_translations_);
   visitor->Trace(synthesized_clip_cache_);
+  visitor->Trace(range_dependent_scrolls_);
 }
 
 void PaintArtifactCompositor::SetTracksRasterInvalidations(bool should_track) {
@@ -119,7 +145,20 @@ PaintArtifactCompositor::GetCanvasChildPaintRecord(DOMNodeId child_id) const {
     return std::nullopt;
   }
   auto& pending_layer = pending_layers_[it->value];
-  return pending_layer.GetCanvasChildPaintRecord();
+  auto child_record = pending_layer.GetCanvasChildPaintRecord();
+  if (!child_record) {
+    return std::nullopt;
+  }
+  if (get_canvas_snapshot_callback_) {
+    base::flat_map<uint32_t, cc::PaintRecord> replacements;
+    FindCustomDataPlaceholders(child_record->record.buffer(),
+                               get_canvas_snapshot_callback_, replacements);
+    if (!replacements.empty()) {
+      child_record->record =
+          child_record->record.ReplaceCustomData(replacements);
+    }
+  }
+  return child_record;
 }
 
 const CanvasChildPaintState* PaintArtifactCompositor::GetCanvasChildPaintState(
@@ -389,25 +428,19 @@ PendingLayer::CompositingType PaintArtifactCompositor::ChunkCompositingType(
       if (const auto* scroll_translation = scrollbar->ScrollTranslation()) {
         if (RuntimeEnabledFeatures::RasterInducingScrollEnabled() ||
             NeedsCompositedScrolling(*scroll_translation)) {
-          // Disable composited scrollbar layers under canvas.
-          // TODO(crbug.com/448174609): Pass `in_canvas_child` down during
-          // layerization, rather than iterating up the tree.
-          bool in_canvas_child = false;
-          for (const auto* effect = &chunk.properties.Effect().Unalias();
-               effect; effect = effect->UnaliasedParent()) {
-            if (effect->RequiresCompositingForCanvasChild()) {
-              in_canvas_child = true;
-              break;
-            }
-          }
-          if (!in_canvas_child) {
-            return PendingLayer::kScrollbarLayer;
-          }
+          CHECK(!chunk.properties.Effect().Unalias().IsInCanvasSubtree());
+          return PendingLayer::kScrollbarLayer;
         }
       }
     }
   }
   return PendingLayer::kOther;
+}
+
+void PaintArtifactCompositor::AddRangeDependentScroll(
+    const PropertyTreeState& state) {
+  range_dependent_scrolls_.insert(
+      state.Transform().NearestScrollTranslationNode().ScrollNode());
 }
 
 namespace {
@@ -745,12 +778,17 @@ bool PaintArtifactCompositor::Layerizer::DecompositeEffect(
   auto is_composited_scroll = [this](const TransformPaintPropertyNode& t) {
     return compositor_.NeedsCompositedScrolling(t);
   };
-  std::optional<PropertyTreeState> upcast_state = group_state.CanUpcastWith(
-      layer.GetPropertyTreeState(), is_composited_scroll);
-  if (!upcast_state)
+  std::optional<PropertyTreeState::UpcastResult> upcast_result =
+      group_state.CanUpcastWith(layer.GetPropertyTreeState(),
+                                is_composited_scroll);
+  if (!upcast_result) {
     return false;
+  }
 
-  upcast_state->SetEffect(parent_effect);
+  if (upcast_result->scroll_range_dependent) {
+    compositor_.AddRangeDependentScroll(upcast_result->upcasted_state);
+  }
+  upcast_result->upcasted_state.SetEffect(parent_effect);
 
   // An exotic blend mode can be decomposited only if the src (`layer`) and
   // the dest (previous layers in the parent group) will be in the same
@@ -780,13 +818,13 @@ bool PaintArtifactCompositor::Layerizer::DecompositeEffect(
       const auto& previous_sibling = pending_layers_[layer_index - 1];
       if (previous_sibling.DrawsContent() &&
           !previous_sibling.CanMergeWithDecompositedBlendMode(
-              layer, *upcast_state, is_composited_scroll)) {
+              layer, upcast_result->upcasted_state, is_composited_scroll)) {
         return false;
       }
     }
   }
 
-  layer.Upcast(*upcast_state);
+  layer.Upcast(upcast_result->upcasted_state);
   return true;
 }
 
@@ -891,10 +929,15 @@ void PaintArtifactCompositor::Layerizer::LayerizeGroup(
                layer_merge_distance_limit_) {
       --candidate_index;
       PendingLayer& candidate_layer = pending_layers_[candidate_index];
-      if (candidate_layer.Merge(new_layer, compositor_.lcd_text_preference_,
-                                compositor_.device_pixel_ratio_,
-                                is_composited_scroll)) {
+      auto merge_result = candidate_layer.Merge(
+          new_layer, compositor_.lcd_text_preference_,
+          compositor_.device_pixel_ratio_, is_composited_scroll);
+      if (merge_result.merged) {
         pending_layers_.pop_back();
+        if (merge_result.scroll_range_dependent) {
+          compositor_.AddRangeDependentScroll(
+              candidate_layer.GetPropertyTreeState());
+        }
         break;
       }
       if (new_layer.MightOverlap(candidate_layer)) {
@@ -1115,6 +1158,8 @@ void PaintArtifactCompositor::Update(
   OldPendingLayerMatcher old_pending_layer_matcher(std::move(pending_layers_));
   canvas_child_layer_map_.clear();
   CHECK(painted_scroll_translations_.empty());
+  range_dependent_scrolls_.clear();
+  should_always_update_on_scroll_ = false;
 
   // Make compositing decisions, storing the result in |pending_layers_|.
   pending_layers_ = Layerizer(*this, artifact, old_size).Layerize();
@@ -1128,7 +1173,6 @@ void PaintArtifactCompositor::Update(
   UpdateCompositorViewportProperties(viewport_properties, property_tree_manager,
                                      host);
 
-  should_always_update_on_scroll_ = false;
   for (auto& entry : synthesized_clip_cache_)
     entry.in_use = false;
 
@@ -1336,12 +1380,6 @@ bool PaintArtifactCompositor::TryFastPathUpdate(
   }
 #endif
 
-  if (scrolling_contents_cull_rect_changed_) {
-    UMA_HISTOGRAM_ENUMERATION(
-        "Blink.Compositor.PACUpdateTypeOnScrollCullRectChange", needs_update_);
-    scrolling_contents_cull_rect_changed_ = false;
-  }
-
   switch (needs_update_) {
     case UpdateType::kNone:
       return true;
@@ -1439,11 +1477,25 @@ bool PaintArtifactCompositor::DirectlyUpdatePageScaleTransform(
   return false;
 }
 
+bool PaintArtifactCompositor::DirectlyUpdateScrollingContentsCullRect(
+    const ScrollPaintPropertyNode& scroll) {
+  CHECK(RuntimeEnabledFeatures::ScrollingContentsCullRectOnScrollNodeEnabled());
+  if (CanDirectlyUpdateProperties() &&
+      !range_dependent_scrolls_.Contains(&scroll)) {
+    PropertyTreeManager::DirectlyUpdateScrollingContentsCullRect(
+        *root_layer_->layer_tree_host(), scroll);
+    return true;
+  }
+  return false;
+}
+
 bool PaintArtifactCompositor::DirectlySetScrollOffset(
     CompositorElementId element_id,
     const gfx::PointF& scroll_offset) {
-  if (!root_layer_ || !root_layer_->layer_tree_host())
+  if (!root_layer_ || !root_layer_->layer_tree_host() ||
+      root_layer_->layer_tree_host()->in_will_commit()) {
     return false;
+  }
   auto* property_trees = root_layer_->layer_tree_host()->property_trees();
   if (!property_trees->scroll_tree().FindNodeFromElementId(element_id))
     return false;

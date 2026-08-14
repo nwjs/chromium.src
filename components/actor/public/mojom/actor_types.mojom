@@ -48,7 +48,7 @@ enum ActionResultCode {
   // The target frame in the renderer no longer exists or is shutting down.
   kFrameWentAway = 17,
 
-  // The target DOMNodeId does not exist in the document.
+  // The target DOMNodeId is not in the live document or the last APC.
   kInvalidDomNodeId = 18,
 
   // The targeted element cannot be modified because it is disabled.
@@ -473,6 +473,68 @@ enum ActionResultCode {
 
   // The Chrome Actor UI could not be shown.
   kActorUiError = 1300,
+
+  // Please see the comment above about adding new values.
+
+  ///////////////////////////////////////////////////////////////////////
+  // Codes 1400-1499: Errors for OTP filling.
+
+  // No OTP was received within the expected time limit.
+  kOtpRetrievalTimeout = 1400,
+
+  // An error occurred while attempting to retrieve the OTP.
+  kOtpRetrievalError = 1401,
+
+  // The OTP was received but could not be automatically filled into the
+  // target fields.
+  kOtpFillFailure = 1402,
+
+  // An OTP was received, but it does not appear to be a match for the
+  // current webpage.
+  kOtpRetrievalMismatch = 1403,
+
+  // Gmail Smart Features must be enabled to automatically retrieve OTPs.
+  kOtpGmailConsentRequired = 1404,
+
+  // Google Smart Features must be enabled to automatically retrieve OTPs.
+  kOtpGoogleConsentRequired = 1405,
+
+  // DMA cross-product sharing must be enabled to automatically retrieve OTPs.
+  kOtpDmaConsentRequired = 1406,
+
+  // We found the Gmail OTP email, but could not extract the verification code.
+  kOtpNoCodeFound = 1407,
+
+  // The verification code has expired.
+  kOtpExpired = 1408,
+
+  // OTP auto-filling is not available in Guest/Incognito or disabled by
+  // policy/flag.
+  kOtpServiceUnavailable = 1409,
+
+  // Security checks failed because page navigated or origins mismatched
+  // since start.
+  kOtpSigninContextMismatch = 1410,
+
+  // OTP filling is not allowed on insecure (non-HTTPS) pages.
+  kOtpInsecureContext = 1411,
+
+  // OTP filling could not be performed (e.g., within cool-off period or opt-in
+  // dialog error).
+  kOtpUnableToFill = 1412,
+
+  // The user declined opting into Gmail OTP filling in the opt-in dialog.
+  kOtpUserDeclinedOptingIntoFilling = 1413,
+
+  // The target frame containing the OTP fields could not be found.
+  kOtpTargetFrameNotFound = 1414,
+
+  // No tab observation was found when the TOCTOU check was performed for OTP
+  // filling.
+  kOtpNoLastTabObservation = 1415,
+
+  // The trigger field for OTP filling was not found.
+  kOtpFieldNotFound = 1416,
 
   // Please see the comment above about adding new values.
 };

@@ -26,6 +26,7 @@
 #include "extensions/browser/install_approval.h"
 #include "extensions/browser/install_tracker.h"
 #include "extensions/browser/scoped_active_install.h"
+#include "extensions/browser/ui_util.h"
 #include "extensions/browser/webstore_data_fetcher.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension.h"
@@ -152,10 +153,9 @@ WebstoreStandaloneInstaller::GetLocalizedExtensionForDisplay() {
       return nullptr;
 
     std::u16string error;
-    localized_extension_for_display_ =
-        ExtensionInstallPrompt::GetLocalizedExtensionForDisplay(
-            *manifest_, Extension::REQUIRE_KEY | Extension::FROM_WEBSTORE, id_,
-            localized_name_, localized_description_, &error);
+    localized_extension_for_display_ = ui_util::GetLocalizedExtensionForDisplay(
+        *manifest_, Extension::REQUIRE_KEY | Extension::FROM_WEBSTORE, id_,
+        localized_name_, localized_description_, &error);
   }
   return localized_extension_for_display_.get();
 }
@@ -165,8 +165,10 @@ void WebstoreStandaloneInstaller::OnManifestParsed() {
 }
 
 std::unique_ptr<ExtensionInstallPrompt>
-WebstoreStandaloneInstaller::CreateInstallUI() {
-  return std::make_unique<ExtensionInstallPrompt>(GetWebContents());
+WebstoreStandaloneInstaller::CreateInstallUI(
+    std::unique_ptr<InstallPromptData> prompt) {
+  return std::make_unique<ExtensionInstallPrompt>(GetWebContents(),
+                                                  std::move(prompt));
 }
 
 std::unique_ptr<InstallApproval> WebstoreStandaloneInstaller::CreateApproval()
@@ -262,13 +264,12 @@ void WebstoreStandaloneInstaller::OnFetchItemSnippetParseSuccess(
     return;
   }
 
-  auto helper = base::MakeRefCounted<WebstoreInstallHelper>(
-      this, id_, item_snippet.manifest(), icon_url);
-
-  // The helper will call us back via OnWebstoreParseSuccess() or
-  // OnWebstoreParseFailure().
-  helper->Start(profile_->GetDefaultStoragePartition()
-                    ->GetURLLoaderFactoryForBrowserProcess());
+  ParseWebstoreData(
+      profile_->GetDefaultStoragePartition()
+          ->GetURLLoaderFactoryForBrowserProcess(),
+      id_, item_snippet.manifest(), icon_url,
+      base::BindOnce(&WebstoreStandaloneInstaller::OnWebstoreParseFinished,
+                     weak_ptr_factory_.GetWeakPtr()));
 }
 
 void WebstoreStandaloneInstaller::OnWebstoreResponseParseFailure(
@@ -278,41 +279,31 @@ void WebstoreStandaloneInstaller::OnWebstoreResponseParseFailure(
   CompleteInstall(webstore_install::INVALID_WEBSTORE_RESPONSE, error);
 }
 
-void WebstoreStandaloneInstaller::OnWebstoreParseSuccess(
-    const std::string& id,
-    const SkBitmap& icon,
-    base::DictValue manifest) {
-  CHECK_EQ(id_, id);
+void WebstoreStandaloneInstaller::OnWebstoreParseFinished(
+    WebstoreParseResult result) {
+  if (!result.has_value()) {
+    webstore_install::Result install_result = webstore_install::OTHER_ERROR;
+    switch (result.error().error_code) {
+      case WebstoreInstallHelperResultCode::kManifestError:
+        install_result = webstore_install::INVALID_MANIFEST;
+        break;
+      case WebstoreInstallHelperResultCode::kIconError:
+        install_result = webstore_install::ICON_ERROR;
+        break;
+      default:
+        break;
+    }
+    CompleteInstall(install_result, result.error().error_message);
+    return;
+  }
 
   if (!CheckRequestorAlive()) {
     CompleteInstall(webstore_install::ABORTED, std::string());
     return;
   }
-
-  manifest_ = std::move(manifest);
-  icon_ = icon;
-
+  manifest_ = std::move(result->manifest);
+  icon_ = result->icon;
   OnManifestParsed();
-}
-
-void WebstoreStandaloneInstaller::OnWebstoreParseFailure(
-    const std::string& id,
-    InstallHelperResultCode result_code,
-    const std::string& error_message) {
-  webstore_install::Result install_result = webstore_install::OTHER_ERROR;
-  switch (result_code) {
-    case WebstoreInstallHelper::Delegate::InstallHelperResultCode::
-        kManifestError:
-      install_result = webstore_install::INVALID_MANIFEST;
-      break;
-    case WebstoreInstallHelper::Delegate::InstallHelperResultCode::kIconError:
-      install_result = webstore_install::ICON_ERROR;
-      break;
-    default:
-      break;
-  }
-
-  CompleteInstall(install_result, error_message);
 }
 
 void WebstoreStandaloneInstaller::OnExtensionInstallSuccess(
@@ -361,11 +352,11 @@ void WebstoreStandaloneInstaller::ShowInstallUI() {
     return;
   }
 
-  install_ui_ = CreateInstallUI();
+  install_ui_ = CreateInstallUI(std::move(install_prompt_));
   install_ui_->ShowDialog(
       base::BindOnce(&WebstoreStandaloneInstaller::OnInstallPromptDone,
                      weak_ptr_factory_.GetWeakPtr()),
-      localized_extension.get(), &icon_, std::move(install_prompt_),
+      localized_extension.get(), &icon_,
       ExtensionInstallPrompt::GetDefaultShowDialogCallback());
 }
 

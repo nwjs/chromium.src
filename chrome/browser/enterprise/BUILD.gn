@@ -10,7 +10,6 @@ source_set("enterprise") {
   public = [
     "browser_management/browser_management_service.h",
     "browser_management/browser_management_status_provider.h",
-    "browser_management/enterprise_management_metrics_service_factory.h",
     "browser_management/management_service_factory.h",
     "chrome_browser_main_extra_parts_enterprise.h",
     "connectors/analysis/analysis_service_settings.h",
@@ -27,6 +26,8 @@ source_set("enterprise") {
     "identifiers/profile_id_delegate_impl.h",
     "identifiers/profile_id_service_factory.h",
     "profile_management/saml_response_parser.h",
+    "reporting/cloud_profile_reporting_service.h",
+    "reporting/cloud_profile_reporting_service_factory.h",
     "reporting/legacy_tech/legacy_tech_report_generator.h",
     "reporting/legacy_tech/legacy_tech_report_policy_handler.h",
     "reporting/legacy_tech/legacy_tech_service.h",
@@ -93,7 +94,10 @@ source_set("enterprise") {
   ]
 
   if (enterprise_proxy && is_android) {
-    public += [ "net/enterprise_proxy_service_factory.h" ]
+    public += [
+      "net/enterprise_network_auth_service_factory.h",
+      "net/enterprise_proxy_service_factory.h",
+    ]
     public_deps += [ "//components/enterprise/net" ]
   }
 
@@ -109,11 +113,6 @@ source_set("enterprise") {
     public += [
       "data_protection/data_protection_ui_controller.h",
       "reporting/browser_report_generator_desktop.h",
-      "reporting/extension_request/extension_request_notification.h",
-      "reporting/extension_request/extension_request_observer.h",
-      "reporting/extension_request/extension_request_observer_factory.h",
-      "reporting/extension_request/extension_request_policy_handler.h",
-      "reporting/extension_request/extension_request_report_generator.h",
       "reporting/profile_report_generator_desktop.h",
       "reporting/real_time_report_controller_desktop.h",
       "reporting/real_time_report_generator_desktop.h",
@@ -159,6 +158,8 @@ source_set("enterprise") {
       "connectors/device_trust/signals/ash/ash_signals_filterer.h",
       "connectors/device_trust/signals/decorators/ash/ash_signals_decorator.h",
       "reporting/android_app_info_generator.h",
+      "signals/signals_aggregator_factory.h",
+      "signals/system_signals_service_host_factory.h",
     ]
   } else {
     public_deps += [
@@ -173,8 +174,6 @@ source_set("enterprise") {
       "remote_commands/user_remote_commands_factory.h",
       "remote_commands/user_remote_commands_service.h",
       "remote_commands/user_remote_commands_service_factory.h",
-      "reporting/cloud_profile_reporting_service.h",
-      "reporting/cloud_profile_reporting_service_factory.h",
     ]
   }
 
@@ -226,7 +225,10 @@ source_set("enterprise") {
     # TODO(b/352728209): Update the logic for which file compiles on Android
     # when the proper methods have been migrated to components/.
     if (!is_android) {
-      public += [ "data_protection/paste_allowed_request.h" ]
+      public += [
+        "data_protection/clipboard_toast_tracker.h",
+        "data_protection/paste_allowed_request.h",
+      ]
     }
   }
 
@@ -305,6 +307,19 @@ source_set("enterprise") {
         [ "//components/enterprise/connectors/core:cloud_content_scanning" ]
   }
 
+  if (is_linux || is_win || is_mac || is_chromeos) {
+    public += [
+      "reporting/realtime_event_upload_helper_desktop.h",
+      "reporting/saas_usage/navigation_handle_data_delegate.h",
+      "reporting/saas_usage/saas_usage_navigation_observer.h",
+      "reporting/saas_usage/saas_usage_report_factory_desktop.h",
+      "reporting/saas_usage/saas_usage_report_scheduler_delegate_desktop.h",
+      "reporting/saas_usage/saas_usage_report_uploader_desktop.h",
+      "reporting/saas_usage/saas_usage_reporting_controller_factory.h",
+      "reporting/saas_usage/saas_usage_reporting_delegate_factory_desktop.h",
+    ]
+  }
+
   if (is_linux || is_win || is_mac) {
     public += [
       "connectors/device_trust/attestation/browser/device_attester.h",
@@ -317,14 +332,6 @@ source_set("enterprise") {
       "remote_commands/extension_update_check_job.h",
       "remote_commands/rotate_attestation_credential_job.h",
       "reporting/browser_launch/browser_launch_event_uploader_desktop.h",
-      "reporting/realtime_event_upload_helper_desktop.h",
-      "reporting/saas_usage/navigation_handle_data_delegate.h",
-      "reporting/saas_usage/saas_usage_navigation_observer.h",
-      "reporting/saas_usage/saas_usage_report_factory_desktop.h",
-      "reporting/saas_usage/saas_usage_report_scheduler_delegate_desktop.h",
-      "reporting/saas_usage/saas_usage_report_uploader_desktop.h",
-      "reporting/saas_usage/saas_usage_reporting_controller_factory.h",
-      "reporting/saas_usage/saas_usage_reporting_delegate_factory_desktop.h",
       "signals/system_signals_service_host_factory.h",
       "signin/enterprise_signin_prefs.h",
       "signin/enterprise_signin_service.h",
@@ -358,13 +365,12 @@ source_set("enterprise") {
 
   if (enterprise_cloud_content_analysis) {
     public += [
-      "connectors/analysis/clipboard_analysis_request.h",
-      "connectors/analysis/clipboard_request_handler.h",
       "connectors/analysis/content_analysis_delegate.h",
       "connectors/analysis/content_analysis_dialog_controller.h",
       "connectors/analysis/content_analysis_dialog_delegate.h",
       "connectors/analysis/content_analysis_downloads_delegate.h",
       "connectors/analysis/content_analysis_views.h",
+      "connectors/analysis/copy_warning_delegate_tracker.h",
       "connectors/analysis/files_request_handler.h",
       "connectors/analysis/page_print_analysis_request.h",
       "connectors/analysis/page_print_request_handler.h",
@@ -385,8 +391,18 @@ source_set("enterprise") {
   }
 
   if (enable_extensions_core) {
-    public += [ "reporting/extension_info.h" ]
-    public_deps += [ "//extensions/common" ]
+    public += [
+      "reporting/extension_info.h",
+      "reporting/extension_request/extension_request_notification.h",
+      "reporting/extension_request/extension_request_observer.h",
+      "reporting/extension_request/extension_request_observer_factory.h",
+      "reporting/extension_request/extension_request_policy_handler.h",
+      "reporting/extension_request/extension_request_report_generator.h",
+    ]
+    public_deps += [
+      "//extensions/common",
+      "//ui/message_center/public/cpp",
+    ]
   }
 }
 
@@ -408,6 +424,7 @@ static_library("browser_launch_reporting") {
       ":enterprise",
       "//base",
       "//chrome/browser:browser_process",
+      "//chrome/browser/enterprise/connectors/reporting:reporting",
       "//chrome/browser/profiles:profile",
       "//components/enterprise",
       "//components/enterprise/common/proto:browser_events_proto",
@@ -421,7 +438,6 @@ source_set("impl") {
   sources = [
     "browser_management/browser_management_service.cc",
     "browser_management/browser_management_status_provider.cc",
-    "browser_management/enterprise_management_metrics_service_factory.cc",
     "browser_management/management_service_factory.cc",
     "chrome_browser_main_extra_parts_enterprise.cc",
     "connectors/analysis/analysis_service_settings.cc",
@@ -443,6 +459,8 @@ source_set("impl") {
     "identifiers/profile_id_delegate_impl.cc",
     "identifiers/profile_id_service_factory.cc",
     "profile_management/saml_response_parser.cc",
+    "reporting/cloud_profile_reporting_service.cc",
+    "reporting/cloud_profile_reporting_service_factory.cc",
     "reporting/legacy_tech/legacy_tech_report_generator.cc",
     "reporting/legacy_tech/legacy_tech_report_policy_handler.cc",
     "reporting/legacy_tech/legacy_tech_service.cc",
@@ -515,6 +533,8 @@ source_set("impl") {
     "//components/image_fetcher/core",
     "//components/policy/proto",
     "//components/pref_registry",
+    "//components/reporting/storage:storage_configuration",
+    "//components/reporting/storage:storage_module",
     "//components/safe_browsing/content/browser",
     "//components/safe_browsing/content/browser/web_ui",
     "//components/safe_browsing/core/browser:referrer_chain_provider",
@@ -533,11 +553,6 @@ source_set("impl") {
     sources += [
       "data_protection/data_protection_ui_controller.cc",
       "reporting/browser_report_generator_desktop.cc",
-      "reporting/extension_request/extension_request_notification.cc",
-      "reporting/extension_request/extension_request_observer.cc",
-      "reporting/extension_request/extension_request_observer_factory.cc",
-      "reporting/extension_request/extension_request_policy_handler.cc",
-      "reporting/extension_request/extension_request_report_generator.cc",
       "reporting/profile_report_generator_desktop.cc",
       "reporting/real_time_report_controller_desktop.cc",
       "reporting/real_time_report_generator_desktop.cc",
@@ -594,7 +609,10 @@ source_set("impl") {
       "connectors/device_trust/signals/ash/ash_signals_filterer.cc",
       "connectors/device_trust/signals/decorators/ash/ash_signals_decorator.cc",
       "reporting/android_app_info_generator.cc",
+      "signals/signals_aggregator_factory.cc",
+      "signals/system_signals_service_host_factory.cc",
     ]
+    deps += [ "//chrome/services/system_signals/public/cpp/browser" ]
     deps += [
       "//chrome/browser/ash/app_list/arc",
       "//chrome/browser/ash/arc:arc_util",
@@ -626,12 +644,6 @@ source_set("impl") {
       "remote_commands/user_remote_commands_factory.cc",
       "remote_commands/user_remote_commands_service.cc",
       "remote_commands/user_remote_commands_service_factory.cc",
-      "reporting/cloud_profile_reporting_service.cc",
-      "reporting/cloud_profile_reporting_service_factory.cc",
-    ]
-    deps += [
-      "//components/reporting/storage:storage_configuration",
-      "//components/reporting/storage:storage_module",
     ]
   }
 
@@ -682,7 +694,14 @@ source_set("impl") {
     ]
     deps += [ "//chrome/browser/enterprise/data_controls" ]
     if (!is_android) {
-      sources += [ "data_protection/paste_allowed_request.cc" ]
+      sources += [
+        "data_protection/clipboard_toast_tracker.cc",
+        "data_protection/paste_allowed_request.cc",
+      ]
+      deps += [
+        "//chrome/browser/ui/toasts",
+        "//chrome/browser/ui/toasts/api:toasts",
+      ]
     }
   }
 
@@ -715,7 +734,10 @@ source_set("impl") {
   }
 
   if (enterprise_proxy && is_android) {
-    sources += [ "net/enterprise_proxy_service_factory.cc" ]
+    sources += [
+      "net/enterprise_network_auth_service_factory.cc",
+      "net/enterprise_proxy_service_factory.cc",
+    ]
     deps += [ "//components/enterprise/net" ]
   }
 
@@ -780,13 +802,12 @@ source_set("impl") {
 
   if (enterprise_cloud_content_analysis) {
     sources += [
-      "connectors/analysis/clipboard_analysis_request.cc",
-      "connectors/analysis/clipboard_request_handler.cc",
       "connectors/analysis/content_analysis_delegate.cc",
       "connectors/analysis/content_analysis_dialog_controller.cc",
       "connectors/analysis/content_analysis_dialog_delegate.cc",
       "connectors/analysis/content_analysis_downloads_delegate.cc",
       "connectors/analysis/content_analysis_views.cc",
+      "connectors/analysis/copy_warning_delegate_tracker.cc",
       "connectors/analysis/files_request_handler.cc",
       "connectors/analysis/page_print_analysis_request.cc",
       "connectors/analysis/page_print_request_handler.cc",
@@ -801,6 +822,19 @@ source_set("impl") {
     ]
     public_deps +=
         [ "//chrome/browser/enterprise/connectors/analysis:sdk_manager" ]
+  }
+
+  if (is_linux || is_win || is_mac || is_chromeos) {
+    sources += [
+      "reporting/realtime_event_upload_helper_desktop.cc",
+      "reporting/saas_usage/navigation_handle_data_delegate.cc",
+      "reporting/saas_usage/saas_usage_navigation_observer.cc",
+      "reporting/saas_usage/saas_usage_report_factory_desktop.cc",
+      "reporting/saas_usage/saas_usage_report_scheduler_delegate_desktop.cc",
+      "reporting/saas_usage/saas_usage_report_uploader_desktop.cc",
+      "reporting/saas_usage/saas_usage_reporting_controller_factory.cc",
+      "reporting/saas_usage/saas_usage_reporting_delegate_factory_desktop.cc",
+    ]
   }
 
   if (is_linux || is_win || is_mac) {
@@ -819,14 +853,6 @@ source_set("impl") {
       # and mold errors on the duplicate symbols. Upstream links chrome as an
       # executable so the .a member is never pulled on-demand.
       # "reporting/browser_launch/browser_launch_event_uploader_desktop.cc",
-      "reporting/realtime_event_upload_helper_desktop.cc",
-      "reporting/saas_usage/navigation_handle_data_delegate.cc",
-      "reporting/saas_usage/saas_usage_navigation_observer.cc",
-      "reporting/saas_usage/saas_usage_report_factory_desktop.cc",
-      "reporting/saas_usage/saas_usage_report_scheduler_delegate_desktop.cc",
-      "reporting/saas_usage/saas_usage_report_uploader_desktop.cc",
-      "reporting/saas_usage/saas_usage_reporting_controller_factory.cc",
-      "reporting/saas_usage/saas_usage_reporting_delegate_factory_desktop.cc",
       "signals/system_signals_service_host_factory.cc",
       "signin/enterprise_signin_prefs.cc",
       "signin/enterprise_signin_service.cc",
@@ -865,10 +891,59 @@ source_set("impl") {
   }
 
   if (enable_extensions_core) {
-    sources += [ "reporting/extension_info.cc" ]
+    sources += [
+      "reporting/extension_info.cc",
+      "reporting/extension_request/extension_request_notification.cc",
+      "reporting/extension_request/extension_request_observer.cc",
+      "reporting/extension_request/extension_request_observer_factory.cc",
+      "reporting/extension_request/extension_request_policy_handler.cc",
+      "reporting/extension_request/extension_request_report_generator.cc",
+    ]
     deps += [
       "//chrome/browser/extensions",
+      "//components/vector_icons",
       "//extensions/browser",
+    ]
+  }
+}
+
+# Tests for files in the util/ subdirectory live here because util/BUILD.gn only
+# contains Android Java targets (it imports //build/config/android/rules.gni,
+# which asserts is_android and so cannot be loaded on other platforms).
+source_set("unit_tests") {
+  testonly = true
+
+  sources = [ "util/managed_browser_utils_unittest.cc" ]
+
+  deps = [
+    ":impl",
+    "//base",
+    "//chrome/browser/content_settings:content_settings_factory",
+    "//chrome/test:test_support",
+    "//testing/gtest",
+  ]
+}
+
+if (!is_android) {
+  source_set("browser_tests") {
+    testonly = true
+    defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+    sources = [
+      "reporting/saas_usage/saas_usage_browsertest.cc",
+      "util/managed_browser_utils_browsertest.cc",
+    ]
+
+    deps = [
+      ":impl",
+      "//base",
+      "//chrome/browser/policy:test_support",
+      "//chrome/browser/ui:ui_features",
+      "//chrome/test:test_support",
+      "//chrome/test:test_support_ui",
+      "//components/enterprise:test_support",
+      "//content/test:test_support",
+      "//testing/gmock",
     ]
   }
 }

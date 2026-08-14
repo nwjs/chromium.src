@@ -9,17 +9,25 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
+#include "base/test/mock_callback.h"
 #include "base/test/run_until.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_simple_task_runner.h"
 #include "base/types/optional_ref.h"
 #include "base/version.h"
 #include "components/optimization_guide/core/delivery/model_info.h"
+#include "components/optimization_guide/core/delivery/model_provider_registry.h"
 #include "components/optimization_guide/core/delivery/model_util.h"
+#include "components/optimization_guide/core/delivery/prediction_model_component_configs.h"
+#include "components/optimization_guide/core/optimization_guide_logger.h"
 #include "components/optimization_guide/proto/models.pb.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace optimization_guide {
@@ -83,12 +91,15 @@ class SelfRemovingOptimizationTargetModelObserver
 
 class PredictionModelComponentUpdateListenerTest : public testing::Test {
  public:
-  PredictionModelComponentUpdateListenerTest() = default;
+  PredictionModelComponentUpdateListenerTest()
+      : fallback_provider_(OptimizationGuideLogger::GetInstance()) {}
   ~PredictionModelComponentUpdateListenerTest() override = default;
 
   void SetUp() override {
+    feature_list_.InitAndEnableFeature(kPredictionModelComponentDelivery);
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
-    listener_ = std::make_unique<PredictionModelComponentUpdateListener>();
+    listener_ = std::make_unique<PredictionModelComponentUpdateListener>(
+        fallback_provider_, base::DoNothing());
   }
 
  protected:
@@ -128,12 +139,14 @@ class PredictionModelComponentUpdateListenerTest : public testing::Test {
 
   base::test::TaskEnvironment task_environment_;
   base::ScopedTempDir temp_dir_;
+  base::test::ScopedFeatureList feature_list_;
+  ModelProviderRegistry fallback_provider_;
   std::unique_ptr<PredictionModelComponentUpdateListener> listener_;
 };
 
 TEST_F(PredictionModelComponentUpdateListenerTest, AddObserverAndNotify) {
   proto::OptimizationTarget target =
-      proto::OPTIMIZATION_TARGET_MODEL_VALIDATION;
+      proto::OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS;
   FakeOptimizationTargetModelObserver observer;
   listener_->AddObserverForOptimizationTargetModel(target, std::nullopt,
                                                    nullptr, &observer);
@@ -149,8 +162,8 @@ TEST_F(PredictionModelComponentUpdateListenerTest, AddObserverAndNotify) {
   EXPECT_EQ(observer.call_count(), 1);
   EXPECT_EQ(observer.last_target(), target);
   ASSERT_TRUE(observer.last_model_info());
-  EXPECT_EQ(observer.last_model_info()->GetVersion(), 123);
-  EXPECT_EQ(observer.last_model_info()->GetModelFilePath(),
+  EXPECT_EQ(observer.last_model_info()->version, 123);
+  EXPECT_EQ(observer.last_model_info()->model_file_path,
             install_dir.Append(GetBaseFileNameForModels()));
 
   listener_->RemoveObserverForOptimizationTargetModel(target, &observer);
@@ -158,7 +171,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest, AddObserverAndNotify) {
 
 TEST_F(PredictionModelComponentUpdateListenerTest, AddObserverAfterReady) {
   proto::OptimizationTarget target =
-      proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD;
+      proto::OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS;
   FakeOptimizationTargetModelObserver observer;
 
   base::Version version("1.2.3.4");
@@ -167,7 +180,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest, AddObserverAfterReady) {
   listener_->MaybeUpdateModel(target, version, install_dir);
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return listener_->GetModelForTesting(target) &&
-           listener_->GetModelForTesting(target)->GetVersion() == 123;
+           listener_->GetModelForTesting(target)->version == 123;
   }));
 
   // Notification should happen synchronously during AddObserver because the
@@ -178,13 +191,14 @@ TEST_F(PredictionModelComponentUpdateListenerTest, AddObserverAfterReady) {
   EXPECT_EQ(observer.call_count(), 1);
   EXPECT_EQ(observer.last_target(), target);
   ASSERT_TRUE(observer.last_model_info());
-  EXPECT_EQ(observer.last_model_info()->GetVersion(), 123);
+  EXPECT_EQ(observer.last_model_info()->version, 123);
 
   listener_->RemoveObserverForOptimizationTargetModel(target, &observer);
 }
 
 TEST_F(PredictionModelComponentUpdateListenerTest, UpdateWithOlderVersion) {
-  proto::OptimizationTarget target = proto::OPTIMIZATION_TARGET_PAGE_TOPICS_V2;
+  proto::OptimizationTarget target =
+      proto::OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS;
   FakeOptimizationTargetModelObserver observer;
 
   listener_->AddObserverForOptimizationTargetModel(target, std::nullopt,
@@ -196,7 +210,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest, UpdateWithOlderVersion) {
   EXPECT_TRUE(
       base::test::RunUntil([&]() { return observer.call_count() == 1; }));
   EXPECT_EQ(observer.call_count(), 1);
-  EXPECT_EQ(observer.last_model_info()->GetVersion(), 200);
+  EXPECT_EQ(observer.last_model_info()->version, 200);
   observer.Reset();
 
   base::Version version1("1.0.0");
@@ -209,7 +223,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest, UpdateWithOlderVersion) {
 
 TEST_F(PredictionModelComponentUpdateListenerTest, GetModelWithoutObserver) {
   proto::OptimizationTarget target =
-      proto::OPTIMIZATION_TARGET_SEGMENTATION_NEW_TAB;
+      proto::OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS;
   base::Version version("1.2.3.4");
   base::FilePath install_dir = CreateModelDirectory(target, /*version=*/123);
 
@@ -218,18 +232,18 @@ TEST_F(PredictionModelComponentUpdateListenerTest, GetModelWithoutObserver) {
   listener_->MaybeUpdateModel(target, version, install_dir);
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return listener_->GetModelForTesting(target) &&
-           listener_->GetModelForTesting(target)->GetVersion() == 123;
+           listener_->GetModelForTesting(target)->version == 123;
   }));
 
   const ModelInfo* model_info = listener_->GetModelForTesting(target);
   ASSERT_NE(model_info, nullptr);
-  EXPECT_EQ(model_info->GetVersion(), 123);
+  EXPECT_EQ(model_info->version, 123);
 }
 
 TEST_F(PredictionModelComponentUpdateListenerTest,
        SelfRemovalDuringNotification) {
   proto::OptimizationTarget target =
-      proto::OPTIMIZATION_TARGET_MODEL_VALIDATION;
+      proto::OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS;
   SelfRemovingOptimizationTargetModelObserver observer(listener_.get());
 
   listener_->AddObserverForOptimizationTargetModel(target, std::nullopt,
@@ -246,7 +260,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest,
   EXPECT_EQ(observer.call_count(), 1);
   EXPECT_EQ(observer.last_target(), target);
   ASSERT_TRUE(observer.last_model_info());
-  EXPECT_EQ(observer.last_model_info()->GetVersion(), 123);
+  EXPECT_EQ(observer.last_model_info()->version, 123);
 
   // Triggering it again should not notify because observer is removed.
   base::Version version2("2.0.0.0");
@@ -254,7 +268,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest,
   listener_->MaybeUpdateModel(target, version2, install_dir2);
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return listener_->GetModelForTesting(target) &&
-           listener_->GetModelForTesting(target)->GetVersion() == 200;
+           listener_->GetModelForTesting(target)->version == 200;
   }));
   EXPECT_EQ(observer.call_count(), 1);
 }
@@ -262,7 +276,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest,
 TEST_F(PredictionModelComponentUpdateListenerTest,
        DoubleNotificationMitigation) {
   proto::OptimizationTarget target =
-      proto::OPTIMIZATION_TARGET_MODEL_VALIDATION;
+      proto::OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS;
   FakeOptimizationTargetModelObserver observer;
 
   // Start loading version 1.
@@ -282,7 +296,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest,
   // Run all pending tasks.
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return listener_->GetModelForTesting(target) &&
-           listener_->GetModelForTesting(target)->GetVersion() == 200;
+           listener_->GetModelForTesting(target)->version == 200;
   }));
 
   // Observer should only be notified for version 2 (latest).
@@ -293,7 +307,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest,
   // So it should only be notified for version 2.
   EXPECT_EQ(observer.call_count(), 1);
   ASSERT_TRUE(observer.last_model_info());
-  EXPECT_EQ(observer.last_model_info()->GetVersion(), 200);
+  EXPECT_EQ(observer.last_model_info()->version, 200);
 
   listener_->RemoveObserverForOptimizationTargetModel(target, &observer);
 }
@@ -301,7 +315,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest,
 TEST_F(PredictionModelComponentUpdateListenerTest,
        RemoveObserverBeforeAsyncNotification) {
   proto::OptimizationTarget target =
-      proto::OPTIMIZATION_TARGET_MODEL_VALIDATION;
+      proto::OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS;
   FakeOptimizationTargetModelObserver observer;
 
   base::Version version("1.2.3.4");
@@ -319,7 +333,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest,
 
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return listener_->GetModelForTesting(target) &&
-           listener_->GetModelForTesting(target)->GetVersion() == 123;
+           listener_->GetModelForTesting(target)->version == 123;
   }));
 
   // Observer should not have been called.
@@ -328,7 +342,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest,
 
 TEST_F(PredictionModelComponentUpdateListenerTest, OnModelUninstalled) {
   proto::OptimizationTarget target =
-      proto::OPTIMIZATION_TARGET_MODEL_VALIDATION;
+      proto::OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS;
   FakeOptimizationTargetModelObserver observer;
 
   base::Version version("1.2.3.4");
@@ -337,7 +351,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest, OnModelUninstalled) {
   listener_->MaybeUpdateModel(target, version, install_dir);
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return listener_->GetModelForTesting(target) &&
-           listener_->GetModelForTesting(target)->GetVersion() == 123;
+           listener_->GetModelForTesting(target)->version == 123;
   }));
 
   listener_->AddObserverForOptimizationTargetModel(target, std::nullopt,
@@ -360,7 +374,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest, OnModelUninstalled) {
 TEST_F(PredictionModelComponentUpdateListenerTest,
        OnModelUninstalledCancelsPendingNotification) {
   proto::OptimizationTarget target =
-      proto::OPTIMIZATION_TARGET_MODEL_VALIDATION;
+      proto::OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS;
   FakeOptimizationTargetModelObserver observer;
 
   base::Version version("1.2.3.4");
@@ -394,7 +408,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest,
 TEST_F(PredictionModelComponentUpdateListenerTest,
        SelfRemovalDuringSyncNotification) {
   proto::OptimizationTarget target =
-      proto::OPTIMIZATION_TARGET_MODEL_VALIDATION;
+      proto::OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS;
   base::Version version("1.2.3.4");
   base::FilePath install_dir = CreateModelDirectory(target, /*version=*/123);
 
@@ -402,7 +416,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest,
   listener_->MaybeUpdateModel(target, version, install_dir);
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return listener_->GetModelForTesting(target) &&
-           listener_->GetModelForTesting(target)->GetVersion() == 123;
+           listener_->GetModelForTesting(target)->version == 123;
   }));
 
   SelfRemovingOptimizationTargetModelObserver observer(listener_.get());
@@ -413,7 +427,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest,
   EXPECT_EQ(observer.call_count(), 1);
   EXPECT_EQ(observer.last_target(), target);
   ASSERT_TRUE(observer.last_model_info());
-  EXPECT_EQ(observer.last_model_info()->GetVersion(), 123);
+  EXPECT_EQ(observer.last_model_info()->version, 123);
 
   // Triggering it again should not notify because observer is removed.
   base::Version version2("2.0.0.0");
@@ -421,14 +435,14 @@ TEST_F(PredictionModelComponentUpdateListenerTest,
   listener_->MaybeUpdateModel(target, version2, install_dir2);
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return listener_->GetModelForTesting(target) &&
-           listener_->GetModelForTesting(target)->GetVersion() == 200;
+           listener_->GetModelForTesting(target)->version == 200;
   }));
   EXPECT_EQ(observer.call_count(), 1);
 }
 
 TEST_F(PredictionModelComponentUpdateListenerTest, LoadFailure) {
   proto::OptimizationTarget target =
-      proto::OPTIMIZATION_TARGET_MODEL_VALIDATION;
+      proto::OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS;
   FakeOptimizationTargetModelObserver observer;
 
   // First load a good model.
@@ -437,14 +451,14 @@ TEST_F(PredictionModelComponentUpdateListenerTest, LoadFailure) {
   listener_->MaybeUpdateModel(target, version1, install_dir1);
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return listener_->GetModelForTesting(target) &&
-           listener_->GetModelForTesting(target)->GetVersion() == 100;
+           listener_->GetModelForTesting(target)->version == 100;
   }));
 
   listener_->AddObserverForOptimizationTargetModel(target, std::nullopt,
                                                    nullptr, &observer);
   EXPECT_EQ(observer.call_count(), 1);
   EXPECT_NE(observer.last_model_info(), nullptr);
-  EXPECT_EQ(observer.last_model_info()->GetVersion(), 100);
+  EXPECT_EQ(observer.last_model_info()->version, 100);
 
   // Now trigger update with non-existent directory.
   base::Version version2("2.0.0");
@@ -461,7 +475,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest, LoadFailure) {
 
 TEST_F(PredictionModelComponentUpdateListenerTest, EmptyInstallDirIgnored) {
   proto::OptimizationTarget target =
-      proto::OPTIMIZATION_TARGET_MODEL_VALIDATION;
+      proto::OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS;
   FakeOptimizationTargetModelObserver observer;
 
   // First load a good model.
@@ -470,14 +484,14 @@ TEST_F(PredictionModelComponentUpdateListenerTest, EmptyInstallDirIgnored) {
   listener_->MaybeUpdateModel(target, version1, install_dir1);
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return listener_->GetModelForTesting(target) &&
-           listener_->GetModelForTesting(target)->GetVersion() == 100;
+           listener_->GetModelForTesting(target)->version == 100;
   }));
 
   listener_->AddObserverForOptimizationTargetModel(target, std::nullopt,
                                                    nullptr, &observer);
   EXPECT_EQ(observer.call_count(), 1);
   ASSERT_TRUE(observer.last_model_info());
-  EXPECT_EQ(observer.last_model_info()->GetVersion(), 100);
+  EXPECT_EQ(observer.last_model_info()->version, 100);
 
   // Now trigger update with an empty directory.
   base::Version version2("2.0.0");
@@ -498,14 +512,14 @@ TEST_F(PredictionModelComponentUpdateListenerTest, EmptyInstallDirIgnored) {
   // Observer should NOT be notified, and the old model should still be active.
   EXPECT_EQ(observer.call_count(), 1);
   ASSERT_TRUE(listener_->GetModelForTesting(target));
-  EXPECT_EQ(listener_->GetModelForTesting(target)->GetVersion(), 100);
+  EXPECT_EQ(listener_->GetModelForTesting(target)->version, 100);
 
   listener_->RemoveObserverForOptimizationTargetModel(target, &observer);
 }
 
 TEST_F(PredictionModelComponentUpdateListenerTest, CorruptModelInfo) {
   proto::OptimizationTarget target =
-      proto::OPTIMIZATION_TARGET_MODEL_VALIDATION;
+      proto::OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS;
   FakeOptimizationTargetModelObserver observer;
 
   // First load a good model.
@@ -514,14 +528,14 @@ TEST_F(PredictionModelComponentUpdateListenerTest, CorruptModelInfo) {
   listener_->MaybeUpdateModel(target, version1, install_dir1);
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return listener_->GetModelForTesting(target) &&
-           listener_->GetModelForTesting(target)->GetVersion() == 100;
+           listener_->GetModelForTesting(target)->version == 100;
   }));
 
   listener_->AddObserverForOptimizationTargetModel(target, std::nullopt,
                                                    nullptr, &observer);
   EXPECT_EQ(observer.call_count(), 1);
   ASSERT_TRUE(observer.last_model_info());
-  EXPECT_EQ(observer.last_model_info()->GetVersion(), 100);
+  EXPECT_EQ(observer.last_model_info()->version, 100);
 
   // Now trigger update with corrupt model info.
   base::Version version2("2.0.0");
@@ -538,7 +552,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest, CorruptModelInfo) {
 
 TEST_F(PredictionModelComponentUpdateListenerTest, UseObserverTaskRunner) {
   proto::OptimizationTarget target =
-      proto::OPTIMIZATION_TARGET_MODEL_VALIDATION;
+      proto::OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS;
   FakeOptimizationTargetModelObserver observer;
   auto test_task_runner = base::MakeRefCounted<base::TestSimpleTaskRunner>();
 
@@ -565,7 +579,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest, UseObserverTaskRunner) {
 
   EXPECT_EQ(observer.call_count(), 1);
   ASSERT_TRUE(observer.last_model_info());
-  EXPECT_EQ(observer.last_model_info()->GetVersion(), 123);
+  EXPECT_EQ(observer.last_model_info()->version, 123);
 
   listener_->RemoveObserverForOptimizationTargetModel(target, &observer);
 }
@@ -573,7 +587,7 @@ TEST_F(PredictionModelComponentUpdateListenerTest, UseObserverTaskRunner) {
 TEST_F(PredictionModelComponentUpdateListenerTest,
        TaskRunnerClearedOnObserverRemoval) {
   proto::OptimizationTarget target =
-      proto::OPTIMIZATION_TARGET_MODEL_VALIDATION;
+      proto::OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS;
   FakeOptimizationTargetModelObserver observer;
   auto test_task_runner = base::MakeRefCounted<base::TestSimpleTaskRunner>();
 
@@ -597,8 +611,128 @@ TEST_F(PredictionModelComponentUpdateListenerTest,
   // The model should still load eventually via the default task runner.
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return listener_->GetModelForTesting(target) &&
-           listener_->GetModelForTesting(target)->GetVersion() == 123;
+           listener_->GetModelForTesting(target)->version == 123;
   }));
+}
+
+TEST_F(PredictionModelComponentUpdateListenerTest, RegisterCallbackCalled) {
+  proto::OptimizationTarget target =
+      proto::OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS;
+  FakeOptimizationTargetModelObserver observer;
+
+  using MockRegisterCallback = base::MockCallback<
+      PredictionModelComponentUpdateListener::RegisterComponentCallback>;
+  testing::StrictMock<MockRegisterCallback> mock_callback;
+
+  // Re-create listener with a custom callback for this test.
+  listener_ = std::make_unique<PredictionModelComponentUpdateListener>(
+      fallback_provider_, mock_callback.Get());
+
+  // Adding observer for migrated target should trigger the callback.
+  EXPECT_CALL(mock_callback, Run(target, testing::_));
+  listener_->AddObserverForOptimizationTargetModel(target, std::nullopt,
+                                                   nullptr, &observer);
+  testing::Mock::VerifyAndClearExpectations(&mock_callback);
+
+  // Adding observer again for the same target should NOT trigger the callback.
+  FakeOptimizationTargetModelObserver observer2;
+  listener_->AddObserverForOptimizationTargetModel(target, std::nullopt,
+                                                   nullptr, &observer2);
+
+  // Adding observer for a non-migrated target should NOT trigger the callback
+  // and should get rerouted to fallback provider.
+  proto::OptimizationTarget target2 = proto::OPTIMIZATION_TARGET_PAGE_TOPICS_V2;
+  FakeOptimizationTargetModelObserver observer3;
+  listener_->AddObserverForOptimizationTargetModel(target2, std::nullopt,
+                                                   nullptr, &observer3);
+
+  // Verify it was rerouted.
+  EXPECT_TRUE(fallback_provider_.IsRegistered(target2));
+
+  listener_->RemoveObserverForOptimizationTargetModel(target, &observer);
+  listener_->RemoveObserverForOptimizationTargetModel(target, &observer2);
+  listener_->RemoveObserverForOptimizationTargetModel(target2, &observer3);
+  listener_.reset();
+}
+
+TEST_F(PredictionModelComponentUpdateListenerTest, RerouteNonMigratedTarget) {
+  proto::OptimizationTarget target = proto::OPTIMIZATION_TARGET_PAGE_TOPICS_V2;
+  FakeOptimizationTargetModelObserver observer;
+
+  listener_->AddObserverForOptimizationTargetModel(target, std::nullopt,
+                                                   nullptr, &observer);
+  EXPECT_TRUE(fallback_provider_.IsRegistered(target));
+
+  listener_->RemoveObserverForOptimizationTargetModel(target, &observer);
+  EXPECT_FALSE(fallback_provider_.IsRegistered(target));
+}
+
+TEST_F(PredictionModelComponentUpdateListenerTest,
+       MultipleTargetsIndependentObservers) {
+  proto::OptimizationTarget target1 =
+      proto::OPTIMIZATION_TARGET_GEOLOCATION_PERMISSION_PREDICTIONS;
+  proto::OptimizationTarget target2 =
+      proto::OPTIMIZATION_TARGET_NOTIFICATION_PERMISSION_PREDICTIONS;
+
+  FakeOptimizationTargetModelObserver observer1;
+  FakeOptimizationTargetModelObserver observer2;
+
+  auto test_task_runner1 = base::MakeRefCounted<base::TestSimpleTaskRunner>();
+  auto test_task_runner2 = base::MakeRefCounted<base::TestSimpleTaskRunner>();
+
+  listener_->AddObserverForOptimizationTargetModel(
+      target1, std::nullopt, test_task_runner1, &observer1);
+  listener_->AddObserverForOptimizationTargetModel(
+      target2, std::nullopt, test_task_runner2, &observer2);
+
+  EXPECT_EQ(observer1.call_count(), 0);
+  EXPECT_EQ(observer2.call_count(), 0);
+
+  base::Version version1("1.0.0");
+  base::FilePath install_dir1 = CreateModelDirectory(target1, /*version=*/100);
+  base::Version version2("2.0.0");
+  base::FilePath install_dir2 = CreateModelDirectory(target2, /*version=*/200);
+
+  listener_->MaybeUpdateModel(target1, version1, install_dir1);
+  listener_->MaybeUpdateModel(target2, version2, install_dir2);
+
+  // Each target's load task should be posted to its own task runner.
+  EXPECT_TRUE(test_task_runner1->HasPendingTask());
+  EXPECT_TRUE(test_task_runner2->HasPendingTask());
+
+  // Run pending tasks on both task runners.
+  test_task_runner1->RunPendingTasks();
+  test_task_runner2->RunPendingTasks();
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return observer1.call_count() == 1 && observer2.call_count() == 1;
+  }));
+  EXPECT_EQ(observer1.last_target(), target1);
+  ASSERT_TRUE(observer1.last_model_info());
+  EXPECT_EQ(observer1.last_model_info()->version, 100);
+  EXPECT_EQ(observer2.last_target(), target2);
+  ASSERT_TRUE(observer2.last_model_info());
+  EXPECT_EQ(observer2.last_model_info()->version, 200);
+
+  // Verify GetModelForTesting returns the isolated models.
+  ASSERT_TRUE(listener_->GetModelForTesting(target1));
+  EXPECT_EQ(listener_->GetModelForTesting(target1)->version, 100);
+  ASSERT_TRUE(listener_->GetModelForTesting(target2));
+  EXPECT_EQ(listener_->GetModelForTesting(target2)->version, 200);
+
+  // Uninstalling target1 should only affect target1.
+  listener_->OnModelUninstalled(target1);
+  EXPECT_TRUE(
+      base::test::RunUntil([&]() { return observer1.call_count() == 2; }));
+  EXPECT_EQ(observer1.call_count(), 2);
+  EXPECT_EQ(observer1.last_model_info(), nullptr);
+  EXPECT_EQ(listener_->GetModelForTesting(target1), nullptr);
+  EXPECT_EQ(observer2.call_count(), 1);
+  ASSERT_TRUE(listener_->GetModelForTesting(target2));
+  EXPECT_EQ(listener_->GetModelForTesting(target2)->version, 200);
+
+  // Clean up observers.
+  listener_->RemoveObserverForOptimizationTargetModel(target1, &observer1);
+  listener_->RemoveObserverForOptimizationTargetModel(target2, &observer2);
 }
 
 }  // namespace optimization_guide

@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "device/bluetooth/bluetooth_low_energy_adapter_apple.h"
 
 #import <CoreBluetooth/CBManager.h>
@@ -20,6 +15,7 @@
 
 #include "base/apple/foundation_util.h"
 #include "base/compiler_specific.h"
+#include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
@@ -27,6 +23,7 @@
 #include "base/mac/mac_util.h"
 #include "base/memory/ptr_util.h"
 #include "base/notimplemented.h"
+#include "base/numerics/byte_conversions.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/sys_string_conversions.h"
@@ -347,7 +344,7 @@ CBPeripheralManager* BluetoothLowEnergyAdapterApple::GetPeripheralManager() {
 }
 
 void BluetoothLowEnergyAdapterApple::SetLowEnergyDeviceWatcherForTesting(
-    scoped_refptr<BluetoothLowEnergyDeviceWatcherMac>
+    std::unique_ptr<BluetoothLowEnergyDeviceWatcherMac>
         bluetooth_low_energy_device_watcher) {
   bluetooth_low_energy_device_watcher_ =
       std::move(bluetooth_low_energy_device_watcher);
@@ -442,10 +439,8 @@ void BluetoothLowEnergyAdapterApple::LowEnergyDeviceUpdated(
       advertisement_data[CBAdvertisementDataServiceDataKey];
   for (CBUUID* uuid in service_data) {
     NSData* data = service_data[uuid];
-    const uint8_t* bytes = static_cast<const uint8_t*>([data bytes]);
-    size_t length = [data length];
     service_data_map.emplace(BluetoothUUIDWithCBUUID(uuid),
-                             std::vector<uint8_t>(bytes, bytes + length));
+                             base::ToVector(base::apple::NSDataToSpan(data)));
   }
 
   // Get Manufacturer Data.
@@ -458,12 +453,11 @@ void BluetoothLowEnergyAdapterApple::LowEnergyDeviceUpdated(
   BluetoothDevice::ManufacturerDataMap manufacturer_data_map;
   NSData* manufacturer_data =
       advertisement_data[CBAdvertisementDataManufacturerDataKey];
-  const uint8_t* bytes = static_cast<const uint8_t*>([manufacturer_data bytes]);
-  size_t length = [manufacturer_data length];
-  if (length > 1) {
-    const uint16_t manufacturer_id = bytes[0] | bytes[1] << 8;
-    manufacturer_data_map.emplace(
-        manufacturer_id, std::vector<uint8_t>(bytes + 2, bytes + length));
+  auto span = base::apple::NSDataToSpan(manufacturer_data);
+  if (span.size() > 1) {
+    const uint16_t manufacturer_id = base::U16FromLittleEndian(span.first<2>());
+    manufacturer_data_map.emplace(manufacturer_id,
+                                  base::ToVector(span.subspan(2u)));
   }
 
   // Get Tx Power.

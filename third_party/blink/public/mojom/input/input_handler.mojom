@@ -103,6 +103,15 @@ struct ScrollData {
   // Used for GestureScrollBegin type only. If this is true, we use the scroll
   // sequence to do cursor control rather than scroll.
   bool cursor_control;
+  // The scroll deltas, before axis-locking/snapping is applied.
+  // Used when `scroll-axis-lock` is `none` to allow diagonal scrolling even on
+  // nearly vertical/horizontal gestures which would normally be locked to one
+  // axis.
+  // TODO(crbug.com/535432422): Move scroll axis locking to the renderer.
+  // This would obviate the need for an extra pair of deltas in this mojo
+  // struct.
+  float delta_x_unconstrained;
+  float delta_y_unconstrained;
 };
 
 struct PinchBeginData {
@@ -497,7 +506,8 @@ interface WidgetInputHandler {
   // This message sends a string being composed with an input method.
   // `target_dom_node_id`, if not a null value, will target composition to the
   // specified node, adjusting and restoring focus if necessary.
-  // TODO(crbug.com/535826288): Use `DOMNodeId?`.
+  // TODO(crbug.com/535826288): Make `DOMNodeId` optional once the typemap
+  // is nullable_is_same_type.
   // Note, the response is specifically for Devtools to learn about completion
   ImeSetComposition(mojo_base.mojom.String16 text,
                     array<ui.mojom.ImeTextSpan> ime_text_spans,
@@ -511,7 +521,8 @@ interface WidgetInputHandler {
   // moves the cursor.
   // `target_dom_node_id`, if not a null value, will target the text commit to
   // the specified node, adjusting and restoring focus if necessary.
-  // TODO(crbug.com/535826288): Use `DOMNodeId?`.
+  // TODO(crbug.com/535826288): Make `DOMNodeId` optional once the typemap
+  // is nullable_is_same_type.
   // Note, the response is specifically for Devtools to learn about completion
   ImeCommitText(mojo_base.mojom.String16 text,
                 array<ui.mojom.ImeTextSpan> ime_text_spans,
@@ -532,6 +543,15 @@ interface WidgetInputHandler {
   // updates in each compositor frame (when there is a change in composition
   // info) will lead to updates being sent to the browser.
   RequestCompositionUpdates(bool immediate_request, bool monitor_request);
+
+  // Pastes text into the target node.
+  // `target_dom_node_id`, if not a null value, will target the paste to
+  // the specified node, without changing focus. If null, the focused node will
+  // be targeted.
+  // TODO(crbug.com/535826288): Make `DOMNodeId` optional once the typemap
+  // is nullable_is_same_type.
+  PasteIntoNode(mojo_base.mojom.String16 text,
+                blink.mojom.DOMNodeId target_dom_node_id);
 
   // Sends an input event to the render widget. If |event| is a
   // GestureScrollUpdate, |original_event_for_gesture| might have the event that

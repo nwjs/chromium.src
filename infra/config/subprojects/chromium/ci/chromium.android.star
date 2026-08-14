@@ -1219,6 +1219,7 @@ ci.builder(
         short_name = "size",
     ),
     contact_team_email = "clank-engprod@google.com",
+    siso_output_local_strategy = "full",
     siso_remote_jobs = siso.remote_jobs.DEFAULT,
 )
 
@@ -3046,10 +3047,6 @@ ci.builder(
         ],
         per_test_modifications = {
             "android_browsertests": targets.mixin(
-                args = [
-                    # https://crbug.com/1414886
-                    "--gtest_filter=-OfferNotificationControllerAndroidBrowserTestForMessagesUi.MessageShown",
-                ],
                 swarming = targets.swarming(
                     shards = 12,
                 ),
@@ -4268,6 +4265,13 @@ ci.builder(
             "linux-jammy",
             "x86-64",
         ],
+        per_test_modifications = {
+            "chrome_public_test_apk": targets.mixin(
+                args = [
+                    "--skia-gold-consider-unsupported",
+                ],
+            ),
+        },
     ),
     tree_closing = True,
     console_view_entry = consoles.console_view_entry(

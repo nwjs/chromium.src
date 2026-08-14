@@ -53,9 +53,20 @@
 #include "services/device/public/cpp/geolocation/geolocation_system_permission_manager.h"
 #endif  // BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
 
+namespace actions {
+class ActionItem;
+class ActionInvocationContext;
+}  // namespace actions
+
+namespace omnibox {
+enum ToolMode : int;
+enum ModelMode : int;
+}  // namespace omnibox
+
+class Browser;
+class BrowserWindowInterface;
 class CommandUpdater;
 class ContentSettingBubbleModelDelegate;
-class IntentChipButton;
 class OmniboxController;
 class OmniboxContextMenu;
 enum class OmniboxPart;
@@ -206,8 +217,6 @@ class LocationBarView
     return permission_dashboard_view_;
   }
 
-  IntentChipButton* intent_chip() { return intent_chip_; }
-
   // LocationBar:
   void FocusLocation(bool is_user_initiated,
                      bool clear_focus_if_failed) override;
@@ -223,7 +232,7 @@ class LocationBarView
   std::optional<bubble_anchor_util::AnchorConfiguration> GetChipAnchor()
       override;
   ui::TrackedElement* GetAnchorOrNull() override;
-  Browser* GetBrowser() override;
+  BrowserWindowInterface* GetBrowser() override;
   Profile* GetProfile() override;
 
   // True if this instance has been initialized by calling Init, which can only
@@ -233,6 +242,7 @@ class LocationBarView
   bool IsDrawn() const override;
   bool IsFullscreen() const override;
   bool IsMouseHovered() const override;
+  bool IsFocusWithin() const override;
   void InvalidateLayout() override;
   gfx::Rect Bounds() const override;
   gfx::Rect BoundsInScreen() const override;
@@ -288,12 +298,15 @@ class LocationBarView
   static int GetAvailableDecorationTextHeight();
 
   void OnOmniboxFocused();
-  void OpenOmniboxPopup();
+  void OpenOmniboxPopup(bool query_zps = true);
   void OnOmniboxBlurred();
 
   // Called when omnibox view receives mouse notifications relevant to hover.
   // |is_hovering| should be true when mouse is in omnibox; false when exited.
   void OnOmniboxHovered(bool is_hovering);
+
+  // LocationBar:
+  void SetPermissionPromptShowing(bool showing) override;
 
   // `browser_` returned here may be nullptr. There are two known cases.
   //
@@ -322,6 +335,8 @@ class LocationBarView
   }
 
   SkColor GetBackgroundColorForTesting() const { return background_color_; }
+
+  OmniboxPopupUI* GetOmniboxPopupUI();
 
  private:
   FRIEND_TEST_ALL_PREFIXES(SecurityIndicatorTest, CheckIndicatorText);
@@ -355,17 +370,18 @@ class LocationBarView
   // Updates the background on a theme change, or dropdown state change.
   void RefreshBackground();
 
-  // Updates the visibility state of the Content Blocked icons to reflect what
-  // is actually blocked on the current page. Returns true if the visibility
-  // of at least one of the views in |content_setting_views_| changed.
+  // Updates the visibility state of the content setting icons to reflect what
+  // is blocked or actively in use on the current page. Returns true if the
+  // visibility of at least one of the views in `content_setting_views_`
+  // changed.
   bool RefreshContentSettingViews();
 
   // Updates the visibility state of the PageActionIconViews to reflect what
   // actions are available on the current page.
   void RefreshPageActionIconViews();
 
-  // Updates the visibility state of the AIM page action icon view.
-  void RefreshAiModePageActionIconView();
+  // Updates the visibility state of the AIM page action.
+  void RefreshAiModePageAction();
 
   // Updates PageActionContainerView's action controller to the active tab's
   // controller. At the same time, the page actions visibility will be set based
@@ -504,8 +520,6 @@ class LocationBarView
   // be shown to the user.
   bool HasAllowedInputs();
 
-  OmniboxPopupUI* GetOmniboxPopupUI();
-
   content::WebContents* GetWrappedWebContents();
 
 #if BUILDFLAG(IS_MAC)
@@ -588,7 +602,6 @@ class LocationBarView
   // Shown if the user has selected a keyword.
   raw_ptr<SelectedKeywordView> selected_keyword_view_ = nullptr;
 
-  raw_ptr<IntentChipButton> intent_chip_ = nullptr;
 
   // The content setting views.
   ContentSettingViews content_setting_views_;
@@ -642,6 +655,27 @@ class LocationBarView
   bool in_popup_state_transition_ = false;
 
   void OnMiddleClickPaste(base::TimeTicks event_timestamp, std::u16string text);
+
+  void RegisterOmniboxActions();
+
+  // Helper functions for omnibox actions.
+  static void AddFileOrImageToOmnibox(Browser* browser,
+                                      bool is_image,
+                                      actions::ActionItem* item,
+                                      actions::ActionInvocationContext context);
+  static void SetOmniboxToolModeAndOpenAi(
+      Browser* browser,
+      omnibox::ToolMode tool_mode,
+      actions::ActionItem* item,
+      actions::ActionInvocationContext context);
+  static void SetOmniboxModelModeAndOpenAi(
+      Browser* browser,
+      omnibox::ModelMode model_mode,
+      actions::ActionItem* item,
+      actions::ActionInvocationContext context);
+  static void ExecutePasteAndGo(Browser* browser,
+                                actions::ActionItem* item,
+                                actions::ActionInvocationContext context);
 
   base::WeakPtrFactory<LocationBarView> weak_factory_{this};
 };

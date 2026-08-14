@@ -97,7 +97,11 @@ class ToolbarDependencyProvider : public WebUIToolbarUI::DependencyProvider {
  public:
   explicit ToolbarDependencyProvider(Browser* browser) : browser_(browser) {}
 
-  ~ToolbarDependencyProvider() = default;
+  ~ToolbarDependencyProvider() override = default;
+
+  base::WeakPtr<DependencyProvider> GetWeakPtr() override {
+    return weak_factory_.GetWeakPtr();
+  }
 
   // This might blow up in the future. We are implicitly assuming that the
   // delegate isn't going to be used in this test.
@@ -130,6 +134,7 @@ class ToolbarDependencyProvider : public WebUIToolbarUI::DependencyProvider {
 
  private:
   raw_ptr<BrowserWindowInterface> browser_;
+  base::WeakPtrFactory<DependencyProvider> weak_factory_{this};
 };
 
 class WebUIToolbarInitializer : public WebUIControllerInitalizer {
@@ -521,7 +526,7 @@ IN_PROC_BROWSER_TEST_F(PrewarmedWebUINavigationTimelineBrowserTest,
 
   // 2) Create a new browser window. This should trigger pre-warming of the
   // toolbar WebUI.
-  Browser::CreateParams params(browser()->profile(), true);
+  Browser::CreateParams params(browser()->GetProfile(), true);
   Browser::Create(params);
 
   // Wait for the navigation to commit and record UKM.
@@ -557,15 +562,15 @@ IN_PROC_BROWSER_TEST_F(InitialWebUINavigationBrowserTest,
   // perfectly.
   const std::string expected_metric = base::StrCat(
       {"InitialWebUI.NewWindow.AllSources.",
-       ProfileBrowserCollection::GetForProfile(browser()->profile())
+       ProfileBrowserCollection::GetForProfile(browser()->GetProfile())
                    ->GetSize() > 0
            ? "WithExistingWindow"
            : "WithoutExistingWindow",
-       ".BrowserWindowToReloadButton.FirstPaintGap"});
+       ".BrowserWindowToReloadButton.FirstPaintGap2"});
   base::StatisticsRecorder::HistogramWaiter waiter(expected_metric);
 
   // Create a new browser window without actively showing/painting it yet.
-  Browser::CreateParams params(browser()->profile(), true);
+  Browser::CreateParams params(browser()->GetProfile(), true);
   Browser* new_browser = Browser::Create(params);
 
   if (auto* manager = InitialWebUIWindowMetricsManager::From(new_browser)) {
@@ -584,11 +589,11 @@ IN_PROC_BROWSER_TEST_F(InitialWebUINavigationBrowserTest,
 
   histogram_tester.ExpectTotalCount(
       "InitialWebUI.NewWindow.AllSources.WithExistingWindow."
-      "BrowserWindowToReloadButton.FirstPaintGap",
+      "BrowserWindowToReloadButton.FirstPaintGap2",
       1);
   histogram_tester.ExpectTotalCount(
       "InitialWebUI.NewWindow.BrowserInitiated.WithExistingWindow."
-      "BrowserWindowToReloadButton.FirstPaintGap",
+      "BrowserWindowToReloadButton.FirstPaintGap2",
       1);
 }
 
@@ -834,12 +839,12 @@ IN_PROC_BROWSER_TEST_F(InitialWebUISurfaceSyncBrowserTest,
   // We need to wait for the histogram.
   const std::string expected_metric =
       "InitialWebUI.NewWindow.AllSources.WithExistingWindow."
-      "BrowserWindowToReloadButton.FirstPaintGap";
+      "BrowserWindowToReloadButton.FirstPaintGap2";
 
   base::StatisticsRecorder::HistogramWaiter waiter(expected_metric);
 
   // Create a new window.
-  Browser::CreateParams params(browser()->profile(), true);
+  Browser::CreateParams params(browser()->GetProfile(), true);
   Browser* new_browser = Browser::Create(params);
 
   if (auto* manager = InitialWebUIWindowMetricsManager::From(new_browser)) {
@@ -870,7 +875,7 @@ IN_PROC_BROWSER_TEST_F(InitialWebUINavigationBrowserTest,
   base::HistogramTester histogram_tester;
 
   // Create a minimized browser window.
-  Browser::CreateParams params(browser()->profile(), true);
+  Browser::CreateParams params(browser()->GetProfile(), true);
   params.initial_show_state = ui::mojom::WindowShowState::kMinimized;
   Browser* new_browser = Browser::Create(params);
 
@@ -900,13 +905,13 @@ IN_PROC_BROWSER_TEST_F(InitialWebUINavigationBrowserTest,
   // Verify ShowRequestedToFirstPaint was not recorded.
   histogram_tester.ExpectTotalCount(
       "InitialWebUI.NewWindow.AllSources.WithoutExistingWindow.BrowserWindow."
-      "ShowRequestedToFirstPaint.FromConstructor",
+      "ShowRequestedToFirstPaint.FromConstructor2",
       0);
 
   // Verify FirstPaintGap was not recorded.
   histogram_tester.ExpectTotalCount(
       "InitialWebUI.NewWindow.AllSources.WithoutExistingWindow."
-      "BrowserWindowToReloadButton.FirstPaintGap",
+      "BrowserWindowToReloadButton.FirstPaintGap2",
       0);
 }
 
@@ -914,7 +919,7 @@ IN_PROC_BROWSER_TEST_F(InitialWebUINavigationBrowserTest,
 // restored as minimized.
 IN_PROC_BROWSER_TEST_F(InitialWebUINavigationBrowserTest,
                        SessionRestoreMinimizedWindow) {
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
 
   // Enable session restore and minimize the current window.
   SessionStartupPref pref(SessionStartupPref::LAST);

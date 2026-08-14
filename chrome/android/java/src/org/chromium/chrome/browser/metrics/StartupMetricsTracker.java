@@ -7,7 +7,6 @@ package org.chromium.chrome.browser.metrics;
 import android.app.ActivityManager;
 import android.app.ApplicationStartInfo;
 import android.content.Context;
-import android.os.Build;
 import android.os.Process;
 import android.os.SystemClock;
 import android.view.View;
@@ -19,6 +18,7 @@ import org.chromium.base.BinderCallsListener;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TimeUtils;
+import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.task.PostTask;
@@ -55,14 +55,13 @@ public class StartupMetricsTracker {
             "Startup.Android.Cold.NewTabPage.TimeToFirstDraw";
     private static final String TIME_TO_STARTUP_FCP_OR_PAINT_PREVIEW_HISTOGRAM =
             "Startup.Android.Cold.TimeToStartupFcpOrPaintPreview";
-    private static final String COLD_START_TIME_TO_FIRST_FRAME =
-            "Startup.Android.Cold.TimeToFirstFrame";
-    private static final String COLD_START_MISMATCH_HISTOGRAM =
-            "Startup.Android.Cold.TemperatureMismatch";
+    private static final String COLD_START_TIME_TO_FIRST_FRAME2 =
+            "Startup.Android.Cold.TimeToFirstFrame2";
     private static final String COLD_START_EXPERIMENTAL_FCP_TABBED_HISTOGRAM =
             "Startup.Android.Cold.ExperimentalProcessStart.TimeToFirstContentfulPaint.Tabbed";
     private static final String COLD_START_EXPERIMENTAL_FIRST_VISIBLE_CONTENT_HISTOGRAM =
             "Startup.Android.Cold.ExperimentalProcessStart.TimeToFirstVisibleContent";
+    private static boolean sBypassStartChecksForTesting;
     private boolean mFirstNavigationCommitted;
 
     // These values are persisted to logs. Entries should not be renumbered and
@@ -86,25 +85,6 @@ public class StartupMetricsTracker {
     }
 
     // LINT.ThenChange(//tools/metrics/histograms/metadata/startup/enums.xml:AndroidStartupTemperature)
-
-    // LINT.IfChange(AndroidColdStartMismatchLocation)
-    @IntDef({
-        AndroidColdStartMismatchLocation.TRACKER_COLD_SYSTEM_NOT_COLD_ACTIVITY,
-        AndroidColdStartMismatchLocation.TRACKER_COLD_SYSTEM_NOT_COLD_OTHER,
-        AndroidColdStartMismatchLocation.TRACKER_NOT_COLD_SYSTEM_COLD_ACTIVITY,
-        AndroidColdStartMismatchLocation.TRACKER_NOT_COLD_SYSTEM_COLD_OTHER,
-        AndroidColdStartMismatchLocation.NUM_ENTRIES
-    })
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface AndroidColdStartMismatchLocation {
-        int TRACKER_COLD_SYSTEM_NOT_COLD_ACTIVITY = 0;
-        int TRACKER_COLD_SYSTEM_NOT_COLD_OTHER = 1;
-        int TRACKER_NOT_COLD_SYSTEM_COLD_ACTIVITY = 2;
-        int TRACKER_NOT_COLD_SYSTEM_COLD_OTHER = 3;
-        int NUM_ENTRIES = 4;
-    }
-
-    // LINT.ThenChange(//tools/metrics/histograms/metadata/startup/enums.xml:AndroidColdStartMismatchLocation)
 
     private class TabObserver extends TabModelSelectorTabObserver {
         private boolean mFirstLoadStarted;
@@ -239,6 +219,10 @@ public class StartupMetricsTracker {
     private volatile long mFirstSafeBrowsingResponseTimeMicros;
     private boolean mFirstSafeBrowsingResponseTimeRecorded;
 
+    public static void setBypassStartChecksForTesting() {
+        sBypassStartChecksForTesting = true;
+    }
+
     public StartupMetricsTracker(
             MonotonicObservableSupplier<TabModelSelector> tabModelSelectorSupplier,
             Supplier<Boolean> isRestoringPersistentStateSupplier) {
@@ -254,7 +238,7 @@ public class StartupMetricsTracker {
      * Sets up a listener for ApplicationStartInfo that will eventually report TimeToFirstFrame once
      * per application lifecycle.
      */
-    @RequiresApi(35)
+    @RequiresApi(36)
     public void registerApplicationStartInfoListener() {
         ActivityManager activityManager =
                 (ActivityManager)
@@ -522,67 +506,29 @@ public class StartupMetricsTracker {
      *
      * @param applicationStartInfo contains various bits of information regarding app startup.
      */
-    @RequiresApi(35)
+    @RequiresApi(36)
     private void recordTimeToFirstFrame(ApplicationStartInfo applicationStartInfo) {
         if (!SimpleStartupForegroundSessionDetector.runningCleanForegroundSession()
                 || mActivityStartInfoMetricsRecorded) return;
 
-        boolean isTrackerCold = ColdStartTracker.wasColdOnFirstActivityCreationOrNow();
-        boolean isSystemCold =
-                applicationStartInfo.getStartType() == ApplicationStartInfo.START_TYPE_COLD;
-        if (isTrackerCold != isSystemCold && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
-            recordMismatchHistogram(applicationStartInfo, isTrackerCold);
+        boolean isActivityColdStart =
+                applicationStartInfo.getStartComponent()
+                                == ApplicationStartInfo.START_COMPONENT_ACTIVITY
+                        && applicationStartInfo.getStartType()
+                                == ApplicationStartInfo.START_TYPE_COLD;
+        if (!sBypassStartChecksForTesting && !isActivityColdStart) {
+            return;
         }
-
-        // TODO(crbug.com/463329742): Replace ColdStartTracker with ApplicationStartInfo when
-        // test-related cold-start tracking issues are mitigated.
-        if (!isTrackerCold) return;
         mActivityStartInfoMetricsRecorded = true;
         final long firstFrameTimeMs =
                 applicationStartInfo
                                 .getStartupTimestamps()
                                 .getOrDefault(ApplicationStartInfo.START_TIMESTAMP_FIRST_FRAME, 0L)
                         / TimeUtils.NANOSECONDS_PER_MILLISECOND;
-        if (firstFrameTimeMs != 0L && mActivityStartTimeMs < firstFrameTimeMs) {
-            RecordHistogram.recordMediumTimesHistogram(
-                    COLD_START_TIME_TO_FIRST_FRAME, firstFrameTimeMs - mActivityStartTimeMs);
+        if (firstFrameTimeMs != 0L && mProcessStartTimeMs < firstFrameTimeMs) {
+            long durationMs = firstFrameTimeMs - mProcessStartTimeMs;
+            RecordHistogram.recordMediumTimesHistogram(COLD_START_TIME_TO_FIRST_FRAME2, durationMs);
+            TraceEvent.startupTimeToFirstFrame2(mProcessStartTimeMs, durationMs);
         }
-    }
-
-    /**
-     * Records a histogram capturing TemperatureMismatch context.
-     *
-     * <p>This metric records context around how a cold start detection mismatch occurred using
-     * ColdStartTracker (Clank's solution) and ApplicationStartInfo (Android API). If there is a
-     * mismatch, see if Clank and Android agree on what component caused this launch.
-     *
-     * @param applicationStartInfo contains various bits of information regarding app startup.
-     * @param isTrackerCold boolean that determines whether Clank had a cold start based on whether
-     *     the start was caused by an Activity launch.
-     */
-    @RequiresApi(36)
-    private void recordMismatchHistogram(
-            ApplicationStartInfo applicationStartInfo, boolean isTrackerCold) {
-        boolean isSystemActivity =
-                applicationStartInfo.getStartComponent()
-                        == ApplicationStartInfo.START_COMPONENT_ACTIVITY;
-
-        @AndroidColdStartMismatchLocation int sample;
-        if (isTrackerCold) {
-            sample =
-                    isSystemActivity
-                            ? AndroidColdStartMismatchLocation.TRACKER_COLD_SYSTEM_NOT_COLD_ACTIVITY
-                            : AndroidColdStartMismatchLocation.TRACKER_COLD_SYSTEM_NOT_COLD_OTHER;
-        } else {
-            sample =
-                    isSystemActivity
-                            ? AndroidColdStartMismatchLocation.TRACKER_NOT_COLD_SYSTEM_COLD_ACTIVITY
-                            : AndroidColdStartMismatchLocation.TRACKER_NOT_COLD_SYSTEM_COLD_OTHER;
-        }
-
-        RecordHistogram.recordEnumeratedHistogram(
-                COLD_START_MISMATCH_HISTOGRAM,
-                sample,
-                AndroidColdStartMismatchLocation.NUM_ENTRIES);
     }
 }

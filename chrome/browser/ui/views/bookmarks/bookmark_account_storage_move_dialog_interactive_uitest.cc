@@ -2,9 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/functional/callback_helpers.h"
 #include "base/location.h"
-#include "base/notreached.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
@@ -50,19 +48,19 @@ class BookmarkAccountStorageMoveDialogInteractiveTest
 
   BookmarkMergedSurfaceService* service() {
     return BookmarkMergedSurfaceServiceFactory::GetForProfile(
-        browser()->profile());
+        browser()->GetProfile());
   }
 
  protected:
   void SetUpTest() {
     signin::IdentityManager* identity_manager =
-        IdentityManagerFactory::GetForProfile(browser()->profile());
+        IdentityManagerFactory::GetForProfile(browser()->GetProfile());
     AccountInfo account_info = signin::MakePrimaryAccountAvailable(
         identity_manager, "foo@gmail.com", signin::ConsentLevel::kSignin);
     signin::SimulateAccountImageFetch(identity_manager, account_info.account_id,
                                       "https://avatar.com/avatar.png",
                                       gfx::test::CreateImage(/*size=*/32));
-    BookmarkModelFactory::GetForBrowserContext(browser()->profile())
+    BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile())
         ->CreateAccountPermanentFolders();
   }
 
@@ -76,7 +74,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkAccountStorageMoveDialogInteractiveTest,
   base::HistogramTester histogram_tester;
 
   bookmarks::BookmarkModel* bookmark_model =
-      BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+      BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
   const bookmarks::BookmarkNode* source_folder =
       bookmark_model->bookmark_bar_node();
   const bookmarks::BookmarkNode* node =
@@ -129,7 +127,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkAccountStorageMoveDialogInteractiveTest,
   base::HistogramTester histogram_tester;
 
   bookmarks::BookmarkModel* bookmark_model =
-      BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+      BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
   const bookmarks::BookmarkNode* source_folder =
       bookmark_model->bookmark_bar_node();
   const bookmarks::BookmarkNode* node =
@@ -182,7 +180,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkAccountStorageMoveDialogInteractiveTest,
   base::HistogramTester histogram_tester;
 
   bookmarks::BookmarkModel* bookmark_model =
-      BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+      BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
   const bookmarks::BookmarkNode* source_folder =
       bookmark_model->account_bookmark_bar_node();
   const bookmarks::BookmarkNode* node =
@@ -229,7 +227,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkAccountStorageMoveDialogInteractiveTest,
   base::HistogramTester histogram_tester;
 
   bookmarks::BookmarkModel* bookmark_model =
-      BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+      BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
   const bookmarks::BookmarkNode* source_folder =
       bookmark_model->account_bookmark_bar_node();
   const bookmarks::BookmarkNode* node =
@@ -276,7 +274,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkAccountStorageMoveDialogInteractiveTest,
   base::HistogramTester histogram_tester;
 
   bookmarks::BookmarkModel* bookmark_model =
-      BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+      BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
   const bookmarks::BookmarkNode* source_folder =
       bookmark_model->bookmark_bar_node();
   const bookmarks::BookmarkNode* node =
@@ -323,7 +321,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkAccountStorageMoveDialogInteractiveTest,
   base::HistogramTester histogram_tester;
 
   bookmarks::BookmarkModel* bookmark_model =
-      BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+      BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
   const bookmarks::BookmarkNode* source_folder =
       bookmark_model->bookmark_bar_node();
   const bookmarks::BookmarkNode* node =
@@ -375,7 +373,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkAccountStorageMoveDialogInteractiveTest,
   base::HistogramTester histogram_tester;
 
   bookmarks::BookmarkModel* bookmark_model =
-      BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+      BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
   const bookmarks::BookmarkNode* source_folder =
       bookmark_model->bookmark_bar_node();
   const bookmarks::BookmarkNode* node =
@@ -428,7 +426,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkAccountStorageMoveDialogInteractiveTest,
   const ui::Accelerator kEscapeKey(ui::VKEY_ESCAPE, ui::EF_NONE);
 
   bookmarks::BookmarkModel* bookmark_model =
-      BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+      BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
   const bookmarks::BookmarkNode* local_folder = bookmark_model->AddFolder(
       bookmark_model->bookmark_bar_node(), 0, u"Local");
   const bookmarks::BookmarkNode* account_folder = bookmark_model->AddFolder(
@@ -653,7 +651,7 @@ IN_PROC_BROWSER_TEST_F(
     PressOKButtonInIncogntoMode) {
   base::HistogramTester histogram_tester;
 
-  Profile* original_profile = browser()->profile();
+  Profile* original_profile = browser()->GetProfile();
   ASSERT_FALSE(original_profile->IsOffTheRecord());
   bookmarks::BookmarkModel* bookmark_model =
       BookmarkModelFactory::GetForBrowserContext(original_profile);
@@ -692,7 +690,7 @@ IN_PROC_BROWSER_TEST_F(
 
   Browser* new_browser = browser_waiter.Get();
   ASSERT_TRUE(new_browser);
-  EXPECT_EQ(new_browser->profile(), original_profile);
+  EXPECT_EQ(new_browser->GetProfile(), original_profile);
   bookmarks_manager_observer.WaitForNavigationFinished();
   // No other browser was opened.
   ASSERT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 2u);

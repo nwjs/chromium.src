@@ -9,7 +9,6 @@ import("//ui/webui/webui_features.gni")
 
 source_set("toolbar") {
   public = [
-    "action_app_menu.h",
     "ai_overlay_toolbar_button.h",
     "app_menu.h",
     "app_menu_control.h",
@@ -67,6 +66,7 @@ source_set("toolbar") {
     "//chrome/browser/ui:browser_element_identifiers",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/color:color_headers",
+    "//chrome/browser/ui/extensions",
     "//chrome/browser/ui/global_error",
     "//chrome/browser/ui/page_action:icon_type",
     "//chrome/browser/ui/performance_controls",
@@ -74,6 +74,7 @@ source_set("toolbar") {
     "//chrome/browser/ui/toolbar/chrome_labs",
     "//chrome/browser/ui/toolbar/pinned_toolbar",
     "//chrome/browser/ui/views",
+    "//chrome/browser/ui/views/app_menu",
     "//chrome/browser/ui/views/frame",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
     "//chrome/browser/ui/views/glic",
@@ -109,7 +110,6 @@ source_set("toolbar") {
 
 source_set("impl") {
   sources = [
-    "action_app_menu.cc",
     "ai_overlay_toolbar_button.cc",
     "app_menu.cc",
     "back_forward_button.cc",
@@ -196,7 +196,10 @@ source_set("impl") {
     "//chrome/browser/themes",
     "//chrome/browser/ui:browser_actions",
     "//chrome/browser/ui:layout_constants",
+    "//chrome/browser/ui:toolbar_controller_util",
     "//chrome/browser/ui:ui_features",
+    "//chrome/browser/ui:view_ids",
+    "//chrome/browser/ui/actions",
     "//chrome/browser/ui/actions:actions_headers",
     "//chrome/browser/ui/bookmarks",
     "//chrome/browser/ui/browser_window",
@@ -207,6 +210,7 @@ source_set("impl") {
     "//chrome/browser/ui/omnibox",
     "//chrome/browser/ui/profiles",
     "//chrome/browser/ui/safety_hub",
+    "//chrome/browser/ui/side_panel",
     "//chrome/browser/ui/side_panel:side_panel_views_dependent",
     "//chrome/browser/ui/signin",
     "//chrome/browser/ui/tabs:tab_enums",
@@ -215,8 +219,10 @@ source_set("impl") {
     "//chrome/browser/ui/tabs/saved_tab_groups",
     "//chrome/browser/ui/user_education",
     "//chrome/browser/ui/views:layout_provider",
+    "//chrome/browser/ui/views/app_menu:impl",
     "//chrome/browser/ui/views/contextual_tasks",
     "//chrome/browser/ui/views/download",
+    "//chrome/browser/ui/views/frame:app_menu_button_observer",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
     "//chrome/browser/ui/views/glic",
     "//chrome/browser/ui/views/global_media_controls",
@@ -327,7 +333,6 @@ if (!is_android) {
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
     sources = [
-      "action_app_menu_browsertest.cc",
       "app_menu_browsertest.cc",
       "chrome_labs/chrome_labs_browsertest.cc",
       "home_button_browsertest.cc",
@@ -348,7 +353,9 @@ if (!is_android) {
       "//chrome/browser/ui/side_panel",
       "//chrome/browser/ui/side_panel:side_panel_views_dependent",
       "//chrome/browser/ui/views/frame",
+      "//chrome/browser/ui/views/frame:app_menu_button_observer",
       "//chrome/browser/ui/views/page_info",
+      "//chrome/browser/ui/webui/webui_toolbar:impl",
       "//chrome/browser/web_applications:web_applications_test_support",
       "//chrome/test:test_support",
       "//components/commerce/core:feature_list",
@@ -368,6 +375,7 @@ if (!is_android) {
       ]
 
       deps += [
+        "//chrome/browser/ui:toolbar_controller_util",
         "//chrome/browser/ui/views/performance_controls",
         "//chrome/browser/ui/webui:webui_util",
         "//chrome/browser/ui/webui/webui_toolbar:test_support",
@@ -389,7 +397,7 @@ if (!is_android && !is_chromeos_device) {
         "forward_button_accessibility_interactive_uitest.cc",
         "home_button_accessibility_interactive_uitest.cc",
         "reload_button_accessibility_interactive_uitest.cc",
-        "reload_button_browsertest.cc",
+        "reload_button_interactive_uitest.cc",
         "split_tabs_button_interactive_ui_test.cc",
         "toolbar_accessibility_test.cc",
         "toolbar_accessibility_test.h",
@@ -399,7 +407,7 @@ if (!is_android && !is_chromeos_device) {
         "webui_and_views_toolbar_interactive_uitest_base.cc",
         "webui_and_views_toolbar_interactive_uitest_base.h",
         "webui_toolbar_interactive_uitest.cc",
-        "webui_toolbar_web_view_uitest.cc",
+        "webui_toolbar_web_view_interactive_uitest.cc",
       ]
     }
 
@@ -421,16 +429,20 @@ if (!is_android && !is_chromeos_device) {
       "//chrome/browser/ui:browser_actions",
       "//chrome/browser/ui:test_support",
       "//chrome/browser/ui:ui_features",
+      "//chrome/browser/ui:view_ids",
       "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/side_panel:side_panel_views_dependent",
       "//chrome/browser/ui/tabs:features",
       "//chrome/browser/ui/tabs:tab_menu",
       "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/views/extensions:test_support",
       "//chrome/browser/ui/views/frame",
       "//chrome/browser/ui/views/page_info",
       "//chrome/browser/ui/waap:manager",
       "//chrome/browser/user_education",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
+      "//chrome/test/user_education:impl",
       "//components/bookmarks/browser",
       "//components/commerce/core:feature_list",
       "//components/feature_engagement/test:test_support",
@@ -446,6 +458,9 @@ if (!is_android && !is_chromeos_device) {
       "//ui/events:test_support",
       "//ui/views",
     ]
+    if (toolkit_views) {
+      deps += [ "//chrome/browser/ui:toolbar_controller_util" ]
+    }
   }
 }
 
@@ -454,7 +469,6 @@ if (toolkit_views) {
     testonly = true
 
     sources = [
-      "action_app_menu_unittest.cc",
       "chrome_labs/chrome_labs_button_unittest.cc",
       "chrome_labs/chrome_labs_unittest.cc",
       "pinned_toolbar_actions_container_unittest.cc",
@@ -494,6 +508,7 @@ if (toolkit_views) {
       "//chrome/browser/ui/waap",
       "//chrome/common:buildflags",
       "//chrome/test:test_support",
+      "//chrome/test/user_education:impl",
       "//components/keyed_service/core",
       "//components/prefs",
       "//components/user_education/views",

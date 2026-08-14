@@ -29,7 +29,6 @@ import org.chromium.chrome.browser.customtabs.content.TabObserverRegistrar.Custo
 import org.chromium.chrome.browser.customtabs.features.TabInteractionRecorder;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManagerImpl;
-import org.chromium.chrome.browser.share.link_to_text.LinkToTextHelper;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabHidingType;
 import org.chromium.content_public.browser.GestureListenerManager;
@@ -218,7 +217,8 @@ class RealtimeEngagementSignalObserver extends CustomTabTabObserver {
         mScrollState = ScrollState.from(tab);
 
         if (mWebContents != null) {
-            mSignalsPaused = LinkToTextHelper.hasTextFragment(mWebContents.getVisibleUrl());
+            // Pause if the URL has a fragment, i.e. portion that starts with #.
+            mSignalsPaused = !mWebContents.getLastCommittedUrl().getRef().isEmpty();
         }
 
         mGestureStateListener =
@@ -236,10 +236,13 @@ class RealtimeEngagementSignalObserver extends CustomTabTabObserver {
                     @Override
                     public void onScrollOffsetOrExtentChanged(
                             int scrollOffsetY, int scrollExtentY) {
-                        assert tab != null;
+                        if (tab == null || tab.isDestroyed()) return;
+                        WebContents webContents = tab.getWebContents();
+                        if (webContents == null || webContents.isDestroyed()) return;
+
                         RenderCoordinates renderCoordinates =
-                                RenderCoordinates.fromWebContents(
-                                        assumeNonNull(tab.getWebContents()));
+                                RenderCoordinates.fromWebContents(webContents);
+
                         boolean validUpdateAfterScrollEnd =
                                 assumeNonNull(mScrollState)
                                         .onScrollUpdate(
@@ -294,9 +297,8 @@ class RealtimeEngagementSignalObserver extends CustomTabTabObserver {
                     @Override
                     public void didFinishNavigationInPrimaryMainFrame(
                             NavigationHandle navigationHandle) {
-                        if (navigationHandle.hasCommitted()) {
-                            mSignalsPaused =
-                                    LinkToTextHelper.hasTextFragment(navigationHandle.getUrl());
+                        if (navigationHandle.hasCommitted() && !navigationHandle.isSameDocument()) {
+                            mSignalsPaused = !navigationHandle.getUrl().getRef().isEmpty();
                         }
                     }
                 };
@@ -310,9 +312,10 @@ class RealtimeEngagementSignalObserver extends CustomTabTabObserver {
     }
 
     private void removeWebContentsDependencies(@Nullable WebContents webContents) {
-        if (webContents != null) {
+        WebContents targetWebContents = webContents != null ? webContents : mWebContents;
+        if (targetWebContents != null) {
             if (mGestureStateListener != null) {
-                var manager = GestureListenerManager.fromWebContents(webContents);
+                var manager = GestureListenerManager.fromWebContents(targetWebContents);
                 if (manager != null) {
                     manager.removeListener(mGestureStateListener);
                 }

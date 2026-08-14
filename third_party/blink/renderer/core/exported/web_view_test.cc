@@ -85,6 +85,7 @@
 #include "third_party/blink/public/web/web_view_client.h"
 #include "third_party/blink/public/web/web_widget.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_document.h"
+#include "third_party/blink/renderer/core/clipboard/data_transfer.h"
 #include "third_party/blink/renderer/core/css/css_default_style_sheets.h"
 #include "third_party/blink/renderer/core/css/css_style_declaration.h"
 #include "third_party/blink/renderer/core/css/media_query_list_listener.h"
@@ -127,6 +128,8 @@
 #include "third_party/blink/renderer/core/loader/interactive_detector.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/context_menu_controller.h"
+#include "third_party/blink/renderer/core/page/drag_actions.h"
+#include "third_party/blink/renderer/core/page/drag_state.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/page_hidden_state.h"
@@ -1451,6 +1454,36 @@ TEST_F(WebViewTest, ExplicitlyTargetedSetCompositionWithNoFocus) {
 
   EXPECT_EQ("helloInput 2", To<Element>(input2)->innerText().Utf8());
   EXPECT_EQ(nullptr, document->FocusedElement());
+}
+
+TEST_F(WebViewTest, ExplicitlyTargetedPasteIntoNode) {
+  WebViewImpl* web_view = web_view_helper_.Initialize();
+  WebURL base_url = url_test_helpers::ToKURL("http://example.com/");
+  frame_test_helpers::LoadHTMLString(
+      web_view->MainFrameImpl(),
+      "<div id='input1' contenteditable>Input 1</div>"
+      "<div id='input2' contenteditable>Input 2</div>",
+      base_url);
+  web_view->MainFrameViewWidget()->Resize(gfx::Size(500, 300));
+  UpdateAllLifecyclePhases();
+
+  Document* document = web_view->MainFrameImpl()->GetFrame()->GetDocument();
+  Element* input1 = document->getElementById(AtomicString("input1"));
+  Element* input2 = document->getElementById(AtomicString("input2"));
+
+  ASSERT_TRUE(input1);
+  ASSERT_TRUE(input2);
+
+  input1->Focus();
+  EXPECT_EQ(input1, document->FocusedElement());
+
+  WebFrameWidgetImpl* widget = web_view->MainFrameImpl()->FrameWidgetImpl();
+
+  widget->PasteIntoNode("hello", DOMNodeIdType(input2->GetDomNodeId()));
+
+  EXPECT_EQ("Input 2 hello", To<Element>(input2)->innerText().Utf8());
+  EXPECT_EQ("Input 1", To<Element>(input1)->innerText().Utf8());
+  EXPECT_EQ(input1, document->FocusedElement());
 }
 
 // Regression test for https://crbug.com/873999
@@ -3094,6 +3127,127 @@ TEST_F(WebViewTest, TouchDragDropSuppressesPointerStream) {
   EXPECT_EQ(true_string, get_element_text("pointerleave"));
 }
 
+class WebViewDragWithLayoutChangeTest
+    : public WebViewTest,
+      public ::testing::WithParamInterface</*use_touch=*/bool> {
+ public:
+  bool UseTouch() const { return GetParam(); }
+
+ protected:
+  WebViewImpl* SetUpDragTest() {
+    RegisterMockedHttpURLLoad("drag_start_causes_layout_shift.html");
+    RegisterMockedHttpURLLoad("notifications/110x110.png");
+    WebViewImpl* web_view = web_view_helper_.InitializeAndLoad(
+        base_url_ + "drag_start_causes_layout_shift.html");
+    if (UseTouch()) {
+      web_view->SettingsImpl()->SetTouchDragDropEnabled(true);
+      web_view->SettingsImpl()->SetTouchDragEndContextMenu(true);
+    }
+    web_view->MainFrameViewWidget()->Resize(gfx::Size(500, 300));
+    UpdateAllLifecyclePhases();
+    RunPendingTasks();
+    return web_view;
+  }
+
+  void StartDragOnElement(WebViewImpl* web_view, const WebString& element_id) {
+    const gfx::PointF center = GetElementCenterPoint(
+        web_view->MainFrameImpl()->GetDocument().GetElementById(element_id));
+    if (UseTouch()) {
+      WebPointerEvent pointer_down(
+          WebInputEvent::Type::kPointerDown,
+          WebPointerProperties(1, WebPointerProperties::PointerType::kTouch), 5,
+          5);
+      pointer_down.SetPositionInWidget(center.x(), center.y());
+      web_view->MainFrameWidget()->HandleInputEvent(
+          WebCoalescedInputEvent(pointer_down, ui::LatencyInfo()));
+      web_view->MainFrameWidget()->DispatchBufferedTouchEvents();
+
+      EXPECT_TRUE(SimulateGestureAtElementById(
+          WebInputEvent::Type::kGestureLongPress, element_id));
+    } else {
+      WebMouseEvent mouse_event(WebInputEvent::Type::kMouseDown,
+                                WebInputEvent::kNoModifiers,
+                                WebInputEvent::GetStaticTimeStampForTests());
+      mouse_event.SetPositionInWidget(center.x(), center.y());
+      mouse_event.button = WebMouseEvent::Button::kLeft;
+      mouse_event.click_count = 1;
+      web_view->MainFrameWidget()->HandleInputEvent(
+          WebCoalescedInputEvent(mouse_event, ui::LatencyInfo()));
+      RunPendingTasks();
+
+      WebMouseEvent mouse_drag_event(
+          WebInputEvent::Type::kMouseMove,
+          WebInputEvent::Modifiers::kNoModifiers,
+          WebInputEvent::GetStaticTimeStampForTests());
+      mouse_drag_event.SetPositionInWidget(center.x() + 50, center.y());
+      mouse_drag_event.button = WebMouseEvent::Button::kLeft;
+      web_view->MainFrameWidget()->HandleInputEvent(
+          WebCoalescedInputEvent(mouse_drag_event, ui::LatencyInfo()));
+    }
+    UpdateAllLifecyclePhases();
+    RunPendingTasks();
+  }
+
+  void ExpectDragInProgress(WebViewImpl* web_view) {
+    DragState& drag_state =
+        web_view->GetPage()->GetDragController().GetDragState();
+    EXPECT_TRUE(drag_state.drag_data_transfer_);
+    EXPECT_TRUE(drag_state.drag_src_);
+    EXPECT_EQ(drag_state.drag_type_, kDragSourceActionImage);
+  }
+
+ private:
+  ScopedGenerateDragOverlayBeforeDragStartForTest enable_feature_ = true;
+};
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         WebViewDragWithLayoutChangeTest,
+                         ::testing::Bool());
+
+// Verifies that if the drag source element is moved on `dragstart` by a layout
+// shift, the drag still starts (for both mouse and touch).
+TEST_P(WebViewDragWithLayoutChangeTest, ShiftLayoutOnDrag) {
+  WebViewImpl* web_view = SetUpDragTest();
+  EXPECT_FALSE(
+      web_view->MainFrameImpl()->GetDocument().GetElementById("red-square"));
+
+  const WebString target_id("shift-target");
+  const gfx::PointF center = GetElementCenterPoint(
+      web_view->MainFrameImpl()->GetDocument().GetElementById(target_id));
+  EXPECT_EQ(target_id.Utf8(),
+            HitTestElementId(web_view, center.x(), center.y()));
+  StartDragOnElement(web_view, target_id);
+
+  // The target should've been moved on `dragstart`, but a drag should still
+  // be in progress.
+  EXPECT_TRUE(
+      web_view->MainFrameImpl()->GetDocument().GetElementById("red-square"));
+  EXPECT_NE(target_id.Utf8(),
+            HitTestElementId(web_view, center.x(), center.y()));
+  ExpectDragInProgress(web_view);
+}
+
+// Verifies that if the drag source element is removed on `dragstart`, the drag
+// still starts (for both mouse and touch).
+TEST_P(WebViewDragWithLayoutChangeTest, RemoveImageOnDrag) {
+  WebViewImpl* web_view = SetUpDragTest();
+
+  const WebString target_id("remove-target");
+  const gfx::PointF center = GetElementCenterPoint(
+      web_view->MainFrameImpl()->GetDocument().GetElementById(target_id));
+  EXPECT_EQ(target_id.Utf8(),
+            HitTestElementId(web_view, center.x(), center.y()));
+  StartDragOnElement(web_view, target_id);
+
+  // The target should've been removed on `dragstart`, but a drag should still
+  // be in progress.
+  EXPECT_FALSE(
+      web_view->MainFrameImpl()->GetDocument().GetElementById(target_id));
+  EXPECT_NE(target_id.Utf8(),
+            HitTestElementId(web_view, center.x(), center.y()));
+  ExpectDragInProgress(web_view);
+}
+
 TEST_F(WebViewTest, DragDropURL) {
   RegisterMockedHttpURLLoad("foo.html");
   RegisterMockedHttpURLLoad("bar.html");
@@ -4524,7 +4678,6 @@ class ViewCreatingWebFrameClient
       network::mojom::blink::WebSandboxFlags,
       const SessionStorageNamespaceId&,
       bool& consumed_user_gesture,
-      const std::optional<Impression>&,
       const std::optional<WebPictureInPictureWindowOptions>&,
       const WebURL&,
       WebString*) override {
@@ -4625,7 +4778,6 @@ class ViewReusingWebFrameClient
       network::mojom::blink::WebSandboxFlags,
       const SessionStorageNamespaceId&,
       bool& consumed_user_gesture,
-      const std::optional<Impression>&,
       const std::optional<WebPictureInPictureWindowOptions>&,
       const WebURL&) override {
     return web_view_;

@@ -17,7 +17,9 @@
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/autofill/ios/browser/form_suggestion.h"
 #import "components/password_manager/ios/shared_password_controller.h"
+#import "components/strings/grit/components_strings.h"
 #import "components/webauthn/ios/features.h"
+#import "ios/chrome/browser/autofill/model/autofill_ai_util.h"
 #import "ios/chrome/browser/autofill/model/features.h"
 #import "ios/chrome/browser/autofill/model/form_suggestion_constants.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -43,6 +45,9 @@ constexpr CGFloat kBorderWidth = 12;
 constexpr CGFloat kSpacing = 4;
 // The corner radius of the label.
 constexpr CGFloat kCornerRadius = 8;
+
+// Initial max width used until the view is added to the view hierarchy.
+constexpr CGFloat kInitialMaxWidth = 375;
 
 // The size adjustment for the subtitle font from the default font size.
 constexpr CGFloat kSubtitleFontPointSizeAdjustment = -1;
@@ -259,6 +264,7 @@ bool IsPasswordSuggestion(FormSuggestion* suggestion) {
     case SuggestionType::kManageCreditCard:
     case SuggestionType::kManageIban:
     case SuggestionType::kManageLoyaltyCard:
+    case SuggestionType::kManageEnhancedAutofill:
     case SuggestionType::kComposeResumeNudge:
     case SuggestionType::kComposeDisable:
     case SuggestionType::kComposeGoToSettings:
@@ -300,6 +306,7 @@ bool IsPasswordSuggestion(FormSuggestion* suggestion) {
     case SuggestionType::kAllLoyaltyCardsEntry:
     case SuggestionType::kOneTimePasswordEntry:
     case SuggestionType::kLoadingThrobber:
+    case SuggestionType::kAtMemoryAiDisclosure:
     case SuggestionType::kAtMemorySearchResult:
     case SuggestionType::kAtMemoryInactivityNudge:
     case SuggestionType::kBnplFootnote:
@@ -308,8 +315,11 @@ bool IsPasswordSuggestion(FormSuggestion* suggestion) {
     case SuggestionType::kAtMemoryNoConnection:
     case SuggestionType::kAtMemoryGenericError:
     case SuggestionType::kAtMemorySearchAffordance:
+    case SuggestionType::kAtMemorySourceAttribution:
     case SuggestionType::kPersonalContextNotice:
     case SuggestionType::kAutofillAiOtherOrders:
+    case SuggestionType::kAutofillAiOtherShipments:
+    case SuggestionType::kAutofillAiPrivateInferenceNotice:
     case SuggestionType::kFetchingAmbientData:
     case SuggestionType::kMaximizeCreditCardBenefitsEntry:
       return false;
@@ -473,11 +483,25 @@ void ConfigureFetchingAmbientDataSuggestion(UIStackView* stackView,
             ? PasswordSuggestionDisplayText(suggestion.value)
             : suggestion.value;
 
+    BOOL isPasskey =
+        suggestion.type == autofill::SuggestionType::kWebauthnCredential;
+
+    if (isPasskey && [suggestionText length] == 0) {
+      suggestionText =
+          l10n_util::GetNSString(IDS_IOS_CREDENTIAL_BOTTOM_SHEET_NO_USERNAME);
+    }
+
+    NSString* displayDescription =
+        [delegate displayDescriptionForSuggestion:suggestion];
+
+    NSString* minorValue = isPasskey ? nil : suggestion.minorValue;
+
     BOOL isTablet = ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET;
 
-    BOOL hasText = suggestionText.length > 0 ||
-                   suggestion.minorValue.length > 0 ||
-                   suggestion.displayDescription.length > 0;
+    BOOL hasText =
+        suggestion.type != SuggestionType::kAutocompleteAtMemoryButton &&
+        (suggestionText.length > 0 || minorValue.length > 0 ||
+         displayDescription.length > 0);
 
     if (hasText) {
       if (isTablet) {
@@ -489,9 +513,8 @@ void ConfigureFetchingAmbientDataSuggestion(UIStackView* stackView,
         // same way without having to rely on a stack of UILabel objects, which,
         // on the plus side, might actually be more light weight in the end.
         [stackView addArrangedSubview:AttributedTextLabel(
-                                          suggestionText, suggestion.minorValue,
-                                          suggestion.displayDescription,
-                                          suggestion.icon)];
+                                          suggestionText, minorValue,
+                                          displayDescription, suggestion.icon)];
       } else {
         // On phones, store the suggestion information in a stack view so that
         // it can be selectively truncated if necessary.
@@ -511,9 +534,9 @@ void ConfigureFetchingAmbientDataSuggestion(UIStackView* stackView,
         // Format the suggestion information using a stack view so that each
         // piece of information can be truncated individually when truncation is
         // needed.
-        NSArray<UIView*>* views = TextViews(
-            suggestionText, suggestion.minorValue,
-            suggestion.displayDescription, [self isCreditCardSuggestion]);
+        NSArray<UIView*>* views =
+            TextViews(suggestionText, minorValue, displayDescription,
+                      [self isCreditCardSuggestion]);
         for (UIView* view in views) {
           [stackView addArrangedSubview:view];
         }
@@ -528,11 +551,10 @@ void ConfigureFetchingAmbientDataSuggestion(UIStackView* stackView,
     [self setClipsToBounds:YES];
     [self setUserInteractionEnabled:YES];
     [self setIsAccessibilityElement:YES];
-    [self
-        setAccessibilityLabel:AccessibilityLabel(
-                                  suggestionText, suggestion.displayDescription,
-                                  suggestion.type ==
-                                      SuggestionType::kBackupPasswordEntry)];
+    [self setAccessibilityLabel:AccessibilityLabel(
+                                    suggestionText, displayDescription,
+                                    suggestion.type ==
+                                        SuggestionType::kBackupPasswordEntry)];
     [self
         setAccessibilityValue:l10n_util::GetNSStringF(
                                   IDS_IOS_AUTOFILL_SUGGESTION_INDEX_VALUE,
@@ -552,8 +574,7 @@ void ConfigureFetchingAmbientDataSuggestion(UIStackView* stackView,
     }
 
     if (ShouldShowContextMenu(suggestion)) {
-      if (base::FeatureList::IsEnabled(
-              autofill::features::kAutofillAmbientAutofill)) {
+      if (autofill::IsAmbientAutofillEnabled()) {
         [self addInteraction:[[UIContextMenuInteraction alloc]
                                  initWithDelegate:self]];
       }
@@ -584,6 +605,13 @@ void ConfigureFetchingAmbientDataSuggestion(UIStackView* stackView,
         [UIColor colorNamed:kBackgroundShadowColor].CGColor;
     self.layer.masksToBounds = NO;
   }
+  if (_widthConstraint) {
+    _widthConstraint.constant = [self maximumWidth];
+  }
+}
+
+- (void)didMoveToWindow {
+  [super didMoveToWindow];
   if (_widthConstraint) {
     _widthConstraint.constant = [self maximumWidth];
   }
@@ -725,9 +753,9 @@ void ConfigureFetchingAmbientDataSuggestion(UIStackView* stackView,
 // Returns CGFLOAT_MAX if there's no maximum width.
 - (CGFloat)maximumWidth {
   CGFloat maxWidth = CGFLOAT_MAX;
-  // Using the screen width because the `window` member is nil at the moment of
-  // setting up the label's width anchor.
-  CGSize windowSize = [[UIScreen mainScreen] bounds].size;
+  CGSize windowSize = self.window
+                          ? self.window.bounds.size
+                          : CGSizeMake(kInitialMaxWidth, kInitialMaxWidth);
   CGFloat portraitScreenWidth = MIN(windowSize.width, windowSize.height);
   switch (_suggestion.type) {
     case SuggestionType::kCreditCardEntry:
@@ -760,8 +788,8 @@ void ConfigureFetchingAmbientDataSuggestion(UIStackView* stackView,
   __weak __typeof(self) weakSelf = self;
   UIAction* editAction = [UIAction
       actionWithTitle:l10n_util::GetNSString(IDS_IOS_EDIT_ACTION_TITLE)
-                image:DefaultSymbolWithPointSize(kEditActionSymbol,
-                                                 kSymbolActionPointSize)
+                image:SymbolWithPointSize(SymbolEditAction,
+                                          kSymbolActionPointSize)
            identifier:nil
               handler:^(__kindof UIAction* action) {
                 [weakSelf handleEditTap];
@@ -781,8 +809,8 @@ void ConfigureFetchingAmbientDataSuggestion(UIStackView* stackView,
   __weak __typeof(self) weakSelf = self;
   UIAction* settingsAction = [UIAction
       actionWithTitle:l10n_util::GetNSString(IDS_IOS_CONTEXT_MENU_OPEN_SETTINGS)
-                image:DefaultSymbolWithPointSize(kSettingsSymbol,
-                                                 kSymbolActionPointSize)
+                image:SymbolWithPointSize(SymbolSettings,
+                                          kSymbolActionPointSize)
            identifier:nil
               handler:^(__kindof UIAction* action) {
                 [weakSelf handleOpenSettingsTap];
@@ -799,7 +827,14 @@ void ConfigureFetchingAmbientDataSuggestion(UIStackView* stackView,
     [children addObject:[self editAction]];
   }
   [children addObject:[self openSettingsAction]];
-  return [UIMenu menuWithTitle:@"" children:children];
+
+  NSString* title = @"";
+  if (self.suggestion.type == autofill::SuggestionType::kFillAutofillAi &&
+      [_delegate isPersonalContextSuggestion:self.suggestion]) {
+    title = l10n_util::GetNSString(
+        IDS_IOS_AUTOFILL_AI_CONTEXT_MENU_PERSONAL_CONTEXT_DESCRIPTION);
+  }
+  return [UIMenu menuWithTitle:title children:children];
 }
 
 @end

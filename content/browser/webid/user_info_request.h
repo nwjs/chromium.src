@@ -16,7 +16,7 @@
 #include "content/browser/webid/config_fetcher.h"
 #include "content/browser/webid/idp_network_request_manager.h"
 #include "content/common/content_export.h"
-#include "third_party/blink/public/mojom/webid/federated_auth_request.mojom.h"
+#include "third_party/blink/public/mojom/webid/federated_request.mojom.h"
 #include "url/gurl.h"
 
 namespace content {
@@ -29,13 +29,13 @@ namespace webid {
 
 class ConfigFetcher;
 
-using UserInfoRequestResult = blink::mojom::FederatedAuthUserInfoRequestResult;
-
 // Fetches data for user-info request.
 class CONTENT_EXPORT UserInfoRequest {
  public:
-  // Returns an object which fetches data for user-info request.
-  static std::unique_ptr<UserInfoRequest> Create(
+  using UserInfoRequestResult =
+      blink::mojom::FederatedAuthUserInfoRequestResult;
+
+  UserInfoRequest(
       std::unique_ptr<IdpNetworkRequestManager> network_manager,
       FederatedIdentityPermissionContextDelegate* permission_delegate,
       FederatedIdentityApiPermissionContextDelegate* api_permission_delegate,
@@ -53,12 +53,6 @@ class CONTENT_EXPORT UserInfoRequest {
       blink::mojom::FederatedRequestService::RequestUserInfoCallback callback);
 
  private:
-  UserInfoRequest(
-      std::unique_ptr<IdpNetworkRequestManager> network_manager,
-      FederatedIdentityPermissionContextDelegate* permission_delegate,
-      FederatedIdentityApiPermissionContextDelegate* api_permission_delegate,
-      RenderFrameHost* render_frame_host,
-      blink::mojom::IdentityProviderConfigPtr provider);
 
   void OnAllConfigAndWellKnownFetched(
       std::vector<ConfigFetcher::FetchResult> fetch_results);
@@ -68,7 +62,7 @@ class CONTENT_EXPORT UserInfoRequest {
       IdpNetworkRequestManager::AccountsResponse accounts);
 
   void MaybeReturnAccounts(
-      const std::vector<IdentityRequestAccountPtr>& accounts);
+      const std::vector<scoped_refptr<IdentityRequestAccount>>& accounts);
 
   bool IsReturningAccount(const IdentityRequestAccount& account);
 

@@ -13,6 +13,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom-shared.h"
+#include "ui/display/types/native_display_delegate.h"
 #include "ui/gfx/geometry/vector2d.h"
 #include "ui/ozone/platform/wayland/host/wayland_window.h"
 #include "ui/ozone/platform/wayland/host/xdg_session.h"
@@ -172,11 +173,13 @@ class WaylandToplevelWindow : public WaylandWindow,
 
   void UpdateSystemModal();
 
-  void TriggerStateChanges(PlatformWindowState window_state);
+  void TriggerStateChanges(PlatformWindowState window_state,
+                           int64_t fullscreen_display_id);
 
   // Sets the new window `state` to the window. `target_display_id` gets ignored
   // unless the state is `PlatformWindowState::kFullscreen`.
-  void SetWindowState(PlatformWindowState state, int64_t target_display_id);
+  void SetWindowState(PlatformWindowState state,
+                      int64_t target_display_id = display::kInvalidDisplayId);
 
   bool ShouldTriggerStateChange(PlatformWindowState state,
                                 int64_t target_display_id) const;
@@ -221,8 +224,7 @@ class WaylandToplevelWindow : public WaylandWindow,
   // client.
   bool previously_maximized_ = false;
 
-  // The display ID to switch to in case the state is `kFullscreen`.
-  int64_t fullscreen_display_id_ = display::kInvalidDisplayId;
+  bool pending_minimize_ = false;
 
   bool is_active_ = false;
   bool is_xdg_active_ = false;

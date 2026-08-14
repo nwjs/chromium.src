@@ -33,6 +33,7 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/tips_manager/model/tips_manager_ios.h"
 #import "ios/chrome/browser/tips_manager/model/tips_manager_ios_factory.h"
 #import "ios/chrome/browser/welcome_back/model/features.h"
@@ -171,6 +172,8 @@ using PasswordSuggestionBottomSheetExitReason::kUsePasswordSuggestion;
   // If the bottom sheet has no suggestion to show, stop the presentation right
   // away.
   if (![_mediator hasSuggestions]) {
+    // If there is an active passkey request, defer it to the renderer.
+    [_mediator deferPasskeyRequestToRenderer];
     // Cleanup the coordinator if it couldn't be started.
     [self.browserCoordinatorCommandsHandler dismissPasswordSuggestions];
     // Do not add any logic past this point in this specific context since the
@@ -200,10 +203,11 @@ using PasswordSuggestionBottomSheetExitReason::kUsePasswordSuggestion;
   // coordinator should be in the most up to date state where it can be safely
   // stopped.
 
-  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(^{
+  ExecuteWhenTransitionsComplete(
+      ^{
         [weakSelf verifyPresentation];
-      }));
+      },
+      self.baseViewController);
 }
 
 - (void)stop {
@@ -432,6 +436,7 @@ using PasswordSuggestionBottomSheetExitReason::kUsePasswordSuggestion;
   if (!_navigationController.presentingViewController &&
       !_navigationController.beingPresented) {
     [_mediator logExitReason:kCouldNotPresent];
+    [_mediator deferPasskeyRequestToRenderer];
     [self.browserCoordinatorCommandsHandler dismissPasswordSuggestions];
   }
 }

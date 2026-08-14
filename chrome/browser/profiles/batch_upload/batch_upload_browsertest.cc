@@ -45,7 +45,7 @@ class BatchUploadBrowserTest : public InProcessBrowserTest {
 
   void SetUpOnMainThread() override {
     BatchUploadService* batch_upload_service =
-        BatchUploadServiceFactory::GetForProfile(browser()->profile());
+        BatchUploadServiceFactory::GetForProfile(browser()->GetProfile());
     ASSERT_TRUE(batch_upload_service);
     batch_upload_ = batch_upload_service;
   }
@@ -80,7 +80,7 @@ class BatchUploadBrowserTest : public InProcessBrowserTest {
   void SigninWithFullInfo(
       signin::ConsentLevel consent_level = signin::ConsentLevel::kSignin) {
     signin::IdentityManager* identity_manager =
-        IdentityManagerFactory::GetForProfile(browser()->profile());
+        IdentityManagerFactory::GetForProfile(browser()->GetProfile());
     AccountInfo account_info = signin::MakePrimaryAccountAvailable(
         identity_manager, "test@gmail.com", consent_level);
     ASSERT_FALSE(account_info.IsEmpty());
@@ -127,7 +127,7 @@ IN_PROC_BROWSER_TEST_F(
   SigninWithFullInfo();
   test_helper().SetReturnDescriptions(syncer::DataType::PASSWORDS, 1);
 
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
   Browser* browser_2 = CreateBrowser(profile);
 
   // Second browser opens dialog.
@@ -153,7 +153,7 @@ IN_PROC_BROWSER_TEST_F(BatchUploadBrowserTest, OpenedDialogThenSigninPending) {
   test_helper().SetReturnDescriptions(syncer::DataType::PASSWORDS, 1);
 
   signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(browser()->profile());
+      IdentityManagerFactory::GetForProfile(browser()->GetProfile());
   CoreAccountInfo primary_account =
       identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
   ASSERT_FALSE(primary_account.IsEmpty());
@@ -188,7 +188,7 @@ IN_PROC_BROWSER_TEST_F(BatchUploadBrowserTest, OpenedDialogThenSignout) {
   test_helper().SetReturnDescriptions(syncer::DataType::PASSWORDS, 1);
 
   signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(browser()->profile());
+      IdentityManagerFactory::GetForProfile(browser()->GetProfile());
   CoreAccountInfo primary_account =
       identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
   ASSERT_FALSE(primary_account.IsEmpty());
@@ -368,7 +368,7 @@ class BatchUploadServiceFactorySyncServiceUnavailableTest
 // Regression test for crbug.com/502567799.
 IN_PROC_BROWSER_TEST_F(BatchUploadServiceFactorySyncServiceUnavailableTest,
                        ReturnsNullWhenSyncServiceIsUnavailable) {
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
 
   ASSERT_EQ(nullptr, SyncServiceFactory::GetForProfile(profile));
 

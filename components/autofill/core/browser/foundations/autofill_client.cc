@@ -28,6 +28,7 @@
 #include "components/autofill/core/browser/integrators/identity_credential/identity_credential_delegate.h"
 #include "components/autofill/core/browser/integrators/password_form_classification.h"
 #include "components/autofill/core/browser/integrators/password_manager/password_manager_delegate.h"
+#include "components/autofill/core/browser/integrators/touch_to_fill/touch_to_fill_autofill_delegate.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 #include "components/autofill/core/browser/studies/autofill_ablation_study.h"
 #include "components/autofill/core/browser/studies/autofill_experiments.h"
@@ -45,6 +46,7 @@ namespace autofill {
 
 AutofillClient::PopupOpenArgs::PopupOpenArgs() = default;
 AutofillClient::PopupOpenArgs::PopupOpenArgs(
+    LocalFrameToken frame_token,
     const gfx::RectF& element_bounds,
     base::i18n::TextDirection text_direction,
     std::vector<Suggestion> suggestions,
@@ -53,7 +55,8 @@ AutofillClient::PopupOpenArgs::PopupOpenArgs(
     PopupAnchorType anchor_type,
     bool show_tabbed_popup,
     bool prefer_prev_arrow_side_on_suggestions_update)
-    : element_bounds(element_bounds),
+    : frame_token(std::move(frame_token)),
+      element_bounds(element_bounds),
       text_direction(text_direction),
       suggestions(std::move(suggestions)),
       trigger_source(trigger_source),
@@ -120,11 +123,17 @@ AutofillClient::GetPasswordManagerFieldClassificationModelHandler() {
   return nullptr;
 }
 
-bool AutofillClient::ShouldShowPersonalContextAutofillNotice() const {
+bool AutofillClient::ShouldShowPersonalContextAmbientAutofillNotice() const {
   return false;
 }
 
-void AutofillClient::MarkPersonalContextInAutofillNoticeAsAcknowledged() {}
+void AutofillClient::MarkPersonalContextAmbientAutofillNoticeAsAcknowledged() {}
+
+bool AutofillClient::ShouldShowPersonalContextAtMemoryNotice() const {
+  return false;
+}
+
+void AutofillClient::MarkPersonalContextAtMemoryNoticeAsAcknowledged() {}
 
 AutofillComposeDelegate* AutofillClient::GetComposeDelegate() {
   return nullptr;
@@ -133,18 +142,18 @@ const AutofillComposeDelegate* AutofillClient::GetComposeDelegate() const {
   return const_cast<AutofillClient*>(this)->GetComposeDelegate();
 }
 
-accessibility_annotator::AtMemoryQueryService*
-AutofillClient::GetAtMemoryQueryService() {
+AtMemoryQueryService* AutofillClient::GetAtMemoryQueryService() {
   return nullptr;
 }
 
-personal_context::PersonalContextEnablementState
-AutofillClient::GetPersonalContextEnablementState() const {
-  return personal_context::PersonalContextEnablementState::kDisabledNotEligible;
+personal_context::PersonalContextEligibilityState
+AutofillClient::GetPersonalContextEligibilityState() const {
+  return personal_context::PersonalContextEligibilityState::
+      kDisabledNotEligible;
 }
 
-personal_context::PersonalContextEnablementService*
-AutofillClient::GetPersonalContextEnablementService() const {
+personal_context::PersonalContextEligibilityService*
+AutofillClient::GetPersonalContextEligibilityService() const {
   return nullptr;
 }
 
@@ -167,14 +176,15 @@ AutofillAiManager* AutofillClient::GetAutofillAiManager() {
   return nullptr;
 }
 
-PersonalContextAccessManager*
-AutofillClient::GetPersonalContextAccessManager() {
+AutofillAiPersonalContextAccessManager*
+AutofillClient::GetAutofillAiPersonalContextAccessManager() {
   return nullptr;
 }
 
-const PersonalContextAccessManager*
-AutofillClient::GetPersonalContextAccessManager() const {
-  return const_cast<AutofillClient*>(this)->GetPersonalContextAccessManager();
+const AutofillAiPersonalContextAccessManager*
+AutofillClient::GetAutofillAiPersonalContextAccessManager() const {
+  return const_cast<AutofillClient*>(this)
+      ->GetAutofillAiPersonalContextAccessManager();
 }
 
 AutofillAiModelCache* AutofillClient::GetAutofillAiModelCache() {
@@ -254,6 +264,13 @@ void AutofillClient::ShowAtMemoryBottomSheet(
     base::span<const Suggestion> suggestions,
     base::WeakPtr<AutofillSuggestionDelegate> delegate) {}
 
+bool AutofillClient::ShowAmbientAutoFillNotice(
+    base::WeakPtr<TouchToFillAutofillDelegate> delegate) {
+  return false;
+}
+
+void AutofillClient::HideAmbientAutoFillNotice() {}
+
 AutofillSnackbarControllerImpl*
 AutofillClient::GetAutofillSnackbarController() {
   return nullptr;
@@ -278,12 +295,6 @@ void AutofillClient::TriggerAutofillAiFillingJourneySurvey(
   NOTIMPLEMENTED();
 }
 
-void AutofillClient::TriggerAutofillAiSavePromptSurvey(
-    bool prompt_accepted,
-    EntityType entity_type,
-    const base::flat_set<EntityTypeName>& saved_entities) {
-  NOTIMPLEMENTED();
-}
 
 bool AutofillClient::IsTabInActorMode() const {
   return false;
@@ -396,11 +407,15 @@ void AutofillClient::ShowAutofillAiSaveToWalletFailureNotification() {
   NOTIMPLEMENTED();
 }
 
-void AutofillClient::ShowAutofillAiFetchFromWalletFailureNotification() {
+void AutofillClient::ShowAutofillAiFetchEntityFailureNotification() {
   NOTIMPLEMENTED();
 }
 
 void AutofillClient::ShowAutofillAiPreFetchFailureNotification() {
+  NOTIMPLEMENTED();
+}
+
+void AutofillClient::ShowAutofillAiPrivateInferenceNotice() {
   NOTIMPLEMENTED();
 }
 

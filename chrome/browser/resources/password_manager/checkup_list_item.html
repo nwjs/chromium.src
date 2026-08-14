@@ -53,6 +53,17 @@
     --iron-icon-width: 16px;
   }
 
+  .status-container {
+    align-items: center;
+    display: flex;
+  }
+
+  #cancelAutoChangeButton {
+    --cr-icon-button-fill-color:  var(--cr-secondary-text-color);
+    color:  var(--cr-secondary-text-color);
+    margin-inline-start: 8px;
+  }
+
   #separator {
     margin-inline-start: 56px;
   }
@@ -72,7 +83,7 @@
 </style>
 <div id="separator" class="hr" hidden="[[first]]"></div>
 <div id="list-item" focus-row-container>
-  <site-favicon url="[[getGroupIcon_(group, item)]]" 
+  <site-favicon url="[[getGroupIcon_(group, item)]]"
       domain="[[getGroupName_(group, item)]]" aria-hidden="true">
   </site-favicon>
   <div id="credentialInfo">
@@ -106,17 +117,40 @@
         </cr-button>
       </template>
       <template is="dom-if" if="[[item.isAutomaticPasswordChangeSupported]]">
-        <cr-button
-          class="tonal-button"
-          id="autoChangePasswordButton"
-          on-click="onAutoChangePasswordClick_"
-          aria-label$="[[getAutoChangeButtonAriaLabel_(group, item)]]">
-          <cr-icon
-            icon="passwords-icon:arrow-selector-spark"
-            id="auto-change-password-link-icon">
-          </cr-icon>
-          $i18n{automatedPasswordChangeCheckupButton}
-        </cr-button>
+        <template is="dom-if"
+        if="[[isAutoChangePasswordIdle_(passwordChangeState)]]">
+          <cr-button
+            class="tonal-button"
+            id="autoChangePasswordButton"
+            on-click="onAutoChangePasswordClick_"
+            aria-label$="[[getAutoChangeButtonAriaLabel_(group, item)]]">
+            <cr-icon
+              icon="[[getArrowSelectorSparkIcon_()]]"
+              id="auto-change-password-link-icon">
+            </cr-icon>
+            [[getAutoChangePasswordButtonText_(passwordChangeState)]]
+          </cr-button>
+        </template>
+        <template is="dom-if"
+          if="[[!isAutoChangePasswordIdle_(passwordChangeState)]]">
+          <div class="status-container">
+            <span class="cr-secondary-text label">
+              <cr-icon
+                icon="[[getAutoChangePasswordIcon_(passwordChangeState)]]"
+                id="auto-change-password-link-icon">
+              </cr-icon>
+              [[getAutoChangePasswordButtonText_(passwordChangeState)]]
+            </span>
+            <cr-icon-button id="cancelAutoChangeButton"
+                iron-icon="passwords-icon:stop-circle"
+                on-click="onCancelAutoChangeClick_"
+                hidden="[[hideCancelButton_(passwordChangeState)]]"
+                disabled="[[isCancelDisabled_]]"
+                aria-label="$i18n{cancel}"
+                title="$i18n{cancel}">
+            </cr-icon-button>
+          </div>
+        </template>
       </template>
       <a
         id="alreadyChanged"
@@ -131,7 +165,7 @@
     <span id="changePasswordInApp">$i18n{changePasswordInApp}</span>
   </template>
   <cr-icon-button class="icon-more-vert" id="more" title="$i18n{moreActions}"
-      on-click="onMoreClick_" 
+      on-click="onMoreClick_"
       aria-label$="[[getMoreButtonAriaLabel_(group, item)]]">
   </cr-icon-button>
 </div>

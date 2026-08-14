@@ -10,24 +10,32 @@ import android.app.Activity;
 import android.graphics.Rect;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
-import android.widget.FrameLayout;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
+import androidx.core.view.ViewCompat;
 
-import org.chromium.base.ResettersForTesting;
 import org.chromium.base.ThreadUtils;
+import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ui.side_panel.SidePanelCoordinatorAndroid;
-import org.chromium.chrome.browser.ui.side_panel_container.dev.SidePanelDevFeature;
-import org.chromium.chrome.browser.ui.side_panel_container.dev.SidePanelDevFeatureImpl;
 import org.chromium.chrome.browser.ui.side_ui.SideUiContainer;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.AnchorSide;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.HeightType;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiId;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs.SideUiSize;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest;
+import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
+import org.chromium.components.thinwebview.ThinWebView;
+import org.chromium.ui.accessibility.AccessibilityState;
 import org.chromium.ui.base.ViewUtils;
 
 /** Implementation of {@link SidePanelContainerCoordinator}. */
@@ -38,19 +46,17 @@ final class SidePanelContainerCoordinatorImpl
 
     private static final @AnchorSide int SIDE_PANEL_DEFAULT_ANCHOR_SIDE = AnchorSide.RIGHT;
 
-    /** Used to override the return value of {@link #hasContentToShow()} for tests. */
-    private static @Nullable Boolean sHasContentToShowForTesting;
-
     private final Activity mParentActivity;
-    private final FrameLayout mContainerView;
+    private final LinearLayout mContainerView;
     private final SideUiCoordinator mSideUiCoordinator;
 
-    // TODO(crbug.com/496407828): Use this to notify native side of events like panel opened/closed.
+    /** JNI bridge to read/write C++ side panel states. */
     private @Nullable SidePanelCoordinatorAndroid mSidePanelCoordinatorAndroid;
 
-    private @Nullable SidePanelDevFeatureImpl mSidePanelPureJavaDevFeature;
-
     private @Nullable SidePanelContent mCurrentContent;
+
+    /** {@link Runnable} for {@link #startReplacingPanelContent} to remove the old content View. */
+    private @Nullable Runnable mPendingReplaceRunnable;
 
     /**
      * Whether {@link #onWillAutoClose} is running.
@@ -58,10 +64,10 @@ final class SidePanelContainerCoordinatorImpl
      * <p>This flag prevents {@link #onWillAutoClose} from triggering another UI update, which isn't
      * allowed.
      *
-     * <p>The C++ {@code SidePanelCoordinatorAndroid} calls {@link #startRemovingContent} during
-     * {@link #onWillAutoClose}. {@link #startRemovingContent} is also for non-auto-closing cases
-     * where a call to {@link SideUiCoordinator#updateUi} is required, so we need this flag to avoid
-     * calling {@link SideUiCoordinator#updateUi} for the auto-close case.
+     * <p>The C++ {@code SidePanelCoordinatorAndroid} calls {@link #startClosingPanel} during {@link
+     * #onWillAutoClose}. {@link #startClosingPanel} is also for non-auto-closing cases where a call
+     * to {@link SideUiCoordinator#updateUi} is required, so we need this flag to avoid calling
+     * {@link SideUiCoordinator#updateUi} for the auto-close case.
      *
      * <p>TODO(crbug.com/527985639): Refactor the C++ side and remove this flag.
      */
@@ -79,6 +85,9 @@ final class SidePanelContainerCoordinatorImpl
      */
     private boolean mIsPreparingForAutoRestore;
 
+    private boolean mEnableDeferredViewReplacementForTesting;
+    private boolean mSimulateAutoCloseConditionForTesting;
+
     /**
      * Constructs a concrete implementation of the SidePanelContainerCoordinator interface.
      *
@@ -91,7 +100,7 @@ final class SidePanelContainerCoordinatorImpl
         mParentActivity = parentActivity;
         mSideUiCoordinator = sideUiCoordinator;
         mContainerView =
-                (FrameLayout)
+                (LinearLayout)
                         LayoutInflater.from(mParentActivity)
                                 .inflate(R.layout.side_panel_container, /* root= */ null);
     }
@@ -101,51 +110,47 @@ final class SidePanelContainerCoordinatorImpl
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     @Override
-    public void init(
-            SidePanelCoordinatorAndroid sidePanelCoordinatorAndroid,
-            @Nullable SidePanelDevFeature sidePanelDevFeature) {
+    public void init(SidePanelCoordinatorAndroid sidePanelCoordinatorAndroid) {
         log(TAG, "init");
         ThreadUtils.assertOnUiThread();
         mSideUiCoordinator.registerSideUiContainer(this);
-
-        // SidePanelCoordinatorAndroid connects the Java UI with the state management logic in C++.
-        // We should _not_ initialize SidePanelCoordinatorAndroid for the pure-Java dev feature,
-        // otherwise the pure-Java dev feature will drive the C++ side into invalid states.
-        if (sidePanelDevFeature instanceof SidePanelDevFeatureImpl) {
-            mSidePanelPureJavaDevFeature = (SidePanelDevFeatureImpl) sidePanelDevFeature;
-        } else {
-            mSidePanelCoordinatorAndroid = sidePanelCoordinatorAndroid;
-            mSidePanelCoordinatorAndroid.init();
-        }
+        mSidePanelCoordinatorAndroid = sidePanelCoordinatorAndroid;
+        mSidePanelCoordinatorAndroid.init();
     }
 
     @Override
-    public void startPopulatingContent(
-            SidePanelContent content,
-            Runnable onContentPopulated,
-            @Nullable Rect startingBounds,
-            boolean suppressAnimations) {
-        log(TAG, "startPopulatingContent", content, startingBounds, suppressAnimations);
+    public boolean canShow() {
         ThreadUtils.assertOnUiThread();
-        mCurrentContent = content;
+        boolean canShow = mSideUiCoordinator.canShowSideUi(SideUiId.SIDE_PANEL);
 
-        mContainerView.removeAllViews();
-        mContainerView.addView(content.mView);
+        log(TAG, "canShow", canShow);
+        return canShow;
+    }
+
+    @Override
+    public void startOpeningPanel(
+            SidePanelContent content, @Nullable Rect startingBounds, boolean suppressAnimations) {
+        log(TAG, "startOpeningPanel", content, startingBounds, suppressAnimations);
+        ThreadUtils.assertOnUiThread();
+
+        // TODO(crbug.com/513302000): assert the side panel is currently closed.
+
+        mCurrentContent = content;
+        ViewGroup contentContainer = getContentContainer();
+        contentContainer.removeAllViews();
+        configureHeader(content);
+        contentContainer.addView(content.mView);
 
         assert !mIsPreparingForAutoClose;
         if (!mIsPreparingForAutoRestore) {
             mSideUiCoordinator.updateUi(
                     new UiUpdateRequest(SideUiId.SIDE_PANEL, suppressAnimations));
         }
-
-        // TODO(crbug.com/496407828): Move this around so it actually runs after the animation is
-        //  finished.
-        onContentPopulated.run();
     }
 
     @Override
-    public void startRemovingContent(Runnable onContentRemoved, boolean suppressAnimations) {
-        log(TAG, "startRemovingContent", suppressAnimations);
+    public void startClosingPanel(boolean suppressAnimations) {
+        log(TAG, "startClosingPanel", suppressAnimations);
         ThreadUtils.assertOnUiThread();
 
         assert !mIsPreparingForAutoRestore;
@@ -153,17 +158,97 @@ final class SidePanelContainerCoordinatorImpl
             mSideUiCoordinator.updateUi(
                     new UiUpdateRequest(SideUiId.SIDE_PANEL, suppressAnimations));
         }
-
-        // TODO(crbug.com/496407828): Move this around so it actually runs after the animation is
-        //  finished.
-        onContentRemoved.run();
     }
 
     @Override
-    public boolean isShowing(SidePanelContent sidePanelContent) {
-        log(TAG, "isShowing", sidePanelContent);
+    public void startReplacingPanelContent(SidePanelContent newContent) {
+        log(TAG, "startReplacingPanelContent", newContent);
         ThreadUtils.assertOnUiThread();
-        return sidePanelContent == mCurrentContent;
+
+        // TODO(crbug.com/513302000): assert the side panel is currently open.
+        // TODO(crbug.com/513302000): assert the side panel isn't preparing for auto-restore/close.
+
+        assert mCurrentContent != null : "no content to replace";
+        View oldContentView = mCurrentContent.mView;
+        mCurrentContent = newContent;
+
+        configureHeader(newContent);
+        ViewGroup contentContainer = getContentContainer();
+        contentContainer.addView(newContent.mView, /* index= */ 0);
+
+        // We use a custom Runnable class with a `mRan` flag because ThinWebView's runOnNextFrame()
+        // does not support cancellation.
+        //
+        // If a new content replacement happens before the next frame renders, we must immediately
+        // run the pending runnable to clean up the old state. When the next frame eventually fires
+        // for that older replacement, its local `removeOldViewRunnable` will run again. The `mRan`
+        // guard flag prevents running the cleanup logic (and JNI callbacks) a second time.
+        //
+        // We also check `mPendingReplaceRunnable == this` before clearing the member variable. This
+        // is because `mPendingReplaceRunnable` always tracks the *latest* replacement request. If
+        // an older runnable runs (either immediately because it was superseded, or late because of
+        // the frame callback), it must not clear `mPendingReplaceRunnable` if a newer replacement
+        // is now pending.
+        Runnable removeOldViewRunnable =
+                new Runnable() {
+                    private boolean mRan;
+
+                    @Override
+                    public void run() {
+                        if (mRan) return;
+
+                        // Immediately set mRan to true to prevent re-entrancy.
+                        mRan = true;
+
+                        contentContainer.removeView(oldContentView);
+                        if (mSidePanelCoordinatorAndroid != null) {
+                            mSidePanelCoordinatorAndroid.onPanelContentReplaced();
+                        }
+
+                        notifyAccessibilityStateChanged(
+                                AccessibilityEvent.CONTENT_CHANGE_TYPE_PANE_TITLE,
+                                newContent.mTitle,
+                                /* requestFocus= */ true);
+
+                        // If the work is for the current runnable, clear the runnable.
+                        if (mPendingReplaceRunnable == this) {
+                            mPendingReplaceRunnable = null;
+                        }
+                    }
+                };
+
+        mPendingReplaceRunnable = removeOldViewRunnable;
+        ThinWebView thinWebView = findThinWebView(newContent.mView);
+
+        // If there is no ThinWebView, immediately complete the content View replacement since this
+        // won't cause UI flickers.
+        if (thinWebView == null) {
+            completePendingContentReplacementInternal();
+            return;
+        }
+
+        // If there is a ThinWebView, but we are in a test that doesn't explicitly enable the
+        // deferred View removal, also complete the View replacement immediately.
+        if (BuildConfig.IS_FOR_TEST && !mEnableDeferredViewReplacementForTesting) {
+            completePendingContentReplacementInternal();
+            return;
+        }
+
+        // Otherwise, remove the old content View when ThinWebView has rendered the first frame.
+        // This is to prevent UI flickers.
+        thinWebView.runOnNextFrame(removeOldViewRunnable);
+    }
+
+    @Override
+    public void completePendingContentReplacement() {
+        log(TAG, "completePendingContentReplacement");
+        ThreadUtils.assertOnUiThread();
+        completePendingContentReplacementInternal();
+    }
+
+    @Override
+    public void endAnimations() {
+        mSideUiCoordinator.endAnimations();
     }
 
     @Override
@@ -177,6 +262,47 @@ final class SidePanelContainerCoordinatorImpl
         log(TAG, "destroy");
         ThreadUtils.assertOnUiThread();
         mSideUiCoordinator.unregisterSideUiContainer(this);
+
+        // Detach the side panel content View.
+        //
+        // A side panel feature may choose to reuse its content View in a different
+        // SidePanelContainerCoordinator instance, such as the instance in a new window.
+        //
+        // So we need to detach the content view when this container is destroyed. Otherwise, the
+        // content view will keep a reference to this container as the parent View, which will
+        // cause:
+        //
+        // (1) memory leaks, and
+        // (2) a crash when the content View is added to another container instance.
+        getContentContainer().removeAllViews();
+        mCurrentContent = null;
+    }
+
+    @Override
+    public void configDeferredViewReplacementForTesting(boolean enable) {
+        mEnableDeferredViewReplacementForTesting = enable;
+    }
+
+    @Override
+    public void simulateAutoCloseConditionForTesting() {
+        mSimulateAutoCloseConditionForTesting = true;
+
+        // Don't pass a SideUiId in UiUpdateRequest. In production, auto-close is triggered by
+        // events outside the side panel container, such as a Configuration change. The side panel
+        // container will never _request_ to be auto-closed.
+        mSideUiCoordinator.updateUi(
+                new UiUpdateRequest(/* sideUiId= */ null, /* suppressAnimations= */ true));
+    }
+
+    @Override
+    public void simulateAutoRestoreConditionForTesting() {
+        mSimulateAutoCloseConditionForTesting = false;
+
+        // Don't pass a SideUiId in UiUpdateRequest. In production, auto-restore is triggered by
+        // events outside the side panel container, such as a Configuration change. The side panel
+        // container will never _request_ to be auto-restored.
+        mSideUiCoordinator.updateUi(
+                new UiUpdateRequest(/* sideUiId= */ null, /* suppressAnimations= */ true));
     }
 
     @Override
@@ -215,10 +341,14 @@ final class SidePanelContainerCoordinatorImpl
     }
 
     @Override
-    @Px
-    public int determineShowableWidth(@Px int availableWidth, @Px int windowWidth) {
-        log(TAG, "determineShowableWidth", availableWidth, windowWidth);
+    public SideUiSize determineShowableSize(
+            @Px int availableWidth, @Px int windowWidth, boolean isFullscreen) {
+        log(TAG, "determineShowableSize", availableWidth, windowWidth, isFullscreen);
         ThreadUtils.assertOnUiThread();
+
+        if (mSimulateAutoCloseConditionForTesting) {
+            return new SideUiSize(0, HeightType.NOT_APPLICABLE);
+        }
 
         int availableWidthDp = ViewUtils.pxToDp(mParentActivity, availableWidth);
         int windowWidthDp = ViewUtils.pxToDp(mParentActivity, windowWidth);
@@ -232,26 +362,20 @@ final class SidePanelContainerCoordinatorImpl
         int showableWidthDp =
                 determineShowableWidthDp(
                         availableWidthDp, windowWidthDp, minSidePanelContainerWidthDp);
-        return ViewUtils.dpToPx(mParentActivity, showableWidthDp);
+        @HeightType
+        int heightType =
+                determineHeightType(
+                        showableWidthDp, VerticalTabUtils.isVerticalTabsEnabled(mParentActivity));
+
+        return new SideUiSize(ViewUtils.dpToPx(mParentActivity, showableWidthDp), heightType);
     }
 
     @Override
     public boolean hasContentToShow() {
         ThreadUtils.assertOnUiThread();
-        if (sHasContentToShowForTesting != null) {
-            return sHasContentToShowForTesting;
-        }
-
-        // The pure-Java dev feature doesn't use SidePanelCoordinatorAndroid since
-        // SidePanelCoordinatorAndroid is a bridge to the C++ side panel state management.
-        if (mSidePanelPureJavaDevFeature != null) {
-            return mSidePanelPureJavaDevFeature.hasDevContentToShow();
-        }
-
         if (mSidePanelCoordinatorAndroid != null) {
             return mSidePanelCoordinatorAndroid.hasContentToShow();
         }
-
         return false;
     }
 
@@ -273,7 +397,7 @@ final class SidePanelContainerCoordinatorImpl
 
         // Remove the content if setting the width the 0 (i.e. hiding the panel).
         if (width == 0) {
-            mContainerView.removeAllViews();
+            getContentContainer().removeAllViews();
             mCurrentContent = null;
         }
 
@@ -281,16 +405,64 @@ final class SidePanelContainerCoordinatorImpl
     }
 
     @Override
-    public void onContainerResized(@Px int containerWidth) {}
+    public void onUiUpdateCompleted(
+            @Px int oldWidth,
+            @Px int newWidth,
+            @HeightType int oldHeightType,
+            @HeightType int newHeightType) {
+        if (mSidePanelCoordinatorAndroid != null) {
+            mSidePanelCoordinatorAndroid.onPanelContainerUpdated(oldWidth, newWidth);
+        }
+
+        // Accessibility support for opening/closing the panel.
+        if (oldWidth == 0 && newWidth > 0) {
+            CharSequence paneTitle = mCurrentContent != null ? mCurrentContent.mTitle : null;
+            notifyAccessibilityStateChanged(
+                    AccessibilityEvent.CONTENT_CHANGE_TYPE_PANE_APPEARED,
+                    paneTitle,
+                    /* requestFocus= */ true);
+        } else if (oldWidth > 0 && newWidth == 0) {
+            notifyAccessibilityStateChanged(
+                    AccessibilityEvent.CONTENT_CHANGE_TYPE_PANE_DISAPPEARED,
+                    /* title= */ null,
+                    /* requestFocus= */ false);
+        }
+    }
+
+    @SuppressWarnings("AccessibilityFocus")
+    private void notifyAccessibilityStateChanged(
+            int eventType, @Nullable CharSequence title, boolean requestFocus) {
+        CharSequence oldTitle = ViewCompat.getAccessibilityPaneTitle(mContainerView);
+        ViewCompat.setAccessibilityPaneTitle(mContainerView, title);
+
+        AccessibilityEvent event =
+                AccessibilityEvent.obtain(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
+        event.setContentChangeTypes(eventType);
+
+        CharSequence eventText =
+                eventType == AccessibilityEvent.CONTENT_CHANGE_TYPE_PANE_DISAPPEARED
+                        ? oldTitle
+                        : title;
+        if (eventText != null) {
+            event.getText().add(eventText);
+        }
+        event.setSource(mContainerView);
+        AccessibilityState.sendAccessibilityEvent(event);
+
+        if (requestFocus) {
+            // The focus change needs to happen after the view has measured its bounds per the
+            // a11y contract, or else TalkBack will lose focus or not focus at all. Posting
+            // gives a chance for this to come afterwards.
+            mContainerView.post(
+                    () -> {
+                        mContainerView.performAccessibilityAction(
+                                AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null);
+                    });
+        }
+    }
 
     @Override
     public void onWillAutoClose() {
-        // The pure-Java dev feature doesn't need onWillAutoClose() or SidePanelCoordinatorAndroid.
-        // SidePanelCoordinatorAndroid is a bridge to the C++ side panel state management.
-        if (mSidePanelPureJavaDevFeature != null) {
-            return;
-        }
-
         if (mSidePanelCoordinatorAndroid != null) {
             mIsPreparingForAutoClose = true;
             mSidePanelCoordinatorAndroid.onWillAutoClose();
@@ -300,13 +472,6 @@ final class SidePanelContainerCoordinatorImpl
 
     @Override
     public void onWillAutoRestore() {
-        // The pure-Java dev feature doesn't need onWillAutoRestore() or
-        // SidePanelCoordinatorAndroid.
-        // SidePanelCoordinatorAndroid is a bridge to the C++ side panel state management.
-        if (mSidePanelPureJavaDevFeature != null) {
-            return;
-        }
-
         if (mSidePanelCoordinatorAndroid != null) {
             mIsPreparingForAutoRestore = true;
             mSidePanelCoordinatorAndroid.onWillAutoRestore();
@@ -346,8 +511,65 @@ final class SidePanelContainerCoordinatorImpl
         return 0;
     }
 
-    static void setHasContentToShowForTesting(boolean hasContentToShow) {
-        sHasContentToShowForTesting = hasContentToShow;
-        ResettersForTesting.register(() -> sHasContentToShowForTesting = null);
+    @VisibleForTesting
+    static @HeightType int determineHeightType(int showableWidthDp, boolean isVerticalTabsEnabled) {
+        @HeightType int heightType = HeightType.NOT_APPLICABLE;
+        if (showableWidthDp != 0) {
+            heightType = isVerticalTabsEnabled ? HeightType.WEB_CONTENTS : HeightType.TOOLBAR;
+        }
+        return heightType;
+    }
+
+    private @Nullable ThinWebView findThinWebView(View view) {
+        if (view instanceof ThinWebView) {
+            return (ThinWebView) view;
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                ThinWebView child = findThinWebView(group.getChildAt(i));
+                if (child != null) {
+                    return child;
+                }
+            }
+        }
+        return null;
+    }
+
+    private void onCloseButtonClicked() {
+        if (mSidePanelCoordinatorAndroid != null) {
+            mSidePanelCoordinatorAndroid.close();
+        }
+    }
+
+    private void configureHeader(SidePanelContent content) {
+        int vis;
+        if (!content.mShowHeader) {
+            vis = View.GONE;
+        } else {
+            vis = View.VISIBLE;
+            assert content.mTitle != null;
+            TextView titleView = mContainerView.findViewById(R.id.side_panel_title);
+            titleView.setText(content.mTitle);
+            mContainerView
+                    .findViewById(R.id.side_panel_close_button)
+                    .setOnClickListener(v -> onCloseButtonClicked());
+        }
+        View headerView = mContainerView.findViewById(R.id.side_panel_header);
+        headerView.setVisibility(vis);
+    }
+
+    private void completePendingContentReplacementInternal() {
+        if (mPendingReplaceRunnable != null) {
+            mPendingReplaceRunnable.run();
+
+            // Explicitly set to null for readability, though it is also handled
+            // internally by the runnable's run() method.
+            mPendingReplaceRunnable = null;
+        }
+    }
+
+    private ViewGroup getContentContainer() {
+        return (ViewGroup) mContainerView.findViewById(R.id.side_panel_content_container);
     }
 }

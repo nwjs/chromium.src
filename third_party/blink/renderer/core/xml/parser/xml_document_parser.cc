@@ -419,7 +419,7 @@ void XMLDocumentParser::Append(const String& input_source) {
   if (IsStopped() || saw_xsl_transform_)
     return;
 
-  if (parser_paused_) {
+  if (parser_paused_ || in_parse_chunk_) {
     pending_src_.Append(source);
     return;
   }
@@ -970,6 +970,13 @@ void XMLDocumentParser::DoWrite(const String& parse_string) {
   // Protect the libxml context from deletion during a callback
   scoped_refptr<XMLParserContext> context = context_;
 
+  // libxml2's push parser is not re-entrant: xmlParseEndTag2 holds multiple
+  // raw pointers inside ctxt, and a nested xmlParseChunk can xmlRealloc()
+  // those buffers. Crash safely rather than corrupt the heap. (Append()
+  // routes re-entrant data to pending_src_ so this should be unreachable.)
+  CHECK(!in_parse_chunk_);
+  base::AutoReset<bool> reentrancy_guard(&in_parse_chunk_, true);
+
   // libXML throws an error if you try to switch the encoding for an empty
   // string.
   if (parse_string.length()) {
@@ -1091,6 +1098,11 @@ void XMLDocumentParser::StartElementNs(
 
   bool is_first_element = !saw_first_element_;
   saw_first_element_ = true;
+
+  if (!parsing_fragment_ && is_first_element && local_name == "alert" &&
+      IsCAPAlertNamespace(uri)) {
+    UseCounter::Count(document_, WebFeature::kXmlCAPAlert);
+  }
 
   Vector<Attribute, kAttributePrealloc> prefixed_attributes;
   bool encountered_namespace_reset = false;
@@ -1382,7 +1394,9 @@ void XMLDocumentParser::GetProcessingInstruction(const String& target,
   CheckIfBlockingStyleSheetAdded();
 
   saw_xsl_transform_ = !saw_first_element_ && pi->IsXSL();
-  CHECK(!saw_xsl_transform_ || RuntimeEnabledFeatures::XSLTEnabled());
+  CHECK(!saw_xsl_transform_ ||
+        XSLTProcessor::IsXSLTEnabled(
+            GetDocument() ? GetDocument()->GetExecutionContext() : nullptr));
   if (saw_xsl_transform_ &&
       !DocumentXSLT::HasTransformSourceDocument(*GetDocument())) {
     // This behavior is very tricky. We call stopParsing() here because we

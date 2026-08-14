@@ -13,7 +13,6 @@
 #include "chrome/browser/ui/webui/actor_internals/actor_internals_ui.h"
 #include "chrome/browser/ui/webui/bluetooth_internals/bluetooth_internals.mojom.h"
 #include "chrome/browser/ui/webui/bluetooth_internals/bluetooth_internals_ui.h"
-#include "chrome/browser/ui/webui/browsing_topics/browsing_topics_internals_ui.h"
 #include "chrome/browser/ui/webui/chrome_finds_internals/chrome_finds_internals.mojom.h"
 #include "chrome/browser/ui/webui/chrome_finds_internals/chrome_finds_internals_ui.h"
 #include "chrome/browser/ui/webui/chrome_urls/chrome_urls_ui.h"
@@ -37,7 +36,6 @@
 #include "chrome/browser/ui/webui/usb_internals/usb_internals_ui.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/actor/public/mojom/actor_internals.mojom.h"
-#include "components/browsing_topics/mojom/browsing_topics_internals.mojom.h"
 #include "components/commerce/content/browser/commerce_internals_ui.h"
 #include "components/commerce/core/internals/mojom/commerce_internals.mojom.h"
 #include "components/contextual_tasks/public/features.h"
@@ -80,8 +78,12 @@
 #include "chrome/browser/ui/webui/new_tab_page/action_chips/action_chips.mojom.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
 #include "components/search/ntp_features.h"
-#include "ui/webui/resources/cr_components/help_bubble/help_bubble.mojom.h"
 #endif  // BUILDFLAG(ENABLE_WEBUI_NTP)
+
+#if BUILDFLAG(ENABLE_WEBUI_NTP) || \
+    BUILDFLAG(ENABLE_WEBUI_CONTEXTUAL_TASKS_COMPOSEBOX)
+#include "ui/webui/resources/cr_components/help_bubble/help_bubble.mojom.h"
+#endif
 
 #if BUILDFLAG(ENABLE_WEBUI_CONTEXTUAL_TASKS_COMPOSEBOX)
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
@@ -183,8 +185,6 @@ void PopulateChromeWebUIFrameBindersPartsAllPlatforms(
       media::mojom::MediaEngagementScoreDetailsProvider, MediaEngagementUI>(
       map);
 
-  RegisterWebUIControllerInterfaceBinder<browsing_topics::mojom::PageHandler,
-                                         BrowsingTopicsInternalsUI>(map);
 #if !BUILDFLAG(IS_ANDROID)
   RegisterWebUIControllerInterfaceBinder<
       omnibox_popup_aim::mojom::PageHandlerFactory, OmniboxPopupUI>(map);
@@ -307,13 +307,9 @@ void PopulateChromeWebUIFrameBindersPartsAllPlatforms(
   // that enables them for more pages.
   content::RegisterWebUIControllerInterfaceBinder<
       searchbox::mojom::PageHandlerFactory, NewTabPageUI>(map);
-  content::RegisterWebUIControllerInterfaceBinder<
-      help_bubble::mojom::HelpBubbleHandlerFactory, NewTabPageUI>(map);
 #endif  // BUILDFLAG(ENABLE_WEBUI_NTP) && BUILDFLAG(IS_ANDROID)
 
-// For the case that's !IS_ANDROID, PageHandlerFactory is registered in
-// chrome_browser_interface_binders_webui_parts_desktop.cc.
-#if BUILDFLAG(IS_ANDROID) && \
+#if BUILDFLAG(IS_ANDROID) &&        \
     (BUILDFLAG(ENABLE_WEBUI_NTP) || \
      BUILDFLAG(ENABLE_WEBUI_CONTEXTUAL_TASKS_COMPOSEBOX))
   RegisterWebUIControllerInterfaceBinder<composebox::mojom::PageHandlerFactory
@@ -326,6 +322,18 @@ void PopulateChromeWebUIFrameBindersPartsAllPlatforms(
                                          ContextualTasksUI
 #endif
                                          >(map);
+
+  RegisterWebUIControllerInterfaceBinder<
+      help_bubble::mojom::HelpBubbleHandlerFactory
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
+      ,
+      NewTabPageUI
+#endif
+#if BUILDFLAG(ENABLE_WEBUI_CONTEXTUAL_TASKS_COMPOSEBOX)
+      ,
+      ContextualTasksUI
+#endif
+      >(map);
 #endif  // BUILDFLAG(IS_ANDROID)
 
   map->Add<tracked_element::mojom::TrackedElementHandler>(

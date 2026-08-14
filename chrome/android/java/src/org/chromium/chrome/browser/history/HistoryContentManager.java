@@ -734,8 +734,13 @@ public class HistoryContentManager implements SignInStateObserver, PrefObserver 
         // Set other intent extras.
         if (isIncognito != null) {
             viewIntent.putExtra(IntentHandler.EXTRA_OPEN_NEW_INCOGNITO_TAB, isIncognito);
+        } else if (createNewTab) {
+            viewIntent.putExtra(Browser.EXTRA_CREATE_NEW_TAB, true);
+        } else {
+            viewIntent.putExtra(
+                    IntentHandler.EXTRA_TAB_OPEN_TYPE,
+                    IntentHandler.TabOpenType.CLOBBER_CURRENT_TAB);
         }
-        if (createNewTab) viewIntent.putExtra(Browser.EXTRA_CREATE_NEW_TAB, true);
 
         return viewIntent;
     }

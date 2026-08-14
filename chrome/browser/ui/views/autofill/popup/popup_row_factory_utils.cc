@@ -14,7 +14,6 @@
 
 #include "base/check.h"
 #include "base/check_op.h"
-#include "base/containers/fixed_flat_set.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -42,12 +41,8 @@
 #include "components/autofill/core/browser/payments/bnpl_util.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
-#include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
-#include "components/compose/core/browser/compose_features.h"
-#include "components/favicon_base/favicon_types.h"
 #include "components/password_manager/core/common/password_manager_constants.h"
-#include "components/plus_addresses/core/browser/grit/plus_addresses_strings.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/user_education/common/new_badge/new_badge_controller.h"
 #include "components/user_education/views/new_badge_label.h"
@@ -92,7 +87,8 @@ constexpr auto kPopupItemTypesUsingLeadingIcons = DenseSet<SuggestionType>(
      SuggestionType::kManageAutofillAiIdentityDocs,
      SuggestionType::kManageAutofillAiShopping,
      SuggestionType::kManageAutofillAiTravel, SuggestionType::kManageIban,
-     SuggestionType::kManageLoyaltyCard, SuggestionType::kUndoOrClear,
+     SuggestionType::kManageLoyaltyCard,
+     SuggestionType::kManageEnhancedAutofill, SuggestionType::kUndoOrClear,
      SuggestionType::kViewPasswordDetails, SuggestionType::kPendingStateSignin,
      SuggestionType::kWebauthnSignInWithAnotherDevice});
 
@@ -755,6 +751,8 @@ std::unique_ptr<PopupRowView> CreatePopupRowView(
 
   switch (type) {
     // These `type` should never be displayed in a `PopupRowView`.
+    case SuggestionType::kAtMemoryAiDisclosure:
+    case SuggestionType::kAtMemorySourceAttribution:
     case SuggestionType::kInsecureContextPaymentDisabledMessage:
     case SuggestionType::kMixedFormMessage:
     case SuggestionType::kSeparator:
@@ -808,19 +806,29 @@ std::unique_ptr<PopupRowView> CreatePopupRowView(
       // BNPL suggestion.
       [[fallthrough]];
     }
+    // AtMemory suggestions do not apply filter match bolding to the main text.
+    case SuggestionType::kAtMemoryGenericError:
+    case SuggestionType::kAtMemoryInactivityNudge:
+    case SuggestionType::kAtMemoryNoConnection:
+    case SuggestionType::kAtMemorySearchAffordance:
+    case SuggestionType::kAtMemorySearchResult: {
+      return std::make_unique<PopupRowView>(
+          a11y_selection_delegate, selection_delegate, controller, line_number,
+          CreatePopupRowContentView(suggestion, show_new_badge,
+                                    main_filling_product,
+                                    /*filter_match=*/std::nullopt));
+    }
+
     case SuggestionType::kAddressEntry:
     case SuggestionType::kAddressEntryOnTyping:
     case SuggestionType::kAddressFieldByFieldFilling:
     case SuggestionType::kAllLoyaltyCardsEntry:
     case SuggestionType::kAllSavedPasswordsEntry:
-    case SuggestionType::kAtMemoryGenericError:
-    case SuggestionType::kAtMemoryInactivityNudge:
-    case SuggestionType::kAtMemoryNoConnection:
-    case SuggestionType::kAtMemorySearchAffordance:
-    case SuggestionType::kAtMemorySearchResult:
     case SuggestionType::kAutocompleteAtMemoryButton:
     case SuggestionType::kAutocompleteEntry:
     case SuggestionType::kAutofillAiOtherOrders:
+    case SuggestionType::kAutofillAiOtherShipments:
+    case SuggestionType::kAutofillAiPrivateInferenceNotice:
     case SuggestionType::kBnplFootnote:
     case SuggestionType::kComposeDisable:
     case SuggestionType::kComposeGoToSettings:
@@ -846,6 +854,7 @@ std::unique_ptr<PopupRowView> CreatePopupRowView(
     case SuggestionType::kManageCreditCard:
     case SuggestionType::kManageIban:
     case SuggestionType::kManageLoyaltyCard:
+    case SuggestionType::kManageEnhancedAutofill:
     case SuggestionType::kMaximizeCreditCardBenefitsEntry:
     case SuggestionType::kMerchantPromoCodeEntry:
     case SuggestionType::kOneTimePasswordEntry:

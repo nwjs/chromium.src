@@ -4,9 +4,8 @@
 
 import {html} from '//resources/lit/v3_0/lit.rollup.js';
 
-import {SettingsItemType} from './settings_menu.js';
+import {SettingsItemType} from './menu_util.js';
 import type {SettingsMenuElement} from './settings_menu.js';
-
 
 export function getHtml(this: SettingsMenuElement) {
   // clang-format off
@@ -46,7 +45,7 @@ export function getHtml(this: SettingsMenuElement) {
               ?checked="${item.checked || false}"
               data-index="${index}">
             </cr-toggle>
-        ` : html`
+        ` : item.itemType === SettingsItemType.ACTION ? html`` : html`
             <cr-icon class="end-icon" icon="cr:chevron-right"></cr-icon>
         `}
       </button>

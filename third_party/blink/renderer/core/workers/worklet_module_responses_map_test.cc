@@ -6,8 +6,10 @@
 
 #include <optional>
 
+#include "base/test/run_until.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
+#include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/loader/modulescript/module_script_creation_params.h"
 #include "third_party/blink/renderer/core/loader/modulescript/module_script_loader.h"
@@ -45,8 +47,8 @@ class WorkletModuleResponsesMapTest : public PageTestBase {
     auto* context = MakeGarbageCollected<MockFetchContext>();
     fetcher_ = MakeGarbageCollected<ResourceFetcher>(ResourceFetcherInit(
         properties->MakeDetachable(), context,
-        base::MakeRefCounted<scheduler::FakeTaskRunner>(),
-        base::MakeRefCounted<scheduler::FakeTaskRunner>(),
+        scheduler::GetSingleThreadTaskRunnerForTesting(),
+        scheduler::GetSingleThreadTaskRunnerForTesting(),
         MakeGarbageCollected<TestLoaderFactory>(
             platform_->GetURLLoaderMockFactory()),
         MakeGarbageCollected<MockContextLifecycleNotifier>(),
@@ -125,11 +127,6 @@ class WorkletModuleResponsesMapTest : public PageTestBase {
                           ModuleImportPhase::kEvaluation);
   }
 
-  void RunUntilIdle() {
-    static_cast<scheduler::FakeTaskRunner*>(fetcher_->GetTaskRunner().get())
-        ->RunUntilIdle();
-  }
-
   const base::TickClock* GetTickClock() override {
     return PageTestBase::GetTickClock();
   }
@@ -170,7 +167,14 @@ TEST_F(WorkletModuleResponsesMapTest, Basic) {
 
   // Serve the fetch request. This should notify the waiting clients.
   platform_->GetURLLoaderMockFactory()->ServeAsynchronousRequests();
-  RunUntilIdle();
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    for (auto client : clients) {
+      if (client->GetResult() == ClientImpl::Result::kInitial) {
+        return false;
+      }
+    }
+    return true;
+  }));
   for (auto client : clients) {
     EXPECT_EQ(ClientImpl::Result::kOK, client->GetResult());
     EXPECT_TRUE(client->HasParams());
@@ -201,11 +205,48 @@ TEST_F(WorkletModuleResponsesMapTest, Failure) {
 
   // Serve the fetch request with 404. This should fail the waiting clients.
   platform_->GetURLLoaderMockFactory()->ServeAsynchronousRequests();
-  RunUntilIdle();
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    for (auto client : clients) {
+      if (client->GetResult() == ClientImpl::Result::kInitial) {
+        return false;
+      }
+    }
+    return true;
+  }));
   for (auto client : clients) {
     EXPECT_EQ(ClientImpl::Result::kFailed, client->GetResult());
     EXPECT_FALSE(client->HasParams());
   }
+
+  // Verify that the error is stored in the map.
+  std::optional<WorkletModuleError> error =
+      global_scope_->GetModuleResponsesMap()->GetEntryError(
+          kUrl, ModuleType::kJavaScriptOrWasm);
+  ASSERT_TRUE(error.has_value());
+  EXPECT_EQ(WorkletModuleError::Type::kNetwork, error->type);
+}
+
+TEST_F(WorkletModuleResponsesMapTest, MimeTypeFailure) {
+  const KURL kUrl("https://example.com/module.js");
+  // Register with image/png which is invalid for JS modules.
+  url_test_helpers::RegisterMockedURLLoad(
+      kUrl, test::CoreTestDataPath("module.js"), "image/png",
+      platform_->GetURLLoaderMockFactory());
+
+  ClientImpl* client = MakeGarbageCollected<ClientImpl>();
+  Fetch(kUrl, client);
+
+  platform_->GetURLLoaderMockFactory()->ServeAsynchronousRequests();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return client->GetResult() != ClientImpl::Result::kInitial; }));
+
+  EXPECT_EQ(ClientImpl::Result::kFailed, client->GetResult());
+
+  std::optional<WorkletModuleError> error =
+      global_scope_->GetModuleResponsesMap()->GetEntryError(
+          kUrl, ModuleType::kJavaScriptOrWasm);
+  ASSERT_TRUE(error.has_value());
+  EXPECT_EQ(WorkletModuleError::Type::kMime, error->type);
 }
 
 TEST_F(WorkletModuleResponsesMapTest, Isolation) {
@@ -247,7 +288,14 @@ TEST_F(WorkletModuleResponsesMapTest, Isolation) {
 
   // Serve the fetch requests.
   platform_->GetURLLoaderMockFactory()->ServeAsynchronousRequests();
-  RunUntilIdle();
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    for (auto client : clients) {
+      if (client->GetResult() == ClientImpl::Result::kInitial) {
+        return false;
+      }
+    }
+    return true;
+  }));
   EXPECT_EQ(ClientImpl::Result::kFailed, clients[0]->GetResult());
   EXPECT_FALSE(clients[0]->HasParams());
   EXPECT_EQ(ClientImpl::Result::kFailed, clients[1]->GetResult());
@@ -256,6 +304,17 @@ TEST_F(WorkletModuleResponsesMapTest, Isolation) {
   EXPECT_TRUE(clients[2]->HasParams());
   EXPECT_EQ(ClientImpl::Result::kOK, clients[3]->GetResult());
   EXPECT_TRUE(clients[3]->HasParams());
+
+  // Verify errors in map.
+  std::optional<WorkletModuleError> error1 =
+      global_scope_->GetModuleResponsesMap()->GetEntryError(
+          kUrl1, ModuleType::kJavaScriptOrWasm);
+  EXPECT_TRUE(error1.has_value());
+
+  std::optional<WorkletModuleError> error2 =
+      global_scope_->GetModuleResponsesMap()->GetEntryError(
+          kUrl2, ModuleType::kJavaScriptOrWasm);
+  EXPECT_FALSE(error2.has_value());
 }
 
 TEST_F(WorkletModuleResponsesMapTest, InvalidURL) {
@@ -263,7 +322,8 @@ TEST_F(WorkletModuleResponsesMapTest, InvalidURL) {
   ASSERT_TRUE(kEmptyURL.IsEmpty());
   ClientImpl* client1 = MakeGarbageCollected<ClientImpl>();
   Fetch(kEmptyURL, client1);
-  RunUntilIdle();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return client1->GetResult() != ClientImpl::Result::kInitial; }));
   EXPECT_EQ(ClientImpl::Result::kFailed, client1->GetResult());
   EXPECT_FALSE(client1->HasParams());
 
@@ -271,7 +331,8 @@ TEST_F(WorkletModuleResponsesMapTest, InvalidURL) {
   ASSERT_TRUE(kNullURL.IsNull());
   ClientImpl* client2 = MakeGarbageCollected<ClientImpl>();
   Fetch(kNullURL, client2);
-  RunUntilIdle();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return client2->GetResult() != ClientImpl::Result::kInitial; }));
   EXPECT_EQ(ClientImpl::Result::kFailed, client2->GetResult());
   EXPECT_FALSE(client2->HasParams());
 
@@ -279,7 +340,8 @@ TEST_F(WorkletModuleResponsesMapTest, InvalidURL) {
   ASSERT_FALSE(kInvalidURL.IsValid());
   ClientImpl* client3 = MakeGarbageCollected<ClientImpl>();
   Fetch(kInvalidURL, client3);
-  RunUntilIdle();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return client3->GetResult() != ClientImpl::Result::kInitial; }));
   EXPECT_EQ(ClientImpl::Result::kFailed, client3->GetResult());
   EXPECT_FALSE(client3->HasParams());
 }
@@ -323,11 +385,46 @@ TEST_F(WorkletModuleResponsesMapTest, Dispose) {
 
   // Dispose() should notify to all waiting clients.
   global_scope_->GetModuleResponsesMap()->Dispose();
-  RunUntilIdle();
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    for (auto client : clients) {
+      if (client->GetResult() == ClientImpl::Result::kInitial) {
+        return false;
+      }
+    }
+    return true;
+  }));
   for (auto client : clients) {
     EXPECT_EQ(ClientImpl::Result::kFailed, client->GetResult());
     EXPECT_FALSE(client->HasParams());
   }
+}
+
+TEST_F(WorkletModuleResponsesMapTest, HttpFailure) {
+  const KURL kUrl("https://example.test/module.js");
+
+  WebURLResponse response(kUrl);
+  response.SetMimeType("text/javascript");
+  response.SetHttpHeaderField(http_names::kContentType, "text/javascript");
+  response.SetHttpStatusCode(404);
+
+  platform_->GetURLLoaderMockFactory()->RegisterURL(
+      kUrl, response, test::CoreTestDataPath("module.js"));
+
+  ClientImpl* client = MakeGarbageCollected<ClientImpl>();
+  Fetch(kUrl, client);
+
+  platform_->GetURLLoaderMockFactory()->ServeAsynchronousRequests();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return client->GetResult() != ClientImpl::Result::kInitial; }));
+
+  EXPECT_EQ(ClientImpl::Result::kFailed, client->GetResult());
+
+  std::optional<WorkletModuleError> error_entry =
+      global_scope_->GetModuleResponsesMap()->GetEntryError(
+          kUrl, ModuleType::kJavaScriptOrWasm);
+  ASSERT_TRUE(error_entry.has_value());
+  EXPECT_EQ(WorkletModuleError::Type::kHttp, error_entry->type);
+  EXPECT_EQ(404, error_entry->http_status_code);
 }
 
 }  // namespace blink

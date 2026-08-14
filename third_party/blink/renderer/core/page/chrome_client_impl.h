@@ -279,8 +279,8 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
       LocalFrame*,
       HTMLElement*,
       WebFormRelatedChangeType) override;
-  void HandleKeyboardEventOnTextField(HTMLInputElement&,
-                                      KeyboardEvent&) override;
+  bool HandleKeyboardEventOnEditableElement(HTMLElement&,
+                                            KeyboardEvent&) override;
   void DidChangeValueInTextField(HTMLFormControlElement&) override;
   void DidClearValueInTextField(HTMLFormControlElement&) override;
   void DidUserChangeContentEditableContent(Element&) override;
@@ -290,16 +290,18 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
   void DidChangeSelectionInSelectControl(HTMLFormControlElement&) override;
   void SelectFieldOptionsChanged(HTMLFormControlElement&) override;
   void AjaxSucceeded(LocalFrame*) override;
-  void JavaScriptChangedValue(HTMLFormControlElement&,
-                              const String& old_value,
-                              bool was_autofilled) override;
+  void JavaScriptSetValue(HTMLFormControlElement&,
+                          const String& old_value,
+                          bool was_autofilled,
+                          bool value_changed) override;
   bool IsAutofillableElement(const HTMLFormControlElement&) override;
 
   void ShowVirtualKeyboardOnElementFocus(LocalFrame&) override;
 
   gfx::Transform GetDeviceEmulationTransform() const override;
 
-  void OnMouseDown(Node&) override;
+  void WillDispatchPointerDown(LocalFrame&) override;
+  void DidDispatchMouseDown(Node&) override;
   void DidUpdateBrowserControls() const override;
 
   void DidUpdateMaxSafeAreaInsets(
@@ -332,7 +334,11 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
 
   float ZoomFactorForViewportLayout() override;
 
-  void OnFirstContentfulPaint(const base::TimeDelta& duration) override;
+  void OnFirstContentfulPaint(
+      const base::TimeTicks& presentation_time) override;
+
+  void OnLargestContentfulPaint(
+      const base::TimeTicks& presentation_time) override;
 
  private:
   bool IsChromeClientImpl() const override { return true; }

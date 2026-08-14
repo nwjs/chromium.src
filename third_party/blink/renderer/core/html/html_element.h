@@ -52,6 +52,7 @@ class TextControlElement;
 class V8UnionStringLegacyNullToEmptyStringOrTrustedScript;
 class V8UnionBooleanOrTogglePopoverOptions;
 class ShowPopoverOptions;
+class UnboundedEventData;
 
 enum TranslateAttributeMode {
   kTranslateAttributeYes,
@@ -108,6 +109,11 @@ enum class TopLayerElementType {
 enum class PopoverHideResult {
   kHidden,
   kForcedOpenByInspector,
+};
+
+enum class UnboundedEvents {
+  kFire,
+  kSuppress,
 };
 
 class CORE_EXPORT HTMLElement : public Element {
@@ -212,7 +218,10 @@ class CORE_EXPORT HTMLElement : public Element {
   // TODO(crbug.com/443013457): Remove these 2 methods when the
   // permission/usermedia trials are over.
   virtual bool IsHTMLCapabilityElementBase() const { return false; }
+  virtual bool IsHTMLMediaCaptureElementBase() const { return false; }
   virtual bool IsHTMLUserMediaElement() const { return false; }
+  virtual bool IsHTMLCameraElement() const { return false; }
+  virtual bool IsHTMLMicrophoneElement() const { return false; }
   virtual bool IsHTMLUnknownElement() const { return false; }
   virtual bool IsPluginElement() const { return false; }
 
@@ -408,8 +417,10 @@ class CORE_EXPORT HTMLElement : public Element {
 
   // The Unbounded Element API. See crbug.com/508672616.
   ScriptPromise<IDLUndefined> showUnboundedElement(ScriptState*);
+  ScriptPromise<IDLUndefined> hideUnboundedElement(ScriptState*);
   bool IsUnboundedElementActive() const;
-  void SetUnboundedElementActive(bool active);
+  void SetUnboundedElementActive(bool active,
+                                 UnboundedEvents = UnboundedEvents::kFire);
   gfx::Rect LastSentUnboundedBounds() const;
   void SetLastSentUnboundedBounds(const gfx::Rect& bounds);
 
@@ -469,6 +480,8 @@ class CORE_EXPORT HTMLElement : public Element {
 
  private:
   bool IsAutocapitalizeOrAutocorrectInheriting() const;
+  UnboundedEventData* GetUnboundedEventData() const;
+  UnboundedEventData& EnsureUnboundedEventData();
 
   String nodeName() const final;
 
@@ -485,6 +498,7 @@ class CORE_EXPORT HTMLElement : public Element {
 
   TranslateAttributeMode GetTranslateAttributeMode() const;
 
+  void HandleKeydownEvent(KeyboardEvent&);
   void HandleKeypressEvent(KeyboardEvent&);
 
   void SetPopoverInvoker(Element* invoker);

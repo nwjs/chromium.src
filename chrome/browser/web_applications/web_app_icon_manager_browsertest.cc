@@ -45,7 +45,7 @@ class WebAppIconManagerBrowserTest : public WebAppBrowserTestBase {
   ~WebAppIconManagerBrowserTest() override = default;
 
   void SetUpOnMainThread() override {
-    Profile* profile = browser()->profile();
+    Profile* profile = browser()->GetProfile();
     app_service_test_.SetUp(profile);
     web_app::test::WaitUntilReady(WebAppProvider::GetForTest(profile));
     WebAppBrowserTestBase::SetUpOnMainThread();
@@ -79,7 +79,7 @@ IN_PROC_BROWSER_TEST_F(WebAppIconManagerBrowserTest, SingleIcon) {
 
     base::RunLoop run_loop;
 
-    auto* provider = WebAppProvider::GetForTest(browser()->profile());
+    auto* provider = WebAppProvider::GetForTest(browser()->GetProfile());
     provider->scheduler().InstallFromInfoNoIntegrationForTesting(
         std::move(install_info),
         /*overwrite_existing_manifest_fields=*/false,

@@ -348,6 +348,12 @@ If you update this file, be sure also to update google_chrome_strings.grd. -->
       <message name="IDS_PRODUCT_LOGO_ENTERPRISE_ALT_TEXT" desc="Alt text for the Chromium Enterprise logo image." formatter_data="android_java">
         Chromium Enterprise logo
       </message>
+      <message name="IDS_ACCESSIBILITY_TOOLBAR_BTN_IDENTITY_DISC_WITH_NAME_AND_EMAIL_AI_TIER" desc="The content description for a toolbar button displaying user profile picture when the user has an AI subscription. Tapping on this button navigates to Settings page" formatter_data="android_java">
+        Signed in as <ph name="USER_NAME">%1$s<ex>Peter Parker</ex></ph>, <ph name="USER_EMAIL">%2$s<ex>peter.parker@gmail.com</ex></ph>, membership. Open the account menu
+      </message>
+      <message name="IDS_ACCESSIBILITY_TOOLBAR_BTN_IDENTITY_DISC_WITH_NAME_AI_TIER" desc="The content description for a toolbar button displaying user profile picture when the user has an AI subscription, for users who don't have a readable email address. Tapping on this button navigates to Settings page" formatter_data="android_java">
+        Signed in as <ph name="USER_NAME">%s<ex>Bruce Wayne</ex></ph>, membership. Open the account menu
+      </message>
       <if expr="is_macosx or is_chromeos">
         <message name="IDS_TASK_MANAGER_TITLE" desc="The title of the Task Manager window">
           Task Manager
@@ -582,12 +588,6 @@ New bookmarks can’t be saved in your account until you delete some. If you sig
         </message>
       </if>
       <!-- Sharing messages -->
-      <message name="IDS_BROWSER_SHARING_CLICK_TO_CALL_DIALOG_HELP_TEXT_NO_DEVICES" desc="The label to be shown as a help text of the dialog when user click on a phone number, if there are no phones to choose from.">
-        To send a number from here to your Android phone, sign in to Chromium on both devices.
-      </message>
-      <message name="IDS_BROWSER_SHARING_CLICK_TO_CALL_DIALOG_HELP_TEXT_NO_DEVICES_ORIGIN" desc="The label to be shown as a help text of the dialog when user click on a phone number, if there are no phones to choose from.">
-        To send a number from <ph name="ORIGIN">$1<ex>www.google.com</ex></ph> to your Android phone, sign in to Chromium on both devices.
-      </message>
       <message name="IDS_BROWSER_SHARING_ERROR_DIALOG_TEXT_DEVICE_NOT_FOUND" desc="The text to be shown on the dialog when an error occurred because the device is not synced.">
         Make sure you are signed in to Chromium on your <ph name="TARGET_DEVICE_NAME">$1<ex>Pixel XL</ex></ph> and then try sending again.
       </message>
@@ -615,13 +615,13 @@ New bookmarks can’t be saved in your account until you delete some. If you sig
           Set Chromium as your default browser
         </message>
         <message name="IDS_DEFAULT_BROWSER_VISUAL_GUIDED_SETTER_HEADER_TITLE" desc="Header text of the default browser visual guided setter.">
-          Use Chromium recommended browser settings
+          Set Chromium as your default browser
         </message>
         <message name="IDS_DEFAULT_BROWSER_VISUAL_GUIDED_SETTER_CONTENT_TITLE" desc="Content title of the default browser visual guided setter.">
           Set Chromium as your default browser
         </message>
         <message name="IDS_DEFAULT_BROWSER_VISUAL_GUIDED_SETTER_CONTENT_DESCRIPTION" desc="Body text of the default browser visual guided setter.">
-          Get easy access to the features you know, love, and trust by setting Chromium as your default browser.
+          Keep your passwords, bookmarks, and history perfectly synced across devices by setting Chromium as your default browser.
         </message>
         <message name="IDS_DEFAULT_BROWSER_VISUAL_GUIDED_SETTER_INSTRUCTION_STEP_2" desc="Instruction step 2 of the default browser visual guided setter. $1 is the bold button name.">
           Click <ph name="BEGIN_BOLD">&lt;strong&gt;</ph>Yes<ph name="END_BOLD">&lt;/strong&gt;</ph> in the Windows notification to pin Chromium to your taskbar for quick access.
@@ -1885,24 +1885,7 @@ Chromium is unable to recover your settings.
 
       <!-- Runtime permission strings -->
       <if expr="is_android">
-        <message name="IDS_INFOBAR_MISSING_AR_CAMERA_PERMISSION_TEXT" desc="Text shown in an infobar when a website has requested access to augmented reality capabilities, but Chrome is missing the Android camera permission.">
-          Chromium needs permission to access your camera to create a 3D map of your surroundings
-        </message>
-        <message name="IDS_INFOBAR_MISSING_CAMERA_PERMISSION_TEXT" desc="Text shown in an infobar when a website has requested access to the camera capabilities, but Chrome is missing the Android camera permission.">
-          Chromium needs permission to access your camera for this site
-        </message>
-        <message name="IDS_INFOBAR_MISSING_HAND_TRACKING_PERMISSION_TEXT" desc="Text shown in an infobar when a website has requested access to hand tracking capabilities, but Chrome is missing the Android hand tracking permission.">
-          Chromium needs permission to track your hands
-        </message>
-        <message name="IDS_INFOBAR_MISSING_MICROPHONE_PERMISSION_TEXT" desc="Text shown in an infobar when a website has requested access to the microphone capabilities, but Chrome is missing the Android microphone permission.">
-          Chromium needs permission to access your microphone for this site
-        </message>
-        <message name="IDS_INFOBAR_MISSING_MICROPHONE_CAMERA_PERMISSIONS_TEXT" desc="Text shown in an infobar when a website has requested access to the microphone and camera capabilities, but Chrome is missing the Android microphone and camera permissions.">
-          Chromium needs permission to access your camera and microphone for this site
-        </message>
-        <message name="IDS_INFOBAR_MISSING_LOCATION_PERMISSION_TEXT" desc="Text shown in an infobar when a website has requested access to the location capabilities, but Chrome is missing the Android location permission.">
-          Chromium needs access to your location to share your location with this site
-        </message>
+
         <message name="IDS_MISSING_STORAGE_PERMISSION_DOWNLOAD_EDUCATION_TEXT" desc="Text shown educating the user that Chrome is missing the Android storage permission, which is required to download files.">
           Chromium needs storage access to download files
         </message>
@@ -1924,6 +1907,9 @@ Chromium is unable to recover your settings.
         </message>
         <message name="IDS_MESSAGE_MISSING_LOCATION_PERMISSION_TEXT" desc="Text shown in a prompt ui when a website has requested access to the location capabilities, but Chrome is missing the Android location permission.">
           Chromium needs location permission for this site
+        </message>
+        <message name="IDS_MESSAGE_MISSING_LOCAL_NETWORK_PERMISSION_TEXT" desc="Text shown in a prompt ui when a website has requested access to the local network capabilities, but Chrome is missing the Android local network permission.">
+          Chromium needs local network permission for this site
         </message>
         <message name="IDS_MESSAGE_STORAGE_ACCESS_PERMISSION_TEXT" desc="Text shown educating the user that Chrome is missing the Android storage permission, which is required to download files.">
           Chromium needs storage access permission to download files
@@ -2227,26 +2213,6 @@ Chromium is unable to recover your settings.
           Search with Image Search
         </message>
 
-        <message name="IDS_LENS_OVERLAY_ENTRYPOINT_LABEL_ALT1"
-          desc="Label for the Lens overlay command, through which the user can ask questions about the page.">
-          Ask about this page
-        </message>
-        <message name="IDS_LENS_OVERLAY_ENTRYPOINT_LABEL_ALT2"
-          desc="Label for the Lens overlay command, through which the user can ask the Image Search service questions about the page.">
-          Ask Image Search about this page
-        </message>
-        <message name="IDS_LENS_OVERLAY_ENTRYPOINT_LABEL_ALT3"
-          desc="Label for the Lens overlay command, through which the page will be searched using the Image Search service.">
-          Search this page with Image Search
-        </message>
-        <message name="IDS_LENS_OVERLAY_IMAGE_ENTRYPOINT_LABEL_ALT1"
-          desc="Label for the Lens overlay command, through which the user can ask questions about the image.">
-          Ask about this image
-        </message>
-        <message name="IDS_LENS_OVERLAY_IMAGE_ENTRYPOINT_LABEL_ALT2"
-          desc="Label for the Lens overlay command, through which the user can ask the Image Search service questions about the image.">
-          Ask Image Search about this image
-        </message>
         <message name="IDS_LENS_OVERLAY_IMAGE_ENTRYPOINT_LABEL_ALT3"
           desc="Label for the Lens overlay command, through which the image will be searched using the Image Search service.">
           Search this image with Image Search
@@ -2259,24 +2225,11 @@ Chromium is unable to recover your settings.
           desc="Label for the Lens overlay command, through which the current tab will be searched using the Image Search service.">
           Search with Image Search
         </message>
-        <message name="IDS_LENS_OVERLAY_VIDEO_ENTRYPOINT_LABEL_ALT1"
-          desc="Label for the Lens overlay command, through which the user can ask questions about the video.">
-          Ask about this video
-        </message>
-        <message name="IDS_LENS_OVERLAY_VIDEO_ENTRYPOINT_LABEL_ALT2"
-          desc="Label for the Lens overlay command, through which the user can ask the Image Search service questions about the video.">
-          Ask Image Search about this video
-        </message>
         <message name="IDS_LENS_OVERLAY_VIDEO_ENTRYPOINT_LABEL_ALT3"
           desc="Label for the Lens overlay command, through which the video will be searched using the Image Search service.">
           Search this video with Image Search
         </message>
       </if>
-
-      <message name="IDS_AI_MODE_ENTRYPOINT_LABEL"
-        desc="The label of the AI mode entrypoint in the omnibox" formatter_data="android_java">
-        AI Mode
-      </message>
 
       <if expr="not is_android">
         <!-- Lens Side Panel Error Page -->
@@ -2404,18 +2357,6 @@ Chromium is unable to recover your settings.
           desc="Header in the Lens side panel indicating a new AI Mode search session.">
           New search
         </message>
-
-        <if expr="use_titlecase">
-          <message name="IDS_CONTEXT_MENU_SHOW_AI_MODE_OMNIBOX_BUTTON"
-            desc="In Title Case: The text label of the omnibox context menu option to enable showing 'AI Mode'">
-            Always Show AI Mode
-          </message>
-        </if>
-        <if expr="not use_titlecase">
-        <message name="IDS_CONTEXT_MENU_SHOW_AI_MODE_OMNIBOX_BUTTON" desc="The text label of the omnibox context menu option to enable showing 'AI Mode'">
-          Always show AI Mode
-        </message>
-        </if>
       </if>
 
       <!-- OOBE -->
@@ -2563,30 +2504,6 @@ Chromium is unable to recover your settings.
         <message name="IDS_EXTENSION_PERMISSIONS_BLOCKED_BY_PARENT_PROMPT_MESSAGE" desc="Text for the dialog indicating that a parent has blocked extensions and apps.">
          Your parent has turned off "Permissions for sites, apps and extensions" for Chromium
         </message>
-
-        <message name="IDS_EXTENSION_EXTERNAL_INSTALL_PROMPT_TITLE_APP" desc="Titlebar of the prompt window for an externally installed app">
-          Another program on your computer added an app that may change the way Chromium works.
-
-<ph name="EXTENSION_NAME">$1<ex>Babylon Toolbar</ex></ph>
-        </message>
-        <message name="IDS_EXTENSION_EXTERNAL_INSTALL_PROMPT_TITLE_EXTENSION" desc="Titlebar of the prompt window for an externally installed extension">
-          Another program on your computer added an extension that may change the way Chromium works.
-
-<ph name="EXTENSION_NAME">$1<ex>Babylon Toolbar</ex></ph>
-        </message>
-        <message name="IDS_EXTENSION_EXTERNAL_INSTALL_PROMPT_TITLE_THEME" desc="Titlebar of the prompt window for an externally installed theme">
-          Another program on your computer added a theme that may change the way Chromium works.
-
-<ph name="EXTENSION_NAME">$1<ex>Babylon Toolbar</ex></ph>
-        </message>
-        <message name="IDS_EXTENSION_EXTERNAL_INITIAL_INSTALL_PROMPT_TITLE_EXTENSION" desc="">
-          <ph name="PARTNER_NAME">$1<ex>Google</ex></ph> has added an extension that may change the way Chromium works.
-
-<ph name="EXTENSION_NAME">$2<ex>Babylon Toolbar</ex></ph>
-        </message>
-        <message name="IDS_EXTENSION_EXTERNAL_INSTALL_PROMPT_ABORT_BUTTON" desc="Button on the external install prompt to remove an extension installed by a third party.">
-          Remove from Chromium
-        </message>
       </if>
 
       <if expr="not is_chromeos and not is_android">
@@ -2700,9 +2617,15 @@ Chromium is unable to recover your settings.
         <message name="IDS_FEATURE_SHOWCASE_LENS_OVERLAY_DISCLOSURE" desc="This is a technical disclosure for the Lens Overlay. It specifies that PDFs are also part of the shared data. The tone should be informative.">
           When you use Image Search on desktop, the page title, URL, and content, including PDFs, are sent to the server
         </message>
+
+        <!-- Feature Showcase - Gemini -->
+        <message name="IDS_FEATURE_SHOWCASE_GEMINI_TITLE" desc="This is the headline for the Gemini (AI assistant) opt-in screen. It introduces the benefit of AI assistance for productivity. (CHAR LIMIT = 60)">
+          Ask anything, right where you are, with Gemini in Chromium
+        </message>
+
       </if>
 
-      <!-- Feature Showcase - Lens Overlay -->
+      <!-- Feature Showcase - Themes -->
       <message name="IDS_FEATURE_SHOWCASE_THEMES_TITLE" desc="This is the headline for a customization onboarding screen. It focuses on personalization and user choice. (CHAR LIMIT = 30)">
         Make Chromium yours
       </message>
@@ -3176,19 +3099,25 @@ Chromium is unable to recover your settings.
         <message name="IDS_SETTINGS_GLIC_OS_WIDGET_TOGGLE" desc="Name of the toggle that controls whether the Gemini icon is shown in the MacOS menu bar (on Mac only).">
           Show Gemini in Chromium in Mac menu bar and turn on keyboard shortcut
         </message>
+        <message name="IDS_SETTINGS_GLIC_OS_WIDGET_TOGGLE_SHORTCUT_EXCLUDED" desc="Name of the toggle that controls whether the Gemini icon is shown in the MacOS menu bar (on Mac only) when local hotkeys can be configured independently.">
+          Show Gemini in Chromium in Mac menu bar
+        </message>
       </if>
       <if expr="is_win or is_linux or is_chromeos">
         <message name="IDS_SETTINGS_GLIC_OS_WIDGET_TOGGLE" desc="Name of the toggle that controls whether the Gemini icon is shown in the system tray (on ChromeOS, Windows and Linux).">
           Show Gemini in Chromium in system tray and turn on keyboard shortcut
         </message>
+        <message name="IDS_SETTINGS_GLIC_OS_WIDGET_TOGGLE_SHORTCUT_EXCLUDED" desc="Name of the toggle that controls whether the Gemini icon is shown in the system tray (on ChromeOS, Windows and Linux) when local hotkeys can be configured independently.">
+          Show Gemini in Chromium in system tray
+        </message>
       </if>
-      <message name="IDS_SETTINGS_GLIC_OS_WIDGET_TOGGLE_SUBLABEL" desc="Sublabel of the toggle that controls whether the Gemini icon is shown in the menu bar (on Mac) / system tray (on Windows and Linux).">
+      <message name="IDS_SETTINGS_GLIC_OS_WIDGET_TOGGLE_SUBLABEL" desc="Sublabel of the toggle that controls whether the Gemini icon is shown in the menu bar (on Mac) / system tray (on Windows and Linux)." formatter_data="android_java">
         Easy access to use Gemini in Chromium across your device, even if Chromium is minimized.
       </message>
-      <message name="IDS_SETTINGS_GLIC_KEYBOARD_SHORTCUT_SUBLABEL" desc="Sublabel describing the keyboard shortcut that's used to globally invoke Gemini.">
+      <message name="IDS_SETTINGS_GLIC_KEYBOARD_SHORTCUT_SUBLABEL" desc="Sublabel describing the keyboard shortcut that's used to globally invoke Gemini." formatter_data="android_java">
         Open Gemini in Chromium with a keyboard shortcut.
       </message>
-      <message name="IDS_SETTINGS_GLIC_NAVIGATION_SHORTCUT_SUBLABEL" desc="Sublabel describing the keyboard shortcut navigate between Chrome and Gemini.">
+      <message name="IDS_SETTINGS_GLIC_NAVIGATION_SHORTCUT_SUBLABEL" desc="Sublabel describing the keyboard shortcut navigate between Chrome and Gemini." formatter_data="android_java">
         To leave or return to Gemini in Chromium, use keyboard shortcut.
       </message>
       <message name="IDS_SETTINGS_GLIC_KEEP_SIDEPANEL_OPEN_ON_NEW_TABS_SUBLABEL" desc="Sublabel describing the setting to keep side panel open when new tabs are opened.">
@@ -3196,6 +3125,9 @@ Chromium is unable to recover your settings.
       </message>
       <message name="IDS_SETTINGS_GLIC_SELECTION_SHORTCUT_SUBLABEL" desc="Sublabel describing the selection shortcut triggering in Gemini.">
         To select part of the screen in Gemini in Chromium, use keyboard shortcut.
+      </message>
+      <message name="IDS_SETTINGS_GLIC_HOTKEY_SCOPE_CHROME" desc="Label for the 'In Chromium' option in the shortcut invocation scope dropdown.">
+        In Chromium
       </message>
 
       <!-- Profile Picker Glic version-->
@@ -3467,7 +3399,7 @@ If this page isn’t working as expected, try allowing optimization.
         Your work secured on Chromium
       </message>
       <message name="IDS_ENTERPRISE_DEVICE_SIGNALS_DISCLAIMER_SUBTITLE" desc="Subtitle of an enterprise device signals collection disclaimer modal dialog. The dialog is shown on Chrome startup to managed Chrome users who have not previously acknowledged device signals collection.">
-        To secure your work on Chromium, your organization will be able to view or manage certain information
+        To secure your work on Chromium, your organization will be able to view or manage certain information when you’re signed-in to Chromium.
       </message>
     </messages>
   </release>

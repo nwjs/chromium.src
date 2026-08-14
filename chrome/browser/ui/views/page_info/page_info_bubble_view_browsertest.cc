@@ -193,7 +193,8 @@ void AddHintForTesting(Browser* browser,
       optimization_guide::AnyWrapProto(metadata));
 
   auto* optimization_guide_decider =
-      OptimizationGuideKeyedServiceFactory::GetForProfile(browser->profile());
+      OptimizationGuideKeyedServiceFactory::GetForProfile(
+          browser->GetProfile());
   optimization_guide_decider->AddHintForTesting(
       url, optimization_guide::proto::ABOUT_THIS_SITE, optimization_metadata);
 }
@@ -242,7 +243,7 @@ class PageInfoBubbleViewBrowserTest : public InProcessBrowserTest {
     mock_sentiment_service_ = static_cast<MockTrustSafetySentimentService*>(
         TrustSafetySentimentServiceFactory::GetInstance()
             ->SetTestingFactoryAndUse(
-                browser()->profile(),
+                browser()->GetProfile(),
                 base::BindRepeating(&BuildMockTrustSafetySentimentService)));
 
     host_resolver()->AddRule("*", "127.0.0.1");
@@ -487,7 +488,7 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest,
   // SB_THREAT_TYPE_ENTERPRISE_PASSWORD_REUSE.
   safe_browsing::ChromePasswordProtectionService* service =
       safe_browsing::ChromePasswordProtectionService::
-          GetPasswordProtectionService(browser()->profile());
+          GetPasswordProtectionService(browser()->GetProfile());
   safe_browsing::ReusedPasswordAccountType reused_password_account_type;
   reused_password_account_type.set_account_type(
       safe_browsing::ReusedPasswordAccountType::NON_GAIA_ENTERPRISE);
@@ -566,7 +567,7 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest,
   // SB_THREAT_TYPE_SAVED_PASSWORD_REUSE.
   safe_browsing::ChromePasswordProtectionService* service =
       safe_browsing::ChromePasswordProtectionService::
-          GetPasswordProtectionService(browser()->profile());
+          GetPasswordProtectionService(browser()->GetProfile());
   safe_browsing::ReusedPasswordAccountType reused_password_account_type;
   reused_password_account_type.set_account_type(
       safe_browsing::ReusedPasswordAccountType::SAVED_PASSWORD);
@@ -1060,8 +1061,8 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest,
 // warning. The reset decisions button should be shown.
 IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest,
                        ResetWarningDecisionsButtonHttpsFirstMode) {
-  browser()->profile()->GetPrefs()->SetBoolean(prefs::kHttpsOnlyModeEnabled,
-                                               true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kHttpsOnlyModeEnabled,
+                                                  true);
 
   GURL http_url = embedded_test_server()->GetURL("foo.com", "/simple.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), http_url));
@@ -1076,8 +1077,8 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest,
       GetView(PageInfoViewFactory::VIEW_ID_PAGE_INFO_RESET_DECISIONS_LABEL);
   EXPECT_TRUE(reset_decisions_label->GetVisible());
 
-  browser()->profile()->GetPrefs()->SetBoolean(prefs::kHttpsOnlyModeEnabled,
-                                               false);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kHttpsOnlyModeEnabled,
+                                                  false);
 }
 
 // Navigate to an HTTP page with HTTPS-Upgrades enabled but not HTTPS-First
@@ -1085,8 +1086,8 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest,
 // shown.
 IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest,
                        ResetWarningDecisionsButtonHttpsUpgrades) {
-  browser()->profile()->GetPrefs()->SetBoolean(prefs::kHttpsOnlyModeEnabled,
-                                               false);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kHttpsOnlyModeEnabled,
+                                                  false);
 
   GURL http_url = embedded_test_server()->GetURL("foo.com", "/simple.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), http_url));
@@ -1195,7 +1196,7 @@ class PageInfoBubbleViewAboutThisSiteBrowserTest : public InProcessBrowserTest {
   void TriggerSafeBrowsingWarning() {
     safe_browsing::ChromePasswordProtectionService* service =
         safe_browsing::ChromePasswordProtectionService::
-            GetPasswordProtectionService(browser()->profile());
+            GetPasswordProtectionService(browser()->GetProfile());
     safe_browsing::ReusedPasswordAccountType reused_password_account_type;
     reused_password_account_type.set_account_type(
         safe_browsing::ReusedPasswordAccountType::NON_GAIA_ENTERPRISE);
@@ -1437,7 +1438,7 @@ class PageInfoBubbleViewBrowserTestCookiesSubpage
   void SetUpOnMainThread() override {
     mock_privacy_sandbox_service_ = static_cast<MockPrivacySandboxService*>(
         PrivacySandboxServiceFactory::GetInstance()->SetTestingFactoryAndUse(
-            browser()->profile(),
+            browser()->GetProfile(),
             base::BindRepeating(&BuildMockPrivacySandboxService)));
     PageInfoBubbleViewBrowserTest::SetUpOnMainThread();
   }
@@ -1452,29 +1453,30 @@ class PageInfoBubbleViewBrowserTestCookiesSubpage
   }
 
   HostContentSettingsMap* host_content_settings_map() {
-    return HostContentSettingsMapFactory::GetForProfile(browser()->profile());
+    return HostContentSettingsMapFactory::GetForProfile(
+        browser()->GetProfile());
   }
 
   void SetCookieControlsMode(content_settings::CookieControlsMode mode) {
-    browser()->profile()->GetPrefs()->SetInteger(prefs::kCookieControlsMode,
-                                                 static_cast<int>(mode));
+    browser()->GetProfile()->GetPrefs()->SetInteger(prefs::kCookieControlsMode,
+                                                    static_cast<int>(mode));
   }
 
 #if BUILDFLAG(IS_CHROMEOS)
   void EnableCookieSync() {
-    browser()->profile()->GetPrefs()->SetBoolean(
+    browser()->GetProfile()->GetPrefs()->SetBoolean(
         chromeos::prefs::kFloatingSsoEnabled, true);
   }
 
   void SetBlockedDomainsForCookieSync(base::ListValue domains) {
-    browser()->profile()->GetPrefs()->SetList(
+    browser()->GetProfile()->GetPrefs()->SetList(
         chromeos::prefs::kFloatingSsoDomainBlocklist, std::move(domains));
   }
 #endif
 
   void OpenPageInfoAndGoToCookiesSubpage(
       std::optional<std::u16string> rws_owner) {
-    EXPECT_FALSE(browser()->profile()->GetPrefs()->GetBoolean(
+    EXPECT_FALSE(browser()->GetProfile()->GetPrefs()->GetBoolean(
         prefs::kInContextCookieControlsOpened));
     EXPECT_CALL(*mock_service(),
                 GetRelatedWebsiteSetOwnerForDisplay(testing::_))
@@ -1502,12 +1504,12 @@ class PageInfoBubbleViewBrowserTestCookiesSubpage
 
     // The preference should only be recorded when blocking 3P cookies.
     const bool block_third_party =
-        browser()->profile()->GetPrefs()->GetInteger(
+        browser()->GetProfile()->GetPrefs()->GetInteger(
             prefs::kCookieControlsMode) ==
             static_cast<int>(
                 content_settings::CookieControlsMode::kBlockThirdParty) ||
-        browser()->profile()->IsIncognitoProfile();
-    EXPECT_EQ(browser()->profile()->GetPrefs()->GetBoolean(
+        browser()->GetProfile()->IsIncognitoProfile();
+    EXPECT_EQ(browser()->GetProfile()->GetPrefs()->GetBoolean(
                   prefs::kInContextCookieControlsOpened),
               block_third_party);
   }
@@ -1730,7 +1732,7 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTestAutoPip,
   const GURL url = embedded_test_server()->GetURL("/title1.html");
 
   // Set auto-pip permission to be allowed, so it shows up.
-  HostContentSettingsMapFactory::GetForProfile(browser()->profile())
+  HostContentSettingsMapFactory::GetForProfile(browser()->GetProfile())
       ->SetContentSettingDefaultScope(
           url, url, ContentSettingsType::AUTO_PICTURE_IN_PICTURE,
           CONTENT_SETTING_ALLOW);
@@ -1761,7 +1763,7 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest,
 
   permissions::PermissionDecisionAutoBlocker* autoblocker =
       permissions::PermissionsClient::Get()->GetPermissionDecisionAutoBlocker(
-          browser()->profile());
+          browser()->GetProfile());
   // Place under embargo for multiple dismissals.
   autoblocker->RecordDismissAndEmbargo(url, ContentSettingsType::NOTIFICATIONS,
                                        /*dismissed_prompt_was_quiet=*/false);

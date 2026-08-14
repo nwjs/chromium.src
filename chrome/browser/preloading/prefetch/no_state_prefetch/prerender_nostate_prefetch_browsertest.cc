@@ -58,12 +58,15 @@
 #include "components/prefs/pref_service.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/safe_browsing/core/common/features.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/browsing_data_remover.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/session_storage_namespace.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -350,6 +353,7 @@ class NoStatePrefetchBrowserTest
   }
 
  protected:
+  void RunServiceWorkerInterceptTest(bool expect_two_hosts);
   // Loads kPrefetchLoaderPath and specifies |target_url| as a query param. The
   // |loader_url| looks something like:
   // http://127.0.0.1:port_number/prerender/prefetch_loader.html?replace_text=\
@@ -426,7 +430,7 @@ class NoStatePrefetchBrowserTest
   // Clears the specified data using BrowsingDataRemover.
   void ClearBrowsingData(Browser* browser, uint64_t remove_mask) {
     content::BrowsingDataRemover* remover =
-        browser->profile()->GetBrowsingDataRemover();
+        browser->GetProfile()->GetBrowsingDataRemover();
     content::BrowsingDataRemoverCompletionObserver observer(remover);
     remover->RemoveAndReply(
         base::Time(), base::Time::Max(), remove_mask,
@@ -920,7 +924,7 @@ IN_PROC_BROWSER_TEST_F(NoStatePrefetchBrowserTest, PrefetchCookie) {
       PrefetchFromURL(url, FINAL_STATUS_NOSTATE_PREFETCH_FINISHED);
 
   content::StoragePartition* storage_partition =
-      current_browser()->profile()->GetStoragePartitionForUrl(url, false);
+      current_browser()->GetProfile()->GetStoragePartitionForUrl(url, false);
   net::CookieOptions options = net::CookieOptions::MakeAllInclusive();
   base::RunLoop loop;
   storage_partition->GetCookieManagerForBrowserProcess()->GetCookieList(
@@ -941,8 +945,8 @@ IN_PROC_BROWSER_TEST_F(NoStatePrefetchBrowserTest, PrefetchCookieCrossDomain) {
   // While the request is cross-site, it's permitted to set (implicitly) lax
   // cookies on a cross-site navigation.
   content::StoragePartition* storage_partition =
-      current_browser()->profile()->GetStoragePartitionForUrl(cross_domain_url,
-                                                              false);
+      current_browser()->GetProfile()->GetStoragePartitionForUrl(
+          cross_domain_url, false);
   net::CookieOptions options = net::CookieOptions::MakeAllInclusive();
   base::RunLoop loop;
   storage_partition->GetCookieManagerForBrowserProcess()->GetCookieList(
@@ -958,9 +962,9 @@ IN_PROC_BROWSER_TEST_P(NoStatePrefetchBrowserSplitCacheTest,
   GURL cross_domain_url =
       src_server()->GetURL(test_utils::kSecondaryDomain, "/echoall/cache");
 
-  EXPECT_TRUE(SetCookie(current_browser()->profile(), cross_domain_url,
+  EXPECT_TRUE(SetCookie(current_browser()->GetProfile(), cross_domain_url,
                         "cookie_A=A; SameSite=Strict;"));
-  EXPECT_TRUE(SetCookie(current_browser()->profile(), cross_domain_url,
+  EXPECT_TRUE(SetCookie(current_browser()->GetProfile(), cross_domain_url,
                         "cookie_B=B; SameSite=Lax;"));
 
   std::unique_ptr<TestPrerender> test_prerender =
@@ -1008,9 +1012,9 @@ IN_PROC_BROWSER_TEST_P(
   GURL cross_domain_url =
       src_server()->GetURL(test_utils::kSecondaryDomain, kEchoAllCachePath);
 
-  EXPECT_TRUE(SetCookie(current_browser()->profile(), cross_domain_url,
+  EXPECT_TRUE(SetCookie(current_browser()->GetProfile(), cross_domain_url,
                         "cookie_A=A; SameSite=Strict;"));
-  EXPECT_TRUE(SetCookie(current_browser()->profile(), cross_domain_url,
+  EXPECT_TRUE(SetCookie(current_browser()->GetProfile(), cross_domain_url,
                         "cookie_B=B; SameSite=Lax;"));
 
   std::unique_ptr<TestPrerender> test_prerender =
@@ -1058,9 +1062,9 @@ IN_PROC_BROWSER_TEST_P(NoStatePrefetchBrowserSplitCacheTest,
   UseHttpsSrcServer();
   GURL same_domain_url = src_server()->GetURL("/echoall/cache");
 
-  EXPECT_TRUE(SetCookie(current_browser()->profile(), same_domain_url,
+  EXPECT_TRUE(SetCookie(current_browser()->GetProfile(), same_domain_url,
                         "cookie_A=A; SameSite=Strict;"));
-  EXPECT_TRUE(SetCookie(current_browser()->profile(), same_domain_url,
+  EXPECT_TRUE(SetCookie(current_browser()->GetProfile(), same_domain_url,
                         "cookie_B=B; SameSite=Lax;"));
 
   std::unique_ptr<TestPrerender> test_prerender =
@@ -1068,7 +1072,7 @@ IN_PROC_BROWSER_TEST_P(NoStatePrefetchBrowserSplitCacheTest,
 
   // Modify the stored SameSite=Strict cookie so that we can tell whether the
   // prerendered response is used by the navigation below.
-  EXPECT_TRUE(SetCookie(current_browser()->profile(), same_domain_url,
+  EXPECT_TRUE(SetCookie(current_browser()->GetProfile(), same_domain_url,
                         "cookie_A=Modified; SameSite=Strict;"));
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(current_browser(), same_domain_url));
@@ -1572,7 +1576,7 @@ IN_PROC_BROWSER_TEST_F(NoStatePrefetchBrowserTest, ServerRedirect) {
 // Checks that prefetching a page does not add it to browsing history.
 IN_PROC_BROWSER_TEST_F(NoStatePrefetchBrowserTest, HistoryUntouchedByPrefetch) {
   // Initialize.
-  Profile* profile = current_browser()->profile();
+  Profile* profile = current_browser()->GetProfile();
   ASSERT_TRUE(profile);
   ui_test_utils::WaitForHistoryToLoad(HistoryServiceFactory::GetForProfile(
       profile, ServiceAccessType::EXPLICIT_ACCESS));
@@ -1625,14 +1629,8 @@ IN_PROC_BROWSER_TEST_F(NoStatePrefetchBrowserTest, IssuesIdlePriorityRequests) {
 
 // Checks that a registered ServiceWorker (SW) that is not currently running
 // will intercepts a prefetch request.
-// TODO(crbug.com/500524504): Enable the test.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_ServiceWorkerIntercept DISABLED_ServiceWorkerIntercept
-#else
-#define MAYBE_ServiceWorkerIntercept ServiceWorkerIntercept
-#endif
-IN_PROC_BROWSER_TEST_F(NoStatePrefetchBrowserTest,
-                       MAYBE_ServiceWorkerIntercept) {
+void NoStatePrefetchBrowserTest::RunServiceWorkerInterceptTest(
+    bool expect_two_hosts) {
   // Register and launch a SW.
   std::u16string expected_title = u"SW READY";
   content::TitleWatcher title_watcher(GetActiveWebContents(), expected_title);
@@ -1684,8 +1682,7 @@ IN_PROC_BROWSER_TEST_F(NoStatePrefetchBrowserTest,
   //    site (V8 OFF) forces a BrowsingInstance swap. Consequently, 2 hosts
   //    are created instead of the previously expected 1.
   // TODO(crbug.com/493200120): Find a better way to handle this situation.
-  if (base::FeatureList::IsEnabled(
-          safe_browsing::kMigrateToBlockV8OptimizerOnUnfamiliarSites)) {
+  if (expect_two_hosts) {
     EXPECT_EQ(2, host_count);
   } else {
     EXPECT_EQ(1, host_count);
@@ -1702,6 +1699,50 @@ IN_PROC_BROWSER_TEST_F(NoStatePrefetchBrowserTest,
   // observing the fetch of the image.
   PrefetchFromFile(kPrefetchPage, FINAL_STATUS_NOSTATE_PREFETCH_FINISHED);
   WaitForRequestCount(src_server()->GetURL(kPrefetchPng), 1);
+}
+
+// TODO(crbug.com/500524504): Enable the test.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_ServiceWorkerIntercept DISABLED_ServiceWorkerIntercept
+#else
+#define MAYBE_ServiceWorkerIntercept ServiceWorkerIntercept
+#endif
+IN_PROC_BROWSER_TEST_F(NoStatePrefetchBrowserTest,
+                       MAYBE_ServiceWorkerIntercept) {
+  bool expect_two_hosts = base::FeatureList::IsEnabled(
+      safe_browsing::kMigrateToBlockV8OptimizerOnUnfamiliarSites);
+  RunServiceWorkerInterceptTest(expect_two_hosts);
+}
+
+class NoStatePrefetchBrowserTestWithEsbBlockV8
+    : public NoStatePrefetchBrowserTest {
+ public:
+  NoStatePrefetchBrowserTestWithEsbBlockV8() {
+    feature_list_.InitAndEnableFeature(
+        safe_browsing::kEnableBlockV8OptimizerOnUnfamiliarSitesForEsbClients);
+  }
+
+  void SetUpOnMainThread() override {
+    NoStatePrefetchBrowserTest::SetUpOnMainThread();
+    safe_browsing::SetSafeBrowsingState(
+        current_browser()->GetProfile()->GetPrefs(),
+        safe_browsing::SafeBrowsingState::ENHANCED_PROTECTION);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// TODO(crbug.com/500524504): Enable the test.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_ServiceWorkerInterceptWithEsb \
+  DISABLED_ServiceWorkerInterceptWithEsb
+#else
+#define MAYBE_ServiceWorkerInterceptWithEsb ServiceWorkerInterceptWithEsb
+#endif
+IN_PROC_BROWSER_TEST_F(NoStatePrefetchBrowserTestWithEsbBlockV8,
+                       MAYBE_ServiceWorkerInterceptWithEsb) {
+  RunServiceWorkerInterceptTest(true);
 }
 
 // Checks that when the history is cleared, NoStatePrefetch history is cleared.
@@ -1768,6 +1809,37 @@ IN_PROC_BROWSER_TEST_F(NoStatePrefetchBrowserTest, CancelAll) {
         << content::test::ActualVsExpectedUkmEntriesToString(
                attempt_ukm_entries, expected_attempt_entries);
   }
+}
+
+// Checks that the hidden WebContents created for a prefetch is given its own
+// SessionStorageNamespace rather than the namespace of the launching tab. The
+// prefetch contents are never swapped in, so they have no need for the
+// launcher's session storage data, and the launcher's namespace should remain
+// available for matching only.
+IN_PROC_BROWSER_TEST_F(NoStatePrefetchBrowserTest,
+                       PrefetchUsesIsolatedSessionStorageNamespace) {
+  GURL url = src_server()->GetURL(kHungPrerenderPage);
+  std::unique_ptr<TestPrerender> prerender =
+      PrefetchFromURL(url, FINAL_STATUS_CANCELLED, 0);
+
+  ASSERT_TRUE(prerender->contents());
+  content::WebContents* prefetch_web_contents =
+      prerender->contents()->no_state_prefetch_contents();
+  ASSERT_TRUE(prefetch_web_contents);
+
+  content::SessionStorageNamespace* launcher_namespace =
+      GetSessionStorageNamespace();
+  ASSERT_TRUE(launcher_namespace);
+  content::SessionStorageNamespace* prefetch_namespace =
+      prefetch_web_contents->GetController()
+          .GetDefaultSessionStorageNamespace();
+  ASSERT_TRUE(prefetch_namespace);
+
+  EXPECT_NE(launcher_namespace->id(), prefetch_namespace->id());
+  EXPECT_TRUE(prerender->contents()->Matches(url, launcher_namespace));
+
+  GetNoStatePrefetchManager()->CancelAllPrerenders();
+  prerender->WaitForStop();
 }
 
 // Cancels the prerender of a page with its own prerender.  The second prerender
@@ -2004,6 +2076,45 @@ IN_PROC_BROWSER_TEST_F(NoStatePrefetchFencedFrameBrowserTest,
   recorded = GetNoStatePrefetchManager()->HasRecentlyBeenNavigatedTo(
       ORIGIN_NONE, fenced_frame_url);
   EXPECT_FALSE(recorded);
+}
+
+// <link rel=prerender> inside a fenced frame must not trigger NoStatePrefetch.
+IN_PROC_BROWSER_TEST_F(NoStatePrefetchFencedFrameBrowserTest,
+                       LinkRelPrerenderInFencedFrame) {
+  const GURL initial_url = embedded_test_server()->GetURL("/empty.html");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), initial_url));
+
+  const GURL fenced_frame_url =
+      embedded_test_server()->GetURL("/fenced_frames/title1.html");
+  content::RenderFrameHost* fenced_frame_host =
+      fenced_frame_test_helper().CreateFencedFrame(
+          GetWebContents()->GetPrimaryMainFrame(), fenced_frame_url);
+  ASSERT_TRUE(fenced_frame_host);
+
+  const GURL target_url = embedded_test_server()->GetURL(kPrefetchPage);
+  ASSERT_TRUE(content::ExecJs(
+      fenced_frame_host,
+      content::JsReplace("const l = document.createElement('link');"
+                         "l.rel = 'prerender'; l.href = $1;"
+                         "document.head.appendChild(l);",
+                         target_url)));
+
+  // Trigger and wait for NoStatePrefetch from the primary main frame for a
+  // different URL. By the time this prefetch finishes, any prefetch issued for
+  // `target_url` would have already reached the test server.
+  std::unique_ptr<TestPrerender> control_prerender =
+      no_state_prefetch_contents_factory()->ExpectNoStatePrefetchContents(
+          FINAL_STATUS_NOSTATE_PREFETCH_FINISHED);
+  const GURL control_url = embedded_test_server()->GetURL(kPrefetchPage2);
+  ASSERT_TRUE(content::ExecJs(
+      GetWebContents()->GetPrimaryMainFrame(),
+      content::JsReplace("const l = document.createElement('link');"
+                         "l.rel = 'prerender'; l.href = $1;"
+                         "document.head.appendChild(l);",
+                         control_url)));
+  control_prerender->WaitForStop();
+
+  EXPECT_EQ(0u, GetRequestCount(target_url));
 }
 
 }  // namespace prerender

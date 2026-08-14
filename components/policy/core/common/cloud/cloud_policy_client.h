@@ -107,6 +107,11 @@ class POLICY_EXPORT CloudPolicyClient {
   using PromotionEligibilityCallback = base::OnceCallback<void(
       enterprise_management::GetUserEligiblePromotionsResponse)>;
 
+  using GenerateChromeProfileChallengeCallback = base::OnceCallback<void(
+      DeviceManagementStatus,
+      const enterprise_management::GenerateChromeProfileChallengeResponse&
+          response)>;
+
   using MacAddress = std::array<uint8_t, 6>;
 
   // Observer interface for state and policy changes.
@@ -480,18 +485,6 @@ class POLICY_EXPORT CloudPolicyClient {
                                          base::DictValue report,
                                          ResultCallback callback);
 
-  // Uploads a report on the status of app push-installs. The client must be in
-  // a registered state. The |callback| will be called when the operation
-  // completes.
-  // Only one outstanding app push-install report upload is allowed.
-  // In case the new push-installs report upload is started, the previous one
-  // will be canceled.
-  virtual void UploadAppInstallReport(base::DictValue report,
-                                      ResultCallback callback);
-
-  // Cancels the pending app push-install status report upload, if exists.
-  virtual void CancelAppInstallReportUpload();
-
   // Attempts to fetch remote commands, with `last_command_id` being the ID of
   // the last command that finished execution, `command_results` being
   // results for previous commands which have not been reported yet,
@@ -550,6 +543,9 @@ class POLICY_EXPORT CloudPolicyClient {
 
   virtual void DeterminePromotionEligibility(
       PromotionEligibilityCallback callback);
+
+  virtual void GenerateChromeProfileChallenge(
+      GenerateChromeProfileChallengeCallback callback);
 
   // Adds an observer to be called back upon policy and state changes.
   void AddObserver(Observer* observer);
@@ -845,6 +841,10 @@ class POLICY_EXPORT CloudPolicyClient {
   void OnPromotionEligibilityDetermined(PromotionEligibilityCallback callback,
                                         DMServerJobResult result);
 
+  void OnGenerateChromeProfileChallengeCompleted(
+      GenerateChromeProfileChallengeCallback callback,
+      DMServerJobResult result);
+
   // Callback for `UploadFmRegistrationToken` request.
   void OnUploadFmRegistrationTokenResponse(ResultCallback callback,
                                            DMServerJobResult result);
@@ -919,11 +919,6 @@ class POLICY_EXPORT CloudPolicyClient {
 
   // All of the outstanding non-policy-fetch request jobs.
   std::vector<std::unique_ptr<DeviceManagementService::Job>> request_jobs_;
-
-  // Only one outstanding app push-install report upload is allowed, and it must
-  // be accessible so that it can be canceled.
-  raw_ptr<DeviceManagementService::Job> app_install_report_request_job_ =
-      nullptr;
 
   // Only one outstanding extension install report upload is allowed, and it
   // must be accessible so that it can be canceled.

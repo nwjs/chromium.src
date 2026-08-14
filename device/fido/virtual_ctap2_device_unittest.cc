@@ -16,6 +16,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/numerics/byte_conversions.h"
 #include "base/test/bind.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
@@ -23,6 +24,7 @@
 #include "components/cbor/reader.h"
 #include "components/cbor/values.h"
 #include "components/cbor/writer.h"
+#include "crypto/hash.h"
 #include "device/fido/attestation_statement.h"
 #include "device/fido/authenticator_get_assertion_response.h"
 #include "device/fido/authenticator_make_credential_response.h"
@@ -78,7 +80,6 @@ std::vector<uint8_t> ToCTAP2Command(
   ret.insert(ret.begin(), static_cast<uint8_t>(parts.first));
   return ret;
 }
-
 }  // namespace
 
 class VirtualCtap2DeviceTest : public ::testing::Test {
@@ -487,6 +488,190 @@ TEST_F(VirtualCtap2DeviceTest, InjectLargeBlob) {
   std::optional<LargeBlob> blob_cred2 = device_->mutable_state()->GetLargeBlob(
       device_->mutable_state()->registrations.at(credential2));
   EXPECT_EQ(*blob_cred2, blob2);
+}
+
+TEST_F(VirtualCtap2DeviceTest, CmtgKeyMakeCredentialUnsupported) {
+  scoped_refptr<VirtualFidoDevice::State> state =
+      base::MakeRefCounted<VirtualFidoDevice::State>();
+  VirtualCtap2Device::Config config;
+  config.cmtg_key_support = false;
+  MakeDevice(state, config);
+
+  PublicKeyCredentialRpEntity rp("acme.com");
+  PublicKeyCredentialUserEntity user(
+      fido_parsing_utils::Materialize(test_data::kUserId));
+  CtapMakeCredentialRequest request(
+      test_data::kClientDataJson, std::move(rp), std::move(user),
+      PublicKeyCredentialParams({{CredentialType::kPublicKey, -7}}));
+  request.cmtg_key = true;
+
+  TestFuture future;
+  SendCommand(device_.get(), ToCTAP2Command(AsCTAPRequestValuePair(request)),
+              future.GetCallback());
+  std::optional<std::vector<uint8_t>> response = future.Get();
+  ASSERT_TRUE(response);
+  ASSERT_EQ(response->at(0),
+            static_cast<uint8_t>(
+                CtapDeviceResponseCode::kCtap2ErrUnsupportedExtension));
+}
+
+TEST_F(VirtualCtap2DeviceTest, CmtgKeyGetAssertionUnsupported) {
+  scoped_refptr<VirtualFidoDevice::State> state =
+      base::MakeRefCounted<VirtualFidoDevice::State>();
+  VirtualCtap2Device::Config config;
+  config.cmtg_key_support = false;
+  MakeDevice(state, config);
+
+  std::vector<uint8_t> credential_id = {1, 2, 3, 4};
+  ASSERT_TRUE(state->InjectResidentKey(credential_id, "acme.com",
+                                       std::vector<uint8_t>{5, 6, 7, 8},
+                                       std::nullopt, std::nullopt));
+
+  CtapGetAssertionRequest request("acme.com", test_data::kClientDataJson);
+  request.allow_list = {
+      PublicKeyCredentialDescriptor(CredentialType::kPublicKey, credential_id)};
+  request.cmtg_key = true;
+
+  TestFuture future;
+  SendCommand(device_.get(), ToCTAP2Command(AsCTAPRequestValuePair(request)),
+              future.GetCallback());
+  std::optional<std::vector<uint8_t>> response = future.Get();
+  ASSERT_TRUE(response);
+  ASSERT_EQ(response->at(0),
+            static_cast<uint8_t>(
+                CtapDeviceResponseCode::kCtap2ErrUnsupportedExtension));
+}
+
+TEST_F(VirtualCtap2DeviceTest, CmtgKeySimulateFailure) {
+  scoped_refptr<VirtualFidoDevice::State> state =
+      base::MakeRefCounted<VirtualFidoDevice::State>();
+  VirtualCtap2Device::Config config;
+  config.cmtg_key_support = true;
+  MakeDevice(state, config);
+
+  state->simulate_cmtg_key_failure = true;
+
+  PublicKeyCredentialRpEntity rp("acme.com");
+  PublicKeyCredentialUserEntity user(
+      fido_parsing_utils::Materialize(test_data::kUserId));
+  CtapMakeCredentialRequest request(
+      test_data::kClientDataJson, std::move(rp), std::move(user),
+      PublicKeyCredentialParams({{CredentialType::kPublicKey, -7}}));
+  request.cmtg_key = true;
+
+  TestFuture future;
+  SendCommand(device_.get(), ToCTAP2Command(AsCTAPRequestValuePair(request)),
+              future.GetCallback());
+  std::optional<std::vector<uint8_t>> response = future.Get();
+  ASSERT_TRUE(response);
+  ASSERT_EQ(response->at(0),
+            static_cast<uint8_t>(CtapDeviceResponseCode::kSuccess));
+
+  auto parsed_response = ReadCTAPMakeCredentialResponse(
+      FidoTransportProtocol::kUsbHumanInterfaceDevice, DecodeCBOR(*response));
+  ASSERT_TRUE(parsed_response);
+  EXPECT_FALSE(parsed_response->cmtg_key);
+}
+
+TEST_F(VirtualCtap2DeviceTest, CmtgKeyIndexOutOfBounds) {
+  scoped_refptr<VirtualFidoDevice::State> state =
+      base::MakeRefCounted<VirtualFidoDevice::State>();
+  VirtualCtap2Device::Config config;
+  config.cmtg_key_support = true;
+  MakeDevice(state, config);
+
+  PublicKeyCredentialRpEntity rp("acme.com");
+  PublicKeyCredentialUserEntity user(
+      fido_parsing_utils::Materialize(test_data::kUserId));
+  CtapMakeCredentialRequest request(
+      test_data::kClientDataJson, std::move(rp), std::move(user),
+      PublicKeyCredentialParams({{CredentialType::kPublicKey, -7}}));
+  request.cmtg_key = true;
+
+  TestFuture future;
+  SendCommand(device_.get(), ToCTAP2Command(AsCTAPRequestValuePair(request)),
+              future.GetCallback());
+  std::optional<std::vector<uint8_t>> make_response = future.Get();
+  ASSERT_TRUE(make_response);
+  auto parsed_make_response = ReadCTAPMakeCredentialResponse(
+      FidoTransportProtocol::kUsbHumanInterfaceDevice,
+      DecodeCBOR(*make_response));
+  ASSERT_TRUE(parsed_make_response);
+
+  std::vector<uint8_t> credential_id =
+      parsed_make_response->attestation_object.authenticator_data()
+          .GetCredentialId();
+
+  // Set the selected index to an out-of-bounds value.
+  state->registrations[credential_id].selected_cmtg_key_index = 100;
+
+  CtapGetAssertionRequest get_request("acme.com", test_data::kClientDataJson);
+  get_request.allow_list = {
+      PublicKeyCredentialDescriptor(CredentialType::kPublicKey, credential_id)};
+  get_request.cmtg_key = true;
+
+  future.Clear();
+  SendCommand(device_.get(),
+              ToCTAP2Command(AsCTAPRequestValuePair(get_request)),
+              future.GetCallback());
+  std::optional<std::vector<uint8_t>> get_response = future.Get();
+  ASSERT_TRUE(get_response);
+  ASSERT_EQ(get_response->at(0),
+            static_cast<uint8_t>(CtapDeviceResponseCode::kSuccess));
+
+  auto parsed_get_response = ReadCTAPGetAssertionResponse(
+      FidoTransportProtocol::kUsbHumanInterfaceDevice,
+      DecodeCBOR(*get_response));
+  ASSERT_TRUE(parsed_get_response);
+  // It falls back silently to index 0, so the request succeeds with the first
+  // key.
+  EXPECT_TRUE(parsed_get_response->cmtg_key);
+}
+
+TEST_F(VirtualCtap2DeviceTest, GetAssertionNoSignatureCounter) {
+  MakeDevice();
+
+  static constexpr uint8_t kCredentialId[] = {1, 2, 3, 4};
+  device::VirtualFidoDevice::RegistrationData registration(
+      device::VirtualFidoDevice::PrivateKey::FreshP256Key(),
+      crypto::hash::Sha256(test_data::kRelyingPartyId), std::nullopt);
+  device_->mutable_state()->InjectRegistration(kCredentialId,
+                                               std::move(registration));
+
+  CtapGetAssertionRequest get_request(test_data::kRelyingPartyId,
+                                      test_data::kClientDataJson);
+  get_request.allow_list = {PublicKeyCredentialDescriptor(
+      CredentialType::kPublicKey,
+      fido_parsing_utils::Materialize(kCredentialId))};
+
+  TestFuture future;
+  SendCommand(device_.get(),
+              ToCTAP2Command(AsCTAPRequestValuePair(get_request)),
+              future.GetCallback());
+  std::optional<std::vector<uint8_t>> get_response = future.Get();
+  ASSERT_TRUE(get_response);
+  ASSERT_EQ(get_response->at(0),
+            static_cast<uint8_t>(CtapDeviceResponseCode::kSuccess));
+
+  auto parsed_get_response = ReadCTAPGetAssertionResponse(
+      FidoTransportProtocol::kUsbHumanInterfaceDevice,
+      DecodeCBOR(*get_response));
+  ASSERT_TRUE(parsed_get_response);
+  EXPECT_EQ(0u, base::U32FromBigEndian(
+                    parsed_get_response->authenticator_data.counter()));
+
+  future.Clear();
+  SendCommand(device_.get(),
+              ToCTAP2Command(AsCTAPRequestValuePair(get_request)),
+              future.GetCallback());
+  get_response = future.Get();
+  ASSERT_TRUE(get_response);
+  parsed_get_response = ReadCTAPGetAssertionResponse(
+      FidoTransportProtocol::kUsbHumanInterfaceDevice,
+      DecodeCBOR(*get_response));
+  ASSERT_TRUE(parsed_get_response);
+  EXPECT_EQ(0u, base::U32FromBigEndian(
+                    parsed_get_response->authenticator_data.counter()));
 }
 
 }  // namespace device

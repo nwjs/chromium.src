@@ -2,6 +2,7 @@ include_rules = [
   # keep-sorted start
   "+components/collaboration/public/pref_names.h",
   "+components/lens/lens_overlay_permission_utils.h",
+  "+components/personal_context/core/personal_context_prefs.h",
   "+components/regional_capabilities/regional_capabilities_prefs.h",
   "+components/saved_tab_groups/public/pref_names.h",
   "+components/sharing_message/sharing_sync_preference.h",
@@ -16,6 +17,7 @@ include_rules = [
   "+ios/chrome/browser/default_browser/default_status/model/default_status_helper_prefs.h",
   "+ios/chrome/browser/download/model/auto_deletion/auto_deletion_service.h",
   "+ios/chrome/browser/drive/model/drive_policy.h",
+  "+ios/chrome/browser/enterprise/data_protection/public/pref_names.h",
   "+ios/chrome/browser/first_run/model/first_run.h",
   "+ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_scene_agent.h",
   "+ios/chrome/browser/level_up/model/level_up_service.h",

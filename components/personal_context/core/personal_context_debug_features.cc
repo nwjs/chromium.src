@@ -24,12 +24,15 @@ BASE_FEATURE_PARAM(int,
                    kPersonalContextForceEnablementStateParam,
                    &kPersonalContextForceEnablementState,
                    "state",
-                   4);
+                   2);
 
 BASE_FEATURE(kMockPersonalContextResult, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(int,
                    kMockPersonalContextResultTypeParam,
                    &kMockPersonalContextResult,
                    2);
+
+BASE_FEATURE(kPersonalContextResetNoticePrefsOnStartup,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace personal_context::features::debug

@@ -2,10 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
+#include "base/compiler_specific.h"
 
 #define INITGUID  // required for GUID_PROP_INPUTSCOPE
 #include "ui/base/ime/win/tsf_text_store.h"
@@ -21,7 +18,6 @@
 #include "base/logging.h"
 #include "base/notimplemented.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/trace_event.h"
 #include "base/win/scoped_variant.h"
@@ -345,7 +341,7 @@ HRESULT TSFTextStore::GetText(LONG acp_start,
   std::u16string_view result = std::u16string_view(string_buffer_document_)
                                    .substr(acp_start, *text_buffer_copied);
   for (size_t i = 0; i < result.size(); ++i) {
-    text_buffer[i] = result[i];
+    UNSAFE_TODO(text_buffer[i]) = result[i];
   }
 
   if (*text_buffer_copied > 0 && run_info_buffer_size) {
@@ -551,7 +547,7 @@ HRESULT TSFTextStore::InsertTextAtSelection(DWORD flags,
   DCHECK_LE(start_pos, end_pos);
   string_buffer_document_ =
       string_buffer_document_.substr(0, start_pos) +
-      std::u16string(text_buffer, text_buffer + text_buffer_size) +
+      std::u16string(text_buffer, UNSAFE_TODO(text_buffer + text_buffer_size)) +
       string_buffer_document_.substr(end_pos);
 
   // reconstruct string that needs to be inserted.
@@ -660,14 +656,21 @@ HRESULT TSFTextStore::RequestLock(DWORD lock_flags, HRESULT* result) {
   if (features::IsHandleIMESpanChangesOnUpdateCompositionEnabled()) {
     on_update_composition_called_ = false;
   }
-  // Save the buffer state before the lock for autocorrect detection.
+  // Whether autocorrect should be suppressed for the focused element, i.e. the
+  // feature is enabled and the element carries the autocorrect="off" attribute.
   const bool should_block_autocorrect =
       features::IsTSFHonorAutocorrectOffEnabled() &&
       (text_input_client_->GetTextInputFlags() &
        TEXT_INPUT_FLAG_AUTOCORRECT_OFF) != 0;
   const bool had_composition_at_lock_start = has_composition_range_;
+  // Save the buffer state before the lock for autocorrect detection.
   const std::u16string pre_lock_buffer =
       should_block_autocorrect ? string_buffer_document_ : std::u16string();
+  // The user's selection before the lock. Used to distinguish a touch-keyboard
+  // autocorrect (which replaces a word the user did not select) from an
+  // explicit selection replacement (where the replaced range matches what the
+  // user selected).
+  const gfx::Range pre_lock_selection(selection_.start(), selection_.end());
 
   // if there is not already some composition text, they we are about to start
   // composition. we need to set `last_composition_start` to the selection
@@ -709,35 +712,39 @@ HRESULT TSFTextStore::RequestLock(DWORD lock_flags, HRESULT* result) {
   if (!text_input_client_)
     return E_UNEXPECTED;
 
-  // Detect and revert touch keyboard autocorrect when the HTML element has
-  // the autocorrect="off" attribute (a web-standard hint on <input> and
-  // <textarea> elements that tells the user agent not to autocorrect).
+  // When the editable element has the autocorrect="off" attribute (a
+  // web-standard hint on <input> and <textarea> elements asking the user agent
+  // not to autocorrect), revert autocorrect performed by the Windows touch
+  // keyboard.
   //
-  // The Windows touch keyboard performs autocorrect by replacing
-  // already-committed text via a separate TSF SetText call after the word
-  // is completed (e.g., when the user presses space).
-  //
-  // Compare the buffer before and after the lock. If existing text was
-  // modified (`pre_lock_buffer` is not a prefix of
-  // `string_buffer_document_`), no composition is involved, and no IME is
-  // active, this is an autocorrect replacement by the touch keyboard. Skip
-  // when an IME is active since autocorrect is a touch-keyboard-only
-  // concept; IMEs may insert characters without composition (e.g.
-  // full-width space) that would be falsely reverted.
-  if (should_block_autocorrect && !pre_lock_buffer.empty() &&
-      !string_pending_insertion_.empty() && !had_composition_at_lock_start &&
-      !has_composition_range_ && !IsInputIME()) {
-    // Check if the pre-lock buffer content was preserved. Normal typing
-    // appends new characters, so the old content remains as a prefix.
-    // Autocorrect replaces existing characters, breaking the prefix.
-    const bool existing_text_modified =
-        !base::StartsWith(string_buffer_document_, pre_lock_buffer);
+  // The touch keyboard autocorrects by replacing an already-committed word via
+  // a TSF SetText call at the word boundary (e.g. when the user presses space).
+  // This replaces a range of committed text that the user never selected, which
+  // distinguishes it from edits that must be preserved:
+  //   * An insertion at a collapsed caret replaces an empty range, so
+  //     `replace_text_range_` is collapsed.
+  //   * A replacement of text the user explicitly selected covers exactly the
+  //     user's selection.
+  // So only revert when a non-empty range of committed text was replaced and
+  // that range is not the user's selection. IME input is excluded because
+  // autocorrect is specific to the touch keyboard; an active composition or an
+  // active input processor profile identifies IME edits.
+  if (should_block_autocorrect && new_text_inserted_ &&
+      !had_composition_at_lock_start && !has_composition_range_ &&
+      !IsInputIME() &&
+      replace_text_range_.start() < replace_text_range_.end()) {
+    const bool user_selected_replaced_range =
+        !pre_lock_selection.is_empty() &&
+        pre_lock_selection.start() == replace_text_range_.start() &&
+        pre_lock_selection.end() == replace_text_range_.end();
 
-    if (existing_text_modified) {
+    if (!user_selected_replaced_range) {
+      // Restore the buffer to its pre-lock state (bringing back the user's
+      // original word) and skip the commit.
       string_buffer_document_ = pre_lock_buffer;
       string_pending_insertion_.clear();
-      selection_.set_start(pre_lock_buffer.size());
-      selection_.set_end(pre_lock_buffer.size());
+      selection_.set_start(pre_lock_selection.start());
+      selection_.set_end(pre_lock_selection.end());
       edit_flag_ = false;
       ResetCacheAfterEditSession();
       CalculateTextandSelectionDiffAndNotifyIfNeeded();
@@ -884,8 +891,9 @@ HRESULT TSFTextStore::RequestSupportedAttrs(
     return E_FAIL;
 
   supported_attrs_.clear();
-  for (size_t i = 0; i < attribute_buffer_size; ++i) {
-    const auto& attribute = attribute_buffer[i];
+  auto attributes =
+      UNSAFE_TODO(base::span(attribute_buffer, attribute_buffer_size));
+  for (const auto& attribute : attributes) {
     if (IsEqualGUID(GUID_PROP_INPUTSCOPE, attribute) ||
         IsEqualGUID(GUID_PROP_URL, attribute) ||
         IsEqualGUID(TSATTRID_Text_VerticalWriting, attribute)) {
@@ -912,24 +920,26 @@ HRESULT TSFTextStore::RetrieveRequestedAttrs(ULONG attribute_buffer_size,
   *attribute_buffer_copied = std::min(
       attribute_buffer_size, static_cast<ULONG>(supported_attrs_.size()));
 
+  auto attributes =
+      UNSAFE_TODO(base::span(attribute_buffer, *attribute_buffer_copied));
   for (size_t i = 0; i < *attribute_buffer_copied; ++i) {
-    attribute_buffer[i].idAttr = supported_attrs_[i];
+    attributes[i].idAttr = supported_attrs_[i];
     // In TSF, this parameter value is zero.
     // https://docs.microsoft.com/en-us/windows/win32/api/textstor/ns-textstor-ts_attrval
-    attribute_buffer[i].dwOverlapId = 0;
+    attributes[i].dwOverlapId = 0;
     // If the caller is asking for the input scope, then create one based on
     // the input client and return the COM object for it.
     if (IsEqualGUID(GUID_PROP_INPUTSCOPE, supported_attrs_[i])) {
-      attribute_buffer[i].varValue.vt = VT_UNKNOWN;
-      attribute_buffer[i].varValue.punkVal = tsf_inputscope::CreateInputScope(
+      attributes[i].varValue.vt = VT_UNKNOWN;
+      attributes[i].varValue.punkVal = tsf_inputscope::CreateInputScope(
           text_input_client_->GetTextInputType(),
           text_input_client_->GetTextInputMode(),
           text_input_client_->ShouldDoLearning());
-      attribute_buffer[i].varValue.punkVal->AddRef();
+      attributes[i].varValue.punkVal->AddRef();
     } else if (IsEqualGUID(GUID_PROP_URL, supported_attrs_[i])) {
       const ui::TextInputClient::EditingContext editing_context =
           text_input_client_->GetTextEditingContext();
-      attribute_buffer[i].varValue.vt = VT_BSTR;
+      attributes[i].varValue.vt = VT_BSTR;
       std::wstring wide_url;
       // If the caller is asking for the URL, get the URL from the
       // the text input client (if there is one).
@@ -937,12 +947,12 @@ HRESULT TSFTextStore::RetrieveRequestedAttrs(ULONG attribute_buffer_size,
         const std::string& url_string = editing_context.page_url.spec();
         wide_url = base::UTF8ToWide(url_string);
       }
-      attribute_buffer[i].varValue.bstrVal =
+      attributes[i].varValue.bstrVal =
           SysAllocStringLen(wide_url.c_str(), wide_url.length());
     } else if (IsEqualGUID(TSATTRID_Text_VerticalWriting,
                            supported_attrs_[i])) {
-      attribute_buffer[i].varValue.vt = VT_BOOL;
-      attribute_buffer[i].varValue.boolVal =
+      attributes[i].varValue.vt = VT_BOOL;
+      attributes[i].varValue.boolVal =
           !!(text_input_client_->GetTextInputFlags() &
              ui::TEXT_INPUT_FLAG_VERTICAL);
     }
@@ -1778,9 +1788,8 @@ bool TSFTextStore::MaybeSendOnUrlChanged() {
   if (!is_empty_text_store_ || (text_store_acp_sink_ == nullptr)) {
     return false;
   }
-  TS_ATTRID attrs[1];
-  attrs[0] = GUID_PROP_URL;
-  text_store_acp_sink_->OnAttrsChange(NULL, NULL, 1, attrs);
+  TS_ATTRID attr = GUID_PROP_URL;
+  text_store_acp_sink_->OnAttrsChange(NULL, NULL, 1, &attr);
   return true;
 }
 

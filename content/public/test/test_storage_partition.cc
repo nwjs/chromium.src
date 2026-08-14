@@ -34,10 +34,6 @@ TestStoragePartition::GetCertVerifierServiceUpdater() {
   return nullptr;
 }
 
-storage::SharedStorageManager* TestStoragePartition::GetSharedStorageManager() {
-  return nullptr;
-}
-
 scoped_refptr<network::SharedURLLoaderFactory>
 TestStoragePartition::GetURLLoaderFactoryForBrowserProcess() {
   return test_url_loader_factory_->GetSafeWeakWrapper();
@@ -140,18 +136,6 @@ TestStoragePartition::GetPlatformNotificationContext() {
   return platform_notification_context_;
 }
 
-InterestGroupManager* TestStoragePartition::GetInterestGroupManager() {
-  return nullptr;
-}
-
-AttributionDataModel* TestStoragePartition::GetAttributionDataModel() {
-  return nullptr;
-}
-
-PrivateAggregationDataModel*
-TestStoragePartition::GetPrivateAggregationDataModel() {
-  return nullptr;
-}
 
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
 CdmStorageDataModel* TestStoragePartition::GetCdmStorageDataModel() {

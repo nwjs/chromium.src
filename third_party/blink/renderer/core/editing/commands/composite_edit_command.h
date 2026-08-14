@@ -26,6 +26,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_EDITING_COMMANDS_COMPOSITE_EDIT_COMMAND_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_EDITING_COMMANDS_COMPOSITE_EDIT_COMMAND_H_
 
+#include <optional>
 #include <utility>
 
 #include "third_party/blink/renderer/core/core_export.h"
@@ -124,7 +125,7 @@ class CORE_EXPORT CompositeEditCommand : public EditCommand {
   void RemoveStyledElement(Element*, EditingState*);
   // Returns |false| if the EditingState has been aborted.
   bool DeleteSelection(EditingState*, const DeleteSelectionOptions&);
-  virtual void DeleteTextFromNode(Text*, unsigned offset, unsigned count);
+  virtual void DeleteTextFromNode(Text*, wtf_size_t offset, wtf_size_t count);
   bool IsRemovableBlock(const Node*);
   void InsertNodeAfter(Node*, Node* ref_child, EditingState*);
   // Insert nodes starting `insert_first_child` after `ref_child`.
@@ -143,15 +144,15 @@ class CORE_EXPORT CompositeEditCommand : public EditCommand {
       bool use_default_paragraph_element = false,
       bool paste_blockqutoe_into_unquoted_area = false);
   void InsertTextIntoNode(Text*,
-                          unsigned offset,
+                          wtf_size_t offset,
                           const String& text,
                           PasswordEchoBehavior);
   void MergeIdenticalElements(Element*, Element*, EditingState*);
   void RebalanceWhitespace();
   void RebalanceWhitespaceAt(const Position&);
   void RebalanceWhitespaceOnTextSubstring(Text*,
-                                          int start_offset,
-                                          int end_offset);
+                                          wtf_size_t start_offset,
+                                          wtf_size_t end_offset);
   void PrepareWhitespaceAtPositionForSplit(Position&);
   void ReplaceCollapsibleWhitespaceWithNonBreakingSpaceIfNeeded(
       const VisiblePosition&);
@@ -166,7 +167,10 @@ class CORE_EXPORT CompositeEditCommand : public EditCommand {
       EditingState*,
       ShouldAssumeContentIsAlwaysEditable =
           ShouldAssumeContentIsAlwaysEditable(false));
-  void RemoveChildrenInRange(Node*, unsigned from, unsigned to, EditingState*);
+  void RemoveChildrenInRange(Node*,
+                             wtf_size_t from,
+                             wtf_size_t to,
+                             EditingState*);
   virtual void RemoveNode(Node*,
                           EditingState*,
                           ShouldAssumeContentIsAlwaysEditable =
@@ -188,8 +192,8 @@ class CORE_EXPORT CompositeEditCommand : public EditCommand {
   void UpdatePositionForNodeRemovalPreservingChildren(Position&, Node&);
   void Prune(Node*, EditingState*, Node* exclude_node = nullptr);
   void ReplaceTextInNode(Text*,
-                         unsigned offset,
-                         unsigned count,
+                         wtf_size_t offset,
+                         wtf_size_t count,
                          const String& replacement_text,
                          PasswordEchoBehavior);
   Position ReplaceSelectedTextInNode(const String&, PasswordEchoBehavior);
@@ -198,11 +202,11 @@ class CORE_EXPORT CompositeEditCommand : public EditCommand {
                         const QualifiedName& attribute,
                         const AtomicString& value);
   void SplitElement(Element*, Node* at_child);
-  void SplitTextNode(Text*, unsigned offset);
-  void SplitTextNodeContainingElement(Text*, unsigned offset);
+  void SplitTextNode(Text*, wtf_size_t offset);
+  void SplitTextNodeContainingElement(Text*, wtf_size_t offset);
   void WrapContentsInDummySpan(Element*);
 
-  void DeleteInsignificantText(Text*, unsigned start, unsigned end);
+  void DeleteInsignificantText(Text*, wtf_size_t start, wtf_size_t end);
   void DeleteInsignificantText(const Position& start, const Position& end);
   void DeleteInsignificantTextDownstream(const Position&);
 
@@ -300,9 +304,9 @@ class CORE_EXPORT CompositeEditCommand : public EditCommand {
   // relative to `document_element`. Silently no-ops when either offset
   // cannot be reconstituted (collapsed-whitespace edge cases). Mirrors into
   // the raw-DOM lane when EditingUseDomPositionApi is enabled.
-  void RestoreSelectionFromPlainText(int destination_index,
-                                     int start_index,
-                                     int end_index,
+  void RestoreSelectionFromPlainText(wtf_size_t destination_index,
+                                     wtf_size_t start_index,
+                                     wtf_size_t end_index,
                                      Element& document_element);
 
   bool IsCompositeEditCommand() const final { return true; }
@@ -312,6 +316,25 @@ class CORE_EXPORT CompositeEditCommand : public EditCommand {
   std::pair<Position, Position> ComputeNormalizedMoveRange(
       const Position& start_of_paragraph,
       const Position& end_of_paragraph);
+  // Returns preserved endpoints from the VisiblePosition lane, or std::nullopt
+  // when nothing should be preserved.
+  std::optional<std::pair<Position, Position>>
+  ComputePreservedVisibleSelectionEndpoints(
+      ShouldPreserveSelection should_preserve_selection);
+  // Returns preserved endpoints from the raw-DOM lane, or std::nullopt when
+  // nothing should be preserved or endpoints are stale.
+  std::optional<std::pair<Position, Position>>
+  ComputePreservedDomSelectionEndpoints(
+      ShouldPreserveSelection should_preserve_selection);
+  // True when a raw-DOM endpoint is non-null and still valid in this document.
+  bool IsPreservedSelectionEndpointUsable(const Position& position) const;
+  // Computes selection offsets relative to paragraph start, or std::nullopt
+  // when selection is entirely outside the moved paragraph.
+  std::optional<std::pair<int, int>> ComputePreservedSelectionIndices(
+      const Position& start_of_paragraph,
+      const Position& end_of_paragraph,
+      const Position& selection_start,
+      const Position& selection_end);
   EditingStyle* CaptureStyleInEmptyParagraph(
       const Position& start_of_paragraph);
   // Sets the ending selection to the delete range [start, end]. Mirrors into
@@ -320,10 +343,7 @@ class CORE_EXPORT CompositeEditCommand : public EditCommand {
 
   SelectionForUndoStep starting_selection_;
   SelectionForUndoStep ending_selection_;
-  // Raw-DOM lane mirroring starting_/ending_selection_. Seeded from
-  // FrameSelection::GetSelectionInDomTree() at command birth (no VP
-  // canonicalization). Updated via SetStartingDomSelection /
-  // SetEndingDomSelection. Inherited from parent in SetParent.
+  // Raw-DOM lane mirroring starting_/ending_selection_.
   SelectionForUndoStep starting_dom_selection_;
   SelectionForUndoStep ending_dom_selection_;
   Member<UndoStep> undo_step_;

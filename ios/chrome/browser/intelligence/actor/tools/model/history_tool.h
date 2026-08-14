@@ -10,8 +10,6 @@
 #import "components/optimization_guide/proto/features/actions_data.pb.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool.h"
 
-class ProfileIOS;
-
 namespace optimization_guide::proto {
 class HistoryBackAction;
 class HistoryForwardAction;
@@ -23,35 +21,29 @@ class WebState;
 
 namespace actor {
 
-struct ToolExecutionResult;
-
 // Tool to navigate back or forward in a tab's history.
 class HistoryTool : public ActorTool {
  public:
   ~HistoryTool() override;
 
   // Create the tool to handle "go back" action.
-  static base::expected<std::unique_ptr<HistoryTool>, ToolExecutionResult>
-  Create(const optimization_guide::proto::HistoryBackAction& action,
-         ProfileIOS* profile);
+  static std::unique_ptr<HistoryTool> Create(
+      base::WeakPtr<web::WebState> web_state,
+      const optimization_guide::proto::HistoryBackAction& action);
 
   // Create the tool to handle "go forward" action.
-  static base::expected<std::unique_ptr<HistoryTool>, ToolExecutionResult>
-  Create(const optimization_guide::proto::HistoryForwardAction& action,
-         ProfileIOS* profile);
+  static std::unique_ptr<HistoryTool> Create(
+      base::WeakPtr<web::WebState> web_state,
+      const optimization_guide::proto::HistoryForwardAction& action);
 
   // ActorTool:
+  void Validate(ToolExecutionCallback callback) override;
   void Execute(ToolExecutionCallback callback) override;
   base::WeakPtr<web::WebState> GetTargetWebState() const override;
   ToolType GetToolType() const override;
 
  private:
-  // Internal helper to create the public `Create` method.
-  template <typename HistoryAction>
-  static base::expected<std::unique_ptr<HistoryTool>, ToolExecutionResult>
-  CreateInternal(const HistoryAction& action, ProfileIOS* profile);
-
-  HistoryTool(bool is_back_action, base::WeakPtr<web::WebState> web_state);
+  HistoryTool(base::WeakPtr<web::WebState> web_state, bool is_back_action);
 
   bool is_back_action_;
   base::WeakPtr<web::WebState> web_state_;

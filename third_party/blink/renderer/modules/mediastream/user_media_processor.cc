@@ -91,32 +91,32 @@ void UpdateRequestResult(UserMediaRequest* request,
     case UserMediaRequestType::kUserMedia: {
       if (request->IsGumExtensionRequest()) {
         base::UmaHistogramEnumeration(
-            "WebRTC.UserMediaRequest.GetUserMedia.Extension.Result3", result);
+            "WebRTC.UserMediaRequest.GetUserMedia.Extension.Result4", result);
         return;
       } else {
         if (request->Audio() && !request->Video()) {
           base::UmaHistogramEnumeration(
-              "WebRTC.UserMediaRequest.GetUserMedia.AudioCapture.Result3",
+              "WebRTC.UserMediaRequest.GetUserMedia.AudioCapture.Result4",
               result);
         }
         if (!request->Audio() && request->Video()) {
           base::UmaHistogramEnumeration(
-              "WebRTC.UserMediaRequest.GetUserMedia.VideoCapture.Result3",
+              "WebRTC.UserMediaRequest.GetUserMedia.VideoCapture.Result4",
               result);
         }
         base::UmaHistogramEnumeration(
-            "WebRTC.UserMediaRequest.GetUserMedia.DeviceCapture.Result3",
+            "WebRTC.UserMediaRequest.GetUserMedia.DeviceCapture.Result4",
             result);
         return;
       }
     }
     case UserMediaRequestType::kDisplayMedia:
       base::UmaHistogramEnumeration(
-          "WebRTC.UserMediaRequest.GetDisplayMedia.Result3", result);
+          "WebRTC.UserMediaRequest.GetDisplayMedia.Result4", result);
       return;
     case UserMediaRequestType::kAllScreensMedia:
       base::UmaHistogramEnumeration(
-          "WebRTC.UserMediaRequest.GetAllScreensMedia.Result3", result);
+          "WebRTC.UserMediaRequest.GetAllScreensMedia.Result4", result);
       return;
   }
 }
@@ -333,6 +333,8 @@ String ErrorCodeToString(MediaStreamRequestResult result) {
       return "Permission denied by system";
     case MediaStreamRequestResult::DEVICE_IN_USE:
       return "Device in use";
+    case MediaStreamRequestResult::DEVICE_REMOVED:
+      return "Device was removed";
     case MediaStreamRequestResult::START_TIMEOUT:
       return "Timeout starting video source";
     case MediaStreamRequestResult::CONSTRAINT_NOT_SATISFIED:
@@ -766,6 +768,8 @@ void UserMediaProcessor::SetupAudioInput() {
       request->suppress_local_audio_playback();
 
   stream_controls->restrict_own_audio = request->restrict_own_audio();
+  stream_controls->audio_selection_preferred =
+      request->audio_selection_preferred();
 
   TrackControls& audio_controls = stream_controls->audio;
   audio_controls.stream_type =
@@ -2315,6 +2319,10 @@ bool UserMediaProcessor::RemoveLocalSource(MediaStreamSource* source) {
       case AudioSourceErrorCode::kDeviceInUse:
         result = MediaStreamRequestResult::DEVICE_IN_USE;
         message = "Audio capture device already in use";
+        break;
+      case AudioSourceErrorCode::kDeviceRemoved:
+        result = MediaStreamRequestResult::DEVICE_REMOVED;
+        message = "Audio capture device was removed";
         break;
       case AudioSourceErrorCode::kSocketError:
         result = MediaStreamRequestResult::AUDIO_DEVICE_SOCKET_ERROR;

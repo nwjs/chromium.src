@@ -172,7 +172,7 @@ class ModelExecutionBrowserTestBase : public InProcessBrowserTest {
     InProcessBrowserTest::SetUpOnMainThread();
     identity_test_env_adaptor_ =
         std::make_unique<IdentityTestEnvironmentProfileAdaptor>(
-            browser()->profile());
+            browser()->GetProfile());
     host_resolver()->AddRule("*", "127.0.0.1");
   }
 
@@ -204,7 +204,7 @@ class ModelExecutionBrowserTestBase : public InProcessBrowserTest {
   OptimizationGuideKeyedService* GetOptimizationGuideKeyedService(
       Profile* profile = nullptr) {
     if (!profile) {
-      profile = browser()->profile();
+      profile = browser()->GetProfile();
     }
     return OptimizationGuideKeyedServiceFactory::GetForProfile(profile);
   }
@@ -215,7 +215,7 @@ class ModelExecutionBrowserTestBase : public InProcessBrowserTest {
                     const proto::ComposeRequest& request_metadata,
                     Profile* profile = nullptr) {
     if (!profile) {
-      profile = browser()->profile();
+      profile = browser()->GetProfile();
     }
     base::RunLoop run_loop;
     ExecuteModelWithLogging(
@@ -414,7 +414,7 @@ class ModelExecutionEnabledBrowserTest : public ModelExecutionBrowserTestBase {
 
   OptimizationGuideKeyedService* GetOptGuideKeyedService() {
     return OptimizationGuideKeyedServiceFactory::GetForProfile(
-        browser()->profile());
+        browser()->GetProfile());
   }
 
   bool IsSettingVisible(UserVisibleFeatureKey feature) {
@@ -439,11 +439,11 @@ class ModelExecutionEnabledBrowserTest : public ModelExecutionBrowserTestBase {
 
 IN_PROC_BROWSER_TEST_F(ModelExecutionEnabledBrowserTest,
                        ModelExecutionDisabledInIncognito) {
-  Browser* otr_browser = CreateIncognitoBrowser(browser()->profile());
+  Browser* otr_browser = CreateIncognitoBrowser(browser()->GetProfile());
   proto::ComposeRequest request;
   request.mutable_generate_params()->set_user_input("a user typed this");
   ExecuteModel(UserVisibleFeatureKey::kCompose, request,
-               otr_browser->profile());
+               otr_browser->GetProfile());
   EXPECT_TRUE(model_execution_result_.has_value());
   EXPECT_FALSE(model_execution_result_->response.has_value());
   EXPECT_EQ(OptimizationGuideModelExecutionError::ModelExecutionError::
@@ -580,7 +580,7 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnabledBrowserTest,
 IN_PROC_BROWSER_TEST_F(ModelExecutionEnabledBrowserTest,
                        ModelExecutionFailsForUnsupportedLanguageResponse) {
   EnableSignin();
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetInteger(
       prefs::GetSettingEnabledPrefName(UserVisibleFeatureKey::kCompose),
       static_cast<int>(prefs::FeatureOptInState::kEnabled));
@@ -654,7 +654,7 @@ IN_PROC_BROWSER_TEST_F(
     ModelExecutionEnabledBrowserTestWithExplicitBrowserSignin,
     PRE_EnableFeatureViaPref) {
   EnableSignin();
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetInteger(
       prefs::GetSettingEnabledPrefName(UserVisibleFeatureKey::kWallpaperSearch),
       static_cast<int>(prefs::FeatureOptInState::kEnabled));
@@ -707,7 +707,7 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_FALSE(IsSettingVisible(UserVisibleFeatureKey::kHistorySearch));
 #endif
 
-  browser()->profile()->GetPrefs()->SetInteger(
+  browser()->GetProfile()->GetPrefs()->SetInteger(
       prefs::GetSettingEnabledPrefName(UserVisibleFeatureKey::kHistorySearch),
       static_cast<int>(prefs::FeatureOptInState::kEnabled));
   EXPECT_TRUE(variations::IsInSyntheticTrialGroup(
@@ -839,7 +839,7 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnterprisePolicyBrowserTest,
   ASSERT_TRUE(
       g_browser_process->GetMetricsServicesManager()->IsMetricsConsentGiven());
 
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetInteger(
       prefs::GetSettingEnabledPrefName(UserVisibleFeatureKey::kCompose),
       static_cast<int>(optimization_guide::prefs::FeatureOptInState::kEnabled));
@@ -901,7 +901,7 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnterprisePolicyBrowserTest,
                        DisableThenEnableWallpaperSearch) {
   EnableSignin();
 
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetInteger(
       prefs::GetSettingEnabledPrefName(UserVisibleFeatureKey::kWallpaperSearch),
       static_cast<int>(prefs::FeatureOptInState::kEnabled));

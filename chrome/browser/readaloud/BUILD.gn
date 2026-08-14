@@ -5,20 +5,26 @@
 if (is_android) {
   source_set("readaloud") {
     sources = [
+      "read_aloud_constants.h",
+      "read_aloud_playback_session.h",
       "read_aloud_service.h",
       "read_aloud_service_factory.h",
     ]
     public_deps = [
       "//base",
       "//chrome/browser/profiles:profile",
+      "//chrome/common:mojo_bindings",
       "//components/dom_distiller/core",
       "//components/keyed_service/core",
       "//content/public/browser",
+      "//media",
+      "//services/media_session/public/cpp",
     ]
   }
 
   source_set("impl") {
     sources = [
+      "read_aloud_playback_session.cc",
       "read_aloud_service.cc",
       "read_aloud_service_factory.cc",
     ]
@@ -26,6 +32,7 @@ if (is_android) {
       ":readaloud",
       "//chrome/browser/dom_distiller",
       "//components/dom_distiller/content/browser",
+      "//content/public/browser",
       "//ui/accessibility:ax_base",
     ]
   }
@@ -33,6 +40,7 @@ if (is_android) {
   source_set("unit_tests") {
     testonly = true
     sources = [
+      "android/prefs_unittest.cc",
       "read_aloud_service_factory_unittest.cc",
       "read_aloud_service_unittest.cc",
     ]
@@ -41,9 +49,14 @@ if (is_android) {
       ":readaloud",
       "//base/test:test_support",
       "//chrome/browser/dom_distiller",
+      "//chrome/browser/media/router",
+      "//chrome/browser/readaloud/android:native",
       "//chrome/test:test_support",
       "//components/dom_distiller/core",
       "//components/dom_distiller/core:test_support",
+      "//components/media_router/browser:test_support",
+      "//components/prefs",
+      "//components/sync_preferences:test_support",
       "//content/test:test_support",
       "//testing/gmock",
       "//testing/gtest",

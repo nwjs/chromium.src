@@ -90,6 +90,10 @@ bool ValidateResponseExtensions(
       if (!request.get_cred_blob || !it.second.is_bytestring()) {
         return false;
       }
+    } else if (ext_name == kExtensionCmtgKey) {
+      if (!request.cmtg_key || !it.second.is_bytestring()) {
+        return false;
+      }
     } else {
       // Authenticators may not return unknown extensions.
       return false;
@@ -249,6 +253,10 @@ CtapGetAssertionRequest SpecializeRequestForAuthenticator(
   if (authenticator.AuthenticatorTransport() !=
       FidoTransportProtocol::kHybrid) {
     specialized_request.cross_device_fallback_url = std::nullopt;
+  }
+
+  if (request.cmtg_key && !authenticator.Options().supports_cmtg_key) {
+    specialized_request.cmtg_key = false;
   }
   return specialized_request;
 }

@@ -179,54 +179,6 @@ uploading your change for review.  These are checked by presubmit scripts.
 
 <!-- LINT.ThenChange(/chrome/browser/ui/android/toolbar/adaptive_toolbar_enums.h:AdaptiveToolbarButtonVariant) -->
 
-<!-- LINT.IfChange(AdAuctionPABaseValue) -->
-
-<enum name="AdAuctionPABaseValue">
-  <int value="0" label="kWinningBid"/>
-  <int value="1" label="kHighestScoringOtherBid"/>
-  <int value="2" label="kScriptRunTime"/>
-  <int value="3" label="kSignalsFetchTime"/>
-  <int value="4" label="kBidRejectReason"/>
-  <int value="5" label="kParticipatingInterestGroupCount"/>
-  <int value="6" label="kAverageCodeFetchTime"/>
-  <int value="7" label="kPercentScriptsTimeout"/>
-  <int value="8" label="kPercentInterestGroupsCumulativeTimeout"/>
-  <int value="9" label="kCumulativeBuyerTime"/>
-  <int value="10" label="kRegularInterestGroupsUsed"/>
-  <int value="11" label="kPercentRegularInterestGroupQuotaUsed"/>
-  <int value="12" label="kNegativeInterestGroupsUsed"/>
-  <int value="13" label="kPercentNegativeInterestGroupQuotaUsed"/>
-  <int value="14" label="kInterestGroupStorageUsed"/>
-  <int value="15" label="kPercentInterestGroupStorageQuotaUsed"/>
-</enum>
-
-<!-- LINT.ThenChange(//content/services/auction_worklet/public/mojom/private_aggregation_request.mojom:BaseValue) -->
-
-<!-- LINT.IfChange(AdditionalBidHeaderType) -->
-
-<enum name="AdditionalBidHeaderType">
-  <int value="0" label="Auction Nonce"/>
-  <int value="1" label="Auction Nonce and Seller Nonce"/>
-  <int value="2" label="Malformed header (wrong number of colons)"/>
-  <int value="3" label="Malformed header (wrong auction nonce size)"/>
-  <int value="4" label="Malformed header (wrong seller nonce size)"/>
-</enum>
-
-<!-- LINT.ThenChange(//content/browser/interest_group/ad_auction_headers_util.cc:AdditionalBidHeaderType) -->
-
-<enum name="AdditionalBidResult">
-  <int value="0" label="Sent for Scoring"/>
-  <int value="1" label="Negative Targeted"/>
-  <int value="2" label="Rejected Due to Invalid Base64"/>
-  <int value="3" label="Rejected Due to Signed Bid JSON Parse Error"/>
-  <int value="4" label="Rejected Due to Signed Bid Decode Error"/>
-  <int value="5" label="Rejected Due to JSON Parse Error"/>
-  <int value="6" label="Rejected Due to Decode Error"/>
-  <int value="7" label="Rejected Due to Buyer Not Allowed"/>
-  <int value="8" label="Rejected Due to Currency Mismatch"/>
-  <int value="9" label="Rejected Due to Decoder Shutdown"/>
-</enum>
-
 <enum name="AdsInterventionStatus">
   <int value="0" label="Expired"/>
   <int value="1" label="Would Block"/>
@@ -499,28 +451,6 @@ uploading your change for review.  These are checked by presubmit scripts.
 
 <!-- LINT.ThenChange(/chrome/browser/ui/ash/assistant/assistant_browser_delegate_impl.cc:AssistantNewEntryPointEligibility) -->
 
-<enum name="AuctionInvalidServerResponseReason">
-  <int value="0" label="Unknown"/>
-  <int value="1" label="Not Witnessed"/>
-  <int value="2" label="Unknown Request ID"/>
-  <int value="3" label="Seller mismatch"/>
-  <int value="4" label="Decryption failed"/>
-  <int value="5" label="Unframing failed"/>
-  <int value="6" label="Decompression failed"/>
-  <int value="7" label="CBOR Parser failed"/>
-  <int value="8" label="Unexpected Response Structure"/>
-  <int value="9" label="Not a Multi-level auction"/>
-  <int value="10" label="Top-level seller mismatch"/>
-  <int value="11" label="Not Single-level auction"/>
-  <int value="12" label="Invalid Bid"/>
-  <int value="13" label="Winning Group is not a bidder"/>
-  <int value="14" label="Winning group couldn't be loaded"/>
-  <int value="15" label="Winning group missing bidding URL"/>
-  <int value="16" label="Couldn't construct Bid"/>
-  <int value="17" label="Currency mismatch"/>
-  <int value="18" label="Decoder shut down"/>
-</enum>
-
 <enum name="AuctionResult">
   <int value="0" label="Success"/>
   <int value="1" label="Aborted"/>
@@ -538,14 +468,6 @@ uploading your change for review.  These are checked by presubmit scripts.
   <int value="13" label="Invalid auction nonce"/>
   <int value="14" label="Abort signal"/>
   <int value="15" label="Document destruction"/>
-</enum>
-
-<enum name="AuctionState">
-  <int value="0" label="Not yet started"/>
-  <int value="1" label="Load interest groups"/>
-  <int value="2" label="Bidding and scoring"/>
-  <int value="3" label="Succeeded"/>
-  <int value="4" label="Failed"/>
 </enum>
 
 <enum name="AudioCodec">
@@ -905,12 +827,6 @@ uploading your change for review.  These are checked by presubmit scripts.
   <int value="5" label="Error code immediate run ineligible"/>
 </enum>
 
-<enum name="BidderSignalsOriginRelation">
-  <int value="0" label="No trusted signals requested"/>
-  <int value="1" label="Same-origin trusted signals requested"/>
-  <int value="2" label="Cross-origin trusted signals requested"/>
-</enum>
-
 <enum name="BitsPerPixelExponential">
   <summary>
     The ratio of image size in bits to displayed size in pixels. Ranges are
@@ -1182,16 +1098,6 @@ uploading your change for review.  These are checked by presubmit scripts.
   <int value="1" label="Delivered"/>
 </enum>
 
-<enum name="BooleanDeprecatedJSEnumName">
-  <int value="0" label="Not deprecated enum name"/>
-  <int value="1" label="Deprecated enum name"/>
-</enum>
-
-<enum name="BooleanDestroyed">
-  <int value="0" label="Not destroyed"/>
-  <int value="1" label="Destroyed"/>
-</enum>
-
 <enum name="BooleanDetected">
   <int value="0" label="Not detected"/>
   <int value="1" label="Detected"/>
@@ -1280,11 +1186,6 @@ uploading your change for review.  These are checked by presubmit scripts.
 <enum name="BooleanInForeground">
   <int value="0" label="Background"/>
   <int value="1" label="Foreground"/>
-</enum>
-
-<enum name="BooleanIsFileBacked">
-  <int value="0" label="Not file backed"/>
-  <int value="1" label="File backed"/>
 </enum>
 
 <enum name="BooleanKnown">
@@ -1493,6 +1394,7 @@ uploading your change for review.  These are checked by presubmit scripts.
   <int value="7" label="PROMOTE_TAB"/>
   <int value="8" label="OMNIBOX_FOCUS"/>
   <int value="9" label="INTERACTION_COMPLETE"/>
+  <int value="10" label="CLOSE_BUTTON"/>
 </enum>
 
 <enum name="BrowserProfileType">
@@ -2031,6 +1933,7 @@ Called by update_net_error_codes.py.-->
   <int value="-202" label="CERT_AUTHORITY_INVALID"/>
   <int value="-201" label="CERT_DATE_INVALID"/>
   <int value="-200" label="CERT_COMMON_NAME_INVALID"/>
+  <int value="-190" label="MULTICAST_NOT_ALLOWED"/>
   <int value="-189" label="CONTROL_MSG_TOO_BIG"/>
   <int value="-188" label="PROXY_DELEGATE_CANCELED_CONNECT_RESPONSE"/>
   <int value="-187" label="PROXY_DELEGATE_CANCELED_CONNECT_REQUEST"/>
@@ -2496,9 +2399,10 @@ Called by update_net_error_codes.py.-->
   <int value="144" label="Local network access - Loopback"/>
   <int value="145" label="Add Sub Apps without prompts"/>
   <int value="146" label="Inline cue menu"/>
+  <int value="147" label="Suspicious site warning data"/>
 </enum>
 
-<!-- LINT.ThenChange(//components/content_settings/core/browser/content_settings_uma_util.cc:kHistogramValue) -->
+<!-- LINT.ThenChange(//components/content_settings/core/common/content_settings_uma_constants.h:kContentSettingsTypeToHistogramValue) -->
 
 <!-- LINT.IfChange(ContextMenuOptionAndroid) -->
 
@@ -2560,6 +2464,9 @@ Called by update_net_error_codes.py.-->
   <int value="53" label="Copy video frame"/>
   <int value="54" label="Download video frame"/>
   <int value="55" label="Open in reading mode"/>
+  <int value="56" label="Send tab to self"/>
+  <int value="57" label="Translate page"/>
+  <int value="58" label="Create QR code for this page"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/contextmenu/ChromeContextMenuPopulator.java:ContextMenuUma.Action) -->
@@ -2583,80 +2490,6 @@ Called by update_net_error_codes.py.-->
 </enum>
 
 <!-- LINT.ThenChange(//components/omnibox/composebox/composebox_query.mojom:ModelMode) -->
-
-<!-- LINT.IfChange(ConversionCreateAggregatableReportStatus) -->
-
-<enum name="ConversionCreateAggregatableReportStatus">
-  <int value="0" label="Success"/>
-  <int value="1" label="Internal error"/>
-  <int value="2" label="No capacity for conversion destination"/>
-  <int value="3" label="No matching impressions"/>
-  <int value="4" label="Excessive attributions"/>
-  <int value="5" label="Excessive reporting origins"/>
-  <int value="6" label="No histograms created"/>
-  <int value="7" label="Insufficient aggregatable budget"/>
-  <int value="8" label="No matching source filter data"/>
-  <int value="9" label="Not registered"/>
-  <int value="10" label="Prohibited by browser policy"/>
-  <int value="11" label="Deduplicated"/>
-  <int value="12" label="Report window has passed"/>
-  <int value="13" label="Excessive reports"/>
-  <int value="14" label="Insufficient aggregatable named budget"/>
-</enum>
-
-<!-- LINT.ThenChange(//content/browser/attribution_reporting/aggregatable_result.mojom:AggregatableResult) -->
-
-<!-- LINT.IfChange(ConversionStorageCreateReportStatus) -->
-
-<enum name="ConversionStorageCreateReportStatus">
-  <int value="0" label="Success"/>
-  <int value="1" label="Success, but dropped lower-priority report"/>
-  <int value="2" label="Internal error"/>
-  <int value="3" label="No capacity for conversion destination"/>
-  <int value="4" label="No matching impressions"/>
-  <int value="5" label="Deduplicated against existing report"/>
-  <int value="6" label="Excessive attributions"/>
-  <int value="7" label="Priority lower than existing reports"/>
-  <int value="8" label="Source never attributed (noised)"/>
-  <int value="9" label="Excessive reporting origins"/>
-  <int value="10" label="No matching source filter data"/>
-  <int value="11" label="Prohibited by browser policy"/>
-  <int value="12" label="No matching configurations"/>
-  <int value="13" label="Excessive reports"/>
-  <int value="14" label="Falsely attributed source"/>
-  <int value="15" label="Report window has passed"/>
-  <int value="16" label="Not registered"/>
-  <int value="17" label="Report window has not started"/>
-  <int value="18" label="No matching trigger data"/>
-</enum>
-
-<!-- LINT.ThenChange(//content/browser/attribution_reporting/event_level_result.mojom:EventLevelResult) -->
-
-<!-- LINT.IfChange(ConversionStorageSourceStatus) -->
-
-<enum name="ConversionStorageSourceStatus">
-  <int value="0" label="Success"/>
-  <int value="1" label="Internal error"/>
-  <int value="2" label="No capacity for source site"/>
-  <int value="3" label="Excessive unique destination sites"/>
-  <int value="4" label="Excessive reporting orgins"/>
-  <int value="5" label="Prohibited by browser policy"/>
-  <int value="6" label="Success but noise applied"/>
-  <int value="7" label="Excessive destinations (per-reporting rate-limit)"/>
-  <int value="8" label="Excessive destinations (global rate-limit)"/>
-  <int value="9" label="Excessive destinations (both rate-limits)"/>
-  <int value="10" label="Excessive reporting origins per site limit"/>
-  <int value="11" label="Excessive channel capacity"/>
-  <int value="12"
-      label="(Obsolete) Event Report Windows start time is invalid. Removed
-             in 2023/10."/>
-  <int value="13" label="Excessive trigger state cardinality"/>
-  <int value="14" label="Excessive destinations (per reporting site per day)"/>
-  <int value="15" label="Excessive scopes channel capacity"/>
-  <int value="16" label="Excessive trigger event states"/>
-</enum>
-
-<!-- LINT.ThenChange(//content/browser/attribution_reporting/store_source_result.mojom:StoreSourceResult) -->
 
 <enum name="CookieAccessType">
   <int value="-1" label="Unknown cookie access"/>
@@ -3189,7 +3022,7 @@ shown properly on the user-facing crash UI.
 
 <enum name="DeviceBoundSessionError">
   <int value="0" label="Success"/>
-  <int value="1" label="Key error"/>
+  <int value="1" label="Signing key generation error"/>
   <int value="2" label="Signing error"/>
   <int value="3" label="Network error (DEPRECATED)"/>
   <int value="4" label="HTTP error (DEPRECATED)"/>
@@ -3288,6 +3121,10 @@ shown properly on the user-facing crash UI.
   <int value="81" label="Session deleted during refresh"/>
   <int value="82" label="Transient signing error"/>
   <int value="83" label="Cross-origin registration site not included"/>
+  <int value="84" label="Attestation key generation error"/>
+  <int value="85" label="Pre-provisioned key - initiator missing"/>
+  <int value="86" label="Pre-provisioned key access not granted"/>
+  <int value="87" label="Pre-provisioned key not found"/>
 </enum>
 
 <!-- LINT.ThenChange(//net/device_bound_sessions/session_error.h:DeviceBoundSessionError) -->
@@ -3345,12 +3182,6 @@ shown properly on the user-facing crash UI.
   <int value="42" label="Unknown owner good key, no policy"/>
   <int value="43" label="Unknown owner malformed key, no policy"/>
   <int value="44" label="Unknown owner no key, no policy"/>
-</enum>
-
-<enum name="DirectFromSellerSignalsRequestType">
-  <int value="0" label="Network service fetch"/>
-  <int value="1" label="Cache"/>
-  <int value="2" label="Coalesced"/>
 </enum>
 
 <enum name="DiscoverFeedBackgroundRefreshOutcome">
@@ -3861,6 +3692,43 @@ shown properly on the user-facing crash UI.
   <int value="11" label="Server returned error"/>
 </enum>
 
+<!-- LINT.IfChange(EnterpriseNetworkTokenFetchError) -->
+
+<enum name="EnterpriseNetworkTokenFetchError">
+  <int value="0" label="Success"/>
+  <int value="1" label="No Primary Account"/>
+  <int value="2" label="Unmanaged User"/>
+  <int value="3" label="Unsupported Scope"/>
+  <int value="4" label="Invalid Credentials"/>
+  <int value="5" label="Transient Error"/>
+  <int value="6" label="Auth Error"/>
+  <int value="7" label="Canceled"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/enterprise/net/core/enterprise_network_auth_service.h:TokenFetchError) -->
+
+<!-- LINT.IfChange(EnterpriseProvisioningDomainClientFetchResult) -->
+
+<enum name="EnterpriseProvisioningDomainClientFetchResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="Net Error"/>
+  <int value="2" label="HTTP Error"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/enterprise/net/core/provisioning_domain_client.h:ProvisioningDomainClientFetchResult) -->
+
+<!-- LINT.IfChange(EnterpriseProvisioningDomainFetchResult) -->
+
+<enum name="EnterpriseProvisioningDomainFetchResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="Invalid URL"/>
+  <int value="2" label="Token Fetch Error"/>
+  <int value="3" label="HTTP Error"/>
+  <int value="4" label="Parse Error"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/enterprise/net/core/provisioning_domain_fetcher.h:ProvisioningDomainFetchResult) -->
+
 <enum name="ExtensionInProgressRequestState">
   <int value="0" label="In progress"/>
   <int value="1" label="In progress, but the final response has arrived"/>
@@ -4102,10 +3970,10 @@ shown properly on the user-facing crash UI.
   <int value="0" label="kFetch"/>
   <int value="1" label="kBeacon"/>
   <int value="2"
-      label="kPing: Includes both kBeacon and kAttribution when used in
-             browser process"/>
+      label="kPing: Includes both kBeacon and kAttribution (obsolete) when
+             used in browser process"/>
   <int value="3" label="kReporting"/>
-  <int value="4" label="kAttribution"/>
+  <int value="4" label="kAttribution (obsolete)"/>
   <int value="5" label="kBackgroundFetchIcon"/>
 </enum>
 
@@ -4143,7 +4011,7 @@ shown properly on the user-facing crash UI.
 
 <enum name="FetchKeepAliveRequestType">
   <int value="0" label="kFetch"/>
-  <int value="1" label="kAttribution"/>
+  <int value="1" label="kAttribution (obsolete)"/>
   <int value="2" label="kFetchLater"/>
 </enum>
 
@@ -4230,15 +4098,6 @@ shown properly on the user-facing crash UI.
     entering BackForwardCache in a renderer process. It happens only when
     BackgroundSync permission of the FetchContext is off.
   </int>
-</enum>
-
-<enum name="FirstPartySetsDatabaseInitStatus">
-  <int value="0" label="Unattempted"/>
-  <int value="1" label="Success"/>
-  <int value="2" label="Failed to initialize DB"/>
-  <int value="3" label="(Obsolete) DB schema too new"/>
-  <int value="4" label="(Obsolete) DB schema too old"/>
-  <int value="5" label="DB data corrupted"/>
 </enum>
 
 <!-- LINT.IfChange(FirstRunImportBookmarksResult) -->
@@ -5166,6 +5025,7 @@ shown properly on the user-facing crash UI.
   <int value="-2147024362" label="DRM_E_ARITHMETIC_OVERFLOW (0x80070216)"/>
   <int value="-2147024319" label="ERROR_INVALID_IMAGE_HASH (0x80070241)"/>
   <int value="-2147024110" label="ERROR_ACCESS_DISABLED_NO_SAFER_UI_BY_POLICY"/>
+  <int value="-2147023901" label="ERROR_OPERATION_ABORTED"/>
   <int value="-2147023843" label="ERROR_SERVICE_REQUEST_TIMEOUT"/>
   <int value="-2147023838" label="ERROR_SERVICE_DISABLED"/>
   <int value="-2147023836" label="ERROR_SERVICE_DOES_NOT_EXIST"/>
@@ -5179,6 +5039,7 @@ shown properly on the user-facing crash UI.
   <int value="-2147023605" label="ERROR_DRIVER_PROCESS_TERMINATED"/>
   <int value="-2147023589" label="ERROR_INVALID_OWNER"/>
   <int value="-2147023584" label="ERROR_NO_SUCH_LOGON_SESSION"/>
+  <int value="-2147023537" label="ERROR_INTERNAL_ERROR"/>
   <int value="-2147023504" label="ERROR_FILE_CORRUPT"/>
   <int value="-2147023446" label="ERROR_NO_SYSTEM_RESOURCES"/>
   <int value="-2147023441" label="ERROR_COMMITMENT_LIMIT"/>
@@ -5187,9 +5048,11 @@ shown properly on the user-facing crash UI.
   <int value="-2147023179" label="RPC_S_UNKNOWN_IF"/>
   <int value="-2147023174" label="RPC_S_SERVER_UNAVAILABLE"/>
   <int value="-2147023170" label="RPC_S_CALL_FAILED"/>
+  <int value="-2147023164" label="RPC_S_UNSUPPORTED_TYPE"/>
   <int value="-2147023156" label="RPC_S_DUPLICATE_ENDPOINT"/>
   <int value="-2147023143" label="EPT_S_NOT_REGISTERED"/>
   <int value="-2147023113" label="RPC_X_BAD_STUB_DATA"/>
+  <int value="-2147022646" label="ERROR_NOT_CONNECTED"/>
   <int value="-2147019873" label="E_NOT_VALID_STATE (0x8007139F)"/>
   <int value="-2147012894" label="WININET_E_TIMEOUT"/>
   <int value="-2147012889" label="WININET_E_NAME_NOT_RESOLVED"/>
@@ -5298,8 +5161,10 @@ shown properly on the user-facing crash UI.
   <int value="-2003283956" label="DWRITE_E_NOCOLOR"/>
   <int value="-1606219753" label="GOOPDATE_E_NON_BLOCKING_CALL_PENDING"/>
   <int value="-1606219747" label="GOOPDATE_E_APP_USING_EXTERNAL_UPDATER"/>
+  <int value="-1073741819" label="STATUS_ACCESS_VIOLATION"/>
   <int value="-1073741811" label="STATUS_INVALID_PARAMETER"/>
   <int value="-1073741801" label="STATUS_INVALID_PARAMETER_2"/>
+  <int value="-1073741790" label="STATUS_ACCESS_DENIED"/>
   <int value="-1073741523" label="STATUS_CANT_WAIT"/>
   <int value="-1073741502" label="STATUS_DLL_INIT_FAILED"/>
   <int value="-1072875856" label="MF_E_PLATFORM_NOT_INITIALIZED"/>
@@ -5777,6 +5642,36 @@ shown properly on the user-facing crash UI.
   <int value="10" label="kHwsecFailure"/>
 </enum>
 
+<!-- LINT.IfChange(IamfMixMode) -->
+
+<enum name="IamfMixMode">
+  <int value="0" label="No Mix (Passthrough/Match)"/>
+  <int value="1" label="Downmix"/>
+  <int value="2" label="Upmix"/>
+</enum>
+
+<!-- LINT.ThenChange(//media/filters/iamf_audio_decoder.cc:IamfMixMode) -->
+
+<!-- Corresponds to //third_party/iamf_tools's iamf_tools::api::OutputLayout -->
+
+<enum name="IamfOutputLayout">
+  <int value="0" label="kItu2051_SoundSystemA_0_2_0 (Stereo)"/>
+  <int value="1" label="kItu2051_SoundSystemB_0_5_0 (5.1)"/>
+  <int value="2" label="kItu2051_SoundSystemC_2_5_0 (5.1.2)"/>
+  <int value="3" label="kItu2051_SoundSystemD_4_5_0 (5.1.4)"/>
+  <int value="4" label="kItu2051_SoundSystemE_4_5_1"/>
+  <int value="5" label="kItu2051_SoundSystemF_3_7_0"/>
+  <int value="6" label="kItu2051_SoundSystemG_4_9_0"/>
+  <int value="7" label="kItu2051_SoundSystemH_9_10_3"/>
+  <int value="8" label="kItu2051_SoundSystemI_0_7_0 (7.1)"/>
+  <int value="9" label="kItu2051_SoundSystemJ_4_7_0 (7.1.4)"/>
+  <int value="10" label="kIAMF_SoundSystemExtension_2_7_0 (7.1.2)"/>
+  <int value="11" label="kIAMF_SoundSystemExtension_2_3_0 (3.1.2)"/>
+  <int value="12" label="kIAMF_SoundSystemExtension_0_1_0 (Mono)"/>
+  <int value="13" label="kIAMF_SoundSystemExtension_6_9_0 (9.1.6)"/>
+  <int value="14" label="kIAMF_Binaural (Binaural)"/>
+</enum>
+
 <enum name="IDNA2008DeviationCharacter">
   <int value="0" label="None"/>
   <int value="1" label="Eszett"/>
@@ -5960,6 +5855,10 @@ shown properly on the user-facing crash UI.
   <int value="46" label="kWindowPlacement">
     A window.moveTo() / moveBy() / resizeTo() / resizeBy() / SetWindowRect() IPC
     arrived for a frame in BFCache or pending deletion.
+  </int>
+  <int value="47" label="kClipboard">
+    A clipboard read/write or listener registration IPC arrived for an inactive
+    frame.
   </int>
 </enum>
 
@@ -6150,51 +6049,6 @@ shown properly on the user-facing crash UI.
   <int value="0" label="Intent picker icon shown in Omnibox"/>
   <int value="1" label="Intent picker icon clicked in Omnibox"/>
   <int value="2" label="Intent picker dialog shown automatically"/>
-</enum>
-
-<enum name="InterestGroupAdAuctionExecutionMode">
-  <int value="0" label="compatibility"/>
-  <int value="1" label="group-by-origin"/>
-  <int value="2" label="frozen-context"/>
-</enum>
-
-<enum name="InterestGroupAdAuctionUpdateResizeOperation">
-  <int value="0" label="No batch resizing"/>
-  <int value="1" label="Batch is resized with same head and tail origins"/>
-  <int value="2"
-      label="Batch is resized with different origins across the boundary"/>
-  <int value="3"
-      label="Batch is resized with same origins across the boundary"/>
-</enum>
-
-<enum name="InterestGroupAdAuctionUrlLoaderInterceptorStartRequestOutcome">
-  <int value="0" label="There was no initiator frame"/>
-  <int value="1" label="Start request in fenced frame is not allowed"/>
-  <int value="2" label="Start request in non-primary page is not allowed"/>
-  <int value="3"
-      label="Start request in non-outermost main frame is not allowed"/>
-  <int value="4"
-      label="Start request with opaque request origin is not allowed"/>
-  <int value="5"
-      label="Start request with not potentially-trustworty origin is not
-             allowed"/>
-  <int value="6" label="Start request disabled by permissions policy"/>
-  <int value="7" label="Start request API not allowed for selling"/>
-  <int value="8" label="Start request succeeded"/>
-</enum>
-
-<enum name="InterestGroupAuctionReporterState">
-  <int value="0" label="The ad was never used"/>
-  <int value="1" label="Running top-level seller reportResult()"/>
-  <int value="2" label="Running component seller reportResult()"/>
-  <int value="3" label="Running buyer reportWin()"/>
-  <int value="4" label="All worklets completed running"/>
-  <int value="5" label="Initial state"/>
-</enum>
-
-<enum name="InterestGroupJoinPermissionResult">
-  <int value="0" label="Permission granted"/>
-  <int value="1" label="Permission denied"/>
 </enum>
 
 <enum name="InterruptReason">
@@ -7966,9 +7820,12 @@ from previous Chrome versions.
   <int value="-2104950596" label="HandwritingGesture:enabled"/>
   <int value="-2104757592"
       label="OmniboxUseExistingAutocompleteClient:enabled"/>
+  <int value="-2104746066" label="EnableAccountPreviewEntityPreviews:enabled"/>
   <int value="-2104240590" label="TimeOfDayDlc:disabled"/>
+  <int value="-2104082369" label="GlicOptInDialogA11yFix:disabled"/>
   <int value="-2103692632" label="EnhancedNetworkVoices:disabled"/>
   <int value="-2102286055" label="WebViewVulkanIntermediateBuffer:disabled"/>
+  <int value="-2101760176" label="AccessibilityAndroidMath:enabled"/>
   <int value="-2101682955" label="EnableNotificationIndicator:enabled"/>
   <int value="-2101674991" label="EnableExternalDisplayHDR10Mode:enabled"/>
   <int value="-2101626055" label="FeedPositionAndroid:disabled"/>
@@ -8044,6 +7901,7 @@ from previous Chrome versions.
   <int value="-2080227937" label="ImeTrayHideVoiceButton:enabled"/>
   <int value="-2079404182"
       label="ShowProfilePickerToAllUsersExperiment:disabled"/>
+  <int value="-2079396313" label="SkillsSettingsPolicyEnabled:enabled"/>
   <int value="-2079347889" label="CCTBeforeUnload:disabled"/>
   <int value="-2077268643" label="disable-device-enumeration"/>
   <int value="-2076848010" label="NtpComposebox:disabled"/>
@@ -8223,6 +8081,7 @@ from previous Chrome versions.
   <int value="-2030217301" label="password-export:disabled"/>
   <int value="-2029912304" label="StaleWhileRevalidate2:enabled"/>
   <int value="-2029381098" label="CompressionDictionaryTTL:enabled"/>
+  <int value="-2029060782" label="ToolbarProgressBarRefactor:disabled"/>
   <int value="-2028961033" label="SanitizerAPIv0:disabled"/>
   <int value="-2028402892" label="EnableIkev2Vpn:enabled"/>
   <int value="-2028336995" label="VirtualKeyboardDarkMode:disabled"/>
@@ -8278,6 +8137,8 @@ from previous Chrome versions.
   <int value="-2014051368" label="DefferOsClipboardReadCallToGettype:enabled"/>
   <int value="-2013948438"
       label="AudioFlexibleLoopbackForSystemLoopback:disabled"/>
+  <int value="-2013622831"
+      label="AutofillSaveCardBottomSheetStrikeLimitIos:disabled"/>
   <int value="-2013551096" label="ViewsSimplifiedFullscreenUI:disabled"/>
   <int value="-2013124655" label="EnableEphemeralFlashPermission:disabled"/>
   <int value="-2013085118" label="ClearLoginDatabaseForUPMUsers:enabled"/>
@@ -8310,6 +8171,7 @@ from previous Chrome versions.
   <int value="-2004882388" label="AutofillPruneSuggestions:enabled"/>
   <int value="-2004862295" label="FedCmUserInfo:disabled"/>
   <int value="-2004231189" label="AppNotificationStatusMessaging:disabled"/>
+  <int value="-2004019042" label="CastMirroringNativeNV12:disabled"/>
   <int value="-2003893779" label="SpeakOnMuteEnabled:enabled"/>
   <int value="-2003389300" label="CrossDeviceTabPaneAndroid:enabled"/>
   <int value="-2003354337"
@@ -8333,6 +8195,7 @@ from previous Chrome versions.
   <int value="-1998060131" label="WebMCPTesting:disabled"/>
   <int value="-1996887988" label="WaylandLinuxDrmSyncobj:disabled"/>
   <int value="-1996592771" label="FedCmAccountAutoSelectedFlag:enabled"/>
+  <int value="-1996458427" label="MultistepFilter:enabled"/>
   <int value="-1996233283"
       label="OmniboxGroupSuggestionsBySearchVsUrl:enabled"/>
   <int value="-1996087238" label="kAutofillEnableOffersInDownstream:enabled"/>
@@ -8392,6 +8255,7 @@ from previous Chrome versions.
   <int value="-1980124092" label="OmniboxHideSuggestionGroupHeaders:disabled"/>
   <int value="-1978938699" label="PwaNavigationCapturing:disabled"/>
   <int value="-1978625006" label="PcieBillboardNotification:disabled"/>
+  <int value="-1978494041" label="NtpScaledActionChips:enabled"/>
   <int value="-1978116081" label="SeaPen:disabled"/>
   <int value="-1978003156" label="EnableExtensibleEnterpriseSSO:disabled"/>
   <int value="-1977496883" label="ViewPasswords:enabled"/>
@@ -8404,12 +8268,15 @@ from previous Chrome versions.
   <int value="-1973722176" label="VoiceSearchOnLocalNtp:enabled"/>
   <int value="-1973559591" label="AppDiscoveryForOobe:enabled"/>
   <int value="-1973106081" label="JupiterScreensaver:disabled"/>
+  <int value="-1972935791"
+      label="enable-account-preview-entity-previews:disabled"/>
   <int value="-1972383451" label="disable-pinch"/>
   <int value="-1972312724" label="OfflinePagesLoadSignalCollecting:enabled"/>
   <int value="-1972219399" label="NTPSaveToOffline:enabled"/>
   <int value="-1971490389" label="UachOverrideBlank:disabled"/>
   <int value="-1971086581" label="print-scaling"/>
   <int value="-1970672551" label="CanvasContextLostInBackground:disabled"/>
+  <int value="-1969944335" label="ContextualTasksBypassDismissedCap:disabled"/>
   <int value="-1969636234" label="OmniboxRefinedFocusState:disabled"/>
   <int value="-1969627578" label="EnableVariableRefreshRateAlwaysOn:disabled"/>
   <int value="-1969569529" label="FedCmWebIdentitySubdomain:disabled"/>
@@ -8474,6 +8341,7 @@ from previous Chrome versions.
   <int value="-1952485783" label="LensSearchZeroStateCsb:enabled"/>
   <int value="-1952346069"
       label="WebSigninLeadsToImplicitlySignedInState:enabled"/>
+  <int value="-1951273805" label="SafetyFrePromo:enabled"/>
   <int value="-1951046208" label="SidePanelPrototype:disabled"/>
   <int value="-1950469963" label="SeparatePointingStickSettings:enabled"/>
   <int value="-1949653354"
@@ -8489,6 +8357,7 @@ from previous Chrome versions.
   <int value="-1946057753" label="GaiaIdCacheInAccountManagerFacade:disabled"/>
   <int value="-1945601266" label="freeze-user-agent"/>
   <int value="-1945524394" label="EnableBackgroundBlur:disabled"/>
+  <int value="-1945176497" label="ExportPlatformPoliciesJson:enabled"/>
   <int value="-1943817505" label="SingleClickAutofill:enabled"/>
   <int value="-1943507605" label="enable-new-video-renderer"/>
   <int value="-1943313820" label="SystemKeyboardLock:disabled"/>
@@ -8527,6 +8396,7 @@ from previous Chrome versions.
   <int value="-1935055754" label="WebShare:enabled"/>
   <int value="-1934661084" label="ForceUnifiedConsentBump:disabled"/>
   <int value="-1934298758" label="MacCatapSystemAudioLoopbackCapture:enabled"/>
+  <int value="-1934260888" label="enable-account-preview-data:enabled"/>
   <int value="-1933425042" label="OfflinePreviews:enabled"/>
   <int value="-1933262156" label="PwaRestoreUiAtStartup:enabled"/>
   <int value="-1932609987" label="CSSBackdropFilter:disabled"/>
@@ -8540,10 +8410,13 @@ from previous Chrome versions.
       label="AndroidTabDeclutterAutoDeleteKillSwitch:disabled"/>
   <int value="-1930487223"
       label="EnableFrameSinkDesktopCapturerInCrd:disabled"/>
+  <int value="-1930229631" label="SkillsSettingsPolicyEnabled:disabled"/>
   <int value="-1928515691" label="CachedLocationProvider:disabled"/>
   <int value="-1928198763" label="enable-async-dns"/>
   <int value="-1927968708" label="OmniboxPedalsAndroidBatch1:disabled"/>
   <int value="-1927080237" label="Vulkan:enabled"/>
+  <int value="-1926746234"
+      label="DirectSocketsUdpSendRequireMulticastPermissionPolicy:disabled"/>
   <int value="-1926236767" label="DynamicColorButtonsAndroid:enabled"/>
   <int value="-1926124919" label="WebViewOriginTrials:enabled"/>
   <int value="-1925573731" label="CreateShortcutIgnoresManifest:enabled"/>
@@ -8767,6 +8640,7 @@ from previous Chrome versions.
   <int value="-1856080892" label="UseAdHocSigningForWebAppShims:disabled"/>
   <int value="-1855876994"
       label="SyncEnableContactInfoDataTypeInTransportMode:enabled"/>
+  <int value="-1855602285" label="NativeViewHostManagesLayers:enabled"/>
   <int value="-1855347512" label="FormControlsRefresh:disabled"/>
   <int value="-1855339525"
       label="CompressionDictionaryTransportRequireKnownRootCert:enabled"/>
@@ -8792,6 +8666,8 @@ from previous Chrome versions.
       label="enable-loading-ipc-optimization-for-small-resources"/>
   <int value="-1847775690"
       label="DiacriticsOnPhysicalKeyboardLongpress:disabled"/>
+  <int value="-1847247914"
+      label="PwaNavigationCapturingTestingOverride:enabled"/>
   <int value="-1846680525" label="WebUIA11yEnhancements:enabled"/>
   <int value="-1846471618"
       label="enable-experimental-accessibility-switch-access-text"/>
@@ -8878,6 +8754,7 @@ from previous Chrome versions.
   <int value="-1821491797"
       label="AutofillEnableRankingFormulaCreditCards:enabled"/>
   <int value="-1821336389" label="DiscardedTabTreatment:enabled"/>
+  <int value="-1821271329" label="BookmarksBarContextMenu:enabled"/>
   <int value="-1821058653" label="enable-delay-agnostic-aec"/>
   <int value="-1820740914"
       label="AndroidAutofillUpdateContextForWebContents:disabled"/>
@@ -9019,6 +8896,7 @@ from previous Chrome versions.
   <int value="-1774490877" label="ChromeItemPickerUi:enabled"/>
   <int value="-1774392993"
       label="CompressionDictionaryTransportOverHttp2:disabled"/>
+  <int value="-1774373940" label="PaymentHandlerCameraAccess:enabled"/>
   <int value="-1774290918" label="webview-shadow-dom-fenced-frames"/>
   <int value="-1773078316" label="DragDropTabTearing:enabled"/>
   <int value="-1772942854" label="LongPressBackForHistory:enabled"/>
@@ -9065,9 +8943,11 @@ from previous Chrome versions.
   <int value="-1758468685" label="DownloadHomeV2:disabled"/>
   <int value="-1758074393" label="BorealisWebUIInstaller:disabled"/>
   <int value="-1757014990" label="SystemEmojiPickerVariantGrouping:disabled"/>
+  <int value="-1756509749" label="ContentAnalysisClipboardCopy:enabled"/>
   <int value="-1756299290" label="WebSerialAPI:enabled"/>
   <int value="-1755714804" label="FeedCloseRefresh:enabled"/>
   <int value="-1755301960" label="ClearOldBrowsingData:enabled"/>
+  <int value="-1755143357" label="NtpCustomizeChromeAndroid:enabled"/>
   <int value="-1754813606"
       label="PasswordSaveUpdateDropdownMenuExperiment:enabled"/>
   <int value="-1754262889" label="RemoteCopyPersistentNotification:enabled"/>
@@ -9157,6 +9037,8 @@ from previous Chrome versions.
   <int value="-1725507605" label="enable-web-midi"/>
   <int value="-1725376391"
       label="IncrementLocalSurfaceIdForMainframeSameDocNavigation:disabled"/>
+  <int value="-1725300970"
+      label="EnableOAuthMultiloginStandardCookiesBinding:enabled"/>
   <int value="-1724666110" label="AndroidHistoryPaneFavicons:disabled"/>
   <int value="-1724238554"
       label="AutofillEnableLogFormEventsToAllParsedFormTypes:enabled"/>
@@ -9206,6 +9088,7 @@ from previous Chrome versions.
   <int value="-1710182840" label="ConnectionAllowlists:disabled"/>
   <int value="-1709603348" label="ReaderModeImprovements:enabled"/>
   <int value="-1709271317" label="AutofillEnableBuyNowPayLaterSyncing:enabled"/>
+  <int value="-1708920983" label="notebook-home-url:disabled"/>
   <int value="-1707707919"
       label="AutofillEnableCardBenefitsForAmericanExpress:enabled"/>
   <int value="-1707563271" label="LauncherLocalImageSearchRelevance:disabled"/>
@@ -9332,6 +9215,7 @@ from previous Chrome versions.
   <int value="-1671494049" label="TrimOnFreeze:disabled"/>
   <int value="-1670137340"
       label="OptimizeLoadingIPCForSmallResources:disabled"/>
+  <int value="-1670089225" label="GlicGeminiEnterpriseConsentEnabled:enabled"/>
   <int value="-1669727073"
       label="HandwritingLegacyRecognitionAllLang:disabled"/>
   <int value="-1669486359" label="ImportantSitesInCBD:enabled"/>
@@ -9351,6 +9235,7 @@ from previous Chrome versions.
   <int value="-1664497967" label="SendPasswords:enabled"/>
   <int value="-1664290318" label="ComputePressure:enabled"/>
   <int value="-1663410466" label="top-document-isolation"/>
+  <int value="-1663262870" label="ReadAnythingImprovedUi:disabled"/>
   <int value="-1663125441" label="OptInImeMenu:enabled"/>
   <int value="-1662763888" label="SidePanelJourneys:disabled"/>
   <int value="-1662646099" label="NTPOfflinePageSuggestions:enabled"/>
@@ -9440,11 +9325,14 @@ from previous Chrome versions.
   <int value="-1637649767" label="SingleCaCertVerificationPhase2:enabled"/>
   <int value="-1637552275" label="NtpRealboxUseGoogleGIcon:disabled"/>
   <int value="-1637519819" label="EnablePolicyTestPage:disabled"/>
+  <int value="-1637496014"
+      label="AutofillSaveCardBottomSheetStrikeLimitIos:enabled"/>
   <int value="-1636940108" label="EcheSWACheckAndroidNetworkInfo:enabled"/>
   <int value="-1636188191" label="IncognitoNtpRevamp:enabled"/>
   <int value="-1635048938" label="DetectFormSubmissionOnFormClear:disabled"/>
   <int value="-1634878515" label="ChromeHomeModernLayout:enabled"/>
   <int value="-1634753928" label="QueryTilesDisableCountryOverride:disabled"/>
+  <int value="-1634708108" label="NativeViewHostManagesLayers:disabled"/>
   <int value="-1634490190"
       label="AutofillCreditCardLocalCardMigration:disabled"/>
   <int value="-1634154256" label="ZeroSuggestRedirectToChrome:enabled"/>
@@ -9463,6 +9351,8 @@ from previous Chrome versions.
   <int value="-1627961164"
       label="PressAndHoldEscToExitBrowserFullscreen:disabled"/>
   <int value="-1627943653" label="BiometricAuthenticationForFilling:enabled"/>
+  <int value="-1627807244"
+      label="enable-account-preview-entity-previews:enabled"/>
   <int value="-1626355048" label="ExtensionManifestV2Disabled:disabled"/>
   <int value="-1626110605" label="WebBundles:disabled"/>
   <int value="-1625881240" label="FullscreenExitUI:disabled"/>
@@ -9522,6 +9412,7 @@ from previous Chrome versions.
   <int value="-1612418793"
       label="ExperimentalAccessibilitySwitchAccessSetupGuide:enabled"/>
   <int value="-1612253158" label="HardwareSecureDecryptionExperiment:enabled"/>
+  <int value="-1612045044" label="GlicOptInDialogLinkA11yFix:enabled"/>
   <int value="-1611828357" label="FocusModeYTM:enabled"/>
   <int value="-1611758030" label="AndroidWebContentsDarkMode:disabled"/>
   <int value="-1611614160" label="HiddenNetworkMigration:disabled"/>
@@ -9584,6 +9475,7 @@ from previous Chrome versions.
   <int value="-1594067749" label="TabStripIncognitoMigration:disabled"/>
   <int value="-1593946814"
       label="AccountReauthenticationRecentTimeWindow:enabled"/>
+  <int value="-1593456166" label="TextHighlightFullLink:enabled"/>
   <int value="-1593218491" label="WebCryptoPQC:enabled"/>
   <int value="-1591974904"
       label="SafeBrowsingSeparateNetworkContexts:disabled"/>
@@ -9655,6 +9547,8 @@ from previous Chrome versions.
   <int value="-1571525676" label="FilesSWA:disabled"/>
   <int value="-1571428754" label="VcStudioLook:enabled"/>
   <int value="-1570760081" label="FocusFollowsCursor:disabled"/>
+  <int value="-1570451415"
+      label="enable-isolated-web-app-inline-update:enabled"/>
   <int value="-1569571629"
       label="AutofillEnableOffersInClankKeyboardAccessory:disabled"/>
   <int value="-1569484090" label="ElementCaptureOfOtherTabs:disabled"/>
@@ -9757,8 +9651,10 @@ from previous Chrome versions.
   <int value="-1534702850" label="RenderPassDrawnRect:disabled"/>
   <int value="-1533989961" label="AutofillEnableBuyNowPayLater:enabled"/>
   <int value="-1533450851" label="EnablePerDeskZOrder:enabled"/>
+  <int value="-1533406166" label="ContextualPanelCloseButton:disabled"/>
   <int value="-1533258008" label="CalculateNativeWinOcclusion:enabled"/>
   <int value="-1532720464" label="WellKnownChangePassword:enabled"/>
+  <int value="-1532704297" label="AimEligibilityComponentExtension:enabled"/>
   <int value="-1532645183" label="ReleaseNotesNotification:enabled"/>
   <int value="-1532501905"
       label="MediaPlaybackWhileNotVisiblePermissionPolicy:disabled"/>
@@ -10076,6 +9972,7 @@ from previous Chrome versions.
   <int value="-1443261188" label="DesktopPWAsTabStripLinkCapturing:disabled"/>
   <int value="-1443123730" label="WebAppMigratePreinstalledChat:disabled"/>
   <int value="-1442983656" label="ActorScriptToolSkipScreenshot:enabled"/>
+  <int value="-1441960576" label="linked-accounts:enabled"/>
   <int value="-1441695001" label="OmniboxOnFocusSuggestions:enabled"/>
   <int value="-1441386544" label="NtpSearchboxComposeEntrypoint:disabled"/>
   <int value="-1441340278" label="NewTabPageIcons:enabled"/>
@@ -10120,6 +10017,7 @@ from previous Chrome versions.
   <int value="-1425927931" label="LensOverlayImageContextMenuActions:enabled"/>
   <int value="-1425919952" label="EnableLauncherSearchNormalization:enabled"/>
   <int value="-1425697035" label="AppProvisioningStatic:enabled"/>
+  <int value="-1425572100" label="InlinePdfV2Incognito:disabled"/>
   <int value="-1425360465" label="BatterySaverModeAvailable:disabled"/>
   <int value="-1423429743" label="MakeIdentityManagerSourceOfAccounts:enabled"/>
   <int value="-1423348289" label="NupPrinting:disabled"/>
@@ -10224,6 +10122,7 @@ from previous Chrome versions.
   <int value="-1396434715" label="AssistMultiWord:disabled"/>
   <int value="-1396365071" label="AutofillAiDedupeEntities:disabled"/>
   <int value="-1396348326" label="DarkLightModeKMeansColor:enabled"/>
+  <int value="-1396284128" label="WebUiAndroidTheming:disabled"/>
   <int value="-1395598866" label="SidePanelResizing:disabled"/>
   <int value="-1395162885" label="enable-search-engine-choice:disabled"/>
   <int value="-1394600460" label="BrowsingHistoryActorIntegrationM2:disabled"/>
@@ -10245,6 +10144,7 @@ from previous Chrome versions.
       label="SupervisedUserEmitLogRecordSeparately:disabled"/>
   <int value="-1388956102" label="OmniboxTouchDownTriggerForPrefetch:disabled"/>
   <int value="-1388933740" label="CastStreamingHardwareHevc:enabled"/>
+  <int value="-1388835077" label="PdfBrotliDecode:disabled"/>
   <int value="-1388817073" label="OmniboxReverseAnswers:disabled"/>
   <int value="-1388546778" label="WebAppManifestImmediateUpdating:disabled"/>
   <int value="-1388233453"
@@ -10423,6 +10323,7 @@ from previous Chrome versions.
   <int value="-1329586063"
       label="MigrateDefaultChromeAppToWebAppsNonGSuite:disabled"/>
   <int value="-1329332304" label="cast-streaming-force-enable-hardware-hevc"/>
+  <int value="-1328783148" label="ComposeboxSkillsContextualTasks:disabled"/>
   <int value="-1328468625" label="LensSearchSidePanelNewFeedback:enabled"/>
   <int value="-1328090640" label="DesktopPWAsAppHomePage:enabled"/>
   <int value="-1328078305" label="RemoveSearchReadyOmnibox:disabled"/>
@@ -10535,6 +10436,7 @@ from previous Chrome versions.
   <int value="-1297664593" label="SafetyHubMagicStack:enabled"/>
   <int value="-1297627303" label="UnthrottleAsyncTouchMoves:disabled"/>
   <int value="-1297079591" label="EnableRemovingAllThirdPartyCookies:disabled"/>
+  <int value="-1295518976" label="EnableAiSubscriptionAvatarRing:enabled"/>
   <int value="-1295310553"
       label="OmniboxRemoveSuggestionHeaderChevron:enabled"/>
   <int value="-1295288468" label="MemoriesDebug:enabled"/>
@@ -10625,6 +10527,7 @@ from previous Chrome versions.
   <int value="-1268057710" label="(Obsolete) DisableLacrosTtsSupport:disabled"/>
   <int value="-1267958145" label="disable-pdf-material-ui"/>
   <int value="-1266934701" label="AccessibilityAXModes:enabled"/>
+  <int value="-1266754296" label="dictation-eval-mode:enabled"/>
   <int value="-1265863577"
       label="EnableBookmarksSelectedTypeOnSigninForTesting:enabled"/>
   <int value="-1265739179" label="SearchEngineExplicitChoiceDialog:enabled"/>
@@ -10712,6 +10615,7 @@ from previous Chrome versions.
   <int value="-1237921078" label="SyncUSSNigori:enabled"/>
   <int value="-1237821073" label="SharedHighlightingUseBlocklist:enabled"/>
   <int value="-1237621246" label="WebXRGamepadSupport:disabled"/>
+  <int value="-1237255399" label="WebMCP:enabled"/>
   <int value="-1237168561" label="AutofillAndPasswordsInSameSurface:disabled"/>
   <int value="-1236644821"
       label="FullscreenInsetsApiMigrationOnAutomotive:disabled"/>
@@ -10796,6 +10700,7 @@ from previous Chrome versions.
       label="AccessibilityUnserializeOptimizations:disabled"/>
   <int value="-1214870820" label="EnableNewStyleLauncher:enabled"/>
   <int value="-1214040127" label="JXLImageFormat:enabled"/>
+  <int value="-1213596582" label="ComposeboxSkills:disabled"/>
   <int value="-1213030642"
       label="ThirdPartyDisableChromeAutofillSettingsScreen:disabled"/>
   <int value="-1212959146" label="HideTabletToolbarDownloadButton:enabled"/>
@@ -10866,6 +10771,7 @@ from previous Chrome versions.
   <int value="-1187251500" label="OmniboxPedalsBatch2NonEnglish:disabled"/>
   <int value="-1186760297" label="ForceSpectreVariant2Mitigation:disabled"/>
   <int value="-1186638833" label="SigninLevelUpButton:enabled"/>
+  <int value="-1186626570" label="ComposeboxSkills:enabled"/>
   <int value="-1185833629" label="AppCollectionFolderRefresh:enabled"/>
   <int value="-1185656634" label="FileSystemProviderContentCache:enabled"/>
   <int value="-1185477291" label="ImeDecoderWithSandbox:enabled"/>
@@ -10903,6 +10809,7 @@ from previous Chrome versions.
       label="DropUnrecognizedTemplateUrlParameters:disabled"/>
   <int value="-1176748003"
       label="FramebustingNeedsSameOriginOrUserGesture:disabled"/>
+  <int value="-1176658463" label="linked-accounts:disabled"/>
   <int value="-1176540753"
       label="ContextualSearchWithCredentialsForDebug:enabled"/>
   <int value="-1176493523" label="enable-md-extensions"/>
@@ -11019,6 +10926,7 @@ from previous Chrome versions.
   <int value="-1145702446" label="ChromeHomeInactivitySheetExpansion:enabled"/>
   <int value="-1145246849" label="ThirdPartyDoodles:enabled"/>
   <int value="-1144754105" label="ScalableStatusArea:enabled"/>
+  <int value="-1144653831" label="TabSearchForDesktop:enabled"/>
   <int value="-1144501989" label="UserActivityPredictionMlService:disabled"/>
   <int value="-1144296865"
       label="ServiceWorkerSkipIgnorableFetchHandler:disabled"/>
@@ -11077,6 +10985,8 @@ from previous Chrome versions.
   <int value="-1125840399" label="ViewsBrowserWindows:enabled"/>
   <int value="-1125133283" label="disable-threaded-scrolling"/>
   <int value="-1124684239" label="LensEnableImageTranslate:enabled"/>
+  <int value="-1124462463"
+      label="EnableAccountPreviewPreferredAccount:enabled"/>
   <int value="-1124173285" label="kAccessibilityMagnifierFollowsSts:enabled"/>
   <int value="-1124129866" label="FedCmSkipWellKnownForSameSite:enabled"/>
   <int value="-1123824206" label="ArcS2Idle:enabled"/>
@@ -11168,6 +11078,7 @@ from previous Chrome versions.
   <int value="-1096531645" label="InfiniteTabsFreezing:enabled"/>
   <int value="-1096204531" label="Apb144Patch5:enabled"/>
   <int value="-1095947169" label="ModalPermissionDialogView:disabled"/>
+  <int value="-1094846514" label="GlicSparkSettingsAccessibleLabels:disabled"/>
   <int value="-1093967431" label="ToolbarSnapshotRefactor:enabled"/>
   <int value="-1093225454" label="FedCmIdPregistration:disabled"/>
   <int value="-1093224986" label="ArcUnthrottleOnActiveAudioV2:disabled"/>
@@ -11594,6 +11505,8 @@ from previous Chrome versions.
   <int value="-959244784" label="ContextualSearchSuppressShortView:enabled"/>
   <int value="-959173180" label="AccessibilityPageZoom:disabled"/>
   <int value="-958950214" label="AllowDisableMouseAcceleration:disabled"/>
+  <int value="-958616805"
+      label="EnableOAuthMultiloginStandardCookiesBinding:disabled"/>
   <int value="-958340040" label="GtsCloseTabAnimation:enabled"/>
   <int value="-958159088" label="RestoreTabsOnFRE:enabled"/>
   <int value="-958063963" label="DeduplicateNativePaymentApps:disabled"/>
@@ -11675,12 +11588,14 @@ from previous Chrome versions.
   <int value="-932261921"
       label="enable-defer-all-script-without-optimization-hints"/>
   <int value="-931494909" label="DefaultLinkCapturingInBrowser:disabled"/>
+  <int value="-931410760" label="ToolbarProgressBarRefactor:enabled"/>
   <int value="-930676269" label="TranslateOpenSettings:enabled"/>
   <int value="-930478115" label="CameraAppDocScanDlc:enabled"/>
   <int value="-930168768" label="IsolatedWebAppAutomaticUpdates:disabled"/>
   <int value="-929944930"
       label="AutofillRationalizeRepeatedServerPredictions:disabled"/>
   <int value="-929290033" label="CrosSodaConchLanguages:disabled"/>
+  <int value="-928815194" label="AccessibilityAndroidMath:disabled"/>
   <int value="-928138978" label="IPH_DemoMode:disabled"/>
   <int value="-926780551" label="AndroidZoomIndicator:enabled"/>
   <int value="-926422468" label="disable-embedded-shared-worker"/>
@@ -11720,8 +11635,6 @@ from previous Chrome versions.
   <int value="-913629421" label="CastStreamingVp8:enabled"/>
   <int value="-913571703" label="TabAndLinkDragDropAndroid:enabled"/>
   <int value="-913294939" label="DriveFS:enabled"/>
-  <int value="-913218734"
-      label="WebAuthnUsePasskeyFromAnotherDeviceInContextMenu:enabled"/>
   <int value="-912946915" label="LauncherSearchControl:disabled"/>
   <int value="-912585719" label="AppManagementIntentSettings:disabled"/>
   <int value="-912456561" label="MidiManagerWinrt:enabled"/>
@@ -11780,6 +11693,8 @@ from previous Chrome versions.
   <int value="-896040242" label="PrefetchFontLookupTables:enabled"/>
   <int value="-895071695" label="DesktopScreenshots:enabled"/>
   <int value="-894774400" label="FiltersInRecentsV2:enabled"/>
+  <int value="-894222549"
+      label="ContextualTasksCloseTabExpandsSidePanel:disabled"/>
   <int value="-894214299" label="fill-on-account-select:enabled"/>
   <int value="-894185031" label="HighDynamicRange:disabled"/>
   <int value="-893673593" label="BentoOffline:disabled"/>
@@ -11791,6 +11706,8 @@ from previous Chrome versions.
   <int value="-892428689" label="ManualPasswordGenerationAndroid:enabled"/>
   <int value="-892297699" label="EditContext:enabled"/>
   <int value="-891856063" label="MidiManagerAndroid:enabled"/>
+  <int value="-891163701"
+      label="enable-account-preview-preferred-account:disabled"/>
   <int value="-890843885" label="ComposeboxDriveContextMenuOption:disabled"/>
   <int value="-889670978" label="AssistantRoutines:disabled"/>
   <int value="-889192283" label="WebUIOmniboxFullPopupV2:disabled"/>
@@ -11845,6 +11762,7 @@ from previous Chrome versions.
   <int value="-871450829"
       label="ThreadedScrollPreventRenderingStarvation:disabled"/>
   <int value="-871419968" label="FilesTrashDrive:enabled"/>
+  <int value="-871141355" label="OmniboxAimImageDownscaling:disabled"/>
   <int value="-870994173" label="NtpChromeCartModule:enabled"/>
   <int value="-870120067" label="EnableSearchBoxSelection:enabled"/>
   <int value="-870118210" label="AutofillEnableCardBenefitsSync:enabled"/>
@@ -11949,6 +11867,7 @@ from previous Chrome versions.
   <int value="-839788988" label="EnableToggleCameraShortcut:disabled"/>
   <int value="-839664591" label="enable-web-authentication-testing-api"/>
   <int value="-839544057" label="WebRtcCombinedNetworkAndWorkerThread:enabled"/>
+  <int value="-838973510" label="VariableSystemFontSupportOnWindows:disabled"/>
   <int value="-838719204"
       label="ForceMajorVersionInMinorPositionInUserAgent:disabled"/>
   <int value="-838233458" label="RustyPng:enabled"/>
@@ -12060,12 +11979,14 @@ from previous Chrome versions.
   <int value="-803206774" label="TabbedAppOverflowMenuActionBar:disabled"/>
   <int value="-802348444" label="disable-site-engagement-service"/>
   <int value="-802309777" label="ChromeTipsInMainMenu:disabled"/>
+  <int value="-801312039" label="WebUiAndroidTheming:enabled"/>
   <int value="-801022306" label="BrowserWindowInterfaceMobile:enabled"/>
   <int value="-800565336" label="ArcInstantResponseWindowOpen:disabled"/>
   <int value="-800464360" label="ContextualPageActions:enabled"/>
   <int value="-800364245" label="DevToolsPwaHandler:enabled"/>
   <int value="-800301139" label="VCLightIntensity:enabled"/>
   <int value="-800127303" label="OmniboxPedalsTranslationConsole:disabled"/>
+  <int value="-799956030" label="SubmenusInAppMenuLff:enabled"/>
   <int value="-799931058" label="UseMultiloginEndpoint:disabled"/>
   <int value="-799638577" label="AndroidAnimatedProgressBarInViz:enabled"/>
   <int value="-799444168" label="WebApkInstallFailureNotification:enabled"/>
@@ -12107,6 +12028,7 @@ from previous Chrome versions.
   <int value="-787430013" label="GroupSuggestionService:disabled"/>
   <int value="-787426248" label="ChromeHomeSurvey:disabled"/>
   <int value="-787418584" label="EnableDozeModePowerScheduler:disabled"/>
+  <int value="-787309087" label="OmniboxListMenuContextMenu:disabled"/>
   <int value="-787238455" label="OmniboxZeroSuggestionsOnSERP:disabled"/>
   <int value="-787176861" label="CaptureModeEducationBypassLimits:enabled"/>
   <int value="-785528415" label="FedCm:disabled"/>
@@ -12618,6 +12540,7 @@ from previous Chrome versions.
       label="AutofillPreventOverridingPrefilledValues:enabled"/>
   <int value="-627028731"
       label="EnableChromeRefreshTokenBindingUpgrade:disabled"/>
+  <int value="-626756888" label="GlicSparkSettingsAccessibleLabels:enabled"/>
   <int value="-626329144" label="SyncSupportTrustedVaultPassphrase:enabled"/>
   <int value="-626211146" label="DesktopMinimalUI:disabled"/>
   <int value="-625858826" label="EnableDuplicateDownloadDialog:disabled"/>
@@ -12639,11 +12562,13 @@ from previous Chrome versions.
   <int value="-619740638" label="ListAllDisplayModes:enabled"/>
   <int value="-619665653" label="DisableKeepaliveFetch:disabled"/>
   <int value="-619582383" label="LacrosLaunchAtLoginScreen:disabled"/>
+  <int value="-619386740" label="ContextualPanelCloseButton:enabled"/>
   <int value="-619329259" label="ScreenlockReauthPromoCard:disabled"/>
   <int value="-619178844" label="NewOverviewLayout:disabled"/>
   <int value="-619178295" label="MediaAppLens:disabled"/>
   <int value="-617598270" label="kEnableNearbyBleV2GattServer:disabled"/>
   <int value="-617452890" label="media-router"/>
+  <int value="-616870045" label="GlicContextMenuBelowSearch:disabled"/>
   <int value="-616818899" label="SameSiteByDefaultCookies:enabled"/>
   <int value="-616508634" label="DisableCryptAuthV1DeviceSync:enabled"/>
   <int value="-616414905" label="ThumbnailCacheRefactor:disabled"/>
@@ -12753,6 +12678,7 @@ from previous Chrome versions.
   <int value="-580897686" label="SharedHighlightingAmp:enabled"/>
   <int value="-580051880" label="BirchWeather:disabled"/>
   <int value="-579897981" label="EnableEdgeDetection:enabled"/>
+  <int value="-579771734" label="AimEligibilityComponentExtension:disabled"/>
   <int value="-579656054" label="CCTResizableSideSheetForThirdParties:enabled"/>
   <int value="-579655251"
       label="AutofillEnableVcnGrayOutForMerchantOptOut:enabled"/>
@@ -12855,6 +12781,7 @@ from previous Chrome versions.
       label="QuickActionSearchWidgetAndroidDinoVariant:enabled"/>
   <int value="-551334994" label="NotificationPermissionVariant:enabled"/>
   <int value="-550145191" label="AndroidThemeResourceProvider:disabled"/>
+  <int value="-549795607" label="NtpScaledActionChips:disabled"/>
   <int value="-548082154" label="protect-sync-credential:disabled"/>
   <int value="-547763795" label="SystemEmojiPickerExtension:disabled"/>
   <int value="-547301855" label="SyncPseudoUSSSupervisedUsers:enabled"/>
@@ -12883,8 +12810,10 @@ from previous Chrome versions.
   <int value="-538448229" label="MaxUnthrottledTimeoutNestingLevel:enabled"/>
   <int value="-538398895"
       label="EnterpriseUpdatedProfileCreationScreen:disabled"/>
+  <int value="-538384350" label="OrganizerPanel:disabled"/>
   <int value="-538323456" label="OmniboxSuggestionAnswerMigration:enabled"/>
   <int value="-538317834" label="ShimlessRMAComplianceCheck:enabled"/>
+  <int value="-538240055" label="MagiChromePasskeySignIn:disabled"/>
   <int value="-538141684" label="SafetyTip:enabled"/>
   <int value="-538003236" label="OneTimePermission:disabled"/>
   <int value="-536289234" label="ssl-interstitial-v2-colorful"/>
@@ -12915,6 +12844,7 @@ from previous Chrome versions.
   <int value="-529896675" label="SmartLockSignInRemoved:disabled"/>
   <int value="-528927088" label="AutofillCreditCardPopupLayout:disabled"/>
   <int value="-528759276" label="ShoppingCollection:disabled"/>
+  <int value="-528629131" label="ComposeboxSkillsNtp:disabled"/>
   <int value="-528469511" label="EnableShouldShowPromotion:enabled"/>
   <int value="-528441522" label="AppsShortcutDefaultOff:disabled"/>
   <int value="-528149352" label="WebRtcUseEchoCanceller3:enabled"/>
@@ -12956,6 +12886,7 @@ from previous Chrome versions.
   <int value="-515913489" label="EphemeralTabUsingBottomSheet:disabled"/>
   <int value="-515066652"
       label="WebAuthenticationAlignErrorTypeForPaymentCredentialCreate:disabled"/>
+  <int value="-514880404" label="PdfReuseFragment:enabled"/>
   <int value="-514807488" label="TabStripDensityChangeAndroid:disabled"/>
   <int value="-514672474"
       label="PolicyProvidedTrustAnchorsAllowedAtLockScreen:enabled"/>
@@ -12964,6 +12895,7 @@ from previous Chrome versions.
   <int value="-513459348"
       label="FedCmIdentityCredentialAutoSelectedFlag:enabled"/>
   <int value="-513305102" label="LanguagesPreference:enabled"/>
+  <int value="-513261143" label="ComposeboxSkillsNtp:enabled"/>
   <int value="-513066193" label="SyncUSSPasswords:enabled"/>
   <int value="-512971943" label="disable-one-copy"/>
   <int value="-512702391"
@@ -13048,6 +12980,7 @@ from previous Chrome versions.
   <int value="-492972850" label="SettingsAppNotificationSettings:disabled"/>
   <int value="-492864618" label="NTPForeignSessionsSuggestions:disabled"/>
   <int value="-491975582" label="AccessibilitySlowKeys:enabled"/>
+  <int value="-491821073" label="ComposeboxSkillsOmniboxEverywhere:disabled"/>
   <int value="-491546546" label="MeteredShowToggle:enabled"/>
   <int value="-491208379" label="ChromeTipsInMainMenuNewBadge:disabled"/>
   <int value="-491131428" label="OmniboxNewAnswerLayout:disabled"/>
@@ -13069,6 +13002,7 @@ from previous Chrome versions.
       label="OmniboxHistoryQuickProviderAllowMidwordContinuations:disabled"/>
   <int value="-482259889" label="MacMDDownloadShelf:disabled"/>
   <int value="-482188490" label="ImpulseScrollAnimations:disabled"/>
+  <int value="-481820874" label="ContextualTasksBypassDismissedCap:enabled"/>
   <int value="-481626345" label="WebAppEnableScopeExtensions:enabled"/>
   <int value="-481238673" label="EnableAndroidGamepadVibration:disabled"/>
   <int value="-480376207" label="OmniboxMiaZPS:enabled"/>
@@ -13119,6 +13053,7 @@ from previous Chrome versions.
   <int value="-465114665"
       label="PasswordSaveInContextErrorResolution:disabled"/>
   <int value="-464380210" label="ContextualTasksExpandButton:enabled"/>
+  <int value="-463764673" label="TextHighlightFullLink:disabled"/>
   <int value="-463661468" label="FullscreenAlwaysShowTrafficLights:disabled"/>
   <int value="-463161052" label="TearOffWebAppTabOpensWebAppWindow:enabled"/>
   <int value="-462877654" label="FilesMaterializedViews:enabled"/>
@@ -13161,6 +13096,7 @@ from previous Chrome versions.
   <int value="-454362199" label="HelpAppV2:disabled"/>
   <int value="-454359275" label="kQuickAnswersMaterialNextUI:disabled"/>
   <int value="-454246685" label="AndroidAppIntegrationWithFavicon:disabled"/>
+  <int value="-453577040" label="DevToolsInstrumentationBreakpoints:enabled"/>
   <int value="-453506590" label="MediaLinkHelpers:disabled"/>
   <int value="-452734575" label="ArcExtendInputAnrTimeout:enabled"/>
   <int value="-451898735" label="private-aggregation-developer-mode"/>
@@ -13194,6 +13130,7 @@ from previous Chrome versions.
   <int value="-441139232" label="ExcludeDisplayInMirrorMode:enabled"/>
   <int value="-440532303" label="FillRecoveryPassword:disabled"/>
   <int value="-440210229" label="AndroidHistoryPaneFavicons:enabled"/>
+  <int value="-439778992" label="VisualGuidedSetterDocking:enabled"/>
   <int value="-439728770" label="VidsAppExistingConsumerPreinstall:disabled"/>
   <int value="-439110184" label="AndroidWebAppLaunchHandler:disabled"/>
   <int value="-438529902" label="CaptivePortalErrorPage:enabled"/>
@@ -13207,7 +13144,6 @@ from previous Chrome versions.
   <int value="-437292646" label="DeferBeginMainFrameDuringLoading:enabled"/>
   <int value="-436799973" label="FederatedService:enabled"/>
   <int value="-436652388" label="SigninLevelUpButton:disabled"/>
-  <int value="-436475661" label="TabSearchForAL:enabled"/>
   <int value="-436470115" label="TouchpadAndWheelScrollLatching:enabled"/>
   <int value="-435914745" label="ClipboardContentSetting:disabled"/>
   <int value="-435636565" label="EnableLensPing:disabled"/>
@@ -13319,6 +13255,7 @@ from previous Chrome versions.
       label="ReadAnythingReadAloudPhraseHighlighting:enabled"/>
   <int value="-398922143" label="IframeOneGoogleBar:enabled"/>
   <int value="-398706729" label="PermissionPredictionsV3:disabled"/>
+  <int value="-398689677" label="PaymentHandlerCameraAccess:disabled"/>
   <int value="-398623652" label="CCTTargetTranslateLanguage:enabled"/>
   <int value="-398325847" label="HelpAppCrosComponents:enabled"/>
   <int value="-398280726" label="AutoDocPiPPermissionPromptAndroid:enabled"/>
@@ -13367,6 +13304,7 @@ from previous Chrome versions.
   <int value="-381181808" label="DragAppsInTabletMode:enabled"/>
   <int value="-380992110"
       label="AutofillEnableSaveCardInfoBarAccountIndicationFooter:enabled"/>
+  <int value="-380783630" label="NtpScaledActionChipsSmall:disabled"/>
   <int value="-379809954"
       label="AutofillDoNotMigrateUnsupportedLocalCards:disabled"/>
   <int value="-379723130" label="FasterSetCookie:enabled"/>
@@ -13386,6 +13324,7 @@ from previous Chrome versions.
   <int value="-374423260" label="OmniboxTabSwitchSuggestions:disabled"/>
   <int value="-374005145" label="UsePrimaryAndTonalButtonsForPromos:disabled"/>
   <int value="-373365335" label="JourneysOmniboxAction:disabled"/>
+  <int value="-373319805" label="AndroidDesktopBookmarkPopup:disabled"/>
   <int value="-373233195" label="SyncUSSAutofillWalletData:enabled"/>
   <int value="-372171039" label="BlinkGenPropertyTrees:disabled"/>
   <int value="-371771269" label="ShortcutsNotApps:enabled"/>
@@ -13421,6 +13360,7 @@ from previous Chrome versions.
   <int value="-363237269" label="OmniboxNumWebZpsMostVisitedUrls:disabled"/>
   <int value="-363145046" label="LegacyTechReportTopLevelUrl:disabled"/>
   <int value="-362821234" label="ExperimentalUi:enabled"/>
+  <int value="-362579873" label="force-ai-subscription-tier"/>
   <int value="-362022976" label="disable-quirks-client"/>
   <int value="-361948582" label="material-security-verbose"/>
   <int value="-361767063" label="FedCmLoginHint:disabled"/>
@@ -13435,6 +13375,7 @@ from previous Chrome versions.
   <int value="-357272449" label="AutoRevokeSuspiciousNotification:disabled"/>
   <int value="-357250869"
       label="ActivateMetricsReportingEnabledPolicyAndroid:enabled"/>
+  <int value="-356786376" label="Notebooks:disabled"/>
   <int value="-356767031" label="DataSharingJoinOnly:disabled"/>
   <int value="-356140869" label="NewTabPageCustomizationForMvt:disabled"/>
   <int value="-355931495" label="FastPair:enabled"/>
@@ -13451,6 +13392,7 @@ from previous Chrome versions.
   <int value="-351830087" label="AssistantConsentSimplifiedText:enabled"/>
   <int value="-351744276"
       label="ExperimentalAccessibilityDictationContextChecking:enabled"/>
+  <int value="-351685390" label="GlicGeminiEnterpriseConsentEnabled:disabled"/>
   <int value="-351552989" label="disable-hosted-apps-in-windows"/>
   <int value="-351127770" label="enable-offline-pages-as-bookmarks"/>
   <int value="-350558651" label="EnableWebHidInWebView:disabled"/>
@@ -13518,6 +13460,8 @@ from previous Chrome versions.
   <int value="-335331552" label="TabGroupsForTablets:disabled"/>
   <int value="-334873793" label="MediaSessionNotification:enabled"/>
   <int value="-334654963" label="JupiterScreensaver:enabled"/>
+  <int value="-334487969" label="ContextualPanelCloseButtonOnTablets:enabled"/>
+  <int value="-332313804" label="enable-account-preview-data:disabled"/>
   <int value="-332018524" label="ContextualTasksContextLibrary:enabled"/>
   <int value="-332010491" label="RetailCoupons:enabled"/>
   <int value="-331952590" label="OmniboxTriggerForPrerender2:enabled"/>
@@ -13529,6 +13473,7 @@ from previous Chrome versions.
   <int value="-329681489" label="AndroidXrImmersivePlayer:disabled"/>
   <int value="-329174540" label="CoralFeature:disabled"/>
   <int value="-328957421" label="MagicBoostRevampForQuickAnswers:disabled"/>
+  <int value="-328544753" label="GlicSettingsA11yContextFix:disabled"/>
   <int value="-328361990" label="enable-experimental-extension-apis"/>
   <int value="-328339709" label="WebFeedAwareness:enabled"/>
   <int value="-327520505" label="RelatedSearchesAlternateUx:enabled"/>
@@ -13573,6 +13518,7 @@ from previous Chrome versions.
   <int value="-314566497"
       label="BrokerFileOperationsOnDiskCacheInNetworkService:enabled"/>
   <int value="-314102877" label="PdfInk2:enabled"/>
+  <int value="-313966893" label="BottomSheetOnDesktopWindowing:enabled"/>
   <int value="-313893599"
       label="DesktopPWAsLinkCapturingWithScopeExtensions:disabled"/>
   <int value="-313812707" label="VideoTutorials:disabled"/>
@@ -13788,6 +13734,7 @@ from previous Chrome versions.
   <int value="-252128826" label="ContextualSearchDelayedIntelligence:enabled"/>
   <int value="-251167216" label="ArcUpdateO4CListViaA2C2:disabled"/>
   <int value="-250822813" label="PwaImprovedSplashScreen:enabled"/>
+  <int value="-250810041" label="CrossWindowTabGroupOperations:disabled"/>
   <int value="-250721831" label="AndroidAutofillAccessibility:disabled"/>
   <int value="-250631040" label="ReadAnythingReadabilitySelectText:disabled"/>
   <int value="-250543540" label="DeferAllScript:enabled"/>
@@ -13806,6 +13753,7 @@ from previous Chrome versions.
   <int value="-245342115" label="PermissionChip:enabled"/>
   <int value="-243786659" label="DevToolsPlusButton:disabled"/>
   <int value="-242836432" label="EnableFakeKeyboardHeuristic:disabled"/>
+  <int value="-242673912" label="BookmarksBarContextMenu:disabled"/>
   <int value="-242603713" label="EnableImprovedGuestProfileMenu:disabled"/>
   <int value="-242441279" label="SafetyCheckUnusedSitePermissions:enabled"/>
   <int value="-242431978" label="StartSurfaceRefactor:enabled"/>
@@ -13841,6 +13789,7 @@ from previous Chrome versions.
   <int value="-234231190" label="SharingDeviceRegistration:enabled"/>
   <int value="-233334129" label="BiometricTouchToFill:disabled"/>
   <int value="-232769318" label="EventBasedLogUpload:disabled"/>
+  <int value="-232581478" label="WebUIRoundedIcons:disabled"/>
   <int value="-231967261" label="AutofillUpdatedCardUnmaskPromptUi:disabled"/>
   <int value="-231922000" label="enable-renderer-mojo-channel"/>
   <int value="-231699759" label="SafetyHubLocalPasswordsModule:disabled"/>
@@ -13915,7 +13864,6 @@ from previous Chrome versions.
   <int value="-204355195" label="secondary-ui-md"/>
   <int value="-203968600" label="SyncSupportSecondaryAccount:disabled"/>
   <int value="-203256841" label="AutofillEnablePayNowPayLaterTabs:disabled"/>
-  <int value="-203084256" label="TabSearchForAL:disabled"/>
   <int value="-203058505" label="QueryTilesSegmentation:disabled"/>
   <int value="-202823508" label="LockTopControlsOnLargeTabletsV2:disabled"/>
   <int value="-202761528" label="FeedDynamicColors:enabled"/>
@@ -14253,6 +14201,7 @@ from previous Chrome versions.
   <int value="-99433146" label="LacrosLaunchAtLoginScreen:enabled"/>
   <int value="-99310969"
       label="DeviceBoundSessionAccessObserverSharedRemote:disabled"/>
+  <int value="-98451548" label="EnableAccountPreviewPreferredAccount:disabled"/>
   <int value="-97599565" label="WebViewNewInvalidateHeuristic:disabled"/>
   <int value="-97511671" label="AnimatedImageDragShadow:disabled"/>
   <int value="-97145978" label="DesktopPWAsStayInWindow:enabled"/>
@@ -14260,6 +14209,7 @@ from previous Chrome versions.
       label="ExperimentalAccessibilitySelectToSpeakVoiceSwitching:enabled"/>
   <int value="-96752091"
       label="InitializePoliciesForSignedInUserInNewEntryPoints:disabled"/>
+  <int value="-95704655" label="CctTabResumption:disabled"/>
   <int value="-95160434" label="AdvancedPeripheralsSupport:disabled"/>
   <int value="-95018838" label="BuiltInHlsPlayer:enabled"/>
   <int value="-94535722" label="TimeOfDayWallpaper:enabled"/>
@@ -14276,7 +14226,9 @@ from previous Chrome versions.
   <int value="-91575163" label="PaymentLinkDetection:disabled"/>
   <int value="-91370149" label="UseSerialBusEnumerator:enabled"/>
   <int value="-90521375" label="PDFTwoUpView:enabled"/>
+  <int value="-90410008" label="WebUiNtpAndroidTheming:enabled"/>
   <int value="-90032223" label="BuiltInModuleInfra:disabled"/>
+  <int value="-90018824" label="InlinePdfV2Incognito:enabled"/>
   <int value="-89812525"
       label="AutofillEnableMerchantOptOutClientSideUrlFiltering:enabled"/>
   <int value="-89690053" label="MaterialDesignUserManager:enabled"/>
@@ -14602,7 +14554,6 @@ from previous Chrome versions.
   <int value="10511293" label="LensOverlaySimplifiedSelection:enabled"/>
   <int value="10929486" label="WebNNDirectML:disabled"/>
   <int value="11390425" label="TabGroupParityBottomSheetAndroid:disabled"/>
-  <int value="11698808" label="enable-dom-distiller-button-animation"/>
   <int value="11744127" label="EnableToolbarSwipeOnNonDesktopLff:disabled"/>
   <int value="11924259"
       label="AutofillEnableUpdateVirtualCardEnrollment:enabled"/>
@@ -14645,6 +14596,7 @@ from previous Chrome versions.
   <int value="27507364" label="apps-keep-chrome-alive"/>
   <int value="27619459" label="WebAuthenticationImmediateGet:enabled"/>
   <int value="27632363" label="JourneysOmniboxHistoryClusterProvider:enabled"/>
+  <int value="27771670" label="MagiChromePasskeySignIn:enabled"/>
   <int value="27970819" label="ProductSpecificationsMultiSpecifics:disabled"/>
   <int value="28182289" label="CastStreamingVp8:disabled"/>
   <int value="28930887"
@@ -14709,8 +14661,10 @@ from previous Chrome versions.
   <int value="48619644" label="MostVisitedTilesVisualDeduplication:enabled"/>
   <int value="48666910" label="ClipboardHistoryLongpress:disabled"/>
   <int value="48850808" label="AutocorrectUseReplaceSurroundingText:enabled"/>
+  <int value="48874945" label="VisualGuidedSetterDocking:disabled"/>
   <int value="49971529" label="TabGroupEntryPointsAndroid:disabled"/>
   <int value="50643563" label="MBIMode:enabled"/>
+  <int value="50719475" label="EnterprisePublishedSkillsPolicyEnabled:enabled"/>
   <int value="50976151" label="DefaultBrowserPromoAndroid2:enabled"/>
   <int value="51256990" label="IPH_AutofillAiValuables:enabled"/>
   <int value="51793504" label="protect-sync-credential-on-reauth:disabled"/>
@@ -14829,6 +14783,7 @@ from previous Chrome versions.
       label="DataReductionProxyEnabledWithNetworkService:disabled"/>
   <int value="89909398" label="CameraAppDigitalZoom:disabled"/>
   <int value="89934221" label="MediaAppPhotosIntegrationImage:disabled"/>
+  <int value="90493901" label="TabStripUnification:disabled"/>
   <int value="90551098" label="UseWallpaperStagingUrl:enabled"/>
   <int value="90673685" label="cast-mirroring-target-playout-delay"/>
   <int value="91502414" label="VerticalTabsExpandOnHover:disabled"/>
@@ -14887,6 +14842,7 @@ from previous Chrome versions.
   <int value="106744400" label="OmniboxModernizeVisualUpdate:enabled"/>
   <int value="106789059"
       label="ReduceUserAgentDataLinuxPlatformVersion:disabled"/>
+  <int value="106789396" label="bottom-sheet-on-desktop-windowing:disabled"/>
   <int value="106840653" label="mus"/>
   <int value="107358678" label="GalleryAppPdfEditNotification:enabled"/>
   <int value="107900612" label="ChromeHomePersistentIph:disabled"/>
@@ -15068,6 +15024,7 @@ from previous Chrome versions.
   <int value="165912610"
       label="PrivateNetworkAccessForWorkersWarningOnly:enabled"/>
   <int value="165962668" label="EnablePreferencesAccountStorage:enabled"/>
+  <int value="167951987" label="TabAndroidGracefulShutdown:disabled"/>
   <int value="168025622" label="EnableInputEventLogging:enabled"/>
   <int value="168052820" label="PermissionsAndroidClapperQuiet:disabled"/>
   <int value="168429629" label="ContentIndexingNTP:enabled"/>
@@ -15189,6 +15146,7 @@ from previous Chrome versions.
   <int value="205375645" label="AudioHFPNbsWarning:enabled"/>
   <int value="205426997" label="BackGestureActivityTabProvider:enabled"/>
   <int value="205874143" label="RustyPng:disabled"/>
+  <int value="206957383" label="NtpCustomizeChromeAndroid:disabled"/>
   <int value="207326879" label="NearbySharingReceiveWifiCredentials:enabled"/>
   <int value="207907053"
       label="OmniboxUIExperimentBlueSearchLoopAndSearchQuery:enabled"/>
@@ -15308,10 +15266,12 @@ from previous Chrome versions.
   <int value="245896533" label="SearchSuggestionsOnLocalNtp:enabled"/>
   <int value="246106068" label="HandwritingLegacyRecognition:disabled"/>
   <int value="246451316" label="NotificationInteractionHistory:enabled"/>
+  <int value="246571458" label="PdfReuseFragment:disabled"/>
   <int value="247069527" label="GlicToolbarButtonLocation:enabled"/>
   <int value="247200195" label="EnhancedProtectionPromoCard:enabled"/>
   <int value="248485874" label="FieldClassificationModelCaching:disabled"/>
   <int value="249465446" label="UseRealColorSpaceForAndroidVideo:enabled"/>
+  <int value="249683531" label="ComposeboxSkillsOmniboxEverywhere:enabled"/>
   <int value="249727337" label="EnableTranslationAPI:enabled"/>
   <int value="250236604" label="kUserMediaScreenCapturing:enabled"/>
   <int value="250297614" label="EnableExclusiveAccessManager:enabled"/>
@@ -15395,6 +15355,7 @@ from previous Chrome versions.
   <int value="274103741" label="enable-ntp-popular-sites"/>
   <int value="274779588" label="OmniboxResizingPrioritization:disabled"/>
   <int value="275314794" label="DeprecateUnload:disabled"/>
+  <int value="275462756" label="notebook-home-url:enabled"/>
   <int value="275484835" label="TabSwitcherContextMenuAndroid:enabled"/>
   <int value="275616740" label="ForceInitialSyncWhenDecryptionFails:disabled"/>
   <int value="275690549" label="AppManagementAppDetails:enabled"/>
@@ -15461,6 +15422,7 @@ from previous Chrome versions.
   <int value="291998717" label="AccessibilitySnapshotStressTests:disabled"/>
   <int value="292058664" label="OpenDownloadDialog:disabled"/>
   <int value="292150395" label="AndroidVerticalTabs:enabled"/>
+  <int value="292541723" label="VariableSystemFontSupportOnWindows:enabled"/>
   <int value="292560715" label="ViewsCastDialog:disabled"/>
   <int value="292731264" label="PasswordChangeInSettings:disabled"/>
   <int value="292842744"
@@ -15468,6 +15430,7 @@ from previous Chrome versions.
   <int value="292936174" label="ShowForceRespectUiGainsToggle:enabled"/>
   <int value="293025775" label="UseDnsHttpsSvcb:enabled"/>
   <int value="293134455" label="AutofillSendBillingCustomerNumber:disabled"/>
+  <int value="293548931" label="OmniboxListMenuContextMenu:enabled"/>
   <int value="293878745" label="BluetoothBtsnoopInternals:disabled"/>
   <int value="293996306" label="ArrayPrototypeValues:disabled"/>
   <int value="294150128" label="RelatedSearchesSimplifiedUx:enabled"/>
@@ -15521,6 +15484,7 @@ from previous Chrome versions.
   <int value="307543404" label="disable-team-drives"/>
   <int value="307670929"
       label="enable-ambient-authentication-in-guest-session"/>
+  <int value="307714031" label="SafetyFrePromo:disabled"/>
   <int value="308163683" label="WebMachineLearningNeuralNetwork:disabled"/>
   <int value="308941571" label="PrintPreviewDiscoveredPrinters:enabled"/>
   <int value="309795366" label="ScrollUnification:disabled"/>
@@ -15603,6 +15567,7 @@ from previous Chrome versions.
   <int value="336830575" label="DeviceForceScheduledReboot:enabled"/>
   <int value="337637199" label="HttpsFirstModeIncognito:disabled"/>
   <int value="338061950" label="ChromeWebStoreNavigationThrottle:disabled"/>
+  <int value="338244977" label="NtpCustomizeWebUiAndroid:enabled"/>
   <int value="338353369" label="AndroidSurfaceColorUpdate:disabled"/>
   <int value="338662897" label="AndroidNightModeTabReparenting:disabled"/>
   <int value="339224207" label="ReaderModeUseReadability:enabled"/>
@@ -15619,6 +15584,7 @@ from previous Chrome versions.
   <int value="343286828" label="IgnoreUiGains:disabled"/>
   <int value="343445783" label="AllowScrollSettings:enabled"/>
   <int value="343815157" label="SafeBrowsingHashPrefixRealTimeLookups:enabled"/>
+  <int value="345246871" label="WebUiNtpAndroidTheming:disabled"/>
   <int value="345430155" label="CrOSDspBasedAgcAllowed:enabled"/>
   <int value="345611669"
       label="OmniboxLocalZeroSuggestFrecencyRanking:enabled"/>
@@ -15751,6 +15717,7 @@ from previous Chrome versions.
   <int value="379397486" label="WebViewSupervisedUserSiteBlock:disabled"/>
   <int value="379428799" label="security-chip-animation"/>
   <int value="379502873" label="webrtc-hw-decoding:enabled"/>
+  <int value="379619532" label="GlicSettingsA11yContextFix:enabled"/>
   <int value="379856248" label="AutofillEnableNewFopDisplayDesktop:enabled"/>
   <int value="380372760" label="V8Orinoco:disabled"/>
   <int value="380378407" label="LacrosProfileMigrationForceOff:enabled"/>
@@ -15802,6 +15769,7 @@ from previous Chrome versions.
   <int value="397275669" label="QuickCommands:disabled"/>
   <int value="397422144" label="autofill-ai-wallet-pass-branding-2026:enabled"/>
   <int value="398220251" label="OmniboxFuseboxAsyncInflation:enabled"/>
+  <int value="398469223" label="CameraAndMicrophoneElements:enabled"/>
   <int value="398903399" label="GenericSensorExtraClasses:disabled"/>
   <int value="399015470" label="SkiaGraphitePrecompilation:enabled"/>
   <int value="399039205" label="enable-webrtc-hw-vp9-encoding"/>
@@ -15870,6 +15838,7 @@ from previous Chrome versions.
   <int value="414403270" label="PrivacyGuide:disabled"/>
   <int value="414780410" label="SyncTrustedVaultPassphraseRecovery:enabled"/>
   <int value="414937629" label="MediaNotificationsCounter:enabled"/>
+  <int value="415032209" label="GlicOptInDialogA11yFix:enabled"/>
   <int value="415154056" label="enable-physical-keyboard-autocorrect"/>
   <int value="415395210" label="TrimOnMemoryPressure:enabled"/>
   <int value="416116189" label="DeprecateLowUsageCodecs:enabled"/>
@@ -15897,11 +15866,14 @@ from previous Chrome versions.
   <int value="425026866"
       label="PageInfoAboutThisSiteImprovedBottomSheet:disabled"/>
   <int value="425072496" label="GridLayoutForNtpShortcuts:enabled"/>
+  <int value="425545874" label="BottomSheetOnDesktopWindowing:disabled"/>
   <int value="425621232" label="Conch:enabled"/>
   <int value="425658479" label="AutofillUploadCardRequestTimeout:disabled"/>
   <int value="425938961" label="DesksCloseAll:disabled"/>
   <int value="426199960" label="Commander:enabled"/>
   <int value="426540253" label="PowerScheduler:disabled"/>
+  <int value="426826016"
+      label="EnterprisePublishedSkillsPolicyEnabled:disabled"/>
   <int value="427184788" label="WebFeed:enabled"/>
   <int value="427351143" label="StartSurfaceSpareTab:enabled"/>
   <int value="427807224" label="IPH_Snooze:disabled"/>
@@ -15910,6 +15882,7 @@ from previous Chrome versions.
   <int value="427945554" label="StrictExtensionIsolation:enabled"/>
   <int value="428554364" label="OffsetParentNewSpecBehavior:disabled"/>
   <int value="428631746" label="BackGestureActivityTabProvider:disabled"/>
+  <int value="430526292" label="SidePanelTopHairlineRefactorAndroid:enabled"/>
   <int value="430776375" label="TextureLayerSkipWaitForActivation:disabled"/>
   <int value="430959979" label="SyncStandaloneTransport:disabled"/>
   <int value="431610096" label="SearchEngineUnconditionalDialog:enabled"/>
@@ -15937,6 +15910,7 @@ from previous Chrome versions.
   <int value="438398886"
       label="AutofillEnableStickyManualFallbackForCards:enabled"/>
   <int value="438447086" label="AutocorrectToggle:disabled"/>
+  <int value="438595159" label="TabSharingToolbarAndroid:enabled"/>
   <int value="439267320" label="ScreenTime:disabled"/>
   <int value="439442906" label="PrefetchActivationBeacon:disabled"/>
   <int value="439533068" label="CCTToolbarRefactor:enabled"/>
@@ -16016,6 +15990,7 @@ from previous Chrome versions.
   <int value="464773709" label="OmniboxExperimentalSuggestScoring:enabled"/>
   <int value="464979219" label="CrOSLateBootAudioHFPOffload:disabled"/>
   <int value="465600939" label="DefaultPassthroughCommandDecoder:enabled"/>
+  <int value="465614730" label="NtpNext:disabled"/>
   <int value="466248382" label="disable-push-api-background-mode"/>
   <int value="466421847" label="WebuiRefresh2026:enabled"/>
   <int value="467078443" label="FwupdDeveloperMode:disabled"/>
@@ -16036,6 +16011,7 @@ from previous Chrome versions.
   <int value="473958125" label="OmniboxWrapPopupPosition:enabled"/>
   <int value="474743272" label="material-design-ink-drop"/>
   <int value="475447801" label="HistoryPaneAndroid:disabled"/>
+  <int value="475682747" label="NtpNext:enabled"/>
   <int value="475858648"
       label="OverlayScrollbarFlashAfterAnyScrollUpdate:disabled"/>
   <int value="476201267" label="TabGroupCreationDialogAndroid:disabled"/>
@@ -16060,6 +16036,7 @@ from previous Chrome versions.
   <int value="481916934" label="AndroidDesktopAimGate:enabled"/>
   <int value="481942786" label="AndroidGrammarCheck:enabled"/>
   <int value="482232604" label="PercentBasedScrolling:enabled"/>
+  <int value="482867637" label="ComposeboxSkillsContextualTasks:enabled"/>
   <int value="483155358" label="GlobalMediaControlsForChromeOS:disabled"/>
   <int value="483173979" label="SecurePaymentConfirmationExtensions:disabled"/>
   <int value="483473934" label="HelpAppOnboardingRevamp:enabled"/>
@@ -16114,7 +16091,6 @@ from previous Chrome versions.
   <int value="502551931" label="IncognitoStrings:enabled"/>
   <int value="503189154" label="ViewsBrowserWindows:disabled"/>
   <int value="503245473" label="disable-translate-new-ux"/>
-  <int value="503573295" label="SingleCaCertVerificationPhase0:disabled"/>
   <int value="503722868" label="CrosBlockWarnings:disabled"/>
   <int value="504292494" label="HttpCacheNoVarySearch:enabled"/>
   <int value="504549229" label="WebViewDisplayCutout:disabled"/>
@@ -16237,6 +16213,8 @@ from previous Chrome versions.
   <int value="547884840"
       label="AutofillEnableCardInfoRuntimeRetrieval:disabled"/>
   <int value="548028412" label="AutofillEnableVcn3dsAuthentication:enabled"/>
+  <int value="548371012"
+      label="enable-account-preview-preferred-account:enabled"/>
   <int value="548503129" label="ImpulseScrollAnimations:enabled"/>
   <int value="548613700" label="CSSTextBoxTrim:enabled"/>
   <int value="548618823" label="SyncAndroidPromosWithSingleButton:enabled"/>
@@ -16272,10 +16250,13 @@ from previous Chrome versions.
       label="AutofillEnableMerchantOptOutErrorDialog:enabled"/>
   <int value="560062958" label="Cr2023MacFontSmoothing:disabled"/>
   <int value="560369327" label="LauncherImageSearch:disabled"/>
+  <int value="560843639"
+      label="DirectSocketsUdpSendRequireMulticastPermissionPolicy:enabled"/>
   <int value="560953355"
       label="ExtractRelatedSearchesFromPrefetchedZPSResponse:disabled"/>
   <int value="561162418" label="DrawKeyNativeEdgeToEdge:disabled"/>
   <int value="561374433" label="SCTAuditing:disabled"/>
+  <int value="561692339" label="dictation-eval-mode:disabled"/>
   <int value="561951500" label="GlobalMediaControlsCastStartStop:enabled"/>
   <int value="562111126" label="SidePanelBorder:enabled"/>
   <int value="562185887" label="PasswordSuggestionBottomSheetV2:enabled"/>
@@ -16487,6 +16468,7 @@ from previous Chrome versions.
   <int value="632340413" label="network-settings-config"/>
   <int value="632456816" label="HistoryClustersOnDeviceClustering:enabled"/>
   <int value="632631179" label="ArcIdleManager:enabled"/>
+  <int value="632974582" label="UniversalKeyboardHandling:enabled"/>
   <int value="633317946" label="TabGroupHoverCards:enabled"/>
   <int value="633442161" label="ExperimentalUi:disabled"/>
   <int value="633573061"
@@ -16516,6 +16498,7 @@ from previous Chrome versions.
   <int value="638865852" label="UsePreferredIntervalForVideo:disabled"/>
   <int value="638977069" label="ModalMemorySaver:enabled"/>
   <int value="639765450" label="AccessCodeCastTabSwitchingUI:enabled"/>
+  <int value="640005692" label="AndroidDesktopBookmarkPopup:enabled"/>
   <int value="640174751" label="AndroidMultipleDisplay:enabled"/>
   <int value="640256251" label="RemotePageMetadata:enabled"/>
   <int value="642037198" label="SoleIntegration:disabled"/>
@@ -16715,6 +16698,7 @@ from previous Chrome versions.
   <int value="697211154" label="ContextManagementInOmnibox:enabled"/>
   <int value="697247166" label="AIPromptAPIParams:enabled"/>
   <int value="697503858" label="SharingPeerConnectionSender:disabled"/>
+  <int value="698077921" label="ComposeboxSkillsOmniboxPopup:disabled"/>
   <int value="698253616"
       label="ExperimentalAccessibilityChromeVoxOobeDialogImprovements:disabled"/>
   <int value="698273842" label="SyncSendTabToSelf:enabled"/>
@@ -16904,6 +16888,7 @@ from previous Chrome versions.
   <int value="747391377" label="DesktopPWAsRunOnOsLogin:disabled"/>
   <int value="747477721" label="EolIncentive:disabled"/>
   <int value="747847237" label="PhysicalWeb:enabled"/>
+  <int value="748658740" label="WebMCP:disabled"/>
   <int value="749073102" label="WebXrSharedBuffers:disabled"/>
   <int value="749312701" label="ChromeOSAccountManager:disabled"/>
   <int value="749384976" label="InStockNotification:disabled"/>
@@ -16927,6 +16912,7 @@ from previous Chrome versions.
   <int value="753999924" label="EnableOAuthMultiloginCookiesBinding:disabled"/>
   <int value="756018202" label="CCTMinimized:enabled"/>
   <int value="756897997" label="PaintHoldingCrossOrigin:disabled"/>
+  <int value="757620268" label="ReadAnythingImprovedUi:enabled"/>
   <int value="757645375" label="AndroidDarkSearch:disabled"/>
   <int value="757912345" label="SnapGroup:disabled"/>
   <int value="758299873" label="OmniboxSuggestionHoverFillShape:enabled"/>
@@ -16995,11 +16981,13 @@ from previous Chrome versions.
   <int value="775148009" label="OsSettingsDeepLinking:disabled"/>
   <int value="775373286" label="TabModelInitFixes:enabled"/>
   <int value="775894411" label="AndroidContextMenuDuplicateTabs:disabled"/>
+  <int value="776589844" label="SubmenusInAppMenuLff:disabled"/>
   <int value="777569794" label="FeedWebUi:enabled"/>
   <int value="777667507" label="DesktopPWAsLinkCapturing:enabled"/>
   <int value="778000757" label="EnableInputEventLogging:disabled"/>
   <int value="778338284" label="Prewarm:enabled"/>
   <int value="778533213" label="WebAssemblyStackSwitching:disabled"/>
+  <int value="779078009" label="GlicContextMenuBelowSearch:enabled"/>
   <int value="779086132" label="enable-data-reduction-proxy-alt"/>
   <int value="779703052" label="ChromeOSAmbientMode:enabled"/>
   <int value="779849093" label="OfflinePagesCTSuppressNotifications:disabled"/>
@@ -17058,6 +17046,7 @@ from previous Chrome versions.
   <int value="797924041" label="DeferredShaping:enabled"/>
   <int value="798093827"
       label="EnableEscapeHandlingForSecondaryActivities:enabled"/>
+  <int value="798254284" label="CastMirroringNativeNV12:enabled"/>
   <int value="798414711" label="BorealisForceDoubleScale:enabled"/>
   <int value="798456441" label="ConchGenAi:disabled"/>
   <int value="798696013" label="ImeInputLogicMozc:enabled"/>
@@ -17275,6 +17264,7 @@ from previous Chrome versions.
   <int value="870664435" label="DownloadProgressInfoBar:disabled"/>
   <int value="871071097" label="MostVisitedTilesReselect:disabled"/>
   <int value="871435095" label="EnableAggregatedMlAppRanking:disabled"/>
+  <int value="871677656" label="DevToolsInstrumentationBreakpoints:disabled"/>
   <int value="871713352" label="ImprovedLanguageSettings:enabled"/>
   <int value="872409871" label="InlinePdfV2:disabled"/>
   <int value="872507779" label="AIMSuppressVerbatimMatch:enabled"/>
@@ -17282,6 +17272,7 @@ from previous Chrome versions.
   <int value="873323760" label="MediaFoundationClearPlayback:disabled"/>
   <int value="874614410" label="CSSOverflowForReplacedElements:enabled"/>
   <int value="875077636" label="OriginAgentClusterDefaultEnable:disabled"/>
+  <int value="875092151" label="CctTabResumption:enabled"/>
   <int value="875388341"
       label="ContextualTasksEphemeralBrandedEntryPoint:enabled"/>
   <int value="875647914" label="AimServerEligibilityEnabled:disabled"/>
@@ -17402,6 +17393,8 @@ from previous Chrome versions.
   <int value="915272476" label="Apb144Patch3:enabled"/>
   <int value="915402820" label="RequestDesktopSiteExceptions:disabled"/>
   <int value="916316159" label="disable-new-app-list-mixer"/>
+  <int value="916807839"
+      label="PwaNavigationCapturingTestingOverride:disabled"/>
   <int value="916841877" label="OmniboxMostVisitedTilesFadingOnTablet:enabled"/>
   <int value="917180139" label="AutofillUnmaskCardRequestTimeout:disabled"/>
   <int value="917285134" label="AutofillAddressProfileSavePrompt:enabled"/>
@@ -17564,6 +17557,7 @@ from previous Chrome versions.
   <int value="970901442" label="EnableAndroidGamepadVibration:enabled"/>
   <int value="972228058" label="SyncUSSSessions:disabled"/>
   <int value="973161931" label="EnableIframeForPix:enabled"/>
+  <int value="973427644" label="NtpScaledActionChipsSmall:enabled"/>
   <int value="973601997" label="SafeBrowsingUseLocalBlacklistsV2:disabled"/>
   <int value="974840558" label="TabGroupsFocusing:disabled"/>
   <int value="975104092" label="show-taps"/>
@@ -17621,6 +17615,7 @@ from previous Chrome versions.
   <int value="992066588" label="SHA1ServerSignature:disabled"/>
   <int value="992151904" label="AutofillAtMemory:enabled"/>
   <int value="992170242" label="AutofillAiWalletVehicleRegistration:enabled"/>
+  <int value="992265305" label="MultistepFilter:disabled"/>
   <int value="993486662" label="BorealisForceBetaClient:enabled"/>
   <int value="993850099" label="FedCmButtonMode:disabled"/>
   <int value="994317727"
@@ -17654,6 +17649,8 @@ from previous Chrome versions.
   <int value="1003006004" label="RichBubbleWithoutImage:disabled"/>
   <int value="1003081697" label="DesktopPWAsUnifiedInstall:enabled"/>
   <int value="1003419905" label="AutofillImprovedLabels:disabled"/>
+  <int value="1003541603"
+      label="enable-isolated-web-app-inline-update:disabled"/>
   <int value="1003612981"
       label="AutofillAutoTriggerManualFallbackForCards:enabled"/>
   <int value="1003673062" label="MediaIndicatorsAndroid:disabled"/>
@@ -17699,12 +17696,14 @@ from previous Chrome versions.
   <int value="1016132283" label="SeparateLocalAndAccountSearchEngines:enabled"/>
   <int value="1017364362" label="VrIconInDaydreamHome:enabled"/>
   <int value="1017523412" label="ExtensionsMenuAccessControl:disabled"/>
+  <int value="1017563501" label="GlobalPrivacyControlForce:enabled"/>
   <int value="1017617938"
       label="AutofillEnableBuyNowPayLaterForKlarna:disabled"/>
   <int value="1018101051" label="TabGroupShortcuts:enabled"/>
   <int value="1018797564" label="EnableAppListSearchAutocomplete:disabled"/>
   <int value="1018998019" label="memlog"/>
   <int value="1019321025" label="FeatureManagement16Desks:disabled"/>
+  <int value="1019465902" label="bottom-sheet-on-desktop-windowing:enabled"/>
   <int value="1019623058" label="ash-enable-shelf-model-synchronization"/>
   <int value="1019857902"
       label="disable-hide-inactive-stacked-tab-close-buttons"/>
@@ -17723,8 +17722,10 @@ from previous Chrome versions.
   <int value="1023777155" label="AutocorrectParamsTuning:enabled"/>
   <int value="1023849676" label="SmdsDbusMigration:enabled"/>
   <int value="1024560563" label="EnableFuzzyAppSearch:enabled"/>
+  <int value="1025089469" label="GlicTabGroups:disabled"/>
   <int value="1025383624" label="FilesLocalImageSearch:enabled"/>
   <int value="1026169964" label="MicMuteNotifications:enabled"/>
+  <int value="1026805166" label="SidePanelTopHairlineRefactorAndroid:disabled"/>
   <int value="1026981579" label="TLS13HardeningForLocalAnchors:enabled"/>
   <int value="1027183966" label="CrossDeviceSigninFromDesktop:disabled"/>
   <int value="1027252926" label="SyncSupportSecondaryAccount:enabled"/>
@@ -17781,6 +17782,7 @@ from previous Chrome versions.
   <int value="1045152062" label="SecurePaymentConfirmationBrowser:enabled"/>
   <int value="1045179357" label="NtpRealboxLensSearch:disabled"/>
   <int value="1045199610" label="AlignPdfDefaultPrintSettingsWithHTML:enabled"/>
+  <int value="1045923302" label="GlicOptInDialogLinkA11yFix:disabled"/>
   <int value="1046157767" label="Glic:disabled"/>
   <int value="1046878091" label="PasswordForceSaving:enabled"/>
   <int value="1046981538" label="OfflinePagesShowAlternateDinoPage:disabled"/>
@@ -17868,6 +17870,7 @@ from previous Chrome versions.
   <int value="1074427701" label="NewPrintPreviewLayout:enabled"/>
   <int value="1074609906" label="ContextualTasksSidePanel:disabled"/>
   <int value="1075191614" label="LauncherSystemInfoAnswerCards:disabled"/>
+  <int value="1075390184" label="WebUIRoundedIcons:enabled"/>
   <int value="1075535842" label="TabStripGroupContextMenuAndroid:enabled"/>
   <int value="1075637651" label="disable-tablet-splitview"/>
   <int value="1075862390" label="LauncherItemSuggest:enabled"/>
@@ -18061,6 +18064,7 @@ from previous Chrome versions.
   <int value="1129109601" label="EnableAIWriterAPI:disabled"/>
   <int value="1129542111" label="CastAllowAllIPs:disabled"/>
   <int value="1129888794" label="ash-touch-hud"/>
+  <int value="1130229973" label="Aim3pEntrypoint:disabled"/>
   <int value="1131627624" label="DefaultStyleSheetsEarlyInit:enabled"/>
   <int value="1131677207" label="OmniboxShowPopupOnMouseReleased:enabled"/>
   <int value="1132343836" label="AndroidBookmarkBarFastFollow:enabled"/>
@@ -18119,6 +18123,7 @@ from previous Chrome versions.
   <int value="1149741132" label="RecordPermissionExpirationTimestamps:enabled"/>
   <int value="1149763389" label="ReadAnythingWithReadability:enabled"/>
   <int value="1149823105" label="enable-input-ime-api"/>
+  <int value="1150102241" label="WebUIOmniboxAskGAboutThisPage:disabled"/>
   <int value="1150622273" label="enable-apps-file-associations"/>
   <int value="1151907729" label="NtpModuleSignInRequirement:enabled"/>
   <int value="1152166164" label="EnableExclusiveAccessManager:disabled"/>
@@ -18171,12 +18176,14 @@ from previous Chrome versions.
       label="UseUnexportableKeyServiceInBrowserProcess:disabled"/>
   <int value="1174027589" label="OmniboxNumWebZpsRelatedSearches:enabled"/>
   <int value="1174088940" label="enable-wasm"/>
+  <int value="1174161831" label="ContentAnalysisClipboardCopy:disabled"/>
   <int value="1175660959" label="AutofillEnableCardArtImage:enabled"/>
   <int value="1176183341" label="SearchHistoryLink:enabled"/>
-  <int value="1176484713" label="SingleCaCertVerificationPhase0:enabled"/>
   <int value="1177120582" label="InstallableInkDrop:disabled"/>
   <int value="1177174300" label="LayoutNGTable:disabled"/>
   <int value="1177628103" label="GaiaActionButtons:disabled"/>
+  <int value="1177821222" label="CCTNavigationInfoScreenshot:enabled"/>
+  <int value="1178566071" label="EnableAccountPreviewData:enabled"/>
   <int value="1178640449" label="ProductivityLauncher:disabled"/>
   <int value="1179013979"
       label="OmniboxUIExperimentMaxAutocompleteMatches:enabled"/>
@@ -18211,6 +18218,7 @@ from previous Chrome versions.
   <int value="1187868655" label="FloatingWorkspaceV2:disabled"/>
   <int value="1188109510" label="AssistantAudioEraser:enabled"/>
   <int value="1189717061" label="ReaderModeToggleLinks:disabled"/>
+  <int value="1189798666" label="UniversalKeyboardHandling:disabled"/>
   <int value="1190035852" label="MediaRemoting:enabled"/>
   <int value="1190082860" label="ForceDriveDisclaimerAccepted:disabled"/>
   <int value="1190296804"
@@ -18243,6 +18251,7 @@ from previous Chrome versions.
   <int value="1196644408" label="performance-monitor-gathering"/>
   <int value="1196670943" label="WebAuthFlowInBrowserTab:enabled"/>
   <int value="1196834473" label="disable-smart-virtual-keyboard"/>
+  <int value="1196909666" label="Notebooks:enabled"/>
   <int value="1197336536" label="printing-ppd-channel"/>
   <int value="1197363734" label="force-companion-pinned-state:disabled"/>
   <int value="1197439314" label="SwapBackquoteKeysInISOKeyboard:disabled"/>
@@ -18280,6 +18289,7 @@ from previous Chrome versions.
   <int value="1205156390" label="DetachedTabs:disabled"/>
   <int value="1205315214"
       label="BlockRootWindowAccessibleNameChangeEvent:disabled"/>
+  <int value="1205431543" label="ExportPlatformPoliciesJson:disabled"/>
   <int value="1205596770"
       label="ExperimentalAccessibilityDictationWithPumpkin:disabled"/>
   <int value="1205849612" label="enable-sync-synced-notifications"/>
@@ -18376,6 +18386,7 @@ from previous Chrome versions.
   <int value="1234950775" label="FileTransferEnterpriseConnector:enabled"/>
   <int value="1235048843" label="RenderArcNotificationsByChrome:disabled"/>
   <int value="1235197204" label="AvatarsCloudMigration:enabled"/>
+  <int value="1235472810" label="NtpVision:enabled"/>
   <int value="1235539689" label="UseSharedImageInOOPVDProcess:disabled"/>
   <int value="1235800887" label="V8Ignition:enabled"/>
   <int value="1235940786" label="ChromeHomePersistentIph:enabled"/>
@@ -18416,6 +18427,8 @@ from previous Chrome versions.
   <int value="1246049397" label="CrOSLateBootAudioHFPSwb:enabled"/>
   <int value="1246486472"
       label="SafeBrowsingPasswordCheckIntegrationForSavedPasswordsAndroid:disabled"/>
+  <int value="1246504071" label="TabAndroidGracefulShutdown:enabled"/>
+  <int value="1247280744" label="ComposeboxSkillsOmniboxPopup:enabled"/>
   <int value="1247293682" label="topchrome-md"/>
   <int value="1247309454" label="PasswordGenerationExperiment:enabled"/>
   <int value="1247679812" label="VCTrayMicIndicator:enabled"/>
@@ -18586,6 +18599,7 @@ from previous Chrome versions.
   <int value="1293335347" label="HandleMdmErrorsForDasherAccounts:enabled"/>
   <int value="1293473298" label="PageInfoAboutThisSiteNewIcon:disabled"/>
   <int value="1293697921" label="RequestDesktopSiteExceptions:enabled"/>
+  <int value="1293870742" label="EnableAiSubscriptionAvatarRing:disabled"/>
   <int value="1294131571" label="disable-winrt-midi-api"/>
   <int value="1294306055" label="FeedInteractiveRefresh:disabled"/>
   <int value="1295005331" label="SupportPepperVideoDecoderDevAPI:enabled"/>
@@ -18656,6 +18670,7 @@ from previous Chrome versions.
   <int value="1311658248" label="SyncEnableHistoryDataType:disabled"/>
   <int value="1311860720" label="ChromeHomeNtpRedesign:disabled"/>
   <int value="1312025202" label="NTPOfflinePageSuggestions:disabled"/>
+  <int value="1312201151" label="NtpAurora:enabled"/>
   <int value="1312920918" label="EnableBubbleCornerRadiusUpdate:disabled"/>
   <int value="1313476409" label="ReportFeedUserActions:disabled"/>
   <int value="1313570156"
@@ -18820,6 +18835,8 @@ from previous Chrome versions.
   <int value="1369663360"
       label="MayLaunchUrlUsesSeparateStoragePartition:enabled"/>
   <int value="1370104897" label="NtpFooter:enabled"/>
+  <int value="1370424105"
+      label="ContextualTasksCloseTabExpandsSidePanel:enabled"/>
   <int value="1370797930" label="ShowBluetoothDeviceBattery:enabled"/>
   <int value="1370921804" label="ToolbarPhoneCleanup:enabled"/>
   <int value="1371065824"
@@ -18864,6 +18881,7 @@ from previous Chrome versions.
   <int value="1382727025" label="SeparateLocalAndAccountThemes:disabled"/>
   <int value="1382972493" label="AndroidSurfaceColorUpdate:enabled"/>
   <int value="1383197819" label="IncognitoScreenshot:enabled"/>
+  <int value="1383232548" label="InAppWindowManagerDeprecation:disabled"/>
   <int value="1383319785" label="EnableFullscreenToScreen:enabled"/>
   <int value="1383526461" label="QuickAnswersRichUi:enabled"/>
   <int value="1383591631" label="enable-gesture-typing"/>
@@ -18898,6 +18916,7 @@ from previous Chrome versions.
   <int value="1392400382" label="EnableAIRewriterAPI:disabled"/>
   <int value="1392836587" label="DesktopPWAsElidedExtensionsMenu:disabled"/>
   <int value="1392935139" label="KidsManagementUrlClassification:enabled"/>
+  <int value="1392999416" label="GlicTabGroups:enabled"/>
   <int value="1393413889" label="SeparatePointingStickSettings:disabled"/>
   <int value="1393500952" label="EnableVirtualKeyboardUkm:disabled"/>
   <int value="1393722373" label="SaveEditedPDFForm:disabled"/>
@@ -18956,6 +18975,7 @@ from previous Chrome versions.
   <int value="1411679884"
       label="AutofillLocalCardMigrationUsesStrikeSystemV2:enabled"/>
   <int value="1411915938" label="AccessibilitySequentialFocus:disabled"/>
+  <int value="1412620764" label="ContextualPanelCloseButtonOnTablets:disabled"/>
   <int value="1412874669" label="EnableRestrictedWebApis:enabled"/>
   <int value="1412998360"
       label="AutofillSkipAndroidBottomSheetForIban:disabled"/>
@@ -19084,6 +19104,7 @@ from previous Chrome versions.
       label="CellularBypassESimInstallationConnectivityCheck:disabled"/>
   <int value="1451160278"
       label="AutofillRequireValidLocalCardsInSettings:disabled"/>
+  <int value="1451331883" label="NtpThreadsRail:disabled"/>
   <int value="1451731352"
       label="AutofillPrioritizeSaveCardOverMandatoryReauth:enabled"/>
   <int value="1451960103" label="LensVideoCitations:enabled"/>
@@ -19386,6 +19407,7 @@ from previous Chrome versions.
   <int value="1544413751" label="PasswordStrengthIndicator:enabled"/>
   <int value="1544561349" label="PdfUseSkiaRenderer:disabled"/>
   <int value="1544887706" label="IPH_ExtensionsRequestAccessButton:enabled"/>
+  <int value="1546644270" label="TabSearchForDesktop:disabled"/>
   <int value="1546652609" label="SharingHubDesktopOmnibox:disabled"/>
   <int value="1546678904" label="ContextualTasksJavaFusebox:disabled"/>
   <int value="1547049944" label="ScalableIph:enabled"/>
@@ -19644,6 +19666,7 @@ from previous Chrome versions.
   <int value="1634980726" label="VrShellExperimentalRendering:disabled"/>
   <int value="1635695770" label="CSSContainerQueries:disabled"/>
   <int value="1635755615" label="ScanAppMultiPageScan:disabled"/>
+  <int value="1635809519" label="TabSharingToolbarAndroid:disabled"/>
   <int value="1635986352" label="ContextMenuSearchWithGoogleLens:enabled"/>
   <int value="1636029982" label="enable-benchmarking"/>
   <int value="1636641236" label="DefaultBrowserPromoEntryPoint:enabled"/>
@@ -19710,6 +19733,7 @@ from previous Chrome versions.
   <int value="1654501133" label="UseRunningCompact:disabled"/>
   <int value="1654543587" label="AutofillParseAsync:disabled"/>
   <int value="1654949170" label="ArcSwitchToKeyMintOnT:enabled"/>
+  <int value="1656675966" label="CrossWindowTabGroupOperations:enabled"/>
   <int value="1656768789" label="EnableGetDebugdLogsInParallel:enabled"/>
   <int value="1657713458" label="disable-virtual-keyboard-overscroll"/>
   <int value="1658361127" label="PerformanceNavigateSystemEntropy:enabled"/>
@@ -19794,6 +19818,7 @@ from previous Chrome versions.
   <int value="1678866761" label="SystemLatinPhysicalTyping:disabled"/>
   <int value="1679347136" label="ExperimentalWebAppProfileIsolation:enabled"/>
   <int value="1679558835" label="ArcAvailableForChildAccount:enabled"/>
+  <int value="1680080417" label="NtpThreadsRail:enabled"/>
   <int value="1680110859" label="OmniboxCalcProvider:disabled"/>
   <int value="1680248931" label="use-fake-device-for-media-stream:enabled"/>
   <int value="1680381128" label="SmartZoom:enabled"/>
@@ -19919,6 +19944,7 @@ from previous Chrome versions.
   <int value="1715482477" label="LauncherFuzzyMatchForOmnibox:enabled"/>
   <int value="1716104463" label="enable-fullscreen-app-list"/>
   <int value="1716533817" label="FastPairLowPower:enabled"/>
+  <int value="1717602894" label="TabStripUnification:enabled"/>
   <int value="1717788959" label="SlowDCTimerInterruptsWin:disabled"/>
   <int value="1717987538" label="NTPTilesLowerResolutionFavicons:enabled"/>
   <int value="1718341860" label="NTPButton:enabled"/>
@@ -20005,8 +20031,6 @@ from previous Chrome versions.
   <int value="1746253146" label="AdvancedDocumentScanAPI:enabled"/>
   <int value="1746272497"
       label="AutofillAndroidKeyboardAccessoryDynamicPositioning:enabled"/>
-  <int value="1746757451"
-      label="WebAuthnUsePasskeyFromAnotherDeviceInContextMenu:disabled"/>
   <int value="1747279677" label="disable-delegated-renderer"/>
   <int value="1747360514" label="AndroidSetupList:enabled"/>
   <int value="1747979127"
@@ -20114,6 +20138,7 @@ from previous Chrome versions.
   <int value="1781225884" label="FedCmAuthz:disabled"/>
   <int value="1781422070" label="PasspointARCSupport:enabled"/>
   <int value="1781434583" label="AutofillLocalSaveCardBottomSheet:disabled"/>
+  <int value="1781700175" label="NtpAurora:disabled"/>
   <int value="1782210532" label="PerNavigationMojoInterface:disabled"/>
   <int value="1782416979"
       label="AutofillEnableSaveCardLoadingAndConfirmation:disabled"/>
@@ -20161,6 +20186,7 @@ from previous Chrome versions.
   <int value="1793023585"
       label="ClickToCallContextMenuForSelectedText:disabled"/>
   <int value="1793434695" label="VideoPlayerAppHidden:enabled"/>
+  <int value="1793676031" label="OrganizerPanel:enabled"/>
   <int value="1793835436"
       label="NtpMostRelevantTabResumptionModuleDeviceIcon:disabled"/>
   <int value="1794057460" label="AutofillProfileClientValidation:enabled"/>
@@ -20184,6 +20210,7 @@ from previous Chrome versions.
   <int value="1800375282" label="UseDMSAAForTiles:disabled"/>
   <int value="1800509458" label="DriveFsChromeNetworking:disabled"/>
   <int value="1800603694" label="DXGIWaitableSwapChain:disabled"/>
+  <int value="1801266962" label="OmniboxAimImageDownscaling:enabled"/>
   <int value="1801297618" label="HelpAppAutoTriggerInstallDialog:disabled"/>
   <int value="1801585504" label="ContextMenuShopWithGoogleLens:enabled"/>
   <int value="1801839847" label="OnDeviceCategoryClassifier:disabled"/>
@@ -20205,6 +20232,7 @@ from previous Chrome versions.
   <int value="1805706414" label="PerformanceInterventionUI:disabled"/>
   <int value="1805859042"
       label="ExtractRelatedSearchesFromPrefetchedZPSResponse:enabled"/>
+  <int value="1805996092" label="WebUIOmniboxAskGAboutThisPage:enabled"/>
   <int value="1806220475" label="IgnoreSyncEncryptionKeysLongMissing:disabled"/>
   <int value="1806450300" label="WebUsbDeviceDetection:enabled"/>
   <int value="1806868888" label="GetTheMostOutOfProgram:enabled"/>
@@ -20285,6 +20313,7 @@ from previous Chrome versions.
       label="PrivateNetworkAccessPreflightShortTimeout:enabled"/>
   <int value="1829259057" label="MediaAppHandlesPdf:enabled"/>
   <int value="1829787040" label="WebApkBackupAndRestoreBackend:disabled"/>
+  <int value="1829984179" label="PdfBrotliDecode:enabled"/>
   <int value="1830037888" label="FallbackToSWIfGLES3NotSupported:enabled"/>
   <int value="1830460973" label="disable-network-settings-config"/>
   <int value="1831103529" label="MediaNotificationsCounter:disabled"/>
@@ -20305,6 +20334,7 @@ from previous Chrome versions.
   <int value="1834481596"
       label="DeviceBoundSessionsFederatedRegistration:enabled"/>
   <int value="1834651417" label="GlicDetached:disabled"/>
+  <int value="1834879433" label="CCTNavigationInfoScreenshot:disabled"/>
   <int value="1834968807" label="OmniboxAutocompleteTitles:enabled"/>
   <int value="1835075399" label="PostQuantumCECPQ2:disabled"/>
   <int value="1835523483" label="OmniboxUIExperimentSwapTitleAndUrl:enabled"/>
@@ -20377,6 +20407,7 @@ from previous Chrome versions.
   <int value="1855997611"
       label="ForceSafeSearchForUnauthenticatedSupervisedUsers:enabled"/>
   <int value="1856270952" label="AutofillAssistantProactiveHelp:disabled"/>
+  <int value="1856422839" label="IsolatedWebAppInlineUpdate:disabled"/>
   <int value="1857000695" label="SendWebUIJavaScriptErrorReports:disabled"/>
   <int value="1858133486" label="UsernameFirstFlowStoreSeveralValues:enabled"/>
   <int value="1858385315" label="ChromeHomeBottomNavLabels:enabled"/>
@@ -20422,6 +20453,7 @@ from previous Chrome versions.
   <int value="1872185826" label="LocationHardReload:enabled"/>
   <int value="1872394121"
       label="ContextualTasksBackButtonExpandsSidePanel:disabled"/>
+  <int value="1872516063" label="Aim3pEntrypoint:enabled"/>
   <int value="1872768755" label="BackgroundResourceFetch:disabled"/>
   <int value="1872897574"
       label="AutofillEnableRankingFormulaCreditCards:disabled"/>
@@ -20665,6 +20697,7 @@ from previous Chrome versions.
   <int value="1949314084" label="OmniboxWarmRecycledViewPool:enabled"/>
   <int value="1949908940" label="disable-zip-archiver-unpacker"/>
   <int value="1949996482" label="CSSColorSchemeUARendering:disabled"/>
+  <int value="1950185643" label="IsolatedWebAppInlineUpdate:enabled"/>
   <int value="1950191981" label="OverlayNewLayout:enabled"/>
   <int value="1950930453" label="NtpRealboxLensSearch:enabled"/>
   <int value="1951020379" label="ArcRoundedWindowCompat:disabled"/>
@@ -20769,6 +20802,7 @@ from previous Chrome versions.
   <int value="1985952454"
       label="GetDisplayMediaSetAutoSelectAllScreens:enabled"/>
   <int value="1986031201" label="SwipingFromLeftEdgeToGoBack:disabled"/>
+  <int value="1986524390" label="NtpCustomizeWebUiAndroid:disabled"/>
   <int value="1987354002" label="SafetyHubAndroidSurvey:enabled"/>
   <int value="1987896454" label="EducationalTipModule:enabled"/>
   <int value="1988099368" label="DropInputEventsBeforeFirstPaint:disabled"/>
@@ -20780,6 +20814,7 @@ from previous Chrome versions.
   <int value="1989739884" label="CustomizeChromeWallpaperSearch:enabled"/>
   <int value="1989877247" label="ToolbarGlicButtonResizing:enabled"/>
   <int value="1989877708" label="PostScriptPrinting:enabled"/>
+  <int value="1990368474" label="EnableAccountPreviewEntityPreviews:disabled"/>
   <int value="1990468492" label="AndroidWindowOcclusion:disabled"/>
   <int value="1990528959" label="SchemefulSameSite:disabled"/>
   <int value="1990562608"
@@ -20931,6 +20966,7 @@ from previous Chrome versions.
   <int value="2037562553" label="OmniboxBubbleUrlSuggestions:disabled"/>
   <int value="2037623368" label="attribution-reporting-debug-mode"/>
   <int value="2037756154" label="enable-impl-side-painting"/>
+  <int value="2037763822" label="EnableAccountPreviewData:disabled"/>
   <int value="2037825045" label="DisableAutofillStrikeSystem:enabled"/>
   <int value="2038036881" label="NewShortcutMapping:enabled"/>
   <int value="2039276757" label="EnableOverviewRoundedCorners:enabled"/>
@@ -20959,6 +20995,7 @@ from previous Chrome versions.
   <int value="2049513703" label="HeadlessTabModel:disabled"/>
   <int value="2049674680" label="EnableAutomaticSnooze:enabled"/>
   <int value="2050597948" label="ExtensionsFSPInServiceWorkers:disabled"/>
+  <int value="2050795619" label="NtpVision:disabled"/>
   <int value="2050985807" label="AllowPopupsDuringPageUnload:enabled"/>
   <int value="2051403297" label="ShowBluetoothDeviceBattery:disabled"/>
   <int value="2051886966" label="PwaInstallUseBottomSheet:enabled"/>
@@ -21088,6 +21125,7 @@ from previous Chrome versions.
       label="MigrateDefaultChromeAppToWebAppsGSuite:disabled"/>
   <int value="2092399275" label="FastDrmMasterDrop:enabled"/>
   <int value="2092538671" label="UseStorkSmdsServerAddress:disabled"/>
+  <int value="2092568904" label="CameraAndMicrophoneElements:disabled"/>
   <int value="2092605092" label="ChromeHomeShowGoogleGWhenUrlCleared:disabled"/>
   <int value="2092968851" label="SharingSendViaSync:enabled"/>
   <int value="2093235103" label="default-tile-width"/>
@@ -21110,6 +21148,7 @@ from previous Chrome versions.
   <int value="2097465503" label="RequestDesktopSiteZoom:disabled"/>
   <int value="2098059607" label="WifiSyncAllowDeletes:disabled"/>
   <int value="2098114768" label="DocumentPictureInPictureAPI:disabled"/>
+  <int value="2098167718" label="InAppWindowManagerDeprecation:enabled"/>
   <int value="2098274741" label="NtpRealboxCr23ExpandedStateLayout:disabled"/>
   <int value="2098597721"
       label="WebAuthenticationPasskeysUIExperiment:disabled"/>
@@ -21127,6 +21166,7 @@ from previous Chrome versions.
   <int value="2101124624" label="WebUIDownloadShelf:disabled"/>
   <int value="2101151142" label="disable-direct-write"/>
   <int value="2101244145" label="NtpDoodleMurals:disabled"/>
+  <int value="2102392080" label="GlobalPrivacyControlForce:disabled"/>
   <int value="2102772909"
       label="EnableGenericOidcAuthProfileManagement:disabled"/>
   <int value="2103800063"
@@ -21559,6 +21599,7 @@ from previous Chrome versions.
   <int value="18" label="Previous slide"/>
   <int value="19" label="Next slide"/>
   <int value="20" label="Enter auto picture in picture"/>
+  <int value="21" label="Save video frame"/>
 </enum>
 
 <!-- LINT.ThenChange(//services/media_session/public/mojom/media_session.mojom:MediaSessionAction) -->
@@ -21746,6 +21787,7 @@ from previous Chrome versions.
   <int value="53"
       label="Failed due to Shutdown: Web Contents No Delegate (AbortError)"/>
   <int value="54" label="Failed due to Shutdown: Other (AbortError)"/>
+  <int value="55" label="Device removed"/>
 </enum>
 
 <enum name="MediaStreamType">
@@ -22143,6 +22185,7 @@ Called by update_net_error_codes.py.-->
   <int value="187" label="PROXY_DELEGATE_CANCELED_CONNECT_REQUEST"/>
   <int value="188" label="PROXY_DELEGATE_CANCELED_CONNECT_RESPONSE"/>
   <int value="189" label="CONTROL_MSG_TOO_BIG"/>
+  <int value="190" label="MULTICAST_NOT_ALLOWED"/>
   <int value="200" label="CERT_COMMON_NAME_INVALID"/>
   <int value="201" label="CERT_DATE_INVALID"/>
   <int value="202" label="CERT_AUTHORITY_INVALID"/>
@@ -23495,6 +23538,15 @@ Called by update_net_error_codes.py.-->
   <int value="5" label="Highest"/>
 </enum>
 
+<!-- LINT.IfChange(PolicyExtensionStatus) -->
+
+<enum name="PolicyExtensionStatus">
+  <int value="0" label="Disabled"/>
+  <int value="1" label="Enabled"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/extensions/policy_dse_ntp_override_metrics_reporter.h:PolicyExtensionStatus) -->
+
 <enum name="PopularOSErrno">
   <summary>
     Popular errno values. See the descriptions on &quot;*/*/*&quot; labels for
@@ -24265,6 +24317,7 @@ Called by update_net_error_codes.py.-->
   <int value="701" label="FEATURE_NAME_CHROME_FORMS_AI"/>
   <int value="702" label="DEPRECATED_FEATURE_NAME_CHROME_CLIENT_ATTESTATION"/>
   <int value="703" label="FEATURE_NAME_CHROME_CONTEXTUAL_CUEING"/>
+  <int value="704" label="FEATURE_NAME_CHROME_AUTOMATED_PASSWORD_CHANGE"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/private_ai/proto/private_ai.proto:FeatureName) -->
@@ -24717,6 +24770,8 @@ Called by update_net_error_codes.py.-->
   <int value="6"
       label="Opened via toggle presentation button in Reading mode settings"/>
   <int value="7" label="Opened via keyboard shortcut"/>
+  <int value="8" label="Opened from Listen to this page context menu"/>
+  <int value="9" label="Unknown"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/read_anything/read_anything_enums.h:ReadAnythingOpenTrigger) -->
@@ -24853,37 +24908,6 @@ Called by update_net_error_codes.py.-->
       label="Laxly same-site secure site-for-cookies to insecure request"/>
   <int value="67"
       label="Strictly same-site secure site-for-cookies to insecure request"/>
-</enum>
-
-<enum name="SameSiteCookieContextBreakingDowngradeWithSecureness">
-  <summary>
-    Used to track the type of same-site context downgrade as well as the
-    secureness of the origin that caused it.
-
-    &quot;No breaking downgrade&quot; is a catch-all bucket for any cases which
-    don't fit into the other buckets.
-  </summary>
-  <int value="0" label="No breaking downgrade; insecure origin"/>
-  <int value="1" label="No breaking downgrade; secure origin"/>
-  <int value="2"
-      label="Strict to Lax context with Strict cookie; insecure origin."/>
-  <int value="3"
-      label="Strict to Cross context with Strict cookie; insecure origin."/>
-  <int value="4"
-      label="Strict to Cross context with Lax cookie; insecure origin."/>
-  <int value="5"
-      label="Lax to Cross context with Strict cookie; insecure origin."/>
-  <int value="6"
-      label="Lax to Cross context with Lax cookie; insecure origin."/>
-  <int value="7"
-      label="Strict to Lax context with Strict cookie; secure origin."/>
-  <int value="8"
-      label="Strict to Cross context with Strict cookie; secure origin."/>
-  <int value="9"
-      label="Strict to Cross context with Lax cookie; secure origin."/>
-  <int value="10"
-      label="Lax to Cross context with Strict cookie; secure origin."/>
-  <int value="11" label="Lax to Cross context with Lax cookie; secure origin."/>
 </enum>
 
 <enum name="SameSiteCookieValue">
@@ -25395,12 +25419,6 @@ Called by update_net_error_codes.py.-->
   <int value="1" label="Finished"/>
 </enum>
 
-<enum name="ScoreAdInput">
-  <int value="0" label="Trusted signals"/>
-  <int value="1" label="Direct from seller signals"/>
-  <int value="2" label="Scoring script"/>
-</enum>
-
 <enum name="ScrollDepthQuartile">
   <int value="0" label="0%"/>
   <int value="25" label="25%"/>
@@ -25425,6 +25443,14 @@ Called by update_net_error_codes.py.-->
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/preloading/search_preload/search_preload_service.h:SearchPreloadServiceNoVarySearchDataCacheUpdate) -->
+
+<enum name="SearchPromotionInstallResult">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="SuccessBackground"/>
+  <int value="2" label="SuccessWithForegroundFallback"/>
+  <int value="3" label="Timeout"/>
+  <int value="4" label="ForegroundFallbackLaunchFailed"/>
+</enum>
 
 <!-- LINT.IfChange(SecureChannelConnectionAttemptFailureReason) -->
 
@@ -25481,15 +25507,6 @@ Called by update_net_error_codes.py.-->
   <int value="14" label="CLOSE_INTERSTITIAL_WITHOUT_UI"/>
 </enum>
 
-<enum name="SellerSignalsOriginRelation">
-  <int value="0" label="No trusted signals requested"/>
-  <int value="1" label="Same-origin trusted signals requested"/>
-  <int value="2"
-      label="Uknown cross-origin trusted signals. Should not occur here."/>
-  <int value="3" label="Permitted cross-origin trusted signals requested"/>
-  <int value="4" label="Forbidden cross-origin trusted signals requested"/>
-</enum>
-
 <enum name="SendTabToSelfDeviceCount">
   <int value="0" label="No target devices because signed out"/>
   <int value="1" label="0 target devices"/>
@@ -25499,6 +25516,7 @@ Called by update_net_error_codes.py.-->
   <int value="5" label="4 target devices"/>
   <int value="6" label="5 target devices"/>
   <int value="7" label="More than 5 target devices"/>
+  <int value="8" label="No target devices because sign-in pending"/>
 </enum>
 
 <enum name="SendTabToSelfNotificationStatus">
@@ -25906,6 +25924,9 @@ Called by update_net_error_codes.py.-->
   <int value="27" label="Opened from window getting larger"/>
   <int value="28" label="Opened from Glic"/>
   <int value="29" label="Opened from Contextual Tasks"/>
+  <int value="30" label="Opened from context menu Listen to this page option"/>
+  <int value="31" label="Opened from an unknown Read Anything trigger"/>
+  <int value="32" label="Opened from an unknown trigger"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/side_panel/side_panel_enums.h:SidePanelOpenTrigger) -->
@@ -27367,6 +27388,17 @@ Called by update_net_error_codes.py.-->
 
 </enum>
 
+<!-- LINT.IfChange(UsedInstantLoad) -->
+
+<enum name="UsedInstantLoad">
+  <int value="0" label="NoInstantLoad"/>
+  <int value="1" label="Prefetch"/>
+  <int value="2" label="Prerender"/>
+  <int value="3" label="BFCache"/>
+</enum>
+
+<!-- LINT.ThenChange(//content/browser/preloading/preload_serving_metrics.cc:UsedInstantLoad) -->
+
 <enum name="UserAgentRequestType">
   <int value="0" label="RequestDesktop"/>
   <int value="1" label="RequestMobile"/>
@@ -28031,6 +28063,13 @@ This is true even if the type has been removed from the mojom file.
   <int value="3" label="Error: No configuration"/>
 </enum>
 
+<enum name="WebUsbEndpointNotReadyReason">
+  <int value="0" label="Device state change in progress"/>
+  <int value="1" label="Device not open"/>
+  <int value="2" label="Interface not claimed or invalid endpoint"/>
+  <int value="3" label="Interface state change in progress"/>
+</enum>
+
 <enum name="WebUsbNotificationClosed">
   <int value="0" label="Closed by system"/>
   <int value="1" label="Closed by user"/>
@@ -28043,6 +28082,28 @@ This is true even if the type has been removed from the mojom file.
   <int value="1" label="Revoked ephemeral permission by user"/>
   <int value="2" label="Revoked permission by website"/>
   <int value="3" label="Revoked ephemeral permission by website"/>
+</enum>
+
+<enum name="WebUsbStateChangeBlockedContext">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Device state change (Same Connection)"/>
+  <int value="2" label="Device state change (Other Connection)"/>
+  <int value="3" label="Interface state change (Same Connection)"/>
+</enum>
+
+<enum name="WebUsbStateChangeBlockedMethod">
+  <int value="0" label="SetConfiguration"/>
+  <int value="1" label="ClaimInterface"/>
+  <int value="2" label="ReleaseInterface"/>
+  <int value="3" label="SetInterfaceAlternateSetting"/>
+  <int value="4" label="Reset"/>
+  <int value="5" label="ClearHalt"/>
+  <int value="6" label="ControlTransferIn"/>
+  <int value="7" label="ControlTransferOut"/>
+  <int value="8" label="GenericTransferIn"/>
+  <int value="9" label="GenericTransferOut"/>
+  <int value="10" label="IsochronousTransferIn"/>
+  <int value="11" label="IsochronousTransferOut"/>
 </enum>
 
 <enum name="WhatsNewLoadEvent">

@@ -231,6 +231,7 @@ builder(
                 "mb",
             ],
             build_config = builder_config.build_config.RELEASE,
+            target_arch = builder_config.target_arch.ARM,
             target_bits = 64,
             target_platform = builder_config.target_platform.MAC,
         ),
@@ -241,7 +242,7 @@ builder(
             "release_builder",
             "remoteexec",
             "mac",
-            "x64",
+            "arm64",
         ],
     ),
     targets = targets.bundle(
@@ -266,6 +267,7 @@ builder(
                 "mb",
             ],
             build_config = builder_config.build_config.RELEASE,
+            target_arch = builder_config.target_arch.ARM,
             target_bits = 64,
             target_platform = builder_config.target_platform.MAC,
         ),
@@ -275,7 +277,7 @@ builder(
             "webrtc_chromium_gtests",
         ],
         mixins = [
-            "mac_default_x64",
+            "mac_default_arm64",
         ],
     ),
 )

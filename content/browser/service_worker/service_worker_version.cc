@@ -38,6 +38,7 @@
 #include "components/services/storage/public/mojom/service_worker_database.mojom-forward.h"
 #include "content/browser/back_forward_cache/back_forward_cache_can_store_document_result.h"
 #include "content/browser/bad_message.h"
+#include "content/browser/connection_allowlist_utils.h"
 #include "content/browser/renderer_host/local_network_access_util.h"
 #include "content/browser/security/cpsp/child_process_security_policy_impl.h"
 #include "content/browser/service_worker/payment_handler_support.h"
@@ -49,6 +50,7 @@
 #include "content/browser/service_worker/service_worker_hid_delegate_observer.h"
 #include "content/browser/service_worker/service_worker_host.h"
 #include "content/browser/service_worker/service_worker_installed_scripts_sender.h"
+#include "content/browser/service_worker/service_worker_metrics.h"
 #include "content/browser/service_worker/service_worker_security_utils.h"
 #include "content/browser/service_worker/service_worker_usb_delegate_observer.h"
 #include "content/common/content_navigation_policy.h"
@@ -1898,6 +1900,29 @@ void ServiceWorkerVersion::OpenPaymentHandlerWindow(
     return;
   }
 
+  // `PaymentHandlerSupport::ShowPaymentHandlerWindow` implements API
+  // `PaymentRequestEvent: openWindow()` with two different paths.
+  // - Main path: Uses `PaymentHandlerWebFlowViewController` to open the window.
+  // - Fallback path: If the main path fails, it falls back to use
+  //   `ServiceWorkerVersion::OpenWindow`, which eventually calls
+  //   `service_worker_client_utils::OpenWindow`.
+  //
+  // `service_worker_client_utils::OpenWindow` also performs the
+  // `ConnectionAllowlistAllowsUrlAndReportIfNeeded` check. This means in the
+  // fallback case, the allowlist check might run twice. This redundancy does
+  // not impact performance. It is necessary to have the check here for
+  // covering the main path.
+  if (policy_container_host() &&
+      !ConnectionAllowlistAllowsUrlAndReportIfNeeded(
+          policy_container_host()->policies(), url)) {
+    // The request URL is not allowed by the Service Worker's Connection
+    // Allowlist. See: https://github.com/WICG/connection-allowlists.
+    std::move(callback).Run(
+        /*success=*/false, /*client=*/nullptr,
+        url.spec() + " is blocked by Connection Allowlist.");
+    return;
+  }
+
   PaymentHandlerSupport::ShowPaymentHandlerWindow(
       url, context_.get(),
       base::BindOnce(&ServiceWorkerVersion::DidShowPaymentHandlerWindow,
@@ -3268,13 +3293,37 @@ bool ServiceWorkerVersion::IsStartWorkerAllowed() const {
   // was previously allowed and installed, but later content settings changed to
   // disallow this scope. Since this worker might not be used for a specific
   // tab, pass a null callback as WebContents getter.
-  if (!GetContentClient()->browser()->AllowServiceWorker(
-          scope_, net::SiteForCookies::FromUrl(scope_),
-          url::Origin::Create(scope_), key_, script_url_, browser_context)) {
-    return false;
-  }
+  bool old_allowed = GetContentClient()->browser()->AllowServiceWorker(
+      scope_, net::SiteForCookies::FromUrl(scope_), url::Origin::Create(scope_),
+      key_, script_url_, browser_context);
+  bool new_allowed = GetContentClient()->browser()->AllowServiceWorker(
+      scope_, service_worker_security_utils::site_for_cookies(key_),
+      url::Origin::Create(key_.top_level_site().GetURL()), key_, script_url_,
+      browser_context);
 
-  return true;
+  ServiceWorkerStartWorkerContextValidationDifference diff_result;
+  if (old_allowed && new_allowed) {
+    diff_result =
+        ServiceWorkerStartWorkerContextValidationDifference::kBothAllowed;
+  } else if (old_allowed && !new_allowed) {
+    diff_result = ServiceWorkerStartWorkerContextValidationDifference::
+        kOldAllowedNewDisallowed;
+  } else if (!old_allowed && new_allowed) {
+    diff_result = ServiceWorkerStartWorkerContextValidationDifference::
+        kOldDisallowedNewAllowed;
+  } else {
+    diff_result =
+        ServiceWorkerStartWorkerContextValidationDifference::kBothDisallowed;
+  }
+  ServiceWorkerMetrics::RecordStartWorkerContextValidationDifference(
+      diff_result);
+
+  if (base::FeatureList::IsEnabled(
+          features::kServiceWorkerStrictContextValidation)) {
+    return new_allowed;
+  } else {
+    return old_allowed;
+  }
 }
 
 void ServiceWorkerVersion::NotifyControlleeAdded(

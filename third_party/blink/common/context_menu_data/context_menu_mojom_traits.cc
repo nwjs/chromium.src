@@ -9,21 +9,7 @@
 
 namespace mojo {
 
-// static
-bool StructTraits<blink::mojom::FormRendererIdDataView, uint64_t>::Read(
-    blink::mojom::FormRendererIdDataView data,
-    uint64_t* out) {
-  *out = data.id();
-  return true;
-}
 
-// static
-bool StructTraits<blink::mojom::FieldRendererIdDataView, uint64_t>::Read(
-    blink::mojom::FieldRendererIdDataView data,
-    uint64_t* out) {
-  *out = data.id();
-  return true;
-}
 
 // static
 bool StructTraits<blink::mojom::UntrustworthyContextMenuParamsDataView,
@@ -33,7 +19,6 @@ bool StructTraits<blink::mojom::UntrustworthyContextMenuParamsDataView,
   if (!data.ReadMediaType(&out->media_type) ||
       !data.ReadLinkUrl(&out->link_url) ||
       !data.ReadLinkText(&out->link_text) ||
-      !data.ReadImpression(&out->impression) ||
       !data.ReadUnfilteredLinkUrl(&out->unfiltered_link_url) ||
       !data.ReadSrcUrl(&out->src_url) ||
       !data.ReadSelectionText(&out->selection_text) ||

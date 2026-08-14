@@ -160,8 +160,7 @@ void TestRenderFrameHost::ReportInspectorIssue(
     }
   } else if (issue->code ==
              blink::mojom::InspectorIssueCode::kFederatedAuthRequestIssue) {
-    ++federated_auth_counts_[issue->details->federated_auth_request_details
-                                 ->status];
+    ++federated_auth_counts_[issue->details->federated_request_details->status];
   } else if (issue->code == blink::mojom::InspectorIssueCode::
                                 kFederatedAuthUserInfoRequestIssue) {
     ++federated_auth_user_info_counts_
@@ -302,8 +301,8 @@ int TestRenderFrameHost::GetHeavyAdIssueCount(
   }
 }
 
-int TestRenderFrameHost::GetFederatedAuthRequestIssueCount(
-    std::optional<blink::mojom::FederatedAuthRequestResult> status_type) {
+int TestRenderFrameHost::GetFederatedRequestIssueCount(
+    std::optional<blink::mojom::FederatedRequestResult> status_type) {
   if (!status_type) {
     int total = 0;
     for (const auto& [result, count] : federated_auth_counts_)
@@ -317,7 +316,7 @@ int TestRenderFrameHost::GetFederatedAuthRequestIssueCount(
   return it->second;
 }
 
-int TestRenderFrameHost::GetFederatedAuthUserInfoRequestIssueCount(
+int TestRenderFrameHost::GetFederatedUserInfoRequestIssueCount(
     std::optional<blink::mojom::FederatedAuthUserInfoRequestResult>
         status_type) {
   if (!status_type) {
@@ -486,7 +485,7 @@ void TestRenderFrameHost::SendRendererInitiatedNavigationRequest(
           std::string() /* searchable_form_encoding */,
           GURL() /* client_side_redirect_url */,
           std::nullopt /* devtools_initiator_info */,
-          nullptr /* trust_token_params */, std::nullopt /* impression */,
+          nullptr /* trust_token_params */,
           base::TimeTicks() /* renderer_before_unload_start */,
           base::TimeTicks() /* renderer_before_unload_end */,
           base::TimeTicks() /* before_unload_dialog_opened */,
@@ -642,12 +641,10 @@ void TestRenderFrameHost::SetPrefetchedSignedExchangeCacheForTesting(
   prefetched_signed_exchange_cache_ = std::move(cache);
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 void TestRenderFrameHost::CreateHidServiceForTesting(
     mojo::PendingReceiver<blink::mojom::HidService> receiver) {
   RenderFrameHostImpl::GetHidService(std::move(receiver));
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 void TestRenderFrameHost::CreateWebUsbServiceForTesting(
     mojo::PendingReceiver<blink::mojom::WebUsbService> receiver) {

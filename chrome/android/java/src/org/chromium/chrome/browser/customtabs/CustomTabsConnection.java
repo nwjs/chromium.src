@@ -1007,10 +1007,23 @@ public class CustomTabsConnection {
      * @param intent The intent to verify.
      */
     public boolean isFirstPartyOriginForIntent(Intent intent) {
+        return isFirstPartyOriginForIntent(intent, IntentHandler.getUrlFromIntent(intent));
+    }
+
+    /**
+     * Returns whether an intent is first-party with respect to its session, that is if the
+     * application linked to the session has a relation with the provided origin.
+     *
+     * @param intent The intent to verify.
+     * @param url The url to verify against.
+     */
+    public boolean isFirstPartyOriginForIntent(Intent intent, @Nullable String url) {
         SessionHolder<?> session = SessionHolder.getSessionHolderFromIntent(intent);
         if (session == null) return false;
 
-        Origin origin = Origin.create(intent.getData());
+        if (url == null) return false;
+
+        Origin origin = Origin.create(url);
         if (origin == null) return false;
 
         return mClientManager.isFirstPartyOriginForSession(session, origin);
@@ -2145,8 +2158,20 @@ public class CustomTabsConnection {
 
     public boolean receiveFile(
             CustomTabsSessionToken sessionToken, Uri uri, int purpose, @Nullable Bundle extras) {
+        if (ContextUtils.getApplicationContext()
+                        .checkUriPermission(
+                                uri,
+                                Binder.getCallingPid(),
+                                Binder.getCallingUid(),
+                                Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                != PackageManager.PERMISSION_GRANTED) {
+            logCall("receiveFile()", false);
+            return false;
+        }
+        SessionHolder<?> session = new SessionHolder<>(sessionToken);
+        if (!mClientManager.isSessionValid(session)) return false;
         return CustomTabsClientFileProcessor.getInstance()
-                .processFile(new SessionHolder<>(sessionToken), uri, purpose, extras);
+                .processFile(session, uri, purpose, extras);
     }
 
     public void setCustomTabIsInForeground(

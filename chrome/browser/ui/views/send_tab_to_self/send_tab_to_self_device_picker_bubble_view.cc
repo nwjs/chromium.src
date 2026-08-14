@@ -4,24 +4,16 @@
 
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_device_picker_bubble_view.h"
 
-#include "base/functional/callback.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/ui/views/chrome_typography.h"
-#include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/send_tab_to_self/manage_account_devices_link_view.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_bubble_controller.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_bubble_device_button.h"
-#include "chrome/browser/ui/views/sharing_hub/sharing_hub_bubble_util.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/send_tab_to_self/features.h"
 #include "components/send_tab_to_self/target_device_info.h"
-#include "content/public/browser/browser_task_traits.h"
-#include "content/public/browser/browser_thread.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
-#include "ui/base/ui_base_types.h"
 #include "ui/color/color_id.h"
 #include "ui/strings/grit/ui_strings.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -192,8 +184,6 @@ void SendTabToSelfDevicePickerBubbleView::InitDeviceSelectionBubble() {
           views::style::CONTEXT_LABEL, views::style::STYLE_CAPTION));
   subtitle->SetEnabledColor(ui::kColorLabelForegroundSecondary);
   subtitle->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-  subtitle->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
-  SetInitiallyFocusedView(subtitle);
 
   // Manage devices link.
   auto* link = header_container->AddChildView(std::make_unique<views::Link>(
@@ -287,11 +277,10 @@ void SendTabToSelfDevicePickerBubbleView::CreateDevicesScrollView() {
 
   if (first_device) {
     if (base::FeatureList::IsEnabled(kSendTabToSelfEnhancedDesktopUI)) {
-      // Auto-select the first device on launch
+      // Auto-select the first device on launch.
       SelectTargetDevice(first_device);
-    } else {
-      SetInitiallyFocusedView(first_device);
     }
+    SetInitiallyFocusedView(first_device);
   }
 }
 

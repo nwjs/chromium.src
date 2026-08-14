@@ -6,6 +6,7 @@
 
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/time/default_tick_clock.h"
 #include "base/time/tick_clock.h"
@@ -13,10 +14,10 @@
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
 #include "chrome/browser/ui/hats/survey_config.h"
-#include "components/prefs/pref_service.h"
-#include "components/unified_consent/pref_names.h"
 #include "content/public/browser/web_contents.h"
 #include "media/base/media_switches.h"
+#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
+#include "services/metrics/public/cpp/metrics_utils.h"
 
 namespace {
 
@@ -90,6 +91,24 @@ std::string GetSurveyTrigger(PromptResult result) {
   }
 }
 
+void RecordTimeFromWindowOpenToSurveyLaunch(base::TimeDelta duration) {
+  base::UmaHistogramCustomTimes(
+      AutoPictureInPictureHatsService::
+          kTimeFromWindowOpenToSurveyLaunchHistogramName,
+      duration, base::Milliseconds(1), base::Hours(10), 100);
+}
+
+// Returns the bucketed duration in seconds as a string (e.g. "8s").
+// The duration is capped at 10 hours and then bucketed exponentially using
+// `ukm::GetExponentialBucketMinForUserTiming` (spacing factor of 2.0).
+std::string BucketizeDurationToSeconds(base::TimeDelta duration) {
+  constexpr int64_t kMaxTimeSeconds = 10 * 60 * 60;  // 10 hours
+  int64_t duration_seconds = std::min(duration.InSeconds(), kMaxTimeSeconds);
+  int64_t bucketed_seconds =
+      ukm::GetExponentialBucketMinForUserTiming(duration_seconds);
+  return base::NumberToString(bucketed_seconds) + "s";
+}
+
 }  // namespace
 
 AutoPictureInPictureHatsService::AutoPictureInPictureHatsService(
@@ -109,6 +128,10 @@ void AutoPictureInPictureHatsService::SetPromptResult(
     AutoPipSettingHelper::PromptResult result) {
   if (active_window_context_) {
     active_window_context_->prompt_result = result;
+    base::UmaHistogramCustomTimes(
+        kTimeFromWindowOpenToPromptResultHistogramName,
+        clock_->NowTicks() - active_window_context_->start_time,
+        base::Milliseconds(1), base::Hours(10), 100);
   }
 }
 
@@ -139,6 +162,8 @@ void AutoPictureInPictureHatsService::MaybeLaunchSurvey(
   // If the window is closed but we never got a prompt result, we cannot launch
   // a survey. Clear context and return.
   if (!active_window_context_->prompt_result) {
+    base::UmaHistogramEnumeration(kTriggerResultHistogramName,
+                                  SurveyTriggerResult::kMissingPromptResult);
     active_window_context_ = std::nullopt;
     return;
   }
@@ -146,6 +171,8 @@ void AutoPictureInPictureHatsService::MaybeLaunchSurvey(
   HatsService* hats_service =
       HatsServiceFactory::GetForProfile(profile_, /*create_if_necessary=*/true);
   if (!hats_service) {
+    base::UmaHistogramEnumeration(kTriggerResultHistogramName,
+                                  SurveyTriggerResult::kHatsServiceNull);
     active_window_context_ = std::nullopt;
     return;
   }
@@ -156,6 +183,9 @@ void AutoPictureInPictureHatsService::MaybeLaunchSurvey(
 
   // We do not trigger surveys for browser-initiated AutoPip.
   if (auto_pip_trigger_reason == AutoPipReason::kBrowserInitiated) {
+    base::UmaHistogramEnumeration(
+        kTriggerResultHistogramName,
+        SurveyTriggerResult::kBrowserInitiatedSkipped);
     active_window_context_ = std::nullopt;
     return;
   }
@@ -168,6 +198,8 @@ void AutoPictureInPictureHatsService::MaybeLaunchSurvey(
 
   if (auto_pip_trigger_reason != GetSurveyTargetReason() ||
       actual_trigger != target_trigger) {
+    base::UmaHistogramEnumeration(kTriggerResultHistogramName,
+                                  SurveyTriggerResult::kFinchSegmentMismatch);
     active_window_context_ = std::nullopt;
     return;
   }
@@ -177,27 +209,26 @@ void AutoPictureInPictureHatsService::MaybeLaunchSurvey(
       AutoPipReasonToString(auto_pip_trigger_reason);
 
   product_specific_string_data["Pip window duration"] =
-      base::NumberToString(
-          active_window_context_->window_duration->InSeconds()) +
-      "s";
+      BucketizeDurationToSeconds(*active_window_context_->window_duration);
 
-  // Record Opener site URL only if UKM is enabled for this profile.
-  const bool is_ukm_enabled = profile_->GetPrefs()->GetBoolean(
-      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled);
-  if (is_ukm_enabled) {
-    product_specific_string_data["Opener site URL"] =
-        active_window_context_->origin.spec();
-  } else {
-    product_specific_string_data["Opener site URL"] = "";
-  }
+  product_specific_string_data["Opener site domain"] =
+      net::registry_controlled_domains::GetDomainAndRegistry(
+          active_window_context_->origin,
+          net::registry_controlled_domains::EXCLUDE_PRIVATE_REGISTRIES);
 
   if (actual_trigger == kHatsSurveyTriggerAutoPipAllowed) {
     product_specific_string_data["Prompt Result"] =
         PromptResultToString(permission_prompt_result);
   }
 
-  hats_service->LaunchSurveyForWebContents(actual_trigger, web_contents, {},
-                                           product_specific_string_data);
+  hats_service->LaunchSurveyForWebContents(
+      actual_trigger, web_contents, {}, product_specific_string_data,
+      /*success_callback=*/
+      base::BindOnce(&RecordTimeFromWindowOpenToSurveyLaunch,
+                     clock_->NowTicks() - active_window_context_->start_time));
+
+  base::UmaHistogramEnumeration(kTriggerResultHistogramName,
+                                SurveyTriggerResult::kLaunched);
 
   // Clear the context after a successful launch.
   active_window_context_ = std::nullopt;

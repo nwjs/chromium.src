@@ -33,7 +33,9 @@ content::NavigationController::LoadURLParams LoadURLParamsFromNavigateParams(
     NavigateParams* params) {
   content::NavigationController::LoadURLParams load_url_params(params->url);
   load_url_params.initiator_frame_token = params->initiator_frame_token;
-  load_url_params.initiator_process_id = params->initiator_process_id;
+  // TODO(crbug.com/379869738): Remove FromUnsafeValue.
+  load_url_params.initiator_process_id =
+      content::ChildProcessId::FromUnsafeValue(params->initiator_process_id);
   load_url_params.initiator_origin = params->initiator_origin;
   load_url_params.initiator_base_url = params->initiator_base_url;
   load_url_params.initiator_navigation_state =
@@ -55,7 +57,6 @@ content::NavigationController::LoadURLParams LoadURLParamsFromNavigateParams(
   load_url_params.was_activated = params->was_activated;
   load_url_params.href_translate = params->href_translate;
   load_url_params.reload_type = params->reload_type;
-  load_url_params.impression = params->impression;
   load_url_params.internal_scroll_to_text_fragment =
       params->internal_scroll_to_text_fragment;
   load_url_params.started_by_ad = params->started_by_ad;

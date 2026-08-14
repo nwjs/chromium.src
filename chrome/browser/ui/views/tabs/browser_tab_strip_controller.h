@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 
+#include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/tabs/hover_tab_selector.h"
@@ -16,6 +17,7 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/tabs/shared/tab_strip_types.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_context_menu_controller.h"
+#include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_controller.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/tab_groups/tab_group_color.h"
@@ -145,6 +147,7 @@ class BrowserTabStripController : public TabStripController,
   void AddTabs(const std::vector<TabStrip::AddTabData>& tabs_data);
 
   void OnDiscardRingTreatmentEnabledChanged();
+  void OnGlassFrameEligibilityChanged(bool is_eligible);
 
   // TabContextMenuController::Delegate:
   bool IsContextMenuCommandChecked(
@@ -178,6 +181,8 @@ class BrowserTabStripController : public TabStripController,
   std::unique_ptr<ImmersiveRevealedLock> immersive_reveal_lock_;
 
   std::unique_ptr<TabMenuModelFactory> menu_model_factory_;
+
+  base::CallbackListSubscription glass_frame_service_subscription_;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_TABS_BROWSER_TAB_STRIP_CONTROLLER_H_

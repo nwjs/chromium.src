@@ -173,7 +173,7 @@ SharedImageFactory::SharedImageFactory(
                                       : GrContextType::kNone),
       gpu_preferences_(gpu_preferences),
 #if BUILDFLAG(IS_MAC)
-      texture_target_for_io_surfaces_(GetTextureTargetForIOSurfaces()),
+      texture_target_for_io_surfaces_(GL_TEXTURE_2D),
 #endif
       workarounds_(workarounds) {
   factory_ref_ = base::MakeRefCounted<SharedImageFactoryRef>(this);
@@ -848,8 +848,6 @@ gpu::SharedImageCapabilities SharedImageFactory::MakeCapabilities() {
       !is_angle_metal && !is_skia_graphite;
   shared_image_caps.supports_r16_shared_images =
       is_angle_metal || is_skia_graphite;
-  shared_image_caps.disable_r8_shared_images =
-      workarounds_.r8_egl_images_broken;
   shared_image_caps.disable_webgpu_shared_images =
       workarounds_.disable_webgpu_shared_images;
   if (context_state_) {
@@ -1061,6 +1059,16 @@ void SharedImageFactory::LogGetFactoryFailed(gpu::SharedImageUsageSet usage,
     return;
   }
 #endif  // BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(IS_WIN)
+  // Suppress dumps for LayerTreeHostUIResourceBitmap for kNone GrContextType
+  // on Windows.
+  if (context_state_->gr_context_type() == GrContextType::kNone &&
+      new_debug_label.find("LayerTreeHostUIResourceBitmap") !=
+          std::string::npos) {
+    return;
+  }
+#endif  // BUILDFLAG(IS_WIN)
 
   SCOPED_CRASH_KEY_STRING64("SIFactory", "DebugLabel", new_debug_label);
   SCOPED_CRASH_KEY_STRING64("SIFactory", "Format", format.ToString());

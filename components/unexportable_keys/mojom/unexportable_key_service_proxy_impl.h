@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/memory/raw_ref.h"
+#include "base/memory/weak_ptr.h"
 #include "components/unexportable_keys/background_task_priority.h"
 #include "components/unexportable_keys/mojom/unexportable_key_service.mojom.h"
 #include "components/unexportable_keys/unexportable_key_service.h"
@@ -78,19 +79,36 @@ class UnexportableKeyServiceProxyImpl : public mojom::UnexportableKeyService {
       BackgroundTaskPriority priority,
       GetAllKeysForGarbageCollectionCallback callback) override;
 
-  void DeleteKeys(const std::vector<UnexportableKeyId>& key_ids,
+  void DeleteKeys(const std::vector<UnexportableSigningKeyId>& key_ids,
                   BackgroundTaskPriority priority,
                   DeleteKeysCallback callback) override;
 
   void DeleteAllKeys(DeleteAllKeysCallback result) override;
 
  private:
+  using NewSigningKeyCallback =
+      base::OnceCallback<void(ServiceErrorOr<mojom::NewSigningKeyDataPtr>)>;
+  using NewAttestationKeyCallback =
+      base::OnceCallback<void(ServiceErrorOr<mojom::NewAttestationKeyDataPtr>)>;
+
+  void OnSigningKeyCreated(
+      NewSigningKeyCallback callback,
+      ServiceErrorOr<UnexportableSigningKeyId> error_or_key_id);
+  void OnAttestationKeyCreated(
+      NewAttestationKeyCallback callback,
+      ServiceErrorOr<UnexportableAttestationKeyId> error_or_key_id);
+  void OnGetAllKeysForGarbageCollection(
+      GetAllKeysForGarbageCollectionCallback callback,
+      ServiceErrorOr<std::vector<UnexportableSigningKeyId>> error_or_key_ids);
+
   mojo::Receiver<mojom::UnexportableKeyService> receiver_{this};
   // The underlying UnexportableKeyService instance. Not owned.
   // This pointer must remain valid for the entire lifetime of the
   // UnexportableKeyServiceProxyImpl object.
   const raw_ref<unexportable_keys::UnexportableKeyService>
       unexportable_key_service_;
+
+  base::WeakPtrFactory<UnexportableKeyServiceProxyImpl> weak_ptr_factory_{this};
 };
 
 }  // namespace unexportable_keys

@@ -11,11 +11,14 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_web_view.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/side_panel/side_panel_action_callback.h"
+#include "chrome/browser/ui/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "chrome/common/webui_url_constants.h"
@@ -29,11 +32,13 @@
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
+#include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/url_loader_interceptor.h"
 #include "content/public/test/web_contents_tester.h"
 #include "net/dns/mock_host_resolver.h"
+#include "ui/actions/actions.h"
 #include "ui/base/models/dialog_model.h"
 #include "ui/views/widget/widget_deletion_observer.h"
 
@@ -54,7 +59,6 @@ class MockContextualTasksComposeboxHandler
       Profile* profile,
       content::WebContents* web_contents,
       mojo::PendingReceiver<composebox::mojom::PageHandler> pending_handler,
-      mojo::PendingRemote<composebox::mojom::Page> pending_page,
       mojo::PendingReceiver<searchbox::mojom::PageHandler>
           pending_searchbox_handler,
       mojo::PendingRemote<searchbox::mojom::Page> pending_searchbox_page,
@@ -66,7 +70,6 @@ class MockContextualTasksComposeboxHandler
             profile,
             web_contents,
             std::move(pending_handler),
-            std::move(pending_page),
             std::move(pending_searchbox_handler),
             std::move(pending_searchbox_page),
             std::move(get_session_callback),
@@ -93,7 +96,11 @@ class ContextualTasksSidePanelCoordinatorInteractiveUiTest
     : public InteractiveBrowserTest {
  public:
   ContextualTasksSidePanelCoordinatorInteractiveUiTest() {
-    scoped_feature_list_.InitAndEnableFeature(kContextualTasks);
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        {{kContextualTasks, {}},
+         {kContextualTasksEphemeralBrandedEntryPoint,
+          {{"ContextualTasksEntryPoint", "toolbar-ephemeral-branded"}}}},
+        {});
   }
   ~ContextualTasksSidePanelCoordinatorInteractiveUiTest() override = default;
 
@@ -113,7 +120,7 @@ class ContextualTasksSidePanelCoordinatorInteractiveUiTest
     chrome::AddTabAt(browser(), GURL(chrome::kChromeUISettingsURL), -1, false);
 
     ContextualTasksService* contextual_tasks_service =
-        ContextualTasksServiceFactory::GetForProfile(browser()->profile());
+        ContextualTasksServiceFactory::GetForProfile(browser()->GetProfile());
 
     // Create task1 and associate with tab0 and tab2, create task2 and associate
     // with tab1. Left tab3 with no task associated with.
@@ -123,12 +130,20 @@ class ContextualTasksSidePanelCoordinatorInteractiveUiTest
         task1.GetTaskId(),
         sessions::SessionTabHelper::IdForTab(
             TabListInterface::From(browser())->GetTab(0)->GetContents()));
+    contextual_tasks_service->UpdateThreadForTask(
+        task1.GetTaskId(), ThreadType::kAiMode, "thread1", std::nullopt,
+        "Title 1");
+
     ContextualTask task2 = contextual_tasks_service->CreateTask();
     task_id2_ = task2.GetTaskId();
     contextual_tasks_service->AssociateTabWithTask(
         task2.GetTaskId(),
         sessions::SessionTabHelper::IdForTab(
             TabListInterface::From(browser())->GetTab(1)->GetContents()));
+    contextual_tasks_service->UpdateThreadForTask(
+        task2.GetTaskId(), ThreadType::kAiMode, "thread2", std::nullopt,
+        "Title 2");
+
     contextual_tasks_service->AssociateTabWithTask(
         task1.GetTaskId(),
         sessions::SessionTabHelper::IdForTab(
@@ -432,7 +447,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
   EXPECT_EQ(4, detach_index);
   ContextualTasksSidePanelCoordinator* coordinator = GetCoordinator();
   ContextualTasksService* contextual_tasks_service =
-      ContextualTasksServiceFactory::GetForProfile(browser()->profile());
+      ContextualTasksServiceFactory::GetForProfile(browser()->GetProfile());
 
   content::WebContents* tab_web_contents;
   ContextualTask task3 = contextual_tasks_service->CreateTask();
@@ -559,7 +574,7 @@ IN_PROC_BROWSER_TEST_F(
 
   ContextualTasksSidePanelCoordinator* coordinator = GetCoordinator();
   ContextualTasksService* contextual_tasks_service =
-      ContextualTasksServiceFactory::GetForProfile(browser()->profile());
+      ContextualTasksServiceFactory::GetForProfile(browser()->GetProfile());
 
   content::WebContents* tab_web_contents;
   ContextualTask task3 = contextual_tasks_service->CreateTask();
@@ -622,7 +637,8 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
         TabListInterface* tab_list = TabListInterface::From(browser());
         // Change current task from task1 to a new task.
         ContextualTasksService* contextual_tasks_service =
-            ContextualTasksServiceFactory::GetForProfile(browser()->profile());
+            ContextualTasksServiceFactory::GetForProfile(
+                browser()->GetProfile());
         ContextualTask new_task = contextual_tasks_service->CreateTask();
         contextual_tasks_service->AssociateTabWithTask(
             new_task.GetTaskId(), sessions::SessionTabHelper::IdForTab(
@@ -658,7 +674,8 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
         TabListInterface* tab_list = TabListInterface::From(browser());
         // Change current task from task1 to task2.
         ContextualTasksService* contextual_tasks_service =
-            ContextualTasksServiceFactory::GetForProfile(browser()->profile());
+            ContextualTasksServiceFactory::GetForProfile(
+                browser()->GetProfile());
         contextual_tasks_service->AssociateTabWithTask(
             task_id2_, sessions::SessionTabHelper::IdForTab(
                            tab_list->GetActiveTab()->GetContents()));
@@ -688,9 +705,6 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
   coordinator->Show(false,
                     omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT);
   ContextualTasksUI* ui = GetContextualTasksUI();
-  mojo::PendingRemote<composebox::mojom::Page> composebox_page_remote;
-  mojo::PendingReceiver<composebox::mojom::Page> composebox_page_receiver =
-      composebox_page_remote.InitWithNewPipeAndPassReceiver();
   mojo::PendingRemote<composebox::mojom::PageHandler> composebox_handler_remote;
   mojo::PendingReceiver<composebox::mojom::PageHandler>
       composebox_handler_receiver =
@@ -705,10 +719,9 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
 
   auto mock_composebox_handler =
       std::make_unique<testing::NiceMock<MockContextualTasksComposeboxHandler>>(
-          ui, browser()->profile(),
+          ui, browser()->GetProfile(),
           TabListInterface::From(browser())->GetTab(0)->GetContents(),
           std::move(composebox_handler_receiver),
-          std::move(composebox_page_remote),
           std::move(searchbox_handler_receiver),
           std::move(searchbox_page_remote),
           base::BindRepeating(
@@ -769,7 +782,8 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
         content::WebContents* web_contents1 =
             coordinator->GetActiveWebContents();
         ContextualTasksService* contextual_tasks_service =
-            ContextualTasksServiceFactory::GetForProfile(browser()->profile());
+            ContextualTasksServiceFactory::GetForProfile(
+                browser()->GetProfile());
 
         TabListInterface* tab_list = TabListInterface::From(browser());
         SessionID tab_id0 = sessions::SessionTabHelper::IdForTab(
@@ -854,7 +868,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
   // Tab4 will not inherit the task from tab1 as it is not created through link
   // click.
   ContextualTasksService* contextual_tasks_service =
-      ContextualTasksServiceFactory::GetForProfile(browser()->profile());
+      ContextualTasksServiceFactory::GetForProfile(browser()->GetProfile());
   std::optional<ContextualTask> task1 =
       contextual_tasks_service->GetContextualTaskForTab(
           sessions::SessionTabHelper::IdForTab(
@@ -880,7 +894,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
   // Since tab1 is associated with task1, verify tab 2 is associated with the
   // same task.
   ContextualTasksService* contextual_tasks_service =
-      ContextualTasksServiceFactory::GetForProfile(browser()->profile());
+      ContextualTasksServiceFactory::GetForProfile(browser()->GetProfile());
   std::optional<ContextualTask> task1 =
       contextual_tasks_service->GetContextualTaskForTab(
           sessions::SessionTabHelper::IdForTab(
@@ -898,7 +912,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
                        MoveTabToNewWindowKeepTaskAssociation) {
   SetUpTasks();
   ContextualTasksService* contextual_tasks_service =
-      ContextualTasksServiceFactory::GetForProfile(browser()->profile());
+      ContextualTasksServiceFactory::GetForProfile(browser()->GetProfile());
 
   // Verify tab0 is associated to a task.
   content::WebContents* web_contents =
@@ -932,7 +946,14 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
   EXPECT_TRUE(coordinator->IsPanelOpenForContextualTask());
 
   // Show Customize Chrome side panel.
-  chrome::ExecuteCommand(browser(), IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL);
+  chrome::ExecuteCommandWithContext(
+      browser(), IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL,
+      actions::ActionInvocationContext::Builder()
+          .SetProperty(
+              kSidePanelOpenTriggerKey,
+              static_cast<std::underlying_type_t<SidePanelOpenTrigger>>(
+                  SidePanelOpenTrigger::kToolbarButton))
+          .Build());
 
   // Verify the panel is closed.
   EXPECT_FALSE(coordinator->IsPanelOpenForContextualTask());
@@ -1091,8 +1112,13 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
             false, omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT);
       }),
       WaitForShow(kContextualTasksSidePanelWebViewElementId),
+      NameViewRelative(kContextualTasksSidePanelWebViewElementId,
+                       "SidePanelContentWebViewName",
+                       [](ContextualTasksWebView* web_view) -> views::View* {
+                         return web_view->content_web_view();
+                       }),
       InstrumentNonTabWebView(kSidePanelWebContentsId,
-                              kContextualTasksSidePanelWebViewElementId),
+                              "SidePanelContentWebViewName"),
       FocusWebContents(kSidePanelWebContentsId),
       WaitForStateChange(kSidePanelWebContentsId, contextual_tasks_app_exists),
       Do([&]() {

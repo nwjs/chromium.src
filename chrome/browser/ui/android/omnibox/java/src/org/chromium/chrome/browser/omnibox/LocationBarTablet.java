@@ -24,6 +24,7 @@ import android.view.ViewOutlineProvider;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 
+import androidx.annotation.ColorInt;
 import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.build.annotations.Initializer;
@@ -34,6 +35,7 @@ import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxSta
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator;
+import org.chromium.chrome.browser.theme.ThemeUtils;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.LocalizationUtils;
@@ -47,6 +49,7 @@ import org.chromium.ui.widget.Toast;
 class LocationBarTablet extends LocationBarLayout implements OnLongClickListener {
     // The number of toolbar buttons that can be hidden at small widths (reload, back, forward).
     private static final int HIDEABLE_BUTTON_COUNT = 3;
+    private static final int CENTERING_THRESHOLD_DP = 16;
     private static final float OVERLAY_Z_TRANSLATION = 1.0f;
     private static final float NEUTRAL_Z_TRANSLATION = 0.0f;
     private final LayerDrawable mFocusedPopupDrawable;
@@ -94,11 +97,17 @@ class LocationBarTablet extends LocationBarLayout implements OnLongClickListener
     // us to reparent the LocationBar without needing to explicitly reposition other elements of the
     // toolbar.
     private View mHolder;
+    private @Nullable View mContainerView;
     private @FuseboxLayoutMode int mLayoutMode;
     private boolean mIsReparentedToPopover;
+    // Target popover geometry, published directly to OmniboxSuggestionsDropdownEmbedderImpl
+    // instead of being applied as holder margins.
+    private int mTargetPopoverWidth;
+    private int mTargetPopoverLeftOffset;
     private @BrandedColorScheme int mBrandedColorScheme = BrandedColorScheme.APP_DEFAULT;
-    private boolean mIsInStandby;
+    private boolean mShowStandbyRing;
     private boolean mIsHovered;
+    private boolean mIsGlifActive;
 
     /** Constructor used to inflate from XML. */
     public LocationBarTablet(Context context, AttributeSet attrs) {
@@ -185,9 +194,18 @@ class LocationBarTablet extends LocationBarLayout implements OnLongClickListener
         mScreenWidthDp = getResources().getConfiguration().screenWidthDp;
     }
 
+    /**
+     * Sets the holder ViewGroup and optional container View used to determine available width and
+     * calculate margins for the fusebox expansion.
+     *
+     * @param holder The parent {@link ViewGroup} containing the location bar.
+     * @param containerView The container {@link View} defining the available width for expansion,
+     *     or {@code null} if the window width should be used.
+     */
     @Initializer
-    public void setHolder(ViewGroup holder) {
+    public void setHolderAndContainer(ViewGroup holder, @Nullable View containerView) {
         mHolder = holder;
+        mContainerView = containerView;
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -465,22 +483,38 @@ class LocationBarTablet extends LocationBarLayout implements OnLongClickListener
 
         mBrandedColorScheme = brandedColorScheme;
         Context context = getContext();
-        mOuterRect.setColor(
-                mLayoutMode == FuseboxLayoutMode.SUGGESTIONS_POPOVER
-                        ? OmniboxResourceProvider.getStandardSuggestionBackgroundColor(
-                                context, mBrandedColorScheme)
-                        : OmniboxResourceProvider.getSuggestionsDropdownBackgroundColor(
-                                context, mBrandedColorScheme));
-        mInnerRect.setColor(
-                OmniboxResourceProvider.getStandardSuggestionBackgroundColor(
-                        context, mBrandedColorScheme));
+        if (mLayoutMode == FuseboxLayoutMode.SUGGESTIONS_POPOVER) {
+            int popoverColor =
+                    OmniboxResourceProvider.getPopoverSuggestionBackgroundColor(
+                            context, mBrandedColorScheme);
+            mOuterRect.setColor(popoverColor);
+            mInnerRect.setColor(popoverColor);
+        } else {
+            mOuterRect.setColor(
+                    OmniboxResourceProvider.getSuggestionsDropdownBackgroundColor(
+                            context, mBrandedColorScheme));
+            mInnerRect.setColor(
+                    OmniboxResourceProvider.getStandardSuggestionBackgroundColor(
+                            context, mBrandedColorScheme));
+        }
 
         GradientDrawable unfocusedRect =
                 (GradientDrawable) mUnfocusedDrawable.findDrawableByLayerId(R.id.unfocused_bg);
         if (unfocusedRect != null) {
-            unfocusedRect.setColor(
-                    OmniboxResourceProvider.getTabletToolbarTextBoxBackgroundColor(
-                            context, mBrandedColorScheme));
+            if (mShowStandbyRing) {
+                unfocusedRect.setColor(
+                        OmniboxResourceProvider.getTabletToolbarTextBoxStandbyBackgroundColor(
+                                context, mBrandedColorScheme));
+            } else {
+                final @ColorInt int color = mLocationBarDataProvider.getPrimaryColor();
+                final @ColorInt int textBoxColor =
+                        ThemeUtils.getTextBoxColorForToolbarBackgroundInNonNativePage(
+                                context,
+                                color,
+                                mBrandedColorScheme == BrandedColorScheme.INCOGNITO,
+                                /* isCustomTab= */ false);
+                unfocusedRect.setColor(textBoxColor);
+            }
         }
     }
 
@@ -517,11 +551,12 @@ class LocationBarTablet extends LocationBarLayout implements OnLongClickListener
 
     @Override
     public void onSpecializedFuseboxModeActivated(boolean isSpecializedRequestType) {
+        mIsGlifActive = isSpecializedRequestType;
+        updateForeground();
         if (isSpecializedRequestType) {
-            mFocusedPopupDrawable.setDrawableByLayerId(R.id.glif_border_layer, mGlifBorderDrawable);
             mGlifBorderDrawable.start();
         } else {
-            mFocusedPopupDrawable.setDrawableByLayerId(R.id.glif_border_layer, null);
+            mGlifBorderDrawable.reset();
         }
     }
 
@@ -534,12 +569,13 @@ class LocationBarTablet extends LocationBarLayout implements OnLongClickListener
         // SUGGESTIONS_POPOVER (it depends only on flags set at build time and startup) and thus
         // don't handle that case.
         if (layoutMode == FuseboxLayoutMode.SUGGESTIONS_POPOVER) {
-            mOuterRect.setColor(
-                    OmniboxResourceProvider.getStandardSuggestionBackgroundColor(
-                            getContext(), mBrandedColorScheme));
-            mFocusedPopupDrawable.setLayerInsetRelative(
-                    mFocusedPopupDrawable.findIndexByLayerId(R.id.glif_border_layer), 0, 0, 0, 0);
+            int popoverColor =
+                    OmniboxResourceProvider.getPopoverSuggestionBackgroundColor(
+                            getContext(), mBrandedColorScheme);
+            mOuterRect.setColor(popoverColor);
+            mInnerRect.setColor(popoverColor);
             mGlifBorderDrawable.setCornerRadius(mOmniboxSuggestionDropdownRoundCornerRadius);
+            updateLayoutAndBackground();
         }
     }
 
@@ -557,16 +593,29 @@ class LocationBarTablet extends LocationBarLayout implements OnLongClickListener
     }
 
     @Override
-    void setIsInStandby(boolean isInStandby) {
-        if (isInStandby == mIsInStandby) return;
-        mIsInStandby = isInStandby;
+    /* package */ int getAlignmentViewTargetWidth() {
+        return mTargetPopoverWidth > 0 ? mTargetPopoverWidth : super.getAlignmentViewTargetWidth();
+    }
+
+    @Override
+    /* package */ int getAlignmentViewLeftOffset() {
+        return mTargetPopoverLeftOffset;
+    }
+
+    @Override
+    void setShowStandbyRing(boolean showStandbyRing) {
+        if (showStandbyRing == mShowStandbyRing) return;
+        mShowStandbyRing = showStandbyRing;
         updateLayoutAndBackground();
         updateForeground();
+        updateVisualsForState(mBrandedColorScheme);
     }
 
     private void updateForeground() {
-        if (mIsInStandby) {
+        if (mShowStandbyRing) {
             setForeground(mInsetStandbyBorder);
+        } else if (mIsGlifActive) {
+            setForeground(mGlifBorderDrawable);
         } else if (mIsHovered
                 && (mLayoutMode != FuseboxLayoutMode.SUGGESTIONS_POPOVER
                         || !mUrlCoordinator.hasFocus())) {
@@ -582,19 +631,26 @@ class LocationBarTablet extends LocationBarLayout implements OnLongClickListener
         Resources resources = getResources();
         LinearLayout.LayoutParams parentParams =
                 (LinearLayout.LayoutParams) mHolder.getLayoutParams();
-        if (!mIsInStandby
+        boolean isPopoverMode = mLayoutMode == FuseboxLayoutMode.SUGGESTIONS_POPOVER;
+        if (!mShowStandbyRing
                 && (mFuseboxState == FuseboxState.COMPACT
                         || mFuseboxState == FuseboxState.EXPANDED
-                        || (mLayoutMode == FuseboxLayoutMode.SUGGESTIONS_POPOVER
-                                && mIsReparentedToPopover))) {
+                        || mIsReparentedToPopover)) {
             parentParams.height = ViewGroup.LayoutParams.WRAP_CONTENT;
             int expansionPx =
-                    resources.getDimensionPixelSize(
-                            R.dimen.location_bar_tablet_fusebox_popup_inset);
-            parentParams.topMargin = -expansionPx;
-            setMarginsForWindowWidth(parentParams, expansionPx);
+                    isPopoverMode
+                            ? 0
+                            : resources.getDimensionPixelSize(
+                                    R.dimen.location_bar_tablet_fusebox_popup_inset);
+            parentParams.topMargin = mIsReparentedToPopover ? 0 : -expansionPx;
+            setMarginsForAvailableWidth(parentParams, expansionPx, isPopoverMode);
             parentParams.gravity = Gravity.TOP;
-            setPadding(expansionPx, expansionPx, expansionPx, getPaddingBottom());
+            int topExpansionPx =
+                    mIsReparentedToPopover
+                            ? resources.getDimensionPixelSize(
+                                    R.dimen.location_bar_tablet_fusebox_popover_top_padding)
+                            : expansionPx;
+            setPadding(expansionPx, topExpansionPx, expansionPx, getPaddingBottom());
             mHolder.setTranslationZ(OVERLAY_Z_TRANSLATION);
             // Call super to avoid overwriting our locally saved reference to our OutlineProvider.
             // Null out the outline provider to avoid casting a shadow on views with translationZ
@@ -607,6 +663,8 @@ class LocationBarTablet extends LocationBarLayout implements OnLongClickListener
             parentParams.leftMargin = 0;
             parentParams.rightMargin = 0;
             parentParams.topMargin = 0;
+            mTargetPopoverWidth = 0;
+            mTargetPopoverLeftOffset = 0;
             parentParams.height =
                     resources.getDimensionPixelSize(R.dimen.modern_toolbar_tablet_background_size);
             parentParams.gravity = Gravity.CENTER_VERTICAL;
@@ -615,16 +673,25 @@ class LocationBarTablet extends LocationBarLayout implements OnLongClickListener
             super.setOutlineProvider(mOutlineProvider);
             ViewUtils.setAncestorsShouldClipToPadding(this, true, View.NO_ID);
             ViewUtils.setAncestorsShouldClipChildren(this, true, View.NO_ID);
-            // Put the focused background back into its starting state before swapping it out;
+            // Put the focused foreground back into its starting state before swapping it out;
             // without this, it may still display the GLIF animation when we refocus.
             mGlifBorderDrawable.reset();
-            mFocusedPopupDrawable.setDrawableByLayerId(R.id.glif_border_layer, null);
+            mIsGlifActive = false;
+            updateForeground();
             // Reset our background to reflect non-zero suggestion count, which is the typical
             // state. Not setting this risks visual glitches when returning to the fusebox.
             setBackground(mUnfocusedDrawable);
         }
 
         adjustBackgroundForSuggestions();
+        // TODO(https://crbug.com/537862653): Move this into the OmniboxResourceProvider.
+        if (mLayoutMode == FuseboxLayoutMode.SUGGESTIONS_POPOVER) {
+            layoutParams.setMarginEnd(
+                    resources.getDimensionPixelSize(
+                            R.dimen.location_bar_desktop_popover_margin_end));
+        } else {
+            layoutParams.setMarginEnd(0);
+        }
         setLayoutParams(layoutParams);
         mHolder.setLayoutParams(parentParams);
     }
@@ -633,7 +700,7 @@ class LocationBarTablet extends LocationBarLayout implements OnLongClickListener
         MarginLayoutParams statusViewLayoutParams =
                 (MarginLayoutParams) mStatusView.getLayoutParams();
         Resources resources = getResources();
-        if (state == FuseboxState.COMPACT && !mIsInStandby) {
+        if (state == FuseboxState.COMPACT && !mShowStandbyRing && !mIsReparentedToPopover) {
             // In the compact fusebox state, the location bar is taller than its inner background,
             // creating the appearance of vertical misalignment. We resolve this by translating
             // constituent views to be centered withing the 56 dp inner background, shifting them
@@ -666,45 +733,70 @@ class LocationBarTablet extends LocationBarLayout implements OnLongClickListener
         mStatusView.setLayoutParams(statusViewLayoutParams);
     }
 
-    private void setMarginsForWindowWidth(
-            MarginLayoutParams layoutParams, int minHorizontalExpansionPx) {
+    private void setMarginsForAvailableWidth(
+            MarginLayoutParams layoutParams, int minHorizontalExpansionPx, boolean isPopoverMode) {
         Resources resources = getResources();
         int screenWidthDp = resources.getConfiguration().screenWidthDp;
-        int windowWidthPx = DisplayUtil.dpToPx(mWindowAndroid.getDisplay(), screenWidthDp);
-        int measuredWidthWithoutExpansion =
-                getMeasuredWidth()
-                        + Math.min(0, layoutParams.leftMargin)
-                        + Math.min(0, layoutParams.rightMargin);
-        int minTabletWidthPx = resources.getDimensionPixelSize(R.dimen.fusebox_min_tablet_width);
+
+        ViewUtils.getRelativeLayoutPosition(
+                mContainerView != null ? mContainerView : getRootView(), mHolder, mPositionArray);
+
+        int availableWidth =
+                mContainerView != null
+                        ? mContainerView.getMeasuredWidth()
+                        : DisplayUtil.dpToPx(mWindowAndroid.getDisplay(), screenWidthDp);
+        int unexpandedWidth =
+                mHolder.getMeasuredWidth() + layoutParams.leftMargin + layoutParams.rightMargin;
+        int unexpandedLeft = mPositionArray[0] - layoutParams.leftMargin;
+        int unexpandedRight = unexpandedLeft + unexpandedWidth;
+
+        // Step 2: Determine target width
         boolean isPhoneWidthScreen = screenWidthDp < DeviceFormFactor.MINIMUM_TABLET_WIDTH_DP;
-        int targetWidthPx =
-                isPhoneWidthScreen
-                        ? windowWidthPx
-                        : Math.max(
-                                minTabletWidthPx,
-                                measuredWidthWithoutExpansion + 2 * minHorizontalExpansionPx);
+        int minTabletWidthPx = resources.getDimensionPixelSize(R.dimen.fusebox_min_tablet_width);
 
-        ViewUtils.getRelativeLayoutPosition(getRootView(), this, mPositionArray);
-        int currentLeft = mPositionArray[0] - layoutParams.leftMargin;
-        // Our view is relatively centered already; make it exactly centered when expanded.
-        boolean isViewApproximatelyCentered =
-                windowWidthPx - 2 * currentLeft <= minTabletWidthPx || isPhoneWidthScreen;
-        if (isViewApproximatelyCentered) {
-            int targetLeft = (windowWidthPx - targetWidthPx) / 2;
-            int targetRight = targetLeft + targetWidthPx;
+        int desiredWidth =
+                Math.max(minTabletWidthPx, unexpandedWidth + 2 * minHorizontalExpansionPx);
+        int targetWidth =
+                Math.min(availableWidth, isPhoneWidthScreen ? availableWidth : desiredWidth);
+        int unexpandedCenteredLeft = (availableWidth - unexpandedWidth) / 2;
+        int centeringThresholdPx =
+                DisplayUtil.dpToPx(mWindowAndroid.getDisplay(), CENTERING_THRESHOLD_DP);
 
-            int currentRight = currentLeft + measuredWidthWithoutExpansion;
-            int shiftLeft = targetLeft - currentLeft;
-            int shiftRight = targetRight - currentRight;
-
-            layoutParams.leftMargin = shiftLeft;
-            layoutParams.rightMargin = -shiftRight;
+        // Step 3: Determine [finalLeft, finalRight] in container coordinates
+        int finalLeft;
+        int finalRight;
+        boolean isApproximatelyCentered =
+                Math.abs(unexpandedLeft - unexpandedCenteredLeft) <= centeringThresholdPx;
+        if (isPhoneWidthScreen || isApproximatelyCentered) {
+            int centeredLeft = Math.max(0, (availableWidth - targetWidth) / 2);
+            finalLeft = centeredLeft;
+            finalRight = centeredLeft + targetWidth;
         } else {
-            // Our view is relatively off-center. Leave it that way, expanding symmetrically from
-            // our current position.
-            int expansionPx = (targetWidthPx - measuredWidthWithoutExpansion) / 2;
-            layoutParams.leftMargin = -expansionPx;
-            layoutParams.rightMargin = -expansionPx;
+            int extraWidth = targetWidth - unexpandedWidth;
+            finalLeft = unexpandedLeft - extraWidth / 2;
+            finalRight = finalLeft + targetWidth;
+        }
+
+        // Step 4. Hard-clamp the interval to container bounds [0, availableWidth]
+        if (finalLeft < 0) {
+            finalLeft = 0;
+            finalRight = Math.min(targetWidth, availableWidth);
+        } else if (finalRight > availableWidth) {
+            finalRight = availableWidth;
+            finalLeft = Math.max(0, availableWidth - targetWidth);
+        }
+
+        // Step 5: In popover mode, publish the target rect and leave the holder unexpanded, so its
+        // measured width and position are invariant across focus. Otherwise, apply deltas to parent
+        // margins.
+        if (isPopoverMode) {
+            mTargetPopoverWidth = finalRight - finalLeft;
+            mTargetPopoverLeftOffset = finalLeft - unexpandedLeft;
+            layoutParams.leftMargin = 0;
+            layoutParams.rightMargin = 0;
+        } else {
+            layoutParams.leftMargin = finalLeft - unexpandedLeft;
+            layoutParams.rightMargin = -(finalRight - unexpandedRight);
         }
     }
 
@@ -737,12 +829,6 @@ class LocationBarTablet extends LocationBarLayout implements OnLongClickListener
                 });
         mFocusedPopupDrawable.setLayerInsetRelative(
                 1,
-                mLocationBarTabletFuseboxPopupInset,
-                mLocationBarTabletFuseboxPopupInset,
-                mLocationBarTabletFuseboxPopupInset,
-                bottomInset);
-        mFocusedPopupDrawable.setLayerInsetRelative(
-                mFocusedPopupDrawable.findIndexByLayerId(R.id.glif_border_layer),
                 mLocationBarTabletFuseboxPopupInset,
                 mLocationBarTabletFuseboxPopupInset,
                 mLocationBarTabletFuseboxPopupInset,

@@ -178,7 +178,7 @@ RootCompositorFrameSinkImpl::Create(
             frame_sink_manager,
             std::move(params->external_begin_frame_controller),
             std::move(params->external_begin_frame_controller_client),
-            restart_id);
+            restart_id, params->wait_for_all_frame_sinks);
     external_begin_frame_source_mojo =
         static_cast<ExternalBeginFrameSourceMojo*>(
             external_begin_frame_source.get());
@@ -223,7 +223,7 @@ RootCompositorFrameSinkImpl::Create(
       external_begin_frame_source =
           std::make_unique<ExternalBeginFrameSourceMac>(
               restart_id, params->renderer_settings.display_id,
-              output_surface.get());
+              params->refresh_rate, output_surface.get());
       created_external_begin_frame_source_mac = true;
 #endif
       if (!external_begin_frame_source && !synthetic_begin_frame_source) {
@@ -358,13 +358,6 @@ void RootCompositorFrameSinkImpl::SetDisplayVisible(bool visible) {
   display_->SetVisible(visible);
 }
 
-#if BUILDFLAG(IS_WIN)
-void RootCompositorFrameSinkImpl::DisableSwapUntilResize(
-    DisableSwapUntilResizeCallback callback) {
-  display_->DisableSwapUntilResize(std::move(callback));
-}
-#endif
-
 void RootCompositorFrameSinkImpl::Resize(const gfx::Size& size) {
   if (!display_->resize_based_on_root_surface())
     display_->Resize(size);
@@ -449,7 +442,8 @@ RootCompositorFrameSinkImpl::GetSupportedFrameIntervals() {
         display_frame_interval_);
   }
 
-  return {display_frame_interval_, display_frame_interval_ * 2};
+  return BeginFrameSource::GetDefaultSupportedFrameIntervals(
+      display_frame_interval_);
 }
 
 void RootCompositorFrameSinkImpl::UpdateVSyncParameters() {
@@ -533,12 +527,10 @@ void RootCompositorFrameSinkImpl::SetSupportedRefreshRates(
     exact_supported_refresh_rates_[interval] = rate;
   }
 
-#if BUILDFLAG(IS_ANDROID)
-  if (external_begin_frame_source_) {
-    external_begin_frame_source_->SetSupportedRefreshRates(
-        exact_supported_refresh_rates_);
+  if (!exact_supported_refresh_rates_.empty() && display_) {
+    display_->NotifyMinSupportedVsyncInterval(
+        exact_supported_refresh_rates_.begin()->first);
   }
-#endif
 
   UpdateFrameIntervalDeciderSettings();
 }

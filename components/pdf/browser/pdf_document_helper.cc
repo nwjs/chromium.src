@@ -349,6 +349,24 @@ void PDFDocumentHelper::HasMeaningfulText(
   remote_pdf_client_->HasMeaningfulText(std::move(callback));
 }
 
+void PDFDocumentHelper::HasJavaScript(
+    pdf::mojom::PdfListener::HasJavaScriptCallback callback) {
+  if (!remote_pdf_client_ || !is_document_load_complete_) {
+    std::move(callback).Run(false);
+    return;
+  }
+  remote_pdf_client_->HasJavaScript(std::move(callback));
+}
+
+void PDFDocumentHelper::IsPasswordProtected(
+    pdf::mojom::PdfListener::IsPasswordProtectedCallback callback) {
+  if (!remote_pdf_client_ || !is_document_load_complete_) {
+    std::move(callback).Run(false);
+    return;
+  }
+  remote_pdf_client_->IsPasswordProtected(std::move(callback));
+}
+
 void PDFDocumentHelper::OnSelectionEvent(ui::SelectionEventType event) {
   // Should be handled by `TouchSelectionControllerClientAura`.
   NOTREACHED();

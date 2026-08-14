@@ -14,6 +14,7 @@ import {WebUiListenerMixinLit} from '//resources/cr_elements/web_ui_listener_mix
 import {assert} from '//resources/js/assert.js';
 import {isRTL} from '//resources/js/util.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
+import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 
 import {ContentController, ContentType} from '../content/content_controller.js';
 import type {ContentListener, ContentState} from '../content/content_controller.js';
@@ -87,6 +88,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
       pageLanguage_: {type: String},
       presentationState_: {type: Number},
       lineFocusStyle_: {type: Object},
+      lineFocusEnabled_: {type: Boolean},
       lineFocusMovement_: {type: Number},
       isDocsLoadMoreButtonVisible_: {type: Boolean},
       hasValidSelection_: {type: Boolean},
@@ -97,11 +99,13 @@ export class AppElement extends AppElementBase implements SpeechListener,
 
   protected accessor contentState_: ContentState;
   protected accessor lineFocusStyle_: LineFocusStyle|null = null;
+  protected accessor lineFocusEnabled_: boolean = false;
   protected accessor lineFocusMovement_: LineFocusMovement|null = null;
 
   protected accessor isDocsLoadMoreButtonVisible_: boolean = false;
   protected accessor hasValidSelection_: boolean = false;
   protected isImmersiveEnabled_: boolean = false;
+  protected isImprovedReadAloudEnabled_: boolean = false;
 
   // If the speech engine is considered "loaded." If it is, we should display
   // the play / pause buttons normally. Otherwise, we should disable the
@@ -134,6 +138,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   private logger_: ReadAnythingLogger = ReadAnythingLogger.getInstance();
   private styleUpdater_: AppStyleUpdater;
   private nodeStore_: NodeStore = NodeStore.getInstance();
+  private playOnOpen_: boolean = false;
   private voiceLanguageController_: VoiceLanguageController =
       VoiceLanguageController.getInstance();
   private speechController_: SpeechController = SpeechController.getInstance();
@@ -168,6 +173,8 @@ export class AppElement extends AppElementBase implements SpeechListener,
       this.contentController_.configureTrustedTypes();
     }
     this.isImmersiveEnabled_ = chrome.readingMode.isImmersiveEnabled;
+    this.isImprovedReadAloudEnabled_ =
+        chrome.readingMode.isImprovedReadAloudEnabled;
   }
 
   override connectedCallback() {
@@ -341,6 +348,10 @@ export class AppElement extends AppElementBase implements SpeechListener,
       assert(this.shadowRoot);
       this.contentController_.scrollToAnchor(url, this.shadowRoot);
     };
+
+    chrome.readingMode.setPlayOnOpen = (playOnOpen: boolean) => {
+      this.setPlayOnOpen(playOnOpen);
+    };
   }
 
   override disconnectedCallback() {
@@ -349,6 +360,23 @@ export class AppElement extends AppElementBase implements SpeechListener,
     // it is called in tests, and the speech extension timeout can cause
     // flakiness.
     this.voiceLanguageController_.stopWaitingForSpeechExtension();
+  }
+
+  override updated(changedProperties: PropertyValues<this>) {
+    super.updated(changedProperties);
+    if (this.playOnOpen_ && this.computeIsReadAloudPlayable()) {
+      if (!this.speechController_.isSpeechActive()) {
+        this.speechController_.onPlayPauseToggle(this.$.container);
+      }
+      this.playOnOpen_ = false;
+    }
+  }
+
+  setPlayOnOpen(playOnOpen: boolean) {
+    if (this.isImprovedReadAloudEnabled_) {
+      this.playOnOpen_ = playOnOpen;
+      this.requestUpdate();
+    }
   }
 
   private onWindowResize_() {
@@ -498,13 +526,32 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   ///////////////////////// LineFocusListener methods //////////////////////////
-  onLineFocusMove(newTop: number, newHeight: number, newFocalPoint: number):
-      void {
+  onLineFocusVisualPositionChange(newTop: number, newHeight: number): void {
+    if (!chrome.readingMode.isLineFocusEnabled) {
+      return;
+    }
+    this.styleUpdater_.setLineFocusPos(newTop, newHeight);
+  }
+
+  onLineFocusContentPositionChange(
+      newTop: number, newHeight: number, newFocalPoint: number): void {
     if (!chrome.readingMode.isLineFocusEnabled) {
       return;
     }
 
     this.styleUpdater_.setLineFocusPos(newTop, newHeight);
+
+    // Only update content position when read aloud is not speaking
+    // or temporarily paused (e.g. during voice preview or settings change).
+    // During active speech, line focus moves on every word boundary. So
+    // calling document.caretPositionFromPoint would force synchronous layout
+    // recalculations on every word, lagging the UI. Additionally, calling
+    // onLineFocusChange updates currentContentPosition, causing subsequent
+    // Play/Pause to be slow.
+    if (this.speechController_.isSpeechActive() ||
+        this.speechController_.isTemporaryPause()) {
+      return;
+    }
     const position: CaretPosition|null = document.caretPositionFromPoint(
         0, newFocalPoint, {shadowRoots: [this.shadowRoot]});
     this.speechController_.onLineFocusChange(position);
@@ -533,15 +580,9 @@ export class AppElement extends AppElementBase implements SpeechListener,
     if (!chrome.readingMode.isLineFocusEnabled) {
       return;
     }
-    // Clear the content position if line focus is turned off.
-    if (!this.lineFocusController_.isEnabled()) {
-      this.speechController_.onLineFocusChange(null);
-    }
-
-    this.lineFocusStyle_ = this.lineFocusController_.getCurrentLineFocusStyle();
+    this.updateLineFocusState_();
     this.lineFocusMovement_ =
         this.lineFocusController_.getCurrentLineFocusMovement();
-    this.setLineFocusStyle_();
     this.requestUpdate();
   }
 
@@ -690,16 +731,28 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   protected onLineSpacingChange_() {
+    this.settingsPrefs_ = {
+      ...this.settingsPrefs_,
+      lineSpacing: chrome.readingMode.lineSpacing,
+    };
     this.styleUpdater_.setLineSpacing();
     this.onTextLocationsChange_();
   }
 
   protected onLetterSpacingChange_() {
+    this.settingsPrefs_ = {
+      ...this.settingsPrefs_,
+      letterSpacing: chrome.readingMode.letterSpacing,
+    };
     this.styleUpdater_.setLetterSpacing();
     this.onTextLocationsChange_();
   }
 
   protected onFontChange_() {
+    this.settingsPrefs_ = {
+      ...this.settingsPrefs_,
+      font: chrome.readingMode.fontName,
+    };
     this.styleUpdater_.setFont();
     this.onTextLocationsChange_();
   }
@@ -710,8 +763,21 @@ export class AppElement extends AppElementBase implements SpeechListener,
     this.setLineFocusStyle_();
   }
 
-  protected onThemeChange_() {
+  protected onThemeChange_(event: CustomEvent<{data: number}>) {
+    if (chrome.readingMode.isImprovedReadAloudEnabled && event.detail &&
+        event.detail.data !== undefined) {
+      this.settingsPrefs_ = {
+        ...this.settingsPrefs_,
+        theme: event.detail.data,
+      };
+    }
     this.styleUpdater_.setTheme();
+  }
+
+  protected onPresentationChange_(event: CustomEvent<{data: number}>) {
+    if (event.detail && event.detail.data !== undefined) {
+      this.presentationState_ = event.detail.data;
+    }
   }
 
   protected onResetToolbar_() {
@@ -742,14 +808,27 @@ export class AppElement extends AppElementBase implements SpeechListener,
       this.lineFocusController_.onStyleChange(
           event.detail.data, this.$.container,
           this.$.appFlexParent.clientHeight);
-      this.lineFocusStyle_ =
-          this.lineFocusController_.getCurrentLineFocusStyle();
-      this.setLineFocusStyle_();
+      this.updateLineFocusState_();
+    }
+  }
 
-      // Clear the content position if line focus is turned off.
-      if (!this.lineFocusController_.isEnabled()) {
-        this.speechController_.onLineFocusChange(null);
-      }
+  protected onLineFocusToggleChange_(event: CustomEvent<{data: boolean}>) {
+    if (chrome.readingMode.isLineFocusEnabled) {
+      this.lineFocusController_.toggle(
+          event.detail.data, this.$.container,
+          this.$.appFlexParent.clientHeight);
+      this.updateLineFocusState_();
+    }
+  }
+
+  private updateLineFocusState_() {
+    this.lineFocusEnabled_ = this.lineFocusController_.isEnabled();
+    this.lineFocusStyle_ = this.lineFocusController_.getCurrentLineFocusStyle();
+    this.setLineFocusStyle_();
+
+    // Clear the content position if line focus is turned off.
+    if (!this.lineFocusController_.isEnabled()) {
+      this.speechController_.onLineFocusChange(null);
     }
   }
 
@@ -796,6 +875,13 @@ export class AppElement extends AppElementBase implements SpeechListener,
     return (this.contentState_.type === ContentType.HAS_CONTENT) &&
         this.speechEngineLoaded_ && !!this.selectedVoice_ &&
         !this.willDrawAgainSoon_;
+  }
+
+  protected computeIsLineFocusShowing_(): boolean {
+    return chrome.readingMode.isLineFocusEnabled &&
+        this.lineFocusController_.isEnabled() &&
+        (this.contentState_.type === ContentType.HAS_CONTENT ||
+         this.contentState_.type === ContentType.LOADING);
   }
 
   protected onKeyDown_(e: KeyboardEvent) {
@@ -856,14 +942,13 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   protected getLineFocusClass_(): string {
-    if (!chrome.readingMode.isLineFocusEnabled) {
+    if (!chrome.readingMode.isLineFocusEnabled ||
+        !this.lineFocusController_.isEnabled() ||
+        this.contentState_.type !== ContentType.HAS_CONTENT) {
       return '';
     }
 
-    const type = (this.contentState_.type === ContentType.HAS_CONTENT) ?
-        this.lineFocusController_.getCurrentLineFocusType() :
-        LineFocusType.NONE;
-
+    const type = this.lineFocusController_.getCurrentLineFocusType();
     switch (type) {
       case LineFocusType.WINDOW:
         return 'window-mode';

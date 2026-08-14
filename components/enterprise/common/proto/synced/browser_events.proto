@@ -210,6 +210,7 @@ message TriggeredRuleInfo {
     WARN = 2;
     BLOCK = 3;
     FORCE_SAVE_TO_CLOUD = 4;
+    KEEP_IN_MANAGED_CHROME = 5;
   }
 
   Action action = 5;
@@ -598,6 +599,7 @@ enum DataTransferEventTrigger {
   PAGE_PRINT = 4;
   URL_VISITED = 6;
   CLIPBOARD_COPY = 7;
+  NETWORK_REQUEST = 11;
 
   // Trigger for file transfers on ChromeOS.
   FILE_TRANSFER = 5;

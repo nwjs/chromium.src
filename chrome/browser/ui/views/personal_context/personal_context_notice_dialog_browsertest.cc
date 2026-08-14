@@ -71,7 +71,7 @@ IN_PROC_BROWSER_TEST_F(PersonalContextNoticeDialogBrowserTest,
 
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
 
   auto controller =
       std::make_unique<PersonalContextNoticeDialogController>(profile);
@@ -102,7 +102,7 @@ IN_PROC_BROWSER_TEST_F(PersonalContextNoticeDialogBrowserTest,
                        ManageSettingsClickOpensNewTab) {
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
 
   auto controller =
       std::make_unique<PersonalContextNoticeDialogController>(profile);
@@ -131,14 +131,14 @@ IN_PROC_BROWSER_TEST_F(PersonalContextNoticeDialogBrowserTest,
       base::StringPrintf(kClickButtonScriptTemplate, "#manageSettings")));
 
   content::WebContents* new_tab = tab_add_waiter.Wait();
-  EXPECT_EQ(new_tab->GetVisibleURL(), GURL(kPersonalContextSettingsURL));
+  EXPECT_EQ(new_tab->GetVisibleURL(), GURL(kPersonalContextConnectedAppsURL));
 }
 
 IN_PROC_BROWSER_TEST_F(PersonalContextNoticeDialogBrowserTest,
                        LearnMoreClickOpensNewTab) {
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
 
   auto controller =
       std::make_unique<PersonalContextNoticeDialogController>(profile);
@@ -177,7 +177,7 @@ IN_PROC_BROWSER_TEST_F(PersonalContextNoticeDialogBrowserTest,
 
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
 
   auto controller =
       std::make_unique<PersonalContextNoticeDialogController>(profile);
@@ -225,7 +225,7 @@ IN_PROC_BROWSER_TEST_F(PersonalContextNoticeDialogBrowserTest,
 
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
 
   auto controller =
       std::make_unique<PersonalContextNoticeDialogController>(profile);

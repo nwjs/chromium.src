@@ -225,7 +225,7 @@ class RecentActivityBubbleDialogViewBrowserTest : public DialogBrowserTest {
 
     BubbleCoordinator()->Show(views::BubbleAnchor(anchor_view),
                               browser()->tab_strip_model()->GetWebContentsAt(0),
-                              activity_log, browser()->profile());
+                              activity_log, browser()->GetProfile());
   }
 
   void ShowLogForCurrentTab(std::vector<ActivityLogItem> activity_log) {
@@ -239,7 +239,7 @@ class RecentActivityBubbleDialogViewBrowserTest : public DialogBrowserTest {
     BubbleCoordinator()->ShowForCurrentTab(
         views::BubbleAnchor(anchor_view),
         browser()->tab_strip_model()->GetWebContentsAt(0), {}, activity_log,
-        browser()->profile());
+        browser()->GetProfile());
   }
 
   bool VerifyUi() override {
@@ -444,7 +444,7 @@ class RecentActivityBubbleDialogViewActionBrowserTest
   SavedTabGroup ShareTabGroup(TabGroupId group_id) {
     syncer::CollaborationId collaboration_id("fake_collaboration_id");
     TabGroupSyncService* tab_group_sync_service =
-        TabGroupSyncServiceFactory::GetForProfile(browser()->profile());
+        TabGroupSyncServiceFactory::GetForProfile(browser()->GetProfile());
     tab_group_sync_service->MakeTabGroupSharedForTesting(group_id,
                                                          collaboration_id);
     auto saved_tab_group = tab_group_sync_service->GetGroup(group_id);

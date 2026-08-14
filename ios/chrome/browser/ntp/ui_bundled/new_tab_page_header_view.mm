@@ -34,6 +34,7 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_trait.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_utils.h"
 #import "ios/chrome/browser/ntp/ui_bundled/ntp_identity_disc_button.h"
+#import "ios/chrome/browser/ntp/ui_bundled/ntp_tools_menu_button.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_constants.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_presentation_context.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_ui_features.h"
@@ -94,6 +95,7 @@ constexpr CGFloat kFakeboxMinimumFontScaleFactor = 0.57;
 // The constants for the constraints affecting the end button; either Lens or
 // Voice Search, depending on if Lens is enabled.
 constexpr CGFloat kEndButtonFakeboxTrailingSpace = 13.0;
+constexpr CGFloat kEndButtonFakeboxIPadTrailingSpace = 18.0;
 constexpr CGFloat kEndButtonNormalSizeFakeboxWithBadgeTrailingSpace = 7.0;
 constexpr CGFloat kEndButtonOmniboxTrailingSpace = 7.0;
 
@@ -107,6 +109,7 @@ constexpr CGFloat kHintLabelOmniboxLeadingSpaceWithIcon = 42.0;
 constexpr CGFloat kHintLabelOmniboxLeadingSpaceWithWithPlus = 52.0;
 
 // The constants for the search engine image.
+constexpr CGFloat kFakeboxIPadExtraLeadingSpace = 5.0;
 constexpr CGFloat kFakeboxImageLeadingSpace = 13.0;
 constexpr CGFloat kFakeboxPlusLeadingSpace = 18.0;
 constexpr CGFloat kOmniboxImageLeadingSpace = 22.0;
@@ -198,7 +201,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 @property(nonatomic, strong) UIView* separator;
 
 // Private properties moved from header.
-@property(nonatomic, strong) UIButton* toolsMenuButton;
+@property(nonatomic, strong) NTPToolsMenuButton* toolsMenuButton;
 @property(nonatomic, strong) UIView* cancelButton;
 @property(nonatomic, strong) OmniboxContainerView* omnibox;
 @property(nonatomic, strong) UIView* fakeOmniboxContainer;
@@ -282,6 +285,9 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 
   // YES if Google is the default search engine.
   BOOL _isGoogleDefaultSearchEngine;
+
+  // YES if the tools menu button has a blue dot.
+  BOOL _hasToolsMenuBlueDot;
 }
 
 #pragma mark - Public
@@ -643,6 +649,8 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 - (CGFloat)fakeboxLeadingSpace {
   if ([self shouldShowPlusButton]) {
     return kFakeboxPlusLeadingSpace;
+  } else if (CanShowTabStrip(self) || !IsSplitToolbarMode(self)) {
+    return kFakeboxImageLeadingSpace + kFakeboxIPadExtraLeadingSpace;
   } else {
     return kFakeboxImageLeadingSpace;
   }
@@ -1035,8 +1043,8 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   UIButtonConfiguration* configuration =
       [UIButtonConfiguration plainButtonConfiguration];
 
-  UIImage* icon = DefaultSymbolTemplateWithPointSize(
-      kPencilSymbol, ntp_home::kNTPMenuButtonIconSize);
+  UIImage* icon = SymbolTemplateWithPointSize(SymbolPencil,
+                                              ntp_home::kNTPMenuButtonIconSize);
   configuration.image = icon;
   configuration.background.cornerRadius = ntp_home::kNTPMenuButtonCornerRadius;
   customizationMenuButton.configuration = configuration;
@@ -1099,7 +1107,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   [self applyBackgroundTheme];
 }
 
-- (void)setToolsMenuButton:(UIButton*)toolsMenuButton {
+- (void)setToolsMenuButton:(NTPToolsMenuButton*)toolsMenuButton {
   CHECK(IsChromeNextIaEnabled());
   if (!toolsMenuButton) {
     [_toolsMenuButton removeFromSuperview];
@@ -1107,36 +1115,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
     return;
   }
 
-  UIButtonConfiguration* configuration =
-      [UIButtonConfiguration plainButtonConfiguration];
-  UIImage* icon = DefaultSymbolTemplateWithPointSize(
-      kMenuSymbol, ntp_home::kNTPMenuButtonIconSize);
-  configuration.image = icon;
-  configuration.background.cornerRadius = ntp_home::kNTPMenuButtonCornerRadius;
-  toolsMenuButton.configuration = configuration;
-
-  UIColor* unthemedTintColor = [UIColor colorNamed:kBlue600Color];
-  toolsMenuButton.configurationUpdateHandler =
-      CreateThemedButtonConfigurationUpdateHandler(
-          unthemedTintColor, ^UIColor*(NewTabPageColorPalette* palette) {
-            if (palette) {
-              return palette.headerButtonColor;
-            }
-
-            return [UIColor colorWithDynamicProvider:^UIColor*(
-                                UITraitCollection* traits) {
-              return traits.userInterfaceStyle == UIUserInterfaceStyleDark
-                         ? [UIColor colorNamed:kTabGroupFaviconBackgroundColor]
-                         : [[UIColor colorNamed:kSolidWhiteColor]
-                               colorWithAlphaComponent:
-                                   ntp_home::kNTPMenuButtonLightUnthemedAlpha];
-            }];
-          });
-
   toolsMenuButton.translatesAutoresizingMaskIntoConstraints = NO;
-  toolsMenuButton.pointerInteractionEnabled = YES;
-  toolsMenuButton.clipsToBounds = YES;
-
   [self.toolBarView addSubview:toolsMenuButton];
 
   NSLayoutAnchor* leadingAnchor =
@@ -1160,6 +1139,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   ]];
 
   _toolsMenuButton = toolsMenuButton;
+  _toolsMenuButton.blueDot = _hasToolsMenuBlueDot;
 
   [self applyBackgroundTheme];
 }
@@ -1218,7 +1198,6 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   if (IsSplitToolbarMode(self)) {
     [self resetSplitToolbarResizing];
   }
-  [self.delegate didChangeOmniboxPosition:self];
 }
 
 - (void)setVoiceSearchIsEnabled:(BOOL)voiceSearchIsEnabled {
@@ -1346,12 +1325,8 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
     return;
   }
 
-  UIButton* toolsMenuButton =
-      [[ExtendedTouchTargetButton alloc] initWithFrame:CGRectZero];
-
-  toolsMenuButton.accessibilityIdentifier = kNTPToolsMenuButtonIdentifier;
-  toolsMenuButton.accessibilityLabel =
-      l10n_util::GetNSString(IDS_IOS_TOOLS_MENU);
+  NTPToolsMenuButton* toolsMenuButton =
+      [[NTPToolsMenuButton alloc] initWithFrame:CGRectZero];
 
   [toolsMenuButton addTarget:self.commandHandler
                       action:@selector(toolsMenuWasTapped:)
@@ -1385,7 +1360,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   self.plusButton.accessibilityLabel = l10n_util::GetNSString(
       IDS_IOS_COMPOSEBOX_ADD_ATTACHMENT_BUTTON_ACCESSIBILITY_LABEL);
   [self.plusButton
-      setImage:DefaultSymbolWithPointSize(kPlusSymbol, kSymbolActionPointSize)
+      setImage:SymbolWithPointSize(SymbolPlus, kSymbolActionPointSize)
       forState:UIControlStateNormal];
   [self.plusButton addTarget:self.NTPShortcutsHandler
                       action:@selector(openMultimodalActionsMenu)
@@ -1395,10 +1370,6 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 // Sets the background based on the current NTP background, current color
 // palette, or defaults if neither are set.
 - (void)applyBackgroundTheme {
-  [self.identityDiscButton
-      updateConfigurationWithPalette:[self.traitCollection
-                                             objectForNewTabPageTrait]];
-
   // Fakebox coloring looks at image/color/default to determine correct colors.
   [self setFakeboxColorsWithProgress:_lastAnimationPercent];
 }
@@ -1637,7 +1608,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 - (UIView*)createDivider {
   UIView* divider = [[UIView alloc] init];
   divider.translatesAutoresizingMaskIntoConstraints = NO;
-  CGFloat dividerWidth = 1.0 / [[UIScreen mainScreen] scale];
+  CGFloat dividerWidth = 1.0 / self.traitCollection.displayScale;
 
   [NSLayoutConstraint activateConstraints:@[
     [divider.heightAnchor constraintEqualToConstant:kIconDividerHeight],
@@ -1674,6 +1645,13 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   // If normal sized fakebox and new bade is showing, reduce trailing space.
   if (_useNewBadgeForLensButton && !IsAimEnabledInNtp()) {
     return kEndButtonNormalSizeFakeboxWithBadgeTrailingSpace;
+  }
+
+  // Adjust the iPad voice button spacing to mirror the leading padding when no
+  // other buttons are present.
+  BOOL isSplitToolbarMode = IsSplitToolbarMode(self);
+  if (!isSplitToolbarMode) {
+    return kEndButtonFakeboxIPadTrailingSpace;
   }
   // Common trailing space.
   return kEndButtonFakeboxTrailingSpace;
@@ -1726,6 +1704,9 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 - (CGFloat)hintLabelFakeboxLeadingSpace {
   if ([self shouldShowPlusButton]) {
     return kHintLabelFakeboxLeadingSpaceWithPlus;
+  } else if (CanShowTabStrip(self) || !IsSplitToolbarMode(self)) {
+    return kHintLabelFakeboxLeadingSpaceWithIcon +
+           kFakeboxIPadExtraLeadingSpace;
   } else {
     return kHintLabelFakeboxLeadingSpaceWithIcon;
   }
@@ -2213,6 +2194,11 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 - (void)omniboxDidEndEditing {
   [self.omnibox.textInput setText:@""];
   [self updateFakeboxDisplay];
+}
+
+- (void)setOverflowMenuBlueDot:(BOOL)hasBlueDot {
+  _hasToolsMenuBlueDot = hasBlueDot;
+  self.toolsMenuButton.blueDot = hasBlueDot;
 }
 
 @end

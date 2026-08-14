@@ -39,6 +39,7 @@ def _check_clang_format_works():
 class LitTemplateFormatterTest(unittest.TestCase):
 
   def setUp(self):
+    self.maxDiff = None
     self._out_dir = tempfile.mkdtemp(dir=_HERE_DIR)
     os.environ['CHROMIUM_BUILDTOOLS_PATH'] = os.path.join(
         _SRC_PATH, 'buildtools')
@@ -100,8 +101,22 @@ class LitTemplateFormatterTest(unittest.TestCase):
     self._run_test("test_nested_template.html.ts",
                    "test_nested_template.html.ts")
 
+  def testConditionalWithMoreWrapping(self):
+    self._run_test("test_conditional_with_more_wrapping.html.ts",
+                   "test_conditional_with_more_wrapping.html.ts")
+
   def testWhitespaceSensitiveSiblings(self):
     self._run_test("test_whitespace_sensitive_siblings.html.ts")
+
+  def testWithIfExpr(self):
+    self._run_test("test_with_if_expr.html.ts", "test_with_if_expr.html.ts")
+
+  def testMultilineAttributeExpression(self):
+    self._run_test("test_multiline_attribute_expression.html.ts",
+                   "test_multiline_attribute_expression.html.ts")
+
+  def testRetainNewlines(self):
+    self._run_test("retain_newlines.html.ts", "retain_newlines.html.ts")
 
   def testDryRunModeFormatted(self):
     filename = "test_basic_expressions.html.ts"

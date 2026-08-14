@@ -10,7 +10,9 @@
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/media/webrtc/desktop_media_list.h"
 #include "chrome/browser/ui/views/desktop_capture/desktop_media_content_pane_view.h"
+#include "chrome/browser/ui/views/desktop_capture/share_audio_view.h"
 #include "ui/base/metadata/metadata_header_macros.h"
+#include "ui/views/controls/button/toggle_button.h"
 #include "ui/views/layout/box_layout.h"
 
 class DesktopMediaPermissionPaneViewMac;
@@ -18,11 +20,18 @@ class DesktopMediaPermissionPaneViewMac;
 class DesktopMediaPaneView : public views::View {
   METADATA_HEADER(DesktopMediaPaneView, views::View)
  public:
-  // Creates a pane-view with the supplied content_view. If share_audio_view !=
-  // nullptr, it is added below content_view.
+  // Creates a pane-view with the supplied content_view. If `share_audio_view`
+  // != nullptr, it is added below `content_view`. `show_audio_recommendation`
+  // controls whether to display an audio recommendation card below the content
+  // view. `style_audio_toggle` specifies how the audio sharing toggle should be
+  // styled.
   DesktopMediaPaneView(DesktopMediaList::Type type,
                        std::unique_ptr<views::View> content_view,
-                       std::unique_ptr<ShareAudioView> share_audio_view);
+                       std::unique_ptr<ShareAudioView> share_audio_view,
+                       bool show_audio_recommendation,
+                       AudioSharingToggleStyle style_audio_toggle);
+  bool IsAudioRecommendationVisible() const;
+  void SetAudioRecommendationVisible(bool visible);
 
   DesktopMediaPaneView(const DesktopMediaPaneView&) = delete;
   DesktopMediaPaneView& operator=(const DesktopMediaPaneView&) = delete;
@@ -38,6 +47,9 @@ class DesktopMediaPaneView : public views::View {
   // Returns the text in the audio label if an audio label exists;
   // returns the empty string otherwise.
   std::u16string_view GetAudioLabelText() const;
+
+  // Returns the audio sharing toggle button if it exists.
+  views::ToggleButton* GetAudioToggleButtonForTesting() const;
 
   bool IsPermissionPaneVisible() const;
   bool IsContentPaneVisible() const;

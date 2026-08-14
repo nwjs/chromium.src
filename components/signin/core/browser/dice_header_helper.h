@@ -21,6 +21,7 @@ namespace signin {
 
 // Version of the Dice protocol.
 extern const char kDiceProtocolVersion[];
+extern const char kDiceProtocolVersion2[];
 extern const char kGoogleSignoutResponseHeader[];
 
 // SigninHeaderHelper implementation managing the Dice header.
@@ -46,6 +47,11 @@ class DiceHeaderHelper : public SigninHeaderHelper {
   DiceHeaderHelper& operator=(const DiceHeaderHelper&) = delete;
 
   ~DiceHeaderHelper() override = default;
+
+  // Returns the protocol version currently enabled (`kDiceProtocolVersion` or
+  // `kDiceProtocolVersion2` according to the `kDiceHeaderVersion2` feature
+  // flag).
+  static const char* GetDiceProtocolVersion();
 
   // Returns the parameters contained in the X-Chrome-ID-Consistency-Response
   // response header.
@@ -74,18 +80,17 @@ class DiceHeaderHelper : public SigninHeaderHelper {
   static bool AppendOrRemoveDiceRequestHeader(
       RequestAdapter* request,
       const GURL& redirect_url,
-      const GaiaId& gaia_id,
-      bool sync_enabled,
+      const GaiaId& primary_account_gaia_id,
+      bool sync_feature_enabled,
       AccountConsistencyMethod account_consistency,
       const std::string& device_id);
 
   // Returns the header value for Dice requests. Returns the empty string when
   // the header must not be added.
-  // |sync_gaia_id| is not empty if Sync is currently enabled for this
-  // account.
-  // |show_signout_confirmation| is true if Gaia must display the signout
-  // confirmation dialog.
-  std::string BuildRequestHeader(const GaiaId& sync_gaia_id,
+  // `sync_feature_enabled` is true if Sync the feature is currently enabled for
+  // the profile.
+  std::string BuildRequestHeader(const GaiaId& primary_account_gaia_id,
+                                 bool sync_feature_enabled,
                                  const std::string& device_id);
 
  private:

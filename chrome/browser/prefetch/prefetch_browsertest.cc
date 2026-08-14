@@ -69,7 +69,7 @@ class PrefetchBrowserTest : public InProcessBrowserTest {
   }
 
   void SetPreference(prefetch::PreloadPagesState value) {
-    prefetch::SetPreloadPagesState(browser()->profile()->GetPrefs(), value);
+    prefetch::SetPreloadPagesState(browser()->GetProfile()->GetPrefs(), value);
   }
 
   bool RunPrefetchExperiment(bool expect_success, Browser* browser) {
@@ -121,13 +121,13 @@ IN_PROC_BROWSER_TEST_F(PrefetchBrowserTest, PreferenceWorks) {
 // uninitialized preference member. Verify that it no longer does.
 IN_PROC_BROWSER_TEST_F(PrefetchBrowserTest, IncognitoTest) {
   Profile* incognito_profile =
-      browser()->profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+      browser()->GetProfile()->GetPrimaryOTRProfile(/*create_if_needed=*/true);
   Browser* incognito_browser =
       Browser::Create(Browser::CreateParams(incognito_profile, true));
 
   // Navigate just to have a tab in this window, otherwise there is no
   // WebContents for the incognito browser.
-  OpenURLOffTheRecord(browser()->profile(), GURL("about:blank"));
+  OpenURLOffTheRecord(browser()->GetProfile(), GURL("about:blank"));
 
   EXPECT_TRUE(RunPrefetchExperiment(true, incognito_browser));
 }

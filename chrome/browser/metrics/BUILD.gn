@@ -366,6 +366,7 @@ source_set("impl") {
     ]
     deps += [
       ":browser_activity_watcher",
+      "//chrome/browser:after_startup_task_utils",
       "//chrome/browser/performance_manager/public/user_tuning",
       "//chrome/browser/ui/location_bar",
       "//chrome/browser/ui/performance_controls",
@@ -549,6 +550,7 @@ source_set("unit_tests") {
   deps = [
     ":metrics",
     "//base/test:test_support",
+    "//chrome/browser/performance_manager:test_support",
     "//chrome/browser/ui",
     "//chrome/test:test_support",
     "//components/metrics:test_support",
@@ -630,6 +632,7 @@ source_set("unit_tests") {
       "//chrome/browser/ui/tabs:test_support",
       "//chrome/browser/ui/user_education",
       "//chrome/test:test_support_ui",
+      "//chrome/test/user_education:impl",
     ]
   }
 

@@ -170,7 +170,8 @@ void PinnedActionToolbarButton::SetPinned(bool pinned) {
 bool PinnedActionToolbarButton::OnKeyPressed(const ui::KeyEvent& event) {
   std::optional<event_utils::ReorderDirection> reorder_direction =
       event_utils::GetReorderCommandForKeyboardEvent(event);
-  if (reorder_direction && pinned_ && browser_->profile()->IsRegularProfile()) {
+  if (reorder_direction && pinned_ &&
+      browser_->GetProfile()->IsRegularProfile()) {
     int move_by = 0;
     switch (*reorder_direction) {
       case event_utils::ReorderDirection::kPrevious:
@@ -370,10 +371,8 @@ void PinnedActionToolbarButtonActionViewInterface::InvokeActionImpl(
       action_view_->SetNeedsDelayedDestruction(true);
   action_item->InvokeAction(
       actions::ActionInvocationContext::Builder()
-          .SetProperty(
-              kSidePanelOpenTriggerKey,
-              static_cast<std::underlying_type_t<SidePanelOpenTrigger>>(
-                  SidePanelOpenTrigger::kPinnedEntryToolbarButton))
+          .SetProperty(kSidePanelOpenTriggerKey,
+                       SidePanelOpenTrigger::kPinnedEntryToolbarButton)
           .Build());
 }
 

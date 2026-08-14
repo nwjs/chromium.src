@@ -16,7 +16,8 @@ export function getHtml(this: AppMenuButtonElement) {
     @focusin="${this.onFocusin_}" @focusout="${this.onFocusout_}"
     .ariaLabel="${this.state.accessibilityText}"
     .ariaHasPopup="${'menu'}"
-    title="${this.getTooltip_()}"
+    .ariaExpanded="${this.state.isContextMenuVisible ? 'true' : 'false'}"
+    .tooltip="${this.getTooltip_()}"
     style="--toolbar-chip-trailing-margin: ${this.state.trailingMargin}px">
   ${this.state.labelText ? html`<span>${this.state.labelText}</span>` : ''}
   <cr-icon id="icon" icon="cr:more-vert" slot="suffix-icon"></cr-icon>

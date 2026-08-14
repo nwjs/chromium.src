@@ -57,6 +57,12 @@ class PageContextWrapperConfig {
   // True to apply redacting metadata for credit card numbers.
   bool extract_autofill_credit_card_redactions() const;
 
+  // True to block page context extraction on unsafe pages.
+  bool block_unsafe_pages() const;
+
+  // Returns whether only same-site iframe data should be extracted.
+  bool include_same_site_only() const;
+
  private:
   friend class PageContextWrapperConfigBuilder;
 
@@ -70,7 +76,9 @@ class PageContextWrapperConfig {
       bool attempt_paid_content_json_fixing,
       bool extract_autofill,
       bool extract_autofill_credit_card_redactions,
-      bool include_sensitive_payments_for_redaction);
+      bool include_sensitive_payments_for_redaction,
+      bool block_unsafe_pages,
+      bool include_same_site_only);
 
   // Bit to use the refactored PageContextExtractor.
   bool use_refactored_extractor_;
@@ -98,6 +106,12 @@ class PageContextWrapperConfig {
 
   // Bit to include sensitive payments for redaction.
   bool include_sensitive_payments_for_redaction_;
+
+  // Bit to block page context extraction on unsafe pages.
+  bool block_unsafe_pages_;
+
+  // Bit to extract only same-site iframe data.
+  bool include_same_site_only_;
 };
 
 // Builder for PageContextWrapperConfig.
@@ -151,6 +165,13 @@ class PageContextWrapperConfigBuilder {
   PageContextWrapperConfigBuilder& SetIncludeSensitivePaymentsForRedaction(
       bool include_sensitive_payments_for_redaction);
 
+  // Sets whether to block page context extraction on unsafe pages.
+  PageContextWrapperConfigBuilder& SetBlockUnsafePages(bool block_unsafe_pages);
+
+  // Sets whether to extract only same-site iframe data.
+  PageContextWrapperConfigBuilder& SetIncludeSameSiteOnly(
+      bool include_same_site_only);
+
   // Returns the PageContextWrapperConfig.
   PageContextWrapperConfig Build() const;
 
@@ -164,6 +185,8 @@ class PageContextWrapperConfigBuilder {
   bool extract_autofill_;
   bool extract_autofill_credit_card_redactions_;
   bool include_sensitive_payments_for_redaction_;
+  bool block_unsafe_pages_;
+  bool include_same_site_only_;
 };
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_PROTO_WRAPPERS_PAGE_CONTEXT_WRAPPER_CONFIG_H_

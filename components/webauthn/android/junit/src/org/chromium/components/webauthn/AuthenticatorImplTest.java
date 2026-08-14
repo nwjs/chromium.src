@@ -32,7 +32,6 @@ import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Batch;
-import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.blink.mojom.Authenticator;
 import org.chromium.blink.mojom.AuthenticatorStatus;
 import org.chromium.blink.mojom.GetCredentialOptions;
@@ -46,7 +45,6 @@ import org.chromium.content_public.browser.LifecycleState;
 import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.Visibility;
 import org.chromium.content_public.browser.WebContents;
-import org.chromium.device.DeviceFeatureList;
 import org.chromium.url.GURL;
 import org.chromium.url.Origin;
 
@@ -55,9 +53,6 @@ import org.chromium.url.Origin;
 @Config(manifest = Config.NONE)
 @Batch(Batch.UNIT_TESTS)
 @SmallTest
-@EnableFeatures({
-    DeviceFeatureList.WEBAUTHN_IMMEDIATE_GET,
-})
 public class AuthenticatorImplTest {
     private AuthenticatorImpl mAuthenticator;
     private Origin mOrigin;
@@ -462,5 +457,18 @@ public class AuthenticatorImplTest {
 
         verify(mFido2CredentialRequestMock, never())
                 .handleGetCredentialRequest(any(), any(), any(), any());
+    }
+
+    @Test
+    public void testClose_destroysBridge() {
+        GmsCoreUtils.setGmsCoreVersionForTesting(GmsCoreUtils.GMSCORE_MIN_VERSION);
+        GetCredentialOptions options = new GetCredentialOptions();
+        options.publicKey = new PublicKeyCredentialRequestOptions();
+        options.publicKey.challenge = new byte[] {1, 2, 3};
+
+        mAuthenticator.getCredential(options, mock(Authenticator.GetCredential_Response.class));
+        mAuthenticator.close();
+
+        verify(mFido2CredentialRequestMock).destroyBridge();
     }
 }

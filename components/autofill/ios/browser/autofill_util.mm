@@ -14,6 +14,7 @@
 #import "base/strings/string_number_conversions.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
+#import "base/time/time.h"
 #import "base/types/optional_ref.h"
 #import "base/values.h"
 #import "components/autofill/core/browser/autofill_field.h"
@@ -43,7 +44,7 @@ using base::NumberToString;
 using base::StringToUint;
 
 // The timeout for any JavaScript call in this file.
-const int64_t kJavaScriptExecutionTimeoutInSeconds = 5;
+constexpr base::TimeDelta kJavaScriptExecutionTimeout = base::Seconds(5);
 
 // Runs |callback| with the NSString value of |res|.
 // |callback| must be non-null.
@@ -68,6 +69,61 @@ void ConvertValueToBool(base::OnceCallback<void(BOOL)> callback,
     result = res->GetBool();
   }
   std::move(callback).Run(result);
+}
+
+// Extracts a single child frame's data from the JSON dictionary into a
+// FrameTokenWithPredecessor object. Returns false if the data could not be
+// extracted.
+std::optional<FrameTokenWithPredecessor> ExtractRemoteFrameToken(
+    const base::DictValue& frame_data) {
+  const std::string* frame_id = frame_data.FindString("token");
+  if (!frame_id) {
+    return std::nullopt;
+  }
+
+  std::optional<base::UnguessableToken> token =
+      DeserializeJavaScriptFrameId(*frame_id);
+  if (!token) {
+    return std::nullopt;
+  }
+
+  const std::optional<int> predecessor =
+      frame_data.FindDouble("predecessor").transform([](double x) {
+        return base::saturated_cast<int>(x);
+      });
+  if (!predecessor || *predecessor < -1) {
+    return std::nullopt;
+  }
+
+  FrameTokenWithPredecessor result;
+  result.token = RemoteFrameToken(*token);
+  result.predecessor = *predecessor;
+  return result;
+}
+
+// Extracts the child frames from the JSON dictionary. Returns an empty vector
+// if the data could not be extracted.
+std::vector<FrameTokenWithPredecessor> ExtractChildFrames(
+    const base::DictValue& form) {
+  std::vector<FrameTokenWithPredecessor> child_frames;
+  if (const base::ListValue* child_frames_list =
+          form.FindList("child_frames")) {
+    for (const auto& frame_dict : *child_frames_list) {
+      if (!frame_dict.is_dict()) {
+        continue;
+      }
+      if (std::optional<FrameTokenWithPredecessor> token =
+              ExtractRemoteFrameToken(frame_dict.GetDict())) {
+        child_frames.push_back(*std::move(token));
+      }
+    }
+  }
+  // Validate that the child frames occur in ascending order.
+  if (!std::ranges::is_sorted(child_frames, {},
+                              &FrameTokenWithPredecessor::predecessor)) {
+    child_frames.clear();
+  }
+  return child_frames;
 }
 
 }  // namespace
@@ -257,19 +313,7 @@ base::expected<FormData, ExtractFormDataFailure> ExtractFormData(
   }
 
   if (include_frame_metadata) {
-    // Child frame tokens, optional.
-    if (const base::ListValue* child_frames_list =
-            form.FindList("child_frames")) {
-      std::vector<FrameTokenWithPredecessor> child_frames;
-      for (const auto& frame_dict : *child_frames_list) {
-        FrameTokenWithPredecessor token;
-        if (frame_dict.is_dict() &&
-            ExtractRemoteFrameToken(frame_dict.GetDict(), &token)) {
-          child_frames.push_back(std::move(token));
-        }
-      }
-      form_data.set_child_frames(std::move(child_frames));
-    }
+    form_data.set_child_frames(ExtractChildFrames(form));
   }
 
   // Field list (mandatory) is extracted.
@@ -360,7 +404,10 @@ bool ExtractFormFieldData(const base::DictValue& field,
     field_data->set_autocomplete_attribute(*autocomplete_attribute);
   }
   if (std::optional<double> max_length = field.FindDouble("max_length")) {
-    field_data->set_max_length(((int)*max_length));
+    field_data->set_max_length(
+        *max_length >= 0 && *max_length <= FormFieldData::kDefaultMaxLength
+            ? static_cast<uint64_t>(*max_length)
+            : FormFieldData::kDefaultMaxLength);
   }
   field_data->set_parsed_autocomplete(
       ParseAutocompleteAttribute(field_data->autocomplete_attribute()));
@@ -436,31 +483,6 @@ bool ExtractFormFieldData(const base::DictValue& field,
   return true;
 }
 
-bool ExtractRemoteFrameToken(
-    const base::DictValue& frame_data,
-    FrameTokenWithPredecessor* token_with_predecessor) {
-  const std::string* frame_id = frame_data.FindString("token");
-  if (!frame_id) {
-    return false;
-  }
-
-  std::optional<base::UnguessableToken> token =
-      DeserializeJavaScriptFrameId(*frame_id);
-  if (!token) {
-    return false;
-  }
-
-  const std::optional<double> predecessor =
-      frame_data.FindDouble("predecessor");
-  if (!predecessor) {
-    return false;
-  }
-
-  token_with_predecessor->token = RemoteFrameToken(*token);
-  token_with_predecessor->predecessor = *predecessor;
-  return true;
-}
-
 JavaScriptResultCallback CreateStringCallback(
     void (^completionHandler)(NSString*)) {
   return CreateStringCallback(base::BindOnce(completionHandler));
@@ -497,7 +519,7 @@ void ExecuteJavaScriptFunction(const std::string& name,
         name, parameters, base::BindOnce(^(const base::Value* res) {
           std::move(cb).Run(res);
         }),
-        base::Seconds(kJavaScriptExecutionTimeoutInSeconds));
+        kJavaScriptExecutionTimeout);
     if (!called) {
       std::move(cb).Run(nil);
     }
@@ -529,6 +551,17 @@ web::WebFramesManager* GetWebFramesManagerForAutofill(
   CHECK(web_state);
   return web_state->GetWebFramesManager(
       ContentWorldForAutofillJavascriptFeatures());
+}
+
+std::vector<FrameTokenWithPredecessor> ExtractChildFramesForTest(  // IN-TEST
+    const base::DictValue& form) {
+  return ExtractChildFrames(form);
+}
+
+std::optional<FrameTokenWithPredecessor>
+ExtractRemoteFrameTokenForTest(  // IN-TEST
+    const base::DictValue& frame_data) {
+  return ExtractRemoteFrameToken(frame_data);
 }
 
 }  // namespace autofill

@@ -7,26 +7,24 @@
 #include "build/build_config.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
-#include "chrome/browser/ui/views/frame/browser_frame_view_linux.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/opaque_browser_frame_view.h"
 #include "chrome/browser/ui/views/frame/opaque_browser_frame_view_layout.h"
-#include "chrome/browser/ui/views/frame/picture_in_picture_browser_frame_view.h"
 
 #if BUILDFLAG(IS_WIN)
 #include "chrome/browser/ui/views/frame/browser_frame_view_win.h"
+#include "chrome/browser/ui/views/frame/picture_in_picture_browser_frame_view.h"
 #endif
 
 #if BUILDFLAG(IS_LINUX)
 #include "chrome/browser/ui/views/frame/browser_frame_view_layout_linux.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view_layout_linux_native.h"
+#include "chrome/browser/ui/views/frame/browser_frame_view_linux.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view_linux_native.h"
 #include "chrome/browser/ui/views/frame/browser_native_widget_aura_linux.h"
 #include "chrome/browser/ui/views/frame/picture_in_picture_browser_frame_view_linux.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "ui/linux/linux_ui.h"
-#include "ui/linux/nav_button_provider.h"
-#include "ui/linux/window_frame_provider.h"
 #endif
 
 namespace chrome {
@@ -37,7 +35,7 @@ namespace {
 std::unique_ptr<OpaqueBrowserFrameView> CreateOpaqueBrowserFrameViewLinux(
     BrowserWidget* widget,
     BrowserView* browser_view) {
-  auto* profile = browser_view->browser()->profile();
+  auto* profile = browser_view->browser()->GetProfile();
   auto* linux_ui_theme = ui::LinuxUiTheme::GetForProfile(profile);
   auto* theme_service_factory = ThemeServiceFactory::GetForProfile(profile);
   auto* app_controller =

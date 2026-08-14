@@ -47,7 +47,7 @@
 
 namespace component_updater {
 
-const char kNullVersion[] = "0.0.0.0";
+constexpr char kNullVersion[] = "0.0.0.0";
 
 namespace {
 using Result = ::update_client::CrxInstaller::Result;
@@ -109,13 +109,17 @@ void ComponentInstaller::Register(ComponentUpdateService* cus,
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK(cus);
 
-  std::vector<uint8_t> public_key_hash;
-  installer_policy_->GetHash(&public_key_hash);
-  const auto crx_id = update_client::GetCrxIdFromPublicKeyHash(public_key_hash);
-  Register(base::BindOnce(&ComponentUpdateService::RegisterComponent,
-                          base::Unretained(cus)),
-           std::move(callback), cus->GetRegisteredVersion(crx_id),
-           cus->GetMaxPreviousProductVersion(crx_id));
+  auto registration_info = base::MakeRefCounted<RegistrationInfo>();
+  installer_policy_->GetHash(&registration_info->public_key_hash);
+  registration_info->crx_id = update_client::GetCrxIdFromPublicKeyHash(
+      registration_info->public_key_hash);
+  RegisterWithInfo(
+      registration_info,
+      base::BindOnce(&ComponentUpdateService::RegisterComponent,
+                     base::Unretained(cus)),
+      std::move(callback),
+      cus->GetRegisteredVersion(registration_info->crx_id),
+      cus->GetMaxPreviousProductVersion(registration_info->crx_id));
 }
 
 void ComponentInstaller::Register(
@@ -132,6 +136,20 @@ void ComponentInstaller::Register(
   }
 
   auto registration_info = base::MakeRefCounted<RegistrationInfo>();
+  installer_policy_->GetHash(&registration_info->public_key_hash);
+  registration_info->crx_id = update_client::GetCrxIdFromPublicKeyHash(
+      registration_info->public_key_hash);
+  RegisterWithInfo(registration_info, std::move(register_callback),
+                   std::move(callback), registered_version,
+                   max_previous_product_version);
+}
+
+void ComponentInstaller::RegisterWithInfo(
+    scoped_refptr<RegistrationInfo> registration_info,
+    RegisterCallback register_callback,
+    base::OnceClosure callback,
+    const base::Version& registered_version,
+    const base::Version& max_previous_product_version) {
   task_runner_->PostTaskAndReply(
       FROM_HERE,
       base::BindOnce(&ComponentInstaller::StartRegistration, this,
@@ -358,13 +376,6 @@ std::optional<base::Version> ComponentInstaller::SelectComponentVersion(
     const base::Version& max_previous_product_version,
     const base::FilePath& base_dir,
     scoped_refptr<RegistrationInfo> registration_info) {
-  base::FileEnumerator file_enumerator(base_dir, false,
-                                       base::FileEnumerator::DIRECTORIES);
-
-  std::optional<base::Version> selected_version;
-  base::FilePath selected_path;
-  std::optional<base::DictValue> selected_manifest;
-
   const base::Version bundled_version = registration_info->version.IsValid()
                                             ? registration_info->version
                                             : base::Version(kNullVersion);
@@ -375,6 +386,29 @@ std::optional<base::Version> ComponentInstaller::SelectComponentVersion(
       (registered_version > bundled_version)
           ? std::optional<base::Version>(registered_version)
           : std::nullopt;
+
+  // Try retrieving target_version directly, without a scan.
+  if (target_version) {
+    base::FilePath candidate_path =
+        base_dir.AppendASCII(target_version->GetString());
+    std::optional<base::DictValue> candidate_manifest =
+        GetValidInstallationManifest(candidate_path);
+    if (candidate_manifest) {
+      registration_info->version = *target_version;
+      registration_info->manifest = std::move(*candidate_manifest);
+      registration_info->install_dir = candidate_path;
+      base::ReadFileToString(candidate_path.AppendASCII("manifest.fingerprint"),
+                             &registration_info->fingerprint);
+      return target_version;
+    }
+  }
+
+  base::FileEnumerator file_enumerator(base_dir, false,
+                                       base::FileEnumerator::DIRECTORIES);
+
+  std::optional<base::Version> selected_version;
+  base::FilePath selected_path;
+  std::optional<base::DictValue> selected_manifest;
 
   for (base::FilePath path = file_enumerator.Next(); !path.value().empty();
        path = file_enumerator.Next()) {
@@ -552,13 +586,10 @@ void ComponentInstaller::FinishRegistration(
   current_version_ = registration_info->version;
   current_fingerprint_ = registration_info->fingerprint;
 
-  std::vector<uint8_t> public_key_hash;
-  installer_policy_->GetHash(&public_key_hash);
-
   if (!std::move(register_callback)
            .Run(ComponentRegistration(
-               update_client::GetCrxIdFromPublicKeyHash(public_key_hash),
-               installer_policy_->GetName(), public_key_hash, current_version_,
+               registration_info->crx_id, installer_policy_->GetName(),
+               registration_info->public_key_hash, current_version_,
                current_fingerprint_,
                installer_policy_->GetInstallerAttributes(), action_handler_,
                this, installer_policy_->RequiresNetworkEncryption(),

@@ -729,7 +729,7 @@ linux_memory_builder(
             ),
             "interactive_ui_tests": targets.mixin(
                 swarming = targets.swarming(
-                    shards = 20,
+                    shards = 25,
                 ),
             ),
             "services_unittests": targets.remove(
@@ -1029,7 +1029,7 @@ ci.builder(
                     "--test-launcher-print-test-stdio=always",
                 ],
             ),
-            "mac_default_x64",
+            "mac_15_x64",
         ],
         per_test_modifications = {
             "browser_tests": targets.mixin(
@@ -1405,7 +1405,7 @@ ci.builder(
                     "--test-launcher-jobs=3",
                 ],
                 swarming = targets.swarming(
-                    shards = 18,
+                    shards = 24,
                 ),
             ),
             "net_unittests": targets.mixin(

@@ -290,9 +290,9 @@ class ExternalFileURLLoader : public network::mojom::URLLoader {
       return;
     }
     network::URLLoaderCompletionStatus status(net::OK);
-    status.encoded_data_length = total_bytes_written.InBytes();
-    status.encoded_body_length = total_bytes_written.InBytes();
-    status.decoded_body_length = total_bytes_written.InBytes();
+    status.encoded_data_length = total_bytes_written;
+    status.encoded_body_length = total_bytes_written;
+    status.decoded_body_length = total_bytes_written;
     client_->OnComplete(status);
     client_.reset();
     MaybeDeleteSelf();

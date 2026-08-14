@@ -1407,9 +1407,30 @@ void PrintRenderFrameHelper::PrintWithParams(
                        ? DebugEvent::kSetPrintSettings1
                        : DebugEvent::kSetPrintSettings2);
   SetPrintPagesParamsForPrinting(*settings);
+
+  is_loading_ = frame->WillPrintSoon();
+  if (is_loading_) {
+    on_stop_loading_closure_ =
+        base::BindOnce(&PrintRenderFrameHelper::OnPrintWithParamsFinished,
+                       weak_ptr_factory_.GetWeakPtr());
+    SetupOnStopLoadingTimeout();
+    return;
+  }
+
+  OnPrintWithParamsFinished();
+}
+
+void PrintRenderFrameHelper::OnPrintWithParamsFinished() {
+  if (render_frame_gone_) {
+    return;
+  }
+
+  blink::WebLocalFrame* frame = render_frame()->GetWebFrame();
+  const blink::WebNode plugin_node = delegate_->GetPdfElement(frame);
+
   prep_frame_view_ =
       std::make_unique<PrepareFrameAndViewForPrint>(frame, plugin_node);
-  prep_frame_view_->EnterPrintMode(*settings->params,
+  prep_frame_view_->EnterPrintMode(*print_pages_params_->params,
                                    /*ignore_css_margins=*/false);
 
   PrintPages();
@@ -2559,8 +2580,16 @@ bool PrintRenderFrameHelper::RenderPagesForPrint(blink::WebLocalFrame* frame,
   const mojom::PrintPagesParams& params = *print_pages_params_;
   const mojom::PrintParams& print_params = *params.params;
   prep_frame_view_ = std::make_unique<PrepareFrameAndViewForPrint>(frame, node);
+#if !BUILDFLAG(IS_ANDROID)
+  // On Desktop, the Print Preview WebUI explicitly prevents page range
+  // selection when "Selection only" is checked. Therefore, `pages` is always
+  // expected to be empty. However, on Android, Chrome relies on the standard
+  // Android Print Spooler UI. The spooler operates on the extracted
+  // selection-only document and allows users to specify a page range. Thus,
+  // `pages` can be non-empty.
   DCHECK(!print_pages_params_->params->selection_only ||
          print_pages_params_->pages.empty());
+#endif
   prep_frame_view_->BeginPrinting(
       render_frame()->GetBlinkPreferences(), print_params, ignore_css_margins_,
       base::BindOnce(&PrintRenderFrameHelper::OnFramePreparedForPrintPages,
@@ -2702,14 +2731,12 @@ void PrintRenderFrameHelper::RequestPrintPreview(PrintPreviewRequestType type,
     }
   }
 
-  const bool is_modifiable = print_preview_context_.IsModifiable();
   const bool has_selection = print_preview_context_.HasSelection();
 
   auto params = mojom::RequestPrintPreviewParams::New();
 #if BUILDFLAG(IS_CHROMEOS)
   params->is_from_arc = print_preview_context_.IsForArc();
 #endif
-  params->is_modifiable = is_modifiable;
   params->has_selection = has_selection;
   switch (type) {
     case PrintPreviewRequestType::kScripted: {

@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
 #include "base/test/run_until.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/host/context/glic_sharing_manager_impl.h"
@@ -23,6 +22,7 @@
 
 namespace glic {
 
+// TODO(crbug.com/537849149): Simplify this test suite to GlicBrowserTest.
 class GlicActiveInstanceSharingManagerBrowserTest
     : public NonInteractiveGlicTest {
  public:
@@ -47,7 +47,7 @@ IN_PROC_BROWSER_TEST_F(GlicActiveInstanceSharingManagerBrowserTest,
   // GlicActiveInstanceSharingManager delegates to nothing if no active
   // instance. We can verify this by checking if it seems empty.
   GlicKeyedService* service =
-      GlicKeyedServiceFactory::GetGlicKeyedService(browser()->profile());
+      GlicKeyedServiceFactory::GetGlicKeyedService(browser()->GetProfile());
   ASSERT_TRUE(service);
   auto& manager = service->active_instance_sharing_manager();
   EXPECT_TRUE(manager.GetPinnedTabs().empty());
@@ -77,7 +77,7 @@ IN_PROC_BROWSER_TEST_F(GlicActiveInstanceSharingManagerBrowserTest,
 
   // 6. Verify another browser window doesn't see it (delegation follows active
   // window). Create another browser.
-  Browser* browser2 = CreateBrowser(browser()->profile());
+  Browser* browser2 = CreateBrowser(browser()->GetProfile());
   // Helper to activate.
   browser2->GetWindow()->Activate();
 
@@ -143,11 +143,11 @@ class GlicActiveInstanceSharingManagerProfileStateTest
 IN_PROC_BROWSER_TEST_F(GlicActiveInstanceSharingManagerProfileStateTest,
                        RespectsProfileState) {
   GlicKeyedService* service =
-      GlicKeyedServiceFactory::GetGlicKeyedService(browser()->profile());
+      GlicKeyedServiceFactory::GetGlicKeyedService(browser()->GetProfile());
   ASSERT_TRUE(service);
 
   // 1. Start with revoked consent.
-  SetFRECompletion(browser()->profile(), prefs::FreStatus::kIncomplete);
+  SetFRECompletion(browser()->GetProfile(), prefs::FreStatus::kIncomplete);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("about:blank")));
 
   tabs::TabInterface* tab = TabListInterface::From(browser())->GetActiveTab();
@@ -170,7 +170,7 @@ IN_PROC_BROWSER_TEST_F(GlicActiveInstanceSharingManagerProfileStateTest,
   EXPECT_FALSE(manager.IsTabPinned(tab->GetHandle()));
 
   // Grant consent.
-  SetFRECompletion(browser()->profile(), prefs::FreStatus::kCompleted);
+  SetFRECompletion(browser()->GetProfile(), prefs::FreStatus::kCompleted);
 
   // Verify delegation resumes (dynamic update).
   EXPECT_TRUE(manager.IsTabPinned(tab->GetHandle()));

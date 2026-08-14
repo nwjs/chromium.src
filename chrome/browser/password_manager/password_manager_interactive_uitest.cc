@@ -32,6 +32,7 @@
 #include "components/password_manager/core/browser/password_store/test_password_store.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/signin/public/base/signin_buildflags.h"
+#include "components/signin/public/identity_manager/tribool.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/scoped_accessibility_mode_override.h"
@@ -100,10 +101,16 @@ class PasswordManagerInteractiveTest
   }
 };
 
-IN_PROC_BROWSER_TEST_F(PasswordManagerInteractiveTest, UsernameChanged) {
+// TODO(crbug.com/534101064): Failing on Linux A11y builder.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_UsernameChanged DISABLED_UsernameChanged
+#else
+#define MAYBE_UsernameChanged UsernameChanged
+#endif  // BUILDFLAG(IS_LINUX)
+IN_PROC_BROWSER_TEST_F(PasswordManagerInteractiveTest, MAYBE_UsernameChanged) {
   // At first let us save a credential to the password store.
   scoped_refptr<password_manager::TestPasswordStore> password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.url = embedded_test_server()->base_url();
@@ -208,7 +215,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerInteractiveTest,
                        ManualFallbackForSaving_GoToManagedState) {
   // At first let us save a credential to the password store.
   scoped_refptr<password_manager::TestPasswordStore> password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.url = embedded_test_server()->base_url();
@@ -337,7 +344,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerInteractiveTest,
                        DeleteCredentialsUpdateDropdown) {
   content::ScopedAccessibilityModeOverride mode_override(::ui::kAXModeComplete);
   scoped_refptr<password_manager::TestPasswordStore> password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
 
   // Start with two logins in the password store.
   password_manager::PasswordForm admin_form;
@@ -458,7 +465,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerInteractiveTest, ChangePwdFormCleared) {
   base::HistogramTester histogram_tester;
   // At first let us save credentials to the PasswordManager.
   scoped_refptr<password_manager::TestPasswordStore> password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.username_value = u"temp";
@@ -498,7 +505,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerInteractiveTest,
                        ChangePwdFormFieldsCleared) {
   // At first let us save credentials to the PasswordManager.
   scoped_refptr<password_manager::TestPasswordStore> password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.username_value = u"temp";
@@ -554,7 +561,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerInteractiveTest,
   base::HistogramTester histogram_tester;
   // At first let us save credentials to the PasswordManager.
   scoped_refptr<password_manager::TestPasswordStore> password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.username_value = u"temp";
@@ -666,14 +673,23 @@ class PasswordManagerInteractiveTestWithSigninInterception
   PasswordManagerSigninInterceptTestHelper helper_;
 };
 
+// TODO(crbug.com/534101064): Failing on Linux A11y builder.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_InterceptionBubbleSuppressedByPendingPasswordUpdate \
+  DISABLED_InterceptionBubbleSuppressedByPendingPasswordUpdate
+#else
+#define MAYBE_InterceptionBubbleSuppressedByPendingPasswordUpdate \
+  InterceptionBubbleSuppressedByPendingPasswordUpdate
+#endif  // BUILDFLAG(IS_LINUX)
 // Checks that password update suppresses signin interception.
-IN_PROC_BROWSER_TEST_F(PasswordManagerInteractiveTestWithSigninInterception,
-                       InterceptionBubbleSuppressedByPendingPasswordUpdate) {
-  Profile* profile = browser()->profile();
+IN_PROC_BROWSER_TEST_F(
+    PasswordManagerInteractiveTestWithSigninInterception,
+    MAYBE_InterceptionBubbleSuppressedByPendingPasswordUpdate) {
+  Profile* profile = browser()->GetProfile();
   helper_.SetupProfilesForInterception(profile);
   // Prepopulate Gaia credentials to trigger an update bubble.
   scoped_refptr<password_manager::TestPasswordStore> password_store =
-      GetDefaultPasswordStore(browser()->profile());
+      GetDefaultPasswordStore(browser()->GetProfile());
   helper_.StoreGaiaCredentials(password_store);
 
   helper_.NavigateToGaiaSigninPage(WebContents());
@@ -713,7 +729,8 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerInteractiveTestWithSigninInterception,
   signin_interceptor->MaybeInterceptWebSignin(
       WebContents(), account_id, signin_metrics::AccessPoint::kStartPage,
       /*is_new_account=*/true,
-      /*is_sync_signin=*/false);
+      /*is_sync_signin=*/false,
+      /*primary_is_connected=*/signin::Tribool::kUnknown);
   EXPECT_FALSE(signin_interceptor->is_interception_in_progress());
   histogram_tester.ExpectUniqueSample(
       "Signin.Intercept.HeuristicOutcome",

@@ -12,14 +12,18 @@ static_library("autofill") {
   sources = [
     "address_normalizer_factory.cc",
     "address_normalizer_factory.h",
+    "at_memory/at_memory_query_service_factory.cc",
+    "at_memory/at_memory_query_service_factory.h",
+    "at_memory_cross_tab_copy_paste_tracker_factory.cc",
+    "at_memory_cross_tab_copy_paste_tracker_factory.h",
     "autocomplete_history_manager_factory.cc",
     "autocomplete_history_manager_factory.h",
     "autofill_ai_model_cache_factory.cc",
     "autofill_ai_model_cache_factory.h",
     "autofill_ai_model_executor_factory.cc",
     "autofill_ai_model_executor_factory.h",
-    "autofill_enterprise_policy_service_factory.cc",
-    "autofill_enterprise_policy_service_factory.h",
+    "autofill_ai_personal_context_access_manager_factory.cc",
+    "autofill_ai_personal_context_access_manager_factory.h",
     "autofill_entity_data_manager_factory.cc",
     "autofill_entity_data_manager_factory.h",
     "autofill_field_classification_model_service_factory.cc",
@@ -30,6 +34,8 @@ static_library("autofill") {
     "autofill_offer_manager_factory.h",
     "autofill_optimization_guide_decider_factory.cc",
     "autofill_optimization_guide_decider_factory.h",
+    "autofill_policy_service_factory.cc",
+    "autofill_policy_service_factory.h",
     "gmail_otp_backend_factory.cc",
     "gmail_otp_backend_factory.h",
     "merchant_promo_code_manager_factory.cc",
@@ -38,8 +44,6 @@ static_library("autofill") {
     "ml_log_router_factory.h",
     "one_time_token_service_factory.cc",
     "one_time_token_service_factory.h",
-    "personal_context_access_manager_factory.cc",
-    "personal_context_access_manager_factory.h",
     "personal_data_manager_factory.cc",
     "personal_data_manager_factory.h",
     "subkey_requester_factory.cc",
@@ -72,7 +76,6 @@ static_library("autofill") {
   ]
   deps = [
     "//chrome/browser:browser_process",
-    "//chrome/browser/accessibility_annotator",
     "//chrome/browser/account_settings",
     "//chrome/browser/history",
     "//chrome/browser/metrics",
@@ -89,6 +92,7 @@ static_library("autofill") {
     "//components/account_settings",
     "//components/autofill/content/browser",
     "//components/image_fetcher/core",
+    "//components/personal_context/core",
     "//components/prefs",
     "//components/strings:components_strings_grit",
     "//components/variations/service",
@@ -96,14 +100,6 @@ static_library("autofill") {
     "//third_party/libphonenumber",
   ]
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
-  if (is_win || is_mac || is_linux || is_chromeos) {
-    sources += [
-      "at_memory_promo_tracker_factory.cc",
-      "at_memory_promo_tracker_factory.h",
-    ]
-  }
-
   if (is_android) {
     sources += [
       "android/android_autofill_availability_status.h",
@@ -193,6 +189,8 @@ static_library("test_support") {
   sources = [
     "autofill_uitest_util.cc",
     "autofill_uitest_util.h",
+    "automated_tests/cache_replayer.cc",
+    "automated_tests/cache_replayer.h",
     "mock_autofill_agent.cc",
     "mock_autofill_agent.h",
   ]
@@ -204,9 +202,14 @@ static_library("test_support") {
     "//components/autofill/content/browser",
     "//components/autofill/content/common/mojom",
     "//components/autofill/core/browser:test_support",
+    "//components/autofill/core/browser/proto",
     "//content/test:test_support",
+    "//net",
+    "//services/network/public/cpp",
     "//testing/gmock",
     "//testing/gtest",
+    "//third_party/protobuf:protobuf_lite",
+    "//third_party/zlib/google:compression_utils",
     "//ui/gfx:test_support",
   ]
 
@@ -389,6 +392,7 @@ if (!is_android) {
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
     deps = [
+      ":test_support",
       "//chrome/browser/autofill:test_support_ui",
       "//chrome/browser/ui/autofill",
       "//chrome/browser/ui/autofill:test_support",
@@ -405,6 +409,8 @@ source_set("unit_tests") {
   sources = [ "automated_tests/cache_replayer_unittest.cc" ]
 
   deps = [
+    ":autofill",
+    ":test_support",
     "//base",
     "//chrome/test:test_support",
     "//components/autofill/core/browser/proto",
@@ -412,4 +418,54 @@ source_set("unit_tests") {
     "//testing/gmock",
     "//testing/gtest",
   ]
+
+  if (!is_android) {
+    sources += [
+      "autofill_ai_personal_context_access_manager_factory_unittest.cc",
+      "generated_find_and_fill_with_gemini_pref_unittest.cc",
+      "ui/autofill_image_fetcher_impl_unittest.cc",
+    ]
+    deps += [
+      ":generated_find_and_fill_with_gemini_pref",
+      "//chrome/browser/personal_context",
+      "//components/autofill/core/browser",
+      "//components/autofill/core/common",
+      "//components/personal_context/core",
+      "//ui/base",
+      "//ui/gfx:test_support",
+    ]
+  }
+
+  if (is_android) {
+    sources += [
+      "android/attribute_instance_android_unittest.cc",
+      "android/autofill_ai_save_update_entity_prompt_controller_unittest.cc",
+      "android/entity_data_manager_android_unittest.cc",
+      "android/entity_instance_android_unittest.cc",
+      "android/mock_autofill_ai_save_update_entity_prompt_view.cc",
+      "android/mock_autofill_ai_save_update_entity_prompt_view.h",
+      "android/save_update_address_profile_prompt_controller_unittest.cc",
+    ]
+    deps += [
+      "//chrome/browser/sync",
+      "//chrome/browser/ui/autofill",
+    ]
+  }
+}
+
+if (!is_android) {
+  source_set("generated_find_and_fill_with_gemini_pref") {
+    sources = [
+      "generated_find_and_fill_with_gemini_pref.cc",
+      "generated_find_and_fill_with_gemini_pref.h",
+    ]
+    deps = [
+      "//base",
+      "//chrome/browser/profiles:profile",
+      "//chrome/common/extensions/api",
+      "//components/optimization_guide/core",
+      "//components/personal_context/core",
+      "//components/prefs",
+    ]
+  }
 }

@@ -11,6 +11,7 @@
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/dictation/dictation_browser_test_base.h"
+#include "chrome/browser/dictation/dictation_multiplexer.h"
 #include "chrome/browser/dictation/session_state.h"
 #include "chrome/common/extensions/api/dictation_private.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
@@ -23,6 +24,7 @@ namespace dictation {
 
 class ListenerStreamProvider;
 class SessionUiImpl;
+struct TargetDetails;
 
 class DictationInteractiveBrowserTestBase
     : public InteractiveBrowserTestMixin<DictationBrowserTestBase> {
@@ -30,6 +32,7 @@ class DictationInteractiveBrowserTestBase
   using ExtensionStreamState = extensions::api::dictation_private::StreamState;
   using ExtensionTranscriptionType =
       extensions::api::dictation_private::TranscriptionType;
+  using StreamId = DictationMultiplexer::StreamId;
 
   DictationInteractiveBrowserTestBase();
   ~DictationInteractiveBrowserTestBase() override;
@@ -45,11 +48,22 @@ class DictationInteractiveBrowserTestBase
 
   // Starts a dictation session. If a stream is created this will also block
   // until the StreamStart event has been received in the extension.
+  // Prefer specifying a target in new tests.
   MultiStep StartSession();
+  MultiStep StartSessionWithTarget(ui::ElementIdentifier web_contents_id,
+                                   std::string_view query_selector);
 
+  // If a StreamId isn't specified, then these operate on the last started
+  // stream.
   MultiStep ExtensionAPISetStreamState(ExtensionStreamState state);
+  MultiStep ExtensionAPISetStreamState(const StreamId& stream_id,
+                                       ExtensionStreamState state);
   MultiStep ExtensionAPIUpdateTranscription(ExtensionTranscriptionType type,
                                             std::string_view text);
+  MultiStep ExtensionAPIUpdateTranscription(const StreamId& stream_id,
+                                            ExtensionTranscriptionType type,
+                                            std::string_view text);
+  MultiStep ExtensionAPIWaitForStreamStart();
 
   base::RepeatingCallback<SessionState()> GetSessionState();
   base::RepeatingCallback<bool()> HasAttachedStreamProvider();
@@ -58,6 +72,8 @@ class DictationInteractiveBrowserTestBase
   base::WeakPtr<ListenerStreamProvider> last_started_provider_;
 
  private:
+  MultiStep StartSession(std::unique_ptr<TargetDetails> target_details);
+
   void OnSessionStateChanged(SessionState state);
 
   base::CallbackListSubscription session_state_subscription_;

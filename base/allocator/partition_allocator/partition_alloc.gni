@@ -343,9 +343,7 @@ declare_args() {
   #
   # TODO(328104161): Remove this flag.
   enable_backup_ref_ptr_feature_flag =
-      enable_backup_ref_ptr_support && use_raw_ptr_backup_ref_impl &&
-      # Platforms where BackupRefPtr hasn't shipped yet:
-      !is_castos
+      enable_backup_ref_ptr_support && use_raw_ptr_backup_ref_impl
 
   # While keeping BRP support, override a feature flag to make it disabled
   # state. This will overwrite `enable_backup_ref_ptr_feature_flag`.
@@ -627,3 +625,12 @@ declare_args() {
 # `base::unchecked` on all those spans (shutting them out entirely).
 use_checked_span = !(is_asan || is_ubsan || is_tsan) && use_partition_alloc &&
                    has_64_bit_pointers
+
+# Enables additional features, e.g. slack space zapping.
+#
+# These features depend on the presence of `InSlotMetadata` (which is
+# primarily gated on build support for BackupRefPtr). Therefore, this
+# build toggle is necessarily defined as a subset of BackupRefPtr build
+# support.
+checked_span_has_metadata_support =
+    use_checked_span && enable_backup_ref_ptr_support && false

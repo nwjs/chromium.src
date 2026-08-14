@@ -10,9 +10,12 @@
 #include <utility>
 
 #include "base/feature_list.h"
+#include "base/system/sys_info.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
+#include "build/build_config.h"
+#include "build/buildflag.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
 #include "components/autofill/core/browser/test_utils/autofill_testing_pref_service.h"
@@ -23,6 +26,8 @@
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
+#include "components/personal_context/core/personal_context_prefs.h"
+#include "components/personal_context/core/personal_context_types.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/subscription_eligibility/subscription_eligibility_prefs.h"
@@ -118,7 +123,9 @@ class AutofillAiPermissionUtilsTest : public ::testing::Test {
           {{"ambient_autofill_eligible_tiers", "1"}}},
          {features::kAutofillAiServerModel,
           {{"autofill_ai_model_use_cache_results", "true"}}}},
-        {});
+        // TODO(crbug.com/477163013): Once this feature launches, kLogToMqls can
+        // be deprecated as the behavior will be disabled for everyone.
+        {features::kAutofillAiUsePrivateAi});
 
     client().GetPrefs()->SetInteger(
         subscription_eligibility::prefs::kAiSubscriptionTier, 1);
@@ -574,8 +581,11 @@ TEST_P(AutofillAiMayPerformActionTest,
       !kForbiddenActions.contains(GetParam()));
 }
 TEST_F(AutofillAiPermissionUtilsTest, kTypeSupportsAmbientAutofillData) {
-  client().set_personal_context_enablement_state(
-      personal_context::PersonalContextEnablementState::kEnabled);
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(features::debug::kAutofillAiForceOptIn);
+
+  client().set_personal_context_eligibility_state(
+      personal_context::PersonalContextEligibilityState::kEligible);
   for (const EntityTypeName type :
        {kPassport, kDriversLicense, kNationalIdCard, kFlightReservation,
         kShipment, kOrder, kVehicle}) {
@@ -588,16 +598,33 @@ TEST_F(AutofillAiPermissionUtilsTest, kTypeSupportsAmbientAutofillData) {
         client(), AutofillAiAction::kTypeSupportsAmbientAutofillData,
         EntityType(type)));
   }
+
+  // Without device re-auth, SPII types (Passport, Driver's license, National ID
+  // card) are not supported, but non-SPII types (Flight reservation, Shipment,
+  // Order, Vehicle) are.
+  edm().SetReauthAvailability(false);
+  for (const EntityTypeName type :
+       {kFlightReservation, kShipment, kOrder, kVehicle}) {
+    EXPECT_TRUE(MayPerformAutofillAiAction(
+        client(), AutofillAiAction::kTypeSupportsAmbientAutofillData,
+        EntityType(type)));
+  }
+  for (const EntityTypeName type : {kPassport, kDriversLicense, kNationalIdCard,
+                                    kRedressNumber, kKnownTravelerNumber}) {
+    EXPECT_FALSE(MayPerformAutofillAiAction(
+        client(), AutofillAiAction::kTypeSupportsAmbientAutofillData,
+        EntityType(type)));
+  }
 }
 
 TEST_F(AutofillAiPermissionUtilsTest, kAmbientAutofill) {
-  client().set_personal_context_enablement_state(
-      personal_context::PersonalContextEnablementState::kEnabled);
+  client().set_personal_context_eligibility_state(
+      personal_context::PersonalContextEligibilityState::kEligible);
   EXPECT_TRUE(
       MayPerformAutofillAiAction(client(), AutofillAiAction::kAmbientAutofill));
 
-  client().set_personal_context_enablement_state(
-      personal_context::PersonalContextEnablementState::kDisabledNotEligible);
+  client().set_personal_context_eligibility_state(
+      personal_context::PersonalContextEligibilityState::kDisabledNotEligible);
   EXPECT_FALSE(
       MayPerformAutofillAiAction(client(), AutofillAiAction::kAmbientAutofill));
 }
@@ -606,8 +633,8 @@ TEST_F(AutofillAiPermissionUtilsTest, AmbientAutofillFillingRequiresOptIn) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndDisableFeature(features::kAutofillAiAvailableByDefault);
 
-  client().set_personal_context_enablement_state(
-      personal_context::PersonalContextEnablementState::kEnabled);
+  client().set_personal_context_eligibility_state(
+      personal_context::PersonalContextEligibilityState::kEligible);
 
   // Opted out.
   SetAutofillAiOptInStatus(client(), AutofillAiOptInStatus::kOptedOut);
@@ -621,8 +648,8 @@ TEST_F(AutofillAiPermissionUtilsTest, AmbientAutofillFillingRequiresOptIn) {
 }
 
 TEST_F(AutofillAiPermissionUtilsTest, kAmbientAutofill_G1Tiers) {
-  client().set_personal_context_enablement_state(
-      personal_context::PersonalContextEnablementState::kEnabled);
+  client().set_personal_context_eligibility_state(
+      personal_context::PersonalContextEligibilityState::kEligible);
 
   // Scenario 1: Tiers 1 and 2 are eligible.
   {
@@ -657,6 +684,72 @@ TEST_F(AutofillAiPermissionUtilsTest, kAmbientAutofill_G1Tiers) {
     EXPECT_FALSE(MayPerformAutofillAiAction(
         client(), AutofillAiAction::kAmbientAutofill));
   }
+}
+
+TEST_F(AutofillAiPermissionUtilsTest,
+       kAmbientAutofill_IneligibleTierAndDevice) {
+  client().set_personal_context_eligibility_state(
+      personal_context::PersonalContextEligibilityState::kEligible);
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kAutofillAmbientAutofill,
+      {{"ambient_autofill_eligible_tiers", "2"},
+       {"ambient_autofill_enabled_devices", "NonExistentDevice"}});
+
+  client().GetPrefs()->SetInteger(
+      subscription_eligibility::prefs::kAiSubscriptionTier, 1);
+
+  EXPECT_FALSE(
+      MayPerformAutofillAiAction(client(), AutofillAiAction::kAmbientAutofill));
+}
+
+#if BUILDFLAG(IS_ANDROID)
+TEST_F(AutofillAiPermissionUtilsTest, kAmbientAutofill_AndroidDeviceEligible) {
+  client().set_personal_context_eligibility_state(
+      personal_context::PersonalContextEligibilityState::kEligible);
+
+  const std::string actual_model_name = base::SysInfo::HardwareModelName();
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kAutofillAmbientAutofill,
+      {{"ambient_autofill_eligible_tiers", "2"},
+       {"ambient_autofill_enabled_devices", actual_model_name}});
+
+  client().GetPrefs()->SetInteger(
+      subscription_eligibility::prefs::kAiSubscriptionTier, 1);
+
+  EXPECT_TRUE(
+      MayPerformAutofillAiAction(client(), AutofillAiAction::kAmbientAutofill));
+}
+#endif  // BUILDFLAG(IS_ANDROID)
+
+TEST_F(AutofillAiPermissionUtilsTest,
+       AmbientAutofillRequiresPersonalContextPref) {
+  client().set_personal_context_eligibility_state(
+      personal_context::PersonalContextEligibilityState::kEligible);
+
+  // Pref enabled by default in RegisterProfilePrefs.
+  EXPECT_TRUE(
+      MayPerformAutofillAiAction(client(), AutofillAiAction::kAmbientAutofill));
+  EXPECT_TRUE(MayPerformAutofillAiAction(
+      client(), AutofillAiAction::kTypeSupportsAmbientAutofillData,
+      EntityType(kPassport)));
+  EXPECT_TRUE(MayPerformAutofillAiAction(
+      client(), AutofillAiAction::kShowAmbientAutofillInSettings));
+
+  // Disable pref.
+  client().GetPrefs()->SetBoolean(
+      personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
+      false);
+  EXPECT_FALSE(
+      MayPerformAutofillAiAction(client(), AutofillAiAction::kAmbientAutofill));
+  EXPECT_FALSE(MayPerformAutofillAiAction(
+      client(), AutofillAiAction::kTypeSupportsAmbientAutofillData,
+      EntityType(kPassport)));
+  EXPECT_TRUE(MayPerformAutofillAiAction(
+      client(), AutofillAiAction::kShowAmbientAutofillInSettings));
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -719,6 +812,32 @@ TEST_F(AutofillAiPermissionUtilsTest, OptInStatus) {
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
+TEST_F(AutofillAiPermissionUtilsTest, OptInStatusWithUsePrivateAi) {
+  base::test::ScopedFeatureList feature_list{features::kAutofillAiUsePrivateAi};
+
+  // By default, neither the opt-in pref nor the notice shown timestamp is set.
+  EXPECT_FALSE(GetAutofillAiOptInStatus(client()));
+
+  client().GetPrefs()->SetBoolean(prefs::kAutofillAiPrivateInferenceOptInStatus,
+                                  true);
+  // Setting only `kAutofillAiPrivateInferenceOptInStatus` is not sufficient
+  // without `kAutofillAiPrivateInferenceNoticeFirstShownTimestamp` being set.
+  EXPECT_FALSE(GetAutofillAiOptInStatus(client()));
+
+  client().GetPrefs()->SetTime(
+      prefs::kAutofillAiPrivateInferenceNoticeFirstShownTimestamp,
+      base::Time::Now());
+  // Both `kAutofillAiPrivateInferenceOptInStatus` is true and
+  // `kAutofillAiPrivateInferenceNoticeFirstShownTimestamp` is set.
+  EXPECT_TRUE(GetAutofillAiOptInStatus(client()));
+
+  client().GetPrefs()->SetBoolean(prefs::kAutofillAiPrivateInferenceOptInStatus,
+                                  false);
+  // Setting `kAutofillAiPrivateInferenceOptInStatus` to false returns false
+  // even if `kAutofillAiPrivateInferenceNoticeFirstShownTimestamp` remains set.
+  EXPECT_FALSE(GetAutofillAiOptInStatus(client()));
+}
+
 TEST_F(AutofillAiPermissionUtilsTest,
        UsersCannotOptInIfAutofillForAddressesIsDisabled) {
   EXPECT_TRUE(MayPerformAutofillAiAction(client(), AutofillAiAction::kOptIn,
@@ -728,12 +847,11 @@ TEST_F(AutofillAiPermissionUtilsTest,
                                           std::nullopt));
 }
 
-// TODO(crbug.com/482301350): Remove this test
 TEST_F(
     AutofillAiPermissionUtilsTest,
-    UsersCanOptInIfAutofillForAddressesIsDisabledWhenOtherDatatypesPrefEnabled) {
+    UsersCanOptInIfAutofillForAddressesIsDisabledWhenEnterprisePolicyEnabled) {
   base::test::ScopedFeatureList feature_list{
-      features::kAutofillAddOtherDatatypesPref};
+      features::kAutofillEnableAutofillSettingsEnterprisePolicy};
   ASSERT_TRUE(MayPerformAutofillAiAction(client(), AutofillAiAction::kOptIn,
                                          std::nullopt));
   client().GetPrefs()->SetBoolean(prefs::kAutofillProfileEnabled, false);
@@ -958,18 +1076,10 @@ TEST_F(AutofillAiMayPerformImportToWalletTest,
 
 TEST_F(AutofillAiMayPerformImportToWalletTest,
        ImportToWallet_FalseForPrivatePassesForUnderagedUsers) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kAutofillAiWalletPrivatePasses},
-      /*disabled_features=*/{
-          features::kAutofillAiWalletPrivatePassesCapability});
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillAiWalletPrivatePasses};
   // Simulate that the can_use_model_execution_features() capability is false.
-  signin::IdentityManager* identity_manager = client().GetIdentityManager();
-  AccountInfo account_info = identity_manager->FindExtendedAccountInfo(
-      identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin));
-  AccountCapabilitiesTestMutator(&account_info)
-      .set_can_use_model_execution_features(false);
-  signin::UpdateAccountInfoForAccount(identity_manager, account_info);
+  client().SetCanUseModelExecutionFeatures(false);
   // Expect that Wallet imports for public passes are allowed.
   EXPECT_TRUE(MayPerformAutofillAiAction(
       client(), AutofillAiAction::kImportToWallet, EntityType(kVehicle)));
@@ -987,12 +1097,7 @@ TEST_F(AutofillAiMayPerformImportToWalletTest,
       /*disabled_features=*/{});
   // Simulate that the supports_wallet_private_passes_in_autofill() capability
   // is false.
-  signin::IdentityManager* identity_manager = client().GetIdentityManager();
-  AccountInfo account_info = identity_manager->FindExtendedAccountInfo(
-      identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin));
-  AccountCapabilitiesTestMutator(&account_info)
-      .set_supports_wallet_private_passes_in_autofill(false);
-  signin::UpdateAccountInfoForAccount(identity_manager, account_info);
+  client().SetSupportsWalletPrivatePassesInAutofill(false);
   // Expect that Wallet imports for public passes are allowed.
   EXPECT_TRUE(MayPerformAutofillAiAction(
       client(), AutofillAiAction::kImportToWallet, EntityType(kVehicle)));

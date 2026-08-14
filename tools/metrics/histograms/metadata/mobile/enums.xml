@@ -116,6 +116,7 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="NAME_CONFLICT"/>
   <int value="5" label="NAME_TOO_LONG"/>
   <int value="6" label="LOCATION_SUGGESTION"/>
+  <int value="7" label="FORCE_PROMPT"/>
 </enum>
 
 <enum name="DownloadLocationDirectoryType">
@@ -280,7 +281,7 @@ chromium-metrics-reviews@google.com.
   <int value="34" label="Image on a Reader Mode page"/>
   <int value="35" label="Image-Link on a Reader Mode page"/>
   <int value="36" label="Link on a Reader Mode page"/>
-  <int value="37" label="Tab Group button in the Overflow Menu"/>
+  <int value="37" label="Tab Group button in the Overflow Menu (Obsolete)"/>
   <int value="38" label="Sad Tab Menu"/>
 </enum>
 
@@ -397,6 +398,9 @@ chromium-metrics-reviews@google.com.
   <int value="15" label="Default browser promo shown"/>
   <int value="16" label="The user accepted the default browser promo"/>
   <int value="17" label="The user rejected the default browser promo"/>
+  <int value="18" label="Safety promo shown"/>
+  <int value="19"
+      label="The user clicked the start browsing button on safety promo"/>
 </enum>
 
 <!-- LINT.ThenChange(/chrome/browser/first_run/android/java/src/org/chromium/chrome/browser/firstrun/MobileFreProgress.java:MobileFreProgress) -->

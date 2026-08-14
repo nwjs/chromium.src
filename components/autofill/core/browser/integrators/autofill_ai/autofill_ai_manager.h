@@ -17,13 +17,14 @@
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
 #include "components/autofill/core/browser/foundations/scoped_autofill_managers_observation.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_logger.h"
-#include "components/autofill/core/browser/network/autofill_ai/personal_context_access_manager.h"
+#include "components/autofill/core/browser/network/autofill_ai/autofill_ai_personal_context_access_manager.h"
 #include "components/autofill/core/browser/strike_databases/autofill_ai/autofill_ai_save_strike_database_by_attribute.h"
 #include "components/autofill/core/browser/strike_databases/autofill_ai/autofill_ai_save_strike_database_by_host.h"
 #include "components/autofill/core/browser/strike_databases/autofill_ai/autofill_ai_update_strike_database.h"
@@ -44,8 +45,9 @@ struct Suggestion;
 
 // The class for embedder-independent, tab-specific Autofill AI logic. This
 // class is owned by the AutofillClient.
-class AutofillAiManager : public AutofillManager::Observer,
-                          public PersonalContextAccessManager::Observer {
+class AutofillAiManager
+    : public AutofillManager::Observer,
+      public AutofillAiPersonalContextAccessManager::Observer {
  public:
   using UpdateSuggestionsCallback =
       base::RepeatingCallback<void(std::vector<Suggestion>)>;
@@ -88,6 +90,7 @@ class AutofillAiManager : public AutofillManager::Observer,
       UpdateSuggestionsCallback update_suggestions_callback);
   virtual void OnFormSeen(const FormStructure& form);
   virtual void OnFormInteracted(const FormStructure& form,
+                                const AutofillField& field,
                                 ukm::SourceId ukm_source_id);
   virtual void OnDidFillSuggestion(
       const EntityInstance& entity,
@@ -102,9 +105,9 @@ class AutofillAiManager : public AutofillManager::Observer,
   // AutofillManager::Observer:
   void OnAfterLoadedServerPredictions(AutofillManager& manager) override;
 
-  // PersonalContextAccessManager::Observer:
+  // AutofillAiPersonalContextAccessManager::Observer:
   void OnPrefetchContextComplete(
-      const PersonalContextAccessManager& manager,
+      const AutofillAiPersonalContextAccessManager& manager,
       std::optional<base::span<const EntityInstance>> entities) override;
 
   // Updates `logger_`'s information about data stored for AutofillAi for
@@ -116,10 +119,8 @@ class AutofillAiManager : public AutofillManager::Observer,
  private:
   friend class AutofillAiManagerTestApi;
   struct UserSuggestionInteractionDetails {
-    // Upon clicking a field, stores the different entity types used to
-    // generate the suggestions shown.
-    DenseSet<EntityType> suggested_entity_types;
     std::optional<EntityType> entity_type_accepted;
+    std::optional<EntityInstance::RecordType> accepted_entity_record_type;
     // The types of the field where the suggestion was shown or accepted.
     FieldTypeSet autofill_ai_field_types;
   };
@@ -236,6 +237,12 @@ class AutofillAiManager : public AutofillManager::Observer,
                                     FieldGlobalId field_id,
                                     UpdateSuggestionsCallback callback);
 
+  // Returns the EntityType for which Autofill AI could potentially offer an
+  // import prompt (based on the field type), if any.
+  std::optional<EntityType> GetSupportedEntityTypeForField(
+      const FormStructure& form,
+      const AutofillField& field) const;
+
   // A raw reference to the client, which owns `this` and therefore outlives
   // it.
   const raw_ref<AutofillClient> client_;
@@ -270,14 +277,19 @@ class AutofillAiManager : public AutofillManager::Observer,
   ukm::SourceId last_logged_ukm_source_id_for_interaction_ =
       ukm::kInvalidSourceId;
 
+  // Tracks the UKM source ID for which the prefetch cache readiness metric was
+  // last logged, ensuring it is logged at most once per page.
+  ukm::SourceId last_logged_ukm_source_id_for_cache_readiness_ =
+      ukm::kInvalidSourceId;
+
   // Callback to update the shown suggestions.
   base::RepeatingClosure generate_suggestions_and_update_popup_callback_;
 
   ScopedAutofillManagersObservation autofill_managers_observation_{this};
 
-  base::ScopedObservation<PersonalContextAccessManager,
-                          PersonalContextAccessManager::Observer>
-      personal_context_access_manager_observation_{this};
+  base::ScopedObservation<AutofillAiPersonalContextAccessManager,
+                          AutofillAiPersonalContextAccessManager::Observer>
+      autofill_ai_personal_context_access_manager_observation_{this};
 
   base::WeakPtrFactory<AutofillAiManager> weak_ptr_factory_{this};
 };

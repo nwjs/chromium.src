@@ -16,7 +16,7 @@ import shutil
 import sys
 import subprocess
 import tempfile
-from typing import Any, Callable, List, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 import modulemap_config
 
@@ -25,7 +25,8 @@ _SIMPLE_HEADER_RE = re.compile(r'(\bheader\s+")([^"]+)(")')
 _REQUIRES_RE = re.compile(r'^\s*requires\s+(.*)')
 # This needs to match all triple dirs that exist in root_include_dir in the
 # sysroot.
-_TRIPLE = re.compile('^(.*)-(linux|cros)-(gnu|gnueabi|gnueabihf|android)$')
+_TRIPLE = re.compile(
+    '^(.*)-(linux|cros)-(gnu|gnueabi|gnueabihf|android|androideabi)$')
 _DEBUG_SOURCE = '/tmp/debug_generate_system_modulemap.cc'
 _DEBUG_SCRIPT = pathlib.Path('/tmp/debug_generate_system_modulemap.sh')
 
@@ -69,7 +70,7 @@ class AllowList:
     self.default = modulemap_config.Header(path='')
     self.hdrs = {hdr.path: hdr for hdr in headers if hdr.exists}
 
-  def textual(self, path: str) -> bool | None:
+  def textual(self, path: str) -> Optional[bool]:
     hdr = self.hdrs.get(path)
     if hdr is not None and hdr.textual is not None:
       return hdr.textual
@@ -80,14 +81,17 @@ class AllowList:
   def exports(self, path: str) -> list[str]:
     return self.hdrs.get(path, self.default).exports
 
-  def module_name(self, path: str) -> str | None:
+  def module_name(self, path: str) -> Optional[str]:
     return self.hdrs.get(path, self.default).module_name
 
   def includes(self) -> list[str]:
     return [path for path, hdr in self.hdrs.items() if not hdr.lazy]
 
   def private(self, path: str) -> bool:
-    return path not in self.hdrs
+    hdr = self.hdrs.get(path)
+    if hdr is not None:
+      return hdr.private
+    return True
 
   def forced(self) -> list[modulemap_config.Header]:
     return [h for h in self.hdrs.values() if h.force]
@@ -147,7 +151,7 @@ class Header:
   private: bool
   textual: bool
   requires: list[str] = dataclasses.field(default_factory=list)
-  module_name: str | None = None
+  module_name: Optional[str] = None
   exports: list[str] = dataclasses.field(default_factory=lambda: ['*'])
 
 

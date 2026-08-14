@@ -14,6 +14,8 @@
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "content/public/android/content_jni_headers/SelectPopup_jni.h"
+#include "content/public/browser/content_browser_client.h"
+#include "content/public/common/content_client.h"
 
 using base::android::AttachCurrentThread;
 using base::android::JavaRef;
@@ -60,6 +62,7 @@ SelectPopup::~SelectPopup() {
 void SelectPopup::ShowMenu(
     mojo::PendingRemote<blink::mojom::PopupMenuClient> popup_client,
     const gfx::Rect& bounds,
+    double item_font_size,
     std::vector<blink::mojom::MenuItemPtr> items,
     int selected_item,
     bool multiple,
@@ -68,6 +71,11 @@ void SelectPopup::ShowMenu(
   ScopedJavaLocalRef<jobject> j_obj = java_obj_.get(env);
   if (j_obj.is_null())
     return;
+
+  if (!GetContentClient()->browser()->ShouldAllowSystemUiPopups(
+          web_contents_)) {
+    return;
+  }
 
   // Hide the popup menu if the mojo connection is still open.
   if (popup_client_)
@@ -122,9 +130,12 @@ void SelectPopup::ShowMenu(
   gfx::RectF bounds_dip = gfx::RectF(bounds);
   bounds_dip.Scale(1 / web_contents_->GetNativeView()->GetDipScale());
   view->SetAnchorRect(popup_view, bounds_dip);
-  Java_SelectPopup_show(
-      env, j_obj, popup_view, reinterpret_cast<int64_t>(popup_client_.get()),
-      items_array, enabled_array, multiple, selected_array, right_aligned);
+
+  int item_height = bounds.height();
+  Java_SelectPopup_show(env, j_obj, popup_view,
+                        reinterpret_cast<int64_t>(popup_client_.get()),
+                        items_array, enabled_array, multiple, selected_array,
+                        right_aligned, item_height, item_font_size);
 }
 
 void SelectPopup::HideMenu() {

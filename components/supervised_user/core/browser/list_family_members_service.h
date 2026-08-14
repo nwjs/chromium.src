@@ -7,8 +7,6 @@
 
 #include <memory>
 
-#include "base/callback_list.h"
-#include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/scoped_observation.h"
@@ -45,12 +43,9 @@ constexpr bool FetchListFamilyMembersWithCapability() {
 class ListFamilyMembersService : public KeyedService,
                                  public signin::IdentityManager::Observer {
  public:
-  using SuccessfulFetchCallback =
-      void(const kidsmanagement::ListMembersResponse&);
-
   ListFamilyMembersService() = delete;
   ListFamilyMembersService(
-      signin::IdentityManager* identity_manager,
+      signin::IdentityManager& identity_manager,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       PrefService& user_prefs);
   ~ListFamilyMembersService() override;
@@ -59,15 +54,8 @@ class ListFamilyMembersService : public KeyedService,
   ListFamilyMembersService(const ListFamilyMembersService&) = delete;
   ListFamilyMembersService& operator=(const ListFamilyMembersService&) = delete;
 
-  void Init();
-
   // KeyedService:
   void Shutdown() override;
-
-  // `callback` will receive every future update of family members until
-  // unsubscribed by destroying the `base::CallbackListSubscription` handle.
-  base::CallbackListSubscription SubscribeToSuccessfulFetches(
-      base::RepeatingCallback<SuccessfulFetchCallback> callback);
 
  private:
   // signin::IdentityManager::Observer
@@ -91,13 +79,9 @@ class ListFamilyMembersService : public KeyedService,
       const kidsmanagement::ListMembersResponse& list_members_response);
 
   // Dependencies.
-  raw_ptr<signin::IdentityManager> identity_manager_;
+  const raw_ref<signin::IdentityManager> identity_manager_;
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
   const raw_ref<PrefService> user_prefs_;
-
-  // Repeating consumers.
-  base::RepeatingCallbackList<SuccessfulFetchCallback>
-      successful_fetch_repeating_consumers_;
 
   // Observers.
   base::ScopedObservation<signin::IdentityManager,

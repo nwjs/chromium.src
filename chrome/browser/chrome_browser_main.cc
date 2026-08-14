@@ -16,12 +16,14 @@
 #include "base/base_switches.h"
 #include "base/check.h"
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/path_service.h"
+#include "base/strings/strcat.h"
 #include "base/task/current_thread.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
@@ -295,9 +297,6 @@
 #include "chrome/browser/chrome_process_singleton.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 
-#if BUILDFLAG(IS_LINUX)
-#include "base/nix/xdg_util.h"
-#endif
 #endif  // BUILDFLAG(ENABLE_PROCESS_SINGLETON)
 
 #if BUILDFLAG(ENABLE_RLZ) && !BUILDFLAG(IS_CHROMEOS)
@@ -367,6 +366,41 @@ void DeleteMediaHistoryDatabase(const base::FilePath& profile_path) {
   base::UmaHistogramBoolean("Media.MediaHistory.DatabaseExists",
                             base::PathExists(db_path));
   sql::Database::Delete(db_path);
+}
+
+void DeleteDeprecatedPrivacySandboxData(const base::FilePath& profile_path) {
+  // Delete the deprecated Privacy Sandbox databases.
+  static constexpr struct {
+    base::FilePath::StringViewType db_name;
+    std::string_view histogram_name;
+  } kDatabases[] = {
+      {FILE_PATH_LITERAL("SharedStorage"), "SharedStorage"},
+      {FILE_PATH_LITERAL("Conversions"), "Conversions"},
+      {FILE_PATH_LITERAL("AggregationService"), "AggregationService"},
+      {FILE_PATH_LITERAL("PrivateAggregation"), "PrivateAggregation"},
+      {FILE_PATH_LITERAL("InterestGroups"), "InterestGroups"},
+      {FILE_PATH_LITERAL("BrowsingTopicsSiteData"), "BrowsingTopicsSiteData"},
+  };
+
+  for (const auto& db : kDatabases) {
+    base::FilePath db_path = profile_path.Append(db.db_name);
+    bool exists = base::PathExists(db_path);
+    base::UmaHistogramBoolean(
+        base::StrCat(
+            {"Storage.DeprecatedPrivacySandboxAPIs.DatabaseStillExisted.",
+             db.histogram_name}),
+        exists);
+    if (exists) {
+      sql::Database::Delete(db_path);
+    }
+  }
+
+  // Delete the BrowsingTopicsState file.
+  base::FilePath topics_state_path =
+      profile_path.Append(FILE_PATH_LITERAL("BrowsingTopicsState"));
+  if (base::PathExists(topics_state_path)) {
+    base::DeleteFile(topics_state_path);
+  }
 }
 #endif
 
@@ -510,14 +544,6 @@ void ProcessSingletonNotificationCallbackImpl(
 
   if (!nw::ProcessSingletonNotificationCallbackHook(command_line, current_directory))
     return;
-
-#if BUILDFLAG(IS_LINUX)
-  // Set the global activation token sent as a command line switch by another
-  // browser process. This also removes the switch after use to prevent any side
-  // effects of leaving it in the command line after this point.
-  base::nix::ExtractXdgActivationTokenFromCmdLine(command_line);
-#endif
-
   StartupProfilePathInfo startup_profile_path_info =
       GetStartupProfilePath(current_directory, command_line,
                             /*ignore_profile_picker=*/false);
@@ -1595,6 +1621,14 @@ void ChromeBrowserMainParts::PostProfileInit(Profile* profile,
       {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
        base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
       base::BindOnce(&DeleteMediaHistoryDatabase, profile->GetPath()));
+
+  // Delete the deprecated Privacy Sandbox data if they still exist.
+  // TODO(crbug.com/462465887): Remove this in August 2028.
+  base::ThreadPool::PostTask(
+      FROM_HERE,
+      {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+       base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
+      base::BindOnce(&DeleteDeprecatedPrivacySandboxData, profile->GetPath()));
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -1705,12 +1739,13 @@ void ChromeBrowserMainParts::PostBrowserStart() {
   webnn::SchedulePlatformRuntimeInstallationIfRequired();
 #endif
 
-  // At this point, StartupBrowserCreator::Start has run creating initial
-  // browser windows and tabs, but no progress has been made in loading
-  // content as the main message loop hasn't started processing tasks yet.
-  // We setup to observe to the initial page load here to defer running
-  // task posted via PostAfterStartupTask until its complete.
-  AfterStartupTaskUtils::StartMonitoringStartup();
+#if !BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(features::kImprovedStartupBestEffortDelay)) {
+    first_idle_ref_ = AfterStartupTaskUtils::RegisterStartupInProgressRef(
+        StartupIsCompleteReason::kFirstIdle);
+  }
+#endif
+  AfterStartupTaskUtils::BeginMonitoringStartupCompletion();
 }
 
 int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
@@ -2155,7 +2190,7 @@ void ChromeBrowserMainParts::WillRunMainMessageLoop(
   run_loop = std::move(GetMainRunLoopInstance());
 
   // Trace the entry and exit of this main message loop. We don't use the
-  // TRACE_EVENT_BEGIN0 macro because the tracing infrastructure doesn't expect
+  // TRACE_EVENT_BEGIN macro because the tracing infrastructure doesn't expect
   // a synchronous event around the main loop of a thread.
   TRACE_EVENT_BEGIN("toplevel", "ChromeBrowserMainParts::MainMessageLoopRun",
                     perfetto::Track::FromPointer(this));
@@ -2165,6 +2200,9 @@ void ChromeBrowserMainParts::WillRunMainMessageLoop(
 void ChromeBrowserMainParts::OnFirstIdle() {
   startup_metric_utils::GetBrowser().RecordBrowserMainLoopFirstIdle(
       base::TimeTicks::Now());
+#if !BUILDFLAG(IS_ANDROID)
+  first_idle_ref_.reset();
+#endif
 #if BUILDFLAG(IS_ANDROID)
   sharing::ShareHistory::CreateForProfile(
       ProfileManager::GetPrimaryUserProfile());

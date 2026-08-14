@@ -103,7 +103,6 @@ constexpr APIPermissionInfo::InitInfo permissions_to_register[] = {
     {APIPermissionID::kGlicPrivateInvoke, "glicPrivate.invoke"},
     {APIPermissionID::kHistory, "history",
      APIPermissionInfo::kFlagRequiresManagementUIWarning},
-    {APIPermissionID::kIdltest, "idltest"},
     {APIPermissionID::kInput, "input"},
     {APIPermissionID::kManagement, "management"},
     {APIPermissionID::kMDns, "mdns",
@@ -214,9 +213,6 @@ constexpr APIPermissionInfo::InitInfo permissions_to_register[] = {
          APIPermissionInfo::kFlagRequiresManagementUIWarning},
     {APIPermissionID::kPageCapture, "pageCapture",
      APIPermissionInfo::kFlagImpliesFullURLAccess},
-    {APIPermissionID::kProxy, "proxy",
-     APIPermissionInfo::kFlagImpliesFullURLAccess |
-         APIPermissionInfo::kFlagCannotBeOptional},
     {APIPermissionID::kTabCapture, "tabCapture",
      APIPermissionInfo::kFlagImpliesFullURLAccess},
     {APIPermissionID::kTabCaptureForTab, "tabCaptureForTab",

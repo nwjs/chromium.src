@@ -171,8 +171,7 @@ public class CustomTabDelegateFactory implements TabDelegateFactory {
 
         @Override
         public boolean shouldDisableAllExternalIntents() {
-            return mActivityType == ActivityType.AUTH_TAB
-                    && ChromeFeatureList.sCctAuthTabDisableAllExternalIntents.isEnabled();
+            return false;
         }
 
         @Override
@@ -679,7 +678,8 @@ public class CustomTabDelegateFactory implements TabDelegateFactory {
                 createTabContextMenuItemDelegate(tab),
                 mShareDelegateSupplier,
                 contextMenuMode,
-                mIntentDataProvider.getCustomContentActions());
+                mIntentDataProvider.getCustomContentActions(),
+                /* leftSideUiWidthSupplier= */ () -> 0);
     }
 
     @Override

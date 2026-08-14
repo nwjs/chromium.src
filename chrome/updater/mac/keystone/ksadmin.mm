@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "chrome/updater/mac/keystone/ksadmin.h"
 
 #include <stdio.h>
@@ -24,6 +19,7 @@
 #include "base/at_exit.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
+#include "base/compiler_specific.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
@@ -70,8 +66,8 @@ std::map<std::string, std::string> ParseCommandLine(int argc,
   std::map<std::string, std::string> result;
   std::string key;
   for (int i = 1; i < argc; ++i) {
-    std::string arg(argv[i]);
-    if (base::StartsWith(arg, "--")) {
+    std::string arg(UNSAFE_TODO(argv[i]));
+    if (arg.starts_with("--")) {
       key = arg.substr(2);
       size_t eq_idx = key.find('=');
       if (eq_idx == std::string::npos) {
@@ -80,7 +76,7 @@ std::map<std::string, std::string> ParseCommandLine(int argc,
         result[key.substr(0, eq_idx)] = key.substr(eq_idx + 1);
         key = "";
       }
-    } else if (base::StartsWith(arg, "-")) {
+    } else if (arg.starts_with('-')) {
       // Multiple short options could be combined together. For example,
       // command `ksadmin -pP com.google.Chrome` should print Chrome ticket.
       // Split the option substring into switches character by character.
@@ -224,8 +220,7 @@ bool IsSystemShim() {
     return false;
   }
 
-  return base::StartsWith(
-      executable_path.value(),
+  return executable_path.value().starts_with(
       GetKeystoneFolderPath(UpdaterScope::kSystem)->value());
 }
 
@@ -905,7 +900,7 @@ void KSAdminApp::DoPrintTag(UpdaterScope scope) {
 }
 
 void KSAdminApp::PrintVersion() {
-  printf("%s\n", kUpdaterVersion);
+  UNSAFE_TODO(printf("%s\n", kUpdaterVersion));
   Shutdown(0);
 }
 

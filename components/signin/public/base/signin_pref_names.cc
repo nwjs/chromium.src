@@ -19,12 +19,22 @@ const char kAccountIdMigrationState[] = "account_id_migration_state";
 // tracked by this signin.
 const char kAccountInfo[] = "account_info";
 
-// Dictionary pref that contains the cached account preview data.
-const char kAccountPreviewDataDict[] = "signin.account_preview_data_dict";
+// Dictionary pref that contains the AccountPreviewPreference result.
+const char kAccountPreviewPreference[] = "signin.account_preview_preference";
 
 // Time pref that tracks the last time account preview data was refreshed.
 const char kAccountPreviewDataLastUpdatePref[] =
     "signin.account_preview_data_last_update";
+
+// List pref that tracks the GAIA IDs of accounts present during the last data
+// fetch.
+const char kAccountPreviewDataLastFetchAccounts[] =
+    "signin.account_preview_data_last_fetch_accounts";
+
+// Integer pref that tracks the number of non-periodic full fetches until the
+// next periodic fetch.
+const char kAccountPreviewNonPeriodicFetchCountPref[] =
+    "signin.account_preview_non_periodic_fetch_count";
 
 // A hash of the GAIA accounts present in the content area. Order does not
 // affect the hash, but signed in/out status will. Stored as the Base64 string.

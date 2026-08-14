@@ -30,7 +30,7 @@
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 
 @interface BookmarkPromoController () <AuthenticationServiceObserving,
-                                       IdentityManagerObserverBridgeDelegate,
+                                       IdentityManagerObserving,
                                        SigninPromoViewConsumer>
 
 @end
@@ -46,6 +46,7 @@
   // Observer for auth service status changes.
   std::unique_ptr<AuthenticationServiceObserverBridge>
       _authServiceObserverBridge;
+  BOOL _isShutdown;
 }
 
 - (instancetype)initWithBrowser:(Browser*)browser
@@ -96,10 +97,14 @@
 }
 
 - (void)dealloc {
-  CHECK(!_authServiceObserverBridge, base::NotFatalUntil::M152);
+  [self shutdown];
 }
 
 - (void)shutdown {
+  if (_isShutdown) {
+    return;
+  }
+  _isShutdown = YES;
   [_signinPromoViewMediator disconnect];
   _signinPromoViewMediator = nil;
   _browser = nullptr;
@@ -177,10 +182,10 @@
   [self updateShouldShowSigninPromo];
 }
 
-#pragma mark - IdentityManagerObserverBridgeDelegate
+#pragma mark - IdentityManagerObserving
 
 // Called when a user changes the syncing state.
-- (void)onPrimaryAccountChanged:
+- (void)primaryAccountDidChange:
     (const signin::PrimaryAccountChangeEvent&)event {
   // The account storage promo is not shown if the user is signed-in, so sign-in
   // events should be captured and handled.

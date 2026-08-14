@@ -71,7 +71,6 @@ _CONFIG = [
             'base::as_writable_chars',
             'base::AutoReset',
             'base::bit_cast',
-            'base::ByteCount',
             'base::ByteSize',
             'base::ByteSizeDelta',
             'base::byte_span(_with_nul)?_from_cstring',
@@ -90,7 +89,6 @@ _CONFIG = [
             'base::FunctionRef',
             'base::GetUniqueIdForProcess',
             'base::GetSystemMemoryInfo',
-            'base::GiB',
             'base::GiBS',
             'base::GiBU',
             'base::HashingLRUCache',
@@ -111,7 +109,6 @@ _CONFIG = [
             'base::InheritThreadType',
             'base::JobDelegate',
             'base::JobHandle',
-            'base::KiB',
             'base::KiBS',
             'base::KiBU',
             'base::kCriticalMemoryPressureThreshold',
@@ -127,7 +124,6 @@ _CONFIG = [
             'base::MemoryPressureListener',
             'base::MemoryPressureListenerTag',
             'base::MessagePump',
-            'base::MiB',
             'base::MiBS',
             'base::MiBU',
             'base::Microseconds',
@@ -278,6 +274,7 @@ _CONFIG = [
             'base::ClampFloor',
             'base::ClampRound',
             'base::IsTypeInRangeForNumericType',
+            'base::IsUnicodeControl',
             'base::IsValueInRangeForNumericType',
             'base::IsValueNegative',
             'base::MakeStrictNum',
@@ -407,6 +404,16 @@ _CONFIG = [
     },
     {
         'paths': [
+            'third_party/blink/common/renderer_preferences/',
+            'third_party/blink/public/common/renderer_preferences/',
+        ],
+        'allowed': [
+            'ui::KeyboardCode',
+            'ui::VKEY_UNKNOWN',
+        ],
+    },
+    {
+        'paths': [
             'third_party/blink/common/context_menu_data/',
             'third_party/blink/common/input/',
         ],
@@ -532,6 +539,17 @@ _CONFIG = [
         ],
         'allowed': [
             'net::SiteForCookies',
+        ],
+    },
+    {
+        'paths': [
+            'third_party/blink/common/service_worker/service_worker_loader_helpers.cc',
+        ],
+        'allowed': [
+            'base::EqualsCaseInsensitiveASCII',
+            'base::ToLowerASCII',
+            'network::cors::IsCorsSafelistedResponseHeaderName',
+            'network::mojom::FetchResponseType',
         ],
     },
     {
@@ -1190,6 +1208,7 @@ _CONFIG = [
             'gfx::Size',
             'gfx::SizeToSkISize',
             'gpu::ExportedSharedImage',
+            'gpu::SharedImageExportResult',
             'gpu::SHARED_IMAGE_USAGE_DISPLAY_READ',
             'gpu::SHARED_IMAGE_USAGE_SCANOUT',
             'gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE',
@@ -1306,6 +1325,12 @@ _CONFIG = [
     {
         'paths':
         ['third_party/blink/renderer/core/frame/deprecation/deprecation.cc'],
+        'allowed': [
+            'base::CommandLine',
+        ]
+    },
+    {
+        'paths': ['third_party/blink/renderer/core/xml/xslt_processor.cc'],
         'allowed': [
             'base::CommandLine',
         ]
@@ -2555,6 +2580,7 @@ _CONFIG = [
         'allowed': [
             'net::DefineNetworkTrafficAnnotation',
             'net::Error',
+            'net::IPAddress',
             'net::MutableNetworkTrafficAnnotationTag',
             'net::NetworkTrafficAnnotationTag',
         ]
@@ -2854,29 +2880,12 @@ _CONFIG = [
     },
     {
         'paths': [
-            'third_party/blink/renderer/core/frame/attribution_src_loader.cc',
-            'third_party/blink/renderer/core/frame/attribution_src_loader.h',
-        ],
-        'allowed': [
-            'attribution_reporting::.*',
-        ]
-    },
-    {
-        'paths': [
             'third_party/blink/renderer/core/frame/web_frame_widget_impl.cc',
         ],
         'allowed': [
             # Temporarily added to generate the value of a crash key.
             'base::NumberToString',
         ],
-    },
-    {
-        'paths': [
-            'third_party/blink/renderer/core/origin_trials/origin_trial_context.cc',
-        ],
-        'allowed': [
-            'attribution_reporting::features::.*',
-        ]
     },
     {
         'paths': [
@@ -2969,15 +2978,6 @@ _CONFIG = [
     },
     {
         'paths': [
-            'third_party/blink/renderer/modules/ad_auction/',
-            'third_party/blink/renderer/modules/shared_storage/',
-        ],
-        'allowed': [
-            'aggregation_service::.+',
-        ]
-    },
-    {
-        'paths': [
             'third_party/blink/renderer/core/scheduler/',
             'third_party/blink/renderer/modules/shared_storage/',
         ],
@@ -3040,6 +3040,9 @@ _CONFIG = [
             'third_party/blink/public/web/',
         ],
         'allowed': [
+            'mojom::DocumentPolicyFeature',
+            'mojom::PolicyValueType',
+            'net::structured_headers::Item',
             'network::GetPermissionsPolicyFeatureList',
             'network::mojom::PermissionsPolicyFeature',
             'network::OriginWithPossibleWildcards',
@@ -3075,7 +3078,6 @@ _CONFIG = [
         'allowed': [
             'net::HttpCache',
             'network::features::kBrowsingTopics',
-            'network::features::kInterestGroupStorage',
             'network::features::kSharedStorageAPI',
         ]
     },

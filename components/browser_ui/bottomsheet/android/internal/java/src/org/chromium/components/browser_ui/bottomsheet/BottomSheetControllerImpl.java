@@ -17,6 +17,7 @@ import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
@@ -122,6 +123,7 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
     private int mAppHeaderHeight;
     private int mBottomControlsOffset;
     private boolean mIsAnchoredToBottomControls;
+    private final boolean mEnableLargeFormFactorUi;
 
     /**
      * Build a new controller of the bottom sheet.
@@ -135,6 +137,8 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
      * @param edgeToEdgeBottomInsetSupplier The supplier of bottom inset when e2e is on.
      * @param desktopWindowStateManager The {@link DesktopWindowStateManager} for the app header.
      * @param insetObserver The {@link InsetObserver} for inset changes.
+     * @param enableLargeFormFactorUi Whether to use a different UI explicitly designed for bottom
+     *     sheets when operating in a desktop or large form factor environment.
      */
     public BottomSheetControllerImpl(
             final Supplier<@Nullable ScrimManager> scrimManagerSupplier,
@@ -144,7 +148,8 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
             boolean alwaysFullWidth,
             Supplier<Integer> edgeToEdgeBottomInsetSupplier,
             @Nullable DesktopWindowStateManager desktopWindowStateManager,
-            InsetObserver insetObserver) {
+            InsetObserver insetObserver,
+            boolean enableLargeFormFactorUi) {
         mScrimManagerSupplier = scrimManagerSupplier;
         mPendingSheetObservers = new ArrayList<>();
         mSuppressionTokens = new TokenHolder(this::onSuppressionTokensChanged);
@@ -155,6 +160,7 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
         if (mDesktopWindowStateManager != null) {
             mDesktopWindowStateManager.addObserver(this);
         }
+        mEnableLargeFormFactorUi = enableLargeFormFactorUi;
 
         mSheetInitializer =
                 () -> {
@@ -198,6 +204,11 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
         }
     }
 
+    @VisibleForTesting
+    boolean isLargeFormFactor() {
+        return mEnableLargeFormFactorUi && DeviceInfo.isDesktop();
+    }
+
     @Override
     public BackPressHandler getBottomSheetBackPressHandler() {
         return mBackPressHandler;
@@ -234,7 +245,8 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
                 mEdgeToEdgeBottomInsetSupplier,
                 mAppHeaderHeight,
                 mBottomControlsOffset,
-                insetObserver);
+                insetObserver,
+                isLargeFormFactor());
 
         // Initialize the queue with a comparator that checks content priority.
         mContentQueue =
@@ -269,6 +281,18 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
                             return;
                         }
 
+                        if (isLargeFormFactor()
+                                && mBottomSheet.getCurrentSheetContent() != null
+                                && mBottomSheet
+                                        .getCurrentSheetContent()
+                                        .supportsLargeFormFactor()) {
+                            scrimProperties.set(
+                                    ScrimProperties.BACKGROUND_COLOR,
+                                    mBottomSheet
+                                            .getContext()
+                                            .getColor(R.color.bottom_sheet_desktop_scrim));
+                        }
+
                         scrimManager.showScrim(scrimProperties);
                         mScrimShown = true;
                         onScrimVisibilityChanged(true);
@@ -285,6 +309,9 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
                             scrimManager.hideScrim(scrimProperties, /* animate= */ true);
                             mScrimShown = false;
                         }
+
+                        // Reset property to default correctly for any future sheets.
+                        scrimProperties.set(ScrimProperties.BACKGROUND_COLOR, null);
 
                         // Try to swap contents unless the sheet's content has a custom lifecycle.
                         if (mBottomSheet.getCurrentSheetContent() != null
@@ -487,7 +514,11 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
                 mSheetStateBeforeSuppress = getSheetState();
             }
 
-            mContentWhenSuppressed = getCurrentSheetContent();
+            // Prevent sheets that are already animating to a HIDDEN state from being captured
+            // and resurrected.
+            if (!mBottomSheet.isHiding()) {
+                mContentWhenSuppressed = getCurrentSheetContent();
+            }
             mBottomSheet.setSheetState(SheetState.HIDDEN, false, reason);
         }
 
@@ -578,8 +609,12 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
             // TabBottomSheetManager ensures that we always close the previous coBrowse
             // bottomSheet before ever showing a new one.
             if (!isCobrowse) {
-                mIsSuppressingCurrentContent = true;
-                mContentQueue.add(mBottomSheet.getCurrentSheetContent());
+                // Prevent sheets that are already animating to a HIDDEN state from being captured
+                // and resurrected.
+                if (!mBottomSheet.isHiding()) {
+                    mIsSuppressingCurrentContent = true;
+                    mContentQueue.add(mBottomSheet.getCurrentSheetContent());
+                }
             }
             if (!mSuppressionTokens.hasTokens()) {
                 mBottomSheet.setSheetState(SheetState.HIDDEN, animate);
@@ -601,8 +636,15 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
             @StateChangeReason int hideReason) {
         if (mBottomSheet == null) return;
 
-        if (content != mBottomSheet.getCurrentSheetContent()) {
+        if (content != null) {
             assumeNonNull(mContentQueue).remove(content);
+            // Ensure permanently hidden sheets are completely purged from the suppression cache.
+            if (mContentWhenSuppressed == content) {
+                mContentWhenSuppressed = null;
+            }
+        }
+
+        if (content != mBottomSheet.getCurrentSheetContent()) {
             return;
         }
 
@@ -758,6 +800,11 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
         mBottomSheet.onSheetBackgroundColorOverrideChanged();
     }
 
+    @Override
+    public boolean isLargeFormFactorUiEnabled(BottomSheetContent content) {
+        return isLargeFormFactor() && content != null && content.supportsLargeFormFactor();
+    }
+
     private void onScrimVisibilityChanged(boolean visible) {
         if (mScrimVisible == visible) return;
         mScrimVisible = visible;
@@ -767,9 +814,14 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
     private void adjustBottomSheetZAxis(boolean scrimVisible) {
         if (mBottomSheet == null) return;
         assumeNonNull(mBottomSheetContainer);
-        if (scrimVisible && mBottomSheet.isSheetOpen()) {
-            // Scrimmed bottom sheet. Draw the bottom sheet container on top of all sibling views,
-            // originating from the bottom of the screen.
+        BottomSheetContent content = mBottomSheet.getCurrentSheetContent();
+        boolean shouldCover =
+                (scrimVisible || (content != null && content.coversBottomControls()))
+                        && mBottomSheet.isSheetOpen();
+        if (shouldCover) {
+            // Scrimmed bottom sheet or sheet requesting to cover bottom controls. Draw the bottom
+            // sheet container on top of all sibling views, originating from the bottom of the
+            // screen.
             mIsAnchoredToBottomControls = false;
             mBottomSheetContainer.setZ(1.0f);
             mBottomSheet.setBottomMargin(0);

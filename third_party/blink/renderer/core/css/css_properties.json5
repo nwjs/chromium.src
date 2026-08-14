@@ -358,6 +358,7 @@
       valid_type: "list",
       valid_values: [
         "accent-color",
+        "ax-style",
         "background",
         "background-color",
         "blend-mode",
@@ -380,11 +381,9 @@
         "inert",
         "inset",
         "layout",
-        "margin",
         "mask",
         "opacity",
         "outline",
-        "out-of-flow",
         "paint",
         "reshape",
         "scroll-anchor",
@@ -1143,16 +1142,11 @@
     {
       name: "animation-trigger",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal", "InitialValue"],
-      field_group: "*",
-      field_template: "external",
       style_builder_template: "animation",
       style_builder_template_args: {
         attribute: "TriggerAttachments",
       },
       keywords: ["none"],
-      type_name: "HeapVector<Member<StyleTriggerAttachmentVector>>",
-      include_paths: ["third_party/blink/renderer/core/style/style_trigger_attachment.h"],
-      default_value: "{ nullptr }",
       separator: ",",
       valid_for_marker: true,
       runtime_flag: "AnimationTrigger",
@@ -1161,17 +1155,11 @@
     {
       name: "timeline-trigger-name",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal", "InitialValue"],
-      field_group: "*",
-      field_template: "external",
       // TODO: maybe define an animation_trigger template?
       style_builder_template: "animation",
       style_builder_template_args: {
         attribute: "TimelineTriggerName",
       },
-      default_value: "nullptr",
-      type_name: "ScopedCSSNameList",
-      wrapper_pointer_name: "Member",
-      converter: "ConvertTimelineTriggerName",
       separator: ",",
       valid_for_marker: true,
       runtime_flag: "TimelineTrigger",
@@ -1404,7 +1392,7 @@
       priority: 1,
       valid_for_marker: true,
       valid_for_page_context: true,
-      invalidate: ["reshape"],
+      invalidate: ["ax-style", "reshape"],
       is_animation_affecting: true,
     },
     {
@@ -1957,7 +1945,7 @@
       // Incremental code does not call DidChangeWritingMode(), which influences
       // the font.
       supports_incremental_style: false,
-      invalidate: ["layout", "paint"],
+      invalidate: ["ax-style", "layout", "paint"],
       highlight_style_comes_from_originating_element: true,
       is_animation_affecting: true,
     },
@@ -2225,7 +2213,7 @@
       supports_incremental_style: true,
       valid_for_permission_element: true,
       valid_for_page_context: true,
-      invalidate: ["background-color"],
+      invalidate: ["ax-style", "background-color"],
     },
     {
       name: "background-image",
@@ -2893,7 +2881,7 @@
       supports_incremental_style: true,
       valid_for_position_try: true,
       valid_for_permission_element: true,
-      invalidate: ["inset", "out-of-flow", "scroll-anchor"],
+      invalidate: ["inset", "scroll-anchor"],
       affected_by_zoom: true,
       percentages_depend_on_used_value: true,
     },
@@ -3527,7 +3515,7 @@
       type_name: "float",
       default_value: "1",
       converter: "ConvertAlpha",
-      typedom_types: ["Number"],
+      typedom_types: ["Number", "Percentage"],
       accepts_numeric_literal: true,
       invalidate: ["paint"],
       percentages_depend_on_used_value: false,
@@ -3689,7 +3677,7 @@
       type_name: "float",
       default_value: "1",
       converter: "ConvertAlpha",
-      typedom_types: ["Number"],
+      typedom_types: ["Number", "Percentage"],
       supports_incremental_style: true,
       accepts_numeric_literal: true,
       invalidate: ["paint"],
@@ -3892,6 +3880,7 @@
       field_group: "*",
       field_template: "multi_keyword",
       keywords: ["none", "first", "last", "allow-end"],
+      include_paths:["third_party/blink/renderer/platform/text/hanging_punctuation.h"],
       typedom_types: ["Keyword"],
       default_value: "none",
       type_name: "HangingPunctuation",
@@ -4173,7 +4162,7 @@
       supports_incremental_style: true,
       valid_for_position_try: true,
       valid_for_permission_element: true,
-      invalidate: ["inset", "out-of-flow", "scroll-anchor"],
+      invalidate: ["inset", "scroll-anchor"],
       affected_by_zoom: true,
       percentages_depend_on_used_value: true,
     },
@@ -4314,7 +4303,7 @@
       supports_incremental_style: true,
       valid_for_permission_element: true,
       valid_for_page_context: true,
-      invalidate: ["margin", "out-of-flow", "scroll-anchor"],
+      invalidate: ["layout", "scroll-anchor"],
       anchor_mode: "height",
       percentages_depend_on_used_value: true,
       affected_by_zoom: true,
@@ -4341,7 +4330,7 @@
       valid_for_permission_element: true,
       valid_for_permission_icon: true,
       valid_for_page_context: true,
-      invalidate: ["margin", "out-of-flow", "scroll-anchor"],
+      invalidate: ["layout", "scroll-anchor"],
       anchor_mode: "width",
       percentages_depend_on_used_value: true,
       affected_by_zoom: true,
@@ -4368,7 +4357,7 @@
       valid_for_permission_element: true,
       valid_for_permission_icon: true,
       valid_for_page_context: true,
-      invalidate: ["margin", "out-of-flow", "scroll-anchor"],
+      invalidate: ["layout", "scroll-anchor"],
       anchor_mode: "width",
       percentages_depend_on_used_value: true,
       affected_by_zoom: true,
@@ -4394,7 +4383,7 @@
       supports_incremental_style: true,
       valid_for_permission_element: true,
       valid_for_page_context: true,
-      invalidate: ["margin", "out-of-flow", "scroll-anchor"],
+      invalidate: ["layout", "scroll-anchor"],
       anchor_mode: "height",
       percentages_depend_on_used_value: true,
       affected_by_zoom: true,
@@ -4728,7 +4717,7 @@
       default_value: "1.0",
       type_name: "float",
       computed_style_custom_functions: ["setter"],
-      typedom_types: ["Number"],
+      typedom_types: ["Number", "Percentage"],
       valid_for_first_letter: true,
       valid_for_first_line: true,
       valid_for_cue: true,
@@ -4827,6 +4816,10 @@
         "dashed", "solid", "double"
       ],
       typedom_types: ["Keyword"],
+      typedom_keywords: [
+        "none", "hidden", "inset", "groove", "outset", "ridge", "dotted",
+        "dashed", "solid", "double", "auto"
+      ],
       default_value: "none",
       type_name: "EBorderStyle",
       style_builder_custom_functions: ["initial", "inherit", "value"],
@@ -5174,14 +5167,15 @@
       interpolable: true,
       runtime_flag: "SvgPathLengthCssProperty",
       field_group: "svg->geometry",
-      field_template: "primitive",
-      type_name: "float",
-      default_value: "-1.0",
+      field_template: "<length>",
+      default_value: "Length::None()",
       converter: "ConvertPathLength",
       keywords: ["none"],
-      typedom_types: ["Keyword", "Number"],
+      typedom_types: ["Keyword", "Length"],
       supports_incremental_style: true,
       invalidate: ["paint"],
+      // <length> never accepts percentages, but the field type requires this.
+      percentages_depend_on_used_value: false,
     },
     {
       name: "perspective",
@@ -5398,7 +5392,7 @@
       supports_incremental_style: true,
       valid_for_position_try: true,
       valid_for_permission_element: true,
-      invalidate: ["inset", "out-of-flow", "scroll-anchor"],
+      invalidate: ["inset", "scroll-anchor"],
       affected_by_zoom: true,
       percentages_depend_on_used_value: true,
     },
@@ -5946,7 +5940,7 @@
       type_name: "float",
       default_value: "1",
       converter: "ConvertAlpha",
-      typedom_types: ["Number"],
+      typedom_types: ["Number", "Percentage"],
       accepts_numeric_literal: true,
       invalidate: ["paint"],
       percentages_depend_on_used_value: false,
@@ -6062,7 +6056,7 @@
       type_name: "float",
       default_value: "1",
       converter: "ConvertAlpha",
-      typedom_types: ["Number"],
+      typedom_types: ["Number", "Percentage"],
       accepts_numeric_literal: true,
       invalidate: ["paint"],
       percentages_depend_on_used_value: false,
@@ -6135,7 +6129,7 @@
       getter: "GetTextAlign",
       style_builder_custom_functions: ["value"],
       valid_for_page_context: true,
-      invalidate: ["layout", "paint"],
+      invalidate: ["ax-style", "layout", "paint"],
     },
     {
       name: "text-align-last",
@@ -6346,7 +6340,7 @@
       style_builder_custom_functions: ["value"],
       typedom_types: ["Length", "Percentage"],
       valid_for_page_context: true,
-      invalidate: ["layout", "paint"],
+      invalidate: ["ax-style", "layout", "paint"],
       affected_by_zoom: true,
       percentages_depend_on_used_value: true,
     },
@@ -6546,7 +6540,7 @@
       supports_incremental_style: true,
       valid_for_position_try: true,
       valid_for_permission_element: true,
-      invalidate: ["inset", "out-of-flow", "scroll-anchor"],
+      invalidate: ["inset", "scroll-anchor"],
       affected_by_zoom: true,
       percentages_depend_on_used_value: true,
     },
@@ -6868,7 +6862,7 @@
       // appearance needs to be computed before
       // -internal-auto-base() can be resolved.
       priority: 1,
-      invalidate: ["layout", "paint"],
+      // we invalidate for EffectiveAppearance rather than appearance
       keywords: ["auto", "none", "checkbox", "radio", "button", "listbox",
                 "menulist", "menulist-button", "meter", "progress-bar",
                 "searchfield", "textfield", "textarea", "base-select"]
@@ -6880,17 +6874,30 @@
     {
       name: "app-region",
       property_methods: ["CSSValueFromComputedStyleInternal"],
-      field_group: "*",
-      field_template: "keyword",
-      keywords: ["none", "drag", "no-drag"],
-      default_value: "none",
-      name_for_methods: "DraggableRegionMode",
-      style_builder_custom_functions: ["initial", "inherit", "value"],
-      invalidate: ["layout"],
+      surrogate_for: "window-drag",
     },
     {
       name: "-webkit-app-region",
       alias_for: "app-region",
+    },
+    {
+      name: "window-drag",
+      property_methods: ["CSSValueFromComputedStyleInternal"],
+      field_group: "*",
+      field_template: "keyword",
+      type_name: "EDraggableRegionMode",
+      default_value: "none",
+      inherited: true,
+      // `window-drag` only exposes `none` and `move`; the parser rejects the
+      // extra `no-drag` keyword (see css_parser_fast_paths.cc). It is listed
+      // here solely so the auto-generated enum includes a `kNoDrag` state for
+      // the `app-region` surrogate. `app-region: drag` maps to the shared
+      // `kMove` state.
+      keywords: ["none", "move", "no-drag"],
+      name_for_methods: "DraggableRegionMode",
+      style_builder_custom_functions: ["value"],
+      invalidate: ["layout"],
+      runtime_flag: "CSSWindowDrag",
     },
     {
       name: "-webkit-border-horizontal-spacing",
@@ -7396,7 +7403,6 @@
       typedom_types: ["Keyword", "Length"],
       invalidate: ["layout", "paint"],
       affected_by_zoom: true,
-      runtime_flag: "MulticolColumnWrapping",
     },
     {
       name: "column-wrap",
@@ -7407,7 +7413,6 @@
       default_value: "auto",
       typedom_types: ["Keyword"],
       invalidate: ["layout", "paint"],
-      runtime_flag: "MulticolColumnWrapping",
     },
     {
       name: "hyphenate-character",
@@ -9030,7 +9035,7 @@
       // anchor() functions compute relative to the containing block that is
       // modified by position-area in AnchorEvaluatorImpl.
       priority: 1,
-      invalidate: ["box-paint-property", "layout", "out-of-flow", "paint"],
+      invalidate: ["box-paint-property", "layout", "paint"],
     },
     // Shorthands
     {

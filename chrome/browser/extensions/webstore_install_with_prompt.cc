@@ -42,17 +42,18 @@ bool WebstoreInstallWithPrompt::CheckRequestorAlive() const {
   return !parent_window_tracker_->WasNativeWindowDestroyed();
 }
 
-std::unique_ptr<ExtensionInstallPrompt::Prompt>
+std::unique_ptr<InstallPromptData>
 WebstoreInstallWithPrompt::CreateInstallPrompt() const {
-  return std::make_unique<ExtensionInstallPrompt::Prompt>(
-      ExtensionInstallPrompt::INSTALL_PROMPT);
+  return std::make_unique<InstallPromptData>(InstallPromptData::INSTALL_PROMPT);
 }
 
 std::unique_ptr<ExtensionInstallPrompt>
-WebstoreInstallWithPrompt::CreateInstallUI() {
+WebstoreInstallWithPrompt::CreateInstallUI(
+    std::unique_ptr<InstallPromptData> prompt) {
   // Create an ExtensionInstallPrompt. If the parent window is NULL, the dialog
   // will be placed in the middle of the screen.
-  return std::make_unique<ExtensionInstallPrompt>(profile(), parent_window_);
+  return std::make_unique<ExtensionInstallPrompt>(profile(), parent_window_,
+                                                  std::move(prompt));
 }
 
 bool WebstoreInstallWithPrompt::ShouldShowPostInstallUI() const {

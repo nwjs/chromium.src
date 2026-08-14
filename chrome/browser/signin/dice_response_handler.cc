@@ -8,6 +8,7 @@
 #include <optional>
 #include <string_view>
 
+#include "base/check.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -258,7 +259,29 @@ DiceResponseHandler::DiceSigninSession::DiceSigninSession(
   CHECK(delegate_);
 }
 
-DiceResponseHandler::DiceSigninSession::~DiceSigninSession() = default;
+DiceResponseHandler::DiceSigninSession::~DiceSigninSession() {
+  NotifySessionComplete();
+}
+
+void DiceResponseHandler::DiceSigninSession::NotifySessionComplete() {
+  if (session_completed_notified_ || !delegate_) {
+    return;
+  }
+  session_completed_notified_ = true;
+
+  std::vector<CoreAccountId> secondary_accounts;
+  const auto* initiator = signin_info_.GetInitiator();
+  if (initiator) {
+    for (const auto& account : signin_info_.accounts()) {
+      if (account.account_info.gaia_id != initiator->account_info.gaia_id) {
+        secondary_accounts.push_back(
+            handler_->identity_manager_->PickAccountIdForAccount(
+                account.account_info.gaia_id, account.account_info.email));
+      }
+    }
+  }
+  delegate_->OnDiceSigninSessionComplete(std::move(secondary_accounts));
+}
 
 DiceResponseHandler::DiceSigninSession::FetchMode
 DiceResponseHandler::DiceSigninSession::GetFetchMode() const {
@@ -295,6 +318,7 @@ void DiceResponseHandler::DiceSigninSession::StartTokenFetches() {
   }
 
   if (token_fetchers_.empty()) {
+    NotifySessionComplete();
     handler_->DeleteSession(this);
   }
 }
@@ -314,6 +338,16 @@ void DiceResponseHandler::DiceSigninSession::FetchTokenForAccount(
       supported_algorithms_or_error = handler_->CheckTokenBindingEligibility(
           account.supported_algorithms_for_token_binding);
 
+  CoreAccountId account_id =
+      handler_->identity_manager_->PickAccountIdForAccount(
+          account.account_info.gaia_id, account.account_info.email);
+  // Cancel any in-flight token fetchers for this account in other sessions.
+  // Note: `DiceHeaderHelper` deduplicates accounts in the DICE SIGNIN header,
+  // guaranteeing that all accounts within a single `DiceSigninSession` have
+  // distinct Gaia IDs. Therefore, this call will never cancel fetchers in
+  // `this` session or trigger self-deletion of `this`.
+  handler_->CancelAllFetchersForAccount(account_id);
+
   token_fetchers_.push_back(std::make_unique<DiceTokenFetcher>(
       account.account_info.gaia_id, account.account_info.email,
       account.authorization_code, account.mtls_token_binding,
@@ -329,16 +363,7 @@ void DiceResponseHandler::DiceSigninSession::DeleteFetcher(
   CHECK_EQ(delete_count, 1U);
 
   if (token_fetchers_.empty()) {
-    std::vector<CoreAccountId> secondary_accounts;
-    const auto* initiator = signin_info_.GetInitiator();
-    for (const auto& account : signin_info_.accounts()) {
-      if (account.account_info.gaia_id != initiator->account_info.gaia_id) {
-        secondary_accounts.push_back(
-            handler_->identity_manager_->PickAccountIdForAccount(
-                account.account_info.gaia_id, account.account_info.email));
-      }
-    }
-    delegate_->OnDiceSigninSessionComplete(std::move(secondary_accounts));
+    NotifySessionComplete();
     handler_->DeleteSession(this);
   }
 }
@@ -373,7 +398,9 @@ void DiceResponseHandler::DiceSigninSession::OnTokenExchangeSuccess(
       base::StringPrintf("Successful (%s)", account_id.ToString().c_str()));
 
   if (is_initiator) {
-    delegate_->HandleTokenExchangeSuccess(account_id, is_new_account);
+    delegate_->HandleTokenExchangeSuccess(
+        account_id, is_new_account,
+        signin_info_.linked_accounts_metadata().primary_is_connected);
 
     if (fetcher->should_enable_sync()) {
       delegate_->CompleteChromeSignInAfterGaiaSignin(
@@ -436,7 +463,18 @@ bool DiceResponseHandler::DiceSigninSession::CancelFetchForAccount(
       });
 
   if (delete_count > 0) {
+    // Note: If the initiator account fetch is cancelled while in
+    // kInitiatorFirst mode, any waiting secondary account fetches in this
+    // session will be cancelled when the session is deleted (when
+    // token_fetchers_ becomes empty). We intentionally do not unblock or fetch
+    // secondary accounts when the initiator is cancelled, because doing so
+    // would bypass the critical profile interception flow (which relies on
+    // delegate_->HandleTokenExchangeSuccess from the initiator account to
+    // prompt the user before moving accounts to a new profile). Overlapping
+    // concurrent sign-ins are rare enough that cancelling the whole session is
+    // preferred over bypassing interception.
     if (token_fetchers_.empty()) {
+      NotifySessionComplete();
       handler_->DeleteSession(this);
     }
     return true;
@@ -522,6 +560,22 @@ void DiceResponseHandler::ProcessDiceSigninHeader(
     std::unique_ptr<ProcessDiceHeaderDelegate> delegate) {
   VLOG(1) << "Start processing Dice signin response";
   RecordDiceResponseHeader(kSignin);
+
+  if (signin_info.linked_accounts_metadata().primary_is_connected ==
+      signin::Tribool::kTrue) {
+    bool has_primary_account =
+        identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSignin);
+    base::UmaHistogramBoolean(
+        "Signin.Dice.InvalidPrimaryConnectedInUnsignedProfile",
+        !has_primary_account);
+    if (!has_primary_account) {
+      DLOG(ERROR)
+          << "Received primary_is_connected=true in an unsigned-in profile.";
+      auto metadata = signin_info.linked_accounts_metadata();
+      metadata.primary_is_connected = signin::Tribool::kFalse;
+      signin_info.set_linked_accounts_metadata(std::move(metadata));
+    }
+  }
 
   delegate->OnDiceSigninHeaderReceived();
 
@@ -639,6 +693,19 @@ void DiceResponseHandler::DeleteSession(DiceSigninSession* session) {
       sessions_,
       [session](const auto& current) { return current.get() == session; });
   CHECK_EQ(delete_count, 1U);
+}
+
+void DiceResponseHandler::CancelAllFetchersForAccount(
+    const CoreAccountId& account_id) {
+  std::vector<DiceSigninSession*> sessions_to_cancel;
+  for (const auto& session : sessions_) {
+    if (session->IsFetchingForAccount(account_id)) {
+      sessions_to_cancel.push_back(session.get());
+    }
+  }
+  for (DiceSigninSession* session : sessions_to_cancel) {
+    session->CancelFetchForAccount(account_id);
+  }
 }
 
 base::expected<std::string, DiceResponseHandler::TokenBindingOutcome>

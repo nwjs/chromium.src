@@ -19,7 +19,7 @@
 #include "ui/gfx/geometry/size.h"
 #include "url/gurl.h"
 
-class Browser;
+class BrowserWindowInterface;
 class ChipController;
 class CommandUpdater;
 class LocationBarModel;
@@ -137,6 +137,10 @@ class LocationBar {
   // Called when the edit should update itself without restoring any tab state.
   virtual void UpdateWithoutTabRestore() = 0;
 
+  // Called to notify the location bar (and its omnibox popup presenter)
+  // whether a permission prompt is currently showing.
+  virtual void SetPermissionPromptShowing(bool showing) {}
+
   CommandUpdater* command_updater() { return command_updater_; }
   const CommandUpdater* command_updater() const { return command_updater_; }
 
@@ -151,7 +155,7 @@ class LocationBar {
   // Returns the Browser object this is for. This may be nullptr sometimes;
   // known cases include captive portals on ChromeOS and
   // PresentationReceiverWindowView.
-  virtual Browser* GetBrowser() = 0;
+  virtual BrowserWindowInterface* GetBrowser() = 0;
 
   // Returns the profile this is for.
   virtual Profile* GetProfile() = 0;
@@ -175,6 +179,10 @@ class LocationBar {
 
   // Returns true if the mouse is over the location bar.
   virtual bool IsMouseHovered() const = 0;
+
+  // Returns true if the focus is within location bar, including any of the
+  // child widgets.
+  virtual bool IsFocusWithin() const = 0;
 
   // Tells whatever UI system is used that it should recompute sizes of things.
   virtual void InvalidateLayout() = 0;

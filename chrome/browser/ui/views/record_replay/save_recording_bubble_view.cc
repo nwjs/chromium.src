@@ -4,9 +4,9 @@
 
 #include "chrome/browser/ui/views/record_replay/save_recording_bubble_view.h"
 
-#include "base/functional/callback.h"
+#include "base/i18n/icubridge/date_time_formatter.h"
+#include "base/i18n/icubridge/icu_bridge.h"
 #include "base/i18n/time_formatting.h"
-#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "chrome/browser/ui/record_replay/save_recording_bubble_controller.h"
@@ -15,18 +15,11 @@
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
-#include "ui/base/ui_base_features.h"
-#include "ui/base/ui_base_types.h"
 #include "ui/color/color_id.h"
-#include "ui/gfx/image/image.h"
-#include "ui/gfx/paint_vector_icon.h"
-#include "ui/views/bubble/bubble_frame_view.h"
-#include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/layout_provider.h"
-#include "ui/views/style/typography.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
@@ -116,9 +109,14 @@ void SaveRecordingBubbleView::Init() {
       domain = domain.substr(0, dot_pos);
     }
 
+    using base::i18n::GetKnownLanguageTag;
+    using base::i18n::IcuBridge;
+    using base::i18n::datetime_options::YMD;
+
     base::Time now = base::Time::Now();
     std::string date_str =
-        base::UnlocalizedTimeFormatWithPattern(now, "dd-MM-yyyy");
+        base::UTF16ToUTF8(IcuBridge::GetInstance().date_time_formatter().Format(
+            now, GetKnownLanguageTag("en-US"), YMD::Short()));
 
     placeholder_text =
         base::UTF8ToUTF16(domain) + u"_" + base::UTF8ToUTF16(date_str);

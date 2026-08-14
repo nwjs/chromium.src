@@ -108,12 +108,12 @@ IN_PROC_BROWSER_TEST_P(FamilyUserMetricsProviderTest, UserCategory) {
 
   logged_in_user_mixin_.LogInUser();
   signin::WaitForRefreshTokensLoaded(
-      IdentityManagerFactory::GetForProfile(browser()->profile()));
+      IdentityManagerFactory::GetForProfile(browser()->GetProfile()));
 
   if (GetFamilyUserLogSegment() ==
       FamilyUserMetricsProvider::FamilyUserLogSegment::kSupervisedStudent) {
     // Add a secondary EDU account.
-    Profile* profile = browser()->profile();
+    Profile* profile = browser()->GetProfile();
     ASSERT_TRUE(profile);
     signin::IdentityManager* identity_manager =
         IdentityManagerFactory::GetForProfile(profile);
@@ -196,7 +196,7 @@ class FamilyUserMetricsProviderEphemeralUserTest
     MixinBasedInProcessBrowserTest::SetUpOnMainThread();
     logged_in_user_mixin_.LogInUser();
     signin::WaitForRefreshTokensLoaded(
-        IdentityManagerFactory::GetForProfile(browser()->profile()));
+        IdentityManagerFactory::GetForProfile(browser()->GetProfile()));
   }
 
   ash::DeviceStateMixin device_state_{

@@ -6,13 +6,13 @@
 
 #import <WebKit/WebKit.h>
 
+#import "base/byte_size.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
 #import "base/test/metrics/histogram_tester.h"
 #import "base/time/time.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/web/model/image_fetch/image_fetch_java_script_feature.h"
-#import "ios/web/js_messaging/java_script_feature_manager.h"
 #import "ios/web/public/js_messaging/java_script_feature.h"
 #import "ios/web/public/js_messaging/java_script_feature_util.h"
 #import "ios/web/public/js_messaging/web_frame.h"
@@ -84,7 +84,7 @@ class ImageFetchTabHelperTest : public PlatformTest {
         net::HttpUtil::AssembleRawHeaders(raw_header));
     head->mime_type = "image/png";
     network::URLLoaderCompletionStatus status;
-    status.decoded_body_length = strlen(kImageData);
+    status.decoded_body_length = base::ByteSize(strlen(kImageData));
     test_url_loader_factory_.AddResponse(GURL(kImageUrl), std::move(head),
                                          kImageData, status);
   }

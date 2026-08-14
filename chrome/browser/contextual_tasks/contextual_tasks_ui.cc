@@ -78,6 +78,7 @@
 #include "components/strings/grit/components_strings.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/url_deduplication/url_deduplication_helper.h"
+#include "components/zoom/zoom_controller.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/invalidate_type.h"
 #include "content/public/browser/page_navigator.h"
@@ -98,22 +99,25 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/color/color_provider_key.h"
 #include "ui/webui/buildflags.h"
+#include "ui/webui/tracked_element/tracked_element_handler_document_singleton.h"
 #include "ui/webui/webui_util.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #endif
 
+#include "components/omnibox/common/omnibox_features.h"
+
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
-#include "chrome/browser/ui/omnibox/omnibox_next_features.h"  // nogncheck
 #include "chrome/browser/ui/views/user_education/browser_help_bubble.h"
+#include "chrome/browser/ui/webui/webui_toolbar/webui_toolbar_layout_css_helper.h"
+#include "chrome/grit/webui_toolbar_shared_resources.h"
+#include "chrome/grit/webui_toolbar_shared_resources_map.h"
 #include "components/omnibox/browser/searchbox.mojom-forward.h"
-#include "components/zoom/zoom_controller.h"  // nogncheck
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/resource/resource_scale_factor.h"
-#include "ui/webui/tracked_element/tracked_element_handler_document_singleton.h"
 #endif
 
 #if !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
@@ -127,6 +131,30 @@
 
 namespace {
 
+BrowserWindowInterface* FromWebContents(content::WebContents* web_contents) {
+  return webui::GetBrowserWindowInterface(web_contents);
+}
+
+void UpdateDarkModePreferenceFromUrl(content::WebContents* wc,
+                                     const GURL& url) {
+  std::optional<bool> is_dark_mode = contextual_tasks::GetDarkModeFromUrl(url);
+  if (is_dark_mode.has_value()) {
+    blink::web_pref::WebPreferences prefs = wc->GetOrCreateWebPreferences();
+    prefs.preferred_color_scheme =
+        is_dark_mode.value() ? blink::mojom::PreferredColorScheme::kDark
+                             : blink::mojom::PreferredColorScheme::kLight;
+    wc->SetWebPreferences(prefs);
+  } else {
+    blink::web_pref::WebPreferences prefs = wc->GetOrCreateWebPreferences();
+    ui::ColorProviderKey::ColorMode browser_color_scheme = wc->GetColorMode();
+    prefs.preferred_color_scheme =
+        browser_color_scheme == ui::ColorProviderKey::ColorMode::kLight
+            ? blink::mojom::PreferredColorScheme::kLight
+            : blink::mojom::PreferredColorScheme::kDark;
+    wc->SetWebPreferences(prefs);
+  }
+}
+
 bool IsUserFeedbackAllowed(Profile* profile) {
   bool is_user_feedback_allowed = true;
 #if BUILDFLAG(IS_ANDROID)
@@ -137,32 +165,6 @@ bool IsUserFeedbackAllowed(Profile* profile) {
   }
 #endif
   return is_user_feedback_allowed;
-}
-
-// A method to add eligibility booleans for context menu items that are shown
-// based on AIM eligibility.
-void AddContextMenuItemEligibilityLoadTimeData(content::WebUIDataSource* source,
-                                               Profile* profile) {
-  AimEligibilityService* aim_eligibility_service =
-      AimEligibilityServiceFactory::GetForProfile(profile);
-  bool is_aim_eligible =
-      aim_eligibility_service && aim_eligibility_service->IsAimEligible();
-  source->AddBoolean("isAimEligible", is_aim_eligible);
-
-  if (aim_eligibility_service &&
-      aim_eligibility_service->GetSearchboxConfig()->has_hint_text()) {
-    source->AddString(
-        "searchboxComposePlaceholder",
-        aim_eligibility_service->GetSearchboxConfig()->hint_text());
-  } else {
-    source->AddLocalizedString(
-        "searchboxComposePlaceholder",
-        IDS_CONTEXTUAL_TASKS_COMPOSEBOX_PLACEHOLDER_TEXT);
-  }
-}
-
-BrowserWindowInterface* FromWebContents(content::WebContents* web_contents) {
-  return webui::GetBrowserWindowInterface(web_contents);
 }
 
 std::string GetEncodedHandshakeMessage() {
@@ -190,42 +192,85 @@ std::string GetEncodedHandshakeMessage() {
   return base::Base64Encode(serialized_message);
 }
 
-void UpdateDarkModePreferenceFromUrl(content::WebContents* wc,
-                                     const GURL& url) {
-  std::optional<bool> is_dark_mode = contextual_tasks::GetDarkModeFromUrl(url);
-  if (is_dark_mode.has_value()) {
-    blink::web_pref::WebPreferences prefs = wc->GetOrCreateWebPreferences();
-    prefs.preferred_color_scheme =
-        is_dark_mode.value() ? blink::mojom::PreferredColorScheme::kDark
-                             : blink::mojom::PreferredColorScheme::kLight;
-    wc->SetWebPreferences(prefs);
+void AddDefaultZeroStateStrings(base::DictValue& dict) {
+  dict.Set("friendlyZeroStateTitle",
+           l10n_util::GetStringUTF16(
+               IDS_AI_MODE_FRIENDLY_ZERO_STATE_TITLE_WITHOUT_NAME));
+  dict.Set("friendlyZeroStateSubtitle", "");
+  dict.Set("friendlyZeroStateGaiaName", "");
+  dict.Set("friendlyZeroStateTitleBeforeName", "");
+  dict.Set("friendlyZeroStateTitleAfterName", "");
+}
+
+void AddZeroStateStrings(base::DictValue& dict, Profile* profile) {
+  if (!profile) {
+    AddDefaultZeroStateStrings(dict);
+    return;
+  }
+
+  ProfileAttributesEntry* entry =
+      g_browser_process->profile_manager()
+          ->GetProfileAttributesStorage()
+          .GetProfileAttributesWithPath(profile->GetPath());
+  if (!entry) {
+    AddDefaultZeroStateStrings(dict);
+    return;
+  }
+
+  std::u16string gaia_name = entry->GetGAIANameToDisplay();
+  if (gaia_name.empty()) {
+    AddDefaultZeroStateStrings(dict);
+    return;
+  }
+
+  std::vector<size_t> offsets;
+  const std::u16string full_string = l10n_util::GetStringFUTF16(
+      IDS_AI_MODE_FRIENDLY_ZERO_STATE_TITLE, {gaia_name}, &offsets);
+  std::vector<std::u16string> parts = base::SplitStringUsingSubstr(
+      full_string, u"<br>", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
+  dict.Set("friendlyZeroStateTitle", parts.empty() ? u"" : parts[0]);
+
+  if (offsets.size() == 1 && !parts.empty() &&
+      offsets[0] + gaia_name.length() <= parts[0].length()) {
+    dict.Set("friendlyZeroStateGaiaName", gaia_name);
+    dict.Set("friendlyZeroStateTitleBeforeName",
+             parts[0].substr(0, offsets[0]));
+    dict.Set("friendlyZeroStateTitleAfterName",
+             parts[0].substr(offsets[0] + gaia_name.length()));
   } else {
-    blink::web_pref::WebPreferences prefs = wc->GetOrCreateWebPreferences();
-    ui::ColorProviderKey::ColorMode browser_color_scheme = wc->GetColorMode();
-    prefs.preferred_color_scheme =
-        browser_color_scheme == ui::ColorProviderKey::ColorMode::kLight
-            ? blink::mojom::PreferredColorScheme::kLight
-            : blink::mojom::PreferredColorScheme::kDark;
-    wc->SetWebPreferences(prefs);
+    // Fallback to default behavior if name replacement fails.
+    dict.Set("friendlyZeroStateGaiaName", "");
+    dict.Set("friendlyZeroStateTitleBeforeName", "");
+    dict.Set("friendlyZeroStateTitleAfterName", "");
+  }
+  dict.Set("friendlyZeroStateSubtitle", parts.size() > 1 ? parts[1] : u"");
+}
+
+void AddContextMenuItemEligibilityLoadTimeData(base::DictValue& dict,
+                                               Profile* profile) {
+  AimEligibilityService* aim_eligibility_service =
+      AimEligibilityServiceFactory::GetForProfile(profile);
+  bool is_aim_eligible =
+      aim_eligibility_service && aim_eligibility_service->IsAimEligible();
+  dict.Set("isAimEligible", is_aim_eligible);
+
+  if (aim_eligibility_service &&
+      aim_eligibility_service->GetSearchboxConfig()->has_hint_text()) {
+    dict.Set("searchboxComposePlaceholder",
+             aim_eligibility_service->GetSearchboxConfig()->hint_text());
+  } else {
+    dict.Set("searchboxComposePlaceholder",
+             l10n_util::GetStringUTF16(
+                 IDS_CONTEXTUAL_TASKS_COMPOSEBOX_PLACEHOLDER_TEXT));
   }
 }
+
 }  // namespace
 
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(ContextualTasksUI,
                                       kSmartTabSharingMenuItemElementId);
 
-void AddDefaultZeroStateStrings(content::WebUIDataSource* source) {
-  source->AddString("friendlyZeroStateTitle",
-                    l10n_util::GetStringUTF16(
-                        IDS_AI_MODE_FRIENDLY_ZERO_STATE_TITLE_WITHOUT_NAME));
-  source->AddString("friendlyZeroStateSubtitle", "");
-  source->AddString("friendlyZeroStateGaiaName", "");
-  source->AddString("friendlyZeroStateTitleBeforeName", "");
-  source->AddString("friendlyZeroStateTitleAfterName", "");
-}
-
-bool ContextualTasksUI::AreUrlsEqual(const GURL& a,
-                                     const GURL& b) {
+bool ContextualTasksUI::AreUrlsEqual(const GURL& a, const GURL& b) {
   if (a == b) {
     return true;
   }
@@ -258,51 +303,6 @@ bool ContextualTasksUI::AreUrlsEqual(const GURL& a,
   std::sort(b_params.begin(), b_params.end());
 
   return a_params == b_params;
-}
-
-void AddZeroStateStrings(content::WebUIDataSource* source, Profile* profile) {
-  if (!profile) {
-    AddDefaultZeroStateStrings(source);
-    return;
-  }
-
-  ProfileAttributesEntry* entry =
-      g_browser_process->profile_manager()
-          ->GetProfileAttributesStorage()
-          .GetProfileAttributesWithPath(profile->GetPath());
-  if (!entry) {
-    AddDefaultZeroStateStrings(source);
-    return;
-  }
-
-  std::u16string gaia_name = entry->GetGAIANameToDisplay();
-  if (gaia_name.empty()) {
-    AddDefaultZeroStateStrings(source);
-    return;
-  }
-
-  std::vector<size_t> offsets;
-  const std::u16string full_string = l10n_util::GetStringFUTF16(
-      IDS_AI_MODE_FRIENDLY_ZERO_STATE_TITLE, {gaia_name}, &offsets);
-  std::vector<std::u16string> parts = base::SplitStringUsingSubstr(
-      full_string, u"<br>", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
-  source->AddString("friendlyZeroStateTitle", parts.empty() ? u"" : parts[0]);
-
-  if (offsets.size() == 1 && !parts.empty() &&
-      offsets[0] + gaia_name.length() <= parts[0].length()) {
-    source->AddString("friendlyZeroStateGaiaName", gaia_name);
-    source->AddString("friendlyZeroStateTitleBeforeName",
-                      parts[0].substr(0, offsets[0]));
-    source->AddString("friendlyZeroStateTitleAfterName",
-                      parts[0].substr(offsets[0] + gaia_name.length()));
-  } else {
-    // Fallback to default behavior if name replacement fails.
-    source->AddString("friendlyZeroStateGaiaName", "");
-    source->AddString("friendlyZeroStateTitleBeforeName", "");
-    source->AddString("friendlyZeroStateTitleAfterName", "");
-  }
-  source->AddString("friendlyZeroStateSubtitle",
-                    parts.size() > 1 ? parts[1] : u"");
 }
 
 ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
@@ -365,17 +365,11 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
                    profile, chrome::FaviconUrlFormat::kFavicon2));
 #endif
 
-#if !BUILDFLAG(IS_ANDROID)
   host_zoom_map_subscription_ =
       content::HostZoomMap::GetDefaultForBrowserContext(profile)
           ->AddZoomLevelChangedCallback(base::BindRepeating(
               &ContextualTasksUI::OnZoomLevelChanged, base::Unretained(this)));
-#endif
-  content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
-      web_ui->GetWebContents()->GetBrowserContext(),
-      chrome::kChromeUIContextualTasksHost);
-  webui::SetupWebUIDataSource(source, kContextualTasksResources,
-                              IDR_CONTEXTUAL_TASKS_CONTEXTUAL_TASKS_HTML);
+  content::WebUIDataSource* source = RegisterWebUIDataSource(profile);
 
   AddInitialTaskStateToDataSource(source,
                                   web_ui->GetWebContents()->GetVisibleURL());
@@ -390,11 +384,26 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
     }
   }
 
-  // TODO(447633840): This is a placeholder URL until the real page is ready.
-  source->OverrideContentSecurityPolicy(
-      network::mojom::CSPDirectiveName::ChildSrc,
-      "child-src 'self' https://*.google.com;");
+#if !BUILDFLAG(IS_ANDROID)
+  GURL url = web_ui->GetWebContents()->GetVisibleURL();
+  // Incognito browsers always use dark mode. This is checked explicitly
+  // because the ThemeService only tracks the parent profile's theme.
+  // See BrowserWidget::GetColorProviderKey() in
+  // chrome/browser/ui/views/frame/browser_widget.cc.
+  bool is_dark_mode =
+      ThemeServiceFactory::GetForProfile(profile)->BrowserUsesDarkColors() ||
+      profile->IsOffTheRecord();
+  is_dark_mode =
+      contextual_tasks::GetDarkModeFromUrl(url).value_or(is_dark_mode);
+  source->AddBoolean("darkMode", is_dark_mode);
+#else
+  bool is_dark_mode = web_ui->GetWebContents()->GetColorMode() ==
+                      ui::ColorProviderKey::ColorMode::kDark;
+  source->AddBoolean("darkMode", is_dark_mode);
+#endif
 
+  // Overwrite searchbox strings with actual session state if composebox is
+  // enabled.
 #if BUILDFLAG(ENABLE_WEBUI_CONTEXTUAL_TASKS_COMPOSEBOX)
   // Add required resources for the searchbox.
   bool session_allows_drag_and_drop = false;
@@ -408,15 +417,87 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
                 .session_allows_drag_and_drop = session_allows_drag_and_drop}));
 #endif  // BUILDFLAG(ENABLE_WEBUI_CONTEXTUAL_TASKS_COMPOSEBOX)
 
+  // Determine and cache contextual tasks eligibility on initialization. This
+  // prevents the expand button from dynamically appearing or changing state
+  // mid-session, avoiding a jarring user experience.
+  is_contextual_tasks_eligible_on_init_ =
+      contextual_tasks::EntryPointEligibilityManager::IsEligible(profile);
+
 #if !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   auto bindings = web_ui->GetBindings();
   bindings.Put(content::BindingsPolicyValue::kSlimWebView);
   web_ui->SetBindings(bindings);
+#endif  // !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+
+  contextual_tasks_service_observation_.Observe(contextual_tasks_service_);
+
+  ui::TrackedElementHandlerDocumentSingleton::Register(
+      this, std::vector<ui::ElementIdentifier>{
+                kSmartTabSharingMenuItemElementId,
+                kContextualTasksWebUIPinButtonElementId,
+                kContextualTasksWebUIToolbarElementId,
+                kContextualTasksWebUIOverflowMenuElementId,
+                kContextualTasksWebUIOverflowMenuPinButtonElementId,
+                kContextualTasksSuperGButtonElementId});
+}
+
+ContextualTasksUI::~ContextualTasksUI() {
+  if (ui_service_) {
+    ui_service_->OnWebUIDestroyed(GetBrowser(), task_id_);
+  }
+}
+
+content::WebUIDataSource* ContextualTasksUI::RegisterWebUIDataSource(
+    Profile* profile) {
+#if BUILDFLAG(ENABLE_WEBUI_CONTEXTUAL_TASKS_COMPOSEBOX)
+  content::URLDataSource::Add(profile,
+                              std::make_unique<SanitizedImageSource>(profile));
+  content::URLDataSource::Add(
+      profile, std::make_unique<FaviconSource>(
+                   profile, chrome::FaviconUrlFormat::kFavicon2));
+#endif
+
+  content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
+      profile, chrome::kChromeUIContextualTasksHost);
+  webui::SetupWebUIDataSource(source, kContextualTasksResources,
+                              IDR_CONTEXTUAL_TASKS_CONTEXTUAL_TASKS_HTML);
+
+  // TODO(447633840): This is a placeholder URL until the real page is ready.
+  source->OverrideContentSecurityPolicy(
+      network::mojom::CSPDirectiveName::ChildSrc,
+      "child-src 'self' https://*.google.com;");
+  source->OverrideContentSecurityPolicy(
+      network::mojom::CSPDirectiveName::MediaSrc,
+      "media-src blob: data: 'self';");
+
+#if !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   source->AddResourcePaths(kGuestViewSharedResources);
 #endif  // !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
+#if !BUILDFLAG(IS_ANDROID)
+  source->AddResourcePaths(kWebuiToolbarSharedResources);
+  WebUIToolbarLayoutCssHelper::SetAsRequestFilter(source);
+#endif
+
   // Add strings.js
   source->UseStringsJs();
+
+  // Set up chrome://contextual-tasks/internals debug UI.
+  source->AddResourcePath(
+      "internals",
+      IDR_CONTEXTUAL_TASKS_INTERNALS_CONTEXTUAL_TASKS_INTERNALS_HTML);
+  source->AddResourcePath(
+      "internals/",
+      IDR_CONTEXTUAL_TASKS_INTERNALS_CONTEXTUAL_TASKS_INTERNALS_HTML);
+
+  source->AddLocalizedStrings(GetContextualTasksLoadTimeData(profile));
+
+  return source;
+}
+
+base::DictValue ContextualTasksUI::GetContextualTasksLoadTimeData(
+    Profile* profile) {
+  base::DictValue dict;
 
   static constexpr webui::LocalizedString kLocalizedStrings[] = {
       {"closeTooltip", IDS_CONTEXTUAL_TASKS_SIDE_PANEL_CLOSE_TOOL_TIP},
@@ -436,16 +517,14 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
        IDS_CONTEXTUAL_TASKS_SIDE_PANEL_HISTORY_TOOL_TIP},
       {"title", IDS_CONTEXTUAL_TASKS_AI_MODE_TITLE},
       {"unpinTooltip", IDS_SIDE_PANEL_HEADER_UNPIN_BUTTON_TOOLTIP},
-      /* composeDeepSearchPlaceholder and
-       * composeCreateImagePlaceholder are defined by searchbox_handler.cc.
-       */
       {"onboardingBody", IDS_CONTEXTUAL_TASKS_FIRST_RUN_EXPERIENCE_DESCRIPTION},
       {"onboardingLink", IDS_CONTEXTUAL_TASKS_FIRST_RUN_EXPERIENCE_LEARN_MORE},
       {"onboardingAcceptButton",
        IDS_CONTEXTUAL_TASKS_FIRST_RUN_EXPERIENCE_ACCEPT_BUTTON},
       {"lensSearchTooltipTitle", IDS_LENS_COBROWSE_IPH_HEADER},
       {"lensSearchTooltipBody", IDS_LENS_COBROWSE_IPH_DESCRIPTION},
-      {"lensSearchTooltipAcceptButton", IDS_CONTEXTUAL_TASKS_FIRST_RUN_EXPERIENCE_ACCEPT_BUTTON},
+      {"lensSearchTooltipAcceptButton",
+       IDS_CONTEXTUAL_TASKS_FIRST_RUN_EXPERIENCE_ACCEPT_BUTTON},
       {"oauthErrorDialogTitle", IDS_CONTEXTUAL_TASKS_OAUTH_ERROR_DIALOG_TITLE},
       {"oauthErrorDialogBody", IDS_CONTEXTUAL_TASKS_OAUTH_ERROR_DIALOG_BODY},
       {"oauthErrorDialogReloadButton",
@@ -461,13 +540,24 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
        IDS_LENS_COMPOSEBOX_HINT_TEXT_SELECT_PAGE},
 #endif
   };
-  source->AddLocalizedStrings(kLocalizedStrings);
+
+  for (const auto& str : kLocalizedStrings) {
+    dict.Set(str.name, l10n_util::GetStringUTF16(str.id));
+  }
+
+#if BUILDFLAG(ENABLE_WEBUI_CONTEXTUAL_TASKS_COMPOSEBOX)
+  // Add required resources for the searchbox (default values for startup).
+  bool session_allows_drag_and_drop = false;
+  dict.Merge(SearchboxHandler::GetWebUIDataSourceDict(
+      profile, {.enable_voice_search = true,
+                .session_allows_drag_and_drop = session_allows_drag_and_drop}));
+#endif  // BUILDFLAG(ENABLE_WEBUI_CONTEXTUAL_TASKS_COMPOSEBOX)
 
   int onboarding_title_id = IDS_CONTEXTUAL_TASKS_FIRST_RUN_EXPERIENCE_TITLE;
   if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxAskGAboutThisPage)) {
     onboarding_title_id = IDS_CONTEXTUAL_TASKS_FIRST_RUN_EXPERIENCE_SHORT_TITLE;
   }
-  source->AddLocalizedString("onboardingTitle", onboarding_title_id);
+  dict.Set("onboardingTitle", l10n_util::GetStringUTF16(onboarding_title_id));
 
   int stsDefaultOnHeaderId = IDS_STS_IPH_DEFAULT_ON_HEADER;
   int stsDefaultOnBodyId = IDS_STS_IPH_DEFAULT_ON_BODY;
@@ -481,8 +571,9 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
       stsDefaultOnBodyId = IDS_STS_IPH_DEFAULT_ON_BODY_V2;
       break;
   }
-  source->AddLocalizedString("stsDefaultOnHeader", stsDefaultOnHeaderId);
-  source->AddLocalizedString("stsDefaultOnBody", stsDefaultOnBodyId);
+  dict.Set("stsDefaultOnHeader",
+           l10n_util::GetStringUTF16(stsDefaultOnHeaderId));
+  dict.Set("stsDefaultOnBody", l10n_util::GetStringUTF16(stsDefaultOnBodyId));
 
   int stsTryItHeaderId = IDS_STS_IPH_TRY_IT_HEADER;
   int stsTryItBodyId = IDS_STS_IPH_TRY_IT_BODY;
@@ -496,176 +587,150 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
       stsTryItBodyId = IDS_STS_IPH_TRY_IT_BODY_V2;
       break;
   }
-  source->AddLocalizedString("stsTryItHeader", stsTryItHeaderId);
-  source->AddLocalizedString("stsTryItBody", stsTryItBodyId);
+  dict.Set("stsTryItHeader", l10n_util::GetStringUTF16(stsTryItHeaderId));
+  dict.Set("stsTryItBody", l10n_util::GetStringUTF16(stsTryItBodyId));
 
-  source->AddLocalizedString(
-      "lensSearchButtonLabel",
-      IDS_TOOLTIP_LENS_REINVOKE_VISUAL_SELECTION_A11Y_LABEL);
+  dict.Set("lensSearchButtonLabel",
+           l10n_util::GetStringUTF16(
+               IDS_TOOLTIP_LENS_REINVOKE_VISUAL_SELECTION_A11Y_LABEL));
 
-  source->AddString(
-      "onboardingLinkUrl",
-      contextual_tasks::GetContextualTasksOnboardingTooltipHelpUrl());
-  source->AddString(
-      "composeboxImageFileTypes",
-      contextual_tasks::kContextualTasksNextboxImageFileTypes.Get());
-  source->AddString(
-      "composeboxAttachmentFileTypes",
-      contextual_tasks::kContextualTasksNextboxAttachmentFileTypes.Get());
-  source->AddBoolean("lensSendRawFileMediaTypesEnabled",
-                     lens::features::IsLensSendRawFileMediaTypesEnabled());
+  dict.Set("onboardingLinkUrl",
+           contextual_tasks::GetContextualTasksOnboardingTooltipHelpUrl());
+  dict.Set("composeboxImageFileTypes",
+           contextual_tasks::kContextualTasksNextboxImageFileTypes.Get());
+  dict.Set("composeboxAttachmentFileTypes",
+           contextual_tasks::kContextualTasksNextboxAttachmentFileTypes.Get());
+  dict.Set("lensSendRawFileMediaTypesEnabled",
+           lens::features::IsLensSendRawFileMediaTypesEnabled());
 
-  // Determine and cache contextual tasks eligibility on initialization. This
-  // prevents the expand button from dynamically appearing or changing state
-  // mid-session, avoiding a jarring user experience.
-  is_contextual_tasks_eligible_on_init_ =
-      contextual_tasks::EntryPointEligibilityManager::IsEligible(
-          Profile::FromWebUI(web_ui));
-  source->AddBoolean("isCobrowseEligible",
-                     is_contextual_tasks_eligible_on_init_);
+  bool is_eligible =
+      contextual_tasks::EntryPointEligibilityManager::IsEligible(profile);
+  dict.Set("isCobrowseEligible", is_eligible);
 
-  source->AddString("nlmUrlParam",
-                    contextual_tasks::GetContextualTasksNlmUrlParam());
-  source->AddBoolean("enableCustomNlmUi",
-                     contextual_tasks::IsCustomNlmUiEnabled());
+  dict.Set("nlmUrlParam", contextual_tasks::GetContextualTasksNlmUrlParam());
+  dict.Set("enableCustomNlmUi", contextual_tasks::IsCustomNlmUiEnabled());
 #if !BUILDFLAG(IS_ANDROID)
-  source->AddBoolean(
+  dict.Set(
       "webUIOmniboxAskGAboutThisPageEnabled",
       base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxAskGAboutThisPage));
 #else
-  source->AddBoolean("webUIOmniboxAskGAboutThisPageEnabled", false);
+  dict.Set("webUIOmniboxAskGAboutThisPageEnabled", false);
 #endif
 
-  source->AddInteger(
-      "composeboxFileMaxSize",
-      contextual_tasks::kContextualTasksNextboxMaxFileSize.Get());
-  // Enable typed suggest.
-  source->AddBoolean("composeboxShowTypedSuggest", false);
-  source->AddBoolean("useContextualTasksComposeboxFork",
-                     base::FeatureList::IsEnabled(
-                         contextual_tasks::kContextualTasksComposeboxFork));
-  // Disable ZPS.
-  source->AddBoolean(
-      "composeboxShowZps",
-      contextual_tasks::GetIsContextualTasksSuggestionsEnabled());
-  // Disable image context suggestions.
-  source->AddBoolean(
-      "composeboxShowImageSuggest",
-      contextual_tasks::GetIsContextualTasksSuggestionsEnabled());
-  // Disable context menu and related features.
-  source->AddBoolean(
-      "composeboxShowContextMenu",
-      contextual_tasks::GetIsContextualTasksNextboxContextMenuEnabled());
-  source->AddBoolean("composeboxShowContextMenuDescription", false);
-  source->AddBoolean(
+  dict.Set("composeboxFileMaxSize",
+           contextual_tasks::kContextualTasksNextboxMaxFileSize.Get());
+  dict.Set("composeboxShowTypedSuggest", false);
+  dict.Set("useContextualTasksComposeboxFork",
+           base::FeatureList::IsEnabled(
+               contextual_tasks::kContextualTasksComposeboxFork));
+  dict.Set("composeboxShowZps",
+           contextual_tasks::GetIsContextualTasksSuggestionsEnabled());
+  dict.Set("composeboxShowImageSuggest",
+           contextual_tasks::GetIsContextualTasksSuggestionsEnabled());
+  dict.Set("composeboxShowContextMenu",
+           contextual_tasks::GetIsContextualTasksNextboxContextMenuEnabled());
+  dict.Set("composeboxShowContextMenuDescription", false);
+  dict.Set(
       "contextMenuAnimationLimitingEnabled",
       base::FeatureList::IsEnabled(omnibox::kContextMenuAnimationLimiting));
-  source->AddBoolean(
-      "enablePinButton",
-      contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled());
-  source->AddBoolean(
-      "isSidePanelPinned",
-      contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled() &&
-          contextual_tasks::GetEffectivePinState(profile));
-  source->AddBoolean(
-      "showOnboardingTooltip",
-      base::FeatureList::IsEnabled(
-          contextual_tasks::kContextualTasksShowOnboardingTooltip));
-  source->AddInteger(
-      "composeboxShowOnboardingTooltipSessionImpressionCap",
-      contextual_tasks::
-          GetContextualTasksShowOnboardingTooltipSessionImpressionCap());
-  source->AddInteger(
+  dict.Set(
+      "composeboxSkillsEnabled",
+      base::FeatureList::IsEnabled(omnibox::kComposeboxSkillsContextualTasks));
+  dict.Set("enablePinButton",
+           contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled());
+  dict.Set("isSidePanelPinned",
+           contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled() &&
+               contextual_tasks::GetEffectivePinState(profile));
+  dict.Set("showOnboardingTooltip",
+           base::FeatureList::IsEnabled(
+               contextual_tasks::kContextualTasksShowOnboardingTooltip));
+  dict.Set("composeboxShowOnboardingTooltipSessionImpressionCap",
+           contextual_tasks::
+               GetContextualTasksShowOnboardingTooltipSessionImpressionCap());
+  dict.Set(
       "composeboxShowOnboardingTooltipImpressionDelay",
       contextual_tasks::GetContextualTasksOnboardingTooltipImpressionDelay());
-  source->AddBoolean(
+  dict.Set(
       "isOnboardingTooltipDismissCountBelowCap",
       profile->GetPrefs()->GetInteger(
           contextual_tasks::kContextualTasksOnboardingTooltipDismissedCount) <
           contextual_tasks::GetContextualTasksOnboardingTooltipDismissedCap());
-  source->AddBoolean(
+  dict.Set(
       "isLensSearchTooltipDismissCountBelowCap",
       profile->GetPrefs()->GetInteger(
           contextual_tasks::kContextualTasksLensSearchTooltipDismissedCount) <
           contextual_tasks::GetContextualTasksLensSearchTooltipDismissedCap());
-  source->AddInteger(
-      "lensSearchTooltipSessionImpressionCap",
-      contextual_tasks::
-          GetContextualTasksLensSearchTooltipSessionImpressionCap());
-  source->AddBoolean(
-      "askGCoBrowseEnabled",
-      omnibox::kAskGCoBrowse.Get());
+  dict.Set("lensSearchTooltipSessionImpressionCap",
+           contextual_tasks::
+               GetContextualTasksLensSearchTooltipSessionImpressionCap());
+  dict.Set("askGCoBrowseEnabled", omnibox::kAskGCoBrowse.Get());
+  dict.Set("contextualTasksSidePanelRearchitectureEnabled",
+           contextual_tasks::IsContextualTasksSidePanelRearchitectureEnabled());
 
-  source->AddBoolean("isLensSearchbox", true);
-  source->AddBoolean(
-      "forceHideEllipsis",
-      lens::features::GetVisualSelectionUpdatesHideCsbEllipsis());
-  source->AddBoolean(
-      "enableCsbMotionTweaks",
-      lens::features::GetVisualSelectionUpdatesEnableCsbMotionTweaks());
-  source->AddBoolean(
-      "enableVisualSelectionUpdates",
-      lens::features::IsLensOverlayVisualSelectionUpdatesEnabled());
-  source->AddBoolean(
+  dict.Set("isLensSearchbox", true);
+  dict.Set("forceHideEllipsis",
+           lens::features::GetVisualSelectionUpdatesHideCsbEllipsis());
+  dict.Set("enableCsbMotionTweaks",
+           lens::features::GetVisualSelectionUpdatesEnableCsbMotionTweaks());
+  dict.Set("enableVisualSelectionUpdates",
+           lens::features::IsLensOverlayVisualSelectionUpdatesEnabled());
+  dict.Set(
       "enableThumbnailSizingTweaks",
       lens::features::GetVisualSelectionUpdatesEnableThumbnailSizingTweaks());
-  source->AddBoolean("composeboxSmartComposeEnabled",
-                     contextual_tasks::GetEnableContextualTasksSmartCompose());
-  source->AddBoolean("enableNativeZeroStateSuggestions",
-                     contextual_tasks::GetEnableNativeZeroStateSuggestions());
+  dict.Set("composeboxSmartComposeEnabled",
+           contextual_tasks::GetEnableContextualTasksSmartCompose());
+  dict.Set("enableNativeZeroStateSuggestions",
+           contextual_tasks::GetEnableNativeZeroStateSuggestions());
 
-  AddContextMenuItemEligibilityLoadTimeData(source, profile);
-  source->AddBoolean("composeboxShowLensSearchChip", false);
-  source->AddBoolean("composeboxShowContextMenuTabPreviews", false);
-  source->AddBoolean("composeboxContextMenuEnableMultiTabSelection", true);
-  source->AddBoolean("composeboxContextMenuEnableTabDeselection",
-                     omnibox::IsTabDeselectionInComposeboxEnabled());
-  source->AddBoolean("enableGhostLoader",
-                     contextual_tasks::GetIsGhostLoaderEnabled());
-  source->AddBoolean(
-      "forceBasicModeIfOpeningThreadHistory",
-      contextual_tasks::ShouldForceBasicModeIfOpeningThreadHistory());
-  source->AddBoolean("enableBasicMode",
-                     contextual_tasks::GetIsBasicModeEnabled());
-  source->AddBoolean("enableBasicModeZOrder",
-                     contextual_tasks::ShouldEnableBasicModeZOrder());
-  source->AddBoolean(
-      "enableLockAndUnlockInputCapability",
-      contextual_tasks::ShouldEnableLockAndUnlockInputCapability());
-  source->AddBoolean("enableFileHint", contextual_tasks::GetEnableFileHint());
-  source->AddBoolean(
-      "windowTrackingEnabled",
-      contextual_tasks::GetIsContextualTasksWindowTrackingEnabled());
-  source->AddBoolean("supportsLensButtonInComposebox", !BUILDFLAG(IS_ANDROID));
-  source->AddBoolean("isSystemVoiceSearchEnabled", BUILDFLAG(IS_ANDROID));
-  source->AddBoolean("isUserFeedbackAllowed", IsUserFeedbackAllowed(profile));
-  source->AddBoolean("enableComposeboxJumpFix",
-                     contextual_tasks::GetEnableComposeboxJumpFix());
-  source->AddBoolean("roundedClipPathEnabled",
-                     contextual_tasks::IsRoundedClipPathEnabled());
-  source->AddBoolean("hideMenuOnAiPageEnabled",
-                     base::FeatureList::IsEnabled(
-                         contextual_tasks::kContextualTasksHideMenuOnAiPage));
-  source->AddBoolean("contextualTasksEnableSpatialModelToolbarLayout",
+  AddContextMenuItemEligibilityLoadTimeData(dict, profile);
+  dict.Set("composeboxShowLensSearchChip", false);
+  dict.Set("composeboxShowContextMenuTabPreviews", false);
+  dict.Set("composeboxContextMenuEnableMultiTabSelection", true);
+  dict.Set("composeboxContextMenuEnableTabDeselection",
+           omnibox::IsTabDeselectionInComposeboxEnabled());
+  dict.Set("enableGhostLoader", contextual_tasks::GetIsGhostLoaderEnabled());
+  dict.Set("forceBasicModeIfOpeningThreadHistory",
+           contextual_tasks::ShouldForceBasicModeIfOpeningThreadHistory());
+  dict.Set("enableBasicMode", contextual_tasks::GetIsBasicModeEnabled());
+  dict.Set("enableBasicModeZOrder",
+           contextual_tasks::ShouldEnableBasicModeZOrder());
+  dict.Set("enableLockAndUnlockInputCapability",
+           contextual_tasks::ShouldEnableLockAndUnlockInputCapability());
+  dict.Set("enableFileHint", contextual_tasks::GetEnableFileHint());
+  dict.Set("windowTrackingEnabled",
+           contextual_tasks::GetIsContextualTasksWindowTrackingEnabled());
+  dict.Set("supportsLensButtonInComposebox", !BUILDFLAG(IS_ANDROID));
+  dict.Set("isSystemVoiceSearchEnabled", !!BUILDFLAG(IS_ANDROID));
+  dict.Set("isUserFeedbackAllowed", IsUserFeedbackAllowed(profile));
+  dict.Set("enableComposeboxJumpFix",
+           contextual_tasks::GetEnableComposeboxJumpFix());
+  dict.Set("roundedClipPathEnabled",
+           contextual_tasks::IsRoundedClipPathEnabled());
+  dict.Set("hideMenuOnAiPageEnabled",
+           base::FeatureList::IsEnabled(
+               contextual_tasks::kContextualTasksHideMenuOnAiPage));
+  dict.Set("contextualTasksUnboundedMenuEnabled",
+           base::FeatureList::IsEnabled(
+               contextual_tasks::kContextualTasksUnboundedMenu));
+  dict.Set(
+      "contextualTasksEnableSpatialModelToolbarLayout",
       contextual_tasks::GetContextualTasksSpatialModelToolbarLayoutEnabled());
-  source->AddBoolean(
+  dict.Set(
       "contextualTasksEnableSpatialModelToolbarLayoutNewThreadInOverflow",
       contextual_tasks::
           GetContextualTasksSpatialModelToolbarLayoutNewThreadInOverflow());
-  source->AddBoolean(
+  dict.Set(
       "contextManagementInComposeboxEnabled",
       base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox));
-  source->AddBoolean(
-      "tabFaviconChipsToCoinsEnabled",
-      base::FeatureList::IsEnabled(omnibox::kTabFaviconChipsToCoins));
+  dict.Set("tabFaviconChipsToCoinsEnabled",
+           base::FeatureList::IsEnabled(omnibox::kTabFaviconChipsToCoins));
 
-  source->AddString(
+  dict.Set(
       "composeboxSource",
       contextual_search::ContextualSearchMetricsRecorder::
           ContextualSearchSourceToString(
               contextual_search::ContextualSearchSource::kContextualTasks));
 #if !BUILDFLAG(IS_ANDROID)
-  GURL url = web_ui->GetWebContents()->GetVisibleURL();
   // Incognito browsers always use dark mode. This is checked explicitly
   // because the ThemeService only tracks the parent profile's theme.
   // See BrowserWidget::GetColorProviderKey() in
@@ -673,98 +738,64 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
   bool is_dark_mode =
       ThemeServiceFactory::GetForProfile(profile)->BrowserUsesDarkColors() ||
       profile->IsOffTheRecord();
-  is_dark_mode =
-      contextual_tasks::GetDarkModeFromUrl(url).value_or(is_dark_mode);
-  source->AddBoolean("darkMode", is_dark_mode);
-  source->AddLocalizedString(
-      "protectedErrorPageTopLine",
-      IDS_SIDE_PANEL_LENS_OVERLAY_PROTECTED_PAGE_ERROR_FIRST_LINE);
-  source->AddLocalizedString(
-      "protectedErrorPageBottomLine",
-      IDS_SIDE_PANEL_LENS_OVERLAY_PROTECTED_PAGE_ERROR_SECOND_LINE);
+  dict.Set("darkMode", is_dark_mode);
+  dict.Set("protectedErrorPageTopLine",
+           l10n_util::GetStringUTF16(
+               IDS_SIDE_PANEL_LENS_OVERLAY_PROTECTED_PAGE_ERROR_FIRST_LINE));
+  dict.Set("protectedErrorPageBottomLine",
+           l10n_util::GetStringUTF16(
+               IDS_SIDE_PANEL_LENS_OVERLAY_PROTECTED_PAGE_ERROR_SECOND_LINE));
 #else
-  // TODO(crbug.com/483442073): Replace the values with Android resources.
-  bool is_dark_mode = web_ui->GetWebContents()->GetColorMode() ==
-                      ui::ColorProviderKey::ColorMode::kDark;
-  source->AddBoolean("darkMode", is_dark_mode);
-  source->AddString("protectedErrorPageTopLine", "string");
-  source->AddString("protectedErrorPageBottomLine", "string");
+  bool is_dark_mode = false;
+  dict.Set("darkMode", is_dark_mode);
+  dict.Set("protectedErrorPageTopLine", "string");
+  dict.Set("protectedErrorPageBottomLine", "string");
 #endif
 
-  source->AddString("userAgentSuffix",
-                    contextual_tasks::GetContextualTasksUserAgentSuffix());
-  // Preload the serialized handshake message so it doesn't have to be fetched
-  // at runtime.
-  source->AddString("handshakeMessage", GetEncodedHandshakeMessage());
+  dict.Set("userAgentSuffix",
+           contextual_tasks::GetContextualTasksUserAgentSuffix());
+  dict.Set("handshakeMessage", GetEncodedHandshakeMessage());
 
-  source->AddBoolean("isSmallDeviceFormFactor",
-                     ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE);
+  dict.Set("isSmallDeviceFormFactor",
+           ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE);
 
-  // Force a host for any URL opened in the embedded page. If empty, no change
-  // is made to the URL.
-  source->AddString("forcedEmbeddedPageHost",
-                    contextual_tasks::GetForcedEmbeddedPageHost());
-  source->AddString(
-      "contextualTasksSignInDomains",
-      base::JoinString(contextual_tasks::GetContextualTasksSignInDomains(),
-                       ","));
+  dict.Set("forcedEmbeddedPageHost",
+           contextual_tasks::GetForcedEmbeddedPageHost());
+  dict.Set("contextualTasksSignInDomains",
+           base::JoinString(contextual_tasks::GetContextualTasksSignInDomains(),
+                            ","));
 
-  // Expand button experiment state.
-  source->AddBoolean(
+  dict.Set(
       "expandButtonEnabled",
-      is_contextual_tasks_eligible_on_init_ &&
+      is_eligible &&
           contextual_tasks::GetExpandButtonOption() ==
               contextual_tasks::ExpandButtonOption::kSidePanelExpandButton);
 
-  source->AddBoolean("caretAnimationEnabled",
-                     base::FeatureList::IsEnabled(
-                         contextual_tasks::kContextualTasksAnimatedCaret));
+  dict.Set("caretAnimationEnabled",
+           base::FeatureList::IsEnabled(
+               contextual_tasks::kContextualTasksAnimatedCaret));
 
-  source->AddBoolean(
+  dict.Set(
       "energyEffectEnabled",
       base::FeatureList::IsEnabled(contextual_tasks::kEnergyEffectInNextbox));
 
-  // Set up chrome://contextual-tasks/internals debug UI.
-  source->AddResourcePath(
-      "internals",
-      IDR_CONTEXTUAL_TASKS_INTERNALS_CONTEXTUAL_TASKS_INTERNALS_HTML);
-  source->AddResourcePath(
-      "internals/",
-      IDR_CONTEXTUAL_TASKS_INTERNALS_CONTEXTUAL_TASKS_INTERNALS_HTML);
-
-  source->AddBoolean(
-      "useStratusDarkModeColors",
-      contextual_tasks::ShouldUseStratusDarkModeColors());
-  source->AddString(
+  dict.Set("useStratusDarkModeColors",
+           contextual_tasks::ShouldUseStratusDarkModeColors());
+  dict.Set(
       "useStratusDarkModeColorsAttr",
       contextual_tasks::ShouldUseStratusDarkModeColors() ? "true" : "false");
 
-  source->AddBoolean("smartTabSharingEnabled",
-                     contextual_tasks::ContextualTasksContextService::
-                         GetIsSmartTabSharingEnabled(profile));
+  dict.Set("smartTabSharingEnabled",
+           contextual_tasks::ContextualTasksContextService::
+               GetIsSmartTabSharingEnabled(profile));
 
-  source->AddBoolean(
+  dict.Set(
       "enableContextManagementInComposebox",
       base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox));
 
-  AddZeroStateStrings(source, profile);
-  contextual_tasks_service_observation_.Observe(contextual_tasks_service_);
+  AddZeroStateStrings(dict, profile);
 
-#if !BUILDFLAG(IS_ANDROID)
-  ui::TrackedElementHandlerDocumentSingleton::Register(
-      this, std::vector<ui::ElementIdentifier>{
-                kSmartTabSharingMenuItemElementId,
-                kContextualTasksWebUIPinButtonElementId,
-                kContextualTasksWebUIToolbarElementId,
-                kContextualTasksWebUIOverflowMenuElementId,
-                kContextualTasksWebUIOverflowMenuPinButtonElementId});
-#endif
-}
-
-ContextualTasksUI::~ContextualTasksUI() {
-  if (ui_service_) {
-    ui_service_->OnWebUIDestroyed(GetBrowser(), task_id_);
-  }
+  return dict;
 }
 
 void ContextualTasksUI::CreatePageHandler(
@@ -954,7 +985,15 @@ void ContextualTasksUI::RemoveObserver(
 }
 
 bool ContextualTasksUI::IsShownInTab() {
-  return tabs::TabInterface::MaybeGetFromContents(web_ui()->GetWebContents());
+  tabs::TabInterface* tab =
+      tabs::TabInterface::MaybeGetFromContents(web_ui()->GetWebContents());
+  bool is_in_tab = (tab != nullptr);
+#if BUILDFLAG(IS_ANDROID)
+  // On Android, verify this WebUI is the primary contents of the tab.
+  is_in_tab = tab && web_ui()->GetWebContents() == tab->GetContents();
+#endif
+
+  return is_in_tab;
 }
 
 BrowserWindowInterface* ContextualTasksUI::GetBrowser() {
@@ -1001,7 +1040,6 @@ void ContextualTasksUI::BindInterface(
       std::move(pending_receiver));
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 void ContextualTasksUI::BindInterface(
     mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandlerFactory>
         pending_receiver) {
@@ -1017,8 +1055,6 @@ void ContextualTasksUI::CreateHelpBubbleHandler(
       ui::TrackedElementHandlerDocumentSingleton::GetOrCreate(
           web_ui()->GetRenderFrameHost()));
 }
-
-#endif
 
 bool ContextualTasksUIConfig::IsWebUIEnabled(
     content::BrowserContext* browser_context) {
@@ -1053,15 +1089,14 @@ void ContextualTasksUI::BindInterface(
 }
 
 void ContextualTasksUI::CreatePageHandler(
-    mojo::PendingRemote<composebox::mojom::Page> pending_page,
     mojo::PendingReceiver<composebox::mojom::PageHandler> pending_page_handler,
     mojo::PendingRemote<searchbox::mojom::Page> pending_searchbox_page,
     mojo::PendingReceiver<searchbox::mojom::PageHandler>
         pending_searchbox_handler) {
   auto handler = std::make_unique<ContextualTasksComposeboxHandler>(
       this, Profile::FromWebUI(web_ui()), web_ui()->GetWebContents(),
-      std::move(pending_page_handler), std::move(pending_page),
-      std::move(pending_searchbox_handler), std::move(pending_searchbox_page),
+      std::move(pending_page_handler), std::move(pending_searchbox_handler),
+      std::move(pending_searchbox_page),
       base::BindRepeating(
           &ContextualTasksUI::GetOrCreateContextualSessionHandle,
           base::Unretained(this)),
@@ -1189,10 +1224,10 @@ void ContextualTasksUI::MoveTaskUiToNewTab() {
                                   GetInnerFrameUrl());
 }
 
-void ContextualTasksUI::PostMessageToWebview(
+void ContextualTasksUI::PostAimMessage(
     const lens::ClientToAimMessage& message) {
   CHECK(page_handler_);
-  page_handler_->PostMessageToWebview(message);
+  page_handler_->PostAimMessage(message);
 }
 
 void ContextualTasksUI::ShowOauthErrorDialog() {
@@ -1243,6 +1278,16 @@ void ContextualTasksUI::OnContextRetrievedForActiveTab(
   // nothing.
   if (!tab || tab->GetHandle().raw_value() != tab_id ||
       tab->GetContents()->GetLastCommittedURL() != last_committed_url) {
+    return;
+  }
+
+  // If not eligible for suggested tab context, clear any active suggestion and
+  // exit early.
+  if (!CanUpdateSuggestedTabContext(tab, last_committed_url)) {
+    auto_suggestion_manager_->SetCurrentSuggestion(nullptr);
+    if (composebox_handler_) {
+      composebox_handler_->UpdateSuggestedTabContext(nullptr);
+    }
     return;
   }
 
@@ -1336,11 +1381,9 @@ void ContextualTasksUI::OnSidePanelStateChanged() {
         lens::CobrowsingDisplayModeParams::COBROWSING_SIDEPANEL);
   }
 
-  PostMessageToWebview(message);
+  PostAimMessage(message);
 
-#if !BUILDFLAG(IS_ANDROID)
   UpdateZoom();
-#endif
 }
 
 void ContextualTasksUI::OnLensOverlayStateChanged(
@@ -1487,9 +1530,10 @@ void ContextualTasksUI::OnPageContextEligibilityChecked(
 
 void ContextualTasksUI::TransferNavigationToEmbeddedPage(
     content::OpenURLParams params) {
-  OMNIBOX_LOG("nav_trace") << "ContextualTasks navigation trace: "
-             "TransferNavigationToEmbeddedPage called for URL: "
-          << params.url;
+  OMNIBOX_LOG("nav_trace")
+      << "ContextualTasks navigation trace: "
+         "TransferNavigationToEmbeddedPage called for URL: "
+      << params.url;
   bool is_allowed_url = ui_service_->IsValidSearchResultsPage(params.url) ||
                         ui_service_->IsAiUrl(params.url);
   if (!embedded_web_contents_ || !is_allowed_url) {
@@ -1505,8 +1549,9 @@ void ContextualTasksUI::TransferNavigationToEmbeddedPage(
   //                  partition.
   params.frame_tree_node_id =
       embedded_web_contents_->GetPrimaryMainFrame()->GetFrameTreeNodeId();
-  OMNIBOX_LOG("nav_trace") << "ContextualTasks navigation trace: "
-             "TransferNavigationToEmbeddedPage opening URL in embedded page";
+  OMNIBOX_LOG("nav_trace")
+      << "ContextualTasks navigation trace: "
+         "TransferNavigationToEmbeddedPage opening URL in embedded page";
   // Exit basic mode when transferring navigation to the embedded page.
   // Without this call, if the side panel entered basic mode previously (such
   // as when viewing an in-page viewer link), basic mode remains active on the
@@ -1530,10 +1575,8 @@ void ContextualTasksUI::PushTaskDetailsToPage(std::optional<base::Uuid> id,
     page_->SetTaskDetails(id.value_or(base::Uuid()), url,
                           replace_navigation_entry);
   }
-#if !BUILDFLAG(IS_ANDROID)
   tracked_zoom_host_ = url.host();
   UpdateZoom();
-#endif
 }
 
 bool ContextualTasksUI::CanExpandToFullTab() const {
@@ -1575,7 +1618,7 @@ ContextualTasksUI::FrameNavObserver::FrameNavObserver(
 void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
   OMNIBOX_LOG("nav_trace") << "ContextualTasks navigation trace: "
-             "FrameNavObserver::DidFinishNavigation called";
+                              "FrameNavObserver::DidFinishNavigation called";
   if (!ui_service_ || !contextual_tasks_service_) {
     return;
   }
@@ -1616,8 +1659,8 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
   // accordingly.
   const GURL& url = navigation_handle->GetURL();
   OMNIBOX_LOG("nav_trace") << "ContextualTasks navigation trace: "
-             "FrameNavObserver::DidFinishNavigation URL: "
-          << url;
+                              "FrameNavObserver::DidFinishNavigation URL: "
+                           << url;
   bool is_ai_page = ui_service_->IsAiUrl(url);
   task_info_delegate_->SetIsAiPage(is_ai_page);
 
@@ -1643,7 +1686,12 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
 
   // Set whether this navigation is to a zero state so the UI can adjust
   // accordingly.
-  const bool is_zero_state = ContextualTasksUI::IsZeroState(url, ui_service_);
+  bool is_zero_state = ContextualTasksUI::IsZeroState(url, ui_service_);
+  if (contextual_tasks::IsAndroidMobileFormFactor() && is_zero_state &&
+      task_info_delegate_->GetThreadTitle().has_value() &&
+      !task_info_delegate_->GetThreadTitle()->empty()) {
+    is_zero_state = false;
+  }
 
   // Record the HTTP response code of the inner frame contents if response
   // headers are available.
@@ -1670,16 +1718,16 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
   }
   bool is_url_changed = false;
   bool last_committed_url_was_empty = last_committed_url_.is_empty();
-  if (!ContextualTasksUI::AreUrlsEqual(
-          url, last_committed_url_)) {
+  if (!ContextualTasksUI::AreUrlsEqual(url, last_committed_url_)) {
     last_committed_url_ = url;
     is_url_changed = true;
   }
 
   if (!is_url_changed) {
-    OMNIBOX_LOG("nav_trace") << "ContextualTasks navigation trace: "
-               "FrameNavObserver::DidFinishNavigation returning early, URL "
-               "unchanged";
+    OMNIBOX_LOG("nav_trace")
+        << "ContextualTasks navigation trace: "
+           "FrameNavObserver::DidFinishNavigation returning early, URL "
+           "unchanged";
     return;
   }
 
@@ -1696,13 +1744,22 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
       (!base::FeatureList::IsEnabled(
            contextual_tasks::kEnableNotifyZeroStateRenderedCapability) ||
        navigation_handle->IsSameDocument())) {
-    OMNIBOX_LOG("nav_trace") << "ContextualTasks navigation trace: "
-               "FrameNavObserver::DidFinishNavigation zero state logic";
-    // Create a new task for zero state, since there's no thread to associate
-    // this with yet.
-    contextual_tasks::ContextualTask task =
-        contextual_tasks_service_->CreateTask();
-    base::Uuid new_task_id = task.GetTaskId();
+    OMNIBOX_LOG("nav_trace")
+        << "ContextualTasks navigation trace: "
+           "FrameNavObserver::DidFinishNavigation zero state logic";
+    base::Uuid new_task_id;
+    if (old_task_id && old_task_id->is_valid() &&
+        !task_info_delegate_->GetThreadId().has_value()) {
+      // Reuse the existing task ID if it is valid and has no thread ID yet
+      // (it represents an unassociated zero-state task).
+      new_task_id = *old_task_id;
+    } else {
+      // Create a new task for zero state, since there's no thread to associate
+      // this with yet (or the existing task already has a thread ID).
+      contextual_tasks::ContextualTask task =
+          contextual_tasks_service_->CreateTask();
+      new_task_id = task.GetTaskId();
+    }
     task_info_delegate_->SetTaskId(new_task_id);
     task_info_delegate_->SetThreadId(std::nullopt);
     // Replace state if last committed URL was empty (i.e. the page is
@@ -1713,12 +1770,16 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
             !has_zero_state_changed);
     task_info_delegate_->SetThreadTitle(std::nullopt);
 
-    task_info_delegate_->PrepareForTaskChange();
-    ui_service_->OnTaskChanged(task_info_delegate_->GetBrowser(),
-                               task_info_delegate_->GetWebUIWebContents(),
-                               old_task_id, new_task_id,
-                               task_info_delegate_->IsShownInTab());
-    task_info_delegate_->OnTaskChanged();
+    // If the task ID changed, notify the UI service and delegate of the task
+    // update.
+    if (old_task_id != new_task_id) {
+      task_info_delegate_->PrepareForTaskChange();
+      ui_service_->OnTaskChanged(task_info_delegate_->GetBrowser(),
+                                 task_info_delegate_->GetWebUIWebContents(),
+                                 old_task_id, new_task_id,
+                                 task_info_delegate_->IsShownInTab());
+      task_info_delegate_->OnTaskChanged();
+    }
     return;
   }
 
@@ -1727,9 +1788,10 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
 
   std::string url_thread_id;
   if (!net::GetValueForKeyInQuery(url, "mtid", &url_thread_id)) {
-    OMNIBOX_LOG("nav_trace") << "ContextualTasks navigation trace: "
-               "FrameNavObserver::DidFinishNavigation returning early, no "
-               "mtid in URL";
+    OMNIBOX_LOG("nav_trace")
+        << "ContextualTasks navigation trace: "
+           "FrameNavObserver::DidFinishNavigation returning early, no "
+           "mtid in URL";
     return;
   }
 
@@ -1767,7 +1829,8 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
     // threads while we were in a bad state,  so we must create a NEW task to
     // avoid leaking context.
     bool pending_task_title_mismatch =
-        is_pending_task && current_title.has_value() && !query_value.empty() &&
+        is_pending_task && current_title.has_value() &&
+        !current_title.value().empty() && !query_value.empty() &&
         current_title.value() != query_value;
 
     // We have no thread ID and no pending task, so this is a fresh start.
@@ -1787,8 +1850,8 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
 
     if (should_create_new_task) {
       OMNIBOX_LOG("nav_trace") << "ContextualTasks navigation trace: "
-                 "FrameNavObserver::DidFinishNavigation "
-                 "should_create_new_task is true";
+                                  "FrameNavObserver::DidFinishNavigation "
+                                  "should_create_new_task is true";
       task_changed = true;
       auto task = contextual_tasks_service_->CreateTaskFromUrl(url);
       task_info_delegate_->SetTaskId(task.GetTaskId());
@@ -1969,6 +2032,7 @@ base::RefCountedMemory* ContextualTasksUI::GetFaviconResourceBytes(
           IDR_NTP_FAVICON, scale_factor));
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 void ContextualTasksUI::SyncZoom(bool site_to_webui) {
   if (tracked_zoom_host_.empty()) {
@@ -2008,11 +2072,36 @@ void ContextualTasksUI::UpdateZoom() {
     zoom_controller = zoom::ZoomController::FromWebContents(web_contents);
   }
 
+  // Set the zoom mode of the outer WebContents and the
+  // inner WebContents. Inner WebContents needs to update first to prevent the
+  // change of the outer WebContents affecting the inner one. Specifically
+  // when the outer WebContents zoom mode is set to ZOOM_MODE_DISABLED, it will
+  // reset the inner WebContents host zoom level to 0. If inner WebContents'
+  // zoom mode is not yet set to ZOOM_MODE_DISABLED, it will incorrectly affect
+  // other tab's inner WebContents zoom level.
+  const zoom::ZoomController::ZoomMode zoom_mode =
+      IsShownInTab() ? zoom::ZoomController::ZOOM_MODE_DEFAULT
+                     : zoom::ZoomController::ZOOM_MODE_DISABLED;
+
+  if (content::WebContents* inner_web_contents = GetInnerWebContents()) {
+    auto* inner_zoom_controller =
+        zoom::ZoomController::FromWebContents(inner_web_contents);
+    if (!inner_zoom_controller) {
+      zoom::ZoomController::CreateForWebContents(inner_web_contents);
+      inner_zoom_controller =
+          zoom::ZoomController::FromWebContents(inner_web_contents);
+    }
+    if (inner_zoom_controller) {
+      inner_zoom_controller->SetZoomMode(zoom_mode);
+    }
+  }
+
+  if (zoom_controller) {
+    zoom_controller->SetZoomMode(zoom_mode);
+  }
+
   if (IsShownInTab()) {
-    zoom_controller->SetZoomMode(zoom::ZoomController::ZOOM_MODE_DEFAULT);
     SyncZoom(/*site_to_webui=*/true);
-  } else {
-    zoom_controller->SetZoomMode(zoom::ZoomController::ZOOM_MODE_DISABLED);
   }
 }
 
@@ -2038,7 +2127,5 @@ void ContextualTasksUI::OnZoomLevelChanged(
     SyncZoom(/*site_to_webui=*/false);
   }
 }
-
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 WEB_UI_CONTROLLER_TYPE_IMPL(ContextualTasksUI)

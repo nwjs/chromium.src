@@ -10,6 +10,8 @@
 
 #include "base/check.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/weak_ptr.h"
@@ -19,6 +21,7 @@
 #include "base/time/time.h"
 #include "base/types/expected.h"
 #include "net/base/features.h"
+#include "net/disk_cache/backend_cleanup_tracker.h"
 #include "net/disk_cache/memory_entry_data_hints.h"
 #include "net/disk_cache/sql/eviction_candidate_aggregator.h"
 #include "net/disk_cache/sql/sql_backend_constants.h"
@@ -30,18 +33,26 @@ SqlPersistentStore::BackendShard::BackendShard(
     ShardId shard_id,
     const base::FilePath& path,
     net::CacheType type,
+    bool shared_cache_enabled,
     scoped_refptr<SqlReadCacheMemoryMonitor> read_cache_memory_monitor,
     scoped_refptr<base::SequencedTaskRunner> background_task_runner,
-    SqlAsyncTaskManager& async_task_manager)
+    SqlAsyncTaskManager& async_task_manager,
+    scoped_refptr<BackendCleanupTracker> cleanup_tracker)
     : async_task_manager_(async_task_manager),
       backend_(background_task_runner,
                async_task_manager,
                shard_id,
                path,
                type,
-               std::move(read_cache_memory_monitor)) {}
+               shared_cache_enabled,
+               std::move(read_cache_memory_monitor)),
+      cleanup_tracker_(std::move(cleanup_tracker)) {}
 
-SqlPersistentStore::BackendShard::~BackendShard() = default;
+SqlPersistentStore::BackendShard::~BackendShard() {
+  backend_.AsyncCall(&SqlPersistentStore::Backend::Close)
+      .Then(base::OnceClosure(
+          base::DoNothingWithBoundArgs(std::move(cleanup_tracker_))));
+}
 
 // Kicks off the asynchronous initialization of the backend.
 void SqlPersistentStore::BackendShard::Initialize(
@@ -122,15 +133,17 @@ void SqlPersistentStore::BackendShard::DoomEntry(const CacheEntryKey& key,
              bool need_recovery_on_failure, CacheEntryKey::Hash hash,
              ResId res_id, ErrorCallback callback, ErrorAndStoreStatus result) {
             if (weak_ptr) {
-              // If the DoomEntry operation fails in the database, the entry
-              // needs to be re-inserted into the in-memory index to maintain
-              // consistency.
+              // If the DoomEntry operation did not mark the row as doomed in
+              // the database (including `kNotFound`, which can occur when the
+              // `res_id` belongs to a different `cache_key` whose hash
+              // collides with `key`'s hash), the entry needs to be re-inserted
+              // into the in-memory index so that the index remains consistent
+              // with the unchanged database state.
               // Note: Optimistic write failure may trigger a call to DoomEntry,
               // which occurs without exclusive control. In this case, if
               // eviction runs immediately after Backend::DoomEntry, the index
               // might be missing.
               if (need_recovery_on_failure && result.result != Error::kOk &&
-                  result.result != Error::kNotFound &&
                   weak_ptr->index_.has_value()) {
                 weak_ptr->index_->Insert(hash, res_id);
               }
@@ -267,6 +280,16 @@ void SqlPersistentStore::BackendShard::ReadEntryData(
       .WithArgs(key, res_id, offset, std::move(buffer), buf_len, body_end,
                 sparse_reading, base::TimeTicks::Now())
       .Then(WrapCallback(std::move(callback)));
+}
+
+void SqlPersistentStore::BackendShard::MoveBlobsToSharedCache(
+    const CacheEntryKey& key,
+    ResId res_id,
+    SqlSharedCacheResourceId shared_cache_resource_id,
+    ErrorCallback callback) {
+  backend_.AsyncCall(&SqlPersistentStore::Backend::MoveBlobsToSharedCache)
+      .WithArgs(key, res_id, shared_cache_resource_id, base::TimeTicks::Now())
+      .Then(WrapCallbackWithStoreStatus(std::move(callback)));
 }
 
 void SqlPersistentStore::BackendShard::GetEntryAvailableRange(

@@ -79,6 +79,14 @@ void TestURLLoaderFactory::NotifyClientOnReceiveResponse(
                                     std::nullopt);
 }
 
+void TestURLLoaderFactory::NotifyClientOnReceiveResponse(
+    mojom::URLResponseHeadPtr response_head,
+    mojo::ScopedDataPipeConsumerHandle body) {
+  DCHECK(client_remote_);
+  client_remote_->OnReceiveResponse(std::move(response_head), std::move(body),
+                                    std::nullopt);
+}
+
 void TestURLLoaderFactory::NotifyClientOnComplete(int error_code) {
   DCHECK(client_remote_);
   client_remote_->OnComplete(URLLoaderCompletionStatus(error_code));
@@ -100,6 +108,13 @@ void TestURLLoaderFactory::NotifyClientOnReceiveRedirect(
     response->headers->SetHeader(header.first, header.second);
 
   client_remote_->OnReceiveRedirect(redirect_info, std::move(response));
+}
+
+void TestURLLoaderFactory::NotifyClientOnReceiveRedirect(
+    const net::RedirectInfo& redirect_info,
+    mojom::URLResponseHeadPtr response_head) {
+  DCHECK(client_remote_);
+  client_remote_->OnReceiveRedirect(redirect_info, std::move(response_head));
 }
 
 void TestURLLoaderFactory::ResetClientRemote() {

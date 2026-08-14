@@ -8,7 +8,9 @@
 #include <utility>
 
 #include "base/command_line.h"
+#include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
@@ -41,6 +43,7 @@
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "components/metrics/metrics_state_manager.h"
+#include "components/metrics/startup_visibility.h"
 #include "components/metrics/test/test_enabled_state_provider.h"
 #include "components/policy/core/common/management/scoped_management_service_override_for_testing.h"
 #include "components/prefs/pref_service.h"
@@ -64,6 +67,10 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/android_info.h"
+#else
+#include "chrome/browser/sync/device_info_sync_service_factory.h"
+#include "components/sync_device_info/device_info_sync_service.h"
+#include "components/sync_device_info/local_device_info_provider_impl.h"
 #endif
 
 using base::test::FeatureRef;
@@ -71,13 +78,36 @@ using base::test::FeatureRef;
 namespace glic {
 namespace {
 
-class TestDelegate : public GlicGlobalEnabling::Delegate {
+void FlushMessageLoop() {
+  base::RunLoop run_loop;
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, run_loop.QuitClosure());
+  run_loop.Run();
+}
+
+class TestDelegate : public GlicEnablingDelegate {
  public:
-  std::string GetPermanentCountryCode() override {
+  TestDelegate() = default;
+  TestDelegate(const TestDelegate& other)
+      : permanent_country_code_(other.permanent_country_code_),
+        session_country_code_(other.session_country_code_),
+        locale_(other.locale_) {}
+
+  std::unique_ptr<TestDelegate> Clone() const {
+    return std::make_unique<TestDelegate>(*this);
+  }
+
+  std::string GetPermanentCountryCode() const override {
     return permanent_country_code_;
   }
-  std::string GetSessionCountryCode() override { return session_country_code_; }
-  std::string GetLocale() override { return locale_; }
+  std::string GetSessionCountryCode() const override {
+    return session_country_code_;
+  }
+  std::string GetLocale() const override { return locale_; }
+
+  // Grants test access to protected base class method.
+  using GlicEnablingDelegate::GetCountryEnablement;
+
   void SetPermanentCountryCode(const std::string& country_code) {
     permanent_country_code_ = country_code;
   }
@@ -109,6 +139,10 @@ class GlicEnablingTest : public testing::Test {
     // GlicBackgroundModeManager fails to be constructed without additional
     // setup.
     testing::Test::SetUp();
+    // Force basic password store to avoid talking to Linux desktop keyring
+    // services, which can run asynchronously and cause flakiness.
+    base::CommandLine::ForCurrentProcess()->AppendSwitchASCII("password-store",
+                                                              "basic");
     scoped_feature_list_.InitWithFeatures(
         {
             features::kGlic,
@@ -116,16 +150,28 @@ class GlicEnablingTest : public testing::Test {
             chromeos::features::kFeatureManagementGlic,
 #endif  // BUILDFLAG(IS_CHROMEOS)
         },
-        {});
+#if BUILDFLAG(IS_ANDROID)
+        {}
+#else
+        // Disable smart restart metrics to prevent background D-Bus queries to
+        // screensaver status, which causes asynchronous test flakiness.
+        {features::kSmartRestartMetrics}
+#endif
+    );
     histogram_tester_ = std::make_unique<base::HistogramTester>();
   }
 
   void TearDown() override {
     scoped_feature_list_.Reset();
+    FlushMessageLoop();
     testing::Test::TearDown();
   }
 
  protected:
+  GlicGlobalEnabling CreateGlobalEnabling() {
+    return GlicGlobalEnabling(delegate_.Clone());
+  }
+
   TestDelegate delegate_;
   content::BrowserTaskEnvironment task_environment_;
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -134,14 +180,14 @@ class GlicEnablingTest : public testing::Test {
 
 // Test
 TEST_F(GlicEnablingTest, GlicFeatureEnabledTest) {
-  EXPECT_EQ(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria(), true);
+  EXPECT_TRUE(CreateGlobalEnabling().IsEnabledByGlobalCriteria());
 }
 
 TEST_F(GlicEnablingTest, GlicFeatureNotEnabledTest) {
   // Turn feature flag off
   scoped_feature_list_.Reset();
   scoped_feature_list_.InitWithFeatures({}, {features::kGlic});
-  EXPECT_EQ(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria(), false);
+  EXPECT_FALSE(CreateGlobalEnabling().IsEnabledByGlobalCriteria());
 }
 
 TEST_F(GlicEnablingTest, IneligibleProfileDoesNotLogIsConsentedMetrics) {
@@ -163,10 +209,9 @@ TEST_F(GlicEnablingTest, IneligibleProfileDoesNotLogIsConsentedMetrics) {
 TEST_F(GlicEnablingTest, CountryFilteringNotEnabled) {
   base::test::ScopedFeatureList features;
   features.InitAndDisableFeature(features::kGlicCountryFiltering);
-  delegate_.SetBothCountryCodes("zz");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_TRUE(TestDelegate::GetCountryEnablement("zz", "zz"));
   histogram_tester_->ExpectUniqueSample(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kAllowedFilteringDisabled, 1);
 }
 
@@ -175,21 +220,17 @@ TEST_F(GlicEnablingTest,
   base::test::ScopedFeatureList features;
   features.InitAndEnableFeatureWithParameters(features::kGlicCountryFiltering,
                                               {});
-  delegate_.SetSessionCountryCode("");
-  delegate_.SetPermanentCountryCode("us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-  delegate_.SetPermanentCountryCode("US");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-  delegate_.SetPermanentCountryCode("zz");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_TRUE(TestDelegate::GetCountryEnablement("us", ""));
+  EXPECT_TRUE(TestDelegate::GetCountryEnablement("US", ""));
+  EXPECT_FALSE(TestDelegate::GetCountryEnablement("zz", ""));
 
   histogram_tester_->ExpectBucketCount(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kAllowedInInclusionList, 2);
   histogram_tester_->ExpectBucketCount(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kBlockedNotInInclusionList, 1);
-  histogram_tester_->ExpectTotalCount("Glic.CountryFilteringResult", 3);
+  histogram_tester_->ExpectTotalCount("Glic.CountryFilteringResult2", 3);
 }
 
 TEST_F(GlicEnablingTest,
@@ -197,21 +238,17 @@ TEST_F(GlicEnablingTest,
   base::test::ScopedFeatureList features;
   features.InitAndEnableFeatureWithParameters(features::kGlicCountryFiltering,
                                               {});
-  delegate_.SetPermanentCountryCode("");
-  delegate_.SetSessionCountryCode("us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-  delegate_.SetSessionCountryCode("US");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-  delegate_.SetSessionCountryCode("zz");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_TRUE(TestDelegate::GetCountryEnablement("", "us"));
+  EXPECT_TRUE(TestDelegate::GetCountryEnablement("", "US"));
+  EXPECT_FALSE(TestDelegate::GetCountryEnablement("", "zz"));
 
   histogram_tester_->ExpectBucketCount(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kAllowedInInclusionList, 2);
   histogram_tester_->ExpectBucketCount(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kBlockedNotInInclusionList, 1);
-  histogram_tester_->ExpectTotalCount("Glic.CountryFilteringResult", 3);
+  histogram_tester_->ExpectTotalCount("Glic.CountryFilteringResult2", 3);
 }
 
 TEST_F(GlicEnablingTest,
@@ -221,26 +258,21 @@ TEST_F(GlicEnablingTest,
       features::kGlicCountryFiltering,
       {{"disabled_countries", "zz"}, {"enabled_countries", "us,uk,zz"}});
 
-  delegate_.SetSessionCountryCode("");
-  delegate_.SetPermanentCountryCode("us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-  delegate_.SetPermanentCountryCode("UK");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-  delegate_.SetPermanentCountryCode("zz");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-  delegate_.SetPermanentCountryCode("qq");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_TRUE(TestDelegate::GetCountryEnablement("us", ""));
+  EXPECT_TRUE(TestDelegate::GetCountryEnablement("UK", ""));
+  EXPECT_FALSE(TestDelegate::GetCountryEnablement("zz", ""));
+  EXPECT_FALSE(TestDelegate::GetCountryEnablement("qq", ""));
 
   histogram_tester_->ExpectBucketCount(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kAllowedInInclusionList, 2);
   histogram_tester_->ExpectBucketCount(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kBlockedInExclusionList, 1);
   histogram_tester_->ExpectBucketCount(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kBlockedNotInInclusionList, 1);
-  histogram_tester_->ExpectTotalCount("Glic.CountryFilteringResult", 4);
+  histogram_tester_->ExpectTotalCount("Glic.CountryFilteringResult2", 4);
 }
 
 TEST_F(GlicEnablingTest, CountryFilteringEnabledWithLists_SessionCountryCode) {
@@ -249,26 +281,21 @@ TEST_F(GlicEnablingTest, CountryFilteringEnabledWithLists_SessionCountryCode) {
       features::kGlicCountryFiltering,
       {{"disabled_countries", "zz"}, {"enabled_countries", "us,uk,zz"}});
 
-  delegate_.SetPermanentCountryCode("");
-  delegate_.SetSessionCountryCode("us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-  delegate_.SetSessionCountryCode("UK");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-  delegate_.SetSessionCountryCode("zz");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-  delegate_.SetSessionCountryCode("qq");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_TRUE(TestDelegate::GetCountryEnablement("", "us"));
+  EXPECT_TRUE(TestDelegate::GetCountryEnablement("", "UK"));
+  EXPECT_FALSE(TestDelegate::GetCountryEnablement("", "zz"));
+  EXPECT_FALSE(TestDelegate::GetCountryEnablement("", "qq"));
 
   histogram_tester_->ExpectBucketCount(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kAllowedInInclusionList, 2);
   histogram_tester_->ExpectBucketCount(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kBlockedInExclusionList, 1);
   histogram_tester_->ExpectBucketCount(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kBlockedNotInInclusionList, 1);
-  histogram_tester_->ExpectTotalCount("Glic.CountryFilteringResult", 4);
+  histogram_tester_->ExpectTotalCount("Glic.CountryFilteringResult2", 4);
 }
 
 TEST_F(GlicEnablingTest,
@@ -278,35 +305,22 @@ TEST_F(GlicEnablingTest,
       features::kGlicCountryFiltering,
       {{"disabled_countries", "zz"}, {"enabled_countries", "us,uk,zz"}});
 
-  delegate_.SetPermanentCountryCode("zz");
-  delegate_.SetSessionCountryCode("us");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-
-  delegate_.SetPermanentCountryCode("us");
-  delegate_.SetSessionCountryCode("zz");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-
-  delegate_.SetPermanentCountryCode("qq");
-  delegate_.SetSessionCountryCode("us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-
-  delegate_.SetPermanentCountryCode("us");
-  delegate_.SetSessionCountryCode("qq");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-
-  delegate_.SetBothCountryCodes("qq");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_FALSE(TestDelegate::GetCountryEnablement("zz", "us"));
+  EXPECT_FALSE(TestDelegate::GetCountryEnablement("us", "zz"));
+  EXPECT_TRUE(TestDelegate::GetCountryEnablement("qq", "us"));
+  EXPECT_TRUE(TestDelegate::GetCountryEnablement("us", "qq"));
+  EXPECT_FALSE(TestDelegate::GetCountryEnablement("qq", "qq"));
 
   histogram_tester_->ExpectBucketCount(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kBlockedInExclusionList, 2);
   histogram_tester_->ExpectBucketCount(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kAllowedInInclusionList, 2);
   histogram_tester_->ExpectBucketCount(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kBlockedNotInInclusionList, 1);
-  histogram_tester_->ExpectTotalCount("Glic.CountryFilteringResult", 5);
+  histogram_tester_->ExpectTotalCount("Glic.CountryFilteringResult2", 5);
 }
 
 TEST_F(GlicEnablingTest,
@@ -317,35 +331,22 @@ TEST_F(GlicEnablingTest,
         {{"disabled_countries", "zz"}, {"enabled_countries", "us,uk,zz"}}}},
       {features::kGlicUseSessionCountryForFiltering});
 
-  delegate_.SetPermanentCountryCode("zz");
-  delegate_.SetSessionCountryCode("us");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-
-  delegate_.SetPermanentCountryCode("us");
-  delegate_.SetSessionCountryCode("zz");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-
-  delegate_.SetPermanentCountryCode("qq");
-  delegate_.SetSessionCountryCode("us");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-
-  delegate_.SetPermanentCountryCode("us");
-  delegate_.SetSessionCountryCode("qq");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-
-  delegate_.SetBothCountryCodes("qq");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_FALSE(TestDelegate::GetCountryEnablement("zz", "us"));
+  EXPECT_TRUE(TestDelegate::GetCountryEnablement("us", "zz"));
+  EXPECT_FALSE(TestDelegate::GetCountryEnablement("qq", "us"));
+  EXPECT_TRUE(TestDelegate::GetCountryEnablement("us", "qq"));
+  EXPECT_FALSE(TestDelegate::GetCountryEnablement("qq", "qq"));
 
   histogram_tester_->ExpectBucketCount(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kBlockedInExclusionList, 1);
   histogram_tester_->ExpectBucketCount(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kAllowedInInclusionList, 2);
   histogram_tester_->ExpectBucketCount(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kBlockedNotInInclusionList, 2);
-  histogram_tester_->ExpectTotalCount("Glic.CountryFilteringResult", 5);
+  histogram_tester_->ExpectTotalCount("Glic.CountryFilteringResult2", 5);
 }
 
 TEST_F(GlicEnablingTest, CountryFilteringEnabledWithStar) {
@@ -354,35 +355,26 @@ TEST_F(GlicEnablingTest, CountryFilteringEnabledWithStar) {
       features::kGlicCountryFiltering,
       {{"disabled_countries", "zz"}, {"enabled_countries", "*"}});
 
-  delegate_.SetBothCountryCodes("us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-  delegate_.SetBothCountryCodes("ru");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-  delegate_.SetBothCountryCodes("zz");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-
-  delegate_.SetPermanentCountryCode("zz");
-  delegate_.SetSessionCountryCode("us");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
-
-  delegate_.SetPermanentCountryCode("us");
-  delegate_.SetSessionCountryCode("zz");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_TRUE(TestDelegate::GetCountryEnablement("us", "us"));
+  EXPECT_TRUE(TestDelegate::GetCountryEnablement("ru", "ru"));
+  EXPECT_FALSE(TestDelegate::GetCountryEnablement("zz", "zz"));
+  EXPECT_FALSE(TestDelegate::GetCountryEnablement("zz", "us"));
+  EXPECT_FALSE(TestDelegate::GetCountryEnablement("us", "zz"));
 
   histogram_tester_->ExpectBucketCount(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kAllowedWildcardInclusion, 2);
   histogram_tester_->ExpectBucketCount(
-      "Glic.CountryFilteringResult",
+      "Glic.CountryFilteringResult2",
       GlicFilteringResult::kBlockedInExclusionList, 3);
-  histogram_tester_->ExpectTotalCount("Glic.CountryFilteringResult", 5);
+  histogram_tester_->ExpectTotalCount("Glic.CountryFilteringResult2", 5);
 }
 
 TEST_F(GlicEnablingTest, LocaleFilteringNotEnabled) {
   base::test::ScopedFeatureList features;
   features.InitAndDisableFeature(features::kGlicLocaleFiltering);
   delegate_.SetLocale("foobar");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_TRUE(CreateGlobalEnabling().IsEnabledByGlobalCriteria());
   histogram_tester_->ExpectUniqueSample(
       "Glic.LocaleFilteringResult",
       GlicFilteringResult::kAllowedFilteringDisabled, 1);
@@ -393,11 +385,11 @@ TEST_F(GlicEnablingTest, LocaleFilteringEnabledWithDefaults) {
   features.InitAndEnableFeature(features::kGlicLocaleFiltering);
 
   delegate_.SetLocale("en-us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_TRUE(CreateGlobalEnabling().IsEnabledByGlobalCriteria());
   delegate_.SetLocale("en-uk");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_FALSE(CreateGlobalEnabling().IsEnabledByGlobalCriteria());
   delegate_.SetLocale("");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_FALSE(CreateGlobalEnabling().IsEnabledByGlobalCriteria());
 
   histogram_tester_->ExpectBucketCount(
       "Glic.LocaleFilteringResult",
@@ -416,17 +408,17 @@ TEST_F(GlicEnablingTest, LocaleFilteringEnabledWithLists) {
        {"enabled_locales", "en-us,en-ru,en-zz"}});
 
   delegate_.SetLocale("en-us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_TRUE(CreateGlobalEnabling().IsEnabledByGlobalCriteria());
   delegate_.SetLocale("en-US");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_TRUE(CreateGlobalEnabling().IsEnabledByGlobalCriteria());
   delegate_.SetLocale("EN_us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_TRUE(CreateGlobalEnabling().IsEnabledByGlobalCriteria());
   delegate_.SetLocale("en-ru");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_TRUE(CreateGlobalEnabling().IsEnabledByGlobalCriteria());
   delegate_.SetLocale("en-zz");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_FALSE(CreateGlobalEnabling().IsEnabledByGlobalCriteria());
   delegate_.SetLocale("en-ot");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_FALSE(CreateGlobalEnabling().IsEnabledByGlobalCriteria());
 
   histogram_tester_->ExpectBucketCount(
       "Glic.LocaleFilteringResult",
@@ -447,11 +439,11 @@ TEST_F(GlicEnablingTest, LocaleFilteringEnabledStar) {
       {{"disabled_locales", "en-zz"}, {"enabled_locales", "*"}});
 
   delegate_.SetLocale("en-us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_TRUE(CreateGlobalEnabling().IsEnabledByGlobalCriteria());
   delegate_.SetLocale("en-ru");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_TRUE(CreateGlobalEnabling().IsEnabledByGlobalCriteria());
   delegate_.SetLocale("en-zz");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
+  EXPECT_FALSE(CreateGlobalEnabling().IsEnabledByGlobalCriteria());
 
   histogram_tester_->ExpectBucketCount(
       "Glic.LocaleFilteringResult",
@@ -466,6 +458,10 @@ TEST_F(GlicEnablingTest, LocaleFilteringEnabledStar) {
 class GlicEnablingProfileEligibilityTest : public testing::Test {
  public:
   GlicEnablingProfileEligibilityTest() {
+    // Force basic password store to avoid talking to Linux desktop keyring
+    // services, which can run asynchronously and cause flakiness.
+    base::CommandLine::ForCurrentProcess()->AppendSwitchASCII("password-store",
+                                                              "basic");
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/
         {
@@ -477,6 +473,11 @@ class GlicEnablingProfileEligibilityTest : public testing::Test {
         /*disabled_features=*/{
             features::kGlicCountryFiltering,
             features::kGlicLocaleFiltering,
+#if !BUILDFLAG(IS_ANDROID)
+            // Disable smart restart metrics to prevent background D-Bus queries
+            // to screensaver status, which causes asynchronous test flakiness.
+            features::kSmartRestartMetrics,
+#endif
         });
   }
   ~GlicEnablingProfileEligibilityTest() override = default;
@@ -519,12 +520,14 @@ class GlicEnablingProfileEligibilityTest : public testing::Test {
     }
     identity_test_env_adaptor_.reset();
     profile_ = nullptr;
+    FlushMessageLoop();
 
     TestingBrowserProcess::GetGlobal()->TearDownGlobalFeaturesForTesting();
 
 #if BUILDFLAG(IS_CHROMEOS)
     glic_user_session_test_helper_.PostProfileTearDown();
 #endif  // BUILDFLAG(IS_CHROMEOS)
+    FlushMessageLoop();
   }
 
  protected:
@@ -584,6 +587,55 @@ TEST_F(GlicEnablingProfileEligibilityTest, WasPreviouslyNotAllowedTest) {
   // 8. Even after signing out, WasPreviouslyNotAllowed should remain false.
   EXPECT_FALSE(GlicEnabling::WasPreviouslyNotAllowed(profile()));
 #endif
+}
+
+TEST_F(GlicEnablingProfileEligibilityTest,
+       IsEnabledForFirstRunProfile_Eligible) {
+  auto* identity_test_env = identity_test_env_adaptor_->identity_test_env();
+  AccountInfo account_info = identity_test_env->MakePrimaryAccountAvailable(
+      "test@example.com", signin::ConsentLevel::kSignin);
+  AccountCapabilitiesTestMutator mutator(&account_info);
+  mutator.set_can_use_model_execution_features(true);
+  signin::UpdateAccountInfoForAccount(identity_test_env->identity_manager(),
+                                      account_info);
+
+  EXPECT_TRUE(GlicEnabling::IsEnabledForFirstRunProfile(profile(), "us", "us",
+                                                        account_info));
+}
+
+TEST_F(GlicEnablingProfileEligibilityTest,
+       IsEnabledForFirstRunProfile_IneligibleAccount) {
+  auto* identity_test_env = identity_test_env_adaptor_->identity_test_env();
+  AccountInfo account_info = identity_test_env->MakePrimaryAccountAvailable(
+      "test@example.com", signin::ConsentLevel::kSignin);
+  AccountCapabilitiesTestMutator mutator(&account_info);
+  mutator.set_can_use_model_execution_features(false);
+  signin::UpdateAccountInfoForAccount(identity_test_env->identity_manager(),
+                                      account_info);
+
+  EXPECT_FALSE(GlicEnabling::IsEnabledForFirstRunProfile(profile(), "us", "us",
+                                                         account_info));
+}
+
+TEST_F(GlicEnablingProfileEligibilityTest,
+       IsEnabledForFirstRunProfile_BlockedCountry) {
+  base::test::ScopedFeatureList country_features;
+  country_features.InitAndEnableFeatureWithParameters(
+      features::kGlicCountryFiltering,
+      {{"disabled_countries", "zz"}, {"enabled_countries", "us,uk"}});
+
+  auto* identity_test_env = identity_test_env_adaptor_->identity_test_env();
+  AccountInfo account_info = identity_test_env->MakePrimaryAccountAvailable(
+      "test@example.com", signin::ConsentLevel::kSignin);
+  AccountCapabilitiesTestMutator mutator(&account_info);
+  mutator.set_can_use_model_execution_features(true);
+  signin::UpdateAccountInfoForAccount(identity_test_env->identity_manager(),
+                                      account_info);
+
+  EXPECT_FALSE(GlicEnabling::IsEnabledForFirstRunProfile(profile(), "zz", "zz",
+                                                         account_info));
+  EXPECT_TRUE(GlicEnabling::IsEnabledForFirstRunProfile(profile(), "us", "us",
+                                                        account_info));
 }
 
 class GlicEnablingProfileReadyStateTestBase
@@ -652,6 +704,10 @@ TEST_F(GlicEnablingTrustFirstOnboardingTest, Consented_ReturnsReady) {
 class GlicEnablingAnchorEntryPointTestBase : public testing::Test {
  public:
   GlicEnablingAnchorEntryPointTestBase() {
+    // Force basic password store to avoid talking to Linux desktop keyring
+    // services, which can run asynchronously and cause flakiness.
+    base::CommandLine::ForCurrentProcess()->AppendSwitchASCII("password-store",
+                                                              "basic");
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/
         {
@@ -666,6 +722,16 @@ class GlicEnablingAnchorEntryPointTestBase : public testing::Test {
             features::kGlicUserStatusCheck,  // Disable user status check to
                                              // isolate from remote dogfood
                                              // status fetcher dependencies.
+            // Disable filtering features to isolate tests from host machine
+            // locale/country settings. Country filtering tested in
+            // GlicEnablingAnchorEntryPointCountryTest.
+            features::kGlicCountryFiltering,
+            features::kGlicLocaleFiltering,
+#if !BUILDFLAG(IS_ANDROID)
+            // Disable smart restart metrics to prevent background D-Bus queries
+            // to screensaver status, which causes asynchronous test flakiness.
+            features::kSmartRestartMetrics,
+#endif
         });
   }
 
@@ -710,10 +776,12 @@ class GlicEnablingAnchorEntryPointTestBase : public testing::Test {
     GlicEnabling::SetSystemRequirementMetForTesting(std::nullopt);
     identity_test_env_adaptor_.reset();
     profile_ = nullptr;
+    FlushMessageLoop();
     TestingBrowserProcess::GetGlobal()->TearDownGlobalFeaturesForTesting();
 #if BUILDFLAG(IS_CHROMEOS)
     glic_user_session_test_helper_.PostProfileTearDown();
 #endif  // BUILDFLAG(IS_CHROMEOS)
+    FlushMessageLoop();
   }
 
   Profile* profile() { return profile_.get(); }
@@ -735,11 +803,13 @@ TEST_F(GlicEnablingAnchorEntryPointTestBase,
        FeatureFlagDisablesButtonWhenAnchored) {
   profile()->GetPrefs()->SetInteger(
       glic::prefs::kGlicCompletedFre,
-      static_cast<int>(glic::prefs::FreStatus::kCompleted));
+      std::to_underlying(glic::prefs::FreStatus::kCompleted));
 
   base::test::ScopedFeatureList features;
   features.InitAndEnableFeature(
       features::kGlicAnchorEntryPointForOnboardedUsers);
+
+  base::HistogramTester histogram_tester;
 
   // Profile should NOT be eligible because the main kGlic flag is disabled,
   // which acts as a global killswitch.
@@ -753,12 +823,21 @@ TEST_F(GlicEnablingAnchorEntryPointTestBase,
   // The button should be hidden in the UI because the main feature flag
   // kGlic is disabled.
   EXPECT_FALSE(enablement.ShouldShowGlicButton());
+
+  enablement.RecordStartupMetrics();
+  enablement.RecordSteadyStateMetrics();
+
+  // Since ShouldShowGlicButton() is false, no anchored reasons should be
+  // logged.
+  EXPECT_THAT(histogram_tester.GetAllSamplesForPrefix(
+                  "Glic.ProfileEnablement.AnchoredDespiteEligibilityReason"),
+              testing::IsEmpty());
 }
 
 TEST_F(GlicEnablingAnchorEntryPointTestBase, FeatureFlagDisablesAnchoring) {
   profile()->GetPrefs()->SetInteger(
       glic::prefs::kGlicCompletedFre,
-      static_cast<int>(glic::prefs::FreStatus::kCompleted));
+      std::to_underlying(glic::prefs::FreStatus::kCompleted));
 
   base::test::ScopedFeatureList features;
   features.InitAndDisableFeature(
@@ -774,16 +853,68 @@ TEST_F(GlicEnablingAnchorEntryPointTestBase, FeatureFlagDisablesAnchoring) {
       GlicEnabling::EnablementForProfile(profile());
   enablement.RecordStartupMetrics();
 
-  histogram_tester.ExpectTotalCount(
-      "Glic.ProfileEnablement.AnchoredDespiteEligibilityFailureReason.Startup",
-      0);
+  EXPECT_THAT(histogram_tester.GetAllSamplesForPrefix(
+                  "Glic.ProfileEnablement.AnchoredDespiteEligibilityReason"),
+              testing::IsEmpty());
+}
+
+TEST_F(GlicEnablingAnchorEntryPointTestBase,
+       AnchoredButtonForIneligibleAccount) {
+  profile()->GetPrefs()->SetInteger(
+      glic::prefs::kGlicCompletedFre,
+      static_cast<int>(glic::prefs::FreStatus::kCompleted));
+
+  // Change the primary account capability to false (ineligible).
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile());
+  AccountInfo account_info =
+      identity_manager->FindExtendedAccountInfoByAccountId(
+          identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSignin));
+  AccountCapabilitiesTestMutator mutator(&account_info);
+  mutator.set_can_use_model_execution_features(false);
+  signin::UpdateAccountInfoForAccount(identity_manager, account_info);
+
+  base::test::ScopedFeatureList features;
+  features.InitWithFeatures(
+      {features::kGlicAnchorEntryPointForOnboardedUsers, features::kGlic}, {});
+
+  base::HistogramTester histogram_tester;
+
+  // Profile should be eligible because the anchor entry point feature is active
+  // and user is onboarded, even though the account is ineligible.
+  EXPECT_TRUE(GlicEnabling::IsProfileEligible(profile()));
+
+  GlicEnabling::ProfileEnablement enablement =
+      GlicEnabling::EnablementForProfile(profile());
+  EXPECT_TRUE(enablement.ShouldShowGlicButton());
+  EXPECT_EQ(GlicEnabling::GetProfileReadyState(profile()),
+            mojom::ProfileReadyState::kIneligibleAccount);
+  enablement.RecordStartupMetrics();
+  enablement.RecordSteadyStateMetrics();
+
+  // It should log the account ineligible reason to the new consolidated metric.
+  using Reason =
+      GlicEnabling::ProfileEnablement::AnchoredDespiteEligibilityReason;
+  EXPECT_THAT(
+      histogram_tester.GetAllSamplesForPrefix(
+          "Glic.ProfileEnablement.AnchoredDespiteEligibilityReason"),
+      testing::UnorderedElementsAre(
+          testing::Pair(
+              "Glic.ProfileEnablement.AnchoredDespiteEligibilityReason.Startup",
+              base::BucketsAre(
+                  base::Bucket(Reason::kPrimaryAccountNotCapable, 1))),
+          testing::Pair(
+              "Glic.ProfileEnablement.AnchoredDespiteEligibilityReason."
+              "SteadyState",
+              base::BucketsAre(
+                  base::Bucket(Reason::kPrimaryAccountNotCapable, 1)))));
 }
 
 TEST_F(GlicEnablingAnchorEntryPointTestBase,
        GlobalDisablementPropagatedToReadyState) {
   profile()->GetPrefs()->SetInteger(
       glic::prefs::kGlicCompletedFre,
-      static_cast<int>(glic::prefs::FreStatus::kCompleted));
+      std::to_underlying(glic::prefs::FreStatus::kCompleted));
 
   base::test::ScopedFeatureList features;
   features.InitAndEnableFeature(
@@ -803,7 +934,7 @@ TEST_F(GlicEnablingAnchorEntryPointTestBase,
        PrimaryAccountNotCapable_ReturnsIneligibleAccountWhenAnchored) {
   profile()->GetPrefs()->SetInteger(
       glic::prefs::kGlicCompletedFre,
-      static_cast<int>(glic::prefs::FreStatus::kCompleted));
+      std::to_underlying(glic::prefs::FreStatus::kCompleted));
 
   base::test::ScopedFeatureList features;
   features.InitWithFeatures(
@@ -1156,6 +1287,42 @@ TEST_F(GlicEnablingProfileEligibilityTest,
                        std::make_unique<base::Value>(false));
   EXPECT_FALSE(enabling.IsExperimentalTriggeringUserControlled());
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+TEST_F(GlicEnablingProfileEligibilityTest,
+       ExperimentalTriggering_ProfileTeardownNoCrash) {
+  base::test::ScopedFeatureList feature_list(
+      features::kGlicExperimentalTriggering);
+
+  auto* identity_test_env = identity_test_env_adaptor_->identity_test_env();
+  identity_test_env->MakePrimaryAccountAvailable("test@example.com",
+                                                 signin::ConsentLevel::kSignin);
+  SetGlicCapability(profile(), true);
+
+  auto* glic_service = GlicKeyedServiceFactory::GetGlicKeyedService(profile());
+  ASSERT_TRUE(glic_service);
+  glic_service->enabling().SetCompletedFre(prefs::FreStatus::kCompleted);
+  glic_service->enabling().SetUserEnabledActuationOnWeb(true);
+  glic_service->enabling().SetExperimentalTriggeringEnabled(true);
+
+  auto* device_info_sync_service =
+      DeviceInfoSyncServiceFactory::GetForProfile(profile());
+  ASSERT_TRUE(device_info_sync_service);
+  auto* provider = static_cast<syncer::LocalDeviceInfoProviderImpl*>(
+      device_info_sync_service->GetLocalDeviceInfoProvider());
+  ASSERT_TRUE(provider);
+  provider->Initialize("cache_guid", "client_name", "manufacturer", "model",
+                       "full_hardware_class",
+                       /*android_os_build_fingerprint_prefix=*/std::nullopt,
+                       /*device_info_restored_from_store=*/nullptr);
+
+  // 1. Simulate GlicKeyedService Phase 1 Shutdown.
+  glic_service->Shutdown();
+
+  // 2. Trigger GlicEnabling state change post-shutdown.
+  glic_service->enabling().SetExperimentalTriggeringEnabled(false);
+}
+#endif
 
 TEST_F(GlicEnablingProfileEligibilityTest, ConsentChangedCallback) {
   bool callback_called = false;
@@ -1787,7 +1954,8 @@ TEST_F(GlicEnablingWebActuationToggleTest, ManagedProfile_CannotActOnWeb) {
 
   profile()->GetPrefs()->SetInteger(
       glic::prefs::kGlicActuationOnWeb,
-      static_cast<int>(glic::prefs::GlicActuationOnWebPolicyState::kDisabled));
+      std::to_underlying(
+          glic::prefs::GlicActuationOnWebPolicyState::kDisabled));
   profile()->GetPrefs()->SetInteger(
       subscription_eligibility::prefs::kAiSubscriptionTier, 1);
 
@@ -1810,7 +1978,7 @@ TEST_F(GlicEnablingWebActuationToggleTest, ManagedProfile_CanActOnWeb) {
 
   profile()->GetPrefs()->SetInteger(
       glic::prefs::kGlicActuationOnWeb,
-      static_cast<int>(glic::prefs::GlicActuationOnWebPolicyState::kEnabled));
+      std::to_underlying(glic::prefs::GlicActuationOnWebPolicyState::kEnabled));
   profile()->GetPrefs()->SetInteger(
       subscription_eligibility::prefs::kAiSubscriptionTier, 1);
 
@@ -1818,5 +1986,531 @@ TEST_F(GlicEnablingWebActuationToggleTest, ManagedProfile_CanActOnWeb) {
   EXPECT_TRUE(glic_service->enabling().ShouldShowWebActuationToggle());
 }
 
+class GlicEnablingAnchorEntryPointCountryTest
+    : public GlicEnablingAnchorEntryPointTestBase {
+ public:
+  GlicEnablingAnchorEntryPointCountryTest() {
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/
+        {
+            {features::kGlicCountryFiltering, {{"disabled_countries", "zz"}}},
+            {features::kGlicAnchorEntryPointForOnboardedUsers, {}},
+            {features::kGlic, {}},
+        },
+        /*disabled_features=*/{});
+  }
+
+  void SetUp() override {
+    variations::TestVariationsService::RegisterPrefs(local_state_.registry());
+    metrics_state_manager_ = metrics::MetricsStateManager::Create(
+        &local_state_, &enabled_state_provider_, std::wstring(),
+        base::FilePath(), metrics::StartupVisibility::kUnknown);
+    variations_service_ = std::make_unique<variations::TestVariationsService>(
+        &local_state_, metrics_state_manager_.get());
+
+    variations_service_->OverrideStoredPermanentCountry("zz");
+    TestingBrowserProcess::GetGlobal()->SetVariationsService(
+        variations_service_.get());
+
+    GlicEnablingAnchorEntryPointTestBase::SetUp();
+  }
+
+  void TearDown() override {
+    GlicEnablingAnchorEntryPointTestBase::TearDown();
+    TestingBrowserProcess::GetGlobal()->SetVariationsService(nullptr);
+    variations_service_.reset();
+    metrics_state_manager_.reset();
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+  TestingPrefServiceSimple local_state_;
+  metrics::TestEnabledStateProvider enabled_state_provider_{/*consent=*/false,
+                                                            /*enabled=*/false};
+  std::unique_ptr<metrics::MetricsStateManager> metrics_state_manager_;
+  std::unique_ptr<variations::TestVariationsService> variations_service_;
+};
+
+TEST_F(GlicEnablingAnchorEntryPointCountryTest,
+       AnchoredButtonForCountryDisabled) {
+  profile()->GetPrefs()->SetInteger(
+      glic::prefs::kGlicCompletedFre,
+      static_cast<int>(glic::prefs::FreStatus::kCompleted));
+
+  base::HistogramTester histogram_tester;
+
+  // Profile should be eligible because the anchor entry point feature is active
+  // and user is onboarded, even though the country is disabled.
+  EXPECT_TRUE(GlicEnabling::IsProfileEligible(profile()));
+
+  GlicEnabling::ProfileEnablement enablement =
+      GlicEnabling::EnablementForProfile(profile());
+  EXPECT_TRUE(enablement.ShouldShowGlicButton());
+  EXPECT_EQ(GlicEnabling::GetProfileReadyState(profile()),
+            mojom::ProfileReadyState::kLocationMismatch);
+  enablement.RecordStartupMetrics();
+  enablement.RecordSteadyStateMetrics();
+
+  // It should log the country disabled reason to the consolidated metric.
+  using Reason =
+      GlicEnabling::ProfileEnablement::AnchoredDespiteEligibilityReason;
+  EXPECT_THAT(
+      histogram_tester.GetAllSamplesForPrefix(
+          "Glic.ProfileEnablement.AnchoredDespiteEligibilityReason"),
+      testing::UnorderedElementsAre(
+          testing::Pair(
+              "Glic.ProfileEnablement.AnchoredDespiteEligibilityReason.Startup",
+              base::BucketsAre(base::Bucket(Reason::kCountryDisabled, 1))),
+          testing::Pair(
+              "Glic.ProfileEnablement.AnchoredDespiteEligibilityReason."
+              "SteadyState",
+              base::BucketsAre(base::Bucket(Reason::kCountryDisabled, 1)))));
+}
+
+TEST_F(GlicEnablingAnchorEntryPointCountryTest,
+       AnchoredButtonForMultipleIneligibilityReasons) {
+  profile()->GetPrefs()->SetInteger(
+      glic::prefs::kGlicCompletedFre,
+      static_cast<int>(glic::prefs::FreStatus::kCompleted));
+
+  // 1. Trigger account capability ineligibility.
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile());
+  AccountInfo account_info =
+      identity_manager->FindExtendedAccountInfoByAccountId(
+          identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSignin));
+  AccountCapabilitiesTestMutator mutator(&account_info);
+  mutator.set_can_use_model_execution_features(false);
+  signin::UpdateAccountInfoForAccount(identity_manager, account_info);
+
+  // 2. Country filtering is also disabled (overridden to "zz" in SetUp).
+
+  base::HistogramTester histogram_tester;
+
+  // Profile should be eligible because the anchor entry point feature is active
+  // and user is onboarded, even though the country and account are ineligible.
+  EXPECT_TRUE(GlicEnabling::IsProfileEligible(profile()));
+
+  GlicEnabling::ProfileEnablement enablement =
+      GlicEnabling::EnablementForProfile(profile());
+  EXPECT_TRUE(enablement.ShouldShowGlicButton());
+
+  // GetProfileReadyState prioritizes capability over country filtering, so it
+  // should return kIneligibleAccount.
+  EXPECT_EQ(GlicEnabling::GetProfileReadyState(profile()),
+            mojom::ProfileReadyState::kIneligibleAccount);
+
+  enablement.RecordStartupMetrics();
+  enablement.RecordSteadyStateMetrics();
+
+  // Both ineligibility reasons should be logged to the consolidated metric.
+  using Reason =
+      GlicEnabling::ProfileEnablement::AnchoredDespiteEligibilityReason;
+  EXPECT_THAT(
+      histogram_tester.GetAllSamplesForPrefix(
+          "Glic.ProfileEnablement.AnchoredDespiteEligibilityReason"),
+      testing::UnorderedElementsAre(
+          testing::Pair(
+              "Glic.ProfileEnablement.AnchoredDespiteEligibilityReason.Startup",
+              base::BucketsAre(
+                  base::Bucket(Reason::kCountryDisabled, 1),
+                  base::Bucket(Reason::kPrimaryAccountNotCapable, 1))),
+          testing::Pair(
+              "Glic.ProfileEnablement.AnchoredDespiteEligibilityReason."
+              "SteadyState",
+              base::BucketsAre(
+                  base::Bucket(Reason::kCountryDisabled, 1),
+                  base::Bucket(Reason::kPrimaryAccountNotCapable, 1)))));
+}
+
+class GlicEnablingCountryCheckTest : public GlicEnablingProfileEligibilityTest {
+ public:
+  GlicEnablingCountryCheckTest() {
+    scoped_feature_list_.InitWithFeatures(
+        /*enabled_features=*/
+        {
+            features::kGlic,
+            features::kGlicCountryFiltering,
+            features::kGlicAnchorEntryPointForOnboardedUsers,
+        },
+        /*disabled_features=*/{features::kGlicUserStatusCheck});
+  }
+
+ protected:
+  TestDelegate* SetProfileCountryDelegate(
+      const std::string& permanent_country,
+      const std::string& session_country = "") {
+    auto delegate = std::make_unique<TestDelegate>();
+    TestDelegate* raw_delegate = delegate.get();
+    delegate->SetPermanentCountryCode(permanent_country);
+    delegate->SetSessionCountryCode(session_country);
+    g_browser_process->GetFeatures()
+        ->glic_global_enabling()
+        .UpdateStateForTesting(std::move(delegate));
+    return raw_delegate;
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+TEST_F(GlicEnablingCountryCheckTest, GlobalEnablingBypassesCountryFilter) {
+  TestDelegate delegate;
+  delegate.SetBothCountryCodes("zz");
+  // Global criteria check does not evaluate country filtering, so it returns
+  // true even for disabled countries.
+  EXPECT_TRUE(GlicGlobalEnabling(delegate.Clone()).IsEnabledByGlobalCriteria());
+}
+
+TEST_F(GlicEnablingCountryCheckTest, NullProfileReturnsFalse) {
+  EXPECT_FALSE(GlicEnabling::IsProfileEligible(nullptr));
+  EXPECT_FALSE(GlicEnabling::EnablementForProfile(nullptr).IsEnabled());
+}
+
+TEST_F(GlicEnablingCountryCheckTest,
+       CountryCheckEvaluationAndEnablementCaching) {
+  auto& global_enabling =
+      g_browser_process->GetFeatures()->glic_global_enabling();
+
+  // 1. Initial check with a disabled country ("zz") returns false.
+  TestDelegate* delegate = SetProfileCountryDelegate("zz");
+  EXPECT_FALSE(global_enabling.IsCountryEnabled());
+
+  // 2. Update country to an enabled one ("us"). Re-evaluates and returns true.
+  delegate->SetPermanentCountryCode("us");
+  EXPECT_TRUE(global_enabling.IsCountryEnabled());
+
+  // 3. Update country back to "zz". Since true is cached on global_enabling,
+  // it continues to return true without re-querying the delegate.
+  delegate->SetPermanentCountryCode("zz");
+  EXPECT_TRUE(global_enabling.IsCountryEnabled());
+
+  // 4. Reset cache for testing. Evaluates against delegate ("zz") and returns
+  // false.
+  global_enabling.UpdateStateForTesting(delegate->Clone());
+  EXPECT_FALSE(global_enabling.IsCountryEnabled());
+}
+
+TEST_F(GlicEnablingCountryCheckTest,
+       CountryCheckEvaluationAndCountryCheckResultCaching) {
+  base::HistogramTester histogram_tester;
+
+  auto& global_enabling =
+      g_browser_process->GetFeatures()->glic_global_enabling();
+
+  // 1. Initial check with a disabled country ("zz"). Evaluates to
+  // kBlockedNotInInclusionList and records the sample once.
+  TestDelegate* delegate = SetProfileCountryDelegate("zz", "zz");
+  EXPECT_FALSE(global_enabling.IsCountryEnabled());
+  histogram_tester.ExpectUniqueSample(
+      "Glic.CountryFilteringResult2",
+      GlicFilteringResult::kBlockedNotInInclusionList, 1);
+
+  // 2. Subsequent check with no change in the delegate's country. Enablement
+  // check returns false again, but the histogram should not be recorded a
+  // second time.
+  EXPECT_FALSE(global_enabling.IsCountryEnabled());
+  histogram_tester.ExpectUniqueSample(
+      "Glic.CountryFilteringResult2",
+      GlicFilteringResult::kBlockedNotInInclusionList, 1);
+
+  // 3. Update permanent country to another disabled one ("yy") and checks
+  // country enablement twice. Should re-record kBlockedNotInInclusionList once.
+  delegate->SetPermanentCountryCode("yy");
+  EXPECT_FALSE(global_enabling.IsCountryEnabled());
+  EXPECT_FALSE(global_enabling.IsCountryEnabled());
+  histogram_tester.ExpectBucketCount(
+      "Glic.CountryFilteringResult2",
+      GlicFilteringResult::kBlockedNotInInclusionList, 2);
+  histogram_tester.ExpectTotalCount("Glic.CountryFilteringResult2", 2);
+
+  // 4. Update session country to another disabled one ("xx") and checks
+  // country enablement twice. Should re-record kBlockedNotInInclusionList once.
+  delegate->SetSessionCountryCode("xx");
+  EXPECT_FALSE(global_enabling.IsCountryEnabled());
+  EXPECT_FALSE(global_enabling.IsCountryEnabled());
+  histogram_tester.ExpectBucketCount(
+      "Glic.CountryFilteringResult2",
+      GlicFilteringResult::kBlockedNotInInclusionList, 3);
+  histogram_tester.ExpectTotalCount("Glic.CountryFilteringResult2", 3);
+
+  // 5. Update country to an enabled one ("us"). Two country checks return true,
+  // but only a single sample is recorded to another bucket of the histogram.
+  delegate->SetPermanentCountryCode("us");
+  EXPECT_TRUE(global_enabling.IsCountryEnabled());
+  EXPECT_TRUE(global_enabling.IsCountryEnabled());
+  histogram_tester.ExpectBucketCount(
+      "Glic.CountryFilteringResult2",
+      GlicFilteringResult::kAllowedInInclusionList, 1);
+  histogram_tester.ExpectTotalCount("Glic.CountryFilteringResult2", 4);
+
+  // 6. Reset cache and re-evaluate with "zz" again. Should re-record
+  // kBlockedNotInInclusionList since cache was cleared.
+  delegate->SetPermanentCountryCode("zz");
+  global_enabling.UpdateStateForTesting(delegate->Clone());
+  EXPECT_FALSE(global_enabling.IsCountryEnabled());
+  histogram_tester.ExpectBucketCount(
+      "Glic.CountryFilteringResult2",
+      GlicFilteringResult::kBlockedNotInInclusionList, 4);
+  histogram_tester.ExpectTotalCount("Glic.CountryFilteringResult2", 5);
+}
+
+TEST_F(GlicEnablingCountryCheckTest,
+       ProfileReadyState_LocationMismatchWhenAnchored) {
+  // The pref change triggers observers, so the country must be set beforehand.
+  SetProfileCountryDelegate("zz");
+  profile()->GetPrefs()->SetInteger(
+      glic::prefs::kGlicCompletedFre,
+      static_cast<int>(glic::prefs::FreStatus::kCompleted));
+
+  auto* identity_test_env = identity_test_env_adaptor_->identity_test_env();
+  AccountInfo account_info = identity_test_env->MakePrimaryAccountAvailable(
+      "test@example.com", signin::ConsentLevel::kSignin);
+  AccountCapabilitiesTestMutator mutator(&account_info);
+  mutator.set_can_use_model_execution_features(true);
+  signin::UpdateAccountInfoForAccount(identity_test_env->identity_manager(),
+                                      account_info);
+
+  GlicEnabling::ProfileEnablement enablement =
+      GlicEnabling::EnablementForProfile(profile());
+  EXPECT_FALSE(enablement.allowed_by_country_filter);
+  EXPECT_FALSE(enablement.IsEnabled());
+  EXPECT_TRUE(enablement.ShouldShowGlicButton());
+  EXPECT_EQ(GlicEnabling::GetProfileReadyState(profile()),
+            mojom::ProfileReadyState::kLocationMismatch);
+}
+
+TEST_F(GlicEnablingCountryCheckTest,
+       ProfileReadyState_IneligibleWhenNotAnchored) {
+  // The pref change triggers observers, so the country must be set beforehand.
+  SetProfileCountryDelegate("zz");
+  profile()->GetPrefs()->SetInteger(
+      glic::prefs::kGlicCompletedFre,
+      static_cast<int>(glic::prefs::FreStatus::kIncomplete));
+
+  auto* identity_test_env = identity_test_env_adaptor_->identity_test_env();
+  AccountInfo account_info = identity_test_env->MakePrimaryAccountAvailable(
+      "test@example.com", signin::ConsentLevel::kSignin);
+  AccountCapabilitiesTestMutator mutator(&account_info);
+  mutator.set_can_use_model_execution_features(true);
+  signin::UpdateAccountInfoForAccount(identity_test_env->identity_manager(),
+                                      account_info);
+
+  GlicEnabling::ProfileEnablement enablement =
+      GlicEnabling::EnablementForProfile(profile());
+  EXPECT_FALSE(enablement.allowed_by_country_filter);
+  EXPECT_FALSE(enablement.IsEnabled());
+  EXPECT_FALSE(enablement.ShouldShowGlicButton());
+  EXPECT_EQ(GlicEnabling::GetProfileReadyState(profile()),
+            mojom::ProfileReadyState::kIneligible);
+}
+
+class GlicEnablingRecoveryMetricsTest
+    : public GlicEnablingProfileReadyStateTestBase {};
+
+TEST_F(GlicEnablingRecoveryMetricsTest, RecoveryFromSignInRequired) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(features::kGlicShowForSignedOut);
+
+  // 1. Initial state: Ready (since primary account is capable and signed in)
+  ASSERT_EQ(GlicEnabling::GetProfileReadyState(profile()),
+            mojom::ProfileReadyState::kReady);
+
+  base::HistogramTester histogram_tester;
+
+  // 2. Transition to kSignInRequired by clearing the primary account
+#if BUILDFLAG(IS_CHROMEOS)
+  // On ChromeOS we cannot clear primary account easily, so we skip
+  // kSignInRequired tests on ChromeOS.
+#else
+  auto* identity_test_env = identity_test_env_adaptor_->identity_test_env();
+  identity_test_env->ClearPrimaryAccount();
+
+  // Verify we are in kSignInRequired
+  ASSERT_EQ(GlicEnabling::GetProfileReadyState(profile()),
+            mojom::ProfileReadyState::kSignInRequired);
+
+  // 3. Recover by signing back in
+  AccountInfo account_info = identity_test_env->MakePrimaryAccountAvailable(
+      "test@example.com", signin::ConsentLevel::kSignin);
+  AccountCapabilitiesTestMutator mutator(&account_info);
+  mutator.set_can_use_model_execution_features(true);
+  signin::UpdateAccountInfoForAccount(identity_test_env->identity_manager(),
+                                      account_info);
+
+  // Verify we transitioned back to kReady
+  ASSERT_EQ(GlicEnabling::GetProfileReadyState(profile()),
+            mojom::ProfileReadyState::kReady);
+
+  // Verify metric is not logged yet in the background
+  histogram_tester.ExpectTotalCount("Glic.ProfileEnablement.RecoveredFromState",
+                                    0);
+
+  // 4. Trigger user interaction to log the recovery metric
+  glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile(), /*create=*/true)
+      ->enabling()
+      .MaybeRecordRecoveryOnInteraction();
+
+  histogram_tester.ExpectBucketCount(
+      "Glic.ProfileEnablement.RecoveredFromState",
+      mojom::ProfileReadyState::kSignInRequired, 1);
+
+  // Subsequent interactions should not log it again
+  glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile(), /*create=*/true)
+      ->enabling()
+      .MaybeRecordRecoveryOnInteraction();
+  histogram_tester.ExpectTotalCount("Glic.ProfileEnablement.RecoveredFromState",
+                                    1);
+#endif
+}
+
+TEST_F(GlicEnablingRecoveryMetricsTest, RecoveryFromIneligibleAccount) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kGlicAnchorEntryPointForOnboardedUsers);
+
+  profile()->GetPrefs()->SetInteger(
+      glic::prefs::kGlicCompletedFre,
+      static_cast<int>(glic::prefs::FreStatus::kCompleted));
+
+  // 1. Initial state: Ready
+  ASSERT_EQ(GlicEnabling::GetProfileReadyState(profile()),
+            mojom::ProfileReadyState::kReady);
+
+  base::HistogramTester histogram_tester;
+
+  // 2. Transition to kIneligibleAccount by disabling capabilities
+  auto* identity_test_env = identity_test_env_adaptor_->identity_test_env();
+  AccountInfo account_info =
+      identity_test_env->identity_manager()->FindExtendedAccountInfoByAccountId(
+          identity_test_env->identity_manager()->GetPrimaryAccountId(
+              signin::ConsentLevel::kSignin));
+  {
+    AccountCapabilitiesTestMutator mutator(&account_info);
+    mutator.set_can_use_model_execution_features(false);
+    signin::UpdateAccountInfoForAccount(identity_test_env->identity_manager(),
+                                        account_info);
+  }
+
+  // Verify we are in kIneligibleAccount
+  ASSERT_EQ(GlicEnabling::GetProfileReadyState(profile()),
+            mojom::ProfileReadyState::kIneligibleAccount);
+
+  // 3. Recover by enabling capabilities
+  {
+    AccountCapabilitiesTestMutator mutator(&account_info);
+    mutator.set_can_use_model_execution_features(true);
+    signin::UpdateAccountInfoForAccount(identity_test_env->identity_manager(),
+                                        account_info);
+  }
+
+  // Verify we transitioned back to kReady
+  ASSERT_EQ(GlicEnabling::GetProfileReadyState(profile()),
+            mojom::ProfileReadyState::kReady);
+
+  // Verify metric is not logged yet in the background
+  histogram_tester.ExpectTotalCount("Glic.ProfileEnablement.RecoveredFromState",
+                                    0);
+
+  // 4. Trigger user interaction to log the recovery metric
+  glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile(), /*create=*/true)
+      ->enabling()
+      .MaybeRecordRecoveryOnInteraction();
+
+  histogram_tester.ExpectBucketCount(
+      "Glic.ProfileEnablement.RecoveredFromState",
+      mojom::ProfileReadyState::kIneligibleAccount, 1);
+
+  // Subsequent interactions should not log it again
+  glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile(), /*create=*/true)
+      ->enabling()
+      .MaybeRecordRecoveryOnInteraction();
+  histogram_tester.ExpectTotalCount("Glic.ProfileEnablement.RecoveredFromState",
+                                    1);
+}
+
+TEST_F(GlicEnablingRecoveryMetricsTest, RecoveryFromLocationMismatch) {
+  // 1. Destroy the existing GlicKeyedService instance.
+  glic::GlicKeyedServiceFactory::GetInstance()->SetTestingFactory(
+      profile(), base::BindRepeating([](content::BrowserContext* context)
+                                         -> std::unique_ptr<KeyedService> {
+        return glic::GlicKeyedServiceFactory::GetInstance()
+            ->BuildServiceInstanceForBrowserContext(context);
+      }));
+
+  // 2. Set the "last ready state" pref to kLocationMismatch to simulate that
+  // Glic was in a location mismatch state in the previous session.
+  profile()->GetPrefs()->SetInteger(
+      glic::prefs::kGlicLastProfileReadyState,
+      static_cast<int>(mojom::ProfileReadyState::kLocationMismatch));
+
+  base::HistogramTester histogram_tester;
+
+  // 3. Trigger service construction by passing create=true. The constructor
+  // loads the pref (kLocationMismatch) and sets up state.
+  glic::GlicKeyedService* service =
+      glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile(),
+                                                         /*create=*/true);
+
+  // Verify we transitioned back to kReady
+  ASSERT_EQ(GlicEnabling::GetProfileReadyState(profile()),
+            mojom::ProfileReadyState::kReady);
+
+  // Verify metric is not logged yet on initialization
+  histogram_tester.ExpectTotalCount("Glic.ProfileEnablement.RecoveredFromState",
+                                    0);
+
+  // 4. Trigger user interaction to log the recovery metric
+  service->enabling().MaybeRecordRecoveryOnInteraction();
+
+  histogram_tester.ExpectBucketCount(
+      "Glic.ProfileEnablement.RecoveredFromState",
+      mojom::ProfileReadyState::kLocationMismatch, 1);
+
+  // Subsequent interactions should not log it again
+  service->enabling().MaybeRecordRecoveryOnInteraction();
+  histogram_tester.ExpectTotalCount("Glic.ProfileEnablement.RecoveredFromState",
+                                    1);
+}
+
+TEST_F(GlicEnablingRecoveryMetricsTest, RecoveryFromDisabledByAdmin) {
+  // 1. Destroy the existing GlicKeyedService instance.
+  glic::GlicKeyedServiceFactory::GetInstance()->SetTestingFactory(
+      profile(), base::BindRepeating([](content::BrowserContext* context)
+                                         -> std::unique_ptr<KeyedService> {
+        return glic::GlicKeyedServiceFactory::GetInstance()
+            ->BuildServiceInstanceForBrowserContext(context);
+      }));
+
+  // 2. Set the "last ready state" pref to kDisabledByAdmin to simulate that
+  // Glic was disabled by policy in the previous session.
+  profile()->GetPrefs()->SetInteger(
+      glic::prefs::kGlicLastProfileReadyState,
+      static_cast<int>(mojom::ProfileReadyState::kDisabledByAdmin));
+
+  base::HistogramTester histogram_tester;
+
+  // 3. Trigger service construction by passing create=true. The constructor
+  // loads the pref (kDisabledByAdmin) and sets up state.
+  glic::GlicKeyedService* service =
+      glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile(),
+                                                         /*create=*/true);
+
+  // Verify metric is not logged yet on initialization
+  histogram_tester.ExpectTotalCount("Glic.ProfileEnablement.RecoveredFromState",
+                                    0);
+
+  // 4. Trigger user interaction to log the recovery metric
+  service->enabling().MaybeRecordRecoveryOnInteraction();
+
+  histogram_tester.ExpectBucketCount(
+      "Glic.ProfileEnablement.RecoveredFromState",
+      mojom::ProfileReadyState::kDisabledByAdmin, 1);
+
+  // Subsequent interactions should not log it again
+  service->enabling().MaybeRecordRecoveryOnInteraction();
+  histogram_tester.ExpectTotalCount("Glic.ProfileEnablement.RecoveredFromState",
+                                    1);
+}
 }  // namespace
 }  // namespace glic

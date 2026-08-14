@@ -26,11 +26,16 @@
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/autofill/core/common/password_form_fill_data.h"
 #include "components/autofill/core/common/unique_ids.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "ui/gfx/geometry/rect.h"
 #include "url/origin.h"
 
 namespace autofill {
+
+namespace mojom {
+class AutofillVisibilityObserver;
+}  // namespace mojom
 
 // AutofillDriverRouter routes events between AutofillDriver objects in order to
 // handle frame-transcending forms.
@@ -230,6 +235,14 @@ class AutofillDriverRouter {
       AutofillDriver& source,
       FormData form,
       const FieldGlobalId& field_id);
+  void DidDetectJavaScriptAutofill(
+      RoutedCallback<const FormData&,
+                     const FieldGlobalId&,
+                     const std::vector<JavaScriptFieldModification>&> callback,
+      AutofillDriver& source,
+      FormData form,
+      FieldGlobalId trigger_field_id,
+      std::vector<JavaScriptFieldModification> field_modifications);
   void FocusOnFormField(
       RoutedCallback<const FormData&, const FieldGlobalId&> callback,
       AutofillDriver& source,
@@ -321,6 +334,10 @@ class AutofillDriverRouter {
                                   const std::string& email,
                                   const FieldGlobalId& token_field_id,
                                   const std::string& token);
+  void UpdateEmailVerificationState(
+      RoutedCallback<FieldRendererId, mojom::EmailVerificationState> callback,
+      const FieldGlobalId& email_field_id,
+      mojom::EmailVerificationState state);
   void ExposeDomNodeIdsInAllFrames(RoutedCallback<> callback);
   using BrowserFormHandler = AutofillDriver::BrowserFormHandler;
   using RendererFormHandler =
@@ -351,6 +368,12 @@ class AutofillDriverRouter {
       RoutedCallback<FieldRendererId, RendererFormHandler> callback,
       FieldGlobalId field_id,
       BrowserFormHandler browser_form_handler);
+  void ObserveFieldVisibility(
+      RoutedCallback<FieldRendererId,
+                     mojo::PendingRemote<mojom::AutofillVisibilityObserver>>
+          callback,
+      const FieldGlobalId& field_id,
+      mojo::PendingRemote<mojom::AutofillVisibilityObserver> observer);
   void RendererShouldAcceptDataListSuggestion(
       RoutedCallback<FieldRendererId, const std::u16string&> callback,
       const FieldGlobalId& field_id,

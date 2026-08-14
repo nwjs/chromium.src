@@ -55,6 +55,7 @@ GURL AppendAimUrlParams(
   GURL url = base_url;
   bool enabled = contextual_tasks::GetIsContextualTasksSearchQueryEnabled();
   std::optional<std::string> q_val = enabled ? aim_params.q : std::nullopt;
+  // LINT.IfChange(AimParamsCpp)
   const struct {
     const char* name;
     std::optional<std::string> value;
@@ -69,6 +70,7 @@ GURL AppendAimUrlParams(
       {"sxsrf", aim_params.sxsrf},
       {"ei", aim_params.ei},
   };
+  // LINT.ThenChange(//chrome/common/extensions/api/contextual_tasks_private.webidl:AimParams)
   for (const auto& param : kParams) {
     if (param.value && !param.value->empty()) {
       url = net::AppendQueryParameter(url, param.name, *param.value);
@@ -230,8 +232,7 @@ ContextualTasksPrivateLaunchPanelInNewTabFunction::Run() {
   content::NavigationController::LoadURLParams load_params(target_url);
   load_params.initiator_origin = rfh->GetLastCommittedOrigin();
   load_params.initiator_frame_token = rfh->GetFrameToken();
-  load_params.initiator_process_id =
-      rfh->GetProcess()->GetID().GetUnsafeValue();
+  load_params.initiator_process_id = rfh->GetProcess()->GetID();
   load_params.source_site_instance = rfh->GetSiteInstance();
   load_params.is_renderer_initiated = true;
   load_params.has_user_gesture = user_gesture();
@@ -240,12 +241,13 @@ ContextualTasksPrivateLaunchPanelInNewTabFunction::Run() {
   bool use_no_animation =
       contextual_tasks::ShouldContextualTasksPrivateApiUseNoAnimation();
 
-  ui_service->StartTaskUiInSidePanel(
-      browser, target_tab, aim_url,
-      /*session_handle=*/nullptr,
-      /*associate_web_contents=*/false,
-      omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT,
-      /*use_mstk_for_task_association=*/true, use_no_animation);
+  ui_service->StartTaskUiInSidePanel(browser, target_tab, aim_url,
+                                     /*session_handle=*/nullptr,
+                                     contextual_tasks::StartTaskUiOptions{
+                                         .associate_web_contents = false,
+                                         .use_mstk_for_task_association = true,
+                                         .use_no_animation = use_no_animation,
+                                     });
 
   return RespondNow(NoArguments());
 }

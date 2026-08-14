@@ -18,7 +18,6 @@
 #include "base/metrics/histogram_functions.h"
 #include "build/build_config.h"
 #include "chrome/browser/page_load_metrics/observers/top_chrome_webui_metrics_observer.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
@@ -34,7 +33,6 @@
 #include "chrome/browser/ui/views/omnibox/rounded_omnibox_results_frame.h"
 #include "chrome/browser/ui/views/theme_copying_widget.h"
 #include "components/omnibox/common/omnibox_feature_configs.h"
-#include "components/omnibox/common/omnibox_features.h"
 #include "components/omnibox/common/omnibox_metrics_utils.h"
 #include "components/viz/common/frame_timing_details.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -876,7 +874,7 @@ std::u16string OmniboxPopupViewViews::UpdateRowView(
     const AutocompleteMatch& match,
     const std::u16string& previous_row_header) {
   std::u16string current_row_header =
-      controller()->edit_model()->GetSuggestionGroupHeaderText(
+      controller()->autocomplete_controller()->GetSuggestionGroupHeaderText(
           match.suggestion_group_id);
   // Show the header if it's distinct from the previous match's header.
   if (!current_row_header.empty() &&

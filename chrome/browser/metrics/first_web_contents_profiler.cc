@@ -8,10 +8,12 @@
 #include <string>
 
 #include "base/check.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
+#include "chrome/browser/after_startup_task_utils.h"
 #include "chrome/browser/metrics/first_web_contents_profiler_base.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
@@ -46,10 +48,16 @@ class FirstWebContentsProfiler : public FirstWebContentsProfilerBase {
   void RecordNavigationFinished(base::TimeTicks navigation_start) override;
   void RecordFirstNonEmptyPaint() override;
   void RecordFirstNonEmptyPaintForOsLaunch() override;
+  void RecordFirstContentfulPaint(base::TimeTicks fcp_ticks) override;
+  void RecordLargestContentfulPaint(base::TimeTicks lcp_ticks) override;
   bool WasStartupInterrupted() override;
+  bool ShouldObservePaintTimingMetrics() override;
 
  private:
   ~FirstWebContentsProfiler() override = default;
+
+  std::unique_ptr<AfterStartupTaskUtils::StartupInProgressRef>
+      startup_in_progress_ref_;
 };
 
 // FirstWebContentsProfiler is created before the main MessageLoop starts
@@ -68,11 +76,23 @@ class FirstWebContentsProfiler : public FirstWebContentsProfilerBase {
 // `BeginFirstWebContentsProfiling`.
 FirstWebContentsProfiler::FirstWebContentsProfiler(
     content::WebContents* web_contents)
-    : FirstWebContentsProfilerBase(web_contents) {}
+    : FirstWebContentsProfilerBase(web_contents) {
+  if (base::FeatureList::IsEnabled(features::kImprovedStartupBestEffortDelay)) {
+    startup_in_progress_ref_ =
+        AfterStartupTaskUtils::RegisterStartupInProgressRef(
+            StartupIsCompleteReason::kFirstWebContentsProfiler);
+  }
+}
 
 void FirstWebContentsProfiler::RecordFinishReason(
     StartupProfilingFinishReason finish_reason) {
   RecordFirstWebContentsFinishReason(finish_reason);
+  // Release the startup-in-progress reference now that first-web-contents
+  // profiling has reached its terminal decision (first paint recorded or
+  // abandoned). This profiler may keep observing for FCP/LCP after a successful
+  // paint, but browser startup completion (and thus BEST_EFFORT task
+  // scheduling) must not be blocked on that extended observation.
+  startup_in_progress_ref_.reset();
 }
 
 void FirstWebContentsProfiler::RecordNavigationFinished(
@@ -94,8 +114,24 @@ void FirstWebContentsProfiler::RecordFirstNonEmptyPaintForOsLaunch() {
       .RecordFirstWebContentsNonEmptyPaintForOsLaunch(base::TimeTicks::Now());
 }
 
+void FirstWebContentsProfiler::RecordFirstContentfulPaint(
+    base::TimeTicks fcp_ticks) {
+  startup_metric_utils::GetBrowser().RecordFirstWebContentsFirstContentfulPaint(
+      fcp_ticks);
+}
+
+void FirstWebContentsProfiler::RecordLargestContentfulPaint(
+    base::TimeTicks lcp_ticks) {
+  startup_metric_utils::GetBrowser()
+      .RecordFirstWebContentsLargestContentfulPaint(lcp_ticks);
+}
+
 bool FirstWebContentsProfiler::WasStartupInterrupted() {
   return startup_metric_utils::GetBrowser().WasMainWindowStartupInterrupted();
+}
+
+bool FirstWebContentsProfiler::ShouldObservePaintTimingMetrics() {
+  return true;
 }
 
 }  // namespace

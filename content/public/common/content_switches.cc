@@ -25,10 +25,6 @@ const char kAllowLoopbackInPeerConnection[] =
 // Allows plugins to be loaded in the command line for testing.
 const char kAllowCommandLinePlugins[] = "allow-command-line-plugins";
 
-// Causes the Attribution Report API to run without delays or noise.
-const char kAttributionReportingDebugMode[] =
-    "attribution-reporting-debug-mode";
-
 // Bypasses the dialog prompting the user for permission to capture
 // cameras and microphones. Useful in automatic tests of video-conferencing
 // Web applications.
@@ -752,10 +748,8 @@ const char kTouchEventFeatureDetectionEnabled[] = "enabled";
 //   disabled: touch events are disabled.
 const char kTouchEventFeatureDetectionDisabled[] = "disabled";
 
-// Accepts a number representing the time-ticks value at the Unix epoch.
-// Since different processes can produce a different value for this due to
-// system clock changes, this allows synchronizing them to a single value.
-const char kTimeTicksAtUnixEpoch[] = "time-ticks-at-unix-epoch";
+// Enables debug mode for unbounded windows (draws a red border).
+const char kUnboundedWindowDebug[] = "unbounded-window-debug";
 
 // Replaces the existing codecs supported in peer connection with a single fake
 // codec entry that create a fake video encoder and decoder.

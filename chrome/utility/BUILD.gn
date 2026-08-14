@@ -8,6 +8,7 @@ import("//chrome/services/speech/buildflags/buildflags.gni")
 import("//components/on_device_translation/buildflags/features.gni")
 import("//crypto/features.gni")
 import("//extensions/buildflags/buildflags.gni")
+import("//media/media_options.gni")
 import("//pdf/features.gni")
 import("//printing/buildflags/buildflags.gni")
 import("//services/screen_ai/buildflags/features.gni")
@@ -247,6 +248,10 @@ static_library("utility") {
     ]
   }
 
+  if (enable_media_remoting_redirection) {
+    deps += [ "//chrome/services/redirection:redirection_service" ]
+  }
+
   if (is_android || enable_extensions) {
     deps += [ "//chrome/services/media_gallery_util:lib" ]
   }
@@ -257,6 +262,10 @@ static_library("utility") {
 
   if (enable_on_device_translation) {
     deps += [ "//components/on_device_translation/service:on_device_translation_service" ]
+  }
+
+  if (is_android) {
+    deps += [ "//chrome/services/readaloud" ]
   }
 }
 

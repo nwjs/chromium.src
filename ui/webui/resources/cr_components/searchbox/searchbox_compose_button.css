@@ -23,6 +23,17 @@
   --cr-hover-background-color: #F3F5F6;
   --cr-button-height: 32px;
   flex-shrink: 0;
+  /* These variables are only relevant for dynamic mode. */
+  --arrow-transform-start: translateY(-50%) translateX(-10.5px);
+  --arrow-transform-end: translateY(-50%) translateX(0);
+  --label-transform-input: translateX(-18px);
+}
+
+:host-context([dir='rtl']) {
+  /* These variables are only relevant for dynamic mode. */
+  --arrow-transform-start: translateY(-50%) translateX(10.5px);
+  --arrow-transform-end: translateY(-50%) translateX(0);
+  --label-transform-input: translateX(18px);
 }
 
 #composeButton {
@@ -44,7 +55,13 @@
 }
 
 .compose-icon {
-  filter: invert(1);
+  background-color: currentColor;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
   vertical-align: text-bottom;
   height: 18px;
   width: 18px;
@@ -52,7 +69,24 @@
   padding-left: 1px;
 }
 
+.compose-icon-favicon {
+  background-color: transparent;
+  object-fit: contain;
+  height: 16px;
+  width: 16px;
+  padding-top: 0;
+  padding-left: 0;
+}
+
 .arrow-icon {
+  background-color: currentColor;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+  vertical-align: text-bottom;
   display: none;
 }
 
@@ -169,16 +203,16 @@
   z-index: var(--cr-searchbox-compose-button-z-index, 100);
 }
 
-:host-context([ntp-realbox-next-enabled]) {
+:host([is-fusebox-enabled]) {
   --cr-button-height: 36px;
 }
 
-:host-context([ntp-realbox-next-enabled]) #composeButton {
+:host([is-fusebox-enabled]) #composeButton {
   font-size: 13px;
   font-weight: 500;
 }
 
-:host-context([ntp-realbox-next-enabled]) .glow-container {
+:host([is-fusebox-enabled]) .glow-container {
   height: var(--cr-searchbox-icon-size);
   top: 8px;
 }
@@ -210,7 +244,7 @@
   filter: blur(40px);
 }
 
-:host([ntp-realbox-next-enabled_]) .outer-glow {
+:host([is-fusebox-enabled]) .outer-glow {
   filter: blur(2px);
 }
 
@@ -218,7 +252,7 @@
   filter: none;
 }
 
-:host([ntp-realbox-next-enabled_]) #glowAnimationWrapper:hover .outer-glow {
+:host([is-fusebox-enabled]) #glowAnimationWrapper:hover .outer-glow {
   filter: blur(2px);
 }
 
@@ -259,16 +293,16 @@
   rotate: var(--mask-angle-start);
 }
 
-:host([ntp-realbox-next-enabled_]) .gradient-and-mask-wrapper .gradient:before {
+:host([is-fusebox-enabled]) .gradient-and-mask-wrapper .gradient:before {
   background: var(--glif-gradient);
   rotate: calc(var(--glif-angle-start) + var(--mouse-angle, 0deg));
 }
 
-:host([ntp-realbox-next-enabled_]) .play .gradient-and-mask-wrapper .gradient:before {
+:host([is-fusebox-enabled]) .play .gradient-and-mask-wrapper .gradient:before {
   animation: fade-in-out var(--anim-duration) linear forwards;
 }
 
-:host([ntp-realbox-next-enabled_]) .gradient-and-mask-wrapper .mask:before {
+:host([is-fusebox-enabled]) .gradient-and-mask-wrapper .mask:before {
   background: var(--mask-gradient);
   rotate: calc(var(--mask-angle-start) + var(--mouse-angle, 0deg));
 }
@@ -289,12 +323,12 @@
              fade-in-out-infinite var(--anim-duration) linear forwards;
 }
 
-:host([ntp-realbox-next-enabled_]) #glowAnimationWrapper:hover .gradient-and-mask-wrapper .mask:before {
+:host([is-fusebox-enabled]) #glowAnimationWrapper:hover .gradient-and-mask-wrapper .mask:before {
   --anim-duration: 8s;
   animation: fade-in-out-infinite var(--anim-duration) linear forwards;
 }
 
-:host([ntp-realbox-next-enabled_])
+:host([is-fusebox-enabled])
 #glowAnimationWrapper:hover
 .gradient-and-mask-wrapper
 .gradient:before {
@@ -517,12 +551,8 @@
 }
 
 :host([dynamic][has-user-input]) #label {
-  transform: translateX(-18px);
+  transform: var(--label-transform-input);
   transition: transform 333ms cubic-bezier(0.05, 0.7368, 0.1, 1);
-}
-
-:host-context([dir='rtl']) :host([dynamic][has-user-input]) #label {
-  transform: translateX(18px);
 }
 
 :host([dynamic]) .compose-icon {
@@ -547,16 +577,13 @@
 
 :host([dynamic]) .arrow-icon {
   display: inline-block;
-  filter: invert(1);
   height: 18px;
   width: 0;
   opacity: 0;
   position: absolute;
   inset-inline-end: 8px;
   top: 50%;
-  transform: translateY(-50%) translateX(-10.5px);
-  object-fit: cover;
-  object-position: left;
+  transform: var(--arrow-transform-start);
   transition: opacity 250ms cubic-bezier(0.05, 0, 0.1, 1),
               transform 350ms cubic-bezier(0.05, 0.735, 0.1, 1),
               width 350ms cubic-bezier(0.05, 0.735, 0.1, 1);
@@ -565,7 +592,7 @@
 :host([dynamic][has-user-input]) .arrow-icon {
   width: 18px;
   opacity: 1;
-  transform: translateY(-50%) translateX(0);
+  transform: var(--arrow-transform-end);
   animation: emerge 333ms cubic-bezier(0.05, 0.7368, 0.1, 1) forwards;
   transition: none;
 }
@@ -574,12 +601,12 @@
   from {
     width: 0;
     opacity: 0;
-    transform: translateY(-50%) translateX(-10.5px);
+    transform: var(--arrow-transform-start);
   }
   to {
     width: 18px;
     opacity: 1;
-    transform: translateY(-50%) translateX(0);
+    transform: var(--arrow-transform-end);
   }
 }
 

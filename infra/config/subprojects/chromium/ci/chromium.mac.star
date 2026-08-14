@@ -565,10 +565,6 @@ ci.thin_tester(
                 ],
                 remove_mixins = "mac_15_vm_optional",
             ),
-            # TODO(crbug.com/526983048): Can restore after fixing python crashes.
-            "chrome_wpt_tests": targets.mixin(
-                ci_only = True,
-            ),
             "telemetry_perf_unittests": targets.mixin(
                 ci_only = True,
             ),
@@ -610,6 +606,7 @@ ci.thin_tester(
         ],
         mixins = [
             "mac_26_vm_optional",
+            "isolate_profile_data",
         ],
         per_test_modifications = {
             # TODO(crbug.com/436628295): test fails on VM
@@ -676,8 +673,6 @@ ci.thin_tester(
             ),
         },
     ),
-    # TODO(crbug.com/502668461): Enable rotation when builder stabalizes.
-    gardener_rotations = args.ignore_default(None),
     tree_closing = False,
     console_view_entry = consoles.console_view_entry(
         category = "release|arm64",
@@ -772,9 +767,9 @@ ci.thin_tester(
 )
 
 ci.thin_tester(
-    name = "mac15-tests-dbg",
+    name = "mac26-tests-dbg",
     branch_selector = branches.selector.MAC_BRANCHES,
-    description_html = "Runs Mac 15 tests with debug config.",
+    description_html = "Runs Mac 26 tests with debug config.",
     parent = "ci/mac-arm64-dbg",
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
@@ -798,7 +793,7 @@ ci.thin_tester(
             "chromium_dbg_isolated_scripts",
         ],
         mixins = [
-            "mac_15_arm64",
+            "mac_26_arm64",
         ],
         per_test_modifications = {
             "blink_web_tests": targets.mixin(
@@ -854,7 +849,7 @@ ci.thin_tester(
     gardener_rotations = args.ignore_default(None),
     console_view_entry = consoles.console_view_entry(
         category = "debug",
-        short_name = "15",
+        short_name = "26",
     ),
     cq_mirrors_console_view = "mirrors",
     contact_team_email = "bling-engprod@google.com",
@@ -1042,6 +1037,42 @@ ci.thin_tester(
 )
 
 ci.thin_tester(
+    name = "mac26-x64-rel-tests",
+    branch_selector = branches.selector.MAC_BRANCHES,
+    description_html = "Runs selected MacOS 26 tests on CI.",
+    parent = "ci/Mac Builder",
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.MAC,
+        ),
+    ),
+    targets = targets.bundle(
+        targets = [
+            "mac26_x86_tests",
+        ],
+        mixins = [
+            "limited_capacity_bot",
+            "mac_26_x64",
+        ],
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "mac",
+        short_name = "26",
+    ),
+    contact_team_email = "bling-engprod@google.com",
+)
+
+ci.thin_tester(
     name = "mac-no-initial-webui-rel",
     description_html = "Runs tests with Initial WebUI disabled to check legacy UI path.",
     parent = "ci/mac-arm64-rel",
@@ -1067,7 +1098,7 @@ ci.thin_tester(
             "unit_tests",
         ],
         mixins = [
-            "mac_15_arm64",
+            "mac_default_arm64",
             "isolate_profile_data",
         ],
         per_test_modifications = {
@@ -1235,6 +1266,7 @@ ios_builder(
                 "mac_toolchain",
             ],
             build_config = builder_config.build_config.DEBUG,
+            target_arch = builder_config.target_arch.ARM,
             target_bits = 64,
             target_platform = builder_config.target_platform.IOS,
         ),
@@ -1310,6 +1342,7 @@ ios_builder(
                 "mac_toolchain",
             ],
             build_config = builder_config.build_config.DEBUG,
+            target_arch = builder_config.target_arch.ARM,
             target_bits = 64,
             target_platform = builder_config.target_platform.IOS,
         ),
@@ -1377,6 +1410,7 @@ ios_builder(
                 "mac_toolchain",
             ],
             build_config = builder_config.build_config.DEBUG,
+            target_arch = builder_config.target_arch.ARM,
             target_bits = 64,
             target_platform = builder_config.target_platform.IOS,
         ),

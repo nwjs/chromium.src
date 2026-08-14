@@ -4,8 +4,10 @@
 
 #import "components/webauthn/ios/passkey_tab_helper.h"
 
+#import "base/base64.h"
 #import "base/rand_util.h"
 #import "base/strings/string_number_conversions.h"
+#import "base/strings/utf_string_conversions.h"
 #import "base/test/metrics/histogram_tester.h"
 #import "base/test/run_until.h"
 #import "components/autofill/ios/browser/autofill_java_script_feature.h"
@@ -16,6 +18,7 @@
 #import "components/password_manager/core/browser/password_store/test_password_store.h"
 #import "components/password_manager/ios/ios_password_manager_driver_factory.h"
 #import "components/password_manager/ios/shared_password_controller.h"
+#import "components/webauthn/core/browser/passkey_change_quota_tracker.h"
 #import "components/webauthn/core/browser/passkey_model.h"
 #import "components/webauthn/core/browser/test_passkey_model.h"
 #import "components/webauthn/ios/fake_ios_passkey_client.h"
@@ -120,6 +123,7 @@ class PasskeyTabHelperTest : public PlatformTest {
     PasskeyTabHelper::CreateForWebState(&fake_web_state_, passkey_model_.get(),
                                         test_password_store_,
                                         std::move(client));
+    PasskeyChangeQuotaTracker::GetInstance()->ResetForTesting();
   }
 
   ~PasskeyTabHelperTest() override {
@@ -149,6 +153,11 @@ class PasskeyTabHelperTest : public PlatformTest {
 
   PasskeyTabHelper* passkey_tab_helper() {
     return PasskeyTabHelper::FromWebState(&fake_web_state_);
+  }
+
+  sync_pb::WebauthnCredentialSpecifics GetPasskey(const std::string& cred_id) {
+    return *passkey_model_->GetPasskey(
+        kRpId, cred_id, PasskeyModel::ShadowedCredentials::kInclude);
   }
 
   void MaybeShowInterstitialAndRegister(RegistrationRequestParams params) {
@@ -440,6 +449,48 @@ TEST_F(PasskeyTabHelperTest, SendPasskeysToWebAuthnCredentialsDelegate) {
             AsByteVector(kCredentialId));
 }
 
+// Tests that marking a passkey as user verified is correctly reflected when the
+// passkey is selected via the delegate.
+TEST_F(PasskeyTabHelperTest, MarkPasskeyAsUserVerified) {
+  SetUpWebFramesManagerAndWebFrame(GURL(kOriginURL));
+  SetUpIOSPasswordManagerDriver();
+  SetUpChildFrameRegistrarAndRegisterFrame(web::kMainFakeFrameId,
+                                           kMainRemoteFrameId);
+
+  // Add passkey with `kCredentialId`.
+  sync_pb::WebauthnCredentialSpecifics passkey = GetTestPasskey(kCredentialId);
+  passkey_model_->AddNewPasskeyForTesting(std::move(passkey));
+
+  IOSWebAuthnCredentialsDelegate* delegate =
+      IOSWebAuthnCredentialsDelegateFactory::GetFactory(&fake_web_state_)
+          ->GetDelegateForFrameId(web::kMainFakeFrameId);
+
+  AssertionRequestParams params = BuildTestAssertionRequestParams(
+      /*allow_credentials=*/{}, device::UserVerificationRequirement::kPreferred,
+      kFakeRequestId, web::kMainFakeFrameId, kMainRemoteFrameId);
+  passkey_tab_helper()->HandleGetRequestedEvent(std::move(params));
+
+  // Verify that the delegate has received the passkey.
+  auto passkeys = delegate->GetPasskeys();
+  ASSERT_TRUE(passkeys.has_value());
+  ASSERT_EQ(passkeys.value()->size(), 1u);
+
+  // Base64 encode the credential ID to use as backend_id.
+  std::string backend_id = base::Base64Encode(kCredentialId);
+
+  // Mark the passkey as user verified.
+  delegate->MarkPasskeyAsUserVerified(backend_id);
+
+  // Select the passkey.
+  base::RunLoop run_loop;
+  delegate->SelectPasskey(backend_id, run_loop.QuitClosure());
+  run_loop.Run();
+
+  // The last verification status should now be kCompleted.
+  EXPECT_EQ(client_->last_user_verification_status(),
+            PasskeyUserVerificationStatus::kCompleted);
+}
+
 // Tests that example.ca can access passkeys using relying party id
 // example.com when remote validation passes.
 TEST_F(PasskeyTabHelperTest, RequestPasskeyFromRelatedOriginSuccess) {
@@ -683,6 +734,123 @@ TEST_F(PasskeyTabHelperTest, AutomaticPasskeyUpgradeRpIdNormalization) {
   EXPECT_TRUE(CanPerformAutomaticPasskeyUpgrade(params, results));
 }
 
+// Tests that a conditional create request does NOT show the incognito
+// interstitial when automatic passkey upgrade is denied.
+TEST_F(PasskeyTabHelperTest, ConditionalCreateOffTheRecordUpgradeDeny) {
+  fake_browser_state_.SetOffTheRecord(true);
+  SetUpWebFramesManagerAndWebFrame(GURL(kOriginURL));
+  SetUpIOSPasswordManagerDriver();
+
+  IOSPasskeyClient::RequestInfo request_info(web::kMainFakeFrameId,
+                                             kFakeRequestId);
+  device::PublicKeyCredentialRpEntity rp_entity(kRpId);
+  std::vector<uint8_t> challenge;
+  PasskeyRequestParams::RequestType request_type =
+      PasskeyRequestParams::RequestType::kConditionalCreate;
+  PasskeyExtensionData extension_data;
+  PasskeyRequestParams request_params(
+      std::move(request_info), std::move(rp_entity), std::move(challenge),
+      device::UserVerificationRequirement::kPreferred, request_type,
+      std::move(extension_data));
+  device::PublicKeyCredentialUserEntity user_entity;
+  RegistrationRequestParams params(std::move(request_params),
+                                   std::move(user_entity),
+                                   /*exclude_credentials=*/{});
+
+  passkey_tab_helper()->HandleCreateRequestedEvent(std::move(params));
+
+  EXPECT_FALSE(client_->DidShowInterstitial());
+
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_FALSE(client_->DidShowInterstitial());
+  EXPECT_FALSE(client_->DidFetchKeys());
+}
+
+// Tests that a conditional create request shows the incognito interstitial
+// when automatic passkey upgrade is allowed, and creation proceeds if the user
+// chooses to proceed.
+TEST_F(PasskeyTabHelperTest, ConditionalCreateOffTheRecordUpgradeAllowProceed) {
+  fake_browser_state_.SetOffTheRecord(true);
+  SetUpWebFramesManagerAndWebFrame(GURL(kOriginURL));
+  SetUpIOSPasswordManagerDriver();
+
+  password_manager::PasswordForm form;
+  form.username_value = u"";
+  form.url = GURL(kOriginURL);
+  form.date_last_used = base::Time::Now();
+  test_password_store_->AddLogin(password_manager::FromPasswordForm(form));
+  base::RunLoop().RunUntilIdle();
+
+  IOSPasskeyClient::RequestInfo request_info(web::kMainFakeFrameId,
+                                             kFakeRequestId);
+  device::PublicKeyCredentialRpEntity rp_entity(kRpId);
+  std::vector<uint8_t> challenge;
+  PasskeyRequestParams::RequestType request_type =
+      PasskeyRequestParams::RequestType::kConditionalCreate;
+  PasskeyExtensionData extension_data;
+  PasskeyRequestParams request_params(
+      std::move(request_info), std::move(rp_entity), std::move(challenge),
+      device::UserVerificationRequirement::kPreferred, request_type,
+      std::move(extension_data));
+  device::PublicKeyCredentialUserEntity user_entity;
+  RegistrationRequestParams params(std::move(request_params),
+                                   std::move(user_entity),
+                                   /*exclude_credentials=*/{});
+
+  client_->SetInterstitialProceeds(true);
+
+  passkey_tab_helper()->HandleCreateRequestedEvent(std::move(params));
+
+  EXPECT_FALSE(client_->DidShowInterstitial());
+
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_TRUE(client_->DidShowInterstitial());
+  EXPECT_TRUE(client_->DidFetchKeys());
+}
+
+// Tests that a conditional create request shows the incognito interstitial
+// when automatic passkey upgrade is allowed, and creation is cancelled if the
+// user cancels.
+TEST_F(PasskeyTabHelperTest, ConditionalCreateOffTheRecordUpgradeAllowCancel) {
+  fake_browser_state_.SetOffTheRecord(true);
+  SetUpWebFramesManagerAndWebFrame(GURL(kOriginURL));
+  SetUpIOSPasswordManagerDriver();
+
+  password_manager::PasswordForm form;
+  form.username_value = u"";
+  form.url = GURL(kOriginURL);
+  form.date_last_used = base::Time::Now();
+  test_password_store_->AddLogin(password_manager::FromPasswordForm(form));
+  base::RunLoop().RunUntilIdle();
+
+  IOSPasskeyClient::RequestInfo request_info(web::kMainFakeFrameId,
+                                             kFakeRequestId);
+  device::PublicKeyCredentialRpEntity rp_entity(kRpId);
+  std::vector<uint8_t> challenge;
+  PasskeyRequestParams::RequestType request_type =
+      PasskeyRequestParams::RequestType::kConditionalCreate;
+  PasskeyExtensionData extension_data;
+  PasskeyRequestParams request_params(
+      std::move(request_info), std::move(rp_entity), std::move(challenge),
+      device::UserVerificationRequirement::kPreferred, request_type,
+      std::move(extension_data));
+  device::PublicKeyCredentialUserEntity user_entity;
+  RegistrationRequestParams params(std::move(request_params),
+                                   std::move(user_entity),
+                                   /*exclude_credentials=*/{});
+
+  client_->SetInterstitialProceeds(false);
+
+  passkey_tab_helper()->HandleCreateRequestedEvent(std::move(params));
+
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_TRUE(client_->DidShowInterstitial());
+  EXPECT_FALSE(client_->DidFetchKeys());
+}
+
 // Tests that a passkey assertion request defers back to the renderer when
 // OriginAllowedToMakeWebAuthnRequests check fails.
 TEST_F(PasskeyTabHelperTest, HandleGetRequestedEventDefersOnInvalidOrigin) {
@@ -770,6 +938,57 @@ TEST_F(PasskeyTabHelperTest, StartPasskeyCreationFromCrossOriginIframe) {
   EXPECT_NE(last_call.find(u"resolveAttestationRequest"), std::u16string::npos);
   EXPECT_NE(last_call.find(u"\\\"crossOrigin\\\":true"), std::u16string::npos);
   EXPECT_NE(last_call.find(u"\\\"topOrigin\\\":\\\"https://example.com\\\""),
+            std::u16string::npos);
+}
+
+// Tests that when a passkey creation request is initiated and the passkey model
+// already contains a passkey in the exclude list, an InvalidStateError is
+// returned to the website.
+TEST_F(PasskeyTabHelperTest, StartPasskeyCreationWithExcludedCredential) {
+  SetUpWebFramesManagerAndWebFrame(GURL(kOriginURL));
+  SetUpIOSPasswordManagerDriver();
+
+  // Add passkey with kCredentialId to the passkey model.
+  sync_pb::WebauthnCredentialSpecifics passkey = GetTestPasskey(kCredentialId);
+  passkey_model_->AddNewPasskeyForTesting(std::move(passkey));
+
+  web::FakeWebFramesManager* frames_manager =
+      static_cast<web::FakeWebFramesManager*>(
+          fake_web_state_.GetWebFramesManager(
+              PasskeyJavaScriptFeature::GetInstance()
+                  ->GetSupportedContentWorld()));
+  web::FakeWebFrame* frame = static_cast<web::FakeWebFrame*>(
+      frames_manager->GetFrameWithId(web::kMainFakeFrameId));
+
+  // Build registration params with kCredentialId in the exclude credentials
+  // list.
+  std::vector<device::PublicKeyCredentialDescriptor> exclude_credentials;
+  exclude_credentials.push_back(
+      {device::CredentialType::kPublicKey, AsByteVector(kCredentialId)});
+  RegistrationRequestParams params = BuildRegistrationRequestParams(
+      exclude_credentials, device::UserVerificationRequirement::kPreferred,
+      kFakeRequestId, web::kMainFakeFrameId);
+
+  // Handle creation request.
+  passkey_tab_helper()->HandleCreateRequestedEvent(std::move(params));
+  EXPECT_TRUE(client_->DidShowCreationBottomSheet());
+
+  // Trigger start of creation.
+  passkey_tab_helper()->StartPasskeyCreation(kFakeRequestId,
+                                             /*did_complete_uv=*/false);
+
+  // Verify that keys were NOT fetched.
+  EXPECT_FALSE(client_->DidFetchKeys());
+
+  // Verify that rejectPasskeyRequest was called on the frame with the correct
+  // error parameters.
+  std::u16string last_call = frame->GetLastJavaScriptCall();
+  EXPECT_NE(last_call.find(u"rejectPasskeyRequest"), std::u16string::npos);
+  EXPECT_NE(last_call.find(
+                base::UTF8ToUTF16(std::string_view(kInvalidStateErrorName))),
+            std::u16string::npos);
+  EXPECT_NE(last_call.find(base::UTF8ToUTF16(
+                std::string_view(kCredentialExcludedErrorMessage))),
             std::u16string::npos);
 }
 
@@ -961,6 +1180,246 @@ TEST_F(PasskeyTabHelperTest, HandleAssertionMalformedRemoteFrameIdGraceful) {
 
   // Verify that the suggestion bottom sheet was NOT shown.
   EXPECT_FALSE(client_->DidShowSuggestionBottomSheet());
+}
+
+// Tests that HandleSignalUnknownCredential hides the passkey matching the
+// provided credential ID from the model when the origin is valid.
+TEST_F(PasskeyTabHelperTest, HandleSignalUnknownCredentialEventSuccess) {
+  SetUpWebFramesManagerAndWebFrame(GURL(kOriginURL));
+
+  sync_pb::WebauthnCredentialSpecifics passkey = GetTestPasskey(kCredentialId);
+  static_cast<TestPasskeyModel*>(passkey_model_.get())
+      ->AddNewPasskeyForTesting(passkey);
+
+  SignalUnknownCredentialParams params{kRpId, AsByteVector(kCredentialId)};
+
+  passkey_tab_helper()->HandleSignalUnknownCredentialEvent(
+      url::Origin::Create(GURL(kOriginURL)), std::move(params));
+
+  // The passkey should now be marked as hidden.
+  EXPECT_TRUE(GetPasskey(kCredentialId).hidden());
+}
+
+// Tests that HandleSignalUnknownCredentialEvent drops requests with invalid
+// origins.
+TEST_F(PasskeyTabHelperTest, HandleSignalUnknownCredentialEventInvalidOrigin) {
+  SetUpWebFramesManagerAndWebFrame(GURL(kOriginURL));
+
+  sync_pb::WebauthnCredentialSpecifics passkey = GetTestPasskey(kCredentialId);
+  static_cast<TestPasskeyModel*>(passkey_model_.get())
+      ->AddNewPasskeyForTesting(passkey);
+
+  SignalUnknownCredentialParams params{"otherdomain.com",
+                                       AsByteVector(kCredentialId)};
+
+  // The call should be ignored and passkey remain unhidden.
+  passkey_tab_helper()->HandleSignalUnknownCredentialEvent(
+      url::Origin::Create(GURL(kOriginURL)), std::move(params));
+  EXPECT_FALSE(GetPasskey(kCredentialId).hidden());
+}
+
+// Tests that HandleSignalUnknownCredentialEvent ignores requests when quota is
+// exceeded.
+TEST_F(PasskeyTabHelperTest, HandleSignalUnknownCredentialEventQuotaExceeded) {
+  SetUpWebFramesManagerAndWebFrame(GURL(kOriginURL));
+
+  sync_pb::WebauthnCredentialSpecifics passkey = GetTestPasskey(kCredentialId);
+  static_cast<TestPasskeyModel*>(passkey_model_.get())
+      ->AddNewPasskeyForTesting(passkey);
+
+  const url::Origin origin = url::Origin::Create(GURL(kOriginURL));
+
+  for (int i = 0; i < PasskeyChangeQuotaTracker::kMaxTokensPerRP; ++i) {
+    SignalUnknownCredentialParams params{kRpId, AsByteVector(kCredentialId)};
+    passkey_tab_helper()->HandleSignalUnknownCredentialEvent(origin,
+                                                             std::move(params));
+    static_cast<TestPasskeyModel*>(passkey_model_.get())
+        ->UnhidePasskey(kCredentialId);
+  }
+
+  // Quota is now exhausted. Subsequent calls should be ignored.
+  SignalUnknownCredentialParams params{kRpId, AsByteVector(kCredentialId)};
+  passkey_tab_helper()->HandleSignalUnknownCredentialEvent(origin,
+                                                           std::move(params));
+  EXPECT_FALSE(GetPasskey(kCredentialId).hidden());
+}
+
+// Tests that HandleSignalCurrentUserDetailsEvent updates matching passkey user
+// details in the model when the origin is valid.
+TEST_F(PasskeyTabHelperTest, HandleSignalCurrentUserDetailsEventSuccess) {
+  SetUpWebFramesManagerAndWebFrame(GURL(kOriginURL));
+
+  sync_pb::WebauthnCredentialSpecifics passkey = GetTestPasskey(kCredentialId);
+  static_cast<TestPasskeyModel*>(passkey_model_.get())
+      ->AddNewPasskeyForTesting(passkey);
+
+  const std::vector<uint8_t> user_id(passkey.user_id().begin(),
+                                     passkey.user_id().end());
+  SignalCurrentUserDetailsParams params{kRpId, user_id, "newname@example.com",
+                                        "New Display Name"};
+
+  passkey_tab_helper()->HandleSignalCurrentUserDetailsEvent(
+      url::Origin::Create(GURL(kOriginURL)), std::move(params));
+
+  // The passkey user details should now be updated in the model.
+  sync_pb::WebauthnCredentialSpecifics updated_passkey =
+      GetPasskey(kCredentialId);
+  EXPECT_EQ(updated_passkey.user_name(), "newname@example.com");
+  EXPECT_EQ(updated_passkey.user_display_name(), "New Display Name");
+}
+
+// Tests that HandleSignalCurrentUserDetailsEvent drops requests with invalid
+// origins.
+TEST_F(PasskeyTabHelperTest, HandleSignalCurrentUserDetailsEventInvalidOrigin) {
+  SetUpWebFramesManagerAndWebFrame(GURL(kOriginURL));
+
+  sync_pb::WebauthnCredentialSpecifics passkey = GetTestPasskey(kCredentialId);
+  static_cast<TestPasskeyModel*>(passkey_model_.get())
+      ->AddNewPasskeyForTesting(passkey);
+
+  const std::vector<uint8_t> user_id(passkey.user_id().begin(),
+                                     passkey.user_id().end());
+  // Mismatched relying party ID / origin.
+  SignalCurrentUserDetailsParams params{
+      "otherdomain.com", user_id, "newname@example.com", "New Display Name"};
+
+  passkey_tab_helper()->HandleSignalCurrentUserDetailsEvent(
+      url::Origin::Create(GURL(kOriginURL)), std::move(params));
+
+  // The passkey user details should remain unchanged.
+  sync_pb::WebauthnCredentialSpecifics unchanged_passkey =
+      GetPasskey(kCredentialId);
+  EXPECT_NE(unchanged_passkey.user_name(), "newname@example.com");
+  EXPECT_NE(unchanged_passkey.user_display_name(), "New Display Name");
+}
+
+// Tests that HandleSignalCurrentUserDetailsEvent ignores requests when quota is
+// exceeded.
+TEST_F(PasskeyTabHelperTest, HandleSignalCurrentUserDetailsEventQuotaExceeded) {
+  SetUpWebFramesManagerAndWebFrame(GURL(kOriginURL));
+
+  sync_pb::WebauthnCredentialSpecifics passkey = GetTestPasskey(kCredentialId);
+  static_cast<TestPasskeyModel*>(passkey_model_.get())
+      ->AddNewPasskeyForTesting(passkey);
+
+  const url::Origin origin = url::Origin::Create(GURL(kOriginURL));
+  const std::vector<uint8_t> user_id(passkey.user_id().begin(),
+                                     passkey.user_id().end());
+
+  for (int i = 0; i < PasskeyChangeQuotaTracker::kMaxTokensPerRP; ++i) {
+    SignalCurrentUserDetailsParams params{
+        kRpId, user_id, base::NumberToString(i), base::NumberToString(i)};
+    passkey_tab_helper()->HandleSignalCurrentUserDetailsEvent(
+        origin, std::move(params));
+  }
+
+  // Quota is now exhausted. Subsequent call should be ignored and passkey
+  // details remain unchanged from previous iteration.
+  SignalCurrentUserDetailsParams params{kRpId, user_id, "exhausted@example.com",
+                                        "Exhausted"};
+  passkey_tab_helper()->HandleSignalCurrentUserDetailsEvent(origin,
+                                                            std::move(params));
+
+  sync_pb::WebauthnCredentialSpecifics final_passkey =
+      GetPasskey(kCredentialId);
+  EXPECT_NE(final_passkey.user_name(), "exhausted@example.com");
+  EXPECT_NE(final_passkey.user_display_name(), "Exhausted");
+}
+
+// Tests that HandleSignalAllAcceptedCredentialsEvent hides a passkey missing
+// from the accepted list.
+TEST_F(PasskeyTabHelperTest, HandleSignalAllAcceptedCredentialsEventHide) {
+  SetUpWebFramesManagerAndWebFrame(GURL(kOriginURL));
+
+  sync_pb::WebauthnCredentialSpecifics passkey = GetTestPasskey(kCredentialId);
+  static_cast<TestPasskeyModel*>(passkey_model_.get())
+      ->AddNewPasskeyForTesting(passkey);
+
+  const std::vector<uint8_t> user_id(passkey.user_id().begin(),
+                                     passkey.user_id().end());
+  // Empty list of accepted credentials -> passkey should be hidden.
+  SignalAllAcceptedCredentialsParams params{kRpId, user_id, {}};
+
+  passkey_tab_helper()->HandleSignalAllAcceptedCredentialsEvent(
+      url::Origin::Create(GURL(kOriginURL)), std::move(params));
+
+  EXPECT_TRUE(GetPasskey(kCredentialId).hidden());
+}
+
+// Tests that HandleSignalAllAcceptedCredentialsEvent restores/unhides a passkey
+// present in the accepted list.
+TEST_F(PasskeyTabHelperTest, HandleSignalAllAcceptedCredentialsEventRestore) {
+  SetUpWebFramesManagerAndWebFrame(GURL(kOriginURL));
+
+  sync_pb::WebauthnCredentialSpecifics passkey = GetTestPasskey(kCredentialId);
+  static_cast<TestPasskeyModel*>(passkey_model_.get())
+      ->AddNewPasskeyForTesting(passkey);
+  static_cast<TestPasskeyModel*>(passkey_model_.get())
+      ->HidePasskey(kCredentialId, base::Time::Now());
+
+  ASSERT_TRUE(GetPasskey(kCredentialId).hidden());
+
+  const std::vector<uint8_t> user_id(passkey.user_id().begin(),
+                                     passkey.user_id().end());
+  SignalAllAcceptedCredentialsParams params{
+      kRpId, user_id, {AsByteVector(kCredentialId)}};
+
+  passkey_tab_helper()->HandleSignalAllAcceptedCredentialsEvent(
+      url::Origin::Create(GURL(kOriginURL)), std::move(params));
+
+  EXPECT_FALSE(GetPasskey(kCredentialId).hidden());
+}
+
+// Tests that HandleSignalAllAcceptedCredentialsEvent drops requests with
+// invalid origins.
+TEST_F(PasskeyTabHelperTest,
+       HandleSignalAllAcceptedCredentialsEventInvalidOrigin) {
+  SetUpWebFramesManagerAndWebFrame(GURL(kOriginURL));
+
+  sync_pb::WebauthnCredentialSpecifics passkey = GetTestPasskey(kCredentialId);
+  static_cast<TestPasskeyModel*>(passkey_model_.get())
+      ->AddNewPasskeyForTesting(passkey);
+
+  const std::vector<uint8_t> user_id(passkey.user_id().begin(),
+                                     passkey.user_id().end());
+  // Mismatched origin.
+  SignalAllAcceptedCredentialsParams params{"otherdomain.com", user_id, {}};
+
+  passkey_tab_helper()->HandleSignalAllAcceptedCredentialsEvent(
+      url::Origin::Create(GURL(kOriginURL)), std::move(params));
+
+  EXPECT_FALSE(GetPasskey(kCredentialId).hidden());
+}
+
+// Tests that HandleSignalAllAcceptedCredentialsEvent ignores requests when
+// quota is exceeded.
+TEST_F(PasskeyTabHelperTest,
+       HandleSignalAllAcceptedCredentialsEventQuotaExceeded) {
+  SetUpWebFramesManagerAndWebFrame(GURL(kOriginURL));
+
+  sync_pb::WebauthnCredentialSpecifics passkey = GetTestPasskey(kCredentialId);
+  static_cast<TestPasskeyModel*>(passkey_model_.get())
+      ->AddNewPasskeyForTesting(passkey);
+
+  const url::Origin origin = url::Origin::Create(GURL(kOriginURL));
+  const std::vector<uint8_t> user_id(passkey.user_id().begin(),
+                                     passkey.user_id().end());
+
+  for (int i = 0; i < PasskeyChangeQuotaTracker::kMaxTokensPerRP; ++i) {
+    SignalAllAcceptedCredentialsParams params{kRpId, user_id, {}};
+    passkey_tab_helper()->HandleSignalAllAcceptedCredentialsEvent(
+        origin, std::move(params));
+    static_cast<TestPasskeyModel*>(passkey_model_.get())
+        ->UnhidePasskey(kCredentialId);
+  }
+
+  // Quota is now exhausted. Subsequent call should be ignored and passkey
+  // remains unhidden.
+  SignalAllAcceptedCredentialsParams params{kRpId, user_id, {}};
+  passkey_tab_helper()->HandleSignalAllAcceptedCredentialsEvent(
+      origin, std::move(params));
+
+  EXPECT_FALSE(GetPasskey(kCredentialId).hidden());
 }
 
 }  // namespace webauthn

@@ -5,11 +5,16 @@
 // META: --screen-info={2000x1000 \
 // META:   workAreaLeft=10 workAreaRight=20 workAreaTop=30 workAreaBottom=40}
 
-(async function(testRunner) {
+(async function(/** @type {import('test_runner').TestRunner} */ testRunner) {
   const {dp} = await testRunner.startBlank(
       'Tests CDP Emulation.updateScreen() API device pixel ratio handling.');
 
-  const screenId = '1';
+  async function getScreenId(index) {
+    const {screenInfos} = (await dp.Emulation.getScreenInfos()).result;
+    return screenInfos[index].id;
+  }
+
+  const screenId = await getScreenId(0);
 
   const {screenInfo} =
       (await dp.Emulation.updateScreen({screenId, devicePixelRatio: 2})).result;

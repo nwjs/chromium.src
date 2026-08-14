@@ -5,12 +5,9 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_ANIMATION_PATH_INTERPOLATION_FUNCTIONS_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_ANIMATION_PATH_INTERPOLATION_FUNCTIONS_H_
 
-#include <optional>
-
 #include "third_party/blink/renderer/core/animation/interpolation_type.h"
+#include "third_party/blink/renderer/core/animation/shape_property_functions.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/style/computed_style_constants.h"
-#include "third_party/blink/renderer/core/svg/svg_path_byte_stream.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 
 namespace blink {
@@ -31,10 +28,8 @@ class CORE_EXPORT PathInterpolationFunctions {
                         const InterpolationType*,
                         const InterpolationValue&);
 
-  static InterpolationValue ConvertValue(
-      const StylePath*,
-      CoordinateConversion,
-      std::optional<ShapeBox> css_box = std::nullopt);
+  static InterpolationValue ConvertValue(const BasicShapeInfo&,
+                                         CoordinateConversion);
 
   static InterpolationValue MaybeConvertNeutral(
       const InterpolationValue& underlying,
@@ -45,25 +40,12 @@ class CORE_EXPORT PathInterpolationFunctions {
 
   static bool IsPathNonInterpolableValue(const NonInterpolableValue& value);
 
-  // Returns the <shape-box> stored on the non-interpolable value for
-  // shape-outside path() animations. Other callers leave this unset.
-  static std::optional<ShapeBox> GetCssBox(const NonInterpolableValue&);
+  static ShapeReferenceBox GetBox(const NonInterpolableValue&);
 
   static PairwiseInterpolationValue MaybeMergeSingles(
       InterpolationValue&& start,
       InterpolationValue&& end);
 };
-
-// shape-outside's spec default <shape-box> is margin-box, so an absent
-// <shape-box> (ShapeBox::kMissing) compares equal to an explicit margin-box.
-inline bool ShapeOutsideBoxesMatch(std::optional<ShapeBox> a,
-                                   std::optional<ShapeBox> b) {
-  auto canon = [](std::optional<ShapeBox> x) {
-    auto v = x.value_or(ShapeBox::kMissing);
-    return v == ShapeBox::kMissing ? ShapeBox::kMarginBox : v;
-  };
-  return canon(a) == canon(b);
-}
 
 }  // namespace blink
 

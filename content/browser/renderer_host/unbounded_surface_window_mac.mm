@@ -7,6 +7,7 @@
 #import <Cocoa/Cocoa.h>
 
 #include "base/apple/owned_objc.h"
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/task/single_thread_task_runner.h"
@@ -23,6 +24,7 @@
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "content/browser/renderer_host/render_widget_host_view_mac.h"
 #include "content/public/browser/context_factory.h"
+#include "content/public/common/content_switches.h"
 #include "third_party/blink/public/common/features.h"
 #include "ui/accelerated_widget_mac/display_ca_layer_tree.h"
 #include "ui/base/cocoa/remote_layer_api.h"
@@ -96,8 +98,10 @@ UnboundedSurfaceWindowMac::UnboundedSurfaceWindowMac(
     RenderWidgetHostViewMac* parent_view,
     mojo::PendingAssociatedReceiver<blink::mojom::UnboundedSurfaceHost> host,
     mojo::PendingAssociatedRemote<blink::mojom::UnboundedSurfaceClient> client,
-    const gfx::Rect& bounds_in_dips)
+    const gfx::Rect& bounds_in_screen,
+    base::WeakPtr<RenderWidgetHostViewBase> subframe_view)
     : parent_view_(parent_view),
+      subframe_view_(std::move(subframe_view)),
       frame_sink_id_(content::AllocateFrameSinkId()) {
   CHECK(base::FeatureList::IsEnabled(blink::features::kUnboundedElement),
         base::NotFatalUntil::M152);
@@ -109,7 +113,7 @@ UnboundedSurfaceWindowMac::UnboundedSurfaceWindowMac(
   if (client.is_valid()) {
     client_remote_.Bind(std::move(client));
   }
-  InitWindow(bounds_in_dips);
+  InitWindow(bounds_in_screen);
 }
 
 bool UnboundedSurfaceWindowMac::is_valid() const {
@@ -164,8 +168,7 @@ UnboundedSurfaceWindowMac::GetDisplayInfo() const {
   return info;
 }
 
-void UnboundedSurfaceWindowMac::InitWindow(const gfx::Rect& bounds_in_dips) {
-  gfx::Rect bounds_in_screen = ConvertDIPToScreenBounds(bounds_in_dips);
+void UnboundedSurfaceWindowMac::InitWindow(const gfx::Rect& bounds_in_screen) {
   NSRect ns_rect = gfx::ScreenRectToNSRect(bounds_in_screen);
 
   window_ =
@@ -186,6 +189,11 @@ void UnboundedSurfaceWindowMac::InitWindow(const gfx::Rect& bounds_in_dips) {
 
   CALayer* background_layer = [CALayer layer];
   background_layer.backgroundColor = [[NSColor clearColor] CGColor];
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kUnboundedWindowDebug)) {
+    background_layer.borderColor = [[NSColor redColor] CGColor];
+    background_layer.borderWidth = 3.0;
+  }
 
   display_ca_layer_tree_ =
       std::make_unique<ui::DisplayCALayerTree>(background_layer);
@@ -205,8 +213,8 @@ void UnboundedSurfaceWindowMac::InitWindow(const gfx::Rect& bounds_in_dips) {
   recyclable_compositor_ = std::make_unique<ui::RecyclableCompositorMac>(
       content::GetContextFactory());
 
-  root_layer_ = std::make_unique<ui::Layer>(ui::LayerType::LAYER_SOLID_COLOR);
-  root_layer_->SetColor(SK_ColorTRANSPARENT);
+  root_layer_ = std::make_unique<ui::LayerSolidColor>();
+  root_layer_->SetColor(SkColors::kTransparent);
   root_layer_->SetBounds(gfx::Rect(bounds_in_screen.size()));
 
   DisplayInfo display_info = GetDisplayInfo();
@@ -228,7 +236,7 @@ void UnboundedSurfaceWindowMac::InitWindow(const gfx::Rect& bounds_in_dips) {
 
   root_layer_->SetShowSurface(
       viz::SurfaceId(frame_sink_id_, GetLocalSurfaceId()),
-      bounds_in_screen.size(), SK_ColorTRANSPARENT,
+      bounds_in_screen.size(), SkColors::kTransparent,
       cc::DeadlinePolicy::UseDefaultDeadline(),
       /*stretch_content_to_fill_bounds=*/false);
 
@@ -270,7 +278,7 @@ void UnboundedSurfaceWindowMac::SetBounds(const gfx::Rect& bounds_in_screen) {
     if (root_layer_) {
       root_layer_->SetShowSurface(
           viz::SurfaceId(frame_sink_id_, GetLocalSurfaceId()),
-          bounds_in_screen.size(), SK_ColorTRANSPARENT,
+          bounds_in_screen.size(), SkColors::kTransparent,
           cc::DeadlinePolicy::UseDefaultDeadline(),
           /*stretch_content_to_fill_bounds=*/false);
     }
@@ -334,8 +342,8 @@ void UnboundedSurfaceWindowMac::EnsureSurfaceSynchronizedForWebTest() {
   if (root_layer_) {
     root_layer_->SetShowSurface(
         viz::SurfaceId(frame_sink_id_, GetLocalSurfaceId()),
-        root_layer_->bounds().size(), SK_ColorTRANSPARENT,
-        cc::DeadlinePolicy::UseInfiniteDeadline(),
+        root_layer_->bounds().size(), SkColors::kTransparent,
+        cc::DeadlinePolicy::UseDefaultDeadline(),
         /*stretch_content_to_fill_bounds=*/false);
   }
   if (recyclable_compositor_ && recyclable_compositor_->compositor()) {
@@ -399,7 +407,8 @@ void UnboundedSurfaceWindowMac::UpdateBounds(const gfx::Rect& bounds) {
   if (!parent_view_) {
     return;
   }
-  SetBounds(ConvertDIPToScreenBounds(bounds));
+  parent_view_->UpdateUnboundedSurfaceBoundsInSubframeContext(
+      bounds, subframe_view_.get());
   if (client_remote_.is_bound()) {
     client_remote_->OnSurfaceAllocated(GetFrameSinkId(), GetLocalSurfaceId());
   }
@@ -420,18 +429,6 @@ void UnboundedSurfaceWindowMac::Dismiss() {
 
 void UnboundedSurfaceWindowMac::OnConnectionError() {
   Dismiss();
-}
-
-gfx::Rect UnboundedSurfaceWindowMac::ConvertDIPToScreenBounds(
-    const gfx::Rect& bounds_in_dips) const {
-  if (!parent_view_) {
-    return bounds_in_dips;
-  }
-  float dsf = parent_view_->GetDeviceScaleFactor();
-  gfx::Rect bounds_in_screen =
-      gfx::ScaleToRoundedRect(bounds_in_dips, 1.f / dsf);
-  bounds_in_screen.Offset(parent_view_->GetViewBounds().OffsetFromOrigin());
-  return bounds_in_screen;
 }
 
 void UnboundedSurfaceWindowMac::AcceleratedWidgetCALayerParamsUpdated(

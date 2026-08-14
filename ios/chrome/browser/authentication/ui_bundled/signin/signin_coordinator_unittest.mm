@@ -16,6 +16,8 @@
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
+#import "ios/chrome/browser/sync/model/sync_service_factory.h"
+#import "ios/chrome/browser/sync/model/test_sync_service_utils.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/chrome/test/scoped_key_window.h"
 #import "ios/web/public/test/web_task_environment.h"
@@ -44,13 +46,13 @@ class SigninCoordinatorTest : public PlatformTest {
         AuthenticationServiceFactory::GetInstance(),
         AuthenticationServiceFactory::GetFactoryWithDelegate(
             std::make_unique<FakeAuthenticationServiceDelegate>()));
+    builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
+                              base::BindRepeating(&CreateTestSyncService));
     profile_ = std::move(builder).Build();
 
-    scene_state_ = [[SceneState alloc] initWithAppState:nil];
-    // Mock ProfileState to satisfy ScopedUIBlocker assertions during
-    // coordinator initialization.
-    mock_profile_state_ = OCMClassMock([ProfileState class]);
-    scene_state_.profileState = mock_profile_state_;
+    scene_state_ = [[SceneState alloc] init];
+    profile_state_ = [[ProfileState alloc] initWithAppState:nil];
+    scene_state_.profileState = profile_state_;
     browser_ = std::make_unique<TestBrowser>(profile_.get(), scene_state_);
 
     view_controller_ = [[UIViewController alloc] init];
@@ -73,17 +75,12 @@ class SigninCoordinatorTest : public PlatformTest {
         };
   }
 
-  void TearDown() override {
-    [mock_profile_state_ stopMocking];
-    PlatformTest::TearDown();
-  }
-
  protected:
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   web::WebTaskEnvironment task_environment_;
   std::unique_ptr<TestProfileIOS> profile_;
   SceneState* scene_state_;
-  id mock_profile_state_ = nil;
+  ProfileState* profile_state_;
   std::unique_ptr<TestBrowser> browser_;
   ScopedKeyWindow scoped_key_window_;
   UIViewController* view_controller_;

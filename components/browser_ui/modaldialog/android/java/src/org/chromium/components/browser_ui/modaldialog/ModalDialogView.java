@@ -65,6 +65,7 @@ public class ModalDialogView extends BoundedLinearLayout implements View.OnClick
     private ImageView mTitleEndIcon;
     private int mTitleDefaultHorizontalPadding;
     private ImageButton mTitleBackButton;
+    private ImageButton mTitleCloseButton;
     private ListMenuButton mTitleMoreButton;
     private LinearLayout mMessageParagraphsContainer;
     private View mMessageParagraphsSpacer;
@@ -80,6 +81,12 @@ public class ModalDialogView extends BoundedLinearLayout implements View.OnClick
     private @Nullable Callback<Integer> mOnButtonClickedCallback;
     private @Nullable Runnable mOnEscapeCallback;
     private boolean mTitleScrollable;
+    private boolean mTitleCloseButtonVisible;
+    private @Nullable OnClickListener mTitleCloseButtonListener;
+    private boolean mTitleBackButtonVisible;
+    private @Nullable OnClickListener mTitleBackButtonListener;
+    private boolean mTitleMoreButtonVisible;
+    private @Nullable OnClickListener mTitleMoreButtonListener;
     private boolean mShouldWrapCustomViewScrollable;
     private boolean mFilterTouchForSecurity;
     private @Nullable Runnable mOnTouchFilteredCallback;
@@ -150,6 +157,7 @@ public class ModalDialogView extends BoundedLinearLayout implements View.OnClick
         mTitleEndIcon = mTitleContainer.findViewById(R.id.title_end_icon);
         mTitleDefaultHorizontalPadding = mTitleContainer.getPaddingLeft();
         mTitleBackButton = mTitleContainer.findViewById(R.id.title_back);
+        mTitleCloseButton = mTitleContainer.findViewById(R.id.title_close_button);
         mTitleMoreButton = mTitleContainer.findViewById(R.id.title_more_button);
         mMessageParagraphsContainer = findViewById(R.id.message_paragraphs_container);
         mMessageParagraphsSpacer = findViewById(R.id.message_paragraphs_bottom_spacer);
@@ -232,8 +240,29 @@ public class ModalDialogView extends BoundedLinearLayout implements View.OnClick
         return shortEventAfterLastEvent;
     }
 
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        // If the dialog is shown without animation, onEnterAnimationStarted will not be called.
+        // We start the tap protection period here when the view is attached to ensure buttons
+        // are not permanently blocked. If there is an animation, onEnterAnimationStarted will
+        // be called later and will override this timestamp.
+        if (mStartProtectingButtonTimestamp < 0) {
+            mStartProtectingButtonTimestamp = TimeUtils.elapsedRealtimeMillis();
+        }
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        // Reset the timestamp when detached so that it can be correctly re-initialized
+        // when the view is attached again.
+        mStartProtectingButtonTimestamp = -1;
+    }
+
     /**
      * Callback when view is starting to appear on screen.
+     *
      * @param animationDuration Duration of enter animation.
      */
     void onEnterAnimationStarted(long animationDuration) {
@@ -265,7 +294,30 @@ public class ModalDialogView extends BoundedLinearLayout implements View.OnClick
         updateContentVisibility();
     }
 
-    /** @param maxLines The maximum number of title lines. */
+    /**
+     * @param listener The listener for the title's close button.
+     */
+    void setTitleCloseButtonClickListener(OnClickListener listener) {
+        mTitleCloseButtonListener = listener;
+        if (mTitleCloseButton != null) {
+            mTitleCloseButton.setOnClickListener(listener);
+        }
+    }
+
+    /**
+     * @param visible Whether the title's close button should be visible.
+     */
+    void setTitleCloseButtonVisible(boolean visible) {
+        mTitleCloseButtonVisible = visible;
+        if (mTitleCloseButton != null) {
+            mTitleCloseButton.setVisibility(visible ? View.VISIBLE : View.GONE);
+        }
+        updateContentVisibility();
+    }
+
+    /**
+     * @param maxLines The maximum number of title lines.
+     */
     public void setTitleMaxLines(int maxLines) {
         mTitleView.setMaxLines(maxLines);
     }
@@ -307,6 +359,23 @@ public class ModalDialogView extends BoundedLinearLayout implements View.OnClick
         mTitleView = mTitleContainer.findViewById(R.id.title);
         mTitleIcon = mTitleContainer.findViewById(R.id.title_icon);
         mTitleEndIcon = mTitleContainer.findViewById(R.id.title_end_icon);
+        mTitleCloseButton = mTitleContainer.findViewById(R.id.title_close_button);
+        if (mTitleCloseButton != null) {
+            mTitleCloseButton.setVisibility(mTitleCloseButtonVisible ? View.VISIBLE : View.GONE);
+            mTitleCloseButton.setOnClickListener(mTitleCloseButtonListener);
+        }
+
+        mTitleBackButton = mTitleContainer.findViewById(R.id.title_back);
+        if (mTitleBackButton != null) {
+            mTitleBackButton.setVisibility(mTitleBackButtonVisible ? View.VISIBLE : View.GONE);
+            mTitleBackButton.setOnClickListener(mTitleBackButtonListener);
+        }
+
+        mTitleMoreButton = mTitleContainer.findViewById(R.id.title_more_button);
+        if (mTitleMoreButton != null) {
+            mTitleMoreButton.setVisibility(mTitleMoreButtonVisible ? View.VISIBLE : View.GONE);
+            mTitleMoreButton.setOnClickListener(mTitleMoreButtonListener);
+        }
         setTitle(title);
         setTitleIcon(icon);
         setTitleEndIcon(endIcon);
@@ -699,8 +768,11 @@ public class ModalDialogView extends BoundedLinearLayout implements View.OnClick
     private void updateContentVisibility() {
         boolean titleVisible = !TextUtils.isEmpty(mTitleView.getText());
         boolean titleIconVisible = mTitleIcon.getDrawable() != null;
+        boolean titleCloseVisible =
+                mTitleCloseButton != null && mTitleCloseButton.getVisibility() == View.VISIBLE;
         boolean titleEndIconVisible = mTitleEndIcon.getDrawable() != null;
-        boolean titleContainerVisible = titleVisible || titleIconVisible || titleEndIconVisible;
+        boolean titleContainerVisible =
+                titleVisible || titleIconVisible || titleEndIconVisible || titleCloseVisible;
         boolean messageParagraphsVisible = mMessageParagraphsContainer.getChildCount() > 0;
         boolean menuItemsVisible = mMenuItemsContainer.getChildCount() > 0;
         boolean multipleParagraphsVisible = mMessageParagraphsContainer.getChildCount() > 1;
@@ -719,8 +791,7 @@ public class ModalDialogView extends BoundedLinearLayout implements View.OnClick
             titleHorizontalPadding =
                     getContext()
                             .getResources()
-                            .getDimensionPixelSize(
-                                    R.dimen.modal_dialog_title_with_icons_padding);
+                            .getDimensionPixelSize(R.dimen.modal_dialog_title_with_icons_padding);
         } else {
             titleHorizontalPadding = mTitleDefaultHorizontalPadding;
         }
@@ -814,19 +885,23 @@ public class ModalDialogView extends BoundedLinearLayout implements View.OnClick
     }
 
     void setTitleMoreButtonClickListener(OnClickListener listener) {
+        mTitleMoreButtonListener = listener;
         mTitleMoreButton.setOnClickListener(listener);
     }
 
     void setTitleBackButtonClickListener(OnClickListener listener) {
+        mTitleBackButtonListener = listener;
         mTitleBackButton.setOnClickListener(listener);
     }
 
     void setTitleBackButtonVisible(boolean visible) {
+        mTitleBackButtonVisible = visible;
         mTitleBackButton.setVisibility(visible ? View.VISIBLE : View.GONE);
         updateContentVisibility();
     }
 
     void setMoreMenuVisible(boolean visible) {
+        mTitleMoreButtonVisible = visible;
         mTitleMoreButton.setVisibility(visible ? View.VISIBLE : View.GONE);
         updateContentVisibility();
     }

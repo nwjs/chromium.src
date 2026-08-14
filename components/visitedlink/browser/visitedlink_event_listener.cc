@@ -28,7 +28,7 @@ constexpr int kCommitIntervalMs = 100;
 
 // Size of the buffer after which individual link updates deemed not warranted
 // and the overall update should be used instead.
-const unsigned kVisitedLinkBufferThreshold = 50;
+constexpr size_t kVisitedLinkBufferThreshold = 50;
 
 // A helper function to obtain the relevant origin salt from the
 // PartitionedVisitedLinkWriter while checking for null values as necessary.
@@ -60,9 +60,7 @@ namespace visitedlink {
 class VisitedLinkUpdater {
  public:
   explicit VisitedLinkUpdater(int render_process_id)
-      : reset_needed_(false),
-        invalidate_hashes_(false),
-        render_process_id_(render_process_id) {
+      : render_process_id_(render_process_id) {
     content::RenderProcessHost::FromID(render_process_id)
         ->BindReceiver(sink_.BindNewPipeAndPassReceiver());
   }
@@ -141,9 +139,9 @@ class VisitedLinkUpdater {
   }
 
  private:
-  bool reset_needed_;
-  bool invalidate_hashes_;
-  int render_process_id_;
+  bool reset_needed_ = false;
+  bool invalidate_hashes_ = false;
+  const int render_process_id_;
   mojo::Remote<mojom::VisitedLinkNotificationSink> sink_;
   VisitedLinkCommon::Fingerprints pending_;
 };
@@ -155,10 +153,12 @@ VisitedLinkEventListener::VisitedLinkEventListener(
 
 VisitedLinkEventListener::VisitedLinkEventListener(
     content::BrowserContext* browser_context,
-    PartitionedVisitedLinkWriter* partitioned_writer)
+    PartitionedVisitedLinkWriter* partitioned_writer,
+    bool is_pseudo_partitioned)
     : coalesce_timer_(&default_coalesce_timer_),
       partitioned_writer_(partitioned_writer),
-      browser_context_(browser_context) {}
+      browser_context_(browser_context),
+      is_pseudo_partitioned_(is_pseudo_partitioned) {}
 
 VisitedLinkEventListener::~VisitedLinkEventListener() {
   if (!pending_visited_links_.empty())
@@ -173,14 +173,14 @@ void VisitedLinkEventListener::NewTable(
     return;
 
   // Send to all RenderProcessHosts.
-  for (auto i = updaters_.begin(); i != updaters_.end(); ++i) {
+  for (auto& updater : updaters_) {
     // Make sure to not send to incognito renderers.
     content::RenderProcessHost* process =
-        content::RenderProcessHost::FromID(i->first);
+        content::RenderProcessHost::FromID(updater.first);
     if (!process)
       continue;
 
-    i->second->SendVisitedLinkTable(&table_region_);
+    updater.second->SendVisitedLinkTable(&table_region_);
   }
 }
 
@@ -199,9 +199,9 @@ void VisitedLinkEventListener::Reset(bool invalidate_hashes) {
   pending_visited_links_.clear();
   coalesce_timer_->Stop();
 
-  for (auto i = updaters_.begin(); i != updaters_.end(); ++i) {
-    i->second->AddReset(invalidate_hashes);
-    i->second->Update();
+  for (auto& updater : updaters_) {
+    updater.second->AddReset(invalidate_hashes);
+    updater.second->Update();
   }
 }
 
@@ -214,6 +214,12 @@ void VisitedLinkEventListener::Reset(bool invalidate_hashes) {
 // TODO(crbug.com/349618663): consider BFCache restores for redirect chains
 // that took place during table build and how they recover their salts.
 void VisitedLinkEventListener::UpdateOriginSalts() {
+  // If using pseudo-partitioning, then a constant salt is being used in
+  // the hashtable. Thus, there is no need to update the origin salts. This
+  // occurs in Android WebView.
+  if (is_pseudo_partitioned_) {
+    return;
+  }
   // Iterate through each of our VisitedLinkUpdaters and obtain the
   // corresponding RenderProcessHost.
   for (const auto& [id, updater] : updaters_) {
@@ -266,9 +272,9 @@ void VisitedLinkEventListener::SetCoalesceTimerForTest(
 
 void VisitedLinkEventListener::CommitVisitedLinks() {
   // Send to all RenderProcessHosts.
-  for (auto i = updaters_.begin(); i != updaters_.end(); ++i) {
-    i->second->AddLinks(pending_visited_links_);
-    i->second->Update();
+  for (auto& updater : updaters_) {
+    updater.second->AddLinks(pending_visited_links_);
+    updater.second->Update();
   }
 
   pending_visited_links_.clear();

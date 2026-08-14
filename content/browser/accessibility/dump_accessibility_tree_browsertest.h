@@ -10,13 +10,14 @@
 #include "content/browser/accessibility/dump_accessibility_browsertest_base.h"
 #include "content/public/common/content_switches.h"
 #include "ui/accessibility/accessibility_features.h"
-#include "ui/accessibility/accessibility_switches.h"
 
 namespace content {
 
 constexpr const char kAccName[]{"accname"};
 constexpr const char kAria[]{"aria"};
 constexpr const char kApgPattern[]{"aria/apg-patterns"};
+inline constexpr const char kApgPatternThirdParty[]{
+    "aria/apg-patterns-thirdparty"};
 constexpr const char kCSS[]{"css"};
 constexpr const char kCrash[]{"crash"};
 constexpr const char kFormControls[]{"form-controls"};
@@ -94,6 +95,8 @@ class DumpAccessibilityTreeTest : public DumpAccessibilityTestBase {
   void RunOnScreenTest(const base::FilePath::CharType* file_path) {
     RunTypedTest<kHtml>(file_path, ui::kAXModeOnScreen);
   }
+
+  void RunApgPatternThirdPartyTest(const base::FilePath::CharType* file_path);
 
  protected:
   // Override from DumpAccessibilityTestBase.

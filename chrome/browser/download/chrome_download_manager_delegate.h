@@ -181,6 +181,7 @@ class ChromeDownloadManagerDelegate
 #else
   void AttachExtraInfo(download::DownloadItem* item) override;
 #endif  // BUILDFLAG(IS_ANDROID)
+  bool SupportsHistoryLoading() override;
 
   // Opens a download using the platform handler. DownloadItem::OpenDownload,
   // which ends up being handled by OpenDownload(), will open a download in the
@@ -267,6 +268,7 @@ class ChromeDownloadManagerDelegate
       ReservedPathCallback callback) override;
 #if BUILDFLAG(IS_ANDROID)
   void RequestIncognitoWarningConfirmation(
+      content::WebContents* web_contents,
       IncognitoWarningConfirmationCallback) override;
 #endif
   void RequestConfirmation(download::DownloadItem* download,
@@ -329,6 +331,7 @@ class ChromeDownloadManagerDelegate
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
   // Called when obfuscated download files are deobfuscated.
   void OnDeobfuscationComplete(
+      uint32_t download_id,
       base::OnceClosure callback,
       base::expected<void, enterprise_obfuscation::Error> deobfuscation_result);
 #endif

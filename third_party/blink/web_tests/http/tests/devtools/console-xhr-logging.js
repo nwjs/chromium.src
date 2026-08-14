@@ -8,6 +8,7 @@ import {NetworkTestRunner} from 'network_test_runner';
 
 import * as Common from 'devtools/core/common/common.js';
 import * as SDK from 'devtools/core/sdk/sdk.js';
+import * as Main from 'devtools/entrypoints/main/main.js';
 
 (async function() {
   // This await is necessary for evaluateInPagePromise to produce accurate line numbers.
@@ -20,57 +21,57 @@ import * as SDK from 'devtools/core/sdk/sdk.js';
           makeSimpleXHR(method, url, false);
       }
   `);
-  Common.Settings.settingForTest('console-group-similar').set(false);
-  Common.Settings.settingForTest('monitoring-xhr-enabled').set(true);
+  Main.MainImpl.MainImpl.universeForTest.settings.settingForTest('console-group-similar').set(false);
+  Main.MainImpl.MainImpl.universeForTest.settings.settingForTest('monitoring-xhr-enabled').set(true);
 
   TestRunner.evaluateInPage(`requestHelper('GET', 'resources/xhr-exists.html')`);
   await ConsoleTestRunner.waitForConsoleMessagesPromise(2);
   await dumpConsoleMessagesSorted();
-  SDK.ConsoleModel.ConsoleModel.requestClearMessages();
+  SDK.ConsoleModel.ConsoleModel.requestClearMessages(Main.MainImpl.MainImpl.universeForTest.targetManager);
   TestRunner.addResult('');
 
   TestRunner.evaluateInPage(`requestHelper('GET', 'resources/xhr-does-not-exist.html')`);
   await ConsoleTestRunner.waitForConsoleMessagesPromise(3);
   await dumpConsoleMessagesSorted();
-  SDK.ConsoleModel.ConsoleModel.requestClearMessages();
+  SDK.ConsoleModel.ConsoleModel.requestClearMessages(Main.MainImpl.MainImpl.universeForTest.targetManager);
   TestRunner.addResult('');
 
   TestRunner.evaluateInPageAsync(`requestHelper('POST', 'resources/post-target.cgi')`);
   await ConsoleTestRunner.waitForConsoleMessagesPromise(2);
   await dumpConsoleMessagesSorted();
-  SDK.ConsoleModel.ConsoleModel.requestClearMessages();
+  SDK.ConsoleModel.ConsoleModel.requestClearMessages(Main.MainImpl.MainImpl.universeForTest.targetManager);
   TestRunner.addResult('');
 
   TestRunner.evaluateInPageAsync(`requestHelper('GET', 'http://localhost:8000/devtools/resources/cors-disabled/xhr-exists.html')`);
   await ConsoleTestRunner.waitForConsoleMessagesPromise(4);
   await dumpConsoleMessagesSorted();
-  SDK.ConsoleModel.ConsoleModel.requestClearMessages();
+  SDK.ConsoleModel.ConsoleModel.requestClearMessages(Main.MainImpl.MainImpl.universeForTest.targetManager);
   TestRunner.addResult('');
 
-  Common.Settings.settingForTest('monitoring-xhr-enabled').set(false);
+  Main.MainImpl.MainImpl.universeForTest.settings.settingForTest('monitoring-xhr-enabled').set(false);
 
   TestRunner.evaluateInPageAsync(`requestHelper('GET', 'resources/xhr-exists.html')`);
   await ConsoleTestRunner.waitForConsoleMessagesPromise(1);
   await dumpConsoleMessagesSorted();
-  SDK.ConsoleModel.ConsoleModel.requestClearMessages();
+  SDK.ConsoleModel.ConsoleModel.requestClearMessages(Main.MainImpl.MainImpl.universeForTest.targetManager);
   TestRunner.addResult('');
 
   TestRunner.evaluateInPageAsync(`requestHelper('GET', 'resources/xhr-does-not-exist.html')`);
   await ConsoleTestRunner.waitForConsoleMessagesPromise(2);
   await dumpConsoleMessagesSorted();
-  SDK.ConsoleModel.ConsoleModel.requestClearMessages();
+  SDK.ConsoleModel.ConsoleModel.requestClearMessages(Main.MainImpl.MainImpl.universeForTest.targetManager);
   TestRunner.addResult('');
 
   TestRunner.evaluateInPageAsync(`requestHelper('POST', 'resources/post-target.cgi')`);
   await ConsoleTestRunner.waitForConsoleMessagesPromise(1);
   await dumpConsoleMessagesSorted();
-  SDK.ConsoleModel.ConsoleModel.requestClearMessages();
+  SDK.ConsoleModel.ConsoleModel.requestClearMessages(Main.MainImpl.MainImpl.universeForTest.targetManager);
   TestRunner.addResult('');
 
   TestRunner.evaluateInPageAsync(`requestHelper('GET', 'http://localhost:8000/devtools/resources/cors-disabled/xhr-exists.html')`);
   await ConsoleTestRunner.waitForConsoleMessagesPromise(3);
   await dumpConsoleMessagesSorted();
-  SDK.ConsoleModel.ConsoleModel.requestClearMessages();
+  SDK.ConsoleModel.ConsoleModel.requestClearMessages(Main.MainImpl.MainImpl.universeForTest.targetManager);
   TestRunner.addResult('');
 
   TestRunner.deprecatedRunAfterPendingDispatches(async () => {

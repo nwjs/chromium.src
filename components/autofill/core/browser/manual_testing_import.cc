@@ -29,7 +29,7 @@
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/field_type_utils.h"
 #include "components/autofill/core/browser/field_types.h"
-#include "components/autofill/core/browser/network/autofill_ai/personal_context_access_manager_impl.h"
+#include "components/autofill/core/browser/network/autofill_ai/autofill_ai_personal_context_access_manager_impl.h"
 
 namespace autofill {
 
@@ -314,6 +314,7 @@ void SetDataForEDM(base::WeakPtr<EntityDataManager> edm,
     return;
   }
   if (!import_data->entities->empty()) {
+    std::vector<EntityInstance> personal_context_entities;
     for (const EntityInstance& entity : *import_data->entities) {
       switch (entity.record_type()) {
         case EntityInstance::RecordType::kLocal:
@@ -321,33 +322,12 @@ void SetDataForEDM(base::WeakPtr<EntityDataManager> edm,
           edm->AddOrUpdateEntityInstance(entity);
           break;
         case EntityInstance::RecordType::kPersonalContext:
-          // Personal context entities are handled by the
-          // `PersonalContextAccessManager`.
+          personal_context_entities.emplace_back(entity);
           break;
       }
     }
-  }
-}
-
-// Sets all of the `personal_context_access_manager`'s entities if the
-// `personal_context_access_manager` still exists.
-void SetDataForPersonalContextAccessManager(
-    base::WeakPtr<PersonalContextAccessManagerImpl>
-        personal_context_access_manager,
-    std::optional<AutofillImportData> import_data) {
-  if (!import_data.has_value() || !import_data->entities.has_value() ||
-      !personal_context_access_manager) {
-    return;
-  }
-  if (!import_data->entities->empty()) {
-    std::vector<EntityInstance> pcontext_entities;
-    std::ranges::copy_if(*import_data->entities,
-                         std::back_inserter(pcontext_entities),
-                         [](const EntityInstance& entity) {
-                           return entity.record_type() ==
-                                  EntityInstance::RecordType::kPersonalContext;
-                         });
-    personal_context_access_manager->SetTestingEntities(*import_data->entities);
+    edm->SetPersonalContextEntitiesForTesting(
+        std::move(personal_context_entities));
   }
 }
 
@@ -478,25 +458,6 @@ void MaybeImportEntitiesForTesting(base::WeakPtr<EntityDataManager> edm) {
     SetDataForEDM(edm,
                   LoadDataFromJSONContent(kCommandLine->GetSwitchValueASCII(
                       kManualContentImportForTestingFlag)));
-  }
-}
-
-void MaybeImportEntitiesForTesting(
-    base::WeakPtr<PersonalContextAccessManagerImpl>
-        personal_context_access_manager) {
-  const auto* kCommandLine = base::CommandLine::ForCurrentProcess();
-  if (kCommandLine->HasSwitch(kManualFileImportForTestingFlag)) {
-    base::ThreadPool::PostTaskAndReplyWithResult(
-        FROM_HERE, {base::TaskPriority::BEST_EFFORT, base::MayBlock()},
-        base::BindOnce(&LoadDataFromFile, kCommandLine->GetSwitchValuePath(
-                                              kManualFileImportForTestingFlag)),
-        base::BindOnce(&SetDataForPersonalContextAccessManager,
-                       personal_context_access_manager));
-  } else if (kCommandLine->HasSwitch(kManualContentImportForTestingFlag)) {
-    SetDataForPersonalContextAccessManager(
-        personal_context_access_manager,
-        LoadDataFromJSONContent(kCommandLine->GetSwitchValueASCII(
-            kManualContentImportForTestingFlag)));
   }
 }
 

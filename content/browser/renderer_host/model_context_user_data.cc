@@ -20,38 +20,28 @@ namespace content {
 
 namespace {
 
-bool IsScriptToolVisibleToOrigin(
+bool IsScriptToolExposedToOrigin(
     const url::Origin& tool_owner_origin,
     const std::vector<url::Origin>& exposed_origins,
-    const url::Origin& target_origin) {
-  if (target_origin.IsSameOriginWith(tool_owner_origin)) {
+    const url::Origin& accessing_origin) {
+  if (accessing_origin.IsSameOriginWith(tool_owner_origin)) {
     return true;
   }
-  for (const auto& allowed_origin : exposed_origins) {
-    if (target_origin.IsSameOriginWith(allowed_origin)) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::contains(exposed_origins, accessing_origin);
 }
 
-bool IsScriptToolRequestedByOrigin(
+bool IsScriptToolOwnerRequestedByOrigin(
     const url::Origin& tool_owner_origin,
     const url::Origin& caller_origin,
     const std::vector<url::Origin>& from_origins) {
-  if (tool_owner_origin.IsSameOriginWith(caller_origin)) {
+  if (caller_origin.IsSameOriginWith(tool_owner_origin)) {
     return true;
   }
   return std::ranges::contains(from_origins, tool_owner_origin);
 }
 
 bool IsWebMCPEnabled(RenderFrameHost& rfh) {
-  // In the renderer, the WebMCP feature is implied by WebMCPTesting (in
-  // runtime_enabled_features.json5). Since this implication does not propagate
-  // automatically to the browser's base::FeatureList, we must explicitly check
-  // both features here to prevent renderer termination (bad IPC message).
-  return (base::FeatureList::IsEnabled(blink::features::kWebMCP) ||
-          base::FeatureList::IsEnabled(blink::features::kWebMCPTesting)) &&
+  return base::FeatureList::IsEnabled(blink::features::kWebMCP) &&
          rfh.IsFeatureEnabled(network::mojom::PermissionsPolicyFeature::kTools);
 }
 
@@ -220,32 +210,37 @@ void ModelContextUserData::GetScriptTools(
       return RenderFrameHost::FrameIterationAction::kContinue;
     }
 
+    const url::Origin& tool_owner_origin = rfh->GetLastCommittedOrigin();
+    if (!IsScriptToolOwnerRequestedByOrigin(tool_owner_origin, caller_origin,
+                                            from_origins)) {
+      return RenderFrameHost::FrameIterationAction::kContinue;
+    }
+
     auto* data = ModelContextUserData::GetForCurrentDocument(rfh);
     if (!data) {
       return RenderFrameHost::FrameIterationAction::kContinue;
     }
 
     const auto& local_tools = data->script_tools();
-    const url::Origin& tool_owner_origin = rfh->GetLastCommittedOrigin();
     for (const auto& t : local_tools) {
-      if (IsScriptToolVisibleToOrigin(tool_owner_origin, t->exposed_origins,
-                                      caller_origin) &&
-          IsScriptToolRequestedByOrigin(tool_owner_origin, caller_origin,
-                                        from_origins)) {
-        blink::mojom::ScriptToolPtr cloned_tool = t.Clone();
-        // Find the frame (it could be local or remote) that the caller can use
-        // to reference the `Window` hosting the tool.
-        //
-        // `token` will never be `nullopt`.
-        blink::FrameToken token =
-            *static_cast<RenderFrameHostImpl*>(rfh)
-                 ->frame_tree_node()
-                 ->render_manager()
-                 ->GetFrameTokenForSiteInstanceGroup(site_instance_group);
-
-        cloned_tool->tool_owner_frame_token = token;
-        all_tools.push_back(std::move(cloned_tool));
+      if (!IsScriptToolExposedToOrigin(tool_owner_origin, t->exposed_origins,
+                                       /*accessing_origin=*/caller_origin)) {
+        continue;
       }
+
+      blink::mojom::ScriptToolPtr cloned_tool = t.Clone();
+      // Find the frame (it could be local or remote) that the caller can use
+      // to reference the `Window` hosting the tool.
+      //
+      // `token` will never be `nullopt`.
+      blink::FrameToken token =
+          *static_cast<RenderFrameHostImpl*>(rfh)
+               ->frame_tree_node()
+               ->render_manager()
+               ->GetFrameTokenForSiteInstanceGroup(site_instance_group);
+
+      cloned_tool->tool_owner_frame_token = token;
+      all_tools.push_back(std::move(cloned_tool));
     }
     return RenderFrameHost::FrameIterationAction::kContinue;
   });
@@ -259,6 +254,7 @@ void ModelContextUserData::GetScriptTools(
 }
 
 void ModelContextUserData::ExecuteRemoteScriptTool(
+    const base::UnguessableToken& invocation_id,
     const blink::FrameToken& tool_owner_frame_token,
     const url::Origin& expected_target_origin,
     const std::string& name,
@@ -292,6 +288,17 @@ void ModelContextUserData::ExecuteRemoteScriptTool(
   // main-frame check below.
   RenderFrameHost* main_frame = render_frame_host().GetMainFrame();
   if (!target_rfh || main_frame != target_rfh->GetMainFrame()) {
+    std::move(callback).Run(std::nullopt, false);
+    return;
+  }
+
+  // It is not possible to target the execution of tools that live in a document
+  // with an opaque origin; therefore, `expected_target_origin` will never be
+  // opaque.
+  if (expected_target_origin.opaque()) {
+    bad_message::ReceivedBadMessage(
+        render_frame_host().GetProcess(),
+        bad_message::RFHI_WEBMCP_OPAQUE_TARGET_ORIGIN);
     std::move(callback).Run(std::nullopt, false);
     return;
   }
@@ -336,21 +343,16 @@ void ModelContextUserData::ExecuteRemoteScriptTool(
   // Don't kill the renderer here, since legitimate script can target a tool in
   // another document that it might have been told about, but technically cannot
   // access.
-  if (!IsScriptToolVisibleToOrigin(
-          target_rfh->GetLastCommittedOrigin(), (*it)->exposed_origins,
-          render_frame_host().GetLastCommittedOrigin())) {
+  if (!IsScriptToolExposedToOrigin(
+          /*tool_owner_origin=*/target_rfh->GetLastCommittedOrigin(),
+          (*it)->exposed_origins,
+          /*accessing_origin=*/render_frame_host().GetLastCommittedOrigin())) {
     std::move(callback).Run(std::nullopt, false);
     return;
   }
 
   // At this point, it is safe to invoke the tool in the target renderer pointed
   // to by `target_data`.
-  //
-  // TODO(http://b/485810761): Right now `invocation_id` is only used to
-  // identify pending execution requests in the browser process. Plumb this up
-  // to the renderer for use by DevTools.
-  base::UnguessableToken invocation_id = base::UnguessableToken::Create();
-
   ModelContextPageUserData* page_data =
       ModelContextPageUserData::GetOrCreateForPage(target_rfh->GetPage());
   ModelContextPageUserData::PendingScriptToolExecution execution;
@@ -362,7 +364,7 @@ void ModelContextUserData::ExecuteRemoteScriptTool(
   page_data->AddPendingScriptToolExecution(invocation_id, std::move(execution));
 
   target_data->model_context_remote_->ExecuteScriptTool(
-      name, input_arguments,
+      invocation_id, name, input_arguments,
       base::BindOnce(
           [](base::WeakPtr<ModelContextPageUserData> page_data,
              base::UnguessableToken invocation_id,
@@ -391,8 +393,9 @@ void ModelContextUserData::NotifyToolChange(
       return RenderFrameHost::FrameIterationAction::kContinue;
     }
 
-    if (IsScriptToolVisibleToOrigin(tool_owner_origin, exposed_origins,
-                                    frame->GetLastCommittedOrigin())) {
+    if (IsScriptToolExposedToOrigin(
+            tool_owner_origin, exposed_origins,
+            /*accessing_origin=*/frame->GetLastCommittedOrigin())) {
       auto* data = ModelContextUserData::GetForCurrentDocument(frame);
       if (!data) {
         return RenderFrameHost::FrameIterationAction::kContinue;

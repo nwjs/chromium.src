@@ -84,6 +84,7 @@
 #include "third_party/pdfium/public/fpdf_edit.h"
 #include "third_party/pdfium/public/fpdf_ext.h"
 #include "third_party/pdfium/public/fpdf_fwlevent.h"
+#include "third_party/pdfium/public/fpdf_javascript.h"
 #include "third_party/pdfium/public/fpdf_ppo.h"
 #include "third_party/pdfium/public/fpdf_searchex.h"
 #include "third_party/pdfium/public/fpdfview.h"
@@ -741,6 +742,22 @@ std::vector<ScopedFPDFPageObject> RemovePageObjectsFromPage(
   }
   return page_object_deleters;
 }
+
+bool IsEmojiFont(const SkTypeface* typeface) {
+  constexpr SkFontTableTag kCpalTag = SkSetFourByteTag('C', 'P', 'A', 'L');
+  constexpr SkFontTableTag kColrTag = SkSetFourByteTag('C', 'O', 'L', 'R');
+  constexpr SkFontTableTag kSbixTag = SkSetFourByteTag('s', 'b', 'i', 'x');
+  constexpr SkFontTableTag kCbdtTag = SkSetFourByteTag('C', 'B', 'D', 'T');
+  constexpr SkFontTableTag kCblcTag = SkSetFourByteTag('C', 'B', 'L', 'C');
+  constexpr SkFontTableTag kSvgTag = SkSetFourByteTag('S', 'V', 'G', ' ');
+
+  return (typeface->getTableSize(kColrTag) > 0 &&
+          typeface->getTableSize(kCpalTag) > 0) ||
+         typeface->getTableSize(kSbixTag) > 0 ||
+         (typeface->getTableSize(kCbdtTag) > 0 &&
+          typeface->getTableSize(kCblcTag) > 0) ||
+         typeface->getTableSize(kSvgTag) > 0;
+}
 #endif  // BUILDFLAG(ENABLE_PDF_INK2)
 
 void CheckBitmapProperties(const SkBitmap& sk_bitmap, FPDF_BITMAP fpdf_bitmap) {
@@ -765,13 +782,16 @@ void InitializeSDK(bool enable_v8,
                    bool use_skia,
                    FontMappingMode font_mapping_mode) {
   FPDF_LIBRARY_CONFIG config;
-  config.version = 4;
+  config.version = 6;
   config.m_pUserFontPaths = nullptr;
   config.m_pIsolate = nullptr;
   config.m_pPlatform = nullptr;
   config.m_v8EmbedderSlot = gin::kEmbedderPDFium;
   config.m_RendererType =
       use_skia ? FPDF_RENDERERTYPE_SKIA : FPDF_RENDERERTYPE_AGG;
+  config.m_FontLibraryType = FPDF_FONTBACKENDTYPE_FREETYPE;
+  config.m_BrotliEnabled =
+      base::FeatureList::IsEnabled(features::kPdfBrotliDecode);
 
 #if defined(PDF_ENABLE_V8)
   if (enable_v8) {
@@ -1049,6 +1069,7 @@ void PDFiumEngine::PostPaint() {
 bool PDFiumEngine::HandleDocumentLoad(std::unique_ptr<UrlLoader> loader,
                                       const std::string& original_url) {
   password_tries_remaining_ = kMaxPasswordTries;
+  is_password_protected_ = false;
   process_when_pending_request_complete_ =
       base::FeatureList::IsEnabled(features::kPdfIncrementalLoading);
 
@@ -1481,8 +1502,7 @@ void PDFiumEngine::ContinueFind(bool case_sensitive) {
 }
 
 bool PDFiumEngine::HandleInputEvent(const blink::WebInputEvent& event) {
-  DCHECK(!defer_page_unload_);
-  defer_page_unload_ = true;
+  base::ScopedClosureRunner unload_preventer = CreateScopedDeferredPageUnload();
   bool rv = false;
   switch (event.GetType()) {
     case blink::WebInputEvent::Type::kMouseDown:
@@ -1529,18 +1549,6 @@ bool PDFiumEngine::HandleInputEvent(const blink::WebInputEvent& event) {
       break;
     default:
       break;
-  }
-
-  DCHECK(defer_page_unload_);
-  defer_page_unload_ = false;
-
-  // Store the pages to unload away because the act of unloading pages can cause
-  // there to be more pages to unload. We leave those extra pages to be unloaded
-  // on the next go around.
-  std::vector<int> pages_to_unload;
-  std::swap(pages_to_unload, deferred_page_unloads_);
-  for (int page_index : pages_to_unload) {
-    pages_[page_index]->Unload();
   }
 
   return rv;
@@ -2622,6 +2630,20 @@ const PDFiumRange* PDFiumEngine::GetFindSelection() const {
   return &find_results_[current_find_index_.value()];
 }
 
+void PDFiumEngine::ClearFindResults() {
+  FindResultChangeInvalidator find_change_invalidator(this);
+
+  find_results_.clear();
+  next_page_to_search_ = -1;
+  last_page_to_search_ = -1;
+  last_char_index_to_search_ = -1;
+  current_find_index_.reset();
+  current_find_text_.clear();
+
+  UpdateTickMarks();
+  find_weak_factory_.InvalidateWeakPtrs();
+}
+
 bool PDFiumEngine::SelectFindResult(bool forward) {
   if (find_results_.empty()) {
     return false;
@@ -2668,17 +2690,7 @@ bool PDFiumEngine::SelectFindResult(bool forward) {
 }
 
 void PDFiumEngine::StopFind() {
-  FindResultChangeInvalidator find_change_invalidator(this);
-
-  find_results_.clear();
-  next_page_to_search_ = -1;
-  last_page_to_search_ = -1;
-  last_char_index_to_search_ = -1;
-  current_find_index_.reset();
-  current_find_text_.clear();
-
-  UpdateTickMarks();
-  find_weak_factory_.InvalidateWeakPtrs();
+  ClearFindResults();
 }
 
 std::vector<gfx::Rect> PDFiumEngine::GetAllScreenRectsUnion(
@@ -3137,11 +3149,11 @@ int PDFiumEngine::GetMostVisiblePage() {
     return *in_flight_visible_page_;
   }
 
-  // We can call GetMostVisiblePage through a callback from PDFium. We have
-  // to defer the page deletion otherwise we could potentially delete the page
-  // that originated the calling JS request and destroy the objects that are
+  // GetMostVisiblePage() can be called through a callback from PDFium. Defer
+  // the page deletion, otherwise the page that originated the calling JS
+  // request could potentially be deleted and destroy the objects that are
   // currently being used.
-  base::AutoReset<bool> defer_page_unload_guard(&defer_page_unload_, true);
+  base::ScopedClosureRunner unload_preventer = CreateScopedDeferredPageUnload();
   CalculateVisiblePages();
   return most_visible_page_;
 }
@@ -3331,6 +3343,7 @@ bool PDFiumEngine::TryLoadingDoc(const std::string& password,
 }
 
 void PDFiumEngine::GetPasswordAndLoad() {
+  is_password_protected_ = true;
   getting_password_ = true;
   DCHECK(!doc());
   DCHECK_EQ(static_cast<unsigned long>(FPDF_ERR_PASSWORD), FPDF_GetLastError());
@@ -3465,14 +3478,79 @@ std::vector<gfx::Size> PDFiumEngine::LoadPageSizes(
 
   // Remove pages that do not exist anymore.
   if (pages_.size() > new_page_count) {
+    const size_t deferred_count_before = deferred_page_deletions_.size();
     for (size_t i = new_page_count; i < pages_.size(); ++i) {
-      pages_[i]->Unload();
+      if (defer_page_unload_ || !pages_[i]->Unload()) {
+        deferred_page_deletions_.push_back(std::move(pages_[i]));
+      }
     }
 
     pages_.resize(new_page_count);
+
+    // Reset index-based state that is now out of bounds.
+    if (last_focused_page_ >= static_cast<int>(new_page_count)) {
+      last_focused_page_ = -1;
+    }
+    if (most_visible_page_ >= static_cast<int>(new_page_count)) {
+      most_visible_page_ = -1;
+    }
+    // Clear deferred unloads to prevent stale, out-of-bounds indices. This is
+    // guaranteed to be repopulated by the subsequent CalculateVisiblePages()
+    // call.
+    deferred_page_unloads_.clear();
+
+    // Clear selections and highlights that might now point to invalid page
+    // indices.
+    selection_.clear();
+    saved_selection_.clear();
+    RemoveTextFragments();
+    ClearFindResults();
+
+    if (deferred_page_deletions_.size() > deferred_count_before) {
+      // Post a task to clean up the deferred page deletions. This ensures that
+      // even if no `CreateScopedDeferredPageUnload()` scope is active to
+      // trigger synchronous cleanup, or if the page was deferred due to
+      // temporary stack-allocated preventers that outlive the active scope,
+      // destruction of the pages will be attempted once the stack unwinds.
+      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE, base::BindOnce(&PDFiumEngine::CleanUpDeferredPages,
+                                    weak_factory_.GetWeakPtr()));
+    }
   }
 
   return page_sizes;
+}
+
+void PDFiumEngine::CleanUpDeferredPages() {
+  if (defer_page_unload_) {
+    return;
+  }
+
+  // Unload pages that were deferred from unloading.
+  std::vector<int> pages_to_unload;
+  std::swap(pages_to_unload, deferred_page_unloads_);
+  for (int page_index : pages_to_unload) {
+    if (page_index < static_cast<int>(pages_.size())) {
+      pages_[page_index]->Unload();
+    }
+  }
+
+  // Destroy pages that were deleted.
+  std::erase_if(deferred_page_deletions_,
+                [](const auto& page) { return page->Unload(); });
+}
+
+base::ScopedClosureRunner PDFiumEngine::CreateScopedDeferredPageUnload() {
+  bool prev_defer_page_unload = defer_page_unload_;
+  defer_page_unload_ = true;
+  return base::ScopedClosureRunner(base::BindOnce(
+      [](base::WeakPtr<PDFiumEngine> engine, bool prev_defer_page_unload) {
+        if (engine) {
+          engine->defer_page_unload_ = prev_defer_page_unload;
+          engine->CleanUpDeferredPages();
+        }
+      },
+      weak_factory_.GetWeakPtr(), prev_defer_page_unload));
 }
 
 void PDFiumEngine::LoadBody() {
@@ -5118,6 +5196,22 @@ bool PDFiumEngine::HasMeaningfulText() const {
   return false;
 }
 
+bool PDFiumEngine::HasJavaScript() const {
+  if (!document_loaded_) {
+    return false;
+  }
+
+  return FPDFDoc_GetJavaScriptActionCount(doc()) > 0;
+}
+
+bool PDFiumEngine::IsPasswordProtected() const {
+  if (!document_loaded_) {
+    return false;
+  }
+
+  return is_password_protected_;
+}
+
 void PDFiumEngine::UpdateLinkUnderCursor(const std::string& target_url) {
   client_->SetLinkUnderCursor(target_url);
 }
@@ -5219,6 +5313,15 @@ void PDFiumEngine::AddFont(FontId font_id,
                                         font_data_span.size(),
                                         /*font_type=*/font_type,
                                         /*cid=*/true));
+
+  base::UmaHistogramBoolean("PDF.Ink2FontLoaded", font != nullptr);
+  if (!font && IsEmojiFont(typeface.get())) {
+    base::UmaHistogramBoolean("PDF.Ink2EmojiFontLoadFailed", true);
+    // TODO(crbug.com/502468286): Support emoji fonts.
+    bool inserted = font_map_.insert({font_id, nullptr}).second;
+    CHECK(inserted);
+    return;
+  }
   CHECK(font);
 
   bool inserted = font_map_.insert({font_id, std::move(font)}).second;
@@ -5287,7 +5390,12 @@ void PDFiumEngine::DrawText(int page_index,
   FPDF_PAGEOBJECTMARK mark = nullptr;
   for (const InkTextInfo& item : text_info) {
     FPDF_FONT font = GetAddedFont(item.font_id);
-    CHECK(font);
+    if (!font) {
+      // Only possible for emoji fonts.
+      // TODO(crbug.com/502468286): Change to a CHECK once emoji fonts are
+      // supported.
+      continue;
+    }
 
     ScopedFPDFPageObject text_object(
         FPDFPageObj_CreateTextObj(doc(), font, pdf_font_size));
@@ -5346,14 +5454,15 @@ void PDFiumEngine::DrawText(int page_index,
     CHECK(FPDFPageObj_TransformF(text_object.get(), &text_origin_matrix));
     CHECK(FPDFPageObj_TransformF(text_object.get(), &textbox_matrix));
 
-    if (&item == &text_info.front()) {
+    // The metadata mark must be attached to every text object in the
+    // annotation. Initialize it on the first successfully created text object.
+    if (!mark) {
       mark = FPDFPageObj_AddMark(text_object.get(),
                                  kInkTextAnnotationIdentifierKey);
       CHECK(mark);
       AddMetadataToTextObject(doc(), text_object.get(), mark,
                               GetNextTextboxId(), attributes);
     } else {
-      CHECK(mark);
       CHECK(FPDFPageObj_AddExistingMark(text_object.get(), mark));
     }
 
@@ -5478,25 +5587,54 @@ void PDFiumEngine::DiscardStroke(int page_index, InkStrokeId id) {
   }
 }
 
-PDFLoadedWithV2InkAnnotations PDFiumEngine::ContainsV2InkPath(
+PDFiumEngine::InkIdentifiers PDFiumEngine::ScanForInkAnnotations(
     base::TimeDelta timeout) const {
   base::TimeTicks start_time = base::TimeTicks::Now();
+
+  InkIdentifiers result = {
+      .ink_text_annotations = PDFLoadedWithInkTextAnnotations::kUnknown,
+      .v2_ink_path = PDFLoadedWithV2InkAnnotations::kUnknown,
+  };
+
   for (const auto& page : pages_) {
     if (base::TimeTicks::Now() - start_time >= timeout) {
-      return PDFLoadedWithV2InkAnnotations::kUnknown;
+      return result;
     }
 
     bool page_already_loaded = !!page->page();
-    bool contains_v2_ink_path = PageContainsV2InkPath(page->GetPage());
+    FPDF_PAGE fpdf_page = page->GetPage();
+
+    if (result.ink_text_annotations ==
+            PDFLoadedWithInkTextAnnotations::kUnknown &&
+        PageContainsInkTextAnnotation(fpdf_page)) {
+      result.ink_text_annotations = PDFLoadedWithInkTextAnnotations::kTrue;
+    }
+
+    if (result.v2_ink_path == PDFLoadedWithV2InkAnnotations::kUnknown &&
+        PageContainsV2InkPath(fpdf_page)) {
+      result.v2_ink_path = PDFLoadedWithV2InkAnnotations::kTrue;
+    }
+
     if (!page_already_loaded) {
       // Unload the page to avoid loading all pages into memory.
       page->Unload();
     }
-    if (contains_v2_ink_path) {
-      return PDFLoadedWithV2InkAnnotations::kTrue;
+
+    if (result.ink_text_annotations == PDFLoadedWithInkTextAnnotations::kTrue &&
+        result.v2_ink_path == PDFLoadedWithV2InkAnnotations::kTrue) {
+      return result;
     }
   }
-  return PDFLoadedWithV2InkAnnotations::kFalse;
+
+  if (result.ink_text_annotations ==
+      PDFLoadedWithInkTextAnnotations::kUnknown) {
+    result.ink_text_annotations = PDFLoadedWithInkTextAnnotations::kFalse;
+  }
+  if (result.v2_ink_path == PDFLoadedWithV2InkAnnotations::kUnknown) {
+    result.v2_ink_path = PDFLoadedWithV2InkAnnotations::kFalse;
+  }
+
+  return result;
 }
 
 std::map<InkModeledShapeId, ink::PartitionedMesh>
@@ -5538,6 +5676,8 @@ PDFiumEngine::LoadV2InkPathsForPage(int page_index) {
 DocumentInkTextBoxesMap PDFiumEngine::LoadTextAnnotationsFromPdf() {
   DocumentInkTextBoxesMap document_textboxes;
   for (size_t i = 0; i < pages_.size(); ++i) {
+    base::ScopedClosureRunner unload_preventer =
+        CreateScopedDeferredPageUnload();
     PDFiumPage* page = pages_[i].get();
     std::vector<ReadInkTextResult> page_results =
         ReadInkTextAnnotationsFromPage(page->GetPage());

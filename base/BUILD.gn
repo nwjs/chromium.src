@@ -208,7 +208,14 @@ source_set("asan_raw_ptr_service") {
 
     deps += [
       ":compiler_specific",
+      ":dcheck_is_on",
+      ":debugging_buildflags",
+      ":feature_buildflags",
+      ":fuzzing_buildflags",
+      ":synchronization_buildflags",
+      ":tracing_buildflags",
       "//base/allocator/partition_allocator/src/partition_alloc",
+      "//build:blink_buildflags",
       "//third_party/abseil-cpp:absl",
       "//third_party/perfetto:libperfetto",
     ]
@@ -265,8 +272,6 @@ component("base") {
     "big_endian.h",
     "bit_cast.h",
     "bits.h",
-    "byte_count.cc",
-    "byte_count.h",
     "byte_size.cc",
     "byte_size.h",
     "callback_list.cc",
@@ -295,6 +300,7 @@ component("base") {
     "containers/flat_map.h",
     "containers/flat_set.h",
     "containers/flat_tree.h",
+    "containers/hashing_lru_cache.h",
     "containers/heap_array.h",
     "containers/id_map.h",
     "containers/intrusive_heap.cc",
@@ -302,6 +308,7 @@ component("base") {
     "containers/linked_list.cc",
     "containers/linked_list.h",
     "containers/lru_cache.h",
+    "containers/lru_cache_internal.h",
     "containers/map_util.h",
     "containers/ring_buffer.h",
     "containers/small_map.h",
@@ -547,8 +554,6 @@ component("base") {
     "metrics/persistent_memory_allocator.h",
     "metrics/persistent_sample_map.cc",
     "metrics/persistent_sample_map.h",
-    "metrics/puma_histogram_functions.cc",
-    "metrics/puma_histogram_functions.h",
     "metrics/ranges_manager.cc",
     "metrics/ranges_manager.h",
     "metrics/record_histogram_checker.h",
@@ -686,6 +691,7 @@ component("base") {
     "strings/durable_string_view.h",
     "strings/escape.cc",
     "strings/escape.h",
+    "strings/join_string_internal.h",
     "strings/lazy_string_builder.cc",
     "strings/lazy_string_builder.h",
     "strings/levenshtein_distance.cc",
@@ -708,7 +714,6 @@ component("base") {
     "strings/string_tokenizer.h",
     "strings/string_util.cc",
     "strings/string_util.h",
-    "strings/string_util_constants.cc",
     "strings/string_util_impl_helpers.h",
     "strings/string_util_internal.h",
     "strings/string_view_util.h",
@@ -718,6 +723,7 @@ component("base") {
     "strings/sys_string_conversions.h",
     "strings/to_string.cc",
     "strings/to_string.h",
+    "strings/trim_string_internal.h",
     "strings/utf_offset_string_conversions.cc",
     "strings/utf_offset_string_conversions.h",
     "strings/utf_ostream_operators.cc",
@@ -726,6 +732,7 @@ component("base") {
     "strings/utf_string_conversion_utils.h",
     "strings/utf_string_conversions.cc",
     "strings/utf_string_conversions.h",
+    "strings/whitespace_constants.h",
     "substring_set_matcher/matcher_string_pattern.cc",
     "substring_set_matcher/matcher_string_pattern.h",
     "substring_set_matcher/substring_set_matcher.cc",
@@ -1262,8 +1269,6 @@ component("base") {
       "android/input_hint_checker.h",
       "android/java_handler_thread.cc",
       "android/java_handler_thread.h",
-      "android/java_heap_dump_generator.cc",
-      "android/java_heap_dump_generator.h",
       "android/java_runtime.cc",
       "android/java_runtime.h",
       "android/locale_utils.cc",
@@ -1890,7 +1895,6 @@ component("base") {
       "strings/strcat_win.h",
       "strings/string_number_conversions_win.cc",
       "strings/string_number_conversions_win.h",
-      "strings/string_split_win.cc",
       "strings/string_split_win.h",
       "strings/string_util_win.cc",
       "strings/string_util_win.h",
@@ -2635,6 +2639,7 @@ component("base") {
 group("base_rust") {
   public_deps = [
     ":callback",
+    ":command_line",
     ":feature",
     ":file_path",
     ":run_loop",
@@ -2729,6 +2734,25 @@ rust_static_library("run_loop") {
   ]
 }
 
+source_set("command_line_shim") {
+  sources = [
+    "command_line_rust_shim.cc",
+    "command_line_rust_shim.h",
+  ]
+  deps = [ "//base" ]
+}
+
+rust_static_library("command_line") {
+  sources = [ "command_line.rs" ]
+  crate_root = "command_line.rs"
+  cxx_bindings = [ "command_line.rs" ]
+  allow_unsafe = true
+  deps = [
+    ":command_line_shim",
+    "//base",
+  ]
+}
+
 rust_static_library("feature") {
   sources = [ "feature.rs" ]
   crate_root = "feature.rs"
@@ -2804,11 +2828,13 @@ rust_static_library("base_rust_unittests") {
   allow_unsafe = true
   sources = [
     "base_rust_unittests.rs",
+    "command_line_unittest.rs",
     "files/file_path_unittest.rs",
     "task/sequenced_task_runner_unittest.rs",
   ]
   crate_root = "base_rust_unittests.rs"
   deps = [
+    ":command_line",
     ":file_path",
     ":scoped_refptr",
     ":sequenced_task_runner",
@@ -2986,10 +3012,7 @@ buildflag_header("anchor_functions_buildflags") {
   header = "anchor_functions_buildflags.h"
   header_dir = "base/android/library_loader"
 
-  flags = [
-    "USE_LLD=$use_lld",
-    "SUPPORTS_CODE_ORDERING=$_enable_code_ordering",
-  ]
+  flags = [ "SUPPORTS_CODE_ORDERING=$_enable_code_ordering" ]
 }
 
 buildflag_header("clang_profiling_buildflags") {
@@ -3156,8 +3179,6 @@ component("i18n") {
     "i18n/string_search.h",
     "i18n/time_formatting.cc",
     "i18n/time_formatting.h",
-    "i18n/timezone.cc",
-    "i18n/timezone.h",
     "i18n/transliterator.cc",
     "i18n/transliterator.h",
     "i18n/unicodestring.h",
@@ -3170,7 +3191,9 @@ component("i18n") {
     ":base",
     "//base/i18n:base_i18n_export",
     "//base/i18n:language_tag",
+    "//base/i18n:language_tag_value_converters",
     "//base/i18n:time_formatting_types",
+    "//base/i18n:timezone",
     "//base/i18n/icubridge",
     "//third_party/ced",
     "//third_party/icu",
@@ -3638,7 +3661,6 @@ test("base_unittests") {
     "bit_cast_unittest.cc",
     "bits_unittest.cc",
     "build_time_unittest.cc",
-    "byte_count_unittest.cc",
     "byte_size_unittest.cc",
     "callback_list_unittest.cc",
     "cancelable_callback_unittest.cc",
@@ -3783,7 +3805,6 @@ test("base_unittests") {
     "metrics/persistent_histogram_storage_unittest.cc",
     "metrics/persistent_memory_allocator_unittest.cc",
     "metrics/persistent_sample_map_unittest.cc",
-    "metrics/puma_histogram_functions_unittest.cc",
     "metrics/ranges_manager_unittest.cc",
     "metrics/runtime_field_trial_overrides_unittest.cc",
     "metrics/sample_map_unittest.cc",
@@ -4746,9 +4767,11 @@ if (enable_nocompile_tests) {
       "containers/to_value_list_nocompile.nc",
       "containers/to_vector_nocompile.nc",
       "debug/crash_logging_nocompile.nc",
+      "feature_nocompile.nc",
       "functional/bind_nocompile.nc",
       "functional/callback_nocompile.nc",
       "functional/function_ref_nocompile.nc",
+      "i18n/language_tag_nocompile.nc",
       "logging_nocompile.nc",
       "memory/protected_memory_nocompile.nc",
       "memory/ref_counted_nocompile.nc",
@@ -4782,7 +4805,10 @@ if (enable_nocompile_tests) {
       "values_nocompile.nc",
     ]
     sources += [ "containers/adapters_nocompile.nc" ]
-    deps = [ ":base" ]
+    deps = [
+      ":base",
+      "//base/i18n:language_tag",
+    ]
   }
 }
 
@@ -4975,6 +5001,8 @@ if (is_android) {
     deps = [
       ":file_provider_utils_java",
       ":log_java",
+      ":tasks_java",
+      ":time_utils_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
       "//third_party/jni_zero:jni_zero_java",
     ]
@@ -5280,7 +5308,6 @@ if (is_android) {
   generate_jni("memory_jni") {
     sources = [
       "android/java/src/org/chromium/base/MemoryPressureListener.java",
-      "android/java/src/org/chromium/base/memory/JavaHeapDumpGenerator.java",
       "android/java/src/org/chromium/base/memory/MemoryInfoBridge.java",
       "android/java/src/org/chromium/base/memory/MemoryPurgeManager.java",
     ]
@@ -5673,6 +5700,7 @@ if (is_android) {
     android_library("ui_java") {
       sources = [ "android/java/src/org/chromium/base/ui/KeyboardUtils.java" ]
       deps = [
+        ":base_java",
         ":build_info_java",
         ":log_java",
         ":tasks_java",
@@ -6209,6 +6237,12 @@ if (is_android) {
       "//third_party/hamcrest:hamcrest_java",
       "//third_party/jni_zero:jni_zero_java",
     ]
+
+    if (!is_cronet_build) {
+      sources +=
+          [ "android/junit/src/org/chromium/base/ui/KeyboardUtilsTest.java" ]
+      deps += [ ":ui_java" ]
+    }
   }
 
   # LocationTest.java needs to always be processed by the Java location rewriter

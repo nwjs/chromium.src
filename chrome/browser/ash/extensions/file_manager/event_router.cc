@@ -592,8 +592,9 @@ fmp::MountError MountErrorToMountCompletedStatus(ash::MountError error) {
   }
 }
 
-EventRouter::EventRouter(Profile* profile)
-    : pref_change_registrar_(std::make_unique<PrefChangeRegistrar>()),
+EventRouter::EventRouter(PrefService* local_state, Profile* profile)
+    : LocalUserFilesPolicyObserver(local_state),
+      pref_change_registrar_(std::make_unique<PrefChangeRegistrar>()),
       profile_(profile),
       notification_manager_(
           std::make_unique<SystemNotificationManager>(profile)),
@@ -1532,7 +1533,7 @@ void EventRouter::BroadcastOnAppsUpdatedEvent() {
 }
 
 void EventRouter::OnMountableGuestsChanged() {
-  auto guests = util::CreateMountableGuestList(profile_);
+  auto guests = util::CreateMountableGuestList(local_state_.get(), profile_);
   BroadcastEvent(
       profile_,
       extensions::events::FILE_MANAGER_PRIVATE_ON_IO_TASK_PROGRESS_STATUS,

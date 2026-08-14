@@ -120,8 +120,6 @@
 
 namespace {
 
-BASE_FEATURE(kIOSBottomToolbarFixKillSwitch, base::FEATURE_DISABLED_BY_DEFAULT);
-
 enum HeaderBehaviour {
   // The header moves completely out of the screen.
   Hideable = 0,
@@ -703,7 +701,6 @@ bool IsFullscreenNextIAEnabled() {
   [self updateToolbarConstraints];
   [self updateSecondaryToolbarBottomConstraint];
   [self animateTransition];
-  [self invalidateFullscreenInsets];
 }
 
 #pragma mark - Public methods
@@ -1141,9 +1138,6 @@ bool IsFullscreenNextIAEnabled() {
   if (IsChromeNextIaEnabled()) {
     return;
   }
-  if (base::FeatureList::IsEnabled(kIOSBottomToolbarFixKillSwitch)) {
-    return;
-  }
   [self.toolbarCoordinator updateToolbarPositionForActiveBrowser];
 }
 
@@ -1205,6 +1199,7 @@ bool IsFullscreenNextIAEnabled() {
         animateAlongsideTransition:^(
             id<UIViewControllerTransitionCoordinatorContext>) {
           [weakSelf.popupMenuCommandsHandler adjustPopupSize];
+          [weakSelf invalidateFullscreenInsets];
         }
                         completion:nil];
   } else {
@@ -2376,9 +2371,7 @@ bool IsFullscreenNextIAEnabled() {
   CGFloat height = expandedHeight;
   if (IsAppBarHiddenInFullscreen() &&
       self.layoutState.appBarPosition == AppBarPosition::kBottom) {
-    CGFloat safeAreaBottom = self.safeAreaProvider.safeArea.bottom;
-    CGFloat collapsedHeightWithSafeArea =
-        [self collapsedBottomToolbarHeight] + safeAreaBottom;
+    CGFloat collapsedHeightWithSafeArea = [self collapsedBottomToolbarHeight];
     CGFloat targetHeight =
         collapsedHeightWithSafeArea +
         progress * (expandedHeight - collapsedHeightWithSafeArea);

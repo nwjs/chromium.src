@@ -1,12 +1,12 @@
 {
-  "info" : {
-    "author" : "xcode",
-    "version" : 1
+  "info": {
+    "author": "xcode",
+    "version": 1
   },
-  "symbols" : [
+  "symbols": [
     {
-      "filename" : "truck.box.spark.svg",
-      "idiom" : "universal"
+      "filename": "truck.box.spark.cr.svg",
+      "idiom": "universal"
     }
   ]
 }

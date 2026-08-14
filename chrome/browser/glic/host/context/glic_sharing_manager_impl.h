@@ -100,6 +100,7 @@ class GlicSharingManagerImpl : public GlicSharingManagerInternal,
   int32_t GetNumPinnedTabs() const override;
 
   bool IsTabPinned(tabs::TabHandle tab_handle) const override;
+  bool IsTabShared(tabs::TabInterface* tab) const override;
 
   bool IsTabFocused(tabs::TabHandle tab_handle) const override;
 
@@ -112,12 +113,12 @@ class GlicSharingManagerImpl : public GlicSharingManagerInternal,
 
   void GetContextFromTab(
       tabs::TabHandle tab_handle,
-      const mojom::GetTabContextOptions& options,
+      const mojom::TabContextOptions& options,
       base::OnceCallback<void(GlicGetContextResult)> callback) override;
 
   void GetContextForActorFromTab(
       tabs::TabHandle tab_handle,
-      const mojom::GetTabContextOptions& options,
+      const mojom::TabContextOptions& options,
       base::OnceCallback<void(GlicGetContextResult)> callback) override;
 
   void GetImageBytes(
@@ -137,7 +138,7 @@ class GlicSharingManagerImpl : public GlicSharingManagerInternal,
  private:
   void GetContextFromTabImpl(
       tabs::TabInterface* tab,
-      const mojom::GetTabContextOptions& options,
+      const mojom::TabContextOptions& options,
       base::OnceCallback<void(GlicGetContextResult)> callback);
 
   GlicPinnedTabManager* pinned_tab_manager() const;

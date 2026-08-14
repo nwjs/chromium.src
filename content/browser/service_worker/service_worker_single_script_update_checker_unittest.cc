@@ -6,11 +6,13 @@
 
 #include <vector>
 
+#include "base/byte_size.h"
 #include "base/containers/queue.h"
 #include "base/containers/span.h"
 #include "base/functional/bind.h"
 #include "base/run_loop.h"
 #include "base/test/bind.h"
+#include "base/test/run_until.h"
 #include "content/browser/service_worker/service_worker_context_wrapper.h"
 #include "content/browser/service_worker/service_worker_test_utils.h"
 #include "content/public/test/browser_task_environment.h"
@@ -123,6 +125,45 @@ class ServiceWorkerSingleScriptUpdateCheckerTest : public testing::Test {
     return remote;
   }
 
+  std::unique_ptr<ServiceWorkerSingleScriptUpdateChecker>
+  CreateSingleScriptUpdateCheckerWithCallback(
+      const char* url,
+      const GURL& scope,
+      std::unique_ptr<MockServiceWorkerResourceReader> compare_reader,
+      std::unique_ptr<MockServiceWorkerResourceReader> copy_reader,
+      mojo::Remote<storage::mojom::ServiceWorkerResourceWriter> writer,
+      network::TestURLLoaderFactory* loader_factory,
+      ServiceWorkerSingleScriptUpdateChecker::ResultCallback callback) {
+    auto fetch_client_settings_object =
+        blink::mojom::FetchClientSettingsObject::New(
+            []() {
+              auto policies = blink::mojom::PolicyContainerPolicies::New();
+              policies->referrer_policy =
+                  network::mojom::ReferrerPolicy::kDefault;
+              return policies;
+            }(),
+            GURL(url), blink::mojom::InsecureRequestsPolicy::kDoNotUpgrade);
+    return std::make_unique<ServiceWorkerSingleScriptUpdateChecker>(
+        GURL(url), /*is_main_script=*/true, GURL(url), scope,
+        /*force_bypass_cache=*/false, blink::mojom::ScriptType::kClassic,
+        blink::mojom::ServiceWorkerUpdateViaCache::kNone,
+        std::move(fetch_client_settings_object),
+        /*time_since_last_check=*/base::TimeDelta(), browser_context_.get(),
+        base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
+            loader_factory),
+        WrapReader(std::move(compare_reader)),
+        WrapReader(std::move(copy_reader)), std::move(writer),
+        /*writer_resource_id=*/0,
+        ServiceWorkerSingleScriptUpdateChecker::ScriptChecksumUpdateOption::
+            kDefault,
+        blink::StorageKey::Create(url::Origin::Create(scope),
+                                  net::SchemefulSite(scope),
+                                  blink::mojom::AncestorChainBit::kSameSite,
+                                  /*third_party_partitioning_allowed=*/true),
+        /*network_restrictions_id=*/std::nullopt, PolicyContainerPolicies(),
+        std::move(callback));
+  }
+
   mojo::Remote<storage::mojom::ServiceWorkerResourceWriter> WrapWriter(
       std::unique_ptr<MockServiceWorkerResourceWriter> writer) {
     mojo::Remote<storage::mojom::ServiceWorkerResourceWriter> remote;
@@ -208,7 +249,7 @@ class ServiceWorkerSingleScriptUpdateCheckerTest : public testing::Test {
     head->headers->GetMimeType(&head->mime_type);
     head->parsed_headers = network::mojom::ParsedHeaders::New();
     network::URLLoaderCompletionStatus status(error);
-    status.decoded_body_length = body.size();
+    status.decoded_body_length = base::ByteSize(body.size());
     loader_factory->AddResponse(url, std::move(head), body, status);
     return loader_factory;
   }
@@ -1447,6 +1488,58 @@ TEST_F(ServiceWorkerSingleScriptUpdateCheckerTest, RequestSSLInfo_Module) {
     EXPECT_EQ(kImportedScriptURL, pending_request->request.url);
     EXPECT_EQ(network::mojom::kURLLoadOptionNone, pending_request->options);
   }
+}
+
+// Tests that the checker can be safely destroyed from inside its result
+// callback when writing the response headers to storage fails synchronously
+// (e.g., the storage writer connection has gone away).
+TEST_F(ServiceWorkerSingleScriptUpdateCheckerTest,
+       DestroyedInCallbackOnSynchronousHeaderWriteFailure) {
+  auto loader_factory = std::make_unique<network::TestURLLoaderFactory>();
+  auto compare_reader = std::make_unique<MockServiceWorkerResourceReader>();
+  auto copy_reader = std::make_unique<MockServiceWorkerResourceReader>();
+
+  mojo::Remote<storage::mojom::ServiceWorkerResourceWriter> writer_remote;
+  auto writer_receiver = writer_remote.BindNewPipeAndPassReceiver();
+
+  std::unique_ptr<ServiceWorkerSingleScriptUpdateChecker> checker;
+  std::optional<ServiceWorkerSingleScriptUpdateChecker::Result> result;
+  checker = CreateSingleScriptUpdateCheckerWithCallback(
+      kScriptURL, GURL(kScope), std::move(compare_reader),
+      std::move(copy_reader), std::move(writer_remote), loader_factory.get(),
+      base::BindLambdaForTesting(
+          [&](const GURL&,
+              ServiceWorkerSingleScriptUpdateChecker::Result compare_result,
+              std::unique_ptr<
+                  ServiceWorkerSingleScriptUpdateChecker::FailureInfo>,
+              std::unique_ptr<
+                  ServiceWorkerSingleScriptUpdateChecker::PausedState>,
+              const std::optional<std::string>&) {
+            result = compare_result;
+            // The owner may destroy the checker synchronously in response to
+            // the result.
+            checker.reset();
+          }));
+
+  // Disconnect the storage writer before the network response arrives so that
+  // writing headers fails synchronously.
+  writer_receiver.reset();
+  checker->FlushRemotesForTesting();
+  ASSERT_FALSE(result.has_value());
+
+  auto head = network::mojom::URLResponseHead::New();
+  head->headers = base::MakeRefCounted<net::HttpResponseHeaders>(
+      net::HttpUtil::AssembleRawHeaders(kSuccessHeader));
+  head->headers->GetMimeType(&head->mime_type);
+  head->parsed_headers = network::mojom::ParsedHeaders::New();
+  loader_factory->SimulateResponseForPendingRequest(
+      GURL(kScriptURL), network::URLLoaderCompletionStatus(net::OK),
+      std::move(head), "abcdef");
+  ASSERT_TRUE(base::test::RunUntil([&]() { return result.has_value(); }));
+
+  EXPECT_EQ(result.value(),
+            ServiceWorkerSingleScriptUpdateChecker::Result::kFailed);
+  EXPECT_FALSE(checker);
 }
 
 class ServiceWorkerSingleScriptUpdateCheckerSha256ChecksumTest

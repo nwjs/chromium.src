@@ -48,20 +48,38 @@
   <a href="https://explainers-by-googlers.github.io/user-dictionary-leaks/">user-dictionary-leaks</a>.
 </p>
 
-<!-- Test 1: basic add then remove on a single field. -->
+<!-- Test 1: basic add then remove on a single field. Covers both a Latin (LTR)
+     word and a Hebrew (RTL) word: matching is exact/verbatim. -->
 <fieldset>
-  <legend>1. Add suppresses the squiggle, remove restores it</legend>
-  <p>The misspelled nonsense word <span class="word">wugzz</span> below should
-     have a red spelling squiggle to start with.</p>
+  <legend>1. Add suppresses the squiggle, remove restores it (LTR and RTL)</legend>
+
+  <p><b>1a. Latin (LTR) word.</b> The misspelled nonsense word
+     <span class="word">wugzz</span> below should have a red spelling squiggle to
+     start with.</p>
   <div id="field1" class="editable" spellcheck="true" contenteditable>This wugzz is misspelled.</div>
   <button data-add='["wugzz"]'>addWords(["wugzz"])</button>
   <button data-remove='["wugzz"]'>removeWords(["wugzz"])</button>
+
+  <p class="note"><b>Precondition for 1b:</b> enable the <b>Hebrew</b> spellcheck
+     dictionary (Settings &rsaquo; Languages). Chrome only squiggles Hebrew text
+     when a Hebrew (<code>he</code>) or Persian (<code>fa</code>) dictionary is
+     on; with only Latin dictionaries enabled the word below is never flagged
+     and there is nothing to observe.</p>
+  <p><b>1b. Hebrew (RTL) word.</b> The misspelled Hebrew nonsense word
+     <span class="word">שלוס</span> below should have a red spelling squiggle to
+     start with.</p>
+  <div id="field1b" class="editable" spellcheck="true" dir="rtl" contenteditable>זה שלוס לא נכון.</div>
+  <button data-add='["שלוס"]'>addWords(["שלוס"])</button>
+  <button data-remove='["שלוס"]'>removeWords(["שלוס"])</button>
+
   <ol>
-    <li>Confirm <span class="word">wugzz</span> is underlined as misspelled.</li>
-    <li>Click <b>addWords</b>. The squiggle on <span class="word">wugzz</span> should disappear
+    <li>For <b>each</b> word (<span class="word">wugzz</span> and
+        <span class="word">שלוס</span>), confirm it is underlined as misspelled.</li>
+    <li>Click that word's <b>addWords</b> button. Its squiggle should disappear
         immediately, with no further interaction.</li>
-    <li>Click <b>removeWords</b>, then click back into this field. The squiggle should
-        come back as soon as you focus the field &mdash; <b>without you having to type</b>.</li>
+    <li>Click that word's <b>removeWords</b> button, then click back into the field.
+        The squiggle should come back as soon as you focus the field &mdash;
+        <b>without you having to type</b>.</li>
   </ol>
   <div class="verdict" data-test="basic"></div>
 </fieldset>
@@ -110,23 +128,23 @@
   <div class="verdict" data-test="language-agnostic"></div>
 </fieldset>
 
-<!-- Test 4: per-document cap: 5000 words, 99 bytes/word.
+<!-- Test 4: per-document cap: 20000 words, 128 bytes/word.
      Scriptable enough that we can assert it doesn't throw and stays a no-op
      visually; the cap itself is enforced silently. -->
 <fieldset>
-  <legend>4. Per-document cap is enforced (5000 words / 99 bytes per word)</legend>
+  <legend>4. Per-document cap is enforced (20000 words / 128 bytes per word)</legend>
   <p><b>Run this test last.</b> The per-document word set is shared by every test on
      this page and persists for the document's lifetime, and the bulk step below fills
      it permanently. If you run Test 4 before Tests 1&ndash;3, their <code>addWords</code>
      calls will be silently rejected (cap full) and those tests will appear to fail.</p>
-  <p>The per-document set is capped at 5000 words and 99 bytes per word. Once the
+  <p>The per-document set is capped at 20000 words and 128 bytes per word. Once the
      cap is reached, further additions are <b>silently dropped</b>.</p>
   <p>Field A contains <span class="word">zzzzzqqqqq</span>; field B contains
      <span class="word">capword</span>. Both start squiggled.</p>
   <div id="field4" class="editable" spellcheck="true" contenteditable>zzzzzqqqqq is misspelled.</div>
   <div id="field4b" class="editable" spellcheck="true" contenteditable>capword is misspelled.</div>
   <button data-add='["zzzzzqqqqq"]'>A: addWords(["zzzzzqqqqq"])</button>
-  <button id="bulk-add">Fill cap: addWords(6000 words + 1 over-long word)</button>
+  <button id="bulk-add">Fill cap: addWords(21000 words + 1 over-long word)</button>
   <button data-add='["capword"]'>B: addWords(["capword"])</button>
   <ol>
     <li><b>Below the cap.</b> Click <b>A: addWords(["zzzzzqqqqq"])</b>. Its squiggle
@@ -192,10 +210,10 @@
     bulk.addEventListener('click', () => {
       try {
         const words = [];
-        for (let i = 0; i < 6000; i++) words.push('w' + i);
-        words.push('x'.repeat(200));  // over the 99-byte per-word limit
+        for (let i = 0; i < 21000; i++) words.push('w' + i);
+        words.push('x'.repeat(200));  // over the 128-byte per-word limit
         dict.addWords(words);
-        setStatus(bulk, 'addWords(6001) ok — no throw', false);
+        setStatus(bulk, 'addWords(21001) ok — no throw', false);
       } catch (e) {
         setStatus(bulk, `threw: ${e}`, true);
       }

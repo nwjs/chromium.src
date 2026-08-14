@@ -50,6 +50,7 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.ScopedStorageBatch;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
+import org.chromium.chrome.browser.tab.TabDestroyStatus;
 import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
@@ -402,7 +403,7 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge {
     }
 
     @Override
-    public void destroy() {
+    public @TabDestroyStatus int destroy() {
         assertOnUiThread();
         commitAllTabClosures();
 
@@ -419,13 +420,22 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge {
             invalidateCache();
         }
 
+        @TabDestroyStatus int status = TabDestroyStatus.NO_SHUTDOWN;
         for (Tab tab : tabs) {
             if (mModelDelegate.isReparentingInProgress()
                     && mAsyncTabParamsManager.hasParamsForTabId(tab.getId())) {
                 continue;
             }
 
-            if (tab.isInitialized()) tab.destroy();
+            if (tab.isInitialized()) {
+                @TabDestroyStatus int tabStatus = tab.destroy();
+                if (tabStatus == TabDestroyStatus.SLOW_SHUTDOWN) {
+                    status = TabDestroyStatus.SLOW_SHUTDOWN;
+                } else if (tabStatus == TabDestroyStatus.FAST_SHUTDOWN
+                        && status != TabDestroyStatus.SLOW_SHUTDOWN) {
+                    status = TabDestroyStatus.FAST_SHUTDOWN;
+                }
+            }
         }
 
         if (mPendingTabClosureManager != null) {
@@ -443,6 +453,7 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge {
         mClosingTabsCount = null;
 
         super.destroy();
+        return status;
     }
 
     // TabList overrides except those overridden by TabModelJniBridge.
@@ -517,11 +528,9 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge {
         assertOnUiThread();
         Tab tab = getTabById(id);
         if (tab == null) return mCurrentTabSupplier.get();
-        return TabModelImplUtil.getNextTabIfClosed(
+        return NextTabSelectionUtil.getNextTabIfClosed(
                 this,
                 mModelDelegate,
-                mCurrentTabSupplier,
-                mNextTabPolicySupplier,
                 Collections.singletonList(tab),
                 uponExit,
                 TabCloseType.SINGLE);
@@ -621,6 +630,11 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge {
     @Override
     public NullableObservableSupplier<Tab> getCurrentTabSupplier() {
         return mCurrentTabSupplier;
+    }
+
+    @Override
+    public NextTabPolicySupplier getNextTabPolicySupplier() {
+        return mNextTabPolicySupplier;
     }
 
     @Override
@@ -972,11 +986,14 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge {
         mTabsList = null;
     }
 
-    @VisibleForTesting
-    List<Tab> getAllTabsFromNativeForTesting() {
+    private void updateCacheOnAddTab(Tab tab, int finalIndex) {
         assertOnUiThread();
-        if (mNativeTabCollectionTabModelImplPtr == 0) return Collections.emptyList();
-        return TabCollectionTabModelImplJni.get().getAllTabs(mNativeTabCollectionTabModelImplPtr);
+        if (mTabsList != null) {
+            List<Tab> updatedList = new ArrayList<>(mTabsList);
+            int safeIndex = MathUtils.clamp(finalIndex, 0, updatedList.size());
+            updatedList.add(safeIndex, tab);
+            mTabsList = Collections.unmodifiableList(updatedList);
+        }
     }
 
     @Override
@@ -1661,7 +1678,7 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge {
                                 tabGroupId,
                                 createNewGroup,
                                 tab.getIsPinned());
-        invalidateCache();
+        updateCacheOnAddTab(tab, finalIndex);
 
         // When adding the first background tab make sure to select it.
         if (shouldSelectBackgroundTab) {
@@ -2104,11 +2121,9 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge {
         Tab nextTab =
                 recommendedNextTab != null
                         ? recommendedNextTab
-                        : TabModelImplUtil.getNextTabIfClosed(
+                        : NextTabSelectionUtil.getNextTabIfClosed(
                                 this,
                                 mModelDelegate,
-                                mCurrentTabSupplier,
-                                mNextTabPolicySupplier,
                                 tabsToRemove,
                                 /* uponExit= */ false,
                                 closeType);
@@ -2120,7 +2135,7 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge {
         boolean nextIsInOtherModel = nextIsIncognito != isIncognito();
         if ((nextTab == null || nextIsInOtherModel) && closeType != TabCloseType.ALL) {
             nearbyTab =
-                    TabModelImplUtil.findNearbyNotClosingTab(
+                    NextTabSelectionUtil.findNearbyNotClosingTab(
                             this, tabsToRemove.indexOf(currentTabInModel), tabsToRemove);
         }
 
@@ -2692,7 +2707,8 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge {
         if (!tabsToExclude.contains(lastShownTab)) return lastShownTab;
 
         int indexInGroup = tabsInGroup.indexOf(lastShownTab);
-        return TabModelImplUtil.findNearbyNotClosingTab(tabsInGroup, indexInGroup, tabsToExclude);
+        return NextTabSelectionUtil.findNearbyNotClosingTab(
+                tabsInGroup, indexInGroup, tabsToExclude);
     }
 
     private void notifyOnFinishingMultipleTabClosure(
@@ -2772,12 +2788,6 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge {
         assert mClosingTabsCount != null;
         assert mClosingTabsCount > 0;
         mClosingTabsCount--;
-    }
-
-    void setPendingTabClosureManagerForTesting(
-            @Nullable PendingTabClosureManager pendingTabClosureManager) {
-        mPendingTabClosureManager = pendingTabClosureManager;
-        ResettersForTesting.register(() -> mPendingTabClosureManager = null);
     }
 
     @NativeMethods
@@ -2880,5 +2890,17 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge {
 
         @JniType("tabs::TabStripCollection*")
         TabStripCollection getTabStripCollection(long nativeTabCollectionTabModelImpl);
+    }
+
+    List<Tab> getAllTabsFromNativeForTesting() {
+        assertOnUiThread();
+        if (mNativeTabCollectionTabModelImplPtr == 0) return Collections.emptyList();
+        return TabCollectionTabModelImplJni.get().getAllTabs(mNativeTabCollectionTabModelImplPtr);
+    }
+
+    void setPendingTabClosureManagerForTesting(
+            @Nullable PendingTabClosureManager pendingTabClosureManager) {
+        mPendingTabClosureManager = pendingTabClosureManager;
+        ResettersForTesting.register(() -> mPendingTabClosureManager = null);
     }
 }

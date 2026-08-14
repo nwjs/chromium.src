@@ -46,6 +46,7 @@ import androidx.test.filters.LargeTest;
 import androidx.test.filters.MediumTest;
 import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.runner.lifecycle.Stage;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -61,6 +62,7 @@ import org.mockito.junit.MockitoRule;
 import org.chromium.base.Callback;
 import org.chromium.base.ServiceLoaderUtil;
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.test.util.ApplicationTestUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
@@ -112,6 +114,7 @@ import org.chromium.components.sync.internal.SyncPrefNames;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.google_apis.gaia.GoogleServiceAuthError;
 import org.chromium.google_apis.gaia.GoogleServiceAuthErrorState;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.modaldialog.ModalDialogManagerHolder;
 import org.chromium.ui.test.util.GmsCoreVersionRestriction;
 import org.chromium.ui.test.util.MockitoHelper;
@@ -377,8 +380,6 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"Sync"})
-    // TODO(crbug.com/433576895): Re-enable containment feature once the test is fixed.
-    @DisableFeatures(ChromeFeatureList.ANDROID_SETTINGS_CONTAINMENT)
     public void testPressingSignOut() {
         mSyncTestRule.setUpAccountAndSignInForTesting();
 
@@ -424,6 +425,24 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"Sync"})
+    // Regression test for crbug.com/539883315 - removing account should not cause a crash.
+    public void testCentralAccountCardPreferenceWhenAccountRemovedNoCrash() {
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+        startManageSyncPreferences();
+
+        ViewUtils.waitForVisibleView(withId(R.id.central_account_card));
+
+        mSyncTestRule
+                .getSigninTestRule()
+                .removeAccount(mSyncTestRule.getSigninTestRule().getPrimaryAccount().getId());
+
+        ApplicationTestUtils.waitForActivityState(mSettingsActivity, Stage.DESTROYED);
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync"})
+    @DisableIf.Device(DeviceFormFactor.DESKTOP) // crbug.com/529758544
     public void testRemoveAccountFromDeviceShouldClearSyncPrefs() {
         SigninTestRule signinTestRule = mSyncTestRule.getSigninTestRule();
         signinTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
@@ -469,6 +488,9 @@ public class ManageSyncSettingsTest {
         Assert.assertTrue(historyAndTabsToggle.isChecked());
 
         mSyncTestRule.signOut();
+        // Signing out indirectly closes the settings activity. (when
+        // ManageSyncSettings detects the primary account change).
+        ApplicationTestUtils.waitForActivityState(mSettingsActivity, Stage.DESTROYED);
 
         // Sign-in again with the same account, and open the sync settings to check that history
         // opt-in did carry over through sign-out & sign-in.
@@ -808,8 +830,6 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"Sync", "RenderTest"})
-    // TODO(crbug.com/433576895): Re-enable containment feature once the test is fixed.
-    @DisableFeatures(ChromeFeatureList.ANDROID_SETTINGS_CONTAINMENT)
     public void testSignoutButton() throws Exception {
         mSyncTestRule.setUpAccountAndSignInForTesting();
         final ManageSyncSettings fragment = startManageSyncPreferences();
@@ -1151,8 +1171,6 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"PersonalizedGoogleServices"})
-    // TODO(crbug.com/433576895): Re-enable containment feature once the test is fixed.
-    @DisableFeatures(ChromeFeatureList.ANDROID_SETTINGS_CONTAINMENT)
     public void testClickPersonalizeGoogleServicesNonEEA() {
         mSyncTestRule.setUpAccountAndSignInForTesting();
         final ManageSyncSettings fragment = startManageSyncPreferences();
@@ -1169,8 +1187,6 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"PersonalizedGoogleServices"})
-    // TODO(crbug.com/433576895): Re-enable containment feature once the test is fixed.
-    @DisableFeatures(ChromeFeatureList.ANDROID_SETTINGS_CONTAINMENT)
     public void testClickPersonalizeGoogleServicesEEA() {
         when(mRegionalCapabilities.isInEeaCountry()).thenReturn(true);
         mSyncTestRule.setUpAccountAndSignInForTesting();

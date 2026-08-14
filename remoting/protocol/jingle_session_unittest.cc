@@ -101,7 +101,7 @@ class FakeTransport : public Transport {
   }
 
   // Transport interface.
-  void Start(Authenticator* authenticator,
+  void Start(const std::string& auth_key,
              SendTransportInfoCallback send_transport_info_callback) override {
     send_transport_info_callback_ = send_transport_info_callback;
   }
@@ -160,7 +160,7 @@ class FakePlugin : public SessionPlugin {
 std::unique_ptr<JingleTransportInfo> CreateTransportInfo(
     const std::string& id) {
   auto result = std::make_unique<JingleTransportInfo>();
-  result->xml_namespace = "google:remoting:webrtc";
+
   // Store the ID in the candidate name so it can be verified in the test.
   IceTransportInfo::NamedCandidate candidate;
   candidate.name = id;

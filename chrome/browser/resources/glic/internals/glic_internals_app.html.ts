@@ -86,6 +86,76 @@ export function getHtml(this: GlicInternalsAppElement) {
                 this.data_.enablement.glicApiActuationEligibility)}
           </td>
         </tr>
+        <tr>
+          <td>Experimental triggering state</td>
+          <td>
+            ${this.getExperimentalTriggeringStateString_(
+                this.data_.enablement.glicExperimentalTriggeringState)}
+          </td>
+        </tr>
+      </table>` :
+      html`<h3 id="loadingMsg">Loading...</h3>`}
+    <h2>Tiered Rollout / User Tier</h2>
+    ${this.data_?.tieredRolloutInfo ? html`
+      <table>
+        <tr>
+          <th>Property</th>
+          <th>Value</th>
+        </tr>
+        <tr>
+          <td>AI Subscription Tier</td>
+          <td>${this.data_.tieredRolloutInfo.aiSubscriptionTier === null ?
+              'N/A (No Service or Not Logged In)' :
+              this.data_.tieredRolloutInfo.aiSubscriptionTier}</td>
+        </tr>
+        <tr>
+          <td>Preference Sync Status (Server Fetch)</td>
+          <td>${this.data_.tieredRolloutInfo.preferenceSyncStatus}</td>
+        </tr>
+        <tr>
+          <td>Is Eligible for Tiered Rollout V1 (C++)</td>
+          <td class="status-${
+              this.data_.tieredRolloutInfo.isEligibleForTieredRolloutV1}">
+            ${
+              this.data_.tieredRolloutInfo.isEligibleForTieredRolloutV1 ? '✅' :
+                                                                          '🚫'}
+          </td>
+        </tr>
+        <tr>
+          <td>Is Eligible for Tiered Rollout V2 (C++)</td>
+          <td class="status-${
+              this.data_.tieredRolloutInfo.isEligibleForTieredRolloutV2}">
+            ${
+              this.data_.tieredRolloutInfo.isEligibleForTieredRolloutV2 ? '✅' :
+                                                                          '🚫'}
+          </td>
+        </tr>
+        <tr>
+          <td>Is Eligible Overall (C++)</td>
+          <td class="status-${
+              this.data_.tieredRolloutInfo.isEligibleOverall}">
+            ${
+              this.data_.tieredRolloutInfo.isEligibleOverall ? '✅' :
+                                                               '🚫'}
+          </td>
+        </tr>
+        <tr>
+          <td>Rollout Eligibility Pref (kGlicRolloutEligibility)</td>
+          <td class="status-${
+              this.data_.tieredRolloutInfo.glicRolloutEligibilityPref}">
+            ${
+              this.data_.tieredRolloutInfo.glicRolloutEligibilityPref ? '✅' :
+                                                                        '🚫'}
+          </td>
+        </tr>
+        <tr>
+          <td>Eligible Tiers for V2 Rollout (Param)</td>
+          <td>
+            ${
+              this.data_.tieredRolloutInfo.tieredRolloutV2EligibleTiers ||
+              'None'}
+          </td>
+        </tr>
       </table>` :
       html`<h3 id="loadingMsg">Loading...</h3>`}
     <h2>Configuration</h2>
@@ -142,18 +212,51 @@ export function getHtml(this: GlicInternalsAppElement) {
           <input id="invokePromptInput" .value="${this.invokePrompt_}"
               @input="${this.onInvokePromptInput_}">
           </input>
-          <div style="display: flex; gap: 16px; align-items: center;">
-            <label style="flex: 1;">
+          <label for="invokeTimeoutInput">Timeout Override (ms)</label>
+          <input id="invokeTimeoutInput" type="number"
+              .value="${this.invokeTimeoutMs_}"
+              @input="${this.onInvokeTimeoutMsInput_}">
+          </input>
+          <div style="display: flex; flex-wrap: wrap; gap: 16px;
+             align-items: center;">
+            <label style="flex: 1 1 calc(50% - 8px);">
               <input type="checkbox" .checked="${this.invokeAutoSubmit_}"
                   @change="${this.onInvokeAutoSubmitChange_}">
               Auto Submit
             </label>
-            <label style="flex: 1;">
+            <label style="flex: 1 1 calc(50% - 8px);">
               <input type="checkbox" .checked="${this.invokeWaitForPanelOpen_}"
                   @change="${this.onInvokeWaitForPanelOpenChange_}">
               Wait for Panel Open
             </label>
+            <label style="flex: 1 1 calc(50% - 8px);">
+              <input type="checkbox" .checked="${this.invokeFocusOnShow_}"
+                  @change="${this.onInvokeFocusOnShowChange_}">
+              Focus Panel on Show
+            </label>
+            <label style="flex: 1 1 calc(50% - 8px);">
+              <input type="checkbox"
+                  .checked="${this.invokeTakeScreenshot_}"
+                  @change="${this.onInvokeTakeScreenshotChange_}">
+              Test Take Screenshot
+            </label>
           </div>
+          ${this.invokeTakeScreenshot_ ? html`
+            <div style="display: flex; flex-direction: column; gap: 8px;
+               margin: 8px 0;">
+              <label for="invokePublicKeyInput">
+                Public Key (Base64 - optional)</label>
+              <input id="invokePublicKeyInput" type="text"
+                  .value="${this.invokePublicKey_}"
+                  @input="${this.onInvokePublicKeyInput_}">
+              </input>
+              <label for="invokeAuthSecretInput">Auth Secret (optional)</label>
+              <input id="invokeAuthSecretInput" type="text"
+                  .value="${this.invokeAuthSecret_}"
+                  @input="${this.onInvokeAuthSecretInput_}">
+              </input>
+            </div>
+          ` : html``}
           <div style="display: flex; gap: 16px; align-items: center;">
             ${this.invokeAutoSubmit_ ? html`
               <label style="flex: 1;">
@@ -161,12 +264,7 @@ export function getHtml(this: GlicInternalsAppElement) {
                     @change="${this.onInvokeShowPanelChange_}">
                 Show Panel
               </label>
-            ` : html`<div style="flex: 1;"></div>`}
-            <label style="flex: 1;">
-              <input type="checkbox" .checked="${this.invokeNewConversation_}"
-                  @change="${this.onInvokeNewConversationChange_}">
-              New Conversation
-            </label>
+            ` : html``}
           </div>
           <label for="invokeInvocationSourceSelect">Invocation Source</label>
           <select id="invokeInvocationSourceSelect"
@@ -253,10 +351,23 @@ export function getHtml(this: GlicInternalsAppElement) {
                 .value="${this.invokeSurfaceType_}"
                 @change="${this.onInvokeSurfaceTypeChange_}">
               <option value="default">Default</option>
+              <option value="specificTab">Specific Tab</option>
               <option value="newTab">New Tab</option>
             </select>
             ${this.invokeSurfaceType_ === 'default' ? html`
               <span style="color: gray;">(Uses this window)</span>
+            ` : html``}
+            ${this.invokeSurfaceType_ === 'specificTab' ? html`
+              <select id="invokeSpecificTabIndexSelect"
+                  .value="${this.invokeSpecificTabIndex_.toString()}"
+                  @change="${this.onInvokeSpecificTabIndexChange_}">
+                ${this.availableTabs_.map((tabTitle, index) => html`
+                  <option value="${index}">${index}: ${tabTitle}</option>
+                `)}
+              </select>
+              <cr-button @click="${this.onRefreshTabsClick_}">
+                Refresh
+              </cr-button>
             ` : html``}
             ${this.invokeSurfaceType_ === 'newTab' ? html`
               <label style="display: flex; align-items: center; gap: 4px;">
@@ -265,6 +376,28 @@ export function getHtml(this: GlicInternalsAppElement) {
                     @change="${this.onInvokeOpenInForegroundChange}">
                 Open in Foreground
               </label>
+            ` : html``}
+          </div>
+
+          <div style="display: flex; gap: 8px; align-items: center;
+                      margin-top: 8px;">
+            <label for="invokeConversationTypeSelect">
+              Target Conversation
+            </label>
+            <select id="invokeConversationTypeSelect"
+                .value="${this.invokeConversationType_}"
+                @change="${this.onInvokeConversationTypeChange_}">
+              <option value="default">Default</option>
+              <option value="new">New Conversation</option>
+              <option value="conversationId">Specific Conversation ID</option>
+            </select>
+            ${this.invokeConversationType_ === 'conversationId' ? html`
+              <label for="invokeConversationIdInput"
+                     style="margin-left: 8px;">ID:</label>
+              <input id="invokeConversationIdInput"
+                  .value="${this.invokeConversationId_}"
+                  @input="${this.onInvokeConversationIdInput_}">
+              </input>
             ` : html``}
           </div>
 

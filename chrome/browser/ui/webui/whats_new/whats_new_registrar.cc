@@ -26,6 +26,10 @@ namespace features {
 void RegisterWhatsNewModules(whats_new::WhatsNewRegistry* registry) {
   // Register modules here.
 
+  // M142
+  registry->RegisterModule(WhatsNewModule("SideBySide", "agale@google.com",
+                                          BrowserCommand::kOpenSplitView));
+
   // M147
   registry->RegisterModule(WhatsNewModule(tabs::kVerticalTabsLaunch,
                                           "charlesmeng@google.com",
@@ -37,8 +41,7 @@ void RegisterWhatsNewEditions(whats_new::WhatsNewRegistry* registry) {
   registry->RegisterEdition(WhatsNewEdition(
       ::features::kGlicRollout, "tommasin@chromium.org",
       std::vector<BrowserCommand>{BrowserCommand::kOpenGlic,
-                                  BrowserCommand::kOpenGlicSettings,
-                                  BrowserCommand::kPrewarmGlicFre}));
+                                  BrowserCommand::kOpenGlicSettings}));
   registry->RegisterEdition(
       WhatsNewEdition(ntp_features::kLightningTakeoverEdition,
                       "rtatum@google.com", std::vector<BrowserCommand>{}));

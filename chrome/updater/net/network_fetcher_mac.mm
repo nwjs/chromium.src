@@ -29,7 +29,6 @@
 #include "base/process/launch.h"
 #include "base/process/process.h"
 #include "base/sequence_checker.h"
-#include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
@@ -821,7 +820,7 @@ void NetworkFetcher::PostRequest(
     [urlRequest setValue:base::SysUTF8ToNSString(value)
         forHTTPHeaderField:base::SysUTF8ToNSString(name)];
   }
-  VLOG(1) << "Posting data: " << post_data.c_str();
+  VLOG(1) << "Posting data: " << post_data;
 
   NSURLSessionDataTask* dataTask = [session dataTaskWithRequest:urlRequest];
   [dataTask resume];

@@ -1,0 +1,51 @@
+<div id="container">
+  <div id="transcription-container"
+      class="${this.usePersona ? 'has-persona' : ''}"
+      ?hidden="${this.shouldHideCaptionsContainer()}">
+    ${this.isAssistantSpeaking() ? html`
+      <div class="caption-bubble output" ?hidden="${!this.isOutputCaptionActive()}">${this.activeCaptionText()}</div>
+    ` : html`
+      <div class="caption-bubble input" ?hidden="${!this.isInputCaptionActive()}">${this.activeCaptionText()}</div>
+    `}
+  </div>
+  <div id="main-content">
+    <div id="mock-buttons-column"
+        ?hidden="${this.mockButtons.length === 0 &&
+                   this.sequences.length === 0}">
+      <!--
+        If there's no microphone present, show a button to inject a pre-canned
+        audio message to make development easier.
+      -->
+      ${this.mockButtons.map((button, index) => html`
+        <div class="inject-audio" data-index="${index}"
+            @click="${this.onInjectAudioClick}">
+          ${button.name}
+        </div>
+      `)}
+      ${this.sequences.map((sequence, index) => html`
+        <div class="inject-audio sequence" data-index="${index}"
+            @click="${this.onSequenceClick}">
+          Seq: ${sequence.name}
+        </div>
+      `)}
+      <input type="text" id="text-input" placeholder="Type instructions..."
+          @keydown="${this.onTextInputKeydown}">
+    </div>
+    ${this.initializationState !== 'initialized' || !this.usePersona
+    ? html`
+      <div id="initializerState"
+          .className=${this.initializationState}
+          ?hidden=${!this.usePersona}>
+      </div >`
+    : html`
+      <video id="talking" .src="${this.speakingBlobUrl}"
+          ?hidden="${!this.isAssistantSpeaking()}"
+          autoplay loop muted playsinline>
+      </video>
+      <video id="listening" .src="${this.listeningBlobUrl}"
+          ?hidden="${this.isAssistantSpeaking()}"
+          autoplay loop muted playsinline>
+      </video>
+    `}
+  </div>
+</div>

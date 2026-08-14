@@ -5,6 +5,7 @@
 #include "content/browser/renderer_host/unbounded_surface_window_aura.h"
 
 #include "base/check.h"
+#include "base/command_line.h"
 #include "base/memory/ptr_util.h"
 #include "base/task/single_thread_task_runner.h"
 #include "components/input/native_web_keyboard_event.h"
@@ -16,6 +17,7 @@
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_view_aura.h"
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
+#include "content/public/common/content_switches.h"
 #include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/blink/public/common/input/web_touch_event.h"
 #include "ui/aura/client/screen_position_client.h"
@@ -23,6 +25,7 @@
 #include "ui/aura/client/window_parenting_client.h"
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/layer.h"
+#include "ui/compositor/paint_recorder.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/events/blink/blink_event_util.h"
@@ -54,15 +57,37 @@ gfx::Rect ConvertRectFromScreen(aura::Window* window,
 
 }  // namespace
 
+class UnboundedSurfaceWindowAura::DebugBorderDelegate
+    : public ui::LayerDelegate {
+ public:
+  explicit DebugBorderDelegate(ui::Layer* layer) : layer_(layer) {}
+  ~DebugBorderDelegate() override = default;
+
+  // ui::LayerDelegate:
+  void OnPaintLayer(const ui::PaintContext& context) override {
+    ui::PaintRecorder recorder(context, layer_->size());
+    recorder.canvas()->DrawSolidFocusRect(gfx::RectF(layer_->size()),
+                                          SK_ColorRED, 3);
+  }
+
+  void OnDeviceScaleFactorChanged(float old_device_scale_factor,
+                                  float new_device_scale_factor) override {}
+
+ private:
+  raw_ptr<ui::Layer> layer_;
+};
+
 // static
 std::unique_ptr<UnboundedSurfaceWindowAura> UnboundedSurfaceWindowAura::Create(
     RenderWidgetHostViewAura* parent_view,
     mojo::PendingAssociatedReceiver<blink::mojom::UnboundedSurfaceHost> host,
     mojo::PendingAssociatedRemote<blink::mojom::UnboundedSurfaceClient> client,
-    const gfx::Rect& bounds_in_dips) {
+    const gfx::Rect& bounds_in_screen,
+    base::WeakPtr<RenderWidgetHostViewBase> subframe_view) {
   auto window = base::WrapUnique(new UnboundedSurfaceWindowAura(
-      parent_view, std::move(host), std::move(client)));
-  if (!window->InitWindow(bounds_in_dips)) {
+      parent_view, std::move(host), std::move(client),
+      std::move(subframe_view)));
+  if (!window->InitWindow(bounds_in_screen)) {
     return nullptr;
   }
   return window;
@@ -71,8 +96,9 @@ std::unique_ptr<UnboundedSurfaceWindowAura> UnboundedSurfaceWindowAura::Create(
 UnboundedSurfaceWindowAura::UnboundedSurfaceWindowAura(
     RenderWidgetHostViewAura* parent_view,
     mojo::PendingAssociatedReceiver<blink::mojom::UnboundedSurfaceHost> host,
-    mojo::PendingAssociatedRemote<blink::mojom::UnboundedSurfaceClient> client)
-    : parent_view_(parent_view) {
+    mojo::PendingAssociatedRemote<blink::mojom::UnboundedSurfaceClient> client,
+    base::WeakPtr<RenderWidgetHostViewBase> subframe_view)
+    : parent_view_(parent_view), subframe_view_(std::move(subframe_view)) {
   if (host.is_valid()) {
     receiver_.Bind(std::move(host));
     receiver_.set_disconnect_handler(
@@ -100,6 +126,15 @@ UnboundedSurfaceWindowAura::~UnboundedSurfaceWindowAura() {
     }
     GetHostFrameSinkManager()->InvalidateFrameSinkId(frame_sink_id_, this, {});
   }
+
+  // Explicitly destroy the debug border components in a safe order to prevent
+  // dangling raw_ptrs in both directions (layer -> delegate and delegate ->
+  // layer).
+  if (debug_border_layer_) {
+    debug_border_layer_->set_delegate(nullptr);
+  }
+  debug_border_delegate_.reset();
+  debug_border_layer_.reset();
 }
 
 base::WeakPtr<UnboundedSurfaceWindow> UnboundedSurfaceWindowAura::GetWeakPtr() {
@@ -160,7 +195,7 @@ void UnboundedSurfaceWindowAura::EnsureSurfaceSynchronizedForWebTest() {
   if (window_ && window_->layer()) {
     window_->layer()->SetShowSurface(
         viz::SurfaceId(frame_sink_id_, GetLocalSurfaceId()),
-        window_->GetBoundsInScreen().size(), SK_ColorTRANSPARENT,
+        window_->GetBoundsInScreen().size(), SkColors::kTransparent,
         cc::DeadlinePolicy::UseInfiniteDeadline(),
         /*stretch_content_to_fill_bounds=*/false);
   }
@@ -211,7 +246,7 @@ bool UnboundedSurfaceWindowAura::HasHitTestMask() const {
   return false;
 }
 
-bool UnboundedSurfaceWindowAura::InitWindow(const gfx::Rect& bounds_in_dips) {
+bool UnboundedSurfaceWindowAura::InitWindow(const gfx::Rect& bounds_in_screen) {
   if (!parent_view_) {
     return false;
   }
@@ -239,7 +274,7 @@ bool UnboundedSurfaceWindowAura::InitWindow(const gfx::Rect& bounds_in_dips) {
   // transparent background later, if security issues arise. For example, this
   // allows content to put up a fully transparent (invisible) overlay over site
   // content and steal clicks/events.
-  window_->layer()->SetColor(SK_ColorTRANSPARENT);
+  window_->layer()->AsSolidColor()->SetColor(SkColors::kTransparent);
   window_->SetEmbedFrameSinkId(frame_sink_id_);
 
   GetHostFrameSinkManager()->RegisterFrameSinkId(
@@ -260,8 +295,6 @@ bool UnboundedSurfaceWindowAura::InitWindow(const gfx::Rect& bounds_in_dips) {
                                                window_.get());
   }
 
-  gfx::Rect bounds_in_screen = ConvertDIPToScreenBounds(bounds_in_dips);
-
   aura::client::ParentWindowWithContext(window_.get(), root, bounds_in_screen,
                                         display::kInvalidDisplayId);
 
@@ -273,9 +306,22 @@ bool UnboundedSurfaceWindowAura::InitWindow(const gfx::Rect& bounds_in_dips) {
   // TODO(crbug.com/508672616): See the note above about transparent background.
   window_->layer()->SetShowSurface(
       viz::SurfaceId(frame_sink_id_, GetLocalSurfaceId()),
-      bounds_in_screen.size(), SK_ColorTRANSPARENT,
+      bounds_in_screen.size(), SkColors::kTransparent,
       cc::DeadlinePolicy::UseDefaultDeadline(),
       /*stretch_content_to_fill_bounds=*/false);
+
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kUnboundedWindowDebug)) {
+    debug_border_layer_ = std::make_unique<ui::LayerTextured>();
+    debug_border_delegate_ =
+        std::make_unique<DebugBorderDelegate>(debug_border_layer_.get());
+    debug_border_layer_->set_delegate(debug_border_delegate_.get());
+    debug_border_layer_->SetBounds(gfx::Rect(window_->layer()->size()));
+    debug_border_layer_->SetFillsBoundsOpaquely(false);
+    debug_border_layer_->SetAcceptEvents(false);
+    window_->layer()->Add(debug_border_layer_.get());
+  }
+
   window_->Show();
 
   if (client_remote_.is_bound()) {
@@ -294,16 +340,20 @@ void UnboundedSurfaceWindowAura::SetBounds(const gfx::Rect& bounds_in_screen) {
   local_surface_id_allocator_.GenerateId();
   window_->layer()->SetShowSurface(
       viz::SurfaceId(frame_sink_id_, GetLocalSurfaceId()),
-      bounds_in_screen.size(), SK_ColorTRANSPARENT,
+      bounds_in_screen.size(), SkColors::kTransparent,
       cc::DeadlinePolicy::UseDefaultDeadline(),
       /*stretch_content_to_fill_bounds=*/false);
+  if (debug_border_layer_) {
+    debug_border_layer_->SetBounds(gfx::Rect(window_->layer()->size()));
+  }
 }
 
 void UnboundedSurfaceWindowAura::UpdateBounds(const gfx::Rect& bounds) {
   if (!parent_view_) {
     return;
   }
-  SetBounds(ConvertDIPToScreenBounds(bounds));
+  parent_view_->UpdateUnboundedSurfaceBoundsInSubframeContext(
+      bounds, subframe_view_.get());
   if (client_remote_.is_bound()) {
     client_remote_->OnSurfaceAllocated(GetFrameSinkId(), GetLocalSurfaceId());
   }
@@ -324,18 +374,6 @@ void UnboundedSurfaceWindowAura::Dismiss() {
 
 void UnboundedSurfaceWindowAura::OnConnectionError() {
   Dismiss();
-}
-
-gfx::Rect UnboundedSurfaceWindowAura::ConvertDIPToScreenBounds(
-    const gfx::Rect& bounds_in_dips) const {
-  if (!parent_view_) {
-    return bounds_in_dips;
-  }
-  float dsf = parent_view_->GetDeviceScaleFactor();
-  gfx::Rect bounds_in_screen =
-      gfx::ScaleToRoundedRect(bounds_in_dips, 1.f / dsf);
-  bounds_in_screen.Offset(parent_view_->GetViewBounds().OffsetFromOrigin());
-  return bounds_in_screen;
 }
 
 void UnboundedSurfaceWindowAura::GetCompositorFrameSink(
@@ -360,16 +398,18 @@ void UnboundedSurfaceWindowAura::RouteMouseEvent(
   if (!parent_window || !parent_window->GetRootWindow()) {
     return;
   }
-  aura::client::ScreenPositionClient* screen_position_client =
-      aura::client::GetScreenPositionClient(parent_window->GetRootWindow());
-  if (!screen_position_client) {
-    return;
-  }
 
   blink::WebMouseEvent web_event = event;
   gfx::PointF parent_local_point = web_event.PositionInScreen();
-  screen_position_client->ConvertPointFromScreen(parent_window,
-                                                 &parent_local_point);
+  if (auto* screen_position_client = aura::client::GetScreenPositionClient(
+          parent_window->GetRootWindow())) {
+    // Since the input coordinate is in screen space and both windows share a
+    // root, ConvertPointToTarget would bypass the ScreenPositionClient and fail
+    // to apply the screen-to-root offset. We must explicitly use
+    // ConvertPointFromScreen to convert from screen coordinates.
+    screen_position_client->ConvertPointFromScreen(parent_window,
+                                                   &parent_local_point);
+  }
   web_event.SetPositionInWidget(parent_local_point.x(), parent_local_point.y());
 
   router->RouteMouseEvent(parent_view_, &web_event, ui::LatencyInfo());
@@ -437,12 +477,6 @@ void UnboundedSurfaceWindowAura::OnTouchEvent(ui::TouchEvent* event) {
   if (!parent_window || !parent_window->GetRootWindow()) {
     return;
   }
-  aura::client::ScreenPositionClient* screen_position_client =
-      aura::client::GetScreenPositionClient(parent_window->GetRootWindow());
-  if (!screen_position_client) {
-    return;
-  }
-
   blink::WebTouchEvent touch_event = ui::CreateWebTouchEventFromMotionEvent(
       pointer_state_, event->may_cause_scrolling(), event->hovering());
   pointer_state_.CleanupRemovedTouchPoints(*event);
@@ -450,8 +484,12 @@ void UnboundedSurfaceWindowAura::OnTouchEvent(ui::TouchEvent* event) {
   for (unsigned int i = 0; i < touch_event.touches_length; ++i) {
     blink::WebTouchPoint& touch_point = touch_event.touches[i];
     gfx::PointF parent_local_point = touch_point.PositionInScreen();
-    screen_position_client->ConvertPointFromScreen(parent_window,
-                                                   &parent_local_point);
+    // Since the touch event's PositionInScreen is populated from the
+    // MotionEvent's raw coordinates which are in root window space, not screen
+    // space, we must convert from root window coordinates to parent local
+    // coordinates.
+    aura::Window::ConvertPointToTarget(parent_window->GetRootWindow(),
+                                       parent_window, &parent_local_point);
     touch_point.SetPositionInWidget(parent_local_point.x(),
                                     parent_local_point.y());
   }
@@ -459,7 +497,8 @@ void UnboundedSurfaceWindowAura::OnTouchEvent(ui::TouchEvent* event) {
   ui::LatencyInfo latency_info =
       event->latency() ? *event->latency() : ui::LatencyInfo();
   router->RouteTouchEvent(parent_view_, &touch_event, latency_info);
-  event->SetHandled();
+  // Disable synchronous handling to allow gesture generation after ACK.
+  event->DisableSynchronousHandling();
 }
 
 }  // namespace content

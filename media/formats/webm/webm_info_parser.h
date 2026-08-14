@@ -24,12 +24,12 @@ class MEDIA_EXPORT WebMInfoParser : public WebMParserClient {
 
   ~WebMInfoParser() override;
 
-  // Parses a WebM Info element in |buf|.
+  // Parses a WebM Info element in `buf`.
   //
   // Returns -1 if the parse fails.
   // Returns 0 if more data is needed.
   // Returns the number of bytes parsed on success.
-  int Parse(const uint8_t* buf, int size);
+  int Parse(base::span<const uint8_t> buf);
 
   int64_t timecode_scale_ns() const { return timecode_scale_ns_; }
   double duration() const { return duration_; }
@@ -41,7 +41,7 @@ class MEDIA_EXPORT WebMInfoParser : public WebMParserClient {
   bool OnListEnd(int id) override;
   bool OnUInt(int id, int64_t val) override;
   bool OnFloat(int id, double val) override;
-  bool OnBinary(int id, const uint8_t* data, int size) override;
+  bool OnBinary(int id, base::span<const uint8_t> data) override;
   bool OnString(int id, const std::string& str) override;
 
   int64_t timecode_scale_ns_;

@@ -12,6 +12,8 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/side_panel/side_panel_action_callback.h"
+#include "chrome/browser/ui/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/split_tab_highlight_controller.h"
 #include "chrome/browser/ui/toolbar/bookmark_sub_menu_model.h"
@@ -46,6 +48,7 @@
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "third_party/blink/public/common/input/web_mouse_event.h"
+#include "ui/actions/actions.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/interaction/state_observer.h"
 #include "ui/events/base_event_utils.h"
@@ -101,14 +104,14 @@ class MultiContentsViewUiTest
 
   void SetUpOnMainThread() override {
     SplitViewInteractiveTestMixin::SetUpOnMainThread();
-    browser()->profile()->GetPrefs()->SetBoolean(
+    browser()->GetProfile()->GetPrefs()->SetBoolean(
         prefs::kTabSearchPinnedToTabstrip, true);
     host_resolver()->AddRule("*", "127.0.0.1");
     ASSERT_TRUE(embedded_test_server()->Start());
   }
 
   void TearDownOnMainThread() override {
-    browser()->profile()->GetPrefs()->ClearPref(
+    browser()->GetProfile()->GetPrefs()->ClearPref(
         prefs::kTabSearchPinnedToTabstrip);
     SplitViewInteractiveTestMixin::TearDownOnMainThread();
   }
@@ -280,8 +283,12 @@ class MultiContentsViewUiTest
                                         kSidePanelViewObserver);
 
     return Steps(Do(base::BindLambdaForTesting([this]() {
-                   chrome::ExecuteCommand(browser(),
-                                          IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL);
+                   chrome::ExecuteCommandWithContext(
+                       browser(), IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL,
+                       actions::ActionInvocationContext::Builder()
+                           .SetProperty(kSidePanelOpenTriggerKey,
+                                        SidePanelOpenTrigger::kToolbarButton)
+                           .Build());
                  })),
                  PollView(kSidePanelViewObserver, kSidePanelElementId,
                           [](const SidePanel* side_panel) -> bool {
@@ -307,7 +314,12 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ExistsWithFlag) {
 // both content panes.
 IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest, ResizesInSplitView) {
   DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(MultiContentsViewLayoutObserver,
-                                      kLayoutObserver);
+                                      kFirstLayoutObserver);
+  DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(MultiContentsViewLayoutObserver,
+                                      kSecondLayoutObserver);
+
+  const bool is_side_by_side =
+      GetParam() == split_tabs::SplitTabLayout::kSideBySide;
 
   RunTestSequence(
       AddInstrumentedTab(kNewTab, GURL(chrome::kChromeUISettingsURL), 0),
@@ -316,6 +328,18 @@ IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest, ResizesInSplitView) {
                      /*other_tab=*/1,
                      /*ratio=*/0.75),
       ResizeContents(500),
+      // In side-by-side mode, wait for the initial 500px resize layout to
+      // complete before triggering the second resize. Otherwise, subsequent
+      // SetContentsSize() calls read stale bounds and calculate incorrect
+      // target window sizes. In stacked mode, 500px total container height is
+      // clamped by minimum window height (~752px), so the initial active height
+      // does not equal 500px and this check is skipped.
+      If([is_side_by_side]() { return is_side_by_side; },
+         Then(CheckResizeValues(
+             base::BindRepeating([](double start_size, double end_size) {
+               return base::IsApproximatelyEqual(start_size, 500.0, 1.0);
+             }),
+             kFirstLayoutObserver))),
 
       // Set the contents size to 450. This value is chosen to be small enough
       // that the window bounds will not get clamped due to screen size
@@ -327,12 +351,12 @@ IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest, ResizesInSplitView) {
       CheckResizeValues(
           base::BindRepeating([](double start_size, double end_size) {
             // ResizeContents takes in the size of the active contents view, but
-            // but must resize the entire browser window while preserving the
+            // must resize the entire browser window while preserving the
             // split ratio, so there may be a small rounding error.
             return base::IsApproximatelyEqual(start_size, 450.0, 1.0) &&
                    base::IsApproximatelyEqual(end_size, 150.0, 1.0);
           }),
-          kLayoutObserver));
+          kSecondLayoutObserver));
 }
 
 // Create a new split and exit the split view and ensure only 1 contents view is
@@ -1284,7 +1308,7 @@ class MultiContentsViewBookmarkDragEntrypointsUiTest
 
   void SetUpOnMainThread() override {
     MultiContentsViewDragEntrypointsUiTest::SetUpOnMainThread();
-    browser()->profile()->GetPrefs()->SetBoolean(
+    browser()->GetProfile()->GetPrefs()->SetBoolean(
         bookmarks::prefs::kShowBookmarkBar, true);
   }
 
@@ -1319,7 +1343,7 @@ INSTANTIATE_TEST_SUITE_P(
 IN_PROC_BROWSER_TEST_P(MultiContentsViewBookmarkDragEntrypointsUiTest,
                        DISABLED_ShowsDropTargetOnBookmarkedLinkDragged) {
   bookmarks::BookmarkModel* const model =
-      BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+      BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
   const std::u16string bookmark_title = u"Bookmark";
   model->AddNewURL(model->bookmark_bar_node(), 0, u"Bookmark",
                    GetURL("/links.html"));

@@ -9,7 +9,6 @@
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/not_fatal_until.h"
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "chrome/browser/profiles/profile.h"
@@ -52,6 +51,8 @@ std::string_view GetStepHistogramSuffix(
       return ".FeatureShowcase";
     case ProfileManagementFlowController::Step::kFinishOrContinue:
       return ".FinishOrContinue";
+    case ProfileManagementFlowController::Step::kDeviceSignalsDisclaimer:
+      return ".DeviceSignalsDisclaimer";
   }
 }
 // LINT.ThenChange(//tools/metrics/histograms/metadata/profile/histograms.xml:StepName)
@@ -104,6 +105,14 @@ void ProfileManagementFlowController::SwitchToStep(
       it != initialized_steps_.end()) {
     it->second->OnHidden();
   }
+}
+
+bool ProfileManagementFlowController::CanNavigateBack() const {
+  auto it = initialized_steps_.find(flow_tracker_.tracked_step());
+  if (it == initialized_steps_.end()) {
+    return false;
+  }
+  return it->second->CanNavigateBack();
 }
 
 void ProfileManagementFlowController::OnNavigateBackRequested() {

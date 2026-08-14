@@ -17,11 +17,15 @@ SigninQRCodeInfoBarDelegate::SigninQRCodeInfoBarDelegate(
   scoped_observation_.Observe(dice_tab_helper);
 }
 
+void SigninQRCodeInfoBarDelegate::OnDiceTabHelperWillDestroy() {
+  scoped_observation_.Reset();
+}
+
 SigninQRCodeInfoBarDelegate::~SigninQRCodeInfoBarDelegate() = default;
 
 infobars::InfoBarDelegate::InfoBarIdentifier
 SigninQRCodeInfoBarDelegate::GetIdentifier() const {
-  return infobars::InfoBarDelegate::TEST_INFOBAR;
+  return infobars::InfoBarDelegate::SIGNIN_QRCODE_INFOBAR_DELEGATE;
 }
 
 bool SigninQRCodeInfoBarDelegate::EqualsDelegate(

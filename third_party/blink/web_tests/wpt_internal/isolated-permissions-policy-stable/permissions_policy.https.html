@@ -14,7 +14,6 @@
 const non_isolated_policies = [
   'accelerometer',
   'aria-notify',
-  'attribution-reporting',
   'autoplay',
   'browsing-topics',
   'camera',
@@ -100,6 +99,7 @@ const isolated_policies = [
   'direct-sockets',
   'direct-sockets-multicast',
   'usb-unrestricted',
+  'sub-apps',
 ]
 
 promise_test(async t => {

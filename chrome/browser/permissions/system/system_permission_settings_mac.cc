@@ -11,10 +11,11 @@
 #include "base/check_deref.h"
 #include "base/mac/mac_util.h"
 #include "base/notreached.h"
-#include "base/scoped_observation.h"
+#include "base/task/thread_pool.h"
 #include "chrome/browser/permissions/system/geolocation_observation.h"
 #include "chrome/browser/permissions/system/platform_handle.h"
 #include "chrome/browser/permissions/system/system_media_capture_permissions_mac.h"
+#include "chrome/browser/permissions/system/system_media_permission_cache.h"
 #include "chrome/browser/web_applications/os_integration/mac/app_shim_registry.h"
 #include "chrome/browser/web_applications/os_integration/mac/web_app_shortcut_mac.h"
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
@@ -27,37 +28,33 @@ static_assert(BUILDFLAG(IS_MAC));
 namespace system_permission_settings {
 
 namespace {
-bool denied(system_permission_settings::SystemPermission permission) {
-  return system_permission_settings::SystemPermission::kDenied == permission ||
-         system_permission_settings::SystemPermission::kRestricted ==
-             permission;
-}
-
-bool prompt(system_permission_settings::SystemPermission permission) {
-  return system_permission_settings::SystemPermission::kNotDetermined ==
-         permission;
-}
-bool allowed(system_permission_settings::SystemPermission permission) {
-  return system_permission_settings::SystemPermission::kAllowed == permission;
-}
 
 class PlatformHandleImpl : public PlatformHandle {
  public:
+  PlatformHandleImpl()
+      : media_cache_(
+            base::BindOnce(&base::ThreadPool::CreateSequencedTaskRunner),
+            base::BindRepeating(&CheckSystemVideoCapturePermission),
+            base::BindRepeating(&CheckSystemAudioCapturePermission)) {}
+
+  PlatformHandleImpl(const PlatformHandleImpl&) = delete;
+  PlatformHandleImpl& operator=(const PlatformHandleImpl&) = delete;
+
+  ~PlatformHandleImpl() override = default;
+
+  // PlatformHandle:
   bool CanPrompt(ContentSettingsType type) override {
     switch (type) {
       case ContentSettingsType::MEDIASTREAM_CAMERA:
       case ContentSettingsType::CAMERA_PAN_TILT_ZOOM:
-        return prompt(
-            system_permission_settings::CheckSystemVideoCapturePermission());
       case ContentSettingsType::MEDIASTREAM_MIC:
-        return prompt(
-            system_permission_settings::CheckSystemAudioCapturePermission());
+        return media_cache_.CanPrompt(type);
       case ContentSettingsType::GEOLOCATION:
         return device::GeolocationSystemPermissionManager::GetInstance()
                    ->GetSystemPermission() ==
                device::LocationSystemPermissionStatus::kNotDetermined;
       case ContentSettingsType::CLIPBOARD_READ_WRITE:
-        return prompt(
+        return IsSystemPermissionPrompt(
             system_permission_settings::CheckSystemClipboardPermission());
       default:
         return false;
@@ -68,17 +65,14 @@ class PlatformHandleImpl : public PlatformHandle {
     switch (type) {
       case ContentSettingsType::MEDIASTREAM_CAMERA:
       case ContentSettingsType::CAMERA_PAN_TILT_ZOOM:
-        return denied(
-            system_permission_settings::CheckSystemVideoCapturePermission());
       case ContentSettingsType::MEDIASTREAM_MIC:
-        return denied(
-            system_permission_settings::CheckSystemAudioCapturePermission());
+        return media_cache_.IsDenied(type);
       case ContentSettingsType::GEOLOCATION:
         return device::GeolocationSystemPermissionManager::GetInstance()
                    ->GetSystemPermission() ==
                device::LocationSystemPermissionStatus::kDenied;
       case ContentSettingsType::CLIPBOARD_READ_WRITE:
-        return denied(
+        return IsSystemPermissionDenied(
             system_permission_settings::CheckSystemClipboardPermission());
       default:
         return false;
@@ -89,20 +83,30 @@ class PlatformHandleImpl : public PlatformHandle {
     switch (type) {
       case ContentSettingsType::MEDIASTREAM_CAMERA:
       case ContentSettingsType::CAMERA_PAN_TILT_ZOOM:
-        return allowed(
-            system_permission_settings::CheckSystemVideoCapturePermission());
       case ContentSettingsType::MEDIASTREAM_MIC:
-        return allowed(
-            system_permission_settings::CheckSystemAudioCapturePermission());
+        return media_cache_.IsAllowed(type);
       case ContentSettingsType::GEOLOCATION:
         return device::GeolocationSystemPermissionManager::GetInstance()
                    ->GetSystemPermission() ==
                device::LocationSystemPermissionStatus::kAllowed;
       case ContentSettingsType::CLIPBOARD_READ_WRITE:
-        return allowed(
+        return IsSystemPermissionAllowed(
             system_permission_settings::CheckSystemClipboardPermission());
       default:
         return true;
+    }
+  }
+
+  void IsDeniedFresh(ContentSettingsType type,
+                     SystemPermissionDeniedCallback callback) override {
+    switch (type) {
+      case ContentSettingsType::MEDIASTREAM_MIC:
+      case ContentSettingsType::MEDIASTREAM_CAMERA:
+      case ContentSettingsType::CAMERA_PAN_TILT_ZOOM:
+        media_cache_.IsDeniedFresh(type, std::move(callback));
+        return;
+      default:
+        std::move(callback).Run(IsDenied(type));
     }
   }
 
@@ -153,12 +157,16 @@ class PlatformHandleImpl : public PlatformHandle {
       case ContentSettingsType::MEDIASTREAM_CAMERA:
       case ContentSettingsType::CAMERA_PAN_TILT_ZOOM: {
         system_permission_settings::RequestSystemVideoCapturePermission(
-            std::move(callback));
+            base::BindOnce(
+                &PlatformHandleImpl::OnSystemPermissionRequestFinished,
+                weak_factory_.GetWeakPtr(), type, std::move(callback)));
         return;
       }
       case ContentSettingsType::MEDIASTREAM_MIC: {
         system_permission_settings::RequestSystemAudioCapturePermission(
-            std::move(callback));
+            base::BindOnce(
+                &PlatformHandleImpl::OnSystemPermissionRequestFinished,
+                weak_factory_.GetWeakPtr(), type, std::move(callback)));
         return;
       }
       case ContentSettingsType::GEOLOCATION: {
@@ -197,11 +205,15 @@ class PlatformHandleImpl : public PlatformHandle {
   }
 
  private:
+  void OnSystemPermissionRequestFinished(
+      ContentSettingsType type,
+      SystemPermissionResponseCallback callback) {
+    media_cache_.RefreshSystemPermissionSettings(std::move(callback));
+  }
+
   void OnSystemPermissionUpdated(ContentSettingsType content_type,
                                  bool /*is_blocked*/) {
     CHECK(content_type == ContentSettingsType::GEOLOCATION);
-    // No further observation needed as all the current requests will now be
-    // resolved
     observation_.reset();
     FlushGeolocationCallbacks();
   }
@@ -213,10 +225,12 @@ class PlatformHandleImpl : public PlatformHandle {
     }
   }
 
+  SystemMediaPermissionCache media_cache_;
   std::vector<SystemPermissionResponseCallback> geolocation_callbacks_;
   std::unique_ptr<ScopedObservation> observation_;
   base::WeakPtrFactory<PlatformHandleImpl> weak_factory_{this};
 };
+
 }  // namespace
 
 // static

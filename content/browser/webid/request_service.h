@@ -10,18 +10,23 @@
 
 #include "base/containers/flat_set.h"
 #include "base/containers/unique_ptr_adapters.h"
+#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/values.h"
 #include "content/browser/webid/config_fetcher.h"
+#include "content/browser/webid/request.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/document_user_data.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
-#include "third_party/blink/public/mojom/webid/federated_auth_request.mojom.h"
+#include "third_party/blink/public/mojom/webid/federated_request.mojom.h"
+#include "url/gurl.h"
 
 namespace content {
 
 class RenderFrameHost;
+class NavigationHandle;
 class FederatedIdentityApiPermissionContextDelegate;
 class FederatedIdentityAutoReauthnPermissionContextDelegate;
 class FederatedIdentityPermissionContextDelegate;
@@ -35,24 +40,6 @@ class IdpRegistrationHandler;
 class IdpNetworkRequestManager;
 class UserInfoRequest;
 class DisconnectRequest;
-
-using ResolveTokenRequestCallback =
-    blink::mojom::FederatedRequestService::ResolveTokenRequestCallback;
-using SetIdpSigninStatusCallback =
-    blink::mojom::FederatedRequestService::SetIdpSigninStatusCallback;
-using RegisterIdPCallback =
-    blink::mojom::FederatedRequestService::RegisterIdPCallback;
-using UnregisterIdPCallback =
-    blink::mojom::FederatedRequestService::UnregisterIdPCallback;
-using PreventSilentAccessCallback =
-    blink::mojom::FederatedRequestService::PreventSilentAccessCallback;
-using DisconnectCallback =
-    blink::mojom::FederatedRequestService::DisconnectCallback;
-using RequestUserInfoCallback =
-    blink::mojom::FederatedRequestService::RequestUserInfoCallback;
-using StartTokenRequestCallback =
-    blink::mojom::FederatedRequestService::StartTokenRequestCallback;
-using MediationRequirement = ::password_manager::CredentialMediationRequirement;
 
 // RequestService is a document-scoped manager class that coordinates
 // Federated Credential Management (FedCM) requests for a given RenderFrameHost.
@@ -76,10 +63,6 @@ class CONTENT_EXPORT RequestService
     return force_allow_redirect_to_for_testing_;
   }
 
-  // Binds a new receiver to a request session.
-  void BindFederatedAuthRequest(
-      mojo::PendingReceiver<blink::mojom::FederatedAuthRequest> receiver);
-
   void BindFederatedRequestService(
       mojo::PendingReceiver<blink::mojom::FederatedRequestService> receiver);
 
@@ -87,24 +70,46 @@ class CONTENT_EXPORT RequestService
   void StartTokenRequest(
       std::vector<blink::mojom::IdentityProviderGetParametersPtr>
           idp_get_params,
-      MediationRequirement requirement,
+      ::password_manager::CredentialMediationRequirement requirement,
       mojo::PendingReceiver<blink::mojom::FederatedRequest> request_receiver,
-      StartTokenRequestCallback callback) override;
-  void RequestUserInfo(blink::mojom::IdentityProviderConfigPtr provider,
-                       RequestUserInfoCallback callback) override;
-  void RegisterIdP(const GURL& idp, RegisterIdPCallback callback) override;
-  void UnregisterIdP(const GURL& idp, UnregisterIdPCallback callback) override;
-  void PreventSilentAccess(PreventSilentAccessCallback callback) override;
+      blink::mojom::FederatedRequestService::StartTokenRequestCallback callback)
+      override;
+  void RequestUserInfo(
+      blink::mojom::IdentityProviderConfigPtr provider,
+      blink::mojom::FederatedRequestService::RequestUserInfoCallback callback)
+      override;
+  void RegisterIdP(const GURL& idp,
+                   blink::mojom::FederatedRequestService::RegisterIdPCallback
+                       callback) override;
+  void UnregisterIdP(
+      const GURL& idp,
+      blink::mojom::FederatedRequestService::UnregisterIdPCallback callback)
+      override;
+  void PreventSilentAccess(
+      blink::mojom::FederatedRequestService::PreventSilentAccessCallback
+          callback) override;
   void Disconnect(blink::mojom::IdentityCredentialDisconnectOptionsPtr options,
-                  DisconnectCallback callback) override;
-  void ResolveTokenRequest(const std::optional<std::string>& account_id,
-                           blink::mojom::ResolveTokenParamsPtr params,
-                           ResolveTokenRequestCallback callback) override;
+                  blink::mojom::FederatedRequestService::DisconnectCallback
+                      callback) override;
+  void ResolveTokenRequest(
+      const std::optional<std::string>& account_id,
+      blink::mojom::ResolveTokenParamsPtr params,
+      blink::mojom::FederatedRequestService::ResolveTokenRequestCallback
+          callback) override;
   void SetIdpSigninStatus(
       const url::Origin& idp_origin,
       blink::mojom::IdpSigninStatus status,
       const std::optional<::blink::common::webid::LoginStatusOptions>& options,
-      SetIdpSigninStatusCallback callback) override;
+      blink::mojom::FederatedRequestService::SetIdpSigninStatusCallback
+          callback) override;
+
+  bool StartTokenRequestFromNavigation(
+      std::vector<blink::mojom::IdentityProviderGetParametersPtr>
+          idp_get_params,
+      ::password_manager::CredentialMediationRequirement requirement,
+      NavigationHandle* navigation_handle,
+      const GURL& intercepted_url,
+      Request::RequestTokenCallback callback);
 
   Request* GetActiveRequestForTesting() { return active_request_.get(); }
 
@@ -147,30 +152,56 @@ class CONTENT_EXPORT RequestService
   friend class RequestTest;
   friend class RequestRegistryTest;
 
+  static void InvokeTokenRequestCallback(
+      blink::mojom::FederatedRequestService::StartTokenRequestCallback callback,
+      blink::mojom::RequestTokenStatus status,
+      const std::optional<GURL>& selected_idp_config_url,
+      std::optional<base::Value> token,
+      blink::mojom::TokenErrorPtr error,
+      bool is_auto_selected);
+
   bool SetupIdentityRegistryFromPopup();
+  IdentityRegistry* GetIdentityRegistry();
   void SetRequiresUserMediation(bool requires_user_mediation,
                                 base::OnceClosure callback);
   void OnIdpRegistrationConfigFetched(
-      RegisterIdPCallback callback,
+      blink::mojom::FederatedRequestService::RegisterIdPCallback callback,
       const GURL& idp,
       std::vector<ConfigFetcher::FetchResult> fetch_results);
-  void CompleteUserInfoRequest(UserInfoRequest* request,
-                               RequestUserInfoCallback callback,
-                               blink::mojom::RequestUserInfoResultPtr result);
-  void CompleteDisconnectRequest(DisconnectCallback callback,
-                                 blink::mojom::DisconnectStatus status);
-  void OnTokenRequestComplete(
+  void CompleteUserInfoRequest(
+      UserInfoRequest* request,
+      blink::mojom::FederatedRequestService::RequestUserInfoCallback callback,
+      blink::mojom::RequestUserInfoResultPtr result);
+  void CompleteDisconnectRequest(
+      blink::mojom::FederatedRequestService::DisconnectCallback callback,
+      blink::mojom::DisconnectStatus status);
+  bool InitiateTokenRequest(
+      std::unique_ptr<Request> new_request,
+      std::vector<blink::mojom::IdentityProviderGetParametersPtr>
+          idp_get_params,
+      ::password_manager::CredentialMediationRequirement requirement,
+      NavigationHandle* navigation_handle,
+      const GURL& intercepted_url,
+      Request::RequestTokenCallback callback);
+  void OnTokenRequestCompleteInternal(
       Request* request,
-      StartTokenRequestCallback callback,
+      Request::RequestTokenCallback callback,
       blink::mojom::RequestTokenStatus status,
       const std::optional<GURL>& selected_idp_config_url,
       std::optional<base::Value> token,
       blink::mojom::TokenErrorPtr error,
       bool is_auto_selected);
   void CleanUpCompletedRequest(Request* request);
+  void CleanUpActiveRequest(Request* request);
+  void SetActiveRequestAndResetController(std::unique_ptr<Request> request);
+  bool ShouldCancelNewRequest(
+      Request* new_request,
+      const std::vector<blink::mojom::IdentityProviderGetParametersPtr>&
+          idp_get_params,
+      ::password_manager::CredentialMediationRequirement requirement,
+      NavigationHandle* navigation_handle);
   std::unique_ptr<Metrics> CreateFedCmMetrics();
   std::unique_ptr<IdentityRequestDialogController> CreateDialogController();
-  void MaybeDestroyDialogController();
 
   std::unique_ptr<Request> active_request_;
   // Temporary storage for completed requests pending destruction.
@@ -183,7 +214,7 @@ class CONTENT_EXPORT RequestService
 
   bool force_allow_redirect_to_for_testing_ = false;
 
-  raw_ptr<IdentityRegistry> identity_registry_ = nullptr;
+  raw_ptr<IdentityRegistry> mock_identity_registry_ = nullptr;
 
   mojo::ReceiverSet<blink::mojom::FederatedRequestService> receivers_;
 

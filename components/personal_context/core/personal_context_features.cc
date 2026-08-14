@@ -10,16 +10,8 @@ namespace personal_context::features {
 
 BASE_FEATURE(kPersonalContext, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPersonalContextFirstRunNoticePhase2,
+BASE_FEATURE(kPersonalContextLogNonEligibilityUma,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPersonalContextFirstRunOptIn, base::FEATURE_DISABLED_BY_DEFAULT);
 
-bool IsPersonalContextFirstRunNoticePhase2Enabled() {
-  return base::FeatureList::IsEnabled(kPersonalContextFirstRunNoticePhase2);
-}
-
-bool IsPersonalContextFirstRunOptInEnabled() {
-  return base::FeatureList::IsEnabled(kPersonalContextFirstRunOptIn);
-}
 }  // namespace personal_context::features

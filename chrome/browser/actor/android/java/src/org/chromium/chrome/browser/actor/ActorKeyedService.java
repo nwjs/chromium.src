@@ -11,6 +11,7 @@ import org.jni_zero.NativeMethods;
 import org.chromium.base.ObserverList;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.tab.Tab;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -116,6 +117,33 @@ public class ActorKeyedService {
     }
 
     @CalledByNative
+    private void ensureForegroundServiceStarted(String glicTriggerMessageId) {
+        ActorForegroundServiceController.get().startService(glicTriggerMessageId);
+    }
+
+    /**
+     * Called when a background tab is ready for actuation.
+     *
+     * @param tab The prepared tab.
+     * @param glicTriggerMessageId The GLIC trigger message ID associated with the request.
+     */
+    public void setPreparedBackgroundTab(Tab tab, String glicTriggerMessageId) {
+        if (mNativePtr == 0) return;
+        ActorKeyedServiceJni.get().setPreparedBackgroundTab(
+                mNativePtr, tab, glicTriggerMessageId);
+    }
+
+    /**
+     * Called when background setup fails.
+     *
+     * @param glicTriggerMessageId The GLIC trigger message ID associated with the request.
+     */
+    public void notifyBackgroundSetupFailed(String glicTriggerMessageId) {
+        if (mNativePtr == 0) return;
+        ActorKeyedServiceJni.get().notifyBackgroundSetupFailed(mNativePtr, glicTriggerMessageId);
+    }
+
+    @CalledByNative
     private void clearNativePtr() {
         mNativePtr = 0;
     }
@@ -136,5 +164,11 @@ public class ActorKeyedService {
         ActorTask getTask(long nativeActorKeyedServiceAndroid, int taskId);
 
         void stopTask(long nativeActorKeyedServiceAndroid, int taskId, int stopReason);
+
+        void setPreparedBackgroundTab(
+                long nativeActorKeyedServiceAndroid, Tab tab, String glicTriggerMessageId);
+
+        void notifyBackgroundSetupFailed(
+                long nativeActorKeyedServiceAndroid, String glicTriggerMessageId);
     }
 }

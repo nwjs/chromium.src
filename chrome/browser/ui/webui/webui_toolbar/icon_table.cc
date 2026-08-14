@@ -18,6 +18,8 @@
 #include "build/branding_buildflags.h"
 #include "build/buildflag.h"
 #include "chrome/app/vector_icons/vector_icons.h"
+#include "chrome/browser/glic/browser_ui/glic_vector_icon_manager.h"
+#include "chrome/browser/glic/resources/grit/glic_browser_resources.h"
 #include "chrome/browser/ui/webui/util/image_util.h"
 #include "chrome/browser/ui/webui/webui_toolbar/adapters/icon_table_fetcher.h"
 #include "components/omnibox/browser/vector_icons.h"
@@ -27,6 +29,8 @@
 #include "ui/base/models/image_model.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/image/image_skia.h"
+#include "ui/gfx/image/image_skia_rep.h"
+#include "ui/gfx/skia_util.h"
 #include "ui/gfx/vector_icon_types.h"
 #include "ui/views/vector_icons.h"
 
@@ -48,81 +52,120 @@ struct IconInfo {
 const base::flat_map<const gfx::VectorIcon*, IconInfo>& KnownIcons() {
   static base::NoDestructor<base::flat_map<const gfx::VectorIcon*, IconInfo>>
       table({
+          {{&glic::GlicVectorIconManager::GetVectorIcon(
+               IDR_GLIC_BUTTON_VECTOR_ICON)},
+           {"webui-toolbar:glic_button_old", IconType::kIconSet}},
           {{&kAccountBoxIcon},
            {"webui-toolbar:account_box", IconType::kIconSet}},
           {{&kAccountBoxOldIcon},
            {"webui-toolbar:account_box", IconType::kIconSet}},
           {{&kBookmarksSidePanelRefreshOldIcon},
-           {"webui-toolbar:bookmarks_side_panel_refresh_old",
-            IconType::kIconSet}},
+           {"webui-toolbar:hotel_class", IconType::kIconSet}},
           {{&kCastChromeRefreshOldIcon},
-           {"webui-toolbar:cast_chrome_refresh_old", IconType::kIconSet}},
+           {"webui-toolbar:cast", IconType::kIconSet}},
           {{&kCastIcon}, {"webui-toolbar:cast", IconType::kIconSet}},
           {{&kCodeIcon}, {"webui-toolbar:code", IconType::kIconSet}},
           {{&kCreditCardChromeRefreshOldIcon},
-           {"webui-toolbar:credit_card_chrome_refresh_old",
-            IconType::kIconSet}},
+           {"webui-toolbar:credit_card", IconType::kIconSet}},
           {{&kCreditCardIcon},
            {"webui-toolbar:credit_card", IconType::kIconSet}},
           {{&kDeleteIcon}, {"webui-toolbar:delete", IconType::kIconSet}},
           {{&kDeveloperToolsOldIcon},
-           {"webui-toolbar:developer_tools_old", IconType::kIconSet}},
+           {"webui-toolbar:code", IconType::kIconSet}},
           {{&kDevicesChromeRefreshOldIcon},
-           {"webui-toolbar:devices_chrome_refresh_old", IconType::kIconSet}},
+           {"webui-toolbar:devices", IconType::kIconSet}},
           {{&kDevicesIcon}, {"webui-toolbar:devices", IconType::kIconSet}},
           {{&kDockToRightSparkCustomIcon},
            {"webui-toolbar:dock_to_right_spark_custom", IconType::kIconSet}},
           {{&kDownloadIcon}, {"webui-toolbar:download", IconType::kIconSet}},
           {{&kDownloadToolbarButtonChromeRefreshOldIcon},
-           {"webui-toolbar:download_toolbar_button_chrome_refresh_old",
-            IconType::kIconSet}},
+           {"webui-toolbar:download", IconType::kIconSet}},
           {{&kEditIcon}, {"webui-toolbar:edit", IconType::kIconSet}},
+          {{&kFileSaveIcon}, {"webui-toolbar:file_save", IconType::kIconSet}},
+          {{&kFileSaveChromeRefreshOldIcon},
+           {"webui-toolbar:file_save", IconType::kIconSet}},
           {{&kGTranslateIcon},
            {"webui-toolbar:g_translate", IconType::kIconSet}},
           {{&kHotelClassIcon},
            {"webui-toolbar:hotel_class", IconType::kIconSet}},
           {{&kIncognitoIcon}, {"webui-toolbar:incognito", IconType::kIconSet}},
           {{&kIncognitoRefreshMenuOldIcon},
-           {"webui-toolbar:incognito_refresh_menu_old", IconType::kIconSet}},
+           {"webui-toolbar:incognito", IconType::kIconSet}},
           {{&kInfoIcon}, {"webui-toolbar:info", IconType::kIconSet}},
+          {{&vector_icons::kInstallDesktopIcon},
+           {"webui-toolbar:install_desktop", IconType::kIconSet}},
+          {{&kInstallDesktopChromeRefreshOldIcon},
+           {"webui-toolbar:install_desktop", IconType::kIconSet}},
           {{&kLinkChromeRefreshOldIcon},
-           {"webui-toolbar:link_chrome_refresh_old", IconType::kIconSet}},
-          {{&kLinkIcon}, {"webui-toolbar:link", IconType::kIconSet}},
+           {"webui-toolbar:link", IconType::kIconSet}},
+          {{&vector_icons::kLinkIcon},
+           {"webui-toolbar:link", IconType::kIconSet}},
           {{&kListAltIcon}, {"webui-toolbar:list_alt", IconType::kIconSet}},
           {{&kManageSearchIcon},
            {"webui-toolbar:manage_search", IconType::kIconSet}},
           {{&kMenuBookChromeRefreshOldIcon},
-           {"webui-toolbar:menu_book_chrome_refresh_old", IconType::kIconSet}},
+           {"webui-toolbar:menu_book", IconType::kIconSet}},
           {{&kMenuBookIcon}, {"webui-toolbar:menu_book", IconType::kIconSet}},
+          {{&kOpenInNewIcon},
+           {"webui-toolbar:open_in_new", IconType::kIconSet}},
+          {{&kOpenInNewChromeRefreshOldIcon},
+           {"webui-toolbar:open_in_new", IconType::kIconSet}},
           {{&kPrintIcon}, {"webui-toolbar:print", IconType::kIconSet}},
-          {{&kPrintMenuOldIcon},
-           {"webui-toolbar:print_menu_old", IconType::kIconSet}},
+          {{&kPrintMenuOldIcon}, {"webui-toolbar:print", IconType::kIconSet}},
           {{&kQrCodeChromeRefreshOldIcon},
-           {"webui-toolbar:qr_code_chrome_refresh_old", IconType::kIconSet}},
+           {"webui-toolbar:qr_code", IconType::kIconSet}},
           {{&kQrCodeIcon}, {"webui-toolbar:qr_code", IconType::kIconSet}},
           {{&kReadingListOldIcon},
-           {"webui-toolbar:reading_list_old", IconType::kIconSet}},
+           {"webui-toolbar:list_alt", IconType::kIconSet}},
+          {{&vector_icons::kShoppingmodeIcon},
+           {"webui-toolbar:shoppingmode", IconType::kIconSet}},
+          {{&kLocalOfferFlippedRefreshOldIcon},
+           {"webui-toolbar:shoppingmode", IconType::kIconSet}},
+          {{&kSpeedIcon}, {"webui-toolbar:speed", IconType::kIconSet}},
+          {{&kPerformanceSpeedometerOldIcon},
+           {"webui-toolbar:speed", IconType::kIconSet}},
+          {{&kPersonFilledIcon},
+           {"webui-toolbar:person_filled", IconType::kIconSet}},
+          {{&kPersonFilledPaddedSmallOldIcon},
+           {"webui-toolbar:person_filled", IconType::kIconSet}},
           {{&kTabSearchTabStripOldIcon},
-           {"webui-toolbar:manage_search_icon", IconType::kIconSet}},
+           {"webui-toolbar:manage_search", IconType::kIconSet}},
           {{&kTableChartIcon},
            {"webui-toolbar:table_chart", IconType::kIconSet}},
           {{&kTaskManagerOldIcon},
-           {"webui-toolbar:task_manager_old", IconType::kIconSet}},
+           {"webui-toolbar:table_chart", IconType::kIconSet}},
           {{&kTrashCanRefreshOldIcon},
-           {"webui-toolbar:trash_can_refresh_old", IconType::kIconSet}},
+           {"webui-toolbar:delete", IconType::kIconSet}},
+          {{&kZoomInIcon}, {"webui-toolbar:zoom_in", IconType::kIconSet}},
+          {{&kZoomInOldIcon}, {"webui-toolbar:zoom_in", IconType::kIconSet}},
+          {{&kZoomMinusChromeRefreshOldIcon},
+           {"webui-toolbar:zoom_out", IconType::kIconSet}},
+          {{&kZoomMinusMenuRefreshOldIcon},
+           {"webui-toolbar:zoom_out", IconType::kIconSet}},
+          {{&kZoomMinusOldIcon},
+           {"webui-toolbar:zoom_out", IconType::kIconSet}},
+          {{&kZoomOutIcon}, {"webui-toolbar:zoom_out", IconType::kIconSet}},
+          {{&kZoomPlusChromeRefreshOldIcon},
+           {"webui-toolbar:zoom_in", IconType::kIconSet}},
+          {{&kZoomPlusMenuRefreshOldIcon},
+           {"webui-toolbar:zoom_in", IconType::kIconSet}},
           {{&omnibox::kBookmarkChromeRefreshOldIcon},
-           {"webui-toolbar:bookmark_chrome_refresh_old", IconType::kIconSet}},
+           {"webui-toolbar:star", IconType::kIconSet}},
           {{&omnibox::kChromeProductIcon},
            {"webui-toolbar:chrome_product", IconType::kIconSet}},
+          {{&omnibox::kFindInPageIcon},
+           {"webui-toolbar:find_in_page", IconType::kIconSet}},
+          {{&omnibox::kFindInPageChromeRefreshOldIcon},
+           {"webui-toolbar:find_in_page", IconType::kIconSet}},
           {{&omnibox::kHttpChromeRefreshOldIcon},
-           {"webui-toolbar:http_chrome_refresh_old", IconType::kIconSet}},
+           {"webui-toolbar:info", IconType::kIconSet}},
           {{&omnibox::kInfoIcon}, {"webui-toolbar:info", IconType::kIconSet}},
           {{&omnibox::kPageChromeRefreshOldIcon},
-           {"webui-toolbar:page_chrome_refresh_old", IconType::kIconSet}},
+           {"webui-toolbar:public", IconType::kIconSet}},
           {{&omnibox::kPageInfoCustomIcon},
            {"webui-toolbar:page_info_custom", IconType::kIconSet}},
           {{&omnibox::kProductChromeRefreshOldIcon},
-           {"webui-toolbar:product_chrome_refresh_old", IconType::kIconSet}},
+           {"webui-toolbar:chrome_product", IconType::kIconSet}},
           {{&omnibox::kPublicIcon},
            {"webui-toolbar:public", IconType::kIconSet}},
           {{&omnibox::kSearchSparkIcon},
@@ -130,11 +173,11 @@ const base::flat_map<const gfx::VectorIcon*, IconInfo>& KnownIcons() {
           {{&omnibox::kSearchSparkOldIcon},
            {"webui-toolbar:search_spark", IconType::kIconSet}},
           {{&omnibox::kSecurePageInfoChromeRefreshOldIcon},
-           {"webui-toolbar:secure_page_info_chrome_refresh_old",
-            IconType::kIconSet}},
+           {"webui-toolbar:page_info_custom", IconType::kIconSet}},
           {{&omnibox::kStarActiveChromeRefreshOldIcon},
-           {"webui-toolbar:star_active_chrome_refresh_old",
-            IconType::kIconSet}},
+           {"webui-toolbar:star_filled", IconType::kIconSet}},
+          {{&omnibox::kStarChromeRefreshOldIcon},
+           {"webui-toolbar:star", IconType::kIconSet}},
           {{&omnibox::kStarFilledIcon},
            {"webui-toolbar:star_filled", IconType::kIconSet}},
           {{&omnibox::kStarIcon}, {"webui-toolbar:star", IconType::kIconSet}},
@@ -151,79 +194,114 @@ const base::flat_map<const gfx::VectorIcon*, IconInfo>& KnownIcons() {
           {{&vector_icons::kChatIcon},
            {"webui-toolbar:chat", IconType::kIconSet}},
           {{&vector_icons::kChatOldIcon},
-           {"webui-toolbar:chat_old", IconType::kIconSet}},
+           {"webui-toolbar:chat", IconType::kIconSet}},
+          {{&vector_icons::kChromeExtensionCheckIcon},
+           {"webui-toolbar:extension_check", IconType::kIconSet}},
+          {{&vector_icons::kChromeExtensionIcon},
+           {"webui-toolbar:extension", IconType::kIconSet}},
+          {{&vector_icons::kChromeExtensionOffIcon},
+           {"webui-toolbar:extension_off", IconType::kIconSet}},
+          {{&vector_icons::kCodeIcon},
+           {"webui-toolbar:code", IconType::kIconSet}},
+          {{&vector_icons::kCodeOldIcon},
+           {"webui-toolbar:code", IconType::kIconSet}},
           {{&vector_icons::kDangerousChromeRefreshOldIcon},
-           {"webui-toolbar:dangerous_chrome_refresh_old", IconType::kIconSet}},
+           {"webui-toolbar:dangerous_filled", IconType::kIconSet}},
           {{&vector_icons::kDangerousFilledIcon},
            {"webui-toolbar:dangerous_filled", IconType::kIconSet}},
           {{&vector_icons::kDomainIcon},
            {"webui-toolbar:domain", IconType::kIconSet}},
           {{&vector_icons::kEditChromeRefreshOldIcon},
-           {"webui-toolbar:edit_chrome_refresh_old", IconType::kIconSet}},
+           {"webui-toolbar:edit", IconType::kIconSet}},
           {{&vector_icons::kEditIcon},
            {"webui-toolbar:edit", IconType::kIconSet}},
+          {{&vector_icons::kExtensionChromeRefreshOldIcon},
+           {"webui-toolbar:extension", IconType::kIconSet}},
+          {{&vector_icons::kExtensionOffOldIcon},
+           {"webui-toolbar:extension_off", IconType::kIconSet}},
+          {{&vector_icons::kExtensionOnOldIcon},
+           {"webui-toolbar:extension_check", IconType::kIconSet}},
           {{&vector_icons::kFeedbackIcon},
            {"webui-toolbar:feedback", IconType::kIconSet}},
           {{&vector_icons::kFeedbackOldIcon},
            {"webui-toolbar:feedback", IconType::kIconSet}},
           {{&vector_icons::kGTranslateIcon},
            {"webui-toolbar:g_translate", IconType::kIconSet}},
+          {{&vector_icons::kGoogleColorIcon},
+           {"webui-toolbar:google_color", IconType::kIconSet}},
           {{&vector_icons::kHistoryChromeRefreshOldIcon},
-           {"webui-toolbar:history_chrome_refresh_old", IconType::kIconSet}},
+           {"webui-toolbar:history", IconType::kIconSet}},
           {{&vector_icons::kHistoryIcon},
            {"webui-toolbar:history", IconType::kIconSet}},
           {{&vector_icons::kImageSearchIcon},
            {"webui-toolbar:image_search", IconType::kIconSet}},
           {{&vector_icons::kImageSearchOldIcon},
-           {"webui-toolbar:image_search_old", IconType::kIconSet}},
+           {"webui-toolbar:image_search", IconType::kIconSet}},
           {{&vector_icons::kLocationOnChromeRefreshOldIcon},
-           {"webui-toolbar:location_on_chrome_refresh_old",
-            IconType::kIconSet}},
+           {"webui-toolbar:location_on", IconType::kIconSet}},
           {{&vector_icons::kLocationOnIcon},
            {"webui-toolbar:location_on", IconType::kIconSet}},
           {{&vector_icons::kMediaRouterActiveChromeRefreshOldIcon},
-           {"webui-toolbar:media_router_active_chrome_refresh_old",
-            IconType::kIconSet}},
+           {"webui-toolbar:cast_connected", IconType::kIconSet}},
           {{&vector_icons::kMediaRouterIdleChromeRefreshOldIcon},
-           {"webui-toolbar:media_router_idle_chrome_refresh_old",
-            IconType::kIconSet}},
+           {"webui-toolbar:cast", IconType::kIconSet}},
           {{&vector_icons::kMediaRouterPausedOldIcon},
-           {"webui-toolbar:media_router_paused_old", IconType::kIconSet}},
+           {"webui-toolbar:cast_pause", IconType::kIconSet}},
           {{&vector_icons::kMediaRouterWarningChromeRefreshOldIcon},
-           {"webui-toolbar:media_router_warning_chrome_refresh_old",
-            IconType::kIconSet}},
+           {"webui-toolbar:cast_warning", IconType::kIconSet}},
           {{&vector_icons::kNoEncryptionIcon},
            {"webui-toolbar:no_encryption", IconType::kIconSet}},
           {{&vector_icons::kNoEncryptionOldIcon},
            {"webui-toolbar:no_encryption", IconType::kIconSet}},
           {{&vector_icons::kNotSecureWarningChromeRefreshOldIcon},
-           {"webui-toolbar:not_secure_warning_chrome_refresh_old",
-            IconType::kIconSet}},
+           {"webui-toolbar:warning", IconType::kIconSet}},
           {{&vector_icons::kPasswordManagerIcon},
            {"webui-toolbar:password_manager", IconType::kIconSet}},
           {{&vector_icons::kPasswordManagerOldIcon},
-           {"webui-toolbar:password_manager_old", IconType::kIconSet}},
+           {"webui-toolbar:password_manager", IconType::kIconSet}},
+          {{&vector_icons::kPlayArrowIcon},
+           {"webui-toolbar:play_arrow", IconType::kIconSet}},
+          {{&vector_icons::kPlayArrowChromeRefreshOldIcon},
+           {"webui-toolbar:play_arrow", IconType::kIconSet}},
+          {{&vector_icons::kScreenRecordIcon},
+           {"webui-toolbar:screen_record", IconType::kIconSet}},
+          {{&vector_icons::kScreenRecordOldIcon},
+           {"webui-toolbar:screen_record", IconType::kIconSet}},
           {{&vector_icons::kSearchChromeRefreshOldIcon},
-           {"webui-toolbar:search_chrome_refresh_old", IconType::kIconSet}},
+           {"webui-toolbar:search", IconType::kIconSet}},
           {{&vector_icons::kSearchIcon},
            {"webui-toolbar:search", IconType::kIconSet}},
           {{&vector_icons::kSearchOldIcon},
            {"webui-toolbar:search_old", IconType::kIconSet}},
+          {{&vector_icons::kShieldIcon},
+           {"webui-toolbar:shield", IconType::kIconSet}},
           {{&vector_icons::kShoppingBagIcon},
            {"webui-toolbar:shopping_bag", IconType::kIconSet}},
           {{&vector_icons::kShoppingBagOldIcon},
-           {"webui-toolbar:shopping_bag_old", IconType::kIconSet}},
+           {"webui-toolbar:shopping_bag", IconType::kIconSet}},
+          {{&vector_icons::kShoppingBagRefreshOldIcon},
+           {"webui-toolbar:shopping_bag", IconType::kIconSet}},
+          {{&vector_icons::kShoppingmodeIcon},
+           {"webui-toolbar:shoppingmode", IconType::kIconSet}},
+          {{&vector_icons::kShoppingmodeOldIcon},
+           {"webui-toolbar:shoppingmode", IconType::kIconSet}},
           {{&vector_icons::kStorefrontIcon},
            {"webui-toolbar:storefront", IconType::kIconSet}},
           {{&vector_icons::kStorefrontOldIcon},
-           {"webui-toolbar:storefront_old", IconType::kIconSet}},
+           {"webui-toolbar:storefront", IconType::kIconSet}},
           {{&vector_icons::kWarningIcon},
            {"webui-toolbar:warning", IconType::kIconSet}},
           {{&views::kInfoChromeRefreshOldIcon},
-           {"webui-toolbar:info_chrome_refresh_old", IconType::kIconSet}},
+           {"webui-toolbar:info", IconType::kIconSet}},
           {{&views::kInfoIcon}, {"webui-toolbar:info", IconType::kIconSet}},
+          {{&views::kVisibilityIcon},
+           {"webui-toolbar:visibility", IconType::kIconSet}},
+          {{&views::kEyeRefreshOldIcon},
+           {"webui-toolbar:visibility", IconType::kIconSet}},
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+          {{&vector_icons::kFastForwardCircleSparkIcon},
+           {"internal-icons:fast_forward_circle_spark", IconType::kIconSet}},
           {{&vector_icons::kGoogleLensMonochromeLogoIcon},
            {"internal-icons:google_lens_monochrome_logo", IconType::kIconSet}},
           {{&vector_icons::kPageInsightsIcon},
@@ -234,6 +312,51 @@ const base::flat_map<const gfx::VectorIcon*, IconInfo>& KnownIcons() {
 
       });
   return *table;
+}
+
+// Return true if `a` and `b` would appear identical at `scale_factor` scale
+// factor. Attempts to use cheaper comparison methods first, but will fall back
+// to building representations at `scale_factor` scale factor and doing
+// byte-by-byte comparisons of underlying memory, so only use if failing to
+// compare would result in building representations at `scale_factor` scale
+// factor.
+bool AreImageModelsEqual(const ui::ImageModel& a,
+                         const ui::ImageModel& b,
+                         float scale_factor) {
+  if (a == b) {
+    return true;
+  }
+  if (a.IsImage() && b.IsImage()) {
+    gfx::Image img_a = a.GetImage();
+    gfx::Image img_b = b.GetImage();
+    if (img_a == img_b) {
+      return true;
+    }
+    if (img_a.IsEmpty() || img_b.IsEmpty()) {
+      return img_a.IsEmpty() == img_b.IsEmpty();
+    }
+    if (img_a.HasRepresentation(gfx::Image::kImageRepSkia) &&
+        img_b.HasRepresentation(gfx::Image::kImageRepSkia)) {
+      const gfx::ImageSkia* skia_a = img_a.ToImageSkia();
+      const gfx::ImageSkia* skia_b = img_b.ToImageSkia();
+      if (!skia_a || !skia_b) {
+        return !skia_a && !skia_b;
+      }
+      if (skia_a->BackedBySameObjectAs(*skia_b)) {
+        return true;
+      }
+      if (skia_a->isNull() || skia_b->isNull()) {
+        return skia_a->isNull() == skia_b->isNull();
+      }
+      const gfx::ImageSkiaRep& rep_a = skia_a->GetRepresentation(scale_factor);
+      const gfx::ImageSkiaRep& rep_b = skia_b->GetRepresentation(scale_factor);
+      if (rep_a.is_null() || rep_b.is_null()) {
+        return rep_a.is_null() == rep_b.is_null();
+      }
+      return gfx::BitmapsAreEqual(rep_a.GetBitmap(), rep_b.GetBitmap());
+    }
+  }
+  return false;
 }
 
 }  // namespace
@@ -398,7 +521,9 @@ toolbar_ui_api::IconHandle IconTable::RegisterImageModelTryReuse(
     if (auto it = registered_icons_.find(handle_id);
         it != registered_icons_.end()) {
       const auto& maybe_existing = it->second->MaybeImageModel();
-      if (maybe_existing == icon) {
+      if (maybe_existing.has_value() &&
+          AreImageModelsEqual(*maybe_existing, icon,
+                              delegate_->GetScaleFactor())) {
         return previous_handle;
       }
     }

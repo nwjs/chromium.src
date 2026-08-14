@@ -11,6 +11,7 @@
 #include "base/functional/callback.h"
 #include "base/memory/ptr_util.h"
 #include "base/notimplemented.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
@@ -237,6 +238,17 @@ void ViewAccessibility::GetAccessibleNodeData(ui::AXNodeData* data) const {
   }
 
   *data = data_;
+
+  // Expose the View's id as the author-unique id. Virtual views have no
+  // backing View and retain their existing identity.
+  if (view_) {
+    const int view_id = view_->GetID();
+    if (view_id &&
+        !data->HasStringAttribute(ax::mojom::StringAttribute::kHtmlId)) {
+      data->AddStringAttribute(ax::mojom::StringAttribute::kHtmlId,
+                               "view_" + base::NumberToString(view_id));
+    }
+  }
 }
 
 void ViewAccessibility::NotifyEvent(ax::mojom::Event event_type,
@@ -1704,6 +1716,32 @@ void ViewAccessibility::OnViewHasNewAncestor(const View* new_ancestor) {
   for (auto& child : virtual_children()) {
     child->OnViewHasNewAncestor(ancestor_focusable);
   }
+}
+
+void ViewAccessibility::OnViewParentChanged() {
+  CHECK(view_);
+  if (view_->parent()) {
+    OnViewHasNewAncestor(view_->parent());
+  }
+
+  UpdateOffsetContainerId();
+}
+
+ui::AXNodeID ViewAccessibility::GetOffsetContainerId() const {
+  CHECK(view_);
+  const ViewAccessibility* parent = GetViewAccessibilityParent();
+  return parent ? static_cast<ui::AXNodeID>(parent->GetUniqueId())
+                : ui::kInvalidAXNodeID;
+}
+
+void ViewAccessibility::UpdateOffsetContainerId() {
+  const ui::AXNodeID offset_container_id = GetOffsetContainerId();
+  if (data_.relative_bounds.offset_container_id == offset_container_id) {
+    return;
+  }
+
+  data_.relative_bounds.offset_container_id = offset_container_id;
+  NotifyDataChanged();
 }
 
 void ViewAccessibility::SetRootViewURL(const std::string& url) {

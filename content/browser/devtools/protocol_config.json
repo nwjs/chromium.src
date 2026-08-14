@@ -19,9 +19,8 @@
             },
             {
                 "domain": "Browser",
-                "include": ["getVersion", "getHistograms", "getHistogram", "getBrowserCommandLine", "grantPermissions", "setDownloadBehavior", "cancelDownload", "resetPermissions", "crash", "crashGpuProcess", "setPermission",
-                "addPrivacySandboxCoordinatorKeyConfig"],
-                "async": ["addPrivacySandboxCoordinatorKeyConfig", "grantPermissions", "resetPermissions", "setPermission"]
+                "include": ["getVersion", "getHistograms", "getHistogram", "getBrowserCommandLine", "grantPermissions", "setDownloadBehavior", "cancelDownload", "resetPermissions", "crash", "crashGpuProcess", "setPermission"],
+                "async": ["grantPermissions", "resetPermissions", "setPermission"]
             },
             {
                 "domain": "DOM",
@@ -71,6 +70,9 @@
             },
             {
                 "domain": "FedCm"
+            },
+            {
+                "domain": "DigitalCredentials"
             },
             {
                 "domain": "Input",
@@ -151,7 +153,7 @@
             },
             {
                 "domain": "Overlay",
-                "include": ["setInspectMode", "setPausedInDebuggerMessage"]
+                "include": ["enable", "setInspectMode", "setPausedInDebuggerMessage"]
             },
             {
                 "domain": "Page",
@@ -187,7 +189,7 @@
             {
                 "domain": "Storage",
                 "exclude": ["runBounceTrackingMitigations", "getRelatedWebsiteSets"],
-                "async": ["getUsageAndQuota", "clearDataForOrigin", "clearDataForStorageKey", "getCookies", "setCookies", "clearCookies", "overrideQuotaForOrigin", "getTrustTokens", "clearTrustTokens", "getInterestGroupDetails", "getSharedStorageMetadata", "getSharedStorageEntries", "setSharedStorageEntry", "deleteSharedStorageEntry", "clearSharedStorageEntries", "resetSharedStorageBudget", "getStorageBucketList"]
+                "async": ["getUsageAndQuota", "clearDataForOrigin", "clearDataForStorageKey", "getCookies", "setCookies", "clearCookies", "overrideQuotaForOrigin", "getTrustTokens", "clearTrustTokens", "getSharedStorageMetadata", "getSharedStorageEntries", "setSharedStorageEntry", "deleteSharedStorageEntry", "clearSharedStorageEntries", "resetSharedStorageBudget", "getStorageBucketList"]
             },
             {
                 "domain": "SystemInfo",
@@ -248,6 +250,16 @@
             {
                 "domain": "WebMCP",
                 "async": ["invokeTool"]
+            },
+            {
+                "domain": "Debugger",
+                "include": [
+                    "setBreakpointByUrl",
+                    "removeBreakpoint"
+                ],
+                "exclude": [
+                    "setBreakpoint"
+                ]
             }
         ]
     },

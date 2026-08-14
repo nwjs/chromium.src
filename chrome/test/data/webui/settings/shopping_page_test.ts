@@ -8,10 +8,12 @@ import {AiEnterpriseFeaturePrefName, EntityDataManagerProxyImpl} from 'chrome://
 import type {SettingsShoppingPageElement} from 'chrome://settings/lazy_load.js';
 import {CrSettingsPrefs, loadTimeData, ModelExecutionEnterprisePolicyValue, resetRouterForTesting, Router} from 'chrome://settings/settings.js';
 import type {SettingsPrefsElement} from 'chrome://settings/settings.js';
+import {MetricsBrowserProxyImpl} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
 
 import {TestEntityDataManagerProxy} from './test_entity_data_manager_proxy.js';
+import {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
 
 suite('ShoppingPage', function() {
   let entityDataManager: TestEntityDataManagerProxy;
@@ -190,7 +192,7 @@ suite('ShoppingPage', function() {
         async function() {
           loadTimeData.overrideValues({
             userEligibleForAutofillAi: true,
-            AutofillAddOtherDatatypesPrefIsEnabled: experimentEnabled,
+            AutofillSettingsEnterprisePolicyEnabled: experimentEnabled,
             autofillAiAvailableByDefault: false,
           });
 
@@ -214,7 +216,7 @@ suite('ShoppingPage', function() {
       async function() {
         loadTimeData.overrideValues({
           userEligibleForAutofillAi: true,
-          AutofillAddOtherDatatypesPrefIsEnabled: false,
+          AutofillSettingsEnterprisePolicyEnabled: false,
           autofillAiAvailableByDefault: true,
           canEnableOrDisableAutofillAi: true,
         });
@@ -244,7 +246,7 @@ suite('ShoppingPage', function() {
       async function() {
         loadTimeData.overrideValues({
           userEligibleForAutofillAi: true,
-          AutofillAddOtherDatatypesPrefIsEnabled: false,
+          AutofillSettingsEnterprisePolicyEnabled: false,
           autofillAiAvailableByDefault: true,
           canEnableOrDisableAutofillAi: true,
         });
@@ -275,7 +277,7 @@ suite('ShoppingPage', function() {
       async function() {
         loadTimeData.overrideValues({
           userEligibleForAutofillAi: true,
-          AutofillAddOtherDatatypesPrefIsEnabled: false,
+          AutofillSettingsEnterprisePolicyEnabled: false,
           autofillAiAvailableByDefault: true,
           canEnableOrDisableAutofillAi: true,
         });
@@ -304,7 +306,7 @@ suite('ShoppingPage', function() {
       async function() {
         loadTimeData.overrideValues({
           userEligibleForAutofillAi: true,
-          AutofillAddOtherDatatypesPrefIsEnabled: false,
+          AutofillSettingsEnterprisePolicyEnabled: false,
           autofillAiAvailableByDefault: true,
           canEnableOrDisableAutofillAi: true,
         });
@@ -331,7 +333,7 @@ suite('ShoppingPage', function() {
       async function() {
         loadTimeData.overrideValues({
           userEligibleForAutofillAi: true,
-          AutofillAddOtherDatatypesPrefIsEnabled: false,
+          AutofillSettingsEnterprisePolicyEnabled: false,
           autofillAiAvailableByDefault: true,
           canEnableOrDisableAutofillAi: true,
         });
@@ -353,7 +355,11 @@ suite('ShoppingPage', function() {
       });
 
   suite('SuggestionsFromGemini', function() {
+    let metricsBrowserProxy: TestMetricsBrowserProxy;
+
     setup(function() {
+      metricsBrowserProxy = new TestMetricsBrowserProxy();
+      MetricsBrowserProxyImpl.setInstance(metricsBrowserProxy);
       loadTimeData.overrideValues({
         showSuggestionsFromGeminiSettings: false,
       });
@@ -380,9 +386,10 @@ suite('ShoppingPage', function() {
       assertTrue(!!button);
 
       button.click();
+      assertEquals('/enhancedAutofill', Router.getInstance().currentRoute.path);
+      const action = await metricsBrowserProxy.whenCalled('recordAction');
       assertEquals(
-          '/autofill/suggestionsFromGemini',
-          Router.getInstance().currentRoute.path);
+          'PersonalContext.Settings.EntryPoint.ShoppingSettings', action);
     });
 
     test('row is hidden when flag is disabled', async function() {

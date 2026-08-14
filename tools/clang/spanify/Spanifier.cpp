@@ -668,6 +668,25 @@ clang::SourceRange GetExprRange(const clang::Expr& expr,
     return {begin_loc, end_loc.getLocWithOffset(name.size())};
   }
 
+  // CXXOperatorCallExpr inherits from CallExpr, but for infix binary operators
+  // (like `a == b`), both getBeginLoc() and getRParenLoc() point to the
+  // operator token itself rather than the arguments. We specialize here to
+  // return the full range from LHS to RHS for infix operators.
+  if (const auto* op_call =
+          clang::dyn_cast<clang::CXXOperatorCallExpr>(&expr)) {
+    if (op_call->getNumArgs() == 2) {
+      clang::SourceLocation op_loc = op_call->getOperatorLoc();
+      clang::SourceLocation arg0_begin = op_call->getArg(0)->getBeginLoc();
+      if (op_loc.isValid() && arg0_begin.isValid() &&
+          source_manager.isBeforeInTranslationUnit(arg0_begin, op_loc)) {
+        return {GetExprRange(*op_call->getArg(0), source_manager, lang_opts)
+                    .getBegin(),
+                GetExprRange(*op_call->getArg(1), source_manager, lang_opts)
+                    .getEnd()};
+      }
+    }
+  }
+
   if (const auto* call_expr = clang::dyn_cast<clang::CallExpr>(&expr)) {
     // Disclaimer: This doesn't support edge cases like following.
     //     #define MY_MACRO(func) func
@@ -885,13 +904,22 @@ bool isConstToken(const clang::Token& tok) {
   return is_const_keyword || is_raw_identifier_and_const;
 }
 
-bool HasConstNode(const clang::TypeLoc* type_loc,
-                  const clang::SourceManager& source_manager,
-                  const clang::LangOptions& lang_opts) {
+bool isVolatileToken(const clang::Token& tok) {
+  return tok.is(clang::tok::kw_volatile) ||
+         (tok.is(clang::tok::raw_identifier) &&
+          tok.getRawIdentifier() == "volatile");
+}
+
+template <typename F>
+bool HasQualifierInRange(clang::SourceLocation begin,
+                         clang::SourceLocation end,
+                         const clang::SourceManager& source_manager,
+                         const clang::LangOptions& lang_opts,
+                         F qualifierFunc) {
   clang::Token tok;
-  if (!clang::Lexer::getRawToken(type_loc->getBeginLoc(), tok, source_manager,
-                                 lang_opts, /*KeepWhitespace=*/false)) {
-    if (isConstToken(tok)) {
+  if (!clang::Lexer::getRawToken(begin, tok, source_manager, lang_opts,
+                                 /*KeepWhitespace=*/false)) {
+    if (qualifierFunc(tok)) {
       return true;
     }
   }
@@ -899,14 +927,71 @@ bool HasConstNode(const clang::TypeLoc* type_loc,
   auto get_next_tok = [&](clang::SourceLocation loc) {
     return clang::Lexer::findNextToken(loc, source_manager, lang_opts);
   };
-  for (auto maybe_tok = get_next_tok(type_loc->getBeginLoc());
-       maybe_tok && maybe_tok->getLocation() < type_loc->getEndLoc();
+  for (auto maybe_tok = get_next_tok(begin);
+       maybe_tok && maybe_tok->getLocation() < end;
        maybe_tok = get_next_tok(maybe_tok->getLocation())) {
-    if (isConstToken(*maybe_tok)) {
+    if (qualifierFunc(*maybe_tok)) {
       return true;
     }
   }
   return false;
+}
+
+template <typename F>
+bool HasQualifierNode(const clang::TypeLoc* type_loc,
+                      const clang::SourceManager& source_manager,
+                      const clang::LangOptions& lang_opts,
+                      F qualifierFunc) {
+  return HasQualifierInRange(type_loc->getBeginLoc(), type_loc->getEndLoc(),
+                             source_manager, lang_opts, qualifierFunc);
+}
+
+template <typename F>
+clang::SourceLocation ExpandLeft(clang::SourceLocation start,
+                                 const clang::SourceManager& source_manager,
+                                 const clang::LangOptions& lang_opts,
+                                 F predicate) {
+  auto get_prev_token = [&](clang::SourceLocation src) {
+    return clang::Lexer::findPreviousToken(src, source_manager, lang_opts,
+                                           /*IncludeComments=*/false);
+  };
+  clang::SourceLocation current = start;
+  for (std::optional<clang::Token> prev = get_prev_token(current);
+       prev.has_value(); prev = get_prev_token(current)) {
+    auto prev_loc = prev->getLocation();
+    if (prev_loc.isInvalid() ||
+        !source_manager.isWrittenInSameFile(start, prev_loc)) {
+      // We have reached beyond our starting file (likely a macro),
+      // return whatever valid range we found before updating with `prev`.
+      return current;
+    }
+    if (!predicate(*prev)) {
+      // This isn't one of the tokens we wanted so return the valid
+      // range before updating.
+      return current;
+    }
+    // The previous token should be included as well; extend our valid range.
+    current = prev_loc;
+  }
+  return current;
+}
+
+void ReportQualifierError(clang::SourceLocation new_begin,
+                          const clang::SourceManager& source_manager,
+                          const clang::LangOptions& lang_opts) {
+  std::optional<clang::Token> failed_prev =
+      clang::Lexer::findPreviousToken(new_begin, source_manager, lang_opts,
+                                      /*IncludeComments=*/false);
+  std::string_view got_text = "unknown";
+  if (failed_prev.has_value()) {
+    got_text = clang::Lexer::getSourceText(
+        clang::CharSourceRange::getCharRange(
+            {failed_prev->getLocation(), failed_prev->getEndLoc()}),
+        source_manager, lang_opts);
+  }
+  llvm::errs()
+      << "WARNING: `getNodeFromPointerTypeLoc()` expected `const` or `volatile`"
+      << ", but got: " << got_text << " instead.\n";
 }
 
 std::string getNodeFromPointerTypeLoc(const clang::PointerTypeLoc* type_loc,
@@ -925,57 +1010,53 @@ std::string getNodeFromPointerTypeLoc(const clang::PointerTypeLoc* type_loc,
   // *  `QualifiedTypeLoc` deliberately does not provide source locations
   //    for qualifiers [1].
   //
-  // As a best effort, if the type is const-qualified:
-  // 1. We first check if the `const` keyword is already within the source
-  //    range of `type_loc` (e.g. `const int*` or `int const*`). If it is, the
-  //    range is already correct and we can return it as is.
-  // 2. Otherwise, we abuse the Lexer to back up one token behind `type_loc`.
-  //    Take a deep breath and hope that it's the `const` qualifier. If so, we
-  //    extend the range to include it.
+  // As a best effort, if the type is const-qualified or volatile-qualified:
+  // 1. We first check if the qualifiers are already within the source range
+  //    of `type_loc` (e.g. `const int*` or `int const*`).
+  // 2. Otherwise, we abuse the Lexer to back up and find them, extending
+  //    the range to include them.
   //
   // [1]
   // https://github.com/llvm/llvm-project/blob/6cf656eca717890a43975c026d0ae34c16c6c455/clang/include/clang/AST/TypeLoc.h#L288
-  clang::SourceRange replacement_range = [type_loc, &result, &source_manager,
+  clang::SourceRange replacement_range = [type_loc, &source_manager,
                                           &lang_opts]() {
     const auto qualified_type_loc =
         type_loc->getPointeeLoc().getAs<clang::QualifiedTypeLoc>();
     clang::SourceRange result = {type_loc->getBeginLoc(),
                                  type_loc->getEndLoc().getLocWithOffset(1)};
-    if (qualified_type_loc.isNull() ||
-        !qualified_type_loc.getType().isConstQualified()) {
+    if (qualified_type_loc.isNull()) {
+      return result;
+    }
+    const bool type_is_const = qualified_type_loc.getType().isConstQualified();
+    const bool type_is_volatile =
+        qualified_type_loc.getType().isVolatileQualified();
+    if (!type_is_const && !type_is_volatile) {
       return result;
     }
 
-    // If `const` is found within the source range of `type_loc` (e.g.
-    // `const int*` or `int const*`), the default range already includes
-    // the qualifier, so we can return the result as is.
-    if (HasConstNode(type_loc, source_manager, lang_opts)) {
-      return result;
-    }
+    auto is_qualifier_token = [](const clang::Token& tok) {
+      return isConstToken(tok) || isVolatileToken(tok);
+    };
 
-    std::optional<clang::Token> previous_token =
-        clang::Lexer::findPreviousToken(type_loc->getBeginLoc(), source_manager,
-                                        lang_opts, /*IncludeComments=*/false);
-    // If we can't find the previous token, bail out to the previous
-    // behavior.
-    if (!previous_token.has_value()) {
-      return result;
-    }
-    if (!isConstToken(*previous_token)) {
-      std::string_view actual_previous_qualifier = clang::Lexer::getSourceText(
-          clang::CharSourceRange::getCharRange(
-              {previous_token->getLocation(), previous_token->getEndLoc()}),
-          source_manager, lang_opts);
-      // A patch hitting this will likely fail to compile.
-      llvm::errs() << "WARNING: `getNodeFromPointerTypeLoc()` expected "
-                      "`const`, but got: "
-                   << actual_previous_qualifier << " instead.\n";
-      return result;
-    }
+    // Look back to extend range and find remaining qualifiers
+    const clang::SourceLocation new_begin = ExpandLeft(
+        type_loc->getBeginLoc(), source_manager, lang_opts, is_qualifier_token);
 
+    // Verify we found what we expected
+    const bool found_const =
+        HasQualifierInRange(new_begin, type_loc->getEndLoc(), source_manager,
+                            lang_opts, isConstToken);
+    const bool found_volatile =
+        HasQualifierInRange(new_begin, type_loc->getEndLoc(), source_manager,
+                            lang_opts, isVolatileToken);
+
+    if (type_is_const != found_const || type_is_volatile != found_volatile) {
+      ReportQualifierError(new_begin, source_manager, lang_opts);
+      assert(false && "failed to find const or volatile see logs");
+    }
     // Extend the replacement range leftward to include `const` in the
     // type to be rewritten.
-    result.setBegin(previous_token->getLocation());
+    result.setBegin(new_begin);
     return result;
   }();
 
@@ -1165,44 +1246,44 @@ void DecaySpanToPointer(const MatchFinder::MatchResult& result) {
                               kDecaySpanToPointerPrecedence));
 }
 
-clang::SourceLocation GetBinaryOperationOperatorLoc(
+struct BinaryOperationData {
+  const clang::Expr* lhs;
+  clang::SourceLocation operator_loc;
+};
+
+BinaryOperationData GetBinaryOperationDataOrCrash(
     const clang::Expr* expr,
     const MatchFinder::MatchResult& result) {
+  // Handles built-in binary operators (e.g., `a + b` for raw
+  // pointers/integers).
   if (auto* binary_op = clang::dyn_cast_or_null<clang::BinaryOperator>(expr)) {
-    return binary_op->getOperatorLoc();
+    return {binary_op->getLHS(), binary_op->getOperatorLoc()};
   }
 
+  // Handles overloaded operators (e.g., `a + b` where at least one operand is a
+  // class/enum).
   if (auto* binary_op =
           clang::dyn_cast_or_null<clang::CXXOperatorCallExpr>(expr)) {
-    return binary_op->getOperatorLoc();
+    return {binary_op->getArg(0), binary_op->getOperatorLoc()};
   }
 
+  // Handles C++20 rewritten binary operators (e.g., spaceship operator `<=>`
+  // rewrites).
   if (auto* binary_op =
           clang::dyn_cast_or_null<clang::CXXRewrittenBinaryOperator>(expr)) {
-    return binary_op->getOperatorLoc();
+    return {binary_op->getLHS(), binary_op->getOperatorLoc()};
   }
 
   // Not supposed to get here.
   llvm::errs()
       << "\n"
-         "Error: GetBinaryOperationOperatorLoc() encountered an unexpected "
+         "Error: GetBinaryOperationDataOrCrash() encountered an unexpected "
          "expression.\n"
-         "Expected on of clang::BinaryOperator, clang::CXXOperatorCallExpr, "
+         "Expected one of clang::BinaryOperator, clang::CXXOperatorCallExpr, "
          "clang::CXXRewrittenBinaryOperator \n";
   DumpMatchResult(result);
   assert(false && "Unexpected binaryOperation Node");
 }
-
-struct RangedReplacement {
-  clang::SourceRange range;
-  std::string text;
-};
-
-// Specifies an edit: `base::checked_cast<size_t>(...)`
-struct CheckedCastReplacement {
-  RangedReplacement opener;
-  RangedReplacement closer;
-};
 
 // There are three possible subspan expr replacements, respectively:
 // 1. No replacement (leave as is)
@@ -1252,10 +1333,7 @@ SubspanExprReplacement GetSubspanExprReplacement(
       key, GetIncludeDirective(range, source_manager,
                                GetProject()->GetSafeConversionsIncludePath()));
   EmitReplacement(key, GetIncludeDirective(range, source_manager, "<cstdint>"));
-  return CheckedCastReplacement{
-      .opener = {.range = range.getBegin(),
-                 .text = "base::checked_cast<size_t>("},
-      .closer = {.range = range.getEnd(), .text = ")"}};
+  return GetProject()->GetCheckedCastReplacement(range);
 }
 
 // When a binary operation and rhs expr appear inside a macro expansion,
@@ -1294,8 +1372,14 @@ void AdaptBinaryOpInMacro(const MatchFinder::MatchResult& result,
 
   clang::CharSourceRange macro_range =
       source_manager.getExpansionRange(decl_ref->getBeginLoc());
-  EmitReplacement(key, GetReplacementDirective(macro_range.getBegin(),
-                                               "UNSAFE_TODO(", source_manager));
+  std::string macro_replacement =
+      std::string(GetProject()->GetUnsafeTodoMacroName()) + "(";
+  EmitReplacement(
+      key, GetReplacementDirective(macro_range.getBegin(), macro_replacement,
+                                   source_manager));
+  EmitReplacement(
+      key, GetIncludeDirective(decl_ref->getBeginLoc(), source_manager,
+                               GetProject()->GetUnsafeTodoIncludePath()));
   // `macro_range.getEnd()` points to the last character of the macro call,
   // i.e. the closing parenthesis of the macro call, so +1 offset is needed.
   // Note that `macro_range` is a CharSourceRange, not a SourceRange.
@@ -1352,24 +1436,34 @@ void AdaptBinaryOperation(const MatchFinder::MatchResult& result) {
     return;
   }
 
-  // C-style arrays are rewritten to `std::array`, not `base::span`, so
-  // a binary operation on the rewritten array must explicitly construct
-  // a `base::span` of it before calling `.subspan()`.
-  //
-  // Emit a replacement to that effect:
-  // `base::span( <binary operation lhs> `
-  // ...but leave the closing right-parenthesis for the `).subspan()` call.
+  BinaryOperationData bin_op_data =
+      GetBinaryOperationDataOrCrash(binary_operation, result);
+
   const auto* rhs_array_type =
       result.Nodes.getNodeAs<clang::ArrayTypeLoc>("rhs_array_type_loc");
   if (rhs_array_type) {
-    const auto* concrete_binary_operation =
-        GetNodeOrCrash<clang::BinaryOperator>(
-            result, "binary_operation",
-            "C-style array should not involve `CXXOperatorCallExpr` or "
-            "`CXXRewrittenBinaryOperator`");
+    // Built-in binary operators on C-style arrays (like `arr + 1`) decay
+    // the array to a pointer and perform pointer arithmetic. Overloaded
+    // operators (like `arr + val` where val is an enum/class) have custom
+    // logic. If we rewrite the array to `std::array` and the operation to
+    // `.subspan()`, we would bypass this custom overloaded operator logic.
+    // Therefore, we exclude the array from spanification if it is used with
+    // a non-built-in binary operator.
+    if (!clang::isa<clang::BinaryOperator>(binary_operation)) {
+      EmitExclusion(key);
+      return;
+    }
+
+    // C-style arrays are rewritten to `std::array`, not `base::span`, so
+    // a binary operation on the rewritten array must explicitly construct
+    // a `base::span` of it before calling `.subspan()`.
+    //
+    // Emit a replacement to that effect:
+    // `base::span( <binary operation lhs> `
+    // ...but leave the closing right-parenthesis for the `).subspan()` call.
     EmitReplacement(
         key, GetReplacementDirective(
-                 concrete_binary_operation->getLHS()->getBeginLoc(),
+                 bin_op_data.lhs->getBeginLoc(),
                  llvm::formatv("{0}<{1}>(",
                                GetProject()->GetSpanRelativePath(result),
                                GetTypeAsString(rhs_array_type->getInnerType(),
@@ -1401,8 +1495,7 @@ void AdaptBinaryOperation(const MatchFinder::MatchResult& result) {
   std::string subspan_opener =
       CreateSubspanOpener(prefix, &subspan_expr_replacement);
 
-  const clang::SourceLocation binary_operator_begin =
-      GetBinaryOperationOperatorLoc(binary_operation, result);
+  const clang::SourceLocation binary_operator_begin = bin_op_data.operator_loc;
   EmitReplacement(
       key,
       GetReplacementDirective(
@@ -1499,6 +1592,45 @@ void DecaySpanToBooleanOp(const MatchFinder::MatchResult& result) {
                                                ".empty()", source_manager));
 }
 
+// Rewrite binary comparison expressions with nullptr to .empty() or !.empty()
+void RewriteComparisonWithNullptr(const MatchFinder::MatchResult& result) {
+  const clang::SourceManager& source_manager = *result.SourceManager;
+  const clang::LangOptions& lang_opts = result.Context->getLangOpts();
+  const auto* binary_op_expr = GetNodeOrCrash<clang::Expr>(
+      result, "compare_with_nullptr_op", __FUNCTION__);
+  const auto* pointer_expr =
+      GetNodeOrCrash<clang::Expr>(result, "rhs_expr", __FUNCTION__);
+  const std::string key = GetRHS(result);
+
+  std::string pointer_expr_text =
+      clang::Lexer::getSourceText(
+          clang::CharSourceRange::getTokenRange(pointer_expr->getSourceRange()),
+          source_manager, lang_opts)
+          .str();
+
+  bool is_equal = false;
+  if (auto* b = clang::dyn_cast<clang::BinaryOperator>(binary_op_expr)) {
+    is_equal = (b->getOpcode() == clang::BO_EQ);
+    assert(is_equal || b->getOpcode() == clang::BO_NE);
+  } else {
+    auto* c = clang::cast<clang::CXXOperatorCallExpr>(binary_op_expr);
+    is_equal = (c->getOperator() == clang::OO_EqualEqual);
+    assert(is_equal || c->getOperator() == clang::OO_ExclaimEqual);
+  }
+
+  std::string replacement;
+  if (is_equal) {
+    replacement = pointer_expr_text + ".empty()";
+  } else {
+    replacement = "!" + pointer_expr_text + ".empty()";
+  }
+
+  EmitReplacement(key,
+                  GetReplacementDirective(
+                      GetExprRange(*binary_op_expr, source_manager, lang_opts),
+                      replacement, source_manager));
+}
+
 // Erases the member call expression. For example:
 //  ... = member_.get();
 //        ^^^^^^^^^^^^^------ member_expr
@@ -1543,6 +1675,11 @@ void AppendDataCall(const MatchFinder::MatchResult& result) {
 
   if (result.Nodes.getNodeAs<clang::Expr>("unaryOperator")) {
     if (result.Nodes.getNodeAs<clang::Expr>("container_buff_address")) {
+      if (result.Nodes.getNodeAs<clang::ArrayTypeLoc>("rhs_array_type_loc") &&
+          !result.Nodes.getNodeAs<clang::IntegerLiteral>(
+              "zero_container_offset")) {
+        return;
+      }
       rep_range = EmitContainerPointerRewrites(
           result, key, ContainerPointerRewritesMode::kDontWrapWithBaseSpan);
     } else {
@@ -1668,11 +1805,16 @@ clang::SourceLocation EmitContainerPointerRewrites(
   const auto* subscript_expr =
       GetNodeOrCrash<clang::Expr>(result, "subscript_expr", __FUNCTION__);
 
+  const auto* rhs_array_type =
+      result.Nodes.getNodeAs<clang::ArrayTypeLoc>("rhs_array_type_loc");
+
   std::string_view declref_bind_name = "container_decl_ref";
   std::string_view subspan_opener = ").subspan(";
   if (mode == ContainerPointerRewritesMode::kDontWrapWithBaseSpan) {
     declref_bind_name = "rhs_expr";
-    subspan_opener = ".subspan(";
+    if (!rhs_array_type) {
+      subspan_opener = ".subspan(";
+    }
   }
 
   const auto& container_decl_ref =
@@ -2064,15 +2206,17 @@ void RewriteUnaryOperation(const MatchFinder::MatchResult& result) {
   clang::SourceRange end_replacement_range;
 
   if (is_prefix) {
-    begin_insert_text = "base::PreIncrementSpan(";
-    // Replace the '++' with "base::PreIncrementSpan(".
+    begin_insert_text =
+        std::string(GetProject()->GetPreIncrementSpanName()) + "(";
+    // Replace the '++' with the helper call.
     begin_replacement_range = op_token_range;
     // Insert ")" at the end of the operand.
     end_replacement_range =
         clang::SourceRange(operand_range.getEnd(), operand_range.getEnd());
   } else {
-    begin_insert_text = "base::PostIncrementSpan(";
-    // Insert "base::PostIncrementSpan(" at the beginning of the operand.
+    begin_insert_text =
+        std::string(GetProject()->GetPostIncrementSpanName()) + "(";
+    // Insert the helper call at the beginning of the operand.
     begin_replacement_range =
         clang::SourceRange(operand_range.getBegin(), operand_range.getBegin());
     // Replace "++"" with ")".
@@ -3018,12 +3162,15 @@ void RewriteFunctionParamAndReturnType(const MatchFinder::MatchResult& result) {
   EmitEdge(current_key, replacement_key);
   EmitEdge(replacement_key, current_key);
 
-  // Connect to the previous function decl, which is already connected to the
-  // previous previous function decl.
-  if (const clang::Decl* previous_decl = fct_decl->getPreviousDecl()) {
-    const std::string& previous_key =
-        NodeKey(previous_decl, source_manager, parm_or_return_id);
-    if (GetProject()->IsExcludedFromProject(*previous_decl)) {
+  // Connect to all redeclarations of the function (e.g. header declaration and
+  // out-of-line definition).
+  for (const clang::FunctionDecl* redecl : fct_decl->redecls()) {
+    if (redecl == fct_decl) {
+      continue;
+    }
+    const std::string& redecl_key =
+        NodeKey(redecl, source_manager, parm_or_return_id);
+    if (GetProject()->IsExcludedFromProject(*redecl)) {
       // A declaration in third party codebase is found, so we do not want to
       // rewrite the parameter/return type in a third party function. This one-
       // way edge prevents making a flow from a source to a sink, hence the
@@ -3039,17 +3186,18 @@ void RewriteFunctionParamAndReturnType(const MatchFinder::MatchResult& result) {
       //
       // where node_arg1_1st is not a sink node, so the source node reaches a
       // non-sink end node. Hence, the rewriting will be cancelled.
-      EmitEdge(current_key, previous_key);
+      EmitEdge(current_key, redecl_key);
     } else {
-      EmitEdge(current_key, previous_key);
-      EmitEdge(previous_key, current_key);
+      EmitEdge(current_key, redecl_key);
+      EmitEdge(redecl_key, current_key);
     }
   }
 
   // Connect to the overridden methods.
   if (const clang::CXXMethodDecl* method_decl =
           clang::dyn_cast<clang::CXXMethodDecl>(fct_decl)) {
-    for (auto* overridden_method_decl : method_decl->overridden_methods()) {
+    for (auto* overridden_method_decl :
+         method_decl->getCanonicalDecl()->overridden_methods()) {
       const std::string& overridden_method_key =
           NodeKey(overridden_method_decl, source_manager, parm_or_return_id);
       if (GetProject()->IsExcludedFromProject(*overridden_method_decl)) {
@@ -3321,14 +3469,18 @@ class Spanifier {
         hasType(pointer_type),
         allOf(hasType(raw_ptr_type),
               hasDescendant(raw_ptr_type_loc.bind("lhs_raw_ptr_type_loc"))),
-        hasTypeLoc(loc(qualType(arrayType().bind("lhs_array_type")))
+        hasTypeLoc(loc(qualType(arrayType(hasElementType(qualType().bind(
+                                              "contained_type")))
+                                    .bind("lhs_array_type")))
                        .bind("lhs_array_type_loc")));
 
     auto rhs_type_loc = anyOf(
         hasType(pointer_type),
         allOf(hasType(raw_ptr_type),
               hasDescendant(raw_ptr_type_loc.bind("rhs_raw_ptr_type_loc"))),
-        hasTypeLoc(loc(qualType(arrayType().bind("rhs_array_type")))
+        hasTypeLoc(loc(qualType(arrayType(hasElementType(qualType().bind(
+                                              "contained_type")))
+                                    .bind("rhs_array_type")))
                        .bind("rhs_array_type_loc")));
 
     auto lhs_field =
@@ -3819,6 +3971,18 @@ class Spanifier {
                      hasOperands(ignoringParenCasts(lhs_expr_variations),
                                  ignoringParenCasts(c_array_iter_call_expr))));
     Match(equality_op, RewriteComparisonWithCArrayIter);
+
+    // Matches comparisons of pointers (rewritten to span) with nullptr:
+    // ptr == nullptr  =>  ptr.empty()
+    // ptr != nullptr  =>  !ptr.empty()
+    auto compare_with_nullptr = traverse(
+        clang::TK_IgnoreUnlessSpelledInSource,
+        binaryOperation(
+            anyOf(hasOperatorName("=="), hasOperatorName("!=")),
+            hasOperands(ignoringParenCasts(rhs_exprs_without_size_nodes),
+                        ignoringParenCasts(cxxNullPtrLiteralExpr())))
+            .bind("compare_with_nullptr_op"));
+    Match(compare_with_nullptr, RewriteComparisonWithNullptr);
 
     // Supports:
     // return member;

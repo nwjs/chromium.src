@@ -23,6 +23,8 @@ source_set("web_applications") {
       "web_app_relaunch_notification.h",
       "web_app_run_on_os_login_notification.h",
     ]
+    public_deps +=
+        [ "//chromeos/ash/components/system_web_apps:system_web_app_type" ]
   }
 
   if (toolkit_views) {
@@ -115,6 +117,7 @@ source_set("impl") {
       "//chrome/browser/notifications:system_notification_helper",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/profiles/keep_alive",
+      "//chrome/browser/ui:chrome_pages",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/color:mixers",
       "//chrome/browser/ui/tabs:tab_strip",

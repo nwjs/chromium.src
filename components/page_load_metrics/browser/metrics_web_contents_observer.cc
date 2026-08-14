@@ -9,6 +9,7 @@
 #include <string>
 #include <utility>
 
+#include "base/byte_size.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/read_only_shared_memory_region.h"
@@ -473,6 +474,7 @@ PageLoadTracker* MetricsWebContentsObserver::GetTrackerOrNullForRequest(
 void MetricsWebContentsObserver::ResourceLoadComplete(
     content::RenderFrameHost* render_frame_host,
     const content::GlobalRequestID& request_id,
+    const GURL& original_url,
     const blink::mojom::ResourceLoadInfo& resource_load_info) {
   if (!ShouldTrackScheme(resource_load_info.final_url.scheme())) {
     return;
@@ -487,7 +489,7 @@ void MetricsWebContentsObserver::ResourceLoadComplete(
     //     was_cached ? 0
     //                : data_reduction_proxy::util::EstimateOriginalBodySize(
     //                      request, lofi_decider);
-    base::ByteCount original_content_length;
+    base::ByteSize original_content_length;
 
     const blink::mojom::CommonNetworkInfoPtr& network_info =
         resource_load_info.network_info;
@@ -1364,20 +1366,7 @@ void MetricsWebContentsObserver::OnSharedStorageSelectURLCalled(
   }
 }
 
-void MetricsWebContentsObserver::OnAdAuctionComplete(
-    content::RenderFrameHost* rfh,
-    bool is_server_auction,
-    bool is_on_device_auction,
-    content::AuctionResult result) {
-  if (!rfh) {
-    return;
-  }
 
-  if (PageLoadTracker* tracker = GetPageLoadTracker(rfh)) {
-    tracker->OnAdAuctionComplete(is_server_auction, is_on_device_auction,
-                                 result);
-  }
-}
 
 base::TimeTicks MetricsWebContentsObserver::GetCreated() {
   return created_;

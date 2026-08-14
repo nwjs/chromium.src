@@ -6,8 +6,8 @@
 
 #include <memory>
 
+#include "base/i18n/language_tag.h"
 #include "base/i18n/rtl.h"
-#include "base/i18n/tags.h"
 #include "base/test/icu_test_util.h"
 #include "base/time/time.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -62,9 +62,9 @@ TEST(TimeZoneTest, GetDisplayName) {
   // Standard time display name.
   EXPECT_EQ(tz.GetDisplayName(TimeZone::kLong), u"Pacific Standard Time");
   EXPECT_EQ(tz.GetDisplayName(TimeZone::kShort), u"PST");
-
+  constexpr auto fr = GetKnownLanguageTag("fr");
   // Locale specific.
-  EXPECT_EQ(tz.GetDisplayName(language_tags::FRENCH(), TimeZone::kLong),
+  EXPECT_EQ(tz.GetDisplayName(fr, TimeZone::kLong),
             u"heure normale du Pacifique nord-am\u00e9ricain");
 }
 

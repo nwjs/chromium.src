@@ -93,9 +93,6 @@ class SavedTabGroup {
     return saved_tabs_;
   }
   std::optional<size_t> position() const { return position_; }
-  std::optional<size_t> pinned_position_for_migration() const {
-    return pinned_position_for_migration_;
-  }
   const std::optional<syncer::CollaborationId>& collaboration_id() const {
     return collaboration_id_;
   }
@@ -107,10 +104,7 @@ class SavedTabGroup {
     return bookmark_node_id_;
   }
 
-  bool is_pinned() const {
-    return !tab_groups::IsProjectsPanelFeatureEnabled() &&
-           position_.has_value();
-  }
+  bool is_pinned() const { return position_.has_value(); }
   bool is_shared_tab_group() const { return collaboration_id_.has_value(); }
   bool is_transitioning_to_shared() const {
     return is_transitioning_to_shared_;
@@ -168,8 +162,6 @@ class SavedTabGroup {
       base::Time last_user_interaction_time);
   SavedTabGroup& SetArchivalTime(std::optional<base::Time> archival_time);
   SavedTabGroup& SetPosition(size_t position);
-  SavedTabGroup& SetPinnedPositionForMigration(
-      std::optional<size_t> pinned_position);
   SavedTabGroup& SetPinned(bool pinned);
   SavedTabGroup& SetBookmarkNodeId(std::optional<base::Uuid> bookmark_node_id);
   SavedTabGroup& SetCollaborationId(
@@ -319,10 +311,6 @@ class SavedTabGroup {
   // A value of nullopt means that the group was not assigned a position and
   // will be assigned one when it is added into the SavedTabGroupModel.
   std::optional<size_t> position_;
-
-  // The pinned position of the group. Populated only when the projects panel is
-  // enabled to ensure we don't overwrite its value when updating sync.
-  std::optional<size_t> pinned_position_for_migration_;
 
   // A guid which refers to the device which created the tab group. If metadata
   // is not being tracked when the saved tab group is being created, this value

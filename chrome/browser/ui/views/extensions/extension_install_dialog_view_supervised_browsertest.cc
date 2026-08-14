@@ -27,6 +27,7 @@ class WebContents;
 }  // namespace content
 
 using extensions::Extension;
+using extensions::InstallPromptData;
 using extensions::ScopedTestDialogAutoConfirm;
 
 class ExtensionInstallDialogViewTestSupervised
@@ -41,14 +42,14 @@ class ExtensionInstallDialogViewTestSupervised
   void SetUpOnMainThread() override;
 
   // Creates and returns an install prompt.
-  std::unique_ptr<ExtensionInstallPrompt::Prompt> CreatePrompt();
+  std::unique_ptr<InstallPromptData> CreatePrompt();
 
   content::WebContents* web_contents() { return web_contents_; }
 
  protected:
   ExtensionInstallDialogView* CreateAndShowPrompt(
       ExtensionInstallPromptTestHelper* helper,
-      std::unique_ptr<ExtensionInstallPrompt::Prompt> prompt);
+      std::unique_ptr<InstallPromptData> prompt);
 
   SupervisedUserExtensionsMetricsRecorder*
   supervised_user_extensions_metrics_recorder() {
@@ -78,10 +79,10 @@ void ExtensionInstallDialogViewTestSupervised::SetUpOnMainThread() {
       std::make_unique<SupervisedUserExtensionsMetricsRecorder>();
 }
 
-std::unique_ptr<ExtensionInstallPrompt::Prompt>
+std::unique_ptr<InstallPromptData>
 ExtensionInstallDialogViewTestSupervised::CreatePrompt() {
-  auto prompt = std::make_unique<ExtensionInstallPrompt::Prompt>(
-      ExtensionInstallPrompt::INSTALL_PROMPT);
+  auto prompt =
+      std::make_unique<InstallPromptData>(InstallPromptData::INSTALL_PROMPT);
   prompt->set_extension(extension_);
   prompt->set_requires_parent_permission(true);
   prompt->AddObserver(supervised_user_extensions_metrics_recorder());
@@ -95,7 +96,7 @@ ExtensionInstallDialogViewTestSupervised::CreatePrompt() {
 ExtensionInstallDialogView*
 ExtensionInstallDialogViewTestSupervised::CreateAndShowPrompt(
     ExtensionInstallPromptTestHelper* helper,
-    std::unique_ptr<ExtensionInstallPrompt::Prompt> prompt) {
+    std::unique_ptr<InstallPromptData> prompt) {
   auto dialog = std::make_unique<ExtensionInstallDialogView>(
       std::make_unique<ExtensionInstallPromptShowParams>(web_contents()),
       helper->GetCallback(), std::move(prompt));
@@ -116,15 +117,16 @@ IN_PROC_BROWSER_TEST_F(ExtensionInstallDialogViewTestSupervised, ChildAccepts) {
 
   ScopedTestDialogAutoConfirm auto_confirm(ScopedTestDialogAutoConfirm::ACCEPT);
 
-  std::unique_ptr<ExtensionInstallPrompt::Prompt> prompt = CreatePrompt();
+  std::unique_ptr<InstallPromptData> prompt = CreatePrompt();
+  const extensions::Extension* const extension = prompt->extension();
 
   // Launch the extension install dialog.
-  ExtensionInstallPrompt install_prompt(profile(), gfx::NativeWindow());
+  ExtensionInstallPrompt install_prompt(profile(), gfx::NativeWindow(),
+                                        std::move(prompt));
   base::RunLoop run_loop;
   ExtensionInstallPromptTestHelper helper(run_loop.QuitClosure());
-  const extensions::Extension* const extension = prompt->extension();
   install_prompt.ShowDialog(
-      helper.GetCallback(), extension, nullptr, std::move(prompt),
+      helper.GetCallback(), extension, nullptr,
       ExtensionInstallPrompt::GetDefaultShowDialogCallback());
   run_loop.Run();
   EXPECT_EQ(ExtensionInstallPrompt::Result::ACCEPTED, helper.result());
@@ -168,15 +170,16 @@ IN_PROC_BROWSER_TEST_F(ExtensionInstallDialogViewTestSupervised,
 
   ScopedTestDialogAutoConfirm auto_confirm(ScopedTestDialogAutoConfirm::CANCEL);
 
-  std::unique_ptr<ExtensionInstallPrompt::Prompt> prompt = CreatePrompt();
+  std::unique_ptr<InstallPromptData> prompt = CreatePrompt();
+  const extensions::Extension* const extension = prompt->extension();
 
   // Launch the extension install dialog.
-  ExtensionInstallPrompt install_prompt(profile(), gfx::NativeWindow());
+  ExtensionInstallPrompt install_prompt(profile(), gfx::NativeWindow(),
+                                        std::move(prompt));
   base::RunLoop run_loop;
   ExtensionInstallPromptTestHelper helper(run_loop.QuitClosure());
-  const extensions::Extension* const extension = prompt->extension();
   install_prompt.ShowDialog(
-      helper.GetCallback(), extension, nullptr, std::move(prompt),
+      helper.GetCallback(), extension, nullptr,
       ExtensionInstallPrompt::GetDefaultShowDialogCallback());
   run_loop.Run();
   EXPECT_EQ(ExtensionInstallPrompt::Result::USER_CANCELED, helper.result());

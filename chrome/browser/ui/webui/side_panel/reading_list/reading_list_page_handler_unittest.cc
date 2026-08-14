@@ -10,15 +10,13 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/test/bind.h"
+#include "base/test/metrics/user_action_tester.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/reading_list/reading_list_model_factory.h"
-#include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/common/webui_url_constants.h"
-#include "chrome/test/base/browser_with_test_window_test.h"
-#include "chrome/test/base/test_browser_window.h"
-#include "chrome/test/base/ui_test_utils.h"
+#include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
+#include "chrome/browser/ui/webui/webui_embedding_context.h"
+#include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/reading_list/core/reading_list_model.h"
 #include "components/reading_list/core/reading_list_test_utils.h"
@@ -31,14 +29,10 @@
 namespace {
 
 constexpr char kTabUrl1[] = "http://foo/1";
-constexpr char kTabUrl2[] = "http://foo/2";
 constexpr char kTabUrl3[] = "http://foo/3";
-constexpr char kTabUrl4[] = "http://foo/4";
 
 constexpr char kTabName1[] = "Tab 1";
-constexpr char kTabName2[] = "Tab 2";
 constexpr char kTabName3[] = "Tab 3";
-constexpr char kTabName4[] = "Tab 4";
 
 bool IsItemEnabledInMenu(ui::MenuModel* menu, int command_id) {
   ui::MenuModel* model = menu;
@@ -86,32 +80,31 @@ class TestReadingListPageHandler : public ReadingListPageHandler {
             test_web_ui) {}
 };
 
-class TestReadingListPageHandlerTest : public BrowserWithTestWindowTest {
+class TestReadingListPageHandlerTest : public ChromeRenderViewHostTestHarness {
  public:
   void SetUp() override {
-    BrowserWithTestWindowTest::SetUp();
-    ui_test_utils::DeprecatedFakeActivateBrowser(browser());
+    ChromeRenderViewHostTestHarness::SetUp();
 
-    incognito_browser_ =
-        CreateBrowserWithTestWindowForParams(Browser::CreateParams(
-            profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true),
-            /*user_gesture=*/true));
+    incognito_profile_ =
+        profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+
+    ON_CALL(mock_browser_window_, GetProfile())
+        .WillByDefault(testing::Return(profile()));
+    ON_CALL(mock_incognito_browser_window_, GetProfile())
+        .WillByDefault(testing::Return(incognito_profile_));
 
     web_contents_ = content::WebContents::Create(
         content::WebContents::CreateParams(profile()));
+    webui::SetBrowserWindowInterface(web_contents_.get(),
+                                     &mock_browser_window_);
     test_web_ui_ = std::make_unique<content::TestWebUI>();
     test_web_ui_->set_web_contents(web_contents_.get());
 
     handler_ = std::make_unique<TestReadingListPageHandler>(
         page_.BindAndGetRemote(), test_web_ui_.get());
-    model_ =
-        ReadingListModelFactory::GetForBrowserContext(browser()->profile());
+    model_ = ReadingListModelFactory::GetForBrowserContext(profile());
     ReadingListLoadObserver(model_).Wait();
-
-    AddTabWithTitle(browser(), GURL(kTabUrl1), kTabName1);
-    AddTabWithTitle(browser(), GURL(kTabUrl2), kTabName2);
-    AddTabWithTitle(browser(), GURL(kTabUrl3), kTabName3);
-    AddTabWithTitle(browser(), GURL(kTabUrl4), kTabName4);
+    handler_->SetActiveTabURL(GURL("http://www.google.com"));
 
     model()->AddOrReplaceEntry(GURL(kTabUrl1), kTabName1,
                                reading_list::EntrySource::ADDED_VIA_CURRENT_APP,
@@ -124,33 +117,33 @@ class TestReadingListPageHandlerTest : public BrowserWithTestWindowTest {
   }
 
   void TearDown() override {
-    incognito_browser_.reset();
+    webui::SetBrowserWindowInterface(web_contents_.get(), nullptr);
     handler_.reset();
     test_web_ui_.reset();
     web_contents_.reset();
-    browser()->tab_strip_model()->CloseAllTabs();
-    BrowserWithTestWindowTest::TearDown();
+    incognito_profile_ = nullptr;
+    model_ = nullptr;
+    testing::Mock::VerifyAndClear(&mock_browser_window_);
+    testing::Mock::VerifyAndClear(&mock_incognito_browser_window_);
+    ChromeRenderViewHostTestHarness::TearDown();
   }
 
-  TestingProfile::TestingFactories GetTestingFactories() override {
+  TestingProfile::TestingFactories GetTestingFactories() const override {
     return {TestingProfile::TestingFactory{
         ReadingListModelFactory::GetInstance(),
         ReadingListModelFactory::GetDefaultFactoryForTesting()}};
   }
 
-  Browser* incognito_browser() { return incognito_browser_.get(); }
+  MockBrowserWindowInterface* mock_browser_window() {
+    return &mock_browser_window_;
+  }
+  MockBrowserWindowInterface* mock_incognito_browser_window() {
+    return &mock_incognito_browser_window_;
+  }
   ReadingListModel* model() { return model_; }
   TestReadingListPageHandler* handler() { return handler_.get(); }
 
  protected:
-  void AddTabWithTitle(Browser* browser,
-                       const GURL url,
-                       const std::string title) {
-    AddTab(browser, url);
-    NavigateAndCommitActiveTabWithTitle(browser, url,
-                                        base::ASCIIToUTF16(title));
-  }
-
   void GetAndVerifyReadLaterEntries(
       size_t unread_size,
       size_t read_size,
@@ -192,13 +185,13 @@ class TestReadingListPageHandlerTest : public BrowserWithTestWindowTest {
   }
 
   testing::StrictMock<MockPage> page_;
-
- private:
-  std::unique_ptr<Browser> incognito_browser_;
+  testing::NiceMock<MockBrowserWindowInterface> mock_browser_window_;
+  testing::NiceMock<MockBrowserWindowInterface> mock_incognito_browser_window_;
+  raw_ptr<Profile> incognito_profile_ = nullptr;
   std::unique_ptr<content::WebContents> web_contents_;
   std::unique_ptr<content::TestWebUI> test_web_ui_;
   std::unique_ptr<TestReadingListPageHandler> handler_;
-  raw_ptr<ReadingListModel, DanglingUntriaged> model_;
+  raw_ptr<ReadingListModel> model_ = nullptr;
 };
 
 TEST_F(TestReadingListPageHandlerTest, GetReadLaterEntries) {
@@ -218,37 +211,84 @@ TEST_F(TestReadingListPageHandlerTest, GetReadLaterEntries) {
 }
 
 TEST_F(TestReadingListPageHandlerTest, OpenURLOnNTP) {
-  // Open and navigate to NTP.
-  AddTabWithTitle(browser(), chrome::ChromeUINewTabURLAsGURL(), "NTP");
+  handler()->SetActiveTabURL(GURL("chrome://newtab/"));
+  EXPECT_CALL(
+      *mock_browser_window(),
+      OpenURL(testing::AllOf(
+                  testing::Field(&content::OpenURLParams::url, GURL(kTabUrl3)),
+                  testing::Field(&content::OpenURLParams::disposition,
+                                 WindowOpenDisposition::CURRENT_TAB)),
+              testing::_))
+      .Times(1);
 
-  // Check that OpenURL from the NTP does not open a new tab.
-  EXPECT_EQ(browser()->tab_strip_model()->count(), 5);
-  handler()->OpenURL(GURL(kTabUrl3), true, GetClickModifiers());
-  EXPECT_EQ(browser()->tab_strip_model()->count(), 5);
+  handler()->OpenURL(GURL(kTabUrl3), GetClickModifiers());
+  handler()->UpdateReadStatus(GURL(kTabUrl3), true);
 
   // Expect ItemsChanged to be called 5 times.
-  // Four times for the two AddEntry calls in SetUp().
-  EXPECT_CALL(page_, ItemsChanged(testing::_)).Times(4);
+  EXPECT_CALL(page_, ItemsChanged(testing::_)).Times(5);
+  // Expect CurrentPageActionButtonStateChanged to be called twice.
+  EXPECT_CALL(page_, CurrentPageActionButtonStateChanged(testing::_)).Times(2);
+
+  // Get Read later entries.
+  GetAndVerifyReadLaterEntries(
+      /* unread_size= */ 1u, /* read_size= */ 1u,
+      /* expected_unread_data= */
+      {std::make_pair(GURL(kTabUrl1), kTabName1)},
+      /* expected_read_data= */
+      {std::make_pair(GURL(kTabUrl3), kTabName3)});
+}
+
+TEST_F(TestReadingListPageHandlerTest, OpenURLNotOnNTP) {
+  handler()->SetActiveTabURL(GURL("http://www.google.com"));
+  EXPECT_CALL(
+      *mock_browser_window(),
+      OpenURL(testing::AllOf(
+                  testing::Field(&content::OpenURLParams::url, GURL(kTabUrl3)),
+                  testing::Field(&content::OpenURLParams::disposition,
+                                 WindowOpenDisposition::CURRENT_TAB)),
+              testing::_))
+      .Times(1);
+
+  handler()->OpenURL(GURL(kTabUrl3), GetClickModifiers());
+  handler()->UpdateReadStatus(GURL(kTabUrl3), true);
+
+  // Expect ItemsChanged to be called 5 times.
+  EXPECT_CALL(page_, ItemsChanged(testing::_)).Times(5);
   // Expect CurrentPageActionButtonStateChanged to be called once.
   EXPECT_CALL(page_, CurrentPageActionButtonStateChanged(testing::_)).Times(1);
 
   // Get Read later entries.
   GetAndVerifyReadLaterEntries(
-      /* unread_size= */ 2u, /* read_size= */ 0u,
+      /* unread_size= */ 1u, /* read_size= */ 1u,
       /* expected_unread_data= */
-      {std::make_pair(GURL(kTabUrl3), kTabName3),
-       std::make_pair(GURL(kTabUrl1), kTabName1)},
-      /* expected_read_data= */ {});
+      {std::make_pair(GURL(kTabUrl1), kTabName1)},
+      /* expected_read_data= */
+      {std::make_pair(GURL(kTabUrl3), kTabName3)});
 }
 
-TEST_F(TestReadingListPageHandlerTest, OpenURLNotOnNTP) {
-  // Check that OpenURL opens in the same tab when not on the NTP.
-  EXPECT_EQ(browser()->tab_strip_model()->count(), 4);
-  handler()->OpenURL(GURL(kTabUrl3), true, GetClickModifiers());
-  EXPECT_EQ(browser()->tab_strip_model()->count(), 4);
+TEST_F(TestReadingListPageHandlerTest, OpenURLNotInReadingList) {
+  const GURL not_in_reading_list_url("http://not-in-reading-list.com");
+  EXPECT_FALSE(model()->GetEntryByURL(not_in_reading_list_url));
 
-  // Expect ItemsChanged to be called 5 times.
-  // Four times for the two AddEntry calls in SetUp().
+  base::UserActionTester user_action_tester;
+
+  EXPECT_CALL(*mock_browser_window(), OpenURL(testing::_, testing::_)).Times(0);
+
+  // Try to open a URL that is not in the reading list.
+  handler()->OpenURL(not_in_reading_list_url, GetClickModifiers());
+
+  // Try to open with middle click (which would open a new tab if URL were in
+  // reading list).
+  auto click_modifiers = GetClickModifiers();
+  click_modifiers->middle_button = true;
+  handler()->OpenURL(not_in_reading_list_url, std::move(click_modifiers));
+
+  // Verify that no navigation metrics were recorded.
+  EXPECT_EQ(
+      user_action_tester.GetActionCount("SidePanel.ReadingList.Navigation"), 0);
+
+  // Expect ItemsChanged to be called four times from the two AddEntry calls in
+  // SetUp().
   EXPECT_CALL(page_, ItemsChanged(testing::_)).Times(4);
   // Expect CurrentPageActionButtonStateChanged to be called once.
   EXPECT_CALL(page_, CurrentPageActionButtonStateChanged(testing::_)).Times(1);
@@ -300,7 +340,7 @@ TEST_F(TestReadingListPageHandlerTest, RemoveEntry) {
 
 TEST_F(TestReadingListPageHandlerTest, UpdateAndRemoveEntry) {
   EXPECT_FALSE(model()->IsPerformingBatchUpdates());
-  handler()->OpenURL(GURL(kTabUrl3), true, GetClickModifiers());
+  handler()->OpenURL(GURL(kTabUrl3), GetClickModifiers());
   handler()->RemoveEntry(GURL(kTabUrl3));
   EXPECT_FALSE(model()->IsPerformingBatchUpdates());
 
@@ -322,7 +362,7 @@ TEST_F(TestReadingListPageHandlerTest, UpdateAndRemoveEntry) {
 TEST_F(TestReadingListPageHandlerTest, PostBatchUpdate) {
   auto token = model()->BeginBatchUpdates();
   EXPECT_TRUE(model()->IsPerformingBatchUpdates());
-  handler()->OpenURL(GURL(kTabUrl3), true, GetClickModifiers());
+  handler()->OpenURL(GURL(kTabUrl3), GetClickModifiers());
   handler()->RemoveEntry(GURL(kTabUrl3));
   token.reset();
   EXPECT_FALSE(model()->IsPerformingBatchUpdates());
@@ -349,9 +389,10 @@ TEST_F(TestReadingListPageHandlerTest, NoUpdateWhenHidden) {
   params.initially_hidden = true;
   std::unique_ptr<content::WebContents> web_contents =
       content::WebContents::Create(params);
+  webui::SetBrowserWindowInterface(web_contents.get(), mock_browser_window());
   handler()->set_web_contents_for_testing(web_contents.get());
 
-  handler()->OpenURL(GURL(kTabUrl3), true, GetClickModifiers());
+  handler()->OpenURL(GURL(kTabUrl3), GetClickModifiers());
   handler()->RemoveEntry(GURL(kTabUrl3));
 
   // Expect ItemsChanged to be called four times from the two AddEntry calls in
@@ -367,14 +408,27 @@ TEST_F(TestReadingListPageHandlerTest, NoUpdateWhenHidden) {
       /* expected_unread_data= */
       {std::make_pair(GURL(kTabUrl1), kTabName1)},
       /* expected_read_data= */ {});
+
+  // Unbind mock_browser_window from web_contents and restore handler's
+  // WebContents back to web_contents_ to unobserve web_contents before it is
+  // destroyed at function end.
+  webui::SetBrowserWindowInterface(web_contents.get(), nullptr);
+  handler()->set_web_contents_for_testing(web_contents_.get());
 }
 
 TEST_F(TestReadingListPageHandlerTest, OpenURLAndReadd) {
-  EXPECT_EQ(browser()->tab_strip_model()->count(), 4);
-  handler()->OpenURL(GURL(kTabUrl3), true, GetClickModifiers());
-  EXPECT_EQ(browser()->tab_strip_model()->count(), 4);
+  EXPECT_CALL(
+      *mock_browser_window(),
+      OpenURL(testing::Field(&content::OpenURLParams::url, GURL(kTabUrl3)),
+              testing::_))
+      .Times(1);
+
+  handler()->OpenURL(GURL(kTabUrl3), GetClickModifiers());
+  handler()->UpdateReadStatus(GURL(kTabUrl3), true);
+  handler()->SetActiveTabURL(GURL(kTabUrl3));
+
   // Expect CurrentPageActionButtonState to be add, due to the current
-  // tab not being on the reading list.
+  // tab entry being marked as read on open.
   EXPECT_EQ(handler()->GetCurrentPageActionButtonStateForTesting(),
             reading_list::mojom::CurrentPageActionButtonState::kAdd);
   model()->AddOrReplaceEntry(GURL(kTabUrl3), kTabName3,
@@ -386,12 +440,12 @@ TEST_F(TestReadingListPageHandlerTest, OpenURLAndReadd) {
   // tab being unread on the reading list.
   EXPECT_EQ(handler()->GetCurrentPageActionButtonStateForTesting(),
             reading_list::mojom::CurrentPageActionButtonState::kMarkAsRead);
-  // Expect ItemsChanged to be called 6 times.
+  // Expect ItemsChanged to be called 7 times.
   // Four times for the two AddEntry calls in SetUp().
+  // Once for UpdateReadStatus.
   // Twice for the AddEntry call above.
-  EXPECT_CALL(page_, ItemsChanged(testing::_)).Times(6);
-  // Expect CurrentPageActionButtonStateChanged to be called once when the
-  // current page is added while on that page.
+  EXPECT_CALL(page_, ItemsChanged(testing::_)).Times(7);
+  // Expect CurrentPageActionButtonStateChanged to be called twice.
   EXPECT_CALL(page_, CurrentPageActionButtonStateChanged(testing::_)).Times(2);
 
   // Get Read later entries.
@@ -421,8 +475,8 @@ TEST_F(TestReadingListPageHandlerTest,
 
 TEST_F(TestReadingListPageHandlerTest, OpenInIncognitoEnabledWhenNotInOTRMode) {
   std::unique_ptr<ui::SimpleMenuModel> read_later_context_menu =
-      handler()->GetItemContextMenuModelForTesting(browser(), model(),
-                                                   GURL(kTabUrl1));
+      handler()->GetItemContextMenuModelForTesting(mock_browser_window(),
+                                                   model(), GURL(kTabUrl1));
 
   // "Open Link In New Incognito Window" command option should be enabled when
   // not in OTR mode.
@@ -439,8 +493,8 @@ TEST_F(TestReadingListPageHandlerTest, OpenInIncognitoEnabledWhenNotInOTRMode) {
 
 TEST_F(TestReadingListPageHandlerTest, OpenInIncognitoDisabledWhenInOTRMode) {
   std::unique_ptr<ui::SimpleMenuModel> otr_read_later_context_menu =
-      handler()->GetItemContextMenuModelForTesting(incognito_browser(), model(),
-                                                   GURL(kTabUrl1));
+      handler()->GetItemContextMenuModelForTesting(
+          mock_incognito_browser_window(), model(), GURL(kTabUrl1));
 
   // "Open Link In New Incognito Window" command option should be disabled
   // when in OTR mode.
@@ -459,20 +513,18 @@ TEST_F(TestReadingListPageHandlerTest,
        OpenInIncognitoRespectsIncognitoModePolicy) {
   // Disable incognito mode, the menu option should be disabled.
   IncognitoModePrefs::SetAvailability(
-      browser()->profile()->GetPrefs(),
-      policy::IncognitoModeAvailability::kDisabled);
+      profile()->GetPrefs(), policy::IncognitoModeAvailability::kDisabled);
   std::unique_ptr<ui::SimpleMenuModel> read_later_context_menu =
-      handler()->GetItemContextMenuModelForTesting(browser(), model(),
-                                                   GURL(kTabUrl1));
+      handler()->GetItemContextMenuModelForTesting(mock_browser_window(),
+                                                   model(), GURL(kTabUrl1));
   EXPECT_FALSE(IsItemEnabledInMenu(read_later_context_menu.get(),
                                    IDC_CONTENT_CONTEXT_OPENLINKOFFTHERECORD));
 
   // Enable incognito mode, the menu option should appear as expected.
   IncognitoModePrefs::SetAvailability(
-      browser()->profile()->GetPrefs(),
-      policy::IncognitoModeAvailability::kEnabled);
+      profile()->GetPrefs(), policy::IncognitoModeAvailability::kEnabled);
   read_later_context_menu = handler()->GetItemContextMenuModelForTesting(
-      browser(), model(), GURL(kTabUrl1));
+      mock_browser_window(), model(), GURL(kTabUrl1));
   EXPECT_TRUE(IsItemEnabledInMenu(read_later_context_menu.get(),
                                   IDC_CONTENT_CONTEXT_OPENLINKOFFTHERECORD));
 

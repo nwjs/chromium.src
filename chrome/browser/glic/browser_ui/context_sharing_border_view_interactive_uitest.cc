@@ -51,6 +51,10 @@
 #include "ui/gfx/switches.h"
 #include "ui/views/test/widget_activation_waiter.h"
 
+#if BUILDFLAG(IS_OZONE)
+#include "ui/ozone/public/ozone_platform.h"
+#endif
+
 #if BUILDFLAG(IS_MAC)
 #include "base/mac/mac_util.h"
 #endif  // BUILDFLAG(IS_MAC)
@@ -270,20 +274,20 @@ class ContextSharingBorderViewUiTestBase : public test::InteractiveGlicTest {
             }
           }
         }),
-        ExecuteJsAt(test::kGlicContentsElementId,
-                    kContextAccessIndicatorCheckBox, kClickFn));
+        ExecuteJsAt(kGlicContentsElementId, kContextAccessIndicatorCheckBox,
+                    kClickFn));
   }
 
   void CloseGlicWindow() {
     const DeepQuery kCloseWindowButton{{"#closebn"}};
-    RunTestSequence(ExecuteJsAt(test::kGlicContentsElementId,
-                                kCloseWindowButton, kClickFn));
+    RunTestSequence(
+        ExecuteJsAt(kGlicContentsElementId, kCloseWindowButton, kClickFn));
   }
 
   void ShutdownGlicWindow() {
     const DeepQuery kShutdownWindowButton{{"#shutdownbn"}};
-    RunTestSequence(ExecuteJsAt(test::kGlicContentsElementId,
-                                kShutdownWindowButton, kClickFn));
+    RunTestSequence(
+        ExecuteJsAt(kGlicContentsElementId, kShutdownWindowButton, kClickFn));
   }
 
   void ClickGlicButtonInBrowser(Browser* browser) {
@@ -650,15 +654,15 @@ IN_PROC_BROWSER_TEST_F(ContextSharingBorderViewUiTest, FocusedTabDestroyed) {
   EXPECT_FALSE(border->IsShowing());
 }
 
-// TODO(crbug.com/430097333): Wayland doesn't support programmatic window
-// activation. Re-enable when activation is supported.
-#if BUILDFLAG(SUPPORTS_OZONE_WAYLAND)
-#define MAYBE_FocusedWindowChange DISABLED_FocusedWindowChange
-#else
-#define MAYBE_FocusedWindowChange FocusedWindowChange
+// Ensure FocusedWindowChange.
+IN_PROC_BROWSER_TEST_F(ContextSharingBorderViewUiTest, FocusedWindowChange) {
+#if BUILDFLAG(IS_OZONE)
+  // TODO(crbug.com/430097333): Wayland doesn't support programmatic window
+  // activation. Re-enable when activation is supported.
+  if (::ui::OzonePlatform::RunningOnWaylandForTest()) {
+    GTEST_SKIP() << "Wayland doesn't support programmatic window activation";
+  }
 #endif
-IN_PROC_BROWSER_TEST_F(ContextSharingBorderViewUiTest,
-                       MAYBE_FocusedWindowChange) {
   if (base::FeatureList::IsEnabled(features::kGlicMultiInstance)) {
     // TODO(b/453696965): Broken in multi-instance.
     GTEST_SKIP() << "Skipping for kGlicMultiInstance";
@@ -966,7 +970,7 @@ IN_PROC_BROWSER_TEST_F(ContextSharingBorderViewUiTest,
 
   // Get the actor keyed service.
   auto* actor_keyed_service =
-      actor::ActorKeyedService::Get(browser()->profile());
+      actor::ActorKeyedService::Get(browser()->GetProfile());
   ASSERT_TRUE(actor_keyed_service);
 
   // Create a new task.

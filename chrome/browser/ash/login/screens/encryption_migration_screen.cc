@@ -15,6 +15,7 @@
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/system/sys_info.h"
@@ -302,11 +303,17 @@ void EncryptionMigrationScreen::PowerChanged(
 }
 
 void EncryptionMigrationScreen::OnStartMigration() {
+  if (is_hidden()) {
+    return;
+  }
   RecordUserChoice(UserChoice::USER_CHOICE_UPDATE);
   WaitBatteryAndMigrate();
 }
 
 void EncryptionMigrationScreen::OnSkipMigration() {
+  if (is_hidden()) {
+    return;
+  }
   RecordUserChoice(UserChoice::USER_CHOICE_SKIP);
   // If the user skips migration, we mount the cryptohome without performing the
   // migration by reusing UserContext and LoginPerformer which were used in the
@@ -320,6 +327,9 @@ void EncryptionMigrationScreen::OnSkipMigration() {
 }
 
 void EncryptionMigrationScreen::OnRequestRestartOnLowStorage() {
+  if (is_hidden()) {
+    return;
+  }
   RecordUserChoice(UserChoice::USER_CHOICE_RESTART_ON_LOW_STORAGE);
   chromeos::PowerManagerClient::Get()->RequestRestart(
       power_manager::REQUEST_RESTART_OTHER,
@@ -327,6 +337,9 @@ void EncryptionMigrationScreen::OnRequestRestartOnLowStorage() {
 }
 
 void EncryptionMigrationScreen::OnRequestRestartOnFailure() {
+  if (is_hidden()) {
+    return;
+  }
   RecordUserChoice(UserChoice::USER_CHOICE_RESTART_ON_FAILURE);
   chromeos::PowerManagerClient::Get()->RequestRestart(
       power_manager::REQUEST_RESTART_OTHER,
@@ -334,6 +347,9 @@ void EncryptionMigrationScreen::OnRequestRestartOnFailure() {
 }
 
 void EncryptionMigrationScreen::OnOpenFeedbackDialog() {
+  if (is_hidden()) {
+    return;
+  }
   RecordUserChoice(UserChoice::USER_CHOICE_REPORT_AN_ISSUE);
   const std::string description = base::StringPrintf(
       "Auto generated feedback for http://crbug.com/40519275.\n"
@@ -394,7 +410,9 @@ void EncryptionMigrationScreen::CheckAvailableStorage() {
 
 void EncryptionMigrationScreen::OnGetAvailableStorage(
     std::optional<int64_t> size) {
-  if (size.value_or(-1) >= arc::kMigrationMinimumAvailableStorage.InBytes() ||
+  if ((size.has_value() &&
+       base::checked_cast<uint64_t>(size.value()) >=
+           arc::kMigrationMinimumAvailableStorage.InBytes()) ||
       IsTestingUI()) {
     RecordFirstScreen(GetFirstScreenForMode(mode_));
     if (IsStartImmediately()) {
@@ -410,8 +428,7 @@ void EncryptionMigrationScreen::OnGetAvailableStorage(
           ->SetSpaceInfoInString(
               ui::FormatBytes(
                   base::ByteSize(base::checked_cast<uint64_t>(size.value()))),
-              ui::FormatBytes(base::ByteSize::FromDeprecatedByteCount(
-                  arc::kMigrationMinimumAvailableStorage)));
+              ui::FormatBytes(arc::kMigrationMinimumAvailableStorage));
       UpdateUIState(screens_login::mojom::EncryptionMigrationPage::UIState::
                         kNotEnoughStorage);
     }

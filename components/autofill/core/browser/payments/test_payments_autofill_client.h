@@ -52,6 +52,7 @@ class CardUnmaskPromptController;
 class CreditCardCvcAuthenticator;
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 class OmniboxAutofillDelegate;
+enum class SuggestionHidingReason;
 #endif
 class TouchToFillPaymentMethodDelegate;
 
@@ -232,16 +233,20 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
   void ShowCreditCardSaveAndFillPendingDialog(
       CardSaveAndFillDialogCallback callback) override;
   void HideCreditCardSaveAndFillDialog() override;
-  bool IsTabModalPopupDeprecated() const override;
+  bool IsTabModalPopup() const override;
   BnplStrategy* GetBnplStrategy() override;
   BnplUiDelegate* GetBnplUiDelegate() override;
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   OmniboxAutofillDelegate* GetOmniboxAutofillDelegate() override;
-  void ShowOmniboxAutofillChip(
+  void ShowExpandedOmniboxAutofillChip(
       std::vector<Suggestion> suggestions,
+      base::OnceClosure on_chip_shown,
       base::RepeatingCallback<void(base::span<const Suggestion>)>
           on_suggestions_shown,
+      base::RepeatingCallback<void(SuggestionHidingReason)>
+          on_suggestions_hidden,
       base::RepeatingCallback<void(const Suggestion&)> did_select_suggestion,
+      base::RepeatingClosure did_deselect_suggestion,
       base::RepeatingCallback<
           void(const Suggestion&,
                const AutofillSuggestionDelegate::SuggestionMetadata&)>

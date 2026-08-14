@@ -29,7 +29,7 @@ class TabRestoreServiceImplBrowserTest : public InProcessBrowserTest {
 };
 
 IN_PROC_BROWSER_TEST_F(TabRestoreServiceImplBrowserTest, RestoreApp) {
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
   sessions::TabRestoreService* trs =
       TabRestoreServiceFactory::GetForProfile(profile);
   const char* app_name = "TestApp";
@@ -52,13 +52,13 @@ IN_PROC_BROWSER_TEST_F(TabRestoreServiceImplBrowserTest, RestoreApp) {
 // reopened in the correct app browser.
 IN_PROC_BROWSER_TEST_F(TabRestoreServiceImplBrowserTest,
                        LastAppTabSavesWindow) {
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
   sessions::TabRestoreService* trs =
       TabRestoreServiceFactory::GetForProfile(profile);
 
   test_system_web_app_installation_->WaitForAppInstall();
   Browser* app_browser = web_app::LaunchWebAppBrowser(
-      browser()->profile(), test_system_web_app_installation_->GetAppId());
+      browser()->GetProfile(), test_system_web_app_installation_->GetAppId());
   GURL app_url = test_system_web_app_installation_->GetAppUrl();
   ASSERT_TRUE(ui_test_utils::NavigateToURL(app_browser, app_url));
 

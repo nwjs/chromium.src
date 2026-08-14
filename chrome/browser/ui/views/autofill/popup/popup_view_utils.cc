@@ -8,12 +8,14 @@
 #include <optional>
 
 #include "base/containers/to_vector.h"
+#include "base/feature_list.h"
+#include "build/build_config.h"
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_base_view.h"
-#include "chrome/browser/ui/views/chrome_widget_sublevel.h"
+#include "chrome/browser/ui/views/autofill/popup/popup_view_views.h"
 #include "chrome/browser/ui/views/extensions/extension_popup.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
@@ -21,12 +23,16 @@
 #include "chrome/browser/ui/views/permissions/permission_prompt_bubble_base_view.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/ui/popup_open_enums.h"
-#include "components/autofill/core/common/autofill_features.h"
+#include "components/feature_engagement/public/feature_constants.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/common/constants.h"
 #include "ui/display/screen.h"
 #include "ui/views/widget/widget.h"
+
+#if BUILDFLAG(IS_OZONE)
+#include "ui/ozone/public/ozone_platform.h"
+#endif
 
 using views::BubbleBorder;
 
@@ -382,8 +388,10 @@ bool IsPopupPlaceableOnSideOfElement(
   }
 }
 
-gfx::Rect IntersectWithDisplayBounds(const gfx::Rect& element_bounds) {
-  std::optional<gfx::Rect> display_bounds = GetDisplayBounds(element_bounds);
+gfx::Rect IntersectWithDisplayBounds(content::WebContents* web_contents,
+                                     const gfx::Rect& element_bounds) {
+  std::optional<gfx::Rect> display_bounds =
+      GetDisplayBounds(web_contents, element_bounds);
   if (display_bounds == std::nullopt) {
     return element_bounds;
   }
@@ -391,11 +399,39 @@ gfx::Rect IntersectWithDisplayBounds(const gfx::Rect& element_bounds) {
   return display_bounds.value();
 }
 
-std::optional<gfx::Rect> GetDisplayBounds(const gfx::Rect& element_bounds) {
+std::optional<gfx::Rect> GetDisplayBounds(content::WebContents* web_contents,
+                                          const gfx::Rect& element_bounds) {
   display::Screen* screen = display::Screen::Get();
   if (!screen) {
     return std::nullopt;
   }
+
+#if BUILDFLAG(IS_OZONE)
+  // On Ozone/Wayland platforms that don't support global screen coordinates,
+  // the display returned by `GetDisplayMatching` may be incorrect because the
+  // coordinates for `element_bounds` aren't global. Instead, fall back to
+  // getting the display from the native window hosting the web contents.
+  if (ui::OzonePlatform::IsInitialized() &&
+      !ui::OzonePlatform::GetInstance()
+           ->GetPlatformProperties()
+           .supports_global_screen_coordinates) {
+    gfx::Rect work_area;
+    if (web_contents && web_contents->GetTopLevelNativeWindow()) {
+      work_area =
+          screen
+              ->GetDisplayNearestWindow(web_contents->GetTopLevelNativeWindow())
+              .work_area();
+    } else {
+      work_area = screen->GetDisplayMatching(element_bounds).work_area();
+    }
+
+    // When global screen coordinates aren't supported, shift the work area to
+    // (0,0) to translate the global display bounds into local coordinate space
+    // used by the Views layer.
+    work_area.set_origin(gfx::Point(0, 0));
+    return work_area;
+  }
+#endif
 
   return screen->GetDisplayMatching(element_bounds).work_area();
 }
@@ -567,21 +603,25 @@ bool IsExpandableSuggestionType(SuggestionType type) {
     // This opens the submenu where different suggestions related to the same
     // query response are present.
     case SuggestionType::kAtMemorySearchResult:
-    // This opens the submenu with all other Autofill AI orders suggestions
-    // that are not displayed in the first level.
+    // This opens the submenu with all other Autofill AI orders/shipments
+    // suggestions that are not displayed in the first level.
     case SuggestionType::kAutofillAiOtherOrders:
+    case SuggestionType::kAutofillAiOtherShipments:
       return true;
     case SuggestionType::kAccountStoragePasswordEntry:
     case SuggestionType::kAddressEntry:
     case SuggestionType::kAddressEntryOnTyping:
     case SuggestionType::kAddressFieldByFieldFilling:
     case SuggestionType::kAllSavedPasswordsEntry:
+    case SuggestionType::kAtMemoryAiDisclosure:
     case SuggestionType::kAtMemoryGenericError:
     case SuggestionType::kAtMemoryInactivityNudge:
     case SuggestionType::kAtMemoryNoConnection:
     case SuggestionType::kAtMemorySearchAffordance:
+    case SuggestionType::kAtMemorySourceAttribution:
     case SuggestionType::kAutocompleteAtMemoryButton:
     case SuggestionType::kAutocompleteEntry:
+    case SuggestionType::kAutofillAiPrivateInferenceNotice:
     case SuggestionType::kBackupPasswordEntry:
     case SuggestionType::kBnplEntry:
     case SuggestionType::kBnplFootnote:
@@ -612,6 +652,7 @@ bool IsExpandableSuggestionType(SuggestionType type) {
     case SuggestionType::kManageCreditCard:
     case SuggestionType::kManageIban:
     case SuggestionType::kManageLoyaltyCard:
+    case SuggestionType::kManageEnhancedAutofill:
     case SuggestionType::kMaximizeCreditCardBenefitsEntry:
     case SuggestionType::kMerchantPromoCodeEntry:
     case SuggestionType::kMixedFormMessage:
@@ -646,13 +687,17 @@ bool IsSuggestionTypeAutoselected(SuggestionType type) {
     case SuggestionType::kAddressFieldByFieldFilling:
     case SuggestionType::kAllLoyaltyCardsEntry:
     case SuggestionType::kAllSavedPasswordsEntry:
+    case SuggestionType::kAtMemoryAiDisclosure:
     case SuggestionType::kAtMemoryGenericError:
     case SuggestionType::kAtMemoryInactivityNudge:
     case SuggestionType::kAtMemoryNoConnection:
     case SuggestionType::kAtMemorySearchResult:
+    case SuggestionType::kAtMemorySourceAttribution:
     case SuggestionType::kAutocompleteAtMemoryButton:
     case SuggestionType::kAutocompleteEntry:
     case SuggestionType::kAutofillAiOtherOrders:
+    case SuggestionType::kAutofillAiOtherShipments:
+    case SuggestionType::kAutofillAiPrivateInferenceNotice:
     case SuggestionType::kBackupPasswordEntry:
     case SuggestionType::kBnplEntry:
     case SuggestionType::kBnplFootnote:
@@ -685,6 +730,7 @@ bool IsSuggestionTypeAutoselected(SuggestionType type) {
     case SuggestionType::kManageCreditCard:
     case SuggestionType::kManageIban:
     case SuggestionType::kManageLoyaltyCard:
+    case SuggestionType::kManageEnhancedAutofill:
     case SuggestionType::kMaximizeCreditCardBenefitsEntry:
     case SuggestionType::kMerchantPromoCodeEntry:
     case SuggestionType::kMixedFormMessage:
@@ -716,6 +762,57 @@ bool ShouldAutoselectFirstSuggestion(
   return trigger_source_autoselect.value() ||
          (first_suggestion_type &&
           IsSuggestionTypeAutoselected(*first_suggestion_type));
+}
+
+ui::ElementIdentifier GetAutofillPopupCellElementIdentifier(
+    const base::Feature* feature) {
+  if (!feature) {
+    return ui::ElementIdentifier();
+  }
+  if (feature ==
+          &feature_engagement::kIPHAutofillVirtualCardSuggestionFeature ||
+      feature == &feature_engagement::
+                     kIPHAutofillDisabledVirtualCardSuggestionFeature ||
+      feature ==
+          &feature_engagement::kIPHAutofillCardInfoRetrievalSuggestionFeature ||
+      feature ==
+          &feature_engagement::kIPHAutofillDownstreamCardAwarenessFeature) {
+    return PopupViewViews::kAutofillCreditCardSuggestionEntryElementId;
+  }
+  if (feature ==
+      &feature_engagement::kIPHAutofillVirtualCardCVCSuggestionFeature) {
+    return PopupViewViews::kAutofillStandaloneCvcSuggestionElementId;
+  }
+  if (feature == &feature_engagement::
+                     kIPHAutofillExternalAccountProfileSuggestionFeature) {
+    return PopupViewViews::kAutofillSuggestionElementId;
+  }
+  if (feature == &feature_engagement::kIPHAutofillCreditCardBenefitFeature) {
+    return PopupViewViews::kAutofillCreditCardBenefitElementId;
+  }
+  if (feature ==
+      &feature_engagement::kIPHAutofillBnplAffirmOrZipSuggestionFeature) {
+    return PopupViewViews::kAutofillBnplAffirmOrZipSuggestionElementId;
+  }
+  if (feature ==
+      &feature_engagement::kIPHAutofillBnplAffirmZipOrKlarnaSuggestionFeature) {
+    return PopupViewViews::kAutofillBnplAffirmZipOrKlarnaSuggestionElementId;
+  }
+  if (feature ==
+      &feature_engagement::kIPHAutofillHomeWorkProfileSuggestionFeature) {
+    return PopupViewViews::kAutofillHomeWorkSuggestionElementId;
+  }
+  if (feature == &feature_engagement::kIPHAutofillEnableLoyaltyCardsFeature) {
+    return PopupViewViews::kAutofillEnableLoyaltyCardsElementId;
+  }
+  if (feature ==
+      &feature_engagement::kIPHAutofillAccountNameEmailSuggestionFeature) {
+    return PopupViewViews::kAutofillAccountNameEmailSuggestionElementId;
+  }
+  if (feature == &feature_engagement::kIPHAutofillAiValuablesFeature) {
+    return PopupViewViews::kAutofillAiValuablesElementId;
+  }
+  return ui::ElementIdentifier();
 }
 
 }  // namespace autofill

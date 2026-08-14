@@ -38,7 +38,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cookie.AvgCookieJarSizePerKey2" units="bytes"
-    expires_after="2026-08-31">
+    expires_after="2027-02-28">
   <owner>dylancutler@google.com</owner>
   <owner>src/net/cookies/OWNERS</owner>
   <summary>
@@ -92,13 +92,16 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cookie.CookieSchemeRequestScheme" enum="CookieRequestScheme"
-    expires_after="2026-07-26">
+    expires_after="2026-10-26">
   <owner>miketaylr@chromium.org</owner>
   <owner>src/net/cookies/OWNERS</owner>
   <summary>
     The scheme a cookie was set by and the scheme of the request that the cookie
     was sent to. This is recorded once per cookie each time a URL request has
     its headers set.
+
+    Warning: this histogram was expired from 2026-07-29 to 2026-08-25; data may
+    be missing.
   </summary>
 </histogram>
 
@@ -129,7 +132,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Cookie.Count2" units="units" expires_after="2026-11-15">
+<histogram name="Cookie.Count2" units="units" expires_after="2027-01-17">
   <owner>morlovich@chromium.org</owner>
   <owner>src/net/cookies/OWNERS</owner>
   <summary>
@@ -172,7 +175,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cookie.CrossSiteRedirectType.{AccessType}.Subsampled"
-    enum="ContextRedirectTypeBug1221316" expires_after="2026-08-10">
+    enum="ContextRedirectTypeBug1221316" expires_after="2026-10-26">
   <owner>miketaylr@chromium.org</owner>
   <owner>src/net/cookies/OWNERS</owner>
   <summary>
@@ -188,6 +191,9 @@ chromium-metrics-reviews@google.com.
     net/cookies/cookie_constants.h for details.
 
     Warning: this histogram was expired from 2025-08-10 to 2025-02-24; data may
+    be missing.
+
+    Warning: this histogram was expired from 2026-08-10 to 2026-08-25; data may
     be missing.
   </summary>
   <token key="AccessType">
@@ -222,7 +228,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cookie.DomainSet.Subsampled" enum="Boolean"
-    expires_after="2026-08-09">
+    expires_after="2026-10-26">
   <owner>miketaylr@chromium.org</owner>
   <owner>src/net/cookies/OWNERS</owner>
   <summary>
@@ -232,6 +238,9 @@ chromium-metrics-reviews@google.com.
 
     Subsampled to 1/1000. See kHistogramSampleProbability in
     net/cookies/cookie_constants.h for details.
+
+    Warning: this histogram was expired from 2026-08-09 to 2026-08-25; data may
+    be missing.
   </summary>
 </histogram>
 
@@ -265,7 +274,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cookie.ErrorInitializeDB" enum="SqliteLoggedResultCode"
-    expires_after="2026-11-15">
+    expires_after="2027-01-17">
   <owner>wfh@chromium.org</owner>
   <owner>src/net/cookies/OWNERS</owner>
   <summary>
@@ -278,7 +287,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cookie.Experimental.CookiesAllowedForUrlsUsage"
-    enum="CookiesAllowedForUrlsUsage" expires_after="2026-07-09">
+    enum="CookiesAllowedForUrlsUsage" expires_after="2026-10-26">
   <owner>dylancutler@google.com</owner>
   <owner>sandormajor@chromium.org</owner>
   <summary>
@@ -287,6 +296,9 @@ chromium-metrics-reviews@google.com.
     only apply to the top-level site, and rules that apply to both. This
     histogram is recorded when the CookiesAllowedForUrls policy is first loaded.
     Only recorded when the policy contains at least one valid rule.
+
+    Warning: this histogram was expired from 2026-07-09 to 2026-08-25; data may
+    be missing.
   </summary>
 </histogram>
 
@@ -391,7 +403,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cookie.GetCookieListWithOptions.Duration.Subsampled"
-    units="microseconds" expires_after="2026-11-15">
+    units="microseconds" expires_after="2027-01-17">
   <owner>anthonyvd@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -453,7 +465,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cookie.IsPartitionedValid.Subsampled" enum="BooleanValid"
-    expires_after="2026-09-01">
+    expires_after="2027-03-01">
   <owner>dylancutler@google.com</owner>
   <owner>selya@google.com</owner>
   <summary>
@@ -481,7 +493,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cookie.LoadProblem" enum="CookieLoadProblem"
-    expires_after="2026-11-01">
+    expires_after="2027-01-03">
   <owner>morlovich@chromium.org</owner>
   <owner>src/net/cookies/OWNERS</owner>
   <summary>
@@ -491,7 +503,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cookie.MaxCookieJarSizePerKey" units="kibibytes"
-    expires_after="2026-08-31">
+    expires_after="2027-02-28">
   <owner>dylancutler@google.com</owner>
   <owner>src/net/cookies/OWNERS</owner>
   <summary>
@@ -541,7 +553,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cookie.OnCookiesAccessed.BatchSize.CookieAccessObserver"
-    units="accesses" expires_after="2026-11-15">
+    units="accesses" expires_after="2027-01-17">
   <owner>kawasin@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -564,7 +576,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cookie.OnPreconnect.LoadCookie" enum="BooleanAttempted"
-    expires_after="2026-09-08">
+    expires_after="2026-12-27">
   <owner>yoichio@chromium.org</owner>
   <owner>chrome-loading@chromium.org</owner>
   <summary>
@@ -578,7 +590,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cookie.Parse.EmptyName" enum="Boolean"
-    expires_after="2026-11-01">
+    expires_after="2027-01-03">
   <owner>morlovich@chromium.org</owner>
   <owner>src/net/cookies/OWNERS</owner>
   <summary>
@@ -589,7 +601,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cookie.Parse.EmptyNameAmbiguousValue" enum="Boolean"
-    expires_after="2026-11-01">
+    expires_after="2027-01-03">
   <owner>morlovich@chromium.org</owner>
   <owner>src/net/cookies/OWNERS</owner>
   <summary>
@@ -849,7 +861,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cookie.SameSiteNoneSizeBytes.Subsampled" units="bytes"
-    expires_after="2026-11-01">
+    expires_after="2027-01-03">
   <owner>dylancutler@google.com</owner>
   <owner>src/net/cookies/OWNERS</owner>
   <summary>
@@ -1021,7 +1033,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cookie.TimeBlockedOnLoad" units="ms"
-    expires_after="2026-11-01">
+    expires_after="2027-01-03">
   <owner>wfh@chromium.org</owner>
   <summary>
     The amount of time (ms) between the cookie store load starting and
@@ -1040,7 +1052,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Cookie.TimeInitializeDB" units="ms" expires_after="2026-11-01">
+<histogram name="Cookie.TimeInitializeDB" units="ms" expires_after="2027-01-03">
   <owner>cfredric@chromium.org</owner>
   <owner>src/net/cookies/OWNERS</owner>
   <summary>The amount of time (ms) to initialize the cookies database.</summary>

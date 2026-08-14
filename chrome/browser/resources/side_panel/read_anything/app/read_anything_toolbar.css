@@ -25,15 +25,6 @@
     var(--on-audio-player-focus-outline-color);
 }
 
-@media (forced-colors: active) {
-    #play-pause {
-    --cr-icon-button-fill-color: CanvasText;
-  }
-
-  cr-icon-button#color {
-    display: none;
-  }
-}
 
 .audio-background-inactive {
   --audio-controls-background: transparent;
@@ -81,6 +72,14 @@
 
 #audio-controls.audio-background-immersive-enabled cr-icon-button {
   margin: 4px 2px;
+}
+
+#line-focus-off {
+  background: var(--audio-player-background-color);
+  border: none;
+  margin-inline-end: 8px;
+  position: relative;
+  z-index: 9998;
 }
 
 /* Separate CSS classes are needed instead of setting the style directly so
@@ -165,6 +164,11 @@
   --cr-icon-button-focus-outline-color: var(--toolbar-focus-outline-color);
 }
 
+.immersive-toolbar-container cr-button {
+  --cr-focus-outline-color: var(--toolbar-focus-outline-color);
+  --cr-button-text-color: var(--rate-button-text-color);
+}
+
 .announce-block {
   width:1px;
   height:1px;
@@ -181,7 +185,6 @@
   background-color: transparent;
   border: none;
   border-radius: 50%;
-  --cr-button-text-color: var(--rate-button-text-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -228,4 +231,16 @@
 
 .immersive-font-size-menu::part(dialog) {
   border-radius: var(--cornerRadii-medium-small, 12px);
+}
+
+@media (forced-colors: active) {
+  cr-icon-button,
+  #audio-controls cr-icon-button,
+  #audio-controls #play-pause {
+    --cr-icon-button-fill-color: CanvasText;
+  }
+
+  cr-icon-button#color {
+    display: none;
+  }
 }

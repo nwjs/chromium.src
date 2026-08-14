@@ -75,7 +75,7 @@ class CertVerifierServicePolicyTest : public policy::PolicyTest {
 #if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
     base::test::TestFuture<void> cert_verifier_service_update_waiter;
     browser()
-        ->profile()
+        ->GetProfile()
         ->GetDefaultStoragePartition()
         ->GetCertVerifierServiceUpdater()
         ->WaitUntilNextUpdateForTesting(
@@ -996,7 +996,7 @@ IN_PROC_BROWSER_TEST_P(CertVerifierServicePolicyAndUserRootsTest,
   if (add_certs()) {
     net::ServerCertificateDatabaseService* server_certificate_database_service =
         net::ServerCertificateDatabaseServiceFactory::GetForBrowserContext(
-            browser()->profile());
+            browser()->GetProfile());
     {
       scoped_refptr<net::X509Certificate> root_cert =
           test_server_for_user_added.GetRoot();

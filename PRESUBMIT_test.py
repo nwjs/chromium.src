@@ -227,6 +227,72 @@ class CheckNoUNIT_TESTInSourceFilesTest(unittest.TestCase):
         self.assertEqual(0, len(errors))
 
 
+class CheckNoOzonePlatformMacrosInTestsTest(unittest.TestCase):
+
+    def testWarning(self):
+        test_files = [
+            MockFile('chrome/browser/foo_unittest.cc', [
+                '#if BUILDFLAG(SUPPORTS_OZONE_WAYLAND)',
+                '#endif',
+            ]),
+            MockFile('chrome/browser/bar_browsertest.cc', [
+                '#if BUILDFLAG(SUPPORTS_OZONE_X11)',
+                '#endif',
+            ]),
+            MockFile('content/test/baz_test.cc', [
+                'BUILDFLAG(SUPPORTS_OZONE_WAYLAND)',
+            ]),
+        ]
+        input_api = MockInputApi()
+        input_api.InitFiles(test_files)
+        warnings = PRESUBMIT.CheckNoOzonePlatformMacrosInTests(
+            input_api, MockOutputApi())
+        self.assertEqual(1, len(warnings))
+        self.assertEqual('warning', warnings[0].type)
+        self.assertEqual(3, len(warnings[0].items))
+        self.assertIn(
+            f'{os.path.normpath("chrome/browser/foo_unittest.cc")}:1',
+            warnings[0].items[0])
+        self.assertIn(
+            f'{os.path.normpath("chrome/browser/bar_browsertest.cc")}:1',
+            warnings[0].items[1])
+        self.assertIn(
+            f'{os.path.normpath("content/test/baz_test.cc")}:1',
+            warnings[0].items[2])
+
+    def testNoWarning(self):
+        non_test_files = [
+            MockFile('chrome/browser/foo.cc', [
+                '#if BUILDFLAG(SUPPORTS_OZONE_WAYLAND)',
+                '#endif',
+            ]),
+            MockFile('ui/ozone/platform/wayland/wayland_window.cc', [
+                'SUPPORTS_OZONE_WAYLAND',
+            ]),
+            MockFile('chrome/browser/baz_unittest.cc', [
+                'SUPPORTS_OZONE_WAYLAND',
+            ]),
+        ]
+        input_api = MockInputApi()
+        input_api.InitFiles(non_test_files)
+        warnings = PRESUBMIT.CheckNoOzonePlatformMacrosInTests(
+            input_api, MockOutputApi())
+        self.assertEqual(0, len(warnings))
+
+    def testCleanTest(self):
+        clean_test_files = [
+            MockFile('chrome/browser/foo_unittest.cc', [
+                '#if BUILDFLAG(IS_CHROMEOS)',
+                '#endif',
+            ]),
+        ]
+        input_api = MockInputApi()
+        input_api.InitFiles(clean_test_files)
+        warnings = PRESUBMIT.CheckNoOzonePlatformMacrosInTests(
+            input_api, MockOutputApi())
+        self.assertEqual(0, len(warnings))
+
+
 class CheckEachPerfettoTestDataFileHasDepsEntry(unittest.TestCase):
 
     def testNewSha256FileNoDEPS(self):
@@ -4709,39 +4775,131 @@ class ForgettingMAYBEInTests(unittest.TestCase):
 
 class CheckFuzzTargetsTest(unittest.TestCase):
 
-    def _check(self, files):
-        mock_input_api = MockInputApi()
-        mock_input_api.files = []
-        for fname, contents in files.items():
-            mock_input_api.files.append(MockFile(fname, contents.splitlines()))
-        return PRESUBMIT.CheckFuzzTargetsOnUpload(mock_input_api,
-                                                  MockOutputApi())
-
     def testLibFuzzerSourcesIgnored(self):
-        results = self._check({
-            'third_party/lib/Fuzzer/FuzzerDriver.cpp':
-            'LLVMFuzzerInitialize',
-        })
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [
+            MockFile('third_party/lib/Fuzzer/FuzzerDriver.cpp',
+                     ['LLVMFuzzerInitialize']),
+        ]
+        results = PRESUBMIT.CheckFuzzTargetsOnUpload(mock_input_api,
+                                                      MockOutputApi())
         self.assertEqual(results, [])
 
     def testNonCodeFilesIgnored(self):
-        results = self._check({
-            'README.md': 'LLVMFuzzerInitialize',
-        })
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [
+            MockFile('README.md', ['LLVMFuzzerInitialize']),
+        ]
+        results = PRESUBMIT.CheckFuzzTargetsOnUpload(mock_input_api,
+                                                      MockOutputApi())
         self.assertEqual(results, [])
 
     def testNoErrorHeaderPresent(self):
-        results = self._check({
-            'fuzzer.cc':
-            ('#include \"testing/libfuzzer/libfuzzer_exports.h\"\n' +
-             'LLVMFuzzerInitialize')
-        })
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [
+            MockFile('fuzzer.cc', [
+                '#include "testing/libfuzzer/libfuzzer_exports.h"',
+                'LLVMFuzzerInitialize',
+            ]),
+        ]
+        results = PRESUBMIT.CheckFuzzTargetsOnUpload(mock_input_api,
+                                                      MockOutputApi())
         self.assertEqual(results, [])
 
     def testErrorMissingHeader(self):
-        results = self._check({'fuzzer.cc': 'LLVMFuzzerInitialize'})
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [
+            MockFile('fuzzer.cc', ['LLVMFuzzerInitialize']),
+        ]
+        results = PRESUBMIT.CheckFuzzTargetsOnUpload(mock_input_api,
+                                                      MockOutputApi())
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].items, ['fuzzer.cc'])
+
+
+class CheckNewLLVMStyleFuzzersTest(unittest.TestCase):
+
+    def testNoWarningForNormalFiles(self):
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [
+            MockFile('base/test.cc', ['void MyTest() {}']),
+            MockFile('base/BUILD.gn',
+                     ['test("my_unittests") { sources = [ "test.cc" ] }']),
+        ]
+        results = PRESUBMIT.CheckNewLLVMStyleFuzzersOnUpload(mock_input_api,
+                                                         MockOutputApi())
+        self.assertEqual(results, [])
+
+    def testWarningForNewFuzzerTestInGN(self):
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [
+            MockFile('base/BUILD.gn',
+                     ['fuzzer_test("my_fuzzer") { sources = [ "fuzzer.cc" ] }']),
+        ]
+        results = PRESUBMIT.CheckNewLLVMStyleFuzzersOnUpload(mock_input_api,
+                                                         MockOutputApi())
+        self.assertEqual(len(results), 1)
+        self.assertIn('base/BUILD.gn:1', results[0].items)
+
+    def testWarningForNewLLVMFuzzerTestOneInput(self):
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [
+            MockFile('base/fuzzer.cc', [
+                'extern "C" int LLVMFuzzerTestOneInput(',
+                'const uint8_t* data, size_t size) {}'
+            ]),
+        ]
+        results = PRESUBMIT.CheckNewLLVMStyleFuzzersOnUpload(mock_input_api,
+                                                         MockOutputApi())
+        self.assertEqual(len(results), 1)
+        self.assertIn('base/fuzzer.cc:1', results[0].items)
+
+    def testWarningForNewLLVMFuzzerSpan(self):
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [
+            MockFile('base/fuzzer.cc', [
+                'DEFINE_LLVM_FUZZER_TEST_ONE_INPUT_SPAN(',
+                'base::span<const uint8_t> data) {}'
+            ]),
+        ]
+        results = PRESUBMIT.CheckNewLLVMStyleFuzzersOnUpload(mock_input_api,
+                                                         MockOutputApi())
+        self.assertEqual(len(results), 1)
+        self.assertIn('base/fuzzer.cc:1', results[0].items)
+
+    def testNoWarningForModifyingExistingFuzzer(self):
+        # LLVMFuzzerTestOneInput is in the file, but not in changed contents
+        file = MockFile(
+            'base/fuzzer.cc',
+            ['// existing fuzzer',
+             'extern "C" int LLVMFuzzerTestOneInput(',
+             'const uint8_t* data, size_t size) {',
+             '  // modified line',
+             '}'],
+            action='M')
+        file._changed_contents = [(4, '  // modified line')]
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [file]
+        results = PRESUBMIT.CheckNewLLVMStyleFuzzersOnUpload(mock_input_api,
+                                                         MockOutputApi())
+        self.assertEqual(results, [])
+
+    def testWarningForModifyingFuzzerAddingKeyword(self):
+        # LLVMFuzzerTestOneInput is added in a modification
+        file = MockFile(
+            'base/fuzzer.cc',
+            ['// modified fuzzer',
+             'extern "C" int LLVMFuzzerTestOneInput(',
+             'const uint8_t* data, size_t size) {',
+             '}'],
+            action='M')
+        file._changed_contents = [(2, 'extern "C" int LLVMFuzzerTestOneInput(')]
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [file]
+        results = PRESUBMIT.CheckNewLLVMStyleFuzzersOnUpload(mock_input_api,
+                                                         MockOutputApi())
+        self.assertEqual(len(results), 1)
+        self.assertIn('base/fuzzer.cc:2', results[0].items)
 
 
 class SetNoParentTest(unittest.TestCase):
@@ -5094,65 +5252,6 @@ class CheckDeprecationOfPreferencesTest(unittest.TestCase):
         self.assertEqual(
             'Broken .*MIGRATE_OBSOLETE_.*_PREFS markers in browser_prefs.cc.',
             errors[0].message)
-
-
-class CheckCrosApiNeedBrowserTestTest(unittest.TestCase):
-
-    def testWarning(self):
-        mock_input_api = MockInputApi()
-        mock_output_api = MockOutputApi()
-        mock_input_api.files = [
-            MockAffectedFile('chromeos/crosapi/mojom/example.mojom', [],
-                             action='A'),
-        ]
-        result = PRESUBMIT.CheckCrosApiNeedBrowserTest(mock_input_api,
-                                                       mock_output_api)
-        self.assertEqual(1, len(result))
-        self.assertEqual(result[0].type, 'warning')
-
-    def testNoWarningWithBrowserTest(self):
-        mock_input_api = MockInputApi()
-        mock_output_api = MockOutputApi()
-        mock_input_api.files = [
-            MockAffectedFile('chromeos/crosapi/mojom/example.mojom', [],
-                             action='A'),
-            MockAffectedFile('chrome/example_browsertest.cc', [], action='A'),
-        ]
-        result = PRESUBMIT.CheckCrosApiNeedBrowserTest(mock_input_api,
-                                                       mock_output_api)
-        self.assertEqual(0, len(result))
-
-    def testNoWarningModifyCrosapi(self):
-        mock_input_api = MockInputApi()
-        mock_output_api = MockOutputApi()
-        mock_input_api.files = [
-            MockAffectedFile('chromeos/crosapi/mojom/example.mojom', [],
-                             action='M'),
-        ]
-        result = PRESUBMIT.CheckCrosApiNeedBrowserTest(mock_input_api,
-                                                       mock_output_api)
-        self.assertEqual(0, len(result))
-
-    def testNoWarningAddNonMojomFile(self):
-        mock_input_api = MockInputApi()
-        mock_output_api = MockOutputApi()
-        mock_input_api.files = [
-            MockAffectedFile('chromeos/crosapi/mojom/example.cc', [],
-                             action='A'),
-        ]
-        result = PRESUBMIT.CheckCrosApiNeedBrowserTest(mock_input_api,
-                                                       mock_output_api)
-        self.assertEqual(0, len(result))
-
-    def testNoWarningNoneRelatedMojom(self):
-        mock_input_api = MockInputApi()
-        mock_output_api = MockOutputApi()
-        mock_input_api.files = [
-            MockAffectedFile('random/folder/example.mojom', [], action='A'),
-        ]
-        result = PRESUBMIT.CheckCrosApiNeedBrowserTest(mock_input_api,
-                                                       mock_output_api)
-        self.assertEqual(0, len(result))
 
 
 class AssertAshOnlyCodeTest(unittest.TestCase):
@@ -6137,6 +6236,26 @@ class CheckBaseFeatureMacroTest(unittest.TestCase):
                 '// BASE_FEATURE(kMyToggle, "MyToggle", '
                 'base::FEATURE_ENABLED_BY_DEFAULT);'
             ]),
+            MockAffectedFile('valid1_runtime_mutable.cc', [
+                'BASE_RUNTIME_MUTABLE_FEATURE(kMyToggle,'
+                ' base::FEATURE_ENABLED_BY_DEFAULT);'
+            ]),
+            MockAffectedFile('valid_multiline_runtime_mutable.cc', [
+                'BASE_RUNTIME_MUTABLE_FEATURE(', '    kMyMultilineToggle,',
+                '    base::FEATURE_ENABLED_BY_DEFAULT);'
+            ]),
+            MockAffectedFile('valid_complex_arg_runtime_mutable.cc', [
+                'BASE_RUNTIME_MUTABLE_FEATURE(kMyToggle,'
+                ' GetDefaultState(vector<int>(1)));'
+            ]),
+            MockAffectedFile('valid_comment_runtime_mutable.cc', [
+                '// BASE_RUNTIME_MUTABLE_FEATURE(invalidToggle, '
+                'base::FEATURE_ENABLED_BY_DEFAULT);'
+            ]),
+            MockAffectedFile('valid_3param_comment_runtime_mutable.cc', [
+                '// BASE_RUNTIME_MUTABLE_FEATURE(kMyToggle, "MyToggle", '
+                'base::FEATURE_ENABLED_BY_DEFAULT);'
+            ]),
 
             # #################################################################
             # Cases that should produce warnings.
@@ -6156,6 +6275,22 @@ class CheckBaseFeatureMacroTest(unittest.TestCase):
                 'BASE_FEATURE(kMyToggle,', '             "MyToggle",',
                 '             base::FEATURE_ENABLED_BY_DEFAULT);'
             ]),
+            MockAffectedFile('warning_3param_runtime_mutable.cc', [
+                'BASE_RUNTIME_MUTABLE_FEATURE(kMyToggle, "MyToggle", '
+                'base::FEATURE_ENABLED_BY_DEFAULT);'
+            ]),
+            MockAffectedFile('warning_no_k_runtime_mutable.cc', [
+                'BASE_RUNTIME_MUTABLE_FEATURE('
+                'MyToggle, base::FEATURE_ENABLED_BY_DEFAULT);'
+            ]),
+            MockAffectedFile('warning_lowercase_after_k_runtime_mutable.cc', [
+                'BASE_RUNTIME_MUTABLE_FEATURE(kmyToggle, '
+                'base::FEATURE_ENABLED_BY_DEFAULT);'
+            ]),
+            MockAffectedFile('warning_3param_multiline_runtime_mutable.cc', [
+                'BASE_RUNTIME_MUTABLE_FEATURE(', '    kMyToggle,',
+                '    "MyToggle",', '    base::FEATURE_ENABLED_BY_DEFAULT);'
+            ]),
         ]
         results = PRESUBMIT.CheckBaseFeatureMacro(mock_input_api,
                                                   MockOutputApi())
@@ -6166,18 +6301,33 @@ class CheckBaseFeatureMacroTest(unittest.TestCase):
         warnings = results[0].items
 
         expected_warnings = [
-            '    warning_3param.cc:1: The 3-argument BASE_FEATURE macro with a '
+            '    warning_3param.cc:1: Use of the 3-argument BASE_FEATURE and '
+            'BASE_RUNTIME_MUTABLE_FEATURE macros with a string literal is '
+            'discouraged. Use the 2-argument version instead.',
+            '    warning_3param_multiline.cc:1: Use of the 3-argument '
+            'BASE_FEATURE and BASE_RUNTIME_MUTABLE_FEATURE macros with a '
             'string literal is discouraged. Use the 2-argument version '
             'instead.',
-            '    warning_3param_multiline.cc:1: The 3-argument BASE_FEATURE '
-            'macro with a string literal is discouraged. Use the 2-argument '
-            'version instead.',
             '    warning_no_k.cc:1: Feature identifier "MyToggle" should start '
             'with "k" followed by an uppercase letter.',
             '    warning_lowercase_after_k.cc:1: Feature identifier "kmyToggle"'
             ' should start with "k" followed by an uppercase letter.',
+            '    warning_3param_runtime_mutable.cc:1: Use of the 3-argument '
+            'BASE_FEATURE and BASE_RUNTIME_MUTABLE_FEATURE macros with a '
+            'string literal is discouraged. Use the 2-argument version '
+            'instead.',
+            '    warning_3param_multiline_runtime_mutable.cc:1: Use of the '
+            '3-argument BASE_FEATURE and BASE_RUNTIME_MUTABLE_FEATURE macros '
+            'with a string literal is discouraged. Use the 2-argument version '
+            'instead.',
+            '    warning_no_k_runtime_mutable.cc:1: Feature identifier '
+            '"MyToggle" should start with "k" followed by an uppercase letter.',
+            '    warning_lowercase_after_k_runtime_mutable.cc:1: Feature '
+            'identifier "kmyToggle" should start with "k" followed by an '
+            'uppercase letter.',
         ]
 
+        self.maxDiff = None
         self.assertEqual(len(expected_warnings), len(warnings))
         self.assertCountEqual(expected_warnings, warnings)
 

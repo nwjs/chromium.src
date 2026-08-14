@@ -30,7 +30,7 @@ class PerformanceHandlerTest : public InProcessBrowserTest {
   void SetUpOnMainThread() override {
     InProcessBrowserTest::SetUpOnMainThread();
     web_contents_ = content::WebContents::Create(
-        content::WebContents::CreateParams(browser()->profile()));
+        content::WebContents::CreateParams(browser()->GetProfile()));
     web_ui_ = std::make_unique<content::TestWebUI>();
     web_ui_->set_web_contents(web_contents_.get());
     handler_ = std::make_unique<PerformanceHandler>();
@@ -81,7 +81,7 @@ IN_PROC_BROWSER_TEST_F(PerformanceHandlerTest, GetCurrentOpenSites) {
       AddTabToBrowser(first_browser, GURL("https://bar.com"));
   AddTabToBrowser(first_browser, GURL("chrome://version"));
 
-  Browser* second_browser = CreateBrowser(browser()->profile());
+  Browser* second_browser = CreateBrowser(browser()->GetProfile());
   AddTabToBrowser(second_browser,
                   GURL("https://www.foo.com/ignorethispartaswell"));
   AddTabToBrowser(second_browser, GURL("http://www.baz.com"));
@@ -128,14 +128,14 @@ IN_PROC_BROWSER_TEST_F(PerformanceHandlerTest, GetCpuPerformanceInfo) {
   // Set an override and check that the handler still returns the hardware tier
   // (not the override).
   int override_tier = (*hardware_tier == 1) ? 2 : 1;
-  browser()->profile()->GetPrefs()->SetInteger(
+  browser()->GetProfile()->GetPrefs()->SetInteger(
       prefs::kCpuPerformanceTierOverride, override_tier);
 
   // Check that the overridden setting reads correctly via the browser client.
   std::optional<int> effective_override =
       content::GetContentClientForTesting()
           ->browser()
-          ->GetCpuPerformanceTierOverride(browser()->profile());
+          ->GetCpuPerformanceTierOverride(browser()->GetProfile());
   ASSERT_TRUE(effective_override.has_value());
   EXPECT_EQ(override_tier, *effective_override);
 

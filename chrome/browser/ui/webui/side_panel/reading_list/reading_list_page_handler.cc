@@ -32,6 +32,7 @@
 #include "chrome/browser/ui/profiles/profile_view_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/side_panel/reading_list/reading_list_ui.h"
+#include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/profile_metrics/browser_profile_type.h"
@@ -63,7 +64,7 @@ int64_t TimeToUS(const base::Time& time) {
 class ReadLaterItemContextMenu : public ui::SimpleMenuModel,
                                  public ui::SimpleMenuModel::Delegate {
  public:
-  ReadLaterItemContextMenu(Browser* browser,
+  ReadLaterItemContextMenu(BrowserWindowInterface* browser,
                            ReadingListModel* reading_list_model,
                            GURL url)
       : ui::SimpleMenuModel(this),
@@ -144,7 +145,7 @@ class ReadLaterItemContextMenu : public ui::SimpleMenuModel,
     kMarkAsUnread,
     kDelete,
   };
-  const raw_ptr<Browser> browser_;
+  const raw_ptr<BrowserWindowInterface> browser_;
   raw_ptr<ReadingListModel> reading_list_model_;
   GURL url_;
 };
@@ -178,11 +179,11 @@ void ReadingListPageHandler::GetReadLaterEntries(
 
 void ReadingListPageHandler::OpenURL(
     const GURL& url,
-    bool mark_as_read,
     ui::mojom::ClickModifiersPtr click_modifiers) {
-  BrowserWindowInterface* browser =
-      GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser();
-  if (!browser) {
+  // Only support opening reading list entry URLS.
+  scoped_refptr<const ReadingListEntry> entry =
+      reading_list_model_->GetEntryByURL(url);
+  if (!entry) {
     return;
   }
 
@@ -194,18 +195,18 @@ void ReadingListPageHandler::OpenURL(
 
   content::OpenURLParams params(url, content::Referrer(), open_location,
                                 ui::PAGE_TRANSITION_AUTO_BOOKMARK, false);
-  browser->GetBrowserForMigrationOnly()->OpenURL(
-      params,
-      /*navigation_handle_callback=*/{});
 
-  scoped_refptr<const ReadingListEntry> entry =
-      reading_list_model_->GetEntryByURL(url);
-  if (entry) {
-    base::RecordAction(base::UserMetricsAction(
-        entry->IsRead() ? "DesktopReadingList.Navigation.FromReadList"
-                        : "DesktopReadingList.Navigation.FromUnreadList"));
+  auto* browser_window_interface =
+      webui::GetBrowserWindowInterface(web_contents());
+  if (!browser_window_interface) {
+    return;
   }
+  browser_window_interface->OpenURL(params,
+                                    /*navigation_handle_callback=*/{});
 
+  base::RecordAction(base::UserMetricsAction(
+      entry->IsRead() ? "DesktopReadingList.Navigation.FromReadList"
+                      : "DesktopReadingList.Navigation.FromUnreadList"));
   base::RecordAction(
       base::UserMetricsAction("SidePanel.ReadingList.Navigation"));
   RecordBookmarkLaunch(
@@ -258,10 +259,9 @@ void ReadingListPageHandler::ShowContextMenuForURL(const GURL& url,
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser();
   if (embedder) {
-    embedder->ShowContextMenu(
-        gfx::Point(x, y),
-        std::make_unique<ReadLaterItemContextMenu>(
-            browser->GetBrowserForMigrationOnly(), reading_list_model_, url));
+    embedder->ShowContextMenu(gfx::Point(x, y),
+                              std::make_unique<ReadLaterItemContextMenu>(
+                                  browser, reading_list_model_, url));
   }
 }
 
@@ -455,7 +455,7 @@ void ReadingListPageHandler::UpdateCurrentPageActionButton() {
 
 std::unique_ptr<ui::SimpleMenuModel>
 ReadingListPageHandler::GetItemContextMenuModelForTesting(
-    Browser* browser,
+    BrowserWindowInterface* browser,
     ReadingListModel* reading_list_model,
     GURL url) {
   return std::make_unique<ReadLaterItemContextMenu>(browser, reading_list_model,

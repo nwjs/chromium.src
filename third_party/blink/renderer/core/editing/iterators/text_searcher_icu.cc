@@ -142,8 +142,7 @@ static bool IsWholeWordMatch(base::span<const UChar> text,
   }
   if (word_break_search_start != result.start)
     return false;
-  return result_end == static_cast<wtf_size_t>(
-                           FindWordEndBoundary(text, word_break_search_start));
+  return result_end == FindWordEndBoundary(text, word_break_search_start);
 }
 
 // Grab the single global searcher.
@@ -163,6 +162,7 @@ void TextSearcherIcu::SetPattern(const StringView& pattern,
   options_ = options;
   SetCaseSensitivity(!options.IsCaseInsensitive());
   SetPattern(pattern.Span16());
+  SetAllowOverlapMatches(options.AllowOverlapMatches());
   if (ContainsKanaLetters(pattern.ToString())) {
     normalized_search_text_ = NormalizeCharactersIntoNfc(pattern.Span16());
   }
@@ -231,6 +231,18 @@ bool TextSearcherIcu::ShouldSkipCurrentMatch(
     return true;
   }
 
+  if (options_.RequireWordBoundedStart() &&
+      FindWordStartBoundary(text_span, result.start) != result.start) {
+    return true;
+  }
+
+  if (options_.RequireWordBoundedEnd()) {
+    const wtf_size_t last_char_pos = result.start + result.length - 1;
+    if (FindWordEndBoundary(text_span, last_char_pos) != last_char_pos + 1) {
+      return true;
+    }
+  }
+
   return options_.IsWholeWord() && !IsWholeWordMatch(text_span, result);
 }
 
@@ -259,6 +271,13 @@ void TextSearcherIcu::SetCaseSensitivity(bool case_sensitive) {
 
   ucol_setStrength(collator, strength);
   usearch_reset(searcher_);
+}
+
+void TextSearcherIcu::SetAllowOverlapMatches(bool overlap) {
+  UErrorCode status = U_ZERO_ERROR;
+  usearch_setAttribute(searcher_, USEARCH_OVERLAP,
+                       overlap ? USEARCH_ON : USEARCH_OFF, &status);
+  DCHECK_EQ(status, U_ZERO_ERROR);
 }
 
 }  // namespace blink

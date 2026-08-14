@@ -1112,6 +1112,21 @@ bool EventRouter::HasEventListener(const std::string& event_name) const {
   return listeners_.HasListenerForEvent(event_name);
 }
 
+bool EventRouter::HasEventListenerOutsideProcess(
+    const std::string& event_name,
+    content::ChildProcessId process_id) const {
+  return listeners_.HasListenerForEventOutsideProcess(browser_context_,
+                                                      event_name, process_id);
+}
+
+void EventRouter::AddEventListenerForTesting(  // IN-TEST
+    const std::string& event_name,
+    content::RenderProcessHost* process,
+    const ExtensionId& extension_id) {
+  ObserveProcess(process);
+  AddEventListener(event_name, process, extension_id);
+}
+
 bool EventRouter::ExtensionHasEventListener(
     const ExtensionId& extension_id,
     const std::string& event_name,
@@ -1222,6 +1237,9 @@ const base::DictValue* EventRouter::GetFilteredEvents(
 }
 
 void EventRouter::BroadcastEvent(std::unique_ptr<Event> event) {
+  for (TestObserver& observer : test_observers_) {
+    observer.OnWillBroadcastEvent(*event);
+  }
   DispatchEventImpl(std::string(), GURL(), std::move(event));
 }
 
@@ -1924,6 +1942,7 @@ std::unique_ptr<Event> Event::CopySelectively(bool copy_event_args,
   copy->will_dispatch_callback = will_dispatch_callback;
   copy->did_dispatch_callback = did_dispatch_callback;
   copy->cannot_dispatch_callback = cannot_dispatch_callback;
+  copy->restrict_to_dispatch_target = restrict_to_dispatch_target;
 
   return copy;
 }

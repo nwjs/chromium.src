@@ -19,6 +19,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/test/run_until.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "build/build_config.h"
@@ -44,12 +45,12 @@
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/test/focus_manager_test.h"
 #include "ui/views/test/native_widget_factory.h"
+#include "ui/views/test/views_test_utils.h"
 #include "ui/views/test/widget_activation_waiter.h"
 #include "ui/views/test/widget_test.h"
 #include "ui/views/touchui/touch_selection_controller_impl.h"
 #include "ui/views/widget/root_view.h"
 #include "ui/views/widget/widget.h"
-#include "ui/views/widget/widget_interactive_uitest_utils.h"
 #include "ui/views/widget/widget_utils.h"
 #include "ui/views/window/dialog_delegate.h"
 #include "ui/wm/public/activation_client.h"
@@ -65,6 +66,10 @@
 #include "ui/aura/window.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/views/win/hwnd_util.h"
+#endif
+
+#if BUILDFLAG(IS_OZONE)
+#include "ui/ozone/public/ozone_platform.h"
 #endif
 
 namespace views::test {
@@ -1115,13 +1120,11 @@ TEST_F(DesktopWidgetTestInteractive, WindowModalWindowDestroyedActivationTest) {
       dialog_delegate.release(), gfx::NativeWindow(),
       top_level_widget->GetNativeView());
   modal_dialog_widget->SetBounds(gfx::Rect(100, 100, 200, 200));
-
-  // Note the dialog widget doesn't need a ShowSync. Since it is modal, it gains
-  // active status synchronously, even on Mac.
   modal_dialog_widget->Show();
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return focus_changes.size() == 3u; }));
 
   gfx::NativeView modal_native_view = modal_dialog_widget->GetNativeView();
-  ASSERT_EQ(3u, focus_changes.size());
   EXPECT_EQ(gfx::NativeView(), focus_changes[1]);
   EXPECT_EQ(modal_native_view, focus_changes[2]);
 
@@ -2735,17 +2738,16 @@ TEST_F(DesktopWidgetDragTestInteractive, MAYBE_CancelDragDropLoop) {
 
 // Tests that mouse movements made after a drag ends will be handled as
 // moves instead of drags.
-// TODO(crbug.com/375959961): On X11, the native widget's mouse button state is
-// not updated when the mouse button is released to end a drag.
-#if BUILDFLAG(SUPPORTS_OZONE_X11)
-#define MAYBE_RunDragDropLoopUpdatesMouseButtonState \
-  DISABLED_RunDragDropLoopUpdatesMouseButtonState
-#else
-#define MAYBE_RunDragDropLoopUpdatesMouseButtonState \
-  RunDragDropLoopUpdatesMouseButtonState
-#endif
 TEST_F(DesktopWidgetDragTestInteractive,
-       MAYBE_RunDragDropLoopUpdatesMouseButtonState) {
+       RunDragDropLoopUpdatesMouseButtonState) {
+#if BUILDFLAG(IS_OZONE)
+  if (::ui::OzonePlatform::RunningOnX11ForTest()) {
+    // TODO(crbug.com/375959961): On X11, the native widget's mouse button state
+    // is not updated when the mouse button is released to end a drag.
+    GTEST_SKIP() << "On X11, the native widget's mouse button state is not "
+                    "updated when the mouse button is released to end a drag.";
+  }
+#endif
 #if BUILDFLAG(IS_WIN)
   // The test base (views::ViewsTestBase) removes input state lookup.
   // Windows depends on it for getting the correct mouse button state during

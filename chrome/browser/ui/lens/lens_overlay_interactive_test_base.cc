@@ -20,7 +20,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
-#include "chrome/browser/ui/views/location_bar/lens_overlay_homework_page_action_icon_view.h"
+#include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/search_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -116,12 +116,13 @@ void LensOverlayInteractiveTestBase::SetUpFeatureList() {
                              {{"use-pdfs-as-context", "true"},
                               {"auto-focus-searchbox", "false"}}}},
       /*disabled_features=*/{contextual_tasks::kContextualTasks,
+                             contextual_tasks::kContextualTasksSidePanel,
                              features::kNonBlockingOsClipboardReads});
 }
 
 void LensOverlayInteractiveTestBase::WaitForTemplateURLServiceToLoad() {
   auto* const template_url_service =
-      TemplateURLServiceFactory::GetForProfile(browser()->profile());
+      TemplateURLServiceFactory::GetForProfile(browser()->GetProfile());
   search_test_utils::WaitForTemplateURLServiceToLoad(template_url_service);
 }
 
@@ -130,7 +131,7 @@ void LensOverlayInteractiveTestBase::SetUpOnMainThread() {
   embedded_test_server()->StartAcceptingConnections();
 
   // Permits sharing the page screenshot by default.
-  PrefService* prefs = browser()->profile()->GetPrefs();
+  PrefService* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled, true);
   prefs->SetBoolean(lens::prefs::kLensSharingPageContentEnabled, true);
 }
@@ -140,7 +141,7 @@ void LensOverlayInteractiveTestBase::TearDownOnMainThread() {
   InteractiveFeaturePromoTest::TearDownOnMainThread();
 
   // Disallow sharing the page screenshot by default.
-  PrefService* prefs = browser()->profile()->GetPrefs();
+  PrefService* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled, false);
 }
 

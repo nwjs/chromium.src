@@ -5,6 +5,7 @@
 #include "content/browser/worker_host/dedicated_worker_host.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <variant>
@@ -80,7 +81,7 @@ DedicatedWorkerHost::DedicatedWorkerHost(
     const blink::DedicatedWorkerToken& token,
     RenderProcessHost* worker_process_host,
     DedicatedWorkerCreator creator,
-    GlobalRenderFrameHostId ancestor_render_frame_host_id,
+    WeakDocumentPtr ancestor_document,
     const url::Origin& creator_origin,
     const blink::StorageKey& worker_storage_key,
     const url::Origin& renderer_origin,
@@ -95,7 +96,7 @@ DedicatedWorkerHost::DedicatedWorkerHost(
       token_(token),
       worker_process_host_(worker_process_host),
       creator_(creator),
-      ancestor_render_frame_host_id_(ancestor_render_frame_host_id),
+      ancestor_document_(std::move(ancestor_document)),
       creator_origin_(creator_origin),
       worker_storage_key_(worker_storage_key),
       renderer_origin_(renderer_origin),
@@ -129,8 +130,7 @@ DedicatedWorkerHost::DedicatedWorkerHost(
 
   service_->NotifyWorkerCreated(this);
 
-  auto* ancestor_render_frame_host =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+  auto* ancestor_render_frame_host = GetAncestorRenderFrameHost();
   if (ancestor_render_frame_host) {
     DedicatedWorkerHostsForDocument::GetOrCreateForCurrentDocument(
         ancestor_render_frame_host)
@@ -156,13 +156,7 @@ DedicatedWorkerHost::~DedicatedWorkerHost() {
   // or RenderProcessHostObserver. This destruction should be called before
   // the observed render process host (`worker_process_host_`) is destroyed.
 
-  // The frame's current document might no longer be related to this worker. In
-  // this case, the previous DedicatedWorkerHostsForDocument has been deleted
-  // and calling Remove(...)` on the new one is a no-op. Note that when the
-  // previous document is BFCached and not deleted, the RenderFrameHost will
-  // never be reused, so we will always get the right (BFCached) document.
-  auto* ancestor_render_frame_host =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+  auto* ancestor_render_frame_host = GetAncestorRenderFrameHost();
   if (ancestor_render_frame_host) {
     DedicatedWorkerHostsForDocument::GetOrCreateForCurrentDocument(
         ancestor_render_frame_host)
@@ -189,6 +183,17 @@ DedicatedWorkerHost::~DedicatedWorkerHost() {
   WorkerDevToolsManager::GetInstance().WorkerDestroyed(this);
 }
 
+GlobalRenderFrameHostId DedicatedWorkerHost::GetAncestorRenderFrameHostId()
+    const {
+  RenderFrameHost* rfh = ancestor_document_.AsRenderFrameHostIfValid();
+  return rfh ? rfh->GetGlobalId() : GlobalRenderFrameHostId();
+}
+
+RenderFrameHostImpl* DedicatedWorkerHost::GetAncestorRenderFrameHost() const {
+  return RenderFrameHostImpl::From(
+      ancestor_document_.AsRenderFrameHostIfValid());
+}
+
 void DedicatedWorkerHost::BindBrowserInterfaceBrokerReceiver(
     mojo::PendingReceiver<blink::mojom::BrowserInterfaceBroker> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
@@ -201,15 +206,14 @@ void DedicatedWorkerHost::BindBrowserInterfaceBrokerReceiver(
 void DedicatedWorkerHost::CreateContentSecurityNotifier(
     mojo::PendingReceiver<blink::mojom::ContentSecurityNotifier> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  auto* ancestor_render_frame_host =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+  auto* ancestor_render_frame_host = GetAncestorRenderFrameHost();
   if (!ancestor_render_frame_host) {
     // The ancestor frame may have already been closed. In that case, the worker
     // will soon be terminated too, so abort the connection.
     return;
   }
   mojo::MakeSelfOwnedReceiver(
-      std::make_unique<ContentSecurityNotifier>(ancestor_render_frame_host_id_),
+      std::make_unique<ContentSecurityNotifier>(ancestor_document_),
       std::move(receiver));
 }
 
@@ -223,7 +227,7 @@ void DedicatedWorkerHost::CreateLockManager(
 
 bool DedicatedWorkerHost::OnLockContention() {
   RenderFrameHostImpl* ancestor_render_frame_host =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+      GetAncestorRenderFrameHost();
   if (!ancestor_render_frame_host) {
     // The frame may have already been closed.
     return false;
@@ -301,7 +305,7 @@ void DedicatedWorkerHost::StartScriptLoad(
   // Get nearest ancestor RenderFrameHost in order to determine the
   // top-frame origin to use for the network isolation key.
   RenderFrameHostImpl* nearest_ancestor_render_frame_host =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+      GetAncestorRenderFrameHost();
   if (!nearest_ancestor_render_frame_host) {
     ScriptLoadStartFailed(network::URLLoaderCompletionStatus(net::ERR_ABORTED));
     return;
@@ -449,7 +453,7 @@ void DedicatedWorkerHost::DidStartScriptLoad(
   // TODO(cammie): Change this approach when we support shared workers
   // creating dedicated workers, as there might be no ancestor frame.
   RenderFrameHostImpl* ancestor_render_frame_host =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+      GetAncestorRenderFrameHost();
   if (!ancestor_render_frame_host) {
     ScriptLoadStartFailed(network::URLLoaderCompletionStatus(net::ERR_ABORTED));
     return;
@@ -619,8 +623,7 @@ void DedicatedWorkerHost::DidStartScriptLoad(
 
 void DedicatedWorkerHost::ScriptLoadStartFailed(
     const network::URLLoaderCompletionStatus& status) {
-  auto* ancestor_render_frame_host =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+  auto* ancestor_render_frame_host = GetAncestorRenderFrameHost();
   if (ancestor_render_frame_host) {
     // Notify that the loading failed to DevTools. It fires
     // `Network.onLoadingFailed` event.
@@ -682,6 +685,9 @@ DedicatedWorkerHost::CreateNetworkFactoryForSubresources(
           ancestor_render_frame_host->GetCookieSettingOverrides(),
           network_restrictions_id_,
           "DedicatedWorkerHost::CreateNetworkFactoryForSubresources");
+  // Worker subresources are not outermost-main-frame requests even when their
+  // creator frame is outermost.
+  factory_params->is_outermost_main_frame = false;
 
   RenderFrameHost* frame = nullptr;
   if (base::FeatureList::IsEnabled(
@@ -765,7 +771,7 @@ void DedicatedWorkerHost::CreateDirectSocketsService(
     mojo::PendingReceiver<blink::mojom::DirectSocketsService> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   RenderFrameHostImpl* ancestor_render_frame_host =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+      GetAncestorRenderFrameHost();
   // The ancestor frame may have already been closed. In that case, the worker
   // will soon be terminated too, so abort the connection.
   if (!ancestor_render_frame_host) {
@@ -781,7 +787,7 @@ void DedicatedWorkerHost::CreateWebUsbService(
     mojo::PendingReceiver<blink::mojom::WebUsbService> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   RenderFrameHostImpl* ancestor_render_frame_host =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+      GetAncestorRenderFrameHost();
   // The ancestor frame may have already been closed. In that case, the worker
   // will soon be terminated too, so abort the connection.
   if (!ancestor_render_frame_host) {
@@ -795,7 +801,7 @@ void DedicatedWorkerHost::CreateWebSocketConnector(
     mojo::PendingReceiver<blink::mojom::WebSocketConnector> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   RenderFrameHostImpl* ancestor_render_frame_host =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+      GetAncestorRenderFrameHost();
   if (!ancestor_render_frame_host) {
     // The ancestor frame may have already been closed. In that case, the worker
     // will soon be terminated too, so abort the connection.
@@ -805,12 +811,11 @@ void DedicatedWorkerHost::CreateWebSocketConnector(
   // TODO(crbug.com/379869738) Remove GetUnsafeValue.
   mojo::MakeSelfOwnedReceiver(
       std::make_unique<WebSocketConnectorImpl>(
-          GlobalRenderFrameHostId(
-              ancestor_render_frame_host_id_.child_id,
-              ancestor_render_frame_host_id_.frame_routing_id),
+          ancestor_render_frame_host->GetGlobalId(), ancestor_document_,
           GetWorkerStorageKey().origin(),
           ancestor_render_frame_host->GetIsolationInfoForSubresources(),
-          worker_client_security_state_->Clone(), network_restrictions_id_),
+          worker_client_security_state_->Clone(), network_restrictions_id_,
+          GetToken().value()),
       std::move(receiver));
 }
 
@@ -818,7 +823,7 @@ void DedicatedWorkerHost::CreateWebTransportConnector(
     mojo::PendingReceiver<blink::mojom::WebTransportConnector> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   RenderFrameHostImpl* ancestor_render_frame_host =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+      GetAncestorRenderFrameHost();
   if (!ancestor_render_frame_host) {
     // The ancestor frame may have already been closed. In that case, the worker
     // will soon be terminated too, so abort the connection.
@@ -828,11 +833,10 @@ void DedicatedWorkerHost::CreateWebTransportConnector(
   mojo::MakeSelfOwnedReceiver(
       std::make_unique<WebTransportConnectorImpl>(
           worker_process_host_->GetDeprecatedID(),
-          ancestor_render_frame_host->GetWeakPtr(),
+          ancestor_render_frame_host->GetWeakPtr(), ancestor_document_,
           GetWorkerStorageKey().origin(),
           isolation_info_.network_anonymization_key(),
-          worker_client_security_state_->Clone(),
-          network_restrictions_id_),
+          worker_client_security_state_->Clone(), network_restrictions_id_),
       std::move(receiver));
 }
 
@@ -857,23 +861,30 @@ void DedicatedWorkerHost::BindCacheStorage(
 void DedicatedWorkerHost::CreateNestedDedicatedWorker(
     mojo::PendingReceiver<blink::mojom::DedicatedWorkerHostFactory> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  RenderFrameHost* ancestor_render_frame_host =
+      ancestor_document_.AsRenderFrameHostIfValid();
+  if (!ancestor_render_frame_host) {
+    // The ancestor frame may have already been closed. In that case, the worker
+    // will soon be terminated too, so abort the connection.
+    return;
+  }
+
   base::WeakPtr<CrossOriginEmbedderPolicyReporter> creator_coep_reporter =
       GetWorkerCoepReporter();
 
-  mojo::MakeSelfOwnedReceiver(
-      std::make_unique<DedicatedWorkerHostFactoryImpl>(
-          worker_process_host_->GetID(), /*creator=*/token_,
-          ancestor_render_frame_host_id_, GetWorkerStorageKey(),
-          isolation_info_, worker_client_security_state_->Clone(),
-          creator_policies_, creator_coep_reporter, network_restrictions_id_),
-      std::move(receiver));
+  DedicatedWorkerHostFactoryImpl::Create(
+      *ancestor_render_frame_host, std::move(receiver),
+      worker_process_host_->GetID(), /*creator=*/token_, ancestor_document_,
+      GetWorkerStorageKey(), isolation_info_,
+      worker_client_security_state_->Clone(), creator_policies_,
+      creator_coep_reporter, network_restrictions_id_);
 }
 
 void DedicatedWorkerHost::CreateIdleManager(
     mojo::PendingReceiver<blink::mojom::IdleManager> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   RenderFrameHostImpl* ancestor_render_frame_host =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+      GetAncestorRenderFrameHost();
   if (!ancestor_render_frame_host) {
     // The ancestor frame may have already been closed. In that case, the worker
     // will soon be terminated too, so abort the connection.
@@ -952,7 +963,7 @@ void DedicatedWorkerHost::BindSerialService(
     mojo::PendingReceiver<blink::mojom::SerialService> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   RenderFrameHostImpl* ancestor_render_frame_host =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+      GetAncestorRenderFrameHost();
   if (!ancestor_render_frame_host) {
     // The ancestor frame may have already been closed. In that case, the worker
     // will soon be terminated too, so abort the connection.
@@ -967,7 +978,7 @@ void DedicatedWorkerHost::BindHidService(
     mojo::PendingReceiver<blink::mojom::HidService> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   RenderFrameHostImpl* ancestor_render_frame_host =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+      GetAncestorRenderFrameHost();
   // The ancestor frame may have already been closed. In that case, the worker
   // will soon be terminated too, so abort the connection.
   if (!ancestor_render_frame_host) {
@@ -1011,8 +1022,7 @@ void DedicatedWorkerHost::BindPressureService(
   }
 
   // https://www.w3.org/TR/compute-pressure/#policy-control
-  auto* ancestor_render_frame_host =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+  auto* ancestor_render_frame_host = GetAncestorRenderFrameHost();
   if (!ancestor_render_frame_host) {
     return;
   }
@@ -1076,7 +1086,7 @@ void DedicatedWorkerHost::UpdateSubresourceLoaderFactories() {
   auto* storage_partition_impl = GetStoragePartitionImpl();
 
   RenderFrameHostImpl* ancestor_render_frame_host =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+      GetAncestorRenderFrameHost();
   if (!ancestor_render_frame_host) {
     return;
   }
@@ -1124,7 +1134,7 @@ void DedicatedWorkerHost::EvictFromBackForwardCache(
     blink::mojom::RendererEvictionReason reason,
     blink::mojom::ScriptSourceLocationPtr source) {
   RenderFrameHostImpl* ancestor_render_frame_host =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+      GetAncestorRenderFrameHost();
   if (!ancestor_render_frame_host) {
     // The frame may have already been closed.
     return;
@@ -1136,7 +1146,7 @@ void DedicatedWorkerHost::EvictFromBackForwardCache(
 void DedicatedWorkerHost::DidChangeBackForwardCacheDisablingFeatures(
     BackForwardCacheBlockingDetails details) {
   RenderFrameHostImpl* ancestor_render_frame_host =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+      GetAncestorRenderFrameHost();
   if (!ancestor_render_frame_host) {
     // The frame may have already been closed.
     return;
@@ -1196,8 +1206,7 @@ void DedicatedWorkerHost::GetSandboxedFileSystemForBucket(
 }
 
 storage::BucketClientInfo DedicatedWorkerHost::GetBucketClientInfo() const {
-  const auto* ancestor_rfh =
-      RenderFrameHostImpl::FromID(ancestor_render_frame_host_id_);
+  const auto* ancestor_rfh = GetAncestorRenderFrameHost();
   return storage::BucketClientInfo{
       worker_process_host_->GetDeprecatedID(), GetToken(),
       ancestor_rfh ? std::optional(ancestor_rfh->GetDocumentToken())

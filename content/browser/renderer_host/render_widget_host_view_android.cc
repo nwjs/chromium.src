@@ -131,6 +131,9 @@ namespace content {
 
 namespace {
 
+BASE_FEATURE(kEvictSurfaceViaDelegatedFrameHost,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 static const base::TimeDelta kClickCountInterval = base::Seconds(0.5);
 static const float kClickCountRadiusSquaredDIP = 25;
 static const base::TimeDelta kThrottleTimeout = base::Milliseconds(200);
@@ -181,8 +184,8 @@ bool IsTooltipsEnabled() {
   }
 
   // Only show on desktop devices up to B due to tooltips bug b/445244223.
-  if (base::android::android_info::sdk_int() <=
-      base::android::android_info::SDK_VERSION_BAKLAVA) {
+  if (base::android::android_info::sdk_int_full() <
+      base::android::android_info::SDK_VERSION_FULL_BAKLAVA_1) {
     return base::android::device_info::is_desktop();
   }
 
@@ -1000,8 +1003,9 @@ void RenderWidgetHostViewAndroid::OnRenderFrameMetadataChangedBeforeActivation(
 
   if (overscroll_controller_) {
     overscroll_controller_->OnFrameMetadataUpdated(
-        metadata.page_scale_factor, metadata.device_scale_factor,
-        metadata.scrollable_viewport_size, metadata.root_layer_size,
+        view_.GetSizeDevicePx().width(), metadata.page_scale_factor,
+        metadata.device_scale_factor, metadata.scrollable_viewport_size,
+        metadata.root_layer_size,
         metadata.root_scroll_offset.value_or(gfx::PointF()),
         metadata.root_overflow_y_hidden);
   }
@@ -1479,6 +1483,10 @@ viz::FrameSinkId RenderWidgetHostViewAndroid::GetRootFrameSinkId() {
 }
 
 viz::SurfaceId RenderWidgetHostViewAndroid::GetCurrentSurfaceId() const {
+  if (base::FeatureList::IsEnabled(kEvictSurfaceViaDelegatedFrameHost)) {
+    return delegated_frame_host_ ? delegated_frame_host_->SurfaceId()
+                                 : viz::SurfaceId();
+  }
   if (sync_compositor_)
     return sync_compositor_->GetSurfaceId();
   return delegated_frame_host_ ? delegated_frame_host_->SurfaceId()
@@ -1879,33 +1887,68 @@ void RenderWidgetHostViewAndroid::UpdateTooltipUnderCursor(
   }
 }
 
+bool RenderWidgetHostViewAndroid::UpdateTooltipText(
+    const std::u16string& tooltip_text) {
+  if (tooltip_observer_for_testing_) {
+    tooltip_observer_for_testing_->OnTooltipTextUpdated(tooltip_text);
+  }
+
+  // Return early if tooltip already set in local cache
+  if (tooltip_text == tooltip_text_) {
+    return false;
+  }
+
+  tooltip_text_ = tooltip_text;
+  return true;
+}
+
+std::u16string RenderWidgetHostViewAndroid::GetTrimmedTooltipText() const {
+  return tooltip_text_.length() > kMaxTooltipLength
+             ? tooltip_text_.substr(0, kMaxTooltipLength)
+             : tooltip_text_;
+}
+
 void RenderWidgetHostViewAndroid::UpdateTooltip(
     const std::u16string& tooltip_text) {
   if (!IsTooltipsEnabled()) {
     return;
   }
-  if (tooltip_observer_for_testing_) {
-    tooltip_observer_for_testing_->OnTooltipTextUpdated(tooltip_text);
-  }
-  // Keep a local cache to avoid too many calls.
-  if (tooltip_text == tooltip_text_) {
+  // Throttle calls by dropping duplicates
+  if (!UpdateTooltipText(tooltip_text)) {
     return;
   }
-  tooltip_text_ = tooltip_text;
+
   // Limit size to something reasonable.
-  view_.SetTooltip(tooltip_text_.length() > kMaxTooltipLength
-                       ? tooltip_text_.substr(0, kMaxTooltipLength)
-                       : tooltip_text_);
+  view_.SetTooltip(GetTrimmedTooltipText());
 }
 
 void RenderWidgetHostViewAndroid::UpdateTooltipFromKeyboard(
     const std::u16string& tooltip_text,
     const gfx::Rect& bounds) {
-  // Keyboard tooltips not supported on Android.
+  if (!IsTooltipsEnabled()) {
+    return;
+  }
+  // Throttle calls by dropping duplicates
+  if (!UpdateTooltipText(tooltip_text)) {
+    return;
+  }
+
+  view_.SetTooltipFromKeyboard(GetTrimmedTooltipText(), bounds);
 }
 
 void RenderWidgetHostViewAndroid::ClearKeyboardTriggeredTooltip() {
-  // Keyboard tooltips not supported on Android.
+  if (!IsTooltipsEnabled()) {
+    return;
+  }
+  // Throttle calls by dropping duplicates
+  if (!UpdateTooltipText(std::u16string{})) {
+    return;
+  }
+  if (web_contents_accessibility_) {
+    web_contents_accessibility_->OnTooltipCleared();
+  }
+
+  view_.ClearTooltipFromKeyboard();
 }
 
 void RenderWidgetHostViewAndroid::UpdateFrameSinkIdRegistration() {
@@ -2572,7 +2615,7 @@ void RenderWidgetHostViewAndroid::TransformPointToRootSurface(
     *point += gfx::Vector2d(0, rvh_delegate_view->GetTopControlsHeight());
 }
 
-gfx::Rect RenderWidgetHostViewAndroid::GetBoundsInRootWindow() {
+gfx::Rect RenderWidgetHostViewAndroid::GetBoundsInScreen() {
   if (base::FeatureList::IsEnabled(ui::kAndroidUseCorrectWindowBounds)) {
     ui::WindowAndroid* window_android = view_.GetWindowAndroid();
     if (window_android) {

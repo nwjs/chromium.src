@@ -22,7 +22,7 @@ class MockPage extends TestBrowserProxy implements PageInterface {
   constructor() {
     super([
       'hideInput',
-      'postMessageToWebview',
+      'postAimMessage',
       'onAiPageStatusChanged',
       'onContextUpdated',
       'onHandshakeComplete',
@@ -32,6 +32,7 @@ class MockPage extends TestBrowserProxy implements PageInterface {
       'enterBasicMode',
       'exitBasicMode',
       'setOAuthToken',
+      'onCookieSyncCompleted',
       'setTaskDetails',
       'setThreadTitle',
       'showOauthErrorDialog',
@@ -59,8 +60,8 @@ class MockPage extends TestBrowserProxy implements PageInterface {
     this.methodCalled('setThreadTitle', title);
   }
 
-  postMessageToWebview(message: number[]) {
-    this.methodCalled('postMessageToWebview', message);
+  postAimMessage(message: number[]) {
+    this.methodCalled('postAimMessage', message);
   }
 
 
@@ -84,6 +85,10 @@ class MockPage extends TestBrowserProxy implements PageInterface {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   setOAuthToken(oauthToken: string) {
     this.methodCalled('setOAuthToken', oauthToken);
+  }
+
+  onCookieSyncCompleted() {
+    this.methodCalled('onCookieSyncCompleted');
   }
 
   hideInput() {
@@ -221,6 +226,7 @@ class TestContextualTasksPageHandler extends TestBrowserProxy implements
       'openFeedbackUi',
       'openMyActivityUi',
       'openOnboardingHelpUi',
+      'openOverflowMenuHelpUi',
       'openUrl',
       'reopenTabs',
       'setTaskId',
@@ -236,6 +242,8 @@ class TestContextualTasksPageHandler extends TestBrowserProxy implements
       'onWindowClosed',
       'closeWindow',
       'maybeTriggerPinningPromo',
+      'showPageInfoBubble',
+      'createNewThread',
     ]);
 
     this.url_ = url;
@@ -325,6 +333,10 @@ class TestContextualTasksPageHandler extends TestBrowserProxy implements
 
   openOnboardingHelpUi() {
     this.methodCalled('openOnboardingHelpUi');
+  }
+
+  openOverflowMenuHelpUi() {
+    this.methodCalled('openOverflowMenuHelpUi');
   }
 
   openUrl(url: Url|string, disposition: number) {
@@ -417,9 +429,6 @@ class TestContextualTasksPageHandler extends TestBrowserProxy implements
     return Promise.resolve();
   }
 
-  postMessageToWebview(message: number[]) {
-    this.methodCalled('postMessageToWebview', message);
-  }
 
   pinSidePanel() {
     this.methodCalled('pinSidePanel');
@@ -462,6 +471,14 @@ class TestContextualTasksPageHandler extends TestBrowserProxy implements
   maybeTriggerPinningPromo() {
     this.methodCalled('maybeTriggerPinningPromo');
   }
+
+  showPageInfoBubble() {
+    this.methodCalled('showPageInfoBubble');
+  }
+
+  createNewThread() {
+    this.methodCalled('createNewThread');
+  }
 }
 
 /**
@@ -486,11 +503,12 @@ export class TestContextualTasksBrowserProxy extends TestBrowserProxy implements
     ]);
     this.callbackRouter = new PageCallbackRouter();
     this.page = new MockPage();
+    this.callbackRouterRemote =
+        this.callbackRouter.$.bindNewPipeAndPassRemote();
     this.handler = new TestContextualTasksPageHandler(url, this.page);
     this.composeboxHandler = new TestBrowserProxy();
     this.searchboxHandler = new TestSearchboxPageHandler();
-    this.callbackRouterRemote =
-        this.callbackRouter.$.bindNewPipeAndPassRemote();
+    this.callbackRouterRemote.onCookieSyncCompleted();
   }
 
   createPageHandler() {

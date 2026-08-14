@@ -24,12 +24,13 @@
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_availability.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/page_action_menu/ui/page_action_menu_consumer.h"
 #import "ios/chrome/browser/intelligence/page_action_menu/ui/page_action_menu_content_entry_point.h"
 #import "ios/chrome/browser/intelligence/page_action_menu/ui/page_action_menu_feature.h"
 #import "ios/chrome/browser/intelligence/page_action_menu/utils/ai_hub_metrics.h"
-#import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_availability.h"
+#import "ios/chrome/browser/lens_overlay/public/lens_overlay_availability.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_modality.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_request_queue.h"
 #import "ios/chrome/browser/price_insights/model/price_insights_model.h"
@@ -172,22 +173,22 @@ bool SigninIsPossible(AuthenticationService* auth_service) {
     return [[PageActionMenuContentEntryPoint alloc] initWithEnabled:YES];
   }
 
-  std::optional<gemini::IneligibilityReasons> result =
-      _geminiService->GeminiIneligibilityForProfile();
-
-  if (result.has_value()) {
-    if (result.value().chrome_enterprise) {
+  ProfileIOS* profile =
+      ProfileIOS::FromBrowserState(_webState->GetBrowserState());
+  gemini::GeminiAvailabilityResult availability =
+      gemini::IsGeminiAvailable(gemini::EntryPoint::AIHub, profile, _webState);
+  if (!availability.enabled) {
+    if (availability.ineligibility_reasons.has_value() &&
+        availability.ineligibility_reasons->chrome_enterprise) {
       return [[PageActionMenuContentEntryPoint alloc]
           initWithEnabled:NO
                footerItem:[ContentEntryPointUnavailabilityItem
                               geminiEnterprise]];
     }
-
     return [[PageActionMenuContentEntryPoint alloc] initWithEnabled:NO];
   }
 
-  return [[PageActionMenuContentEntryPoint alloc]
-      initWithEnabled:_geminiTabHelper->IsGeminiAvailableForWebState()];
+  return [[PageActionMenuContentEntryPoint alloc] initWithEnabled:YES];
 }
 
 - (PageActionMenuContentEntryPoint*)lensEntryPointForTraitCollection:
@@ -398,8 +399,8 @@ bool SigninIsPossible(AuthenticationService* auth_service) {
         initWithFeatureType:PageActionMenuTranslate
                       title:l10n_util::GetNSString(
                                 IDS_IOS_AI_HUB_TRANSLATE_LABEL)
-                       icon:CustomSymbolTemplateWithPointSize(
-                                kTranslateSymbol, kFeatureRowIconSize)
+                       icon:SymbolTemplateWithPointSize(SymbolTranslate,
+                                                        kFeatureRowIconSize)
                  actionType:PageActionMenuButtonAction];
     translateFeature.subtitle = [self translateLanguagePair];
     translateFeature.actionType = PageActionMenuSettingsAction;
@@ -417,8 +418,8 @@ bool SigninIsPossible(AuthenticationService* auth_service) {
         initWithFeatureType:PageActionMenuPopupBlocker
                       title:l10n_util::GetNSString(
                                 IDS_IOS_AI_HUB_POPUP_BLOCKER_LABEL)
-                       icon:CustomSymbolWithPointSize(kPopupBadgeMinusSymbol,
-                                                      kFeatureRowIconSize)
+                       icon:SymbolWithPointSize(SymbolPopupBadgeMinus,
+                                                kFeatureRowIconSize)
                  actionType:PageActionMenuButtonAction];
 
     NSInteger blockedCount = [self blockedPopupCount];
@@ -440,8 +441,8 @@ bool SigninIsPossible(AuthenticationService* auth_service) {
         initWithFeatureType:PageActionMenuCameraPermission
                       title:l10n_util::GetNSString(
                                 IDS_IOS_AI_HUB_CAMERA_PERMISSION_LABEL)
-                       icon:CustomSymbolWithPointSize(kCameraFillSymbol,
-                                                      kFeatureRowIconSize)
+                       icon:SymbolWithPointSize(SymbolCameraFill,
+                                                kFeatureRowIconSize)
                  actionType:PageActionMenuToggleAction];
     web::PermissionState state =
         _webState->GetStateForPermission(web::PermissionCamera);
@@ -457,8 +458,8 @@ bool SigninIsPossible(AuthenticationService* auth_service) {
         initWithFeatureType:PageActionMenuMicrophonePermission
                       title:l10n_util::GetNSString(
                                 IDS_IOS_AI_HUB_MICROPHONE_PERMISSION_LABEL)
-                       icon:DefaultSymbolWithPointSize(kMicrophoneFillSymbol,
-                                                       kFeatureRowIconSize)
+                       icon:SymbolWithPointSize(SymbolMicrophoneFill,
+                                                kFeatureRowIconSize)
                  actionType:PageActionMenuToggleAction];
     web::PermissionState state =
         _webState->GetStateForPermission(web::PermissionMicrophone);
@@ -473,8 +474,8 @@ bool SigninIsPossible(AuthenticationService* auth_service) {
         initWithFeatureType:PageActionMenuPriceTracking
                       title:l10n_util::GetNSString(
                                 IDS_IOS_AI_HUB_PRICE_TRACKING_LABEL)
-                       icon:CustomSymbolWithPointSize(kDownTrendSymbol,
-                                                      kFeatureRowIconSize)
+                       icon:SymbolWithPointSize(SymbolDownTrend,
+                                                kFeatureRowIconSize)
                  actionType:PageActionMenuButtonAction];
     BOOL isSubscribed = NO;
     ContextualPanelTabHelper* tabHelper =
@@ -753,15 +754,18 @@ std::string GetTargetLanguageCode(ChromeIOSTranslateClient* translate_client) {
     return NO;
   }
 
-  std::optional<gemini::IneligibilityReasons> result =
-      _geminiService->GeminiIneligibilityForProfile();
+  ProfileIOS* profile =
+      ProfileIOS::FromBrowserState(_webState->GetBrowserState());
+  gemini::GeminiAvailabilityResult availability =
+      gemini::IsGeminiAvailable(gemini::EntryPoint::AIHub, profile, _webState);
 
-  if (!result.has_value()) {
+  if (!availability.ineligibility_reasons.has_value()) {
     return NO;
   }
 
-  return !result.value().chrome_enterprise &&
-         !result.value().account_capability && result.value().workspace;
+  return !availability.ineligibility_reasons->chrome_enterprise &&
+         !availability.ineligibility_reasons->account_capability &&
+         availability.ineligibility_reasons->workspace;
 }
 
 @end

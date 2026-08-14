@@ -75,10 +75,43 @@ class MockToolbarUIServiceDelegate
                ::toolbar_ui_api::mojom::ToolbarUIService::
                    ShowContentSettingsBubbleCallback callback),
               (override));
+  MOCK_METHOD(
+      void,
+      OnPageActionClick,
+      (::toolbar_ui_api::mojom::PageActionId action_id,
+       ::toolbar_ui_api::mojom::PageActionTrigger trigger,
+       ::toolbar_ui_api::mojom::ToolbarUIService::OnPageActionClickCallback
+           callback),
+      (override));
+  MOCK_METHOD(void,
+              OnPageActionChipShowingChanged,
+              (::toolbar_ui_api::mojom::PageActionId action_id,
+               ::toolbar_ui_api::mojom::ToolbarUIService::
+                   OnPageActionChipShowingChangedCallback callback),
+              (override));
   MOCK_METHOD(void, OnPageInitialized, (), (override));
   MOCK_METHOD(void,
               InvokePinnedToolbarAction,
               (toolbar_ui_api::mojom::PinnedToolbarAction action_id),
+              (override));
+  MOCK_METHOD(void, OnLocationBarFocusWithinChanged, (bool), (override));
+  MOCK_METHOD(void,
+              MovePinnedToolbarAction,
+              (toolbar_ui_api::mojom::PinnedToolbarAction action_id,
+               int32_t target_index),
+              (override));
+  MOCK_METHOD(void,
+              MovePinnedToolbarActionBy,
+              (toolbar_ui_api::mojom::PinnedToolbarAction action_id,
+               int32_t delta),
+              (override));
+  MOCK_METHOD(void,
+              MoveExtensionAction,
+              (const std::string& extension_id, int32_t target_index),
+              (override));
+  MOCK_METHOD(void,
+              MoveExtensionActionBy,
+              (const std::string& extension_id, int32_t delta),
               (override));
   MOCK_METHOD(void,
               OnLhsChipMousePressed,
@@ -122,6 +155,17 @@ class MockToolbarUIServiceDelegate
   MOCK_METHOD(void, SetAvatarButtonFocused, (bool), (override));
   MOCK_METHOD(void, SetAvatarButtonIPHPromoShowing, (bool), (override));
   MOCK_METHOD(void, OnAppMenuFocusChanged, (bool), (override));
+  MOCK_METHOD(void, ExecuteExtensionAction, (const std::string&), (override));
+  MOCK_METHOD(void,
+              ShowExtensionContextMenu,
+              (const std::string&, ui::mojom::MenuSourceType),
+              (override));
+  MOCK_METHOD(
+      (base::expected<toolbar_ui_api::mojom::AdjustOmniboxTextForCopyResultPtr,
+                      mojo_base::mojom::ErrorPtr>),
+      AdjustOmniboxTextForCopy,
+      (const std::u16string&, int32_t),
+      (override));
 };
 
 class MockBrowserControlsServiceDelegate
@@ -148,14 +192,17 @@ class MockCommandUpdater : public CommandUpdater {
   MOCK_METHOD(bool, SupportsCommand, (int id), (const, override));
   MOCK_METHOD(bool, IsCommandEnabled, (int id), (const, override));
   MOCK_METHOD(bool,
-              ExecuteCommand,
-              (int id, base::TimeTicks time_stamp),
+              ExecuteCommandImpl,
+              (int id,
+               base::TimeTicks time_stamp,
+               std::optional<actions::ActionInvocationContext> context),
               (override));
   MOCK_METHOD(bool,
-              ExecuteCommandWithDisposition,
+              ExecuteCommandWithDispositionImpl,
               (int id,
                WindowOpenDisposition disposition,
-               base::TimeTicks time_stamp),
+               base::TimeTicks time_stamp,
+               std::optional<actions::ActionInvocationContext> context),
               (override));
   MOCK_METHOD(void,
               AddCommandObserver,

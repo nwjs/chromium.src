@@ -15,16 +15,19 @@
 #include "chrome/browser/actor/actor_tab_data.h"
 #include "chrome/browser/actor/ui/actor_ui_tab_controller.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
-#include "chrome/browser/browsing_topics/browsing_topics_service_factory.h"
 #include "chrome/browser/commerce/in_stock_notification/in_stock_notification_manager.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
+#include "chrome/browser/contextual_cueing/contextual_cueing_controller.h"
 #include "chrome/browser/contextual_cueing/contextual_cueing_service_factory.h"
 #include "chrome/browser/contextual_cueing/contextual_cueing_web_contents_observer.h"
+#include "chrome/browser/contextual_cueing/features.h"
 #include "chrome/browser/enterprise/data_protection/data_protection_navigation_controller.h"
 #include "chrome/browser/enterprise/reporting/saas_usage/saas_usage_navigation_observer.h"
 #include "chrome/browser/glic/host/context/glic_page_features_manager.h"
 #include "chrome/browser/glic/suggestions/contextual_cueing_helper.h"
+#include "chrome/browser/glic/suggestions/glic_cue_tab_state.h"
+#include "chrome/browser/glic/suggestions/glic_cue_target.h"
 #include "chrome/browser/image_fetcher/image_fetcher_service_factory.h"
 #include "chrome/browser/indigo/indigo_page_action_controller.h"
 #include "chrome/browser/loader/from_gws_navigation_and_keep_alive_request_observer.h"
@@ -51,6 +54,7 @@
 #include "chrome/browser/ui/autofill/payments/omnibox_autofill_bubble_controller.h"
 #include "chrome/browser/ui/autofill/payments/omnibox_autofill_page_action_controller.h"
 #include "chrome/browser/ui/autofill/payments/payments_churned_users_bubble_controller.h"
+#include "chrome/browser/ui/autofill/payments/payments_churned_users_page_action_controller.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/commerce/commerce_ui_tab_helper.h"
@@ -128,6 +132,7 @@
 #include "chrome/browser/glic/selection/selection_overlay_controller.h"
 #include "chrome/browser/glic/service/glic_instance_helper.h"
 #include "chrome/browser/skills/skills_ui_tab_controller.h"
+#include "chrome/browser/skills/skills_update_observer.h"
 #include "chrome/browser/ui/contextual_search/tab_contextualization_controller.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/tab_attachment_tracker.h"
@@ -148,11 +153,6 @@
 #include "net/base/features.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/base/unowned_user_data/user_data_factory.h"
-
-#if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/skills/skills_update_observer.h"
-#include "components/skills/features.h"
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"  // nogncheck
@@ -200,103 +200,96 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
   // pre-condition. Because some feature need them during their instantiation,
   // therefore this block should come before the feature controllers
   // instantiation.
-  if (base::FeatureList::IsEnabled(features::kPageActionsMigration)) {
-    auto* pinned_actions_model = PinnedToolbarActionsModel::Get(profile);
-    CHECK(pinned_actions_model);
-    auto page_action_controller =
-        std::make_unique<page_actions::PageActionControllerImpl>(
-            pinned_actions_model);
-    page_action_controller->Initialize(
-        tab,
-        page_actions::GetActivePageActionIds(*tab.GetBrowserWindowInterface()),
-        page_actions::PageActionPropertiesProvider());
-    page_action_controller_ = std::move(page_action_controller);
+  auto* pinned_actions_model = PinnedToolbarActionsModel::Get(profile);
+  CHECK(pinned_actions_model);
+  page_action_controller_ =
+      GetUserDataFactory()
+          .CreateInstance<page_actions::PageActionControllerImpl>(
+              tab, tab,
+              page_actions::GetActivePageActionIds(
+                  *tab.GetBrowserWindowInterface()),
+              page_actions::PageActionPropertiesProvider(),
+              pinned_actions_model);
 
-    if (page_action_controller_->ActionExists(kActionShowMemorySaverChip)) {
-      memory_saver_chip_controller_ =
-          std::make_unique<memory_saver::MemorySaverChipController>(
-              *page_action_controller_);
-    }
+  if (page_action_controller_->ActionExists(kActionShowMemorySaverChip)) {
+    memory_saver_chip_controller_ =
+        std::make_unique<memory_saver::MemorySaverChipController>(
+            *page_action_controller_);
+  }
 
-    if (IsPageActionMigrated(PageActionIconType::kIntentPicker) &&
-        page_action_controller_->ActionExists(kActionShowIntentPicker)) {
-      intent_picker_view_page_action_controller_ =
-          std::make_unique<IntentPickerViewPageActionController>(tab);
-    }
+  if (IsPageActionMigrated(PageActionIconType::kIntentPicker) &&
+      page_action_controller_->ActionExists(kActionShowIntentPicker)) {
+    intent_picker_view_page_action_controller_ =
+        std::make_unique<IntentPickerViewPageActionController>(tab);
+  }
 
-    if (page_action_controller_->ActionExists(kActionShowFileSystemAccess)) {
-      file_system_access_page_action_controller_ =
-          std::make_unique<FileSystemAccessPageActionController>(tab);
-    }
+  if (page_action_controller_->ActionExists(kActionShowFileSystemAccess)) {
+    file_system_access_page_action_controller_ =
+        std::make_unique<FileSystemAccessPageActionController>(tab);
+  }
 
-    if (IsPageActionMigrated(PageActionIconType::kZoom) &&
-        page_action_controller_->ActionExists(kActionZoomNormal)) {
-      zoom_view_controller_ = std::make_unique<zoom::ZoomViewController>(
-          tab, *page_action_controller_);
-    }
+  if (page_action_controller_->ActionExists(kActionZoomNormal)) {
+    zoom_view_controller_ = std::make_unique<zoom::ZoomViewController>(
+        tab, *page_action_controller_);
+  }
 
-    if (page_action_controller_->ActionExists(kActionInstallPwa)) {
-      pwa_install_page_action_controller_ =
-          std::make_unique<PwaInstallPageActionController>(
-              tab, *page_action_controller_);
-    }
+  if (page_action_controller_->ActionExists(kActionInstallPwa)) {
+    pwa_install_page_action_controller_ =
+        std::make_unique<PwaInstallPageActionController>(
+            tab, *page_action_controller_);
+  }
 
-    if (page_action_controller_->ActionExists(kActionCommercePriceInsights)) {
-      commerce_price_insights_page_action_view_controller_ =
-          GetUserDataFactory()
-              .CreateInstance<commerce::PriceInsightsPageActionViewController>(
-                  tab, tab, *page_action_controller_);
-    }
+  if (page_action_controller_->ActionExists(kActionCommercePriceInsights)) {
+    commerce_price_insights_page_action_view_controller_ =
+        GetUserDataFactory()
+            .CreateInstance<commerce::PriceInsightsPageActionViewController>(
+                tab, tab, *page_action_controller_);
+  }
 
-    if (IsPageActionMigrated(PageActionIconType::kManagePasswords) &&
-        page_action_controller_->ActionExists(
-            kActionShowPasswordsBubbleOrPage)) {
-      manage_passwords_page_action_controller_ =
-          std::make_unique<ManagePasswordsPageActionController>(
-              *page_action_controller_);
-    }
+  if (IsPageActionMigrated(PageActionIconType::kManagePasswords) &&
+      page_action_controller_->ActionExists(kActionShowPasswordsBubbleOrPage)) {
+    manage_passwords_page_action_controller_ =
+        std::make_unique<ManagePasswordsPageActionController>(
+            *page_action_controller_);
+  }
 
-    if (IsPageActionMigrated(PageActionIconType::kCookieControls) &&
-        page_action_controller_->ActionExists(kActionShowCookieControls)) {
-      cookie_controls_page_action_controller_ =
-          GetUserDataFactory()
-              .CreateInstance<CookieControlsPageActionController>(
-                  tab, tab, *profile, *page_action_controller_);
-      cookie_controls_page_action_controller_->Init();
-    }
+  if (IsPageActionMigrated(PageActionIconType::kCookieControls) &&
+      page_action_controller_->ActionExists(kActionShowCookieControls)) {
+    cookie_controls_page_action_controller_ =
+        GetUserDataFactory().CreateInstance<CookieControlsPageActionController>(
+            tab, tab, *profile, *page_action_controller_);
+    cookie_controls_page_action_controller_->Init();
+  }
 
-    if (IsPageActionMigrated(PageActionIconType::kLensOverlayHomework) &&
-        page_action_controller_->ActionExists(kActionLensOverlayHomework)) {
-      lens_overlay_homework_page_action_controller_ =
-          GetUserDataFactory()
-              .CreateInstance<LensOverlayHomeworkPageActionController>(
-                  tab, tab, *profile, *page_action_controller_);
-    }
+  if (IsPageActionMigrated(PageActionIconType::kLensOverlayHomework) &&
+      page_action_controller_->ActionExists(kActionLensOverlayHomework)) {
+    lens_overlay_homework_page_action_controller_ =
+        GetUserDataFactory()
+            .CreateInstance<LensOverlayHomeworkPageActionController>(
+                tab, tab, *profile, *page_action_controller_);
+  }
 
-    if (IsPageActionMigrated(PageActionIconType::kBookmarkStar) &&
-        tab.GetBrowserWindowInterface()->GetType() ==
-            BrowserWindowInterface::TYPE_NORMAL &&
-        page_action_controller_->ActionExists(kActionBookmarkThisTab)) {
-      bookmark_page_action_controller_ =
-          GetUserDataFactory().CreateInstance<BookmarkPageActionController>(
-              tab, tab, profile->GetPrefs(), *page_action_controller_);
-    }
+  if (IsPageActionMigrated(PageActionIconType::kBookmarkStar) &&
+      tab.GetBrowserWindowInterface()->GetType() ==
+          BrowserWindowInterface::TYPE_NORMAL &&
+      page_action_controller_->ActionExists(kActionBookmarkThisTab)) {
+    bookmark_page_action_controller_ =
+        GetUserDataFactory().CreateInstance<BookmarkPageActionController>(
+            tab, tab, profile->GetPrefs(), *page_action_controller_);
+  }
 
-#if !BUILDFLAG(IS_ANDROID)
-    if (base::FeatureList::IsEnabled(
-            record_replay::features::kRecordReplayBase) &&
-        page_action_controller_->ActionExists(kActionRecordReplay)) {
-      record_replay_page_action_controller_ =
-          GetUserDataFactory().CreateInstance<RecordReplayPageActionController>(
-              tab, tab, *page_action_controller_);
-    }
-#endif
+  if (base::FeatureList::IsEnabled(
+          record_replay::features::kRecordReplayBase) &&
+      page_action_controller_->ActionExists(kActionRecordReplay)) {
+    record_replay_page_action_controller_ =
+        GetUserDataFactory().CreateInstance<RecordReplayPageActionController>(
+            tab, tab, *page_action_controller_);
+  }
 
-    if (page_action_controller_->ActionExists(kActionShowJsOptimizationsIcon)) {
-      js_optimizations_page_action_controller_ =
-          std::make_unique<JsOptimizationsPageActionController>(
-              tab, *page_action_controller_);
-    }
+  if (page_action_controller_->ActionExists(kActionShowJsOptimizationsIcon)) {
+    js_optimizations_page_action_controller_ =
+        std::make_unique<JsOptimizationsPageActionController>(
+            tab, *page_action_controller_);
   }
 
   // Features that are only enabled for normal browser windows. By default most
@@ -309,14 +302,6 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
         IdentityManagerFactory::GetForProfile(profile), profile->GetPrefs(),
         SyncServiceFactory::GetForProfile(profile),
         ThemeServiceFactory::GetForProfile(profile));
-
-    // Each time a new tab is created, validate the topics calculation schedule
-    // to help investigate a scheduling bug (crbug.com/343750866).
-    if (browsing_topics::BrowsingTopicsService* browsing_topics_service =
-            browsing_topics::BrowsingTopicsServiceFactory::GetForProfile(
-                profile)) {
-      browsing_topics_service->ValidateCalculationSchedule();
-    }
 
     permission_indicators_tab_data_ =
         std::make_unique<permissions::PermissionIndicatorsTabData>(
@@ -339,6 +324,7 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
     }
 
     glic::ContextualCueingHelper::MaybeCreateForWebContents(tab.GetContents());
+    glic::GlicCueTabState::CreateForWebContents(tab.GetContents());
 
     if (tab_groups::TabGroupSyncService* tab_group_sync_service =
             tab_groups::TabGroupSyncServiceFactory::GetForProfile(profile)) {
@@ -463,10 +449,11 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
                 tab, tab, tab.GetContents());
   }
 
-  if (base::FeatureList::IsEnabled(
-          autofill::features::kAutofillEnableResurrectingPaymentsUsers) &&
-      page_action_controller_->ActionExists(
+  if (page_action_controller_->ActionExists(
           kActionShowPaymentsChurnedUsersBubble)) {
+    payments_churned_users_page_action_controller_ =
+        std::make_unique<autofill::PaymentsChurnedUsersPageActionController>(
+            tab, *page_action_controller_);
     payments_churned_users_bubble_controller_ =
         GetUserDataFactory()
             .CreateInstance<autofill::PaymentsChurnedUsersBubbleController>(
@@ -568,6 +555,12 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
         std::make_unique<QwacWebContentsObserver>(tab);
   }
 
+  if (base::FeatureList::IsEnabled(contextual_cueing::kContextualCueingV2)) {
+    contextual_cueing_controller_ =
+        std::make_unique<contextual_cueing::ContextualCueingController>(&tab);
+    glic::GlicCueTarget::Register(tab);
+  }
+
   if (auto* contextual_cueing_service =
           contextual_cueing::ContextualCueingServiceFactory::GetForProfile(
               profile)) {
@@ -595,13 +588,11 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
   tab_alert_controller_ =
       GetUserDataFactory().CreateInstance<TabAlertController>(tab, tab);
 
-#if !BUILDFLAG(IS_ANDROID)
   if (base::FeatureList::IsEnabled(
           record_replay::features::kRecordReplayBase)) {
     record_replay_client_ =
         GetUserDataFactory().CreateInstance<ChromeRecordReplayClient>(tab, tab);
   }
-#endif
 
   tab_contextualization_controller_ =
       GetUserDataFactory().CreateInstance<lens::TabContextualizationController>(
@@ -627,7 +618,8 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
       GetUserDataFactory().CreateInstance<tabs::PageContextEligibilityHelper>(
           tab, tab);
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || \
+    BUILDFLAG(IS_CHROMEOS)
   if (base::FeatureList::IsEnabled(enterprise_reporting::kSaasUsageReporting)) {
     saas_usage_navigation_observer_ =
         std::make_unique<enterprise_reporting::SaasUsageNavigationObserver>(
@@ -648,7 +640,6 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
   }
 #endif
 
-#if !BUILDFLAG(IS_ANDROID)
   if (base::FeatureList::IsEnabled(features::kSkillsEnabled)) {
     skills_update_observer_ =
         std::make_unique<skills::SkillsUpdateObserver>(tab);
@@ -659,7 +650,6 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
             tab, *page_action_controller_);
   }
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 TabUIHelper* TabFeatures::SetTabUIHelperForTesting(
     std::unique_ptr<TabUIHelper> tab_ui_helper) {

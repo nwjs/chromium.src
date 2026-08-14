@@ -52,6 +52,11 @@
 }
 
 - (void)layoutState:(LayoutState*)layoutState
+    didChangeAppBarLockedInFullscreen:(BOOL)appBarLockedInFullscreen {
+  [self updateAndApplyLayout];
+}
+
+- (void)layoutState:(LayoutState*)layoutState
     didChangeToolbarPosition:(ToolbarPosition)toolbarPosition {
   [self updateLayout];
 }
@@ -91,9 +96,10 @@
 
 - (void)updateForFullscreenProgress:(CGFloat)progress {
   _fullscreenProgress = progress;
-  [self updateLayout];
-  [self.view setNeedsLayout];
-  [self.view layoutIfNeeded];
+  if (self.layoutState.appBarLockedInFullscreen) {
+    return;
+  }
+  [self updateAndApplyLayout];
 }
 
 #pragma mark - FullscreenBrowserAgentObserving
@@ -122,6 +128,12 @@
 }
 
 - (void)fullscreenWillUpdateState:(FullscreenBrowserAgent*)agent {
+  if (self.layoutState.appBarLockedInFullscreen) {
+    _fullscreenProgress = agent->bottom_progress();
+    agent->AddObscuredInset(UIRectEdgeBottom, kAppBarHeightFullscreen);
+    return;
+  }
+
   AppBarPosition position = self.layoutState.appBarPosition;
   switch (position) {
     case AppBarPosition::kBottom: {
@@ -182,7 +194,13 @@
   }
 
   self.view.transform = CGAffineTransformMakeRotation(angle);
-  self.view.fullscreenProgress = _fullscreenProgress;
+  CGFloat progress = _fullscreenProgress;
+  if (self.layoutState.appBarLockedInFullscreen) {
+    progress = 0.0;
+  }
+  self.view.appBarLockedInFullscreen =
+      self.layoutState.appBarLockedInFullscreen;
+  self.view.fullscreenProgress = progress;
   self.view.appBarPosition = position;
   [_appBar updateForAngle:-angle];
   [self updateCutoutRadius:self.layoutState.assistantContainerCutoutRadius];
@@ -196,6 +214,13 @@
         std::clamp(cutoutRadius, kAppBarCornerRadius, kAppBarCornerRadiusMax);
   }
   [_appBar updateCornerRadius:clampedRadius];
+}
+
+// Updates the layout and triggers a redraw of the view.
+- (void)updateAndApplyLayout {
+  [self updateLayout];
+  [self.view setNeedsLayout];
+  [self.view layoutIfNeeded];
 }
 
 - (CGFloat)appBarHeightPortrait {

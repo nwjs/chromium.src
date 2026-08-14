@@ -43,6 +43,7 @@
 #include "third_party/blink/public/mojom/input/input_handler.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
 #include "third_party/blink/renderer/core/core_export.h"
+#include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/html/forms/popup_menu.h"
 #include "third_party/blink/renderer/core/loader/frame_loader.h"
 #include "third_party/blink/renderer/core/loader/navigation_policy.h"
@@ -528,8 +529,10 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
   virtual void DidClearValueInTextField(HTMLFormControlElement&) {}
   virtual void DidUserChangeContentEditableContent(Element&) {}
   virtual void DidEndEditingOnTextField(HTMLInputElement&) {}
-  virtual void HandleKeyboardEventOnTextField(HTMLInputElement&,
-                                              KeyboardEvent&) {}
+  virtual bool HandleKeyboardEventOnEditableElement(HTMLElement&,
+                                                    KeyboardEvent&) {
+    return false;
+  }
   virtual void TextFieldDataListChanged(HTMLInputElement&) {}
 
   // Called when the selected option of a <select> control is changed as a
@@ -542,11 +545,13 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
   // Called when the value of `element` has been changed by JavaScript.
   // `old_value` contains the value before being changed.
   // `was_autofilled` is the state of the field prior to the JS change.
-  // Only called if there is an observable change in the actual value, i.e.
-  // JavaScript setting it to the current value will not trigger this.
-  virtual void JavaScriptChangedValue(HTMLFormControlElement&,
-                                      const String& old_value,
-                                      bool was_autofilled) {}
+  // `value_changed` denotes whether `old_value` is different from the element's
+  // current value (the boolean is passed around instead of being recomputed for
+  // performance reasons).
+  virtual void JavaScriptSetValue(HTMLFormControlElement&,
+                                  const String& old_value,
+                                  bool was_autofilled,
+                                  bool value_changed) {}
 
   // Returns true if the given HTMLFormControlElement is eligible for Autofill
   // by the embedder's Autofill client.
@@ -561,7 +566,13 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
     return gfx::Transform();
   }
 
-  virtual void OnMouseDown(Node&) {}
+  // Called immediately before initiating DOM event dispatch for a pointerdown
+  // event on `frame`.
+  virtual void WillDispatchPointerDown(LocalFrame&) {}
+
+  // Called immediately after a mousedown event or gesture tap has been
+  // dispatched to `mouse_down_node`.
+  virtual void DidDispatchMouseDown(Node&) {}
 
   virtual void DidUpdateBrowserControls() const {}
 
@@ -619,7 +630,16 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
 
   virtual float ZoomFactorForViewportLayout() { return 1; }
 
-  virtual void OnFirstContentfulPaint(const base::TimeDelta& duration) {}
+  // Called when a first contentful paint is observed. `presentation_time` is
+  // the renderer-side presentation timestamp of the paint.
+  virtual void OnFirstContentfulPaint(
+      const base::TimeTicks& presentation_time) {}
+
+  // Called when the outermost main frame's largest contentful paint candidate
+  // changed. `presentation_time` is the renderer-side presentation timestamp of
+  // the current candidate.
+  virtual void OnLargestContentfulPaint(
+      const base::TimeTicks& presentation_time) {}
 
  protected:
   ChromeClient() = default;

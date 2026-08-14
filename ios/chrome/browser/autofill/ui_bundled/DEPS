@@ -1,6 +1,7 @@
 include_rules = [
   # keep-sorted start
   "+components/account_settings",
+  "+components/personal_context/first_run",
   "+ios/chrome/browser/autofill/bnpl/public",
   "+ios/chrome/browser/autofill/bnpl/ui",
   "+ios/chrome/browser/bubble/ui_bundled",
@@ -13,6 +14,7 @@ include_rules = [
   "+ios/chrome/browser/net/model/crurl.h",
   "+ios/chrome/browser/optimization_guide/model",
   "+ios/chrome/browser/passwords/model",
+  "+ios/chrome/browser/personal_context/model",
   "+ios/chrome/browser/settings/ui_bundled/autofill/autofill_constants.h",
   "+ios/chrome/browser/settings/ui_bundled/autofill/autofill_settings_profile_edit_table_view_controller_delegate.h",
   "+ios/chrome/browser/settings/ui_bundled/password",

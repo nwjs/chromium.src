@@ -79,6 +79,10 @@ bool FakeTabSlotController::CanPaintThrobberToLayer() const {
   return paint_throbber_to_layer_;
 }
 
+bool FakeTabSlotController::IsGlassFrame() const {
+  return is_glass_;
+}
+
 SkColor FakeTabSlotController::GetTabSeparatorColor() const {
   return SK_ColorBLACK;
 }
@@ -132,5 +136,6 @@ BrowserWindowInterface* FakeTabSlotController::GetBrowserWindowInterface() {
 
 TabGroup* FakeTabSlotController::GetTabGroup(
     const tab_groups::TabGroupId& group_id) const {
-  return nullptr;
+  return tab_strip_controller_ ? tab_strip_controller_->GetTabGroup(group_id)
+                               : nullptr;
 }

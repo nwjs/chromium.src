@@ -77,7 +77,7 @@ IN_PROC_BROWSER_TEST_F(TabletModePageBehaviorTest,
   ValidateWebPrefs(web_contents, true /* tablet_mode_enabled */);
 
   // Any newly added pages should have the correct tablet mode prefs.
-  Browser* browser_2 = CreateBrowser(browser()->profile());
+  Browser* browser_2 = CreateBrowser(browser()->GetProfile());
   auto* web_contents_2 = GetActiveWebContents(browser_2);
   ASSERT_TRUE(web_contents_2);
   ValidateWebPrefs(web_contents_2, true /* tablet_mode_enabled */);
@@ -109,7 +109,7 @@ IN_PROC_BROWSER_TEST_F(TabletModePageBehaviorTest, ExcludeHostedApps) {
   // Open a new app window.
   Browser::CreateParams params = Browser::CreateParams::CreateForApp(
       "test_browser_app", true /* trusted_source */, gfx::Rect(),
-      browser()->profile(), true);
+      browser()->GetProfile(), true);
   params.initial_show_state = ui::mojom::WindowShowState::kDefault;
   Browser* browser = Browser::Create(params);
   AddBlankTabAndShow(browser);

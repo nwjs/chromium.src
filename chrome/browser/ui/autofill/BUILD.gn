@@ -221,7 +221,7 @@ source_set("impl") {
     "//chrome/browser/ui/page_info",
     "//chrome/browser/ui/passwords",
     "//chrome/browser/webdata_services",
-    "//components/accessibility_annotator/core",
+    "//components/accessibility_annotator/core/annotation_reducer",
     "//components/account_settings",
     "//components/autofill/content/browser",
     "//components/autofill/content/browser:risk_proto",
@@ -268,6 +268,8 @@ source_set("impl") {
       "//chrome/browser/autofill/android:jni_headers",
       "//chrome/browser/keyboard_accessory/android",
       "//chrome/browser/keyboard_accessory/android:impl",
+      "//chrome/browser/touch_to_fill/autofill/android",
+      "//chrome/browser/touch_to_fill/autofill/android:public",
       "//chrome/browser/ui/android/autofill",
       "//components/android_autofill/browser:android",
       "//components/messages/android:feature_flags",
@@ -300,6 +302,7 @@ source_set("impl") {
       "//chrome/browser/feedback",
       "//chrome/browser/profiles:profile_manager",
       "//chrome/browser/profiles:profile_util",
+      "//chrome/browser/ui:chrome_pages",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/desktop_to_mobile_promos:utils",
       "//chrome/browser/ui/page_action",
@@ -419,6 +422,7 @@ source_set("unit_tests") {
       "autofill_field_promo_controller_impl_unittest.cc",
       "autofill_popup_controller_impl_unittest.cc",
       "bubble_manager_impl_unittest.cc",
+      "edit_address_profile_dialog_controller_impl_unittest.cc",
       "save_address_bubble_controller_unittest.cc",
       "update_address_bubble_controller_unittest.cc",
     ]
@@ -427,6 +431,7 @@ source_set("unit_tests") {
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/hats:test_support",
       "//chrome/browser/ui/user_education",
+      "//chrome/test/user_education:impl",
       "//components/tabs:test_support",
     ]
   }
@@ -560,7 +565,6 @@ source_set("test_support_unit") {
     "//chrome/browser/autofill",
     "//chrome/browser/ui",
     "//chrome/test:test_support",
-    "//components/accessibility_annotator/core:test_support",
     "//components/autofill/content/browser:test_support",
     "//components/autofill/core/common:test_support",
     "//testing/gmock",
@@ -595,7 +599,6 @@ if (!is_android) {
       "autofill_ai/autofill_ai_import_data_controller_impl_browsertest.cc",
       "autofill_context_menu_manager_browsertest.cc",
       "delete_address_profile_dialog_controller_impl_browsertest.cc",
-      "edit_address_profile_dialog_controller_impl_browsertest.cc",
     ]
 
     deps = [

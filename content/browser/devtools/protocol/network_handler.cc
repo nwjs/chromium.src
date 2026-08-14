@@ -15,6 +15,7 @@
 
 #include "base/barrier_closure.h"
 #include "base/base64.h"
+#include "base/byte_size.h"
 #include "base/check_deref.h"
 #include "base/command_line.h"
 #include "base/containers/queue.h"
@@ -871,34 +872,19 @@ GetProtocolBlockedSetCookieReason(net::CookieInclusionStatus status) {
   }
   if (status.HasExclusionReason(net::CookieInclusionStatus::ExclusionReason::
                                     EXCLUDE_SAMESITE_STRICT)) {
-    if (status.HasSchemefulDowngradeWarning()) {
-      blockedReasons->push_back(
-          Network::SetCookieBlockedReasonEnum::SchemefulSameSiteStrict);
-    } else {
-      blockedReasons->push_back(
-          Network::SetCookieBlockedReasonEnum::SameSiteStrict);
-    }
+    blockedReasons->push_back(
+        Network::SetCookieBlockedReasonEnum::SchemefulSameSiteStrict);
   }
   if (status.HasExclusionReason(
           net::CookieInclusionStatus::ExclusionReason::EXCLUDE_SAMESITE_LAX)) {
-    if (status.HasSchemefulDowngradeWarning()) {
-      blockedReasons->push_back(
-          Network::SetCookieBlockedReasonEnum::SchemefulSameSiteLax);
-    } else {
-      blockedReasons->push_back(
-          Network::SetCookieBlockedReasonEnum::SameSiteLax);
-    }
+    blockedReasons->push_back(
+        Network::SetCookieBlockedReasonEnum::SchemefulSameSiteLax);
   }
   if (status.HasExclusionReason(
           net::CookieInclusionStatus::ExclusionReason::
               EXCLUDE_SAMESITE_UNSPECIFIED_TREATED_AS_LAX)) {
-    if (status.HasSchemefulDowngradeWarning()) {
-      blockedReasons->push_back(Network::SetCookieBlockedReasonEnum::
-                                    SchemefulSameSiteUnspecifiedTreatedAsLax);
-    } else {
-      blockedReasons->push_back(
-          Network::SetCookieBlockedReasonEnum::SameSiteUnspecifiedTreatedAsLax);
-    }
+    blockedReasons->push_back(Network::SetCookieBlockedReasonEnum::
+                                  SchemefulSameSiteUnspecifiedTreatedAsLax);
   }
   if (status.HasExclusionReason(net::CookieInclusionStatus::ExclusionReason::
                                     EXCLUDE_SAMESITE_NONE_INSECURE)) {
@@ -988,33 +974,19 @@ GetProtocolBlockedCookieReason(net::CookieInclusionStatus status) {
   }
   if (status.HasExclusionReason(net::CookieInclusionStatus::ExclusionReason::
                                     EXCLUDE_SAMESITE_STRICT)) {
-    if (status.HasSchemefulDowngradeWarning()) {
-      blockedReasons->push_back(
-          Network::CookieBlockedReasonEnum::SchemefulSameSiteStrict);
-    } else {
-      blockedReasons->push_back(
-          Network::CookieBlockedReasonEnum::SameSiteStrict);
-    }
+    blockedReasons->push_back(
+        Network::CookieBlockedReasonEnum::SchemefulSameSiteStrict);
   }
   if (status.HasExclusionReason(
           net::CookieInclusionStatus::ExclusionReason::EXCLUDE_SAMESITE_LAX)) {
-    if (status.HasSchemefulDowngradeWarning()) {
-      blockedReasons->push_back(
-          Network::CookieBlockedReasonEnum::SchemefulSameSiteLax);
-    } else {
-      blockedReasons->push_back(Network::CookieBlockedReasonEnum::SameSiteLax);
-    }
+    blockedReasons->push_back(
+        Network::CookieBlockedReasonEnum::SchemefulSameSiteLax);
   }
   if (status.HasExclusionReason(
           net::CookieInclusionStatus::ExclusionReason::
               EXCLUDE_SAMESITE_UNSPECIFIED_TREATED_AS_LAX)) {
-    if (status.HasSchemefulDowngradeWarning()) {
-      blockedReasons->push_back(Network::CookieBlockedReasonEnum::
-                                    SchemefulSameSiteUnspecifiedTreatedAsLax);
-    } else {
-      blockedReasons->push_back(
-          Network::CookieBlockedReasonEnum::SameSiteUnspecifiedTreatedAsLax);
-    }
+    blockedReasons->push_back(Network::CookieBlockedReasonEnum::
+                                  SchemefulSameSiteUnspecifiedTreatedAsLax);
   }
   if (status.HasExclusionReason(net::CookieInclusionStatus::ExclusionReason::
                                     EXCLUDE_SAMESITE_NONE_INSECURE)) {
@@ -1902,13 +1874,20 @@ BuildProtocolDeviceBoundSessionFailedRequest(
   return protocol_failed_request;
 }
 
+// LINT.IfChange(DeviceBoundSessionFetchResult)
 String BuildProtocolDeviceBoundSessionFetchResult(
     net::device_bound_sessions::SessionError::ErrorType type) {
   switch (type) {
     case net::device_bound_sessions::SessionError::ErrorType::kSuccess:
       return protocol::Network::DeviceBoundSessionFetchResultEnum::Success;
-    case net::device_bound_sessions::SessionError::ErrorType::kKeyError:
-      return protocol::Network::DeviceBoundSessionFetchResultEnum::KeyError;
+    case net::device_bound_sessions::SessionError::ErrorType::
+        kSigningKeyGenerationError:
+      return protocol::Network::DeviceBoundSessionFetchResultEnum::
+          SigningKeyGenerationError;
+    case net::device_bound_sessions::SessionError::ErrorType::
+        kAttestationKeyGenerationError:
+      return protocol::Network::DeviceBoundSessionFetchResultEnum::
+          AttestationKeyGenerationError;
     case net::device_bound_sessions::SessionError::ErrorType::kSigningError:
       return protocol::Network::DeviceBoundSessionFetchResultEnum::SigningError;
     case net::device_bound_sessions::SessionError::ErrorType::
@@ -2170,8 +2149,21 @@ String BuildProtocolDeviceBoundSessionFetchResult(
         kCrossOriginRegistrationSiteNotIncluded:
       return protocol::Network::DeviceBoundSessionFetchResultEnum::
           CrossOriginRegistrationSiteNotIncluded;
+    case net::device_bound_sessions::SessionError::ErrorType::
+        kInvalidPreProvisionedKeyInitiatorMissing:
+      return protocol::Network::DeviceBoundSessionFetchResultEnum::
+          InvalidPreProvisionedKeyInitiatorMissing;
+    case net::device_bound_sessions::SessionError::ErrorType::
+        kPreProvisionedKeyAccessNotGranted:
+      return protocol::Network::DeviceBoundSessionFetchResultEnum::
+          PreProvisionedKeyAccessNotGranted;
+    case net::device_bound_sessions::SessionError::ErrorType::
+        kPreProvisionedKeyNotFound:
+      return protocol::Network::DeviceBoundSessionFetchResultEnum::
+          PreProvisionedKeyNotFound;
   }
 }
+// LINT.ThenChange(//third_party/blink/public/devtools_protocol/domains/Network.pdl:DeviceBoundSessionFetchResult)
 
 String BuildProtocolDeviceBoundSessionRefreshResult(
     net::device_bound_sessions::RefreshResult result) {
@@ -2191,9 +2183,6 @@ String BuildProtocolDeviceBoundSessionRefreshResult(
     case net::device_bound_sessions::RefreshResult::kServerError:
       return protocol::Network::RefreshEventDetails::RefreshResultEnum::
           ServerError;
-    case net::device_bound_sessions::RefreshResult::kRefreshQuotaExceeded:
-      return protocol::Network::RefreshEventDetails::RefreshResultEnum::
-          RefreshQuotaExceeded;
     case net::device_bound_sessions::RefreshResult::kFatalError:
       return protocol::Network::RefreshEventDetails::RefreshResultEnum::
           FatalError;
@@ -3382,9 +3371,9 @@ void NetworkHandler::NavigationRequestWillBeSent(
   const blink::mojom::CommitNavigationParams& commit_params =
       nav_request.commit_params();
   bool redirect_emitted_extra_info = false;
-  if (!commit_params.redirect_response.empty()) {
+  if (!commit_params.redirect_params.empty()) {
     const network::mojom::URLResponseHead& head =
-        *commit_params.redirect_response.back();
+        *commit_params.redirect_params.back()->response_head;
     network::mojom::URLResponseHeadDevToolsInfoPtr head_info =
         network::ExtractDevToolsInfo(head);
     redirect_response =
@@ -3692,7 +3681,7 @@ void NetworkHandler::LoadingComplete(
       request_id,
       status.completion_time.ToInternalValue() /
           static_cast<double>(base::Time::kMicrosecondsPerSecond),
-      status.encoded_data_length);
+      status.encoded_data_length.InBytesF());
 }
 
 void NetworkHandler::FetchKeepAliveRequestWillBeSent(
@@ -4698,7 +4687,8 @@ void NetworkHandler::LoadNetworkResource(
     auto loader = DevToolsNetworkResourceLoader::Create(
         std::move(url_loader_factory), std::move(gurl),
         frame->GetLastCommittedOrigin(), frame->ComputeSiteForCookies(),
-        caching, include_credentials, std::move(complete_callback));
+        caching, include_credentials, std::move(complete_callback),
+        frame->IsOutermostMainFrame());
     loaders_.emplace(std::move(loader), std::move(callback));
     return;
   }

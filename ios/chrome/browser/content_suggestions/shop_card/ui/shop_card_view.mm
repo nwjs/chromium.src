@@ -318,7 +318,7 @@ const CGFloat kGradientOverlayBottomAlpha = 0.14;
 }
 
 - (UIImage*)makeDefaultFaviconUIImage {
-  return DefaultSymbolWithPointSize(kGlobeAmericasSymbol, kCenterSymbolSize);
+  return SymbolWithPointSize(SymbolGlobeAmericas, kCenterSymbolSize);
 }
 
 - (void)addFaviconImageAndContainer:(UIImage*)faviconImage {
@@ -384,7 +384,7 @@ const CGFloat kGradientOverlayBottomAlpha = 0.14;
 
   UIImage* retrievedProductImage =
       [UIImage imageWithData:_config.shopCardData.productImage
-                       scale:[UIScreen mainScreen].scale];
+                       scale:self.traitCollection.displayScale];
   _productImage.image = retrievedProductImage;
   _productImage.backgroundColor = UIColor.whiteColor;
   _gradientOverlay = [[GradientView alloc]

@@ -111,6 +111,7 @@ specific_include_rules = {
   ],
   'TabContextMenuItemDelegate\\.java': [
     "+chrome/browser/tabmodel/android/java/src/org/chromium/chrome/browser/tabmodel/TabGroupFeatureUtils.java",
+    "+chrome/browser/contextual_tasks/android/java/src/org/chromium/chrome/browser/contextual_tasks/ContextualTasksUtils.java",
   ],
   'TabImpl\\.java': [
     "+chrome/android/features/vr/java/src/org/chromium/chrome/browser/vr/VrModuleProvider.java",
@@ -132,6 +133,7 @@ specific_include_rules = {
     "+chrome/browser/ui/android/pdf/java/src/org/chromium/chrome/browser/pdf/PdfUtils.java",
     "+chrome/browser/ui/android/pdf/java/src/org/chromium/chrome/browser/pdf/PdfInfo.java",
     "+chrome/android/java/src/org/chromium/chrome/browser/compositor/overlays/strip/StripLayoutUtils.java",
+    "+chrome/android/java/src/org/chromium/chrome/browser/selection",
 
     "-components",
     "+components/android_autofill/browser/java/src/org/chromium/components/autofill",

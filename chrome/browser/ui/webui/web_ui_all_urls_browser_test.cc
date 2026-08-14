@@ -9,6 +9,7 @@
 #include "chrome/browser/contextual_cueing/features.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/webui_urls_for_test.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -22,6 +23,7 @@
 #include "components/search/ntp_features.h"
 #include "components/search_engines/search_engines_switches.h"
 #include "components/variations/variations_switches.h"
+#include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "printing/buildflags/buildflags.h"
@@ -72,6 +74,11 @@ WebUIAllUrlsBrowserTest::WebUIAllUrlsBrowserTest() {
   enable_feature(features::kTabsFromOtherDevicesSidePanel);
   enable_feature(contextual_cueing::kContextualCueingV2);
 
+#if !BUILDFLAG(IS_ANDROID)
+  enable_feature(features::kIsolatedWebAppDevUi);
+  enable_feature(features::kIsolatedWebApps);
+#endif
+
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   enable_feature(switches::kFirstRunDesktopRefresh);
   enable_feature(switches::kFirstRunDesktopChoiceScreenRefresh);
@@ -114,14 +121,15 @@ void WebUIAllUrlsBrowserTest::SetUpCommandLine(
 
 #if BUILDFLAG(IS_CHROMEOS)
 void WebUIAllUrlsBrowserTest::SetUpOnMainThread() {
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       ash::prefs::kSamlInSessionPasswordChangeEnabled, true);
 
   // This is needed to simulate the presence of the ODFS extension, which is
   // checked in `IsMicrosoftOfficeOneDriveIntegrationAllowedAndOdfsInstalled`.
   auto fake_provider = ash::file_system_provider::FakeExtensionProvider::Create(
       extension_misc::kODFSExtensionId);
-  auto* service = ash::file_system_provider::Service::Get(browser()->profile());
+  auto* service =
+      ash::file_system_provider::Service::Get(browser()->GetProfile());
   service->RegisterProvider(std::move(fake_provider));
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)

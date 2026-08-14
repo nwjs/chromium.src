@@ -26,11 +26,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/navigator/browser_navigator.h"
-#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/ai_overlay_dialog/page_context_monitor.h"
 #include "components/input/native_web_keyboard_event.h"
@@ -47,6 +43,7 @@
 #include "content/public/browser/web_contents.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
+#include "ui/base/base_window.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event.h"
 #include "ui/events/event_constants.h"
@@ -350,7 +347,7 @@ void AiOverlayTools::PlayVideo(PlayVideoCallback callback) {
   content::MediaSession* media_session =
       content::MediaSession::GetIfExists(contents);
   if (media_session) {
-    media_session->Resume(content::MediaSession::SuspendType::kUI);
+    media_session->Resume(content::MediaSession::SuspendType::kSystem);
     std::move(callback).Run(std::monostate());
   } else {
     std::move(callback).Run(base::unexpected("No active media session"));
@@ -369,7 +366,7 @@ void AiOverlayTools::PauseVideo(PauseVideoCallback callback) {
   content::MediaSession* media_session =
       content::MediaSession::GetIfExists(contents);
   if (media_session) {
-    media_session->Suspend(content::MediaSession::SuspendType::kUI);
+    media_session->Suspend(content::MediaSession::SuspendType::kSystem);
     std::move(callback).Run(std::monostate());
   } else {
     std::move(callback).Run(base::unexpected("No active media session"));

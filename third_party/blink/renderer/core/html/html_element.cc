@@ -29,6 +29,7 @@
 
 #include "base/containers/adapters.h"
 #include "base/containers/enum_set.h"
+#include "base/feature_list.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/forms/form_control_type.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-blink.h"
@@ -119,6 +120,7 @@
 #include "third_party/blink/renderer/core/html/html_template_element.h"
 #include "third_party/blink/renderer/core/html/menu_safe_triangle.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
+#include "third_party/blink/renderer/core/html/unbounded_event_data.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/input/keyboard_event_manager.h"
 #include "third_party/blink/renderer/core/input_type_names.h"
@@ -131,6 +133,8 @@
 #include "third_party/blink/renderer/core/mathml/mathml_element.h"
 #include "third_party/blink/renderer/core/mathml_names.h"
 #include "third_party/blink/renderer/core/overscroll/overscroll_area_tracker.h"
+#include "third_party/blink/renderer/core/page/chrome_client.h"
+#include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/spatial_navigation.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/paint/timing/container_timing.h"
@@ -147,12 +151,14 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cancellable_task.h"
 #include "third_party/blink/renderer/platform/text/bidi_paragraph.h"
+#include "third_party/blink/renderer/platform/weborigin/scheme_registry.h"
 #include "third_party/blink/renderer/platform/widget/frame_widget.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "third_party/blink/renderer/platform/wtf/text/character_names.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/rect_conversions.h"
 
 namespace blink {
 
@@ -562,6 +568,8 @@ const AttributeTriggers* HTMLElement::TriggersForAttributeName(
        event_type_names::kGotpointercapture, nullptr},
       {html_names::kOninputAttr, kNoWebFeature, event_type_names::kInput,
        nullptr},
+      {html_names::kOninstallresultAttr, kNoWebFeature,
+       event_type_names::kInstallresult, nullptr},
       {html_names::kOninvalidAttr, kNoWebFeature, event_type_names::kInvalid,
        nullptr},
       {html_names::kOnkeydownAttr, kNoWebFeature, event_type_names::kKeydown,
@@ -1589,16 +1597,38 @@ ScriptPromise<IDLUndefined> HTMLElement::showUnboundedElement(
     return promise;
   }
 
-  if (!LocalFrame::HasTransientUserActivation(frame)) {
+  // If you change the preconditions/permissions for unbounded elements, be sure
+  // to update the corresponding browser-side checks in
+  // RenderFrameHostImpl::RequestUnboundedSurface.
+  const SecurityOrigin* security_origin =
+      GetDocument().GetExecutionContext()->GetSecurityOrigin();
+  bool is_privileged =
+      security_origin &&
+      (security_origin->Protocol() == "chrome" ||
+       security_origin->Protocol() == "chrome-untrusted" ||
+       SchemeRegistry::IsWebUIScheme(security_origin->Protocol()));
+  if (!is_privileged &&
+      !RuntimeEnabledFeatures::UnboundedElementOnTheOpenWebEnabled()) {
+    resolver->Reject(MakeGarbageCollected<DOMException>(
+        DOMExceptionCode::kSecurityError,
+        "showUnboundedElement is only supported from privileged contexts."));
+    return promise;
+  }
+
+  if (!is_privileged && !LocalFrame::HasTransientUserActivation(frame)) {
     resolver->Reject(MakeGarbageCollected<DOMException>(
         DOMExceptionCode::kNotAllowedError,
         "API can only be initiated by a user gesture."));
     return promise;
   }
 
+  auto* web_frame = WebLocalFrameImpl::FromFrame(&frame->LocalFrameRoot());
+  WebFrameWidgetImpl* widget =
+      web_frame ? web_frame->FrameWidgetImpl() : nullptr;
   auto* view = GetDocument().View();
-  if (!view || !view->UpdateAllLifecyclePhasesExceptPaint(
-                   DocumentUpdateReason::kJavaScript)) {
+  if (!widget || !view ||
+      !view->UpdateAllLifecyclePhasesExceptPaint(
+          DocumentUpdateReason::kJavaScript)) {
     resolver->Reject(MakeGarbageCollected<DOMException>(
         DOMExceptionCode::kInvalidStateError,
         "The element is not in an active document."));
@@ -1608,6 +1638,10 @@ ScriptPromise<IDLUndefined> HTMLElement::showUnboundedElement(
   if (auto* layout_object = GetLayoutObject()) {
     bounds = layout_object->AbsoluteBoundingBoxRectForUnboundedElement();
     bounds = view->FrameToViewport(bounds);
+    if (auto* local_root_widget = frame->GetWidgetForLocalRoot()) {
+      bounds = gfx::ToRoundedRect(
+          local_root_widget->BlinkSpaceToDIPs(gfx::RectF(bounds)));
+    }
   }
   SetLastSentUnboundedBounds(bounds);
 
@@ -1641,20 +1675,39 @@ ScriptPromise<IDLUndefined> HTMLElement::showUnboundedElement(
       client_receiver;
   auto client_remote = client_receiver.InitWithNewEndpointAndPassRemote();
 
-  if (frame) {
-    if (auto* web_frame =
-            WebLocalFrameImpl::FromFrame(&frame->LocalFrameRoot())) {
-      if (WebFrameWidgetImpl* widget = web_frame->FrameWidgetImpl()) {
-        widget->RegisterActiveUnboundedElement(this, std::move(client_receiver),
-                                               std::move(host_remote));
-      }
-    }
-  }
-
+  widget->RegisterActiveUnboundedElement(this, std::move(client_receiver),
+                                         std::move(host_remote), resolver);
   frame->GetLocalFrameHostRemote().RequestUnboundedSurface(
       std::move(host_receiver), std::move(client_remote), bounds);
-  resolver->Resolve();
+  return promise;
+}
 
+ScriptPromise<IDLUndefined> HTMLElement::hideUnboundedElement(
+    ScriptState* script_state) {
+  DCHECK(RuntimeEnabledFeatures::UnboundedElementEnabled());
+  auto* resolver =
+      MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(script_state);
+  auto promise = resolver->Promise();
+
+  if (!IsUnboundedElementActive()) {
+    resolver->Reject(MakeGarbageCollected<DOMException>(
+        DOMExceptionCode::kInvalidStateError,
+        "The element is not an active unbounded element."));
+    return promise;
+  }
+
+  WebFrameWidgetImpl* widget = nullptr;
+  if (auto* frame = GetDocument().GetFrame()) {
+    if (auto* web_frame =
+            WebLocalFrameImpl::FromFrame(&frame->LocalFrameRoot())) {
+      widget = web_frame->FrameWidgetImpl();
+    }
+  }
+  if (widget) {
+    widget->OnDismissed();
+  }
+
+  resolver->Resolve();
   return promise;
 }
 
@@ -1663,7 +1716,8 @@ bool HTMLElement::IsUnboundedElementActive() const {
          !HasElementFlag(ElementFlags::kIsUnboundedElementActive));
   return HasElementFlag(ElementFlags::kIsUnboundedElementActive);
 }
-void HTMLElement::SetUnboundedElementActive(bool active) {
+void HTMLElement::SetUnboundedElementActive(bool active,
+                                            UnboundedEvents fire_events) {
   DCHECK(RuntimeEnabledFeatures::UnboundedElementEnabled());
   DCHECK(!active || FastHasAttribute(html_names::kUnboundedAttr));
   if (HasElementFlag(ElementFlags::kIsUnboundedElementActive) == active) {
@@ -1699,6 +1753,49 @@ void HTMLElement::SetUnboundedElementActive(bool active) {
     layout_object->AddSubtreePaintPropertyUpdateReason(
         SubtreePaintPropertyUpdateReason::kContainerChainMayChange);
   }
+  if (fire_events == UnboundedEvents::kFire) {
+    auto& event_data = EnsureUnboundedEventData();
+    String old_state = active ? keywords::kClosed : keywords::kOpen;
+    if (event_data.hasPendingEventTask()) {
+      old_state = event_data.pendingEventStartedClosed() ? keywords::kClosed
+                                                         : keywords::kOpen;
+      event_data.cancelPendingEventTask();
+    } else {
+      event_data.setPendingEventStartedClosed(active);
+    }
+    ToggleEvent* event = ToggleEvent::Create(
+        event_type_names::kUnbounded, Event::Cancelable::kNo, old_state,
+        active ? keywords::kOpen : keywords::kClosed, nullptr);
+    event->SetTarget(this);
+
+    event_data.setPendingEventTask(PostCancellableTask(
+        *GetDocument().GetTaskRunner(TaskType::kDOMManipulation), FROM_HERE,
+        BindOnce(
+            [](HTMLElement* element, ToggleEvent* event) {
+              if (element) {
+                element->DispatchEvent(*event);
+              }
+            },
+            WrapPersistent(this), WrapPersistent(event))));
+  } else {
+    DCHECK_EQ(fire_events, UnboundedEvents::kSuppress);
+    if (auto* event_data = GetUnboundedEventData()) {
+      event_data->cancelPendingEventTask();
+    }
+  }
+}
+
+UnboundedEventData* HTMLElement::GetUnboundedEventData() const {
+  if (const NodeRareData* data = RareData()) {
+    return data->GetUnboundedEventData();
+  }
+  return nullptr;
+}
+
+UnboundedEventData& HTMLElement::EnsureUnboundedEventData() {
+  auto pair = EnsureRareData().EnsureUnboundedEventData();
+  data_ = pair.second;
+  return pair.first.get();
 }
 
 gfx::Rect HTMLElement::LastSentUnboundedBounds() const {
@@ -2630,10 +2727,7 @@ enum class PopoverAncestorOptions {
   kMinValue = kExclusive,
   kMaxValue = kIncludeManualPopovers,
 };
-using PopoverAncestorOptionsSet =
-    base::EnumSet<PopoverAncestorOptions,
-                  PopoverAncestorOptions::kMinValue,
-                  PopoverAncestorOptions::kMaxValue>;
+using PopoverAncestorOptionsSet = base::EnumSet<PopoverAncestorOptions>;
 
 template <typename UnaryPredicate>
 const HTMLElement* NearestMatchingAncestor(
@@ -3757,7 +3851,7 @@ void HTMLElement::RemovedFrom(ContainerNode& insertion_point) {
   if (RuntimeEnabledFeatures::UnboundedElementEnabled() &&
       IsUnboundedElementActive() &&
       !GetDocument().StatePreservingAtomicMoveInProgress()) {
-    SetUnboundedElementActive(false);
+    SetUnboundedElementActive(false, UnboundedEvents::kSuppress);
   }
 
   Element::RemovedFrom(insertion_point);
@@ -3974,11 +4068,19 @@ void HTMLElement::DefaultEventHandler(Event& event) {
     return;
   }
 
-  if (auto* keyboard_event = DynamicTo<KeyboardEvent>(event);
-      keyboard_event && event.type() == event_type_names::kKeypress) {
-    HandleKeypressEvent(*keyboard_event);
-    if (event.DefaultHandled()) {
-      return;
+  if (auto* keyboard_event = DynamicTo<KeyboardEvent>(event)) {
+    if (base::FeatureList::IsEnabled(
+            blink::features::kAutofillKeydownEditableElement) &&
+        event.type() == event_type_names::kKeydown) {
+      HandleKeydownEvent(*keyboard_event);
+      if (event.DefaultHandled()) {
+        return;
+      }
+    } else if (event.type() == event_type_names::kKeypress) {
+      HandleKeypressEvent(*keyboard_event);
+      if (event.DefaultHandled()) {
+        return;
+      }
     }
   }
 
@@ -4026,6 +4128,29 @@ bool HTMLElement::MatchesReadOnlyPseudoClass() const {
 // or editable and are neither input elements nor textarea elements
 bool HTMLElement::MatchesReadWritePseudoClass() const {
   return IsEditableOrEditingHost(*this);
+}
+
+void HTMLElement::HandleKeydownEvent(KeyboardEvent& event) {
+  const bool is_focused_contenteditable = [this]() {
+    if (!IsFocusedElementInDocument()) {
+      return false;
+    }
+    // blink::IsEditable() may depend on the computed style, so we may need to
+    // update the style.
+    GetDocument().UpdateStyleAndLayoutTree();
+    return blink::IsEditable(*this);
+  }();
+
+  if (is_focused_contenteditable) {
+    // Handles only contenteditables. TextFieldInputType and HTMLTextAreaElement
+    // analogously handle the event for <input> and <textarea>.
+    GetDocument().UpdateStyleAndLayoutTree();
+    if (Page* page = GetDocument().GetPage();
+        page && page->GetChromeClient().HandleKeyboardEventOnEditableElement(
+                    *this, event)) {
+      event.SetDefaultHandled();
+    }
+  }
 }
 
 void HTMLElement::HandleKeypressEvent(KeyboardEvent& event) {
@@ -4260,6 +4385,13 @@ void HTMLElement::OnContainerTimingAttrChanged(
     SetSelfOrAncestorHasContainerTiming();
     UpdateDescendantHasContainerTiming(true /* has_container_timing */);
   }
+
+  if (RuntimeEnabledFeatures::ContainerTimingPrepaintTraversalEnabled(
+          GetExecutionContext())) {
+    if (auto* layout_object = GetLayoutObject()) {
+      layout_object->MarkContainerTimingChanged();
+    }
+  }
 }
 
 void HTMLElement::OnContainerTimingIgnoreAttrChanged(
@@ -4289,6 +4421,13 @@ void HTMLElement::OnContainerTimingIgnoreAttrChanged(
     // the tree if the node has ignore only
     ClearSelfOrAncestorHasContainerTiming();
     UpdateDescendantHasContainerTiming(false /* has_container_timing */);
+  }
+
+  if (RuntimeEnabledFeatures::ContainerTimingPrepaintTraversalEnabled(
+          GetExecutionContext())) {
+    if (auto* layout_object = GetLayoutObject()) {
+      layout_object->MarkContainerTimingChanged();
+    }
   }
 }
 

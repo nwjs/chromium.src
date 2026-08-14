@@ -86,6 +86,10 @@ void WebGestureEvent::Coalesce(const WebInputEvent& event) {
   if (GetType() == WebInputEvent::Type::kGestureScrollUpdate) {
     data.scroll_update.delta_x += gesture_event.data.scroll_update.delta_x;
     data.scroll_update.delta_y += gesture_event.data.scroll_update.delta_y;
+    data.scroll_update.delta_x_unconstrained +=
+        gesture_event.data.scroll_update.delta_x_unconstrained;
+    data.scroll_update.delta_y_unconstrained +=
+        gesture_event.data.scroll_update.delta_y_unconstrained;
   } else if (GetType() == WebInputEvent::Type::kGesturePinchUpdate) {
     data.pinch_update.scale *= gesture_event.data.pinch_update.scale;
     // Ensure the scale remains bounded above 0 and below Infinity so that
@@ -355,6 +359,10 @@ WebGestureEvent::GenerateInjectedScrollbarGestureScroll(
   } else if (type == WebInputEvent::Type::kGestureScrollUpdate) {
     generated_gesture_event->data.scroll_update.delta_x = -scroll_delta.x();
     generated_gesture_event->data.scroll_update.delta_y = -scroll_delta.y();
+    generated_gesture_event->data.scroll_update.delta_x_unconstrained =
+        -scroll_delta.x();
+    generated_gesture_event->data.scroll_update.delta_y_unconstrained =
+        -scroll_delta.y();
     generated_gesture_event->data.scroll_update.inertial_phase =
         WebGestureEvent::InertialPhaseState::kNonMomentum;
     generated_gesture_event->data.scroll_update.delta_units = granularity;

@@ -4,6 +4,7 @@
 
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/extensions/extensions_menu_coordinator.h"
 #include "chrome/browser/ui/views/extensions/extensions_menu_delegate_desktop.h"
 #include "chrome/browser/ui/views/extensions/extensions_menu_site_permissions_page_view.h"
@@ -15,7 +16,6 @@
 #include "content/public/test/test_navigation_observer.h"
 #include "extensions/common/extension_features.h"
 #include "extensions/test/permissions_manager_waiter.h"
-#include "ui/views/controls/button/toggle_button.h"
 
 namespace {
 
@@ -55,8 +55,9 @@ class ExtensionsMenuSitePermissionsPageViewInteractiveUITest
 
 ExtensionsMenuSitePermissionsPageViewInteractiveUITest::
     ExtensionsMenuSitePermissionsPageViewInteractiveUITest() {
-  scoped_feature_list_.InitAndEnableFeature(
-      extensions_features::kExtensionsMenuAccessControl);
+  scoped_feature_list_.InitWithFeatures(
+      {extensions_features::kExtensionsMenuAccessControl},
+      {features::kExtensionsPinnedByDefault});
 }
 
 void ExtensionsMenuSitePermissionsPageViewInteractiveUITest::
@@ -132,7 +133,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsMenuSitePermissionsPageViewInteractiveUITest,
 
   // By default, extension should have injected since site has "customize by
   // extension" site setting and is granted access.
-  auto* permissions_manager = PermissionsManager::Get(browser()->profile());
+  auto* permissions_manager = PermissionsManager::Get(browser()->GetProfile());
   EXPECT_EQ(permissions_manager->GetUserSiteSetting(url_origin),
             PermissionsManager::UserSiteSetting::kCustomizeByExtension);
   EXPECT_TRUE(DidInjectScript(web_contents));

@@ -41,6 +41,7 @@
 #include "components/autofill/core/browser/form_import/form_data_importer_test_api.h"
 #include "components/autofill/core/browser/form_import/payments/payments_form_data_importer.h"
 #include "components/autofill/core/browser/form_import/payments/payments_form_data_importer_test_api.h"
+#include "components/autofill/core/browser/foundations/autofill_manager_test_api.h"
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
 #include "components/autofill/core/browser/foundations/test_autofill_driver.h"
 #include "components/autofill/core/browser/foundations/test_browser_autofill_manager.h"
@@ -371,12 +372,14 @@ class CreditCardSaveManagerTest
 
   void FormsSeen(const std::vector<FormData>& forms) {
     autofill_manager().OnFormsSeen(/*updated_forms=*/forms,
-                                   /*removed_forms=*/{});
+                                   /*removed_forms=*/{},
+                                   AutofillManagerTestApi::pass_key());
   }
 
   void FormSubmitted(const FormData& form) {
-    autofill_manager().OnFormSubmitted(
-        form, mojom::SubmissionSource::FORM_SUBMISSION);
+    autofill_manager().OnFormSubmitted(form,
+                                       mojom::SubmissionSource::FORM_SUBMISSION,
+                                       AutofillManagerTestApi::pass_key());
   }
 
   void UserHasAcceptedCardUpload(
@@ -866,6 +869,84 @@ TEST_F(CreditCardSaveManagerTest, SaveCreditCardLocallyWithNumStrikes) {
 
   FormSubmitted(credit_card_form);
   EXPECT_FALSE(credit_card_save_manager().CreditCardWasUploaded());
+}
+
+// Tests that local card save is offered as kCardSaveOnly when CVC is empty.
+TEST_F(CreditCardSaveManagerTest, SaveCreditCardLocally_SaveTypeWithoutCvc) {
+  credit_card_save_manager().SetCreditCardUploadEnabled(false);
+  autofill_client().set_is_cvc_saving_supported(true);
+  personal_data().test_payments_data_manager().SetIsPaymentCvcStorageEnabled(
+      true);
+  prefs::SetPaymentCvcStorage(autofill_client().GetPrefs(), true);
+
+  FormData credit_card_form = CreateTestCreditCardFormData();
+  FormsSeen(std::vector<FormData>(1, credit_card_form));
+
+  test_api(credit_card_form).field(0).set_value(u"Jane Doe");
+  test_api(credit_card_form).field(1).set_value(u"4111111111111111");
+  test_api(credit_card_form)
+      .field(2)
+      .set_value(ASCIIToUTF16(test::NextMonth()));
+  test_api(credit_card_form).field(3).set_value(ASCIIToUTF16(test::NextYear()));
+  test_api(credit_card_form).field(4).set_value(u"");  // Empty CVC
+
+  EXPECT_CALL(
+      payments_autofill_client(),
+      ShowSaveCreditCardLocally(
+          /*card=*/_,
+          /*options=*/
+          Field(&payments::PaymentsAutofillClient::SaveCreditCardOptions::
+                    card_save_type,
+                payments::PaymentsAutofillClient::CardSaveType::kCardSaveOnly),
+          /*callback=*/_))
+      .WillOnce([](const CreditCard&, SaveCreditCardOptions,
+                   payments::PaymentsAutofillClient::LocalSaveCardPromptCallback
+                       callback) {
+        std::move(callback).Run(payments::PaymentsAutofillClient::
+                                    SaveCardOfferUserDecision::kAccepted);
+      });
+
+  FormSubmitted(credit_card_form);
+}
+
+// Tests that local card save is offered as kCardSaveWithCvc when CVC is
+// present.
+TEST_F(CreditCardSaveManagerTest, SaveCreditCardLocally_SaveTypeWithCvc) {
+  credit_card_save_manager().SetCreditCardUploadEnabled(false);
+  autofill_client().set_is_cvc_saving_supported(true);
+  personal_data().test_payments_data_manager().SetIsPaymentCvcStorageEnabled(
+      true);
+  prefs::SetPaymentCvcStorage(autofill_client().GetPrefs(), true);
+
+  FormData credit_card_form = CreateTestCreditCardFormData();
+  FormsSeen(std::vector<FormData>(1, credit_card_form));
+
+  test_api(credit_card_form).field(0).set_value(u"Jane Doe");
+  test_api(credit_card_form).field(1).set_value(u"4111111111111111");
+  test_api(credit_card_form)
+      .field(2)
+      .set_value(ASCIIToUTF16(test::NextMonth()));
+  test_api(credit_card_form).field(3).set_value(ASCIIToUTF16(test::NextYear()));
+  test_api(credit_card_form).field(4).set_value(u"123");  // Present CVC
+
+  EXPECT_CALL(
+      payments_autofill_client(),
+      ShowSaveCreditCardLocally(
+          /*card=*/_,
+          /*options=*/
+          Field(
+              &payments::PaymentsAutofillClient::SaveCreditCardOptions::
+                  card_save_type,
+              payments::PaymentsAutofillClient::CardSaveType::kCardSaveWithCvc),
+          /*callback=*/_))
+      .WillOnce([](const CreditCard&, SaveCreditCardOptions,
+                   payments::PaymentsAutofillClient::LocalSaveCardPromptCallback
+                       callback) {
+        std::move(callback).Run(payments::PaymentsAutofillClient::
+                                    SaveCardOfferUserDecision::kAccepted);
+      });
+
+  FormSubmitted(credit_card_form);
 }
 
 // TODO(crbug.com/40947875): Remove duplicate code present between server and

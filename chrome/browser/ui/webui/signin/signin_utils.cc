@@ -9,7 +9,6 @@
 #include "chrome/browser/policy/cloud/user_policy_signin_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -43,7 +42,7 @@ EnterpriseProfileCreationDialogParams::EnterpriseProfileCreationDialogParams(
     bool user_already_signed_in,
     bool profile_creation_required_by_policy,
     bool show_link_data_option,
-    SigninChoiceCallbackVariant process_user_choice_callback,
+    EnterpriseDisclaimerResultCallbackVariant process_user_choice_callback,
     base::OnceClosure done_callback,
     base::RepeatingClosure retry_callback)
     : account_info(account_info),
@@ -57,22 +56,21 @@ EnterpriseProfileCreationDialogParams::EnterpriseProfileCreationDialogParams(
 
 EnterpriseProfileCreationDialogParams::EnterpriseProfileCreationDialogParams(
     AccountInfo account_info,
-    SigninChoiceCallbackVariant process_user_choice_callback,
-    base::OnceClosure done_callback)
+    DeviceSignalsDisclaimerCallback process_user_choice_callback,
+    bool is_modal_dialog)
     : account_info(account_info),
       is_device_signals_disclaimer(true),
-      process_user_choice_callback(std::move(process_user_choice_callback)),
-      done_callback(std::move(done_callback)) {}
+      is_device_signals_disclaimer_modal(is_modal_dialog),
+      process_user_choice_callback(std::move(process_user_choice_callback)) {}
 
 // static
 std::unique_ptr<EnterpriseProfileCreationDialogParams>
 EnterpriseProfileCreationDialogParams::CreateForDeviceSignalsDisclaimer(
     AccountInfo account_info,
-    SigninChoiceCallbackVariant process_user_choice_callback,
-    base::OnceClosure done_callback) {
+    DeviceSignalsDisclaimerCallback process_user_choice_callback,
+    bool is_modal_dialog) {
   return base::WrapUnique(new EnterpriseProfileCreationDialogParams(
-      account_info, std::move(process_user_choice_callback),
-      std::move(done_callback)));
+      account_info, std::move(process_user_choice_callback), is_modal_dialog));
 }
 
 EnterpriseProfileCreationDialogParams::
@@ -121,7 +119,7 @@ base::TimeDelta GetMinorModeRestrictionsDeadline() {
 #endif
 }
 
-void SetInitializedModalHeight(Browser* browser,
+void SetInitializedModalHeight(BrowserWindowInterface* browser,
                                content::WebUI* web_ui,
                                const base::ListValue& args) {
   if (!browser) {

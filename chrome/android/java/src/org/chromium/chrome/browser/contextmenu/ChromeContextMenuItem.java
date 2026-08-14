@@ -18,11 +18,13 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.DefaultBrowserMenuUtils;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
+import org.chromium.chrome.browser.translate.TranslateBridge;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.search_engines.TemplateUrl;
 import org.chromium.ui.text.SpanApplier;
@@ -30,6 +32,7 @@ import org.chromium.ui.text.SpanApplier.SpanInfo;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.Locale;
 
 /** List of all predefined Context Menu Items available in Chrome. */
 @NullMarked
@@ -84,7 +87,10 @@ class ChromeContextMenuItem {
         Item.INSPECT_ELEMENT,
         Item.COPY_VIDEO_FRAME,
         Item.DOWNLOAD_VIDEO_FRAME,
-        Item.READING_MODE
+        Item.READING_MODE,
+        Item.SEND_TAB_TO_SELF,
+        Item.TRANSLATE,
+        Item.CREATE_QR_CODE
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface Item {
@@ -149,8 +155,11 @@ class ChromeContextMenuItem {
         int COPY_VIDEO_FRAME = 47;
         int DOWNLOAD_VIDEO_FRAME = 48;
         int READING_MODE = 49;
+        int SEND_TAB_TO_SELF = 50;
+        int TRANSLATE = 51;
+        int CREATE_QR_CODE = 52;
         // ALWAYS UPDATE!
-        int NUM_ENTRIES = 50;
+        int NUM_ENTRIES = 53;
     }
 
     /** Mapping from {@link Item} to the ID found in the ids.xml. */
@@ -205,6 +214,9 @@ class ChromeContextMenuItem {
         R.id.contextmenu_copy_video_frame, // Item.COPY_VIDEO_FRAME
         R.id.contextmenu_download_video_frame, // Item.DOWNLOAD_VIDEO_FRAME
         R.id.contextmenu_open_in_reading_mode, // Item.READING_MODE
+        R.id.contextmenu_send_tab_to_self, // Item.SEND_TAB_TO_SELF
+        R.id.contextmenu_translate, // Item.TRANSLATE
+        R.id.contextmenu_create_qr_code, // Item.CREATE_QR_CODE
     };
 
     /** Mapping from {@link Item} to the ID of the string that describes the action of the item. */
@@ -259,6 +271,9 @@ class ChromeContextMenuItem {
         R.string.contextmenu_copy_video_frame, // Item.COPY_VIDEO_FRAME
         R.string.contextmenu_download_video_frame, // Item.DOWNLOAD_VIDEO_FRAME
         R.string.contextmenu_open_in_reading_mode, // Item.READING_MODE
+        R.string.menu_send_to_devices, // Item.SEND_TAB_TO_SELF
+        R.string.contextmenu_translate, // Item.TRANSLATE
+        R.string.contextmenu_create_qr_code, // Item.CREATE_QR_CODE
     };
 
     /**
@@ -283,6 +298,10 @@ class ChromeContextMenuItem {
         return STRING_IDS[item];
     }
 
+    private static boolean isSaveAsEnabled() {
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.ENABLE_DOWNLOAD_SAVE_AS_CONTEXT_MENU);
+    }
+
     /**
      * Transforms the id of the item into a string. It manages special cases that need minor changes
      * due to templating.
@@ -296,6 +315,21 @@ class ChromeContextMenuItem {
     public static CharSequence getTitle(
             Context context, Profile profile, @Item int item, boolean showInProductHelp) {
         switch (item) {
+            case Item.SAVE_LINK_AS:
+                if (isSaveAsEnabled()) {
+                    return context.getString(R.string.contextmenu_save_link_as);
+                }
+                break;
+            case Item.SAVE_IMAGE:
+                if (isSaveAsEnabled()) {
+                    return context.getString(R.string.contextmenu_save_image_as);
+                }
+                break;
+            case Item.SAVE_VIDEO:
+                if (isSaveAsEnabled()) {
+                    return context.getString(R.string.contextmenu_save_video_as);
+                }
+                break;
             case Item.OPEN_IN_BROWSER_ID:
                 return DefaultBrowserMenuUtils.getTitleOpenInDefaultBrowser(false);
             case Item.SEARCH_BY_IMAGE:
@@ -317,6 +351,12 @@ class ChromeContextMenuItem {
                         context,
                         item,
                         ChromePreferenceKeys.CONTEXT_MENU_OPEN_IMAGE_IN_EPHEMERAL_TAB_CLICKED,
+                        showInProductHelp);
+            case Item.SEARCH_TAB_WITH_GOOGLE_LENS:
+                return addOrRemoveNewLabel(
+                        context,
+                        item,
+                        ChromePreferenceKeys.CONTEXT_MENU_SEARCH_TAB_WITH_GOOGLE_LENS_CLICKED,
                         showInProductHelp);
             case Item.SEARCH_IMAGE_WITH_GOOGLE_LENS:
                 return addOrRemoveNewLabel(
@@ -341,7 +381,17 @@ class ChromeContextMenuItem {
                 }
                 break;
             case Item.DOWNLOAD_VIDEO_FRAME:
+                if (isSaveAsEnabled()) {
+                    return context.getString(R.string.contextmenu_save_video_frame_as);
+                }
                 return context.getString(R.string.contextmenu_download_video_frame);
+            case Item.TRANSLATE:
+                // Language of the user's translate preference
+                String targetLanguage = TranslateBridge.getTargetLanguageForChromium(profile);
+                Locale uiLocale = context.getResources().getConfiguration().getLocales().get(0);
+                String languageName =
+                        Locale.forLanguageTag(targetLanguage).getDisplayName(uiLocale);
+                return context.getString(getStringId(item), languageName);
             default:
                 return context.getString(getStringId(item));
         }

@@ -12,8 +12,6 @@
 #import "ios/chrome/browser/intelligence/actor/tools/model/action_target_java_script_feature.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/web_actor_tool.h"
 
-class ProfileIOS;
-
 namespace web {
 class WebState;
 }  // namespace web
@@ -27,11 +25,12 @@ class ClickTool : public WebActorTool {
  public:
   ~ClickTool() override;
 
-  static base::expected<std::unique_ptr<ClickTool>, ToolExecutionResult> Create(
-      const optimization_guide::proto::ClickAction& action,
-      ProfileIOS* profile);
+  static std::unique_ptr<ClickTool> Create(
+      base::WeakPtr<web::WebState> web_state,
+      const optimization_guide::proto::ClickAction& action);
 
   // ActorTool:
+  void Validate(ToolExecutionCallback callback) override;
   void Execute(ToolExecutionCallback callback) override;
   base::WeakPtr<web::WebState> GetTargetWebState() const override;
   ToolType GetToolType() const override;
@@ -43,11 +42,11 @@ class ClickTool : public WebActorTool {
       base::expected<ActionTargetJavaScriptFeature::TargetFrameResult,
                      ToolExecutionResult> result);
 
-  ClickTool(const optimization_guide::proto::ClickAction& action,
-            base::WeakPtr<web::WebState> web_state);
+  ClickTool(base::WeakPtr<web::WebState> web_state,
+            const optimization_guide::proto::ClickAction& action);
 
   optimization_guide::proto::ClickAction action_;
-  base::WeakPtr<web::WebState> web_state_;
+  base::WeakPtr<web::WebState> web_state_ = nullptr;
   raw_ptr<ClickToolJavaScriptFeature> js_feature_ = nullptr;
   base::WeakPtrFactory<ClickTool> weak_ptr_factory_{this};
 };

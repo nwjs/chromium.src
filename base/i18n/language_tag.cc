@@ -5,13 +5,16 @@
 #include "base/i18n/language_tag.h"
 
 #include <algorithm>
+#include <ostream>
 #include <utility>
 
 #include "base/check_op.h"
 #include "base/i18n/bcp47_extensions.h"
+#include "base/i18n/internal/bcp47_parser.h"
 #include "base/i18n/internal/legacy_icu_converter.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 
 namespace base::i18n {
@@ -86,74 +89,94 @@ std::string LanguageTag::ToLegacyICUFormat() const {
   }
 
   base::StrAppend(&legacy_code,
-                  {"@", internal::ConvertBcp47UnicodeKeywordsToLegacyCode(
+                  {"@", i18n_internal::ConvertBcp47UnicodeKeywordsToLegacyCode(
                             unicode_extension->keywords())});
   return legacy_code;
+}
+
+LanguageTag LanguageTag::WithExtensionStringInternal(
+    char key,
+    std::string_view subtags) const {
+  std::optional<i18n_internal::ParsedBcp47Tag> parsed =
+      i18n_internal::ParseBcp47Tag(tag_.AsString());
+  if (!parsed) {
+    return *this;
+  }
+
+  for (std::pair<char, std::vector<std::string_view>>& extension :
+       parsed->extensions) {
+    if (extension.first == key) {
+      extension.second = base::SplitStringPiece(
+          subtags, "-", base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
+      return LanguageTag(i18n_internal::GetBcp47TagPieces(*parsed));
+    }
+  }
+
+  parsed->extensions.emplace_back(
+      key, base::SplitStringPiece(subtags, "-", base::KEEP_WHITESPACE,
+                                  base::SPLIT_WANT_ALL));
+  // Canonicalization applied to have all the extensions sorted by singleton.
+  std::ranges::sort(parsed->extensions);
+  return LanguageTag(i18n_internal::GetBcp47TagPieces(*parsed));
+}
+
+LanguageTag LanguageTag::WithLanguageSubtagOnly() const {
+  CHECK(language_subtag().size() >= 2);
+  return LanguageTag(ImmutableStringType({language_subtag()}));
 }
 
 LanguageTag::LanguageTag(ImmutableStringType tag) : tag_(std::move(tag)) {
   CHECK(tag_string().size() >= 2);
 }
 
-std::optional<RegionSubtag> LanguageTag::region_subtag() const {
-  std::string_view tag = tag_.AsString();
-  // Region tags are at least 2 chars, and language is at least 2.
-  // "en-US" is 5 chars.
-  if (tag.size() < 3) {
-    return std::nullopt;
-  }
-
-  size_t first_hyphen = tag.find('-');
-  if (first_hyphen == std::string_view::npos) {
-    return std::nullopt;
-  }
-
-  size_t second_hyphen = tag.find('-', first_hyphen + 1);
-
-  size_t second_subtag_len;
-  if (second_hyphen == std::string_view::npos) {
-    second_subtag_len = tag.size() - first_hyphen - 1;
-  } else {
-    second_subtag_len = second_hyphen - first_hyphen - 1;
-  }
-
-  // BCP47 subtag rules:
-  // - Language: 2-3 characters (at the start).
-  // - Script: Exactly 4 characters (e.g., "Latn", "Hant").
-  // - Region: 2 characters (ISO 3166-1 alpha-2) or 3 digits (UN M.49).
-  // - Extension: 1 character prefix (e.g., "u-", "x-").
-  // - Variant: 5-8 characters (or 4 if it starts with a digit).
-
-  // Check if the second subtag is a region tag (length 2 or 3).
-  // This effectively skips single-character extensions and 4-character scripts.
-  if (second_subtag_len >= 2 && second_subtag_len <= 3) {
-    return RegionSubtag(tag.substr(first_hyphen + 1, second_subtag_len));
-  }
-
-  // If the second subtag was not a region, it might be a script (length 4).
-  // If so, the region could be the third subtag.
-  if (second_subtag_len != 4 || second_hyphen == std::string_view::npos) {
-    return std::nullopt;
-  }
-
-  // Extract the third subtag and check if it's a region (length 2 or 3).
-  size_t third_hyphen = tag.find('-', second_hyphen + 1);
-  size_t third_subtag_len;
-  if (third_hyphen == std::string_view::npos) {
-    third_subtag_len = tag.size() - second_hyphen - 1;
-  } else {
-    third_subtag_len = third_hyphen - second_hyphen - 1;
-  }
-
-  if (third_subtag_len >= 2 && third_subtag_len <= 3) {
-    return RegionSubtag(tag.substr(second_hyphen + 1, third_subtag_len));
-  }
-
-  return std::nullopt;
-}
-
 std::string_view LanguageTag::GetExtensionStringInternal(char key) const {
   return GetExtensionString(tag_.AsString(), key);
+}
+
+std::optional<UnicodeExtension> LanguageTag::GetExtension(
+    bcp47_extensions::Traits<'u'> traits) const {
+  std::string_view extension = GetExtensionStringInternal('u');
+  if (extension.empty()) {
+    return std::nullopt;
+  }
+
+  return traits.Factory(base::PassKey<LanguageTag>(), extension);
+}
+
+std::optional<PrivateUseSubtags> LanguageTag::GetExtension(
+    bcp47_extensions::Traits<'x'> traits) const {
+  std::string_view extension = GetExtensionStringInternal('x');
+  if (extension.empty()) {
+    return std::nullopt;
+  }
+
+  return traits.Factory(base::PassKey<LanguageTag>(), extension);
+}
+
+LanguageTag LanguageTag::WithExtension(
+    const UnicodeExtension& extension) const {
+  return WithExtensionStringInternal(extension.singleton(),
+                                     extension.SubtagsString());
+}
+
+LanguageTag LanguageTag::WithExtension(
+    const PrivateUseSubtags& extension) const {
+  return WithExtensionStringInternal(extension.singleton(),
+                                     extension.SubtagsString());
+}
+
+LanguageTag LanguageTag::WithExtension(const Extension& extension) const {
+  return WithExtensionStringInternal(extension.singleton(),
+                                     extension.SubtagsString());
+}
+
+std::ostream& operator<<(std::ostream& os, const LanguageTag& lt) {
+  return os << lt.tag_string();
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const std::optional<LanguageTag>& opt) {
+  return opt ? os << *opt : os << "nullopt";
 }
 
 }  // namespace base::i18n

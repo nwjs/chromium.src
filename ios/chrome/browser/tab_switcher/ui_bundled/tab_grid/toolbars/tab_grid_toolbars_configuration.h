@@ -22,12 +22,11 @@
 // but not enabled (grayed out).
 @property(nonatomic) BOOL closeAllButton;
 @property(nonatomic) BOOL selectTabsButton;
-@property(nonatomic) BOOL undoButton;
 @property(nonatomic) BOOL overflowMenuButton;
 @property(nonatomic) BOOL closeOtherTabsButton;
 
 // YES if the button should be enabled. If NO, the button is grayed out.
-@property(nonatomic) BOOL doneButton;
+@property(nonatomic) BOOL exitTabGridButton;
 @property(nonatomic) BOOL newTabButton;
 
 // YES if the button should be displayed.

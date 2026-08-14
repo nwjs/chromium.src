@@ -477,8 +477,8 @@ bool SiteInfo::SchemeIs(std::string_view scheme) const {
   return site_url_.SchemeIs(scheme);
 }
 
-std::string SiteInfo::GetHost() const {
-  return site_url_.GetHost();
+std::string_view SiteInfo::GetHost() const {
+  return site_url_.host();
 }
 
 const GURL& SiteInfo::GetDeprecatedSiteURL() const {
@@ -940,6 +940,18 @@ AgentClusterKey SiteInfo::GetAgentClusterKeyForURL(
   OriginAgentClusterIsolationState oac_isolation_state =
       url_info.oac_header_request.value_or(
           isolation_context.default_isolation_state());
+
+  // We want to skip process-isolation if this is an ad URL without an explicit
+  // header.
+  if (url_info.matches_ad_filter_with_host &&
+      base::FeatureList::IsEnabled(features::kExcludeAdsFromOriginIsolation) &&
+      !url_info.oac_header_request.has_value() &&
+      oac_isolation_state.is_origin_agent_cluster()) {
+    oac_isolation_state =
+        OriginAgentClusterIsolationState::CreateForOriginAgentCluster(
+            /*had_oac_request=*/false,
+            /*requires_origin_keyed_process=*/false);
+  }
 
   // Now check if the requested isolation state should be overridden by an OAC
   // isolation state already stored for the BrowsingInstance. This happens when

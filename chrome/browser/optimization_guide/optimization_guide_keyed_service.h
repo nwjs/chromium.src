@@ -16,6 +16,7 @@
 #include "chrome/browser/optimization_guide/model_execution/optimization_guide_global_state.h"
 #include "chrome/browser/profiles/profile_observer.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "components/optimization_guide/core/delivery/model_info.h"
 #include "components/optimization_guide/core/delivery/optimization_guide_model_provider.h"
 #include "components/optimization_guide/core/hints/optimization_guide_decider.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
@@ -54,7 +55,6 @@ class ChromeHintsManager;
 class ModelExecutionEnabledBrowserTest;
 class ModelExecutionLiveTest;
 class ModelExecutionManager;
-class ModelInfo;
 class ModelQualityLogsUploaderService;
 class ModelValidatorKeyedService;
 class OnDeviceModelAvailabilityObserver;
@@ -224,6 +224,18 @@ class OptimizationGuideKeyedService
       const std::vector<optimization_guide::proto::OptimizationType>&
           optimization_types);
 
+  // Adds hints for a URL with provided optimization types and metadata to the
+  // optimization guide. For testing purposes only. This will flush any
+  // callbacks for |url| that were registered via |CanApplyOptimization|. If no
+  // applicable callbacks were registered, this will just add the hint for later
+  // use.
+  void AddHintWithMultipleOptimizationsForTesting(
+      const GURL& url,
+      const std::vector<
+          std::pair<optimization_guide::proto::OptimizationType,
+                    std::optional<optimization_guide::OptimizationMetadata>>>&
+          optimization_types_and_metadata);
+
   // Adds hints for a URL with provided metadata to the optimization guide.
   // Hints added via this method will work for `CanApplyOptimizationOnDemand`
   // calls. For testing purposes only.
@@ -240,11 +252,11 @@ class OptimizationGuideKeyedService
       optimization_guide::OptimizationGuideModelExecutionResult result);
 
   // Override the model file sent to observers of |optimization_target|. Use
-  // |TestModelInfoBuilder| to construct the model metadata. For
+  // ModelInfo aggregate initialization to construct the model metadata. For
   // testing purposes only.
   void OverrideTargetModelForTesting(
       optimization_guide::proto::OptimizationTarget optimization_target,
-      std::unique_ptr<optimization_guide::ModelInfo> model_info);
+      std::optional<optimization_guide::ModelInfo> model_info);
 
   void SetModelQualityLogsUploaderServiceForTesting(
       std::unique_ptr<optimization_guide::ModelQualityLogsUploaderService>

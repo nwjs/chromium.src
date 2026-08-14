@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "ui/accelerated_widget_mac/ca_renderer_layer_tree.h"
 
 #import <AVFoundation/AVFoundation.h>
@@ -110,16 +105,27 @@ bool AVSampleBufferDisplayLayerEnqueueCVPixelBuffer(
                        kCMSampleAttachmentKey_DisplayImmediately,
                        kCFBooleanTrue);
 
-  [av_layer enqueueSampleBuffer:sample_buffer.get()];
+  AVQueuedSampleBufferRenderingStatus status;
+  NSError* error;
+  if (@available(macOS 14, iOS 17, *)) {
+    AVSampleBufferVideoRenderer* renderer = av_layer.sampleBufferRenderer;
+    [renderer enqueueSampleBuffer:sample_buffer.get()];
+    status = renderer.status;
+    error = renderer.error;
+  } else {
+    [av_layer enqueueSampleBuffer:sample_buffer.get()];
+    status = av_layer.status;
+    error = av_layer.error;
+  }
 
-  switch (av_layer.status) {
+  switch (status) {
     case AVQueuedSampleBufferRenderingStatusUnknown:
       LOG(ERROR) << "AVSampleBufferDisplayLayer has status unknown, but should "
                     "be rendering.";
       return false;
     case AVQueuedSampleBufferRenderingStatusFailed:
       LOG(ERROR) << "AVSampleBufferDisplayLayer has status failed, error: "
-                 << base::SysNSStringToUTF8(av_layer.error.description);
+                 << base::SysNSStringToUTF8(error.description);
       return false;
     case AVQueuedSampleBufferRenderingStatusRendering:
       break;
@@ -200,14 +206,12 @@ bool AVSampleBufferDisplayLayerEnqueueIOSurface(
 }
 
 CATransform3D ToCATransform3D(const gfx::Transform& t) {
-  CATransform3D result;
-  auto* dst = &result.m11;
-  for (int col = 0; col < 4; col++) {
-    for (int row = 0; row < 4; row++) {
-      *dst++ = t.rc(row, col);
-    }
-  }
-  return result;
+  return CATransform3D{
+      t.rc(0, 0), t.rc(1, 0), t.rc(2, 0), t.rc(3, 0),  //
+      t.rc(0, 1), t.rc(1, 1), t.rc(2, 1), t.rc(3, 1),  //
+      t.rc(0, 2), t.rc(1, 2), t.rc(2, 2), t.rc(3, 2),  //
+      t.rc(0, 3), t.rc(1, 3), t.rc(2, 3), t.rc(3, 3)   //
+  };
 }
 
 }  // namespace
@@ -405,8 +409,10 @@ void CARendererLayerTree::ContentLayer::UpdateMapAndMatchOldLayers(
   if (matched_content_layer->ca_layer_used_)
     return;
 
-  auto* matched_transform_layer = matched_content_layer->parent_layer_;
-  auto* matched_clip_layer = matched_transform_layer->parent_layer_;
+  TransformLayer* matched_transform_layer =
+      matched_content_layer->parent_layer_;
+  ClipAndSortingLayer* matched_clip_layer =
+      matched_transform_layer->parent_layer_;
 
   // If the parent is different, the superlayer must have changed. It should be
   // removed from its superlayer and inserted back to the new superlayer in

@@ -6,6 +6,7 @@
 
 #import <memory>
 
+#import "base/strings/sys_string_conversions.h"
 #import "base/test/scoped_feature_list.h"
 #import "components/content_settings/core/browser/host_content_settings_map.h"
 #import "components/lens/lens_overlay_permission_utils.h"
@@ -13,7 +14,9 @@
 #import "components/prefs/pref_service.h"
 #import "components/search_engines/search_engines_test_environment.h"
 #import "components/search_engines/template_url_service.h"
+#import "components/signin/public/base/signin_metrics.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
+#import "components/signin/public/identity_manager/identity_test_utils.h"
 #import "components/sync/test/test_sync_service.h"
 #import "components/sync_preferences/pref_service_mock_factory.h"
 #import "components/sync_preferences/pref_service_syncable.h"
@@ -21,6 +24,7 @@
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
 #import "ios/chrome/browser/intelligence/bwg/model/fake_gemini_service.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/page_action_menu/ui/page_action_menu_consumer.h"
@@ -28,11 +32,14 @@
 #import "ios/chrome/browser/intelligence/page_action_menu/ui/page_action_menu_feature.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/prefs/browser_prefs.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
+#import "ios/chrome/browser/signin/model/fake_system_identity.h"
+#import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/signin/model/identity_test_environment_browser_state_adaptor.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
@@ -85,6 +92,12 @@ class PageActionMenuMediatorTest : public PlatformTest {
     builder.AddTestingFactory(
         ios::TemplateURLServiceFactory::GetInstance(),
         ios::TemplateURLServiceFactory::GetDefaultFactory());
+    builder.AddTestingFactory(
+        GeminiServiceFactory::GetInstance(),
+        base::BindRepeating(
+            [](ProfileIOS* profile) -> std::unique_ptr<KeyedService> {
+              return std::make_unique<FakeGeminiService>();
+            }));
 
     browser_state_ = std::move(builder).Build();
 
@@ -93,7 +106,8 @@ class PageActionMenuMediatorTest : public PlatformTest {
         AuthenticationServiceFactory::GetForProfile(browser_state_.get());
     pref_service_ = browser_state_->GetPrefs();
     ASSERT_TRUE(pref_service_);
-    fake_gemini_service_ = std::make_unique<FakeGeminiService>();
+    fake_gemini_service_ = static_cast<FakeGeminiService*>(
+        GeminiServiceFactory::GetForProfile(browser_state_.get()));
     web_state_ = std::make_unique<web::FakeWebState>();
     web_state_->SetBrowserState(browser_state_.get());
     web_state_->WasShown();
@@ -128,12 +142,31 @@ class PageActionMenuMediatorTest : public PlatformTest {
     fake_consumer_ = nil;
     gemini_tab_helper_ = nullptr;
     web_state_.reset();
-    fake_gemini_service_.reset();
+    fake_gemini_service_ = nullptr;
     settings_map_ = nullptr;
     pref_service_ = nullptr;
     auth_service_ = nullptr;
     browser_state_.reset();
     PlatformTest::TearDown();
+  }
+
+  void SignIn() {
+    FakeSystemIdentity* identity = [FakeSystemIdentity fakeIdentity1];
+    FakeSystemIdentityManager* system_identity_manager =
+        FakeSystemIdentityManager::FromSystemIdentityManager(
+            GetApplicationContext()->GetSystemIdentityManager());
+    system_identity_manager->AddIdentity(identity);
+
+    signin::IdentityManager* identity_manager =
+        IdentityManagerFactory::GetForProfile(browser_state_.get());
+    signin::AccountAvailabilityOptionsBuilder options_builder;
+    options_builder.AsPrimary(signin::ConsentLevel::kSignin);
+    options_builder.WithGaiaId(identity.gaiaId);
+    signin::MakeAccountAvailable(
+        identity_manager,
+        options_builder.Build(base::SysNSStringToUTF8(identity.userEmail)));
+
+    auth_service_->SignIn(identity, signin_metrics::AccessPoint::kStartPage);
   }
 
   web::WebTaskEnvironment task_environment_;
@@ -145,7 +178,7 @@ class PageActionMenuMediatorTest : public PlatformTest {
   raw_ptr<PrefService> pref_service_ = nullptr;
   raw_ptr<HostContentSettingsMap> settings_map_ = nullptr;
   std::unique_ptr<web::FakeWebState> web_state_;
-  std::unique_ptr<FakeGeminiService> fake_gemini_service_;
+  raw_ptr<FakeGeminiService> fake_gemini_service_ = nullptr;
   raw_ptr<GeminiTabHelper> gemini_tab_helper_;
   PageActionMenuMediator* mediator_;
   FakePageActionMenuConsumer* fake_consumer_;
@@ -156,6 +189,8 @@ class PageActionMenuMediatorTest : public PlatformTest {
 TEST_F(PageActionMenuMediatorTest, IsGeminiAvailable) {
   // Enable PageActionMenu to simplify availability checks.
   scoped_feature_list_.InitWithFeatures({kPageActionMenu}, {});
+
+  SignIn();
 
   // Happy Path: Profile is eligible AND WebState has an eligible URL.
   fake_gemini_service_->SetIsEligible(true);

@@ -33,10 +33,17 @@ namespace crypto {
 class StatefulKey;
 class StatefulUnexportableKeyProvider;
 
-// UnexportableKey is the base class for all unexportable keys.
-class CRYPTO_EXPORT UnexportableKey {
+// UnexportableSigningKey provides a hardware-backed signing oracle on platforms
+// that support it. Current support is:
+//   Windows: RSA_PKCS1_SHA256 via TPM 1.2+ and ECDSA_SHA256 via TPM 2.0.
+//   macOS and iOS: ECDSA_SHA256 via the Secure Enclave.
+//   Tests: ECDSA_SHA256 via ScopedMockUnexportableSigningKeyForTesting.
+//
+// See also //components/unexportable_keys for a higher-level key management
+// API.
+class CRYPTO_EXPORT UnexportableSigningKey {
  public:
-  virtual ~UnexportableKey() = default;
+  virtual ~UnexportableSigningKey() = default;
 
   // Algorithm returns the algorithm of the key in this object.
   virtual SignatureVerifier::SignatureAlgorithm Algorithm() const = 0;
@@ -83,18 +90,7 @@ class CRYPTO_EXPORT UnexportableKey {
   // Typesafe downcast to `StatefulKey`. Returns nullptr if the key is not
   // stateful.
   virtual const StatefulKey* AsStatefulKey() const LIFETIME_BOUND;
-};
 
-// UnexportableSigningKey provides a hardware-backed signing oracle on platforms
-// that support it. Current support is:
-//   Windows: RSA_PKCS1_SHA256 via TPM 1.2+ and ECDSA_SHA256 via TPM 2.0.
-//   macOS and iOS: ECDSA_SHA256 via the Secure Enclave.
-//   Tests: ECDSA_SHA256 via ScopedMockUnexportableSigningKeyForTesting.
-//
-// See also //components/unexportable_keys for a higher-level key management
-// API.
-class CRYPTO_EXPORT UnexportableSigningKey : public UnexportableKey {
- public:
   // SignSlowly returns a signature of |data|, or |nullopt| if an error occurs
   // during signing.
   //
@@ -110,9 +106,28 @@ class CRYPTO_EXPORT UnexportableSigningKey : public UnexportableKey {
 #endif  // BUILDFLAG(IS_WIN)
 };
 
+// An attestation/certification statement proving the binding of an
+// unexportable signing key to the hardware-backed attestation key of the
+// device.
+//
+// Because Apple's Secure Enclave does not provide a platform API for hardware
+// key attestation, a custom, software-based format is used on macOS/iOS
+// (Format::kSecureEnclave) where the browser acts as a proxy to attest the key.
+// This provides future compatibility when a native attestation API becomes
+// available.
 struct CRYPTO_EXPORT AttestationStatement {
   enum Format {
+    // TPM 2.0 platform attestation format.
+    // `statement` is a binary TPMS_ATTEST structure.
+    // `signature` is a binary TPMT_SIGNATURE structure.
     kTpm,
+    // Custom Secure Enclave format used on macOS/iOS.
+    // `statement` is the concatenation of the server's challenge and the
+    // SHA-256 hash of the signing key's Subject PublicKey Info (SPKI).
+    // TODO(crbug.com/406190025): Make this generic once we use the
+    // crypto::sign algorithms.
+    // `signature` is the signature over `statement` signed using the Secure
+    // Enclave attestation key.
     kSecureEnclave,
   };
   Format format = kTpm;
@@ -120,7 +135,7 @@ struct CRYPTO_EXPORT AttestationStatement {
   std::vector<uint8_t> signature;
 };
 
-class CRYPTO_EXPORT UnexportableAttestationKey : public UnexportableKey {
+class CRYPTO_EXPORT UnexportableAttestationKey : public UnexportableSigningKey {
  public:
   // Performs an attestation/certification over the given signing key using
   // the attestation key (e.g., an AIK certifying a generated RSA binding key).
@@ -273,7 +288,7 @@ class CRYPTO_EXPORT StatefulUnexportableKeyProvider
   // `Config::application_tag`. That is, only matching keys where the
   // application tag starts with the `Config::application_tag` will be deleted.
   virtual std::optional<size_t> DeleteKeysSlowly(
-      base::span<const UnexportableKey* const> keys) = 0;
+      base::span<const UnexportableSigningKey* const> keys) = 0;
 
   // `DeleteAllKeysSlowly()` deletes all state associated with all keys matching
   // `UnexportableKeyProvider::Config`.

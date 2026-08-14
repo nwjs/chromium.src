@@ -14,7 +14,10 @@
 #include "ui/base/clipboard/clipboard_buffer.h"
 #include "ui/base/clipboard/clipboard_metadata.h"
 
+class Profile;
+
 namespace content {
+class ClipboardEndpoint;
 class RenderFrameHost;
 class WebContents;
 struct DropData;
@@ -25,8 +28,8 @@ namespace enterprise_data_protection {
 // This function checks if a paste is allowed to proceed according to the
 // following policies:
 // - DataLeakPreventionRulesList
-// - OnBulkDataEntryEnterpriseConnector
 // - DataControlsRules
+// - OnBulkDataEntryEnterpriseConnector
 //
 // This function will always call `callback` after policies are evaluated with
 // true if the paste is allowed to proceed and false if it is not. However, if
@@ -67,6 +70,7 @@ bool IsPastePolicyCheckRequired(const content::ClipboardEndpoint& source,
 // written to the OS clipboard according to the following policies:
 // - CopyPreventionSettings
 // - DataControlsRules
+// - CopyIfAllowedByContentAnalysis
 //
 // If the copy is not allowed, `callback` is called with a replacement string
 // that should instead be put into the OS clipboard.
@@ -133,6 +137,15 @@ void ReplaceSameTabClipboardDataIfRequiredByPolicy(
 // bypass through the find bar when copy/paste restrictions are in place.
 // Returns true if populating the find bar is allowed, false otherwise.
 bool CanPopulateFindBarFromSelection(content::WebContents* web_contents);
+
+// Checks if the find bar should be populated with data from another web
+// contents. This checks the DataControlsRules policy and considers the
+// change of web contents as a "paste" where the previous contents are the
+// source and the current contents are the destination, and returns true if any
+// rule is set to block or warn.
+bool PrepopulateFindBarTextAllowed(
+    const content::ClipboardEndpoint& source,
+    const content::ClipboardEndpoint& destination);
 
 // Returns true if data copied from the find bar should be replaced before being
 // put in the clipboard due to the "DataControlsRules" policy. If that is the

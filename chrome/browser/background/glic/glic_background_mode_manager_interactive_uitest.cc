@@ -216,9 +216,7 @@ IN_PROC_BROWSER_TEST_F(GlicBackgroundModeManagerUiTest,
   // Registering an invalid hotkey should fail.
   ui::Accelerator updated_hotkey(ui::VKEY_A, ui::EF_NONE);
   RegisterLauncherHotkey(updated_hotkey);
-  EXPECT_NE(updated_hotkey,
-            manager->RegisteredHotkeyForTesting().at(static_cast<size_t>(
-                GlicBackgroundModeManager::HotkeyIndex::kPanelKey)));
+  EXPECT_TRUE(manager->RegisteredHotkeyForTesting().empty());
 }
 
 IN_PROC_BROWSER_TEST_F(GlicBackgroundModeManagerUiTest,
@@ -327,7 +325,7 @@ IN_PROC_BROWSER_TEST_F(GlicBackgroundModeManagerUiTest, DeleteEligibleProfile) {
   // background since there are no profiles that are eligible to use glic.
   ui_test_utils::BrowserDestroyedObserver observer(browser());
   profile_manager->GetDeleteProfileHelper().MaybeScheduleProfileForDeletion(
-      browser()->profile()->GetPath(), base::DoNothing(),
+      browser()->GetProfile()->GetPath(), base::DoNothing(),
       ProfileMetrics::DELETE_PROFILE_USER_MANAGER);
   observer.Wait();
   EXPECT_FALSE(background_mode_manager->IsInBackgroundModeForTesting());
@@ -338,9 +336,10 @@ IN_PROC_BROWSER_TEST_F(GlicBackgroundModeManagerUiTest, DeleteEligibleProfile) {
   // completing the fre in the second profile since the glic launcher local pref
   // has already been set to enabled.
   GlicKeyedService* const second_keyed_service =
-      GlicKeyedServiceFactory::GetGlicKeyedService(second_browser->profile());
+      GlicKeyedServiceFactory::GetGlicKeyedService(
+          second_browser->GetProfile());
   EXPECT_FALSE(second_keyed_service->enabling().HasConsented());
-  ::glic::SetFRECompletion(second_browser->profile(),
+  ::glic::SetFRECompletion(second_browser->GetProfile(),
                            prefs::FreStatus::kCompleted);
   EXPECT_TRUE(second_keyed_service->enabling().HasConsented());
   EXPECT_TRUE(background_mode_manager->IsInBackgroundModeForTesting());

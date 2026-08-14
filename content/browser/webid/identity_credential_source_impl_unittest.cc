@@ -31,13 +31,14 @@
 #include "url/gurl.h"
 #include "url/origin.h"
 
+namespace content::webid {
+
 using ::testing::_;
 using ::testing::DoAll;
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::WithArg;
-
-namespace content::webid {
+using IdentityRequestAccountPtr = scoped_refptr<IdentityRequestAccount>;
 
 class TestIdentityCredentialSourceImpl : public IdentityCredentialSourceImpl {
  public:
@@ -147,8 +148,7 @@ TEST_F(IdentityCredentialSourceImplTest, SuccessfulFetching) {
       std::vector<std::string>{
           "870f48f3c28efb5dbf46d14881d802a4c34141a36ef9e66d28cec211b1969f7d"},
       std::vector<std::string>(), std::vector<std::string>(),
-      std::vector<std::string>(),
-      content::IdentityRequestAccount::LoginState::kSignIn);
+      std::vector<std::string>(), IdentityRequestAccount::LoginState::kSignIn);
 
   IdpNetworkRequestManager::AccountsResponse accounts_response;
   accounts_response.site_salt = "fc432178f9155c4e24762de5b9505f2e";
@@ -306,7 +306,7 @@ TEST_F(IdentityCredentialSourceImplTest, SelectAccountSameSite) {
 
   TestIdentityCredentialSourceImpl::InitializeRequest(
       &request, std::make_unique<NiceMock<MockIdpNetworkRequestManager>>());
-  request.SetDialogControllerForTests(
+  service->SetDialogControllerForTests(
       std::make_unique<NiceMock<MockIdentityRequestDialogController>>());
 
   RequestPageData::GetOrCreateForPage(main_rfh()->GetPage())
@@ -336,7 +336,7 @@ TEST_F(IdentityCredentialSourceImplTest, SelectAccountSameSite) {
           "Test User", "Test", GURL(), "", "", std::vector<std::string>(),
           std::vector<std::string>(), std::vector<std::string>(),
           std::vector<std::string>(),
-          content::IdentityRequestAccount::LoginState::kSignIn);
+          IdentityRequestAccount::LoginState::kSignIn);
   account->identity_provider = idp_info->data;
 
   IdpNetworkRequestManager::AccountsResponse accounts_response;
@@ -384,7 +384,7 @@ TEST_F(IdentityCredentialSourceImplTest, SelectAccountCrossSiteFail) {
 
   TestIdentityCredentialSourceImpl::InitializeRequest(
       &request, std::make_unique<NiceMock<MockIdpNetworkRequestManager>>());
-  request.SetDialogControllerForTests(
+  service->SetDialogControllerForTests(
       std::make_unique<NiceMock<MockIdentityRequestDialogController>>());
 
   RequestPageData::GetOrCreateForPage(main_rfh()->GetPage())
@@ -414,7 +414,7 @@ TEST_F(IdentityCredentialSourceImplTest, SelectAccountCrossSiteFail) {
           "Test User", "Test", GURL(), "", "", std::vector<std::string>(),
           std::vector<std::string>(), std::vector<std::string>(),
           std::vector<std::string>(),
-          content::IdentityRequestAccount::LoginState::kSignIn);
+          IdentityRequestAccount::LoginState::kSignIn);
   account->identity_provider = idp_info->data;
 
   IdpNetworkRequestManager::AccountsResponse accounts_response;
@@ -463,7 +463,7 @@ TEST_F(IdentityCredentialSourceImplTest,
 
   TestIdentityCredentialSourceImpl::InitializeRequest(
       &request, std::make_unique<NiceMock<MockIdpNetworkRequestManager>>());
-  request.SetDialogControllerForTests(
+  service->SetDialogControllerForTests(
       std::make_unique<NiceMock<MockIdentityRequestDialogController>>());
 
   RequestPageData::GetOrCreateForPage(main_rfh()->GetPage())
@@ -493,7 +493,7 @@ TEST_F(IdentityCredentialSourceImplTest,
           "Test User", "Test", GURL(), "", "", std::vector<std::string>(),
           std::vector<std::string>(), std::vector<std::string>(),
           std::vector<std::string>(),
-          content::IdentityRequestAccount::LoginState::kSignIn);
+          IdentityRequestAccount::LoginState::kSignIn);
   account->identity_provider = idp_info->data;
 
   IdpNetworkRequestManager::AccountsResponse accounts_response;
@@ -553,7 +553,7 @@ TEST_F(IdentityCredentialSourceImplTest,
 
   TestIdentityCredentialSourceImpl::InitializeRequest(
       &request, std::make_unique<NiceMock<MockIdpNetworkRequestManager>>());
-  request.SetDialogControllerForTests(
+  service->SetDialogControllerForTests(
       std::make_unique<NiceMock<MockIdentityRequestDialogController>>());
 
   RequestPageData::GetOrCreateForPage(subframe->GetPage())
@@ -583,7 +583,7 @@ TEST_F(IdentityCredentialSourceImplTest,
           "Test User", "Test", GURL(), "", "", std::vector<std::string>(),
           std::vector<std::string>(), std::vector<std::string>(),
           std::vector<std::string>(),
-          content::IdentityRequestAccount::LoginState::kSignIn);
+          IdentityRequestAccount::LoginState::kSignIn);
   account->identity_provider = idp_info->data;
 
   IdpNetworkRequestManager::AccountsResponse accounts_response;

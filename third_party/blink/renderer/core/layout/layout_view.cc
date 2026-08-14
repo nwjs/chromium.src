@@ -158,7 +158,7 @@ bool LayoutView::HitTest(const HitTestLocation& location,
 bool LayoutView::HitTestNoLifecycleUpdate(const HitTestLocation& location,
                                           HitTestResult& result) {
   NOT_DESTROYED();
-  TRACE_EVENT_BEGIN0("blink,devtools.timeline", "HitTest");
+  TRACE_EVENT_BEGIN("blink,devtools.timeline", "HitTest");
   hit_test_count_++;
 
   uint64_t dom_tree_version = GetDocument().DomTreeVersion();
@@ -212,12 +212,11 @@ bool LayoutView::HitTestNoLifecycleUpdate(const HitTestLocation& location,
       hit_test_cache_->AddCachedResult(location, result, dom_tree_version);
   }
 
-  TRACE_EVENT_END1("blink,devtools.timeline", "HitTest", "endData",
-                   [&](perfetto::TracedValue context) {
-                     inspector_hit_test_event::EndData(
-                         std::move(context), result.GetHitTestRequest(),
-                         location, result);
-                   });
+  TRACE_EVENT_END(
+      "blink,devtools.timeline", "endData", [&](perfetto::TracedValue context) {
+        inspector_hit_test_event::EndData(
+            std::move(context), result.GetHitTestRequest(), location, result);
+      });
   return hit_layer;
 }
 
@@ -235,6 +234,7 @@ LayoutUnit LayoutView::ComputeMinimumWidth() {
   WritingMode mode = style.GetWritingMode();
   ConstraintSpaceBuilder builder(mode, style.GetWritingDirection(),
                                  /* is_new_fc */ true);
+  builder.SetContainsAnnotations(contains_annotations_);
   return BlockNode(this)
       .ComputeMinMaxSizes(mode, SizeType::kIntrinsic,
                           builder.ToConstraintSpace())
@@ -334,7 +334,7 @@ void LayoutView::MapLocalToAncestor(const LayoutBoxModelObject* ancestor,
     auto* parent_doc_layout_object = GetFrame()->OwnerLayoutObject();
     if (parent_doc_layout_object) {
       transform_state.Move(
-          parent_doc_layout_object->PhysicalContentBoxOffset());
+          parent_doc_layout_object->PhysicalContentBoxRect().offset);
       parent_doc_layout_object->MapLocalToAncestor(ancestor, transform_state,
                                                    mode);
     } else {
@@ -360,7 +360,7 @@ void LayoutView::MapAncestorToLocal(const LayoutBoxModelObject* ancestor,
                                                    mode);
 
       transform_state.Move(
-          parent_doc_layout_object->PhysicalContentBoxOffset());
+          parent_doc_layout_object->PhysicalContentBoxRect().offset);
     } else {
       DCHECK(!ancestor);
       // Note that MapLocalToRemoteMainFrame is correct here because
@@ -511,7 +511,7 @@ bool LayoutView::MapToVisualRectInAncestorSpaceInternal(
     rect.ExpandEdgesToPixelBoundaries();
 
     // Adjust for frame border.
-    rect.Move(obj->PhysicalContentBoxOffset());
+    rect.Move(obj->PhysicalContentBoxRect().offset);
     transform_state.SetQuad(gfx::QuadF(gfx::RectF(rect)));
 
     return obj->MapToVisualRectInAncestorSpaceInternal(
@@ -596,32 +596,26 @@ PhysicalRect LayoutView::ViewRect() const {
 }
 
 PhysicalRect LayoutView::OverflowClipRect(
-    const PhysicalOffset& location,
     OverlayScrollbarClipBehavior overlay_scrollbar_clip_behavior) const {
   NOT_DESTROYED();
-  return OverflowClipRectInternal(location, overlay_scrollbar_clip_behavior,
+  return OverflowClipRectInternal(overlay_scrollbar_clip_behavior,
                                   false /* for_scroll_node */);
 }
 
-PhysicalRect LayoutView::OverflowClipRectForScrollNode(
-    const PhysicalOffset& location) const {
+PhysicalRect LayoutView::OverflowClipRectForScrollNode() const {
   NOT_DESTROYED();
-  return OverflowClipRectInternal(location, kIgnoreOverlayScrollbarSize,
+  return OverflowClipRectInternal(kIgnoreOverlayScrollbarSize,
                                   true /* for_scroll_node */);
 }
 
 PhysicalRect LayoutView::OverflowClipRectInternal(
-    const PhysicalOffset& location,
     OverlayScrollbarClipBehavior overlay_scrollbar_clip_behavior,
     bool for_scroll_node) const {
   NOT_DESTROYED();
   PhysicalRect rect = ViewRect();
   if (rect.IsEmpty()) {
-    return LayoutBox::OverflowClipRect(location,
-                                       overlay_scrollbar_clip_behavior);
+    return LayoutBox::OverflowClipRect(overlay_scrollbar_clip_behavior);
   }
-
-  rect.offset += location;
 
   // When capturing the root snapshot for a transition, we paint the
   // background color where the scrollbar would be so keep the clip rect
@@ -880,6 +874,7 @@ void LayoutView::LayoutRoot() {
                                    /* is_new_fc */ true);
     builder.SetAvailableSize({kIndefiniteSize, original_size.block_size});
     builder.SetIsFixedBlockSize(true);
+    builder.SetContainsAnnotations(contains_annotations_);
     min_size = BlockNode(this)
                    .ComputeMinMaxSizes(writing_mode, SizeType::kIntrinsic,
                                        builder.ToConstraintSpace())
@@ -904,6 +899,7 @@ void LayoutView::LayoutRoot() {
   builder.SetAvailableSize(initial_size);
   builder.SetIsFixedInlineSize(true);
   builder.SetIsFixedBlockSize(true);
+  builder.SetContainsAnnotations(contains_annotations_);
 
   BlockNode(this).Layout(builder.ToConstraintSpace());
   initial_containing_block_resize_handled_list_ = nullptr;
@@ -1144,6 +1140,15 @@ bool LayoutView::SetScrollbarSizesForViewportUnits(const gfx::Size& size) {
     changed = true;
   }
   return changed;
+}
+
+void LayoutView::SetContainsAnnotations() {
+  NOT_DESTROYED();
+  if (contains_annotations_) {
+    return;
+  }
+  contains_annotations_ = true;
+  SetNeedsLayout(layout_invalidation_reason::kStyleChange);
 }
 
 }  // namespace blink

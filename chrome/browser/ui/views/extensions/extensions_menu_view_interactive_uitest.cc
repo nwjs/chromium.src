@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/extensions/extension_install_ui.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/controls/hover_button.h"
 #include "chrome/browser/ui/views/controls/hover_button_controller.h"
 #include "chrome/browser/ui/views/extensions/extensions_menu_button.h"
@@ -35,18 +36,14 @@
 #include "content/public/test/test_navigation_observer.h"
 #include "extensions/browser/disable_reason.h"
 #include "extensions/browser/extension_registrar.h"
-#include "extensions/browser/extension_system.h"
 #include "extensions/browser/permissions/scripting_permissions_modifier.h"
 #include "extensions/browser/permissions_manager.h"
-#include "extensions/browser/pref_names.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_features.h"
 #include "extensions/test/permissions_manager_waiter.h"
 #include "extensions/test/test_extension_dir.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "ui/views/animation/ink_drop.h"
-#include "ui/views/bubble/bubble_dialog_model_host.h"
-#include "ui/views/layout/animating_layout_manager.h"
 #include "ui/views/layout/animating_layout_manager_test_util.h"
 #include "ui/views/test/widget_test.h"
 #include "ui/views/view_class_properties.h"
@@ -62,8 +59,9 @@ class ExtensionsMenuViewInteractiveUITest : public ExtensionsToolbarUITest {
     // still being tested.
     // TODO(crbug.com/40857680): Remove all these tests once
     // kExtensionsMenuAccessControl is fully enabled.
-    scoped_feature_list_.InitAndDisableFeature(
-        extensions_features::kExtensionsMenuAccessControl);
+    scoped_feature_list_.InitWithFeatures(
+        {}, {extensions_features::kExtensionsMenuAccessControl,
+             features::kExtensionsPinnedByDefault});
   }
 
   static base::flat_set<raw_ptr<ExtensionMenuItemView, CtnExperimental>>
@@ -305,7 +303,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsMenuViewInteractiveUITest,
   ASSERT_NE(std::nullopt, action_id);
   ASSERT_EQ(1u, GetVisibleToolbarActionViews().size());
 
-  extensions::ExtensionRegistrar::Get(browser()->profile())
+  extensions::ExtensionRegistrar::Get(browser()->GetProfile())
       ->DisableExtension(action_id.value(),
                          {extensions::disable_reason::DISABLE_USER_ACTION});
 
@@ -327,7 +325,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsMenuViewInteractiveUITest,
   ASSERT_NE(std::nullopt, extensions_container->GetPoppedOutActionId());
 
   auto* extension_registrar =
-      extensions::ExtensionRegistrar::Get(browser()->profile());
+      extensions::ExtensionRegistrar::Get(browser()->GetProfile());
   extension_registrar->DisableExtension(
       id1, {extensions::disable_reason::DISABLE_USER_ACTION});
   extension_registrar->DisableExtension(
@@ -695,14 +693,14 @@ IN_PROC_BROWSER_TEST_P(ActivateWithReloadExtensionsMenuInteractiveUITest,
       extensions::ExtensionActionRunner::GetForWebContents(web_contents);
 
   EXPECT_TRUE(action_runner->WantsToRun(extension.get()));
-  extensions::SitePermissionsHelper permissions_helper(browser()->profile());
+  extensions::SitePermissionsHelper permissions_helper(browser()->GetProfile());
   // A refresh should be needed in order to run the actions and inject the
   // content script.
   EXPECT_TRUE(permissions_helper.PageNeedsRefreshToRun(
       action_runner->GetBlockedActions(extension->id())));
 
   extensions::PermissionsManagerWaiter waiter(
-      extensions::PermissionsManager::Get(browser()->profile()));
+      extensions::PermissionsManager::Get(browser()->GetProfile()));
   TriggerSingleExtensionButton();
 
   auto* const action_bubble =

@@ -5,6 +5,7 @@
 import("//chrome/common/features.gni")
 import("//components/guest_view/buildflags/buildflags.gni")
 import("//extensions/buildflags/buildflags.gni")
+import("//pdf/features.gni")
 
 if (is_android) {
   import("//build/config/android/rules.gni")
@@ -241,7 +242,10 @@ source_set("impl") {
     ]
   }
   if (!is_android) {
-    deps += [ "//chrome/browser/background" ]
+    deps += [
+      "//chrome/browser/background",
+      "//chrome/browser/ui:chrome_pages",
+    ]
     sources += [
       "providers/web_contents/background_contents_tag.cc",
       "providers/web_contents/background_contents_task.cc",
@@ -399,5 +403,9 @@ if (!is_android) {
       "//testing/gmock",
       "//testing/gtest",
     ]
+
+    if (enable_pdf) {
+      deps += [ "//chrome/browser/pdf:pdf_extension_test_base" ]
+    }
   }
 }

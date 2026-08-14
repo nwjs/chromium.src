@@ -43,7 +43,6 @@ import org.chromium.base.test.RobolectricUtil;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundType;
 import org.chromium.chrome.browser.ntp_customization.R;
-import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataBase.PlatformType;
 
 import java.io.File;
 
@@ -78,7 +77,7 @@ public class NtpBackgroundDataUtilsUnitTest {
 
         // NtpBackgroundDataCustomizedColor case.
         JSONObject customColorJson = new JSONObject();
-        customColorJson.put(NtpBackgroundDataBase.PLATFORM_TYPE_KEY, PlatformType.ANDROID_LOCAL);
+        customColorJson.put(NtpBackgroundDataBase.PLATFORM_TYPE_KEY, PlatformType.ANDROID);
         customColorJson.put(
                 NtpBackgroundDataBase.BACKGROUND_TYPE_KEY, NtpBackgroundType.COLOR_FROM_HEX);
         customColorJson.put(
@@ -217,7 +216,8 @@ public class NtpBackgroundDataUtilsUnitTest {
 
     @Test
     public void testLoadImage_customPath() {
-        File customFile = NtpCustomizationUtils.createUploadImageFileInDir("customImage.png");
+        File customFile =
+                NtpCustomizationUtils.createUploadImageFileInDirForTesting("customImage.png");
         testLoadImageImpl(customFile.getAbsolutePath());
     }
 
@@ -246,7 +246,8 @@ public class NtpBackgroundDataUtilsUnitTest {
         if (filePath == null || filePath.isEmpty()) {
             NtpCustomizationUtils.maybeDeleteFile(targetFile);
         } else {
-            NtpCustomizationUtils.deleteUploadImageFileDir();
+            NtpCustomizationUtils.deleteThemeImageFileDir(
+                    NtpCustomizationUtils.NTP_UPLOAD_IMAGES_DIR);
         }
     }
 }

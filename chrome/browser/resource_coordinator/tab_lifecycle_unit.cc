@@ -9,7 +9,7 @@
 #include <utility>
 #include "chrome/browser/ui/browser.h"
 
-#include "base/byte_count.h"
+#include "base/byte_size.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"

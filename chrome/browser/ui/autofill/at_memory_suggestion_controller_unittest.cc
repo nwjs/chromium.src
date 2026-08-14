@@ -23,6 +23,7 @@ namespace {
 
 using ::testing::_;
 using ::testing::ElementsAreArray;
+using ::testing::Eq;
 
 class TestAtMemorySuggestionControllerAutofillClient
     : public TestContentAutofillClient {
@@ -34,7 +35,8 @@ class TestAtMemorySuggestionControllerAutofillClient
     if (!suggestion_controller_) {
       auto* controller = new AtMemorySuggestionController(
           manager.external_delegate().GetWeakPtrForTest(), &GetWebContents(),
-          PopupControllerCommon({}, base::i18n::UNKNOWN_DIRECTION));
+          PopupControllerCommon(manager.driver().GetFrameToken(), {},
+                                base::i18n::UNKNOWN_DIRECTION));
       suggestion_controller_ = controller->GetWeakPtr();
     }
     return *suggestion_controller_;
@@ -73,7 +75,8 @@ class AtMemorySuggestionControllerTest
             .render_frame_host());
     client().suggestion_controller(manager).Show(
         AutofillSuggestionController::GenerateSuggestionUiSessionId(),
-        std::move(suggestions), AutofillSuggestionTriggerSource::kAtMemory,
+        std::move(suggestions),
+        AutofillSuggestionTriggerSource::kAtMemoryTriggerString,
         AutoselectFirstSuggestion(false),
         AutofillSuggestionsIgnoreFocusLoss(false));
   }
@@ -87,8 +90,9 @@ TEST_F(AtMemorySuggestionControllerTest, ShowSuggestions) {
 
   EXPECT_CALL(client(),
               ShowAtMemoryBottomSheet(ElementsAreArray(suggestions), _));
-  EXPECT_CALL(manager().external_delegate(),
-              OnSuggestionsShown(ElementsAreArray(suggestions)));
+  EXPECT_CALL(
+      manager().external_delegate(),
+      OnSuggestionsShown(ElementsAreArray(suggestions), Eq(std::nullopt)));
 
   ShowSuggestions(manager(), suggestions);
 }
@@ -137,8 +141,10 @@ TEST_F(AtMemorySuggestionControllerTest, RecreatesControllerIfDelegateChanges) {
       AutofillSuggestionController::GetOrCreate(
           /*previous=*/nullptr,
           manager1.external_delegate().GetWeakPtrForTest(), web_contents(),
-          PopupControllerCommon({}, base::i18n::UNKNOWN_DIRECTION),
-          /*form_control_ax_id=*/0, AutofillSuggestionTriggerSource::kAtMemory);
+          PopupControllerCommon(manager1.driver().GetFrameToken(), {},
+                                base::i18n::UNKNOWN_DIRECTION),
+          /*form_control_ax_id=*/0,
+          AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
 
   content::RenderFrameHost* subframe = CreateAndNavigateChildFrame(
       main_frame(), GURL("https://bar.com/"), "subframe");
@@ -152,8 +158,10 @@ TEST_F(AtMemorySuggestionControllerTest, RecreatesControllerIfDelegateChanges) {
       AutofillSuggestionController::GetOrCreate(
           controller1_weak, manager2.external_delegate().GetWeakPtrForTest(),
           web_contents(),
-          PopupControllerCommon({}, base::i18n::UNKNOWN_DIRECTION),
-          /*form_control_ax_id=*/0, AutofillSuggestionTriggerSource::kAtMemory);
+          PopupControllerCommon(manager2.driver().GetFrameToken(), {},
+                                base::i18n::UNKNOWN_DIRECTION),
+          /*form_control_ax_id=*/0,
+          AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
 
   EXPECT_NE(controller1_weak.get(), controller2_weak.get());
 
@@ -169,15 +177,19 @@ TEST_F(AtMemorySuggestionControllerTest, RecyclesControllerIfDelegateIsSame) {
       AutofillSuggestionController::GetOrCreate(
           /*previous=*/nullptr,
           manager1.external_delegate().GetWeakPtrForTest(), web_contents(),
-          PopupControllerCommon({}, base::i18n::UNKNOWN_DIRECTION),
-          /*form_control_ax_id=*/0, AutofillSuggestionTriggerSource::kAtMemory);
+          PopupControllerCommon(manager1.driver().GetFrameToken(), {},
+                                base::i18n::UNKNOWN_DIRECTION),
+          /*form_control_ax_id=*/0,
+          AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
 
   base::WeakPtr<AutofillSuggestionController> controller2_weak =
       AutofillSuggestionController::GetOrCreate(
           controller1_weak, manager1.external_delegate().GetWeakPtrForTest(),
           web_contents(),
-          PopupControllerCommon({}, base::i18n::UNKNOWN_DIRECTION),
-          /*form_control_ax_id=*/0, AutofillSuggestionTriggerSource::kAtMemory);
+          PopupControllerCommon(manager1.driver().GetFrameToken(), {},
+                                base::i18n::UNKNOWN_DIRECTION),
+          /*form_control_ax_id=*/0,
+          AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
 
   EXPECT_EQ(controller1_weak.get(), controller2_weak.get());
 
@@ -196,8 +208,9 @@ TEST_F(AtMemorySuggestionControllerTest, AcceptSuggestion) {
       manager().external_delegate(),
       DidAcceptSuggestion(
           suggestions[0],
-          testing::Field(&AutofillSuggestionDelegate::SuggestionMetadata::row,
-                         0)));
+          testing::Field(
+              &AutofillSuggestionDelegate::SuggestionMetadata::multi_index,
+              std::vector<size_t>{0})));
 
   client().suggestion_controller(manager()).AcceptSuggestion(
       /*index=*/0, AutofillMetrics::SuggestionAcceptedMethod::kTap);

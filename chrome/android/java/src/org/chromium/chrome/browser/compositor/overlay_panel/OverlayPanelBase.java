@@ -24,6 +24,7 @@ import org.chromium.chrome.browser.browser_controls.BottomControlsStacker;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker.LayerType;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.overlay_panel.OverlayPanel.StateChangeReason;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.overlay_panel.PanelState;
 import org.chromium.chrome.browser.ui.theme.ChromeSemanticColorUtils;
 import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
@@ -776,6 +777,10 @@ abstract class OverlayPanelBase implements OverlayPanelStateProvider, AppHeaderO
      * @return The brightness of the base page.
      */
     public float getBasePageBrightness() {
+        if (ChromeFeatureList.sContextualPanelCloseButton.isEnabled()) {
+            // Disable the scrim.
+            return BASE_PAGE_BRIGHTNESS_STATE_PEEKED;
+        }
         return mBasePageBrightness;
     }
 

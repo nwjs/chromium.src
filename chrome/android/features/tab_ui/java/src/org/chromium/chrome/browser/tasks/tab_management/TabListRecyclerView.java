@@ -20,7 +20,6 @@ import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.recyclerview.widget.RecyclerView.ItemAnimator;
 
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.NonNullObservableSupplier;
@@ -357,7 +356,7 @@ public class TabListRecyclerView extends RecyclerView
         if (holder == null || tabIndex == TabModel.INVALID_TAB_INDEX) return Tab.INVALID_TAB_ID;
         PropertyModel model = holder.model;
         assumeNonNull(model);
-        return TabListModel.isTabOrTabGroup(model)
+        return TabProperties.isTabOrTabGroup(model)
                 ? model.get(TabProperties.TAB_ID)
                 : Tab.INVALID_TAB_ID;
     }

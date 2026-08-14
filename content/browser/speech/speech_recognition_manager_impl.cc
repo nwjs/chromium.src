@@ -713,31 +713,30 @@ int SpeechRecognitionManagerImpl::CreateSession(
     // directly to the speech recognition process and speech recognition events
     // will be returned directly to the renderer, bypassing the browser
     // entirely.
-    if (!speech_recognition_context_.is_bound()) {
-      raw_ptr<SpeechRecognitionManagerDelegate>
-          speech_recognition_mgr_delegate =
-              SpeechRecognitionManagerImpl::GetInstance()
-                  ? SpeechRecognitionManagerImpl::GetInstance()->delegate()
-                  : nullptr;
+    raw_ptr<SpeechRecognitionManagerDelegate> speech_recognition_mgr_delegate =
+        SpeechRecognitionManagerImpl::GetInstance()
+            ? SpeechRecognitionManagerImpl::GetInstance()->delegate()
+            : nullptr;
 
-      CHECK(speech_recognition_mgr_delegate);
-      mojo::PendingReceiver<media::mojom::SpeechRecognitionContext>
-          speech_recognition_context_receiver =
-              speech_recognition_context_.BindNewPipeAndPassReceiver();
-      speech_recognition_mgr_delegate->BindSpeechRecognitionContext(
-          std::move(speech_recognition_context_receiver), config.language);
-    }
+    CHECK(speech_recognition_mgr_delegate);
+    mojo::Remote<media::mojom::SpeechRecognitionContext>
+        speech_recognition_context;
+    speech_recognition_mgr_delegate->BindSpeechRecognitionContext(
+        speech_recognition_context.BindNewPipeAndPassReceiver(),
+        config.language, config.initial_context.global_id);
 
     media::mojom::SpeechRecognitionOptionsPtr options =
         media::mojom::SpeechRecognitionOptions::New();
     options->recognition_mode = media::mojom::SpeechRecognitionMode::kCaption;
     options->enable_formatting = config.unspoken_punctuation;
+    options->language = config.language;
     options->recognizer_client_type =
         media::mojom::RecognizerClientType::kLiveCaption;
     options->skip_continuously_empty_audio = true;
     options->recognition_context = config.recognition_context;
+    options->allow_multi_language = false;
 
-    speech_recognition_context_->BindWebSpeechRecognizer(
+    speech_recognition_context->BindWebSpeechRecognizer(
         std::move(session_receiver), std::move(client_remote),
         std::move(audio_forwarder_config.value().audio_forwarder),
         audio_forwarder_config.value().channel_count,

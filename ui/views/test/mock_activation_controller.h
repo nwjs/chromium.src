@@ -40,10 +40,13 @@ namespace test {
 // should have UI elements.
 // 3) Mac does not support Widget::Deactivate, but deactivation can still
 // happen by hiding a Widget. This class emulates this scenario as well.
+// 4) This class is not allowed in interactive_ui_tests by default to ensure
+// they use real activation. If you must use it in an interactive_ui_test,
+// pass `allow_in_interactive_ui_tests = true` to the constructor.
 class MockActivationController : public views::WidgetObserver,
                                  public WidgetActivationDelegate {
  public:
-  MockActivationController();
+  explicit MockActivationController(bool allow_in_interactive_ui_tests = false);
   MockActivationController(const MockActivationController&) = delete;
   MockActivationController operator=(const MockActivationController&) = delete;
   ~MockActivationController() override;
@@ -51,6 +54,7 @@ class MockActivationController : public views::WidgetObserver,
   void MaybeActivate(Widget* widget, bool activate) override;
   void Deactivate(Widget* widget) override;
   bool IsActive(const Widget* widget) override;
+  bool IsTrackedForTesting(const Widget* widget) const;
 
  private:
   // WidgetObserver:
@@ -59,7 +63,7 @@ class MockActivationController : public views::WidgetObserver,
 
   using WidgetList = std::vector<raw_ptr<Widget, VectorExperimental>>;
 
-  WidgetList::reverse_iterator FindActivatableWidget();
+  Widget* FindActivatableWidget(Widget* skip_widget = nullptr);
 
   WidgetList widgets_;
   raw_ptr<Widget> active_widget_ = nullptr;

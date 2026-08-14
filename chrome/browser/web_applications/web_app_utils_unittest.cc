@@ -115,6 +115,23 @@ TEST_F(WebAppUtilsTest, AreWebAppsEnabled) {
 #endif
 }
 
+TEST_F(WebAppUtilsTest, TransformFileExtensionsForDisplay_StripsBidiControls) {
+  std::set<std::string> extensions = {
+      ".aa\xE2\x80\x8E",  // LRM (Format)
+      ".bb\xE2\x80\xAE",  // RLO (Format)
+      ".cc\x01",          // SOH (Control)
+      ".dd\x7F",          // DEL (Control)
+      ".ee\xC2\x9F",      // APC (Control)
+      ".bat",             // Safe
+      ""                  // Empty
+  };
+  std::vector<std::u16string> transformed =
+      TransformFileExtensionsForDisplay(extensions);
+
+  EXPECT_THAT(transformed, ::testing::UnorderedElementsAre(
+                               u"", u"AA", u"BB", u"CC", u"DD", u"EE", u"BAT"));
+}
+
 TEST_F(WebAppUtilsTest, AreWebAppsUserInstallable) {
   Profile* regular_profile = profile();
 
@@ -242,30 +259,5 @@ TEST_F(WebAppUtilsTest, GeminiAppWillBeSystemWebApp) {
 }
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING) && BUILDFLAG(IS_CHROMEOS)
 
-TEST_F(WebAppUtilsTest, ResetAllContentSettings) {
-  HostContentSettingsMap* host_content_settings_map =
-      HostContentSettingsMapFactory::GetForProfile(profile());
-  GURL url("isolated-app://abcdef");
-  host_content_settings_map->SetPermissionSettingDefaultScope(
-      url, url, ContentSettingsType::GEOLOCATION_WITH_OPTIONS,
-      GeolocationSetting{.approximate = PermissionOption::kAllowed,
-                         .precise = PermissionOption::kDenied});
-  host_content_settings_map->SetContentSettingDefaultScope(
-      url, url, ContentSettingsType::NOTIFICATIONS,
-      ContentSetting::CONTENT_SETTING_ALLOW);
-
-  ResetAllContentSettingsForWebApp(profile(), url);
-
-  EXPECT_EQ(host_content_settings_map->GetPermissionSetting(
-                url, url, ContentSettingsType::GEOLOCATION_WITH_OPTIONS),
-            content_settings::PermissionSettingsRegistry::GetInstance()
-                ->Get(ContentSettingsType::GEOLOCATION_WITH_OPTIONS)
-                ->GetInitialDefaultSetting());
-  EXPECT_EQ(host_content_settings_map->GetPermissionSetting(
-                url, url, ContentSettingsType::NOTIFICATIONS),
-            content_settings::PermissionSettingsRegistry::GetInstance()
-                ->Get(ContentSettingsType::NOTIFICATIONS)
-                ->GetInitialDefaultSetting());
-}
 
 }  // namespace web_app

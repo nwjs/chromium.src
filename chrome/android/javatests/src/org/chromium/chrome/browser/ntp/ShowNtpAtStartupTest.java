@@ -88,7 +88,7 @@ import java.io.IOException;
 @CommandLineFlags.Add(ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE)
 @DoNotBatch(reason = "This test suite tests startup behaviors.")
 public class ShowNtpAtStartupTest {
-    private static final int RENDER_TEST_REVISION = 1;
+    private static final int RENDER_TEST_REVISION = 2;
 
     @Rule
     public FreshCtaTransitTestRule mActivityTestRule =
@@ -357,7 +357,8 @@ public class ShowNtpAtStartupTest {
                                     /* onClickUrl= */ null,
                                     /* altText= */ null,
                                     /* animatedLogoUrl= */ null,
-                                    /* darkAnimatedLogoUrl= */ null);
+                                    /* darkAnimatedLogoUrl= */ null,
+                                    /* logUrl= */ null);
                     logoView.updateLogo(logo);
                     logoView.endAnimationsForTesting();
 
@@ -397,7 +398,8 @@ public class ShowNtpAtStartupTest {
                                     /* onClickUrl= */ null,
                                     /* altText= */ null,
                                     /* animatedLogoUrl= */ null,
-                                    /* darkAnimatedLogoUrl= */ null);
+                                    /* darkAnimatedLogoUrl= */ null,
+                                    /* logUrl= */ null);
                     logoView.updateLogo(logo);
                     logoView.endAnimationsForTesting();
 
@@ -579,7 +581,7 @@ public class ShowNtpAtStartupTest {
 
         // Orientation changes are not supported on automotive.
         if (DeviceInfo.isAutomotive()) {
-            mRenderTestRule.render(searchBoxLayout, "ntp_search_box_automotive");
+            mRenderTestRule.render(searchBoxLayout, "ntp_search_box_automotive_v2");
             return;
         }
 
@@ -589,7 +591,7 @@ public class ShowNtpAtStartupTest {
 
         // Re-fetch view to avoid potential staleness after orientation change.
         mRenderTestRule.render(
-                getNtpLayout().findViewById(R.id.search_box), "ntp_search_box_landscape");
+                getNtpLayout().findViewById(R.id.search_box), "ntp_search_box_landscape_v2");
 
         // Switch to portrait screen orientation.
         ActivityTestUtils.rotateActivityToOrientation(
@@ -597,7 +599,7 @@ public class ShowNtpAtStartupTest {
 
         // Re-fetch view to avoid potential staleness after orientation change.
         mRenderTestRule.render(
-                getNtpLayout().findViewById(R.id.search_box), "ntp_search_box_portrait");
+                getNtpLayout().findViewById(R.id.search_box), "ntp_search_box_portrait_v2");
     }
 
     @Test
@@ -637,7 +639,10 @@ public class ShowNtpAtStartupTest {
     @Restriction(DeviceFormFactor.PHONE)
     @EnableFeatures({START_SURFACE_RETURN_TIME_IMMEDIATE, NEW_TAB_PAGE_CUSTOMIZATION_V2})
     // TODO(crbug.com/475816843): Remove this and update goldens once migration is complete.
-    @DisableFeatures({SigninFeatures.SIGNIN_LEVEL_UP_BUTTON})
+    @DisableFeatures({
+        SigninFeatures.SIGNIN_LEVEL_UP_BUTTON,
+        SigninFeatures.ENABLE_AI_SUBSCRIPTION_AVATAR_RING
+    })
     public void testToolbar_defaultBackground() throws IOException {
         mActivityTestRule.startFromLauncherAtNtp();
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();

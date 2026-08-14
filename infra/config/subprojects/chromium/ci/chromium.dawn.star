@@ -1568,6 +1568,11 @@ ci.thin_tester(
         mixins = [
             "mac_arm64_apple_m2_retina_gpu_experimental",
         ],
+        # per_test_modifications = {
+        #     "webgpu_cts_default_features_tests": targets.mixin(
+        #         ci_only = True,
+        #     ),
+        # },
     ),
     targets_settings = targets.settings(
         browser_config = targets.browser_config.RELEASE,
@@ -2466,6 +2471,7 @@ gpu.ci.windows_builder(
 
 ci.thin_tester(
     name = "Dawn Win11 arm64 DEPS Release (Qualcomm Snapdragon X Elite)",
+    branch_selector = branches.selector.WINDOWS_BRANCHES,
     description_html = "Runs DEPS-ed in Dawn tests on stable Windows 11/Qualcomm Snapdragon X Elite configs (Dell Latitude 7455)",
     parent = "ci/Dawn Win11 arm64 DEPS Builder",
     builder_spec = builder_config.builder_spec(

@@ -168,12 +168,10 @@ void Partitions::InitializeArrayBufferPartition() {
   CHECK(initialized_);
   CHECK(!ArrayBufferPartitionInitialized());
 
-  // BackupRefPtr disallowed because it will prevent allocations from being 16B
-  // aligned as required by ArrayBufferContents.
+
   static base::NoDestructor<partition_alloc::PartitionAllocator>
       array_buffer_allocator([]() {
         partition_alloc::PartitionOptions opts;
-        opts.backup_ref_ptr = partition_alloc::PartitionOptions::kDisabled;
         // When the V8 virtual memory cage is enabled, the ArrayBuffer
         // partition must be placed inside of it. For that, PA's
         // ConfigurablePool is created inside the V8 Cage during
@@ -400,8 +398,8 @@ void* Partitions::FastMalloc(size_t n, const char* type_name) {
 void* Partitions::FastZeroedMalloc(size_t n, const char* type_name) {
   auto* fast_malloc_partition = FastMallocPartition();
   if (fast_malloc_partition) [[unlikely]] {
-    return fast_malloc_partition
-        ->AllocInline<partition_alloc::AllocFlags::kZeroFill>(n, type_name);
+    return fast_malloc_partition->Alloc<partition_alloc::AllocFlags::kZeroFill>(
+        n, type_name);
   } else {
     return calloc(n, 1);
   }

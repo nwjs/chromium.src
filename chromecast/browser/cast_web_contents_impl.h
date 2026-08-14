@@ -101,7 +101,6 @@ class CastWebContentsImpl : public CastWebContents,
       mojo::PendingRemote<mojom::ApiBindings> api_bindings_remote) override;
   void SetEnabledForRemoteDebugging(bool enabled) override;
   void GetMainFramePid(GetMainFramePidCallback cb) override;
-  bool is_websql_enabled() override;
   bool is_mixer_audio_enabled() override;
 
   // content::RenderProcessHostObserver implementation:
@@ -131,6 +130,7 @@ class CastWebContentsImpl : public CastWebContents,
   void ResourceLoadComplete(
       content::RenderFrameHost* render_frame_host,
       const content::GlobalRequestID& request_id,
+      const GURL& original_url,
       const blink::mojom::ResourceLoadInfo& resource_load_info) override;
   void InnerWebContentsCreated(
       content::WebContents* inner_web_contents) override;

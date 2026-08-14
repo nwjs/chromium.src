@@ -5,14 +5,12 @@
 #ifndef CHROME_BROWSER_GLIC_GLIC_PREF_NAMES_INTERNAL_H_
 #define CHROME_BROWSER_GLIC_GLIC_PREF_NAMES_INTERNAL_H_
 
+#include "components/glic/glic_pref_names.h"
+
 namespace glic::prefs {
 
 // Access to these prefs should be guarded. The only place that should access
 // them directly (including in tests) is GlicEnabling.
-
-// Integer pref that determines the FRE status for the user profile. Values are
-// from the FreStatus enum.
-inline constexpr char kGlicCompletedFre[] = "glic.completed_fre";
 
 // Boolean pref for the user-enabled actuation on web setting.
 inline constexpr char kGlicUserEnabledActuationOnWeb[] =
@@ -28,6 +26,9 @@ inline constexpr char kGlicOnboardingStatus[] = "glic.onboarding_status";
 inline constexpr char kGlicLastInvokedTime[] = "glic.last_invoked_time";
 inline constexpr char kGlicLastPromptTime[] = "glic.last_prompt_time";
 
+// Integer pref storing the last observed ProfileReadyState.
+inline constexpr char kGlicLastProfileReadyState[] =
+    "glic.profile_enablement.last_ready_state";
 }  // namespace glic::prefs
 
 #endif  // CHROME_BROWSER_GLIC_GLIC_PREF_NAMES_INTERNAL_H_

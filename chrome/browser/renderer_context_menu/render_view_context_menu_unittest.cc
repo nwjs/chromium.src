@@ -16,6 +16,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
@@ -39,6 +40,7 @@
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu_test_util.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/browser.h"
@@ -48,6 +50,7 @@
 #include "chrome/browser/ui/lens/lens_overlay_entry_point_controller.h"
 #include "chrome/browser/ui/passwords/ui_utils.h"
 #include "chrome/browser/ui/side_panel/mock_side_panel_ui.h"
+#include "chrome/browser/ui/tabs/page_context_eligibility_helper.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/user_education/user_education_service.h"
 #include "chrome/browser/user_education/user_education_service_factory.h"
@@ -64,6 +67,7 @@
 #include "components/autofill/content/browser/test_autofill_manager_injector.h"
 #include "components/autofill/content/browser/test_content_autofill_client.h"
 #include "components/autofill/content/browser/test_content_autofill_driver.h"
+#include "components/autofill/core/browser/foundations/autofill_manager_test_api.h"
 #include "components/autofill/core/browser/foundations/test_autofill_driver.h"
 #include "components/autofill/core/browser/foundations/test_browser_autofill_manager.h"
 #include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
@@ -83,7 +87,12 @@
 #include "components/proxy_config/proxy_config_pref_names.h"
 #include "components/search_engines/search_engines_pref_names.h"
 #include "components/search_engines/template_url_service.h"
+#include "components/send_tab_to_self/features.h"
+#include "components/send_tab_to_self/stub_send_tab_to_self_sync_service.h"
+#include "components/send_tab_to_self/target_device_info.h"
 #include "components/sync/test/test_sync_service.h"
+#include "components/tabs/public/mock_tab_interface.h"
+#include "components/tabs/public/tab_interface.h"
 #include "components/translate/core/browser/language_state.h"
 #include "components/translate/core/browser/translate_manager.h"
 #include "components/user_education/common/user_education_features.h"
@@ -109,7 +118,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/context_menu_data/context_menu_data.h"
 #include "third_party/blink/public/common/context_menu_data/edit_flags.h"
-#include "third_party/blink/public/common/navigation/impression.h"
+#include "third_party/blink/public/common/dom/dom_node_id.h"
 #include "third_party/blink/public/mojom/context_menu/context_menu.mojom.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/base/clipboard/clipboard.h"
@@ -500,6 +509,10 @@ class RenderViewContextMenuPrefsTest
 
   base::OnceClosure& preresolved_finished_closure() {
     return preresolved_finished_closure_;
+  }
+
+  custom_handlers::ProtocolHandlerRegistry* protocol_handler_registry() {
+    return registry_.get();
   }
 
  private:
@@ -938,7 +951,6 @@ TEST_F(RenderViewContextMenuPrefsTest, OpenLinkNavigationParamsSet) {
   content::ContextMenuParams params = CreateParams(MenuItem::LINK);
   params.unfiltered_link_url = params.link_url;
   params.link_url = params.link_url;
-  params.impression = blink::Impression();
   auto menu = std::make_unique<TestRenderViewContextMenu>(main_frame, params);
   menu->ExecuteCommand(IDC_CONTENT_CONTEXT_OPENLINKNEWTAB, 0);
   EXPECT_TRUE(delegate.last_navigation_params());
@@ -949,9 +961,6 @@ TEST_F(RenderViewContextMenuPrefsTest, OpenLinkNavigationParamsSet) {
             delegate.last_navigation_params()->initiator_frame_token);
   EXPECT_EQ(main_frame.GetProcess()->GetDeprecatedID(),
             delegate.last_navigation_params()->initiator_process_id);
-
-  // Verify that the impression is attached to the navigation.
-  EXPECT_TRUE(delegate.last_navigation_params()->impression);
 }
 
 // Verify ContextMenu navigations properly set the initiating origin.
@@ -963,7 +972,6 @@ TEST_F(RenderViewContextMenuPrefsTest, OpenLinkNavigationInitiatorSet) {
   content::ContextMenuParams params = CreateParams(MenuItem::LINK);
   params.unfiltered_link_url = params.link_url;
   params.link_url = params.link_url;
-  params.impression = blink::Impression();
   auto menu = std::make_unique<TestRenderViewContextMenu>(main_frame, params);
   menu->ExecuteCommand(IDC_CONTENT_CONTEXT_OPENLINKNEWTAB, 0);
   EXPECT_TRUE(delegate.last_navigation_params());
@@ -993,6 +1001,22 @@ TEST_F(RenderViewContextMenuPrefsTest,
   EXPECT_TRUE(net::GetValueForKeyInQuery(delegate.last_navigation_params()->url,
                                          "source", &source_param));
   EXPECT_EQ("chrome.ctxt", source_param);
+}
+
+TEST_F(RenderViewContextMenuPrefsTest, SearchWebForLogsSelectedTextWordCount) {
+  base::HistogramTester histogram_tester;
+  content::RenderFrameHost& main_frame = *web_contents()->GetPrimaryMainFrame();
+
+  SetUserSelectedDefaultSearchProvider("https://www.google.com/search", true);
+
+  content::ContextMenuParams params = CreateParams(MenuItem::SELECTION);
+  params.selection_text = u"Search for multiple words in selection";
+  auto menu = std::make_unique<TestRenderViewContextMenu>(main_frame, params);
+  menu->Init();
+  menu->ExecuteCommand(IDC_CONTENT_CONTEXT_SEARCHWEBFOR, 0);
+
+  histogram_tester.ExpectUniqueSample(
+      "RenderViewContextMenu.SelectedTextWordCount.SearchWeb", 6, 1);
 }
 
 TEST_F(RenderViewContextMenuPrefsTest,
@@ -1114,8 +1138,9 @@ class RenderViewContextMenuUsePasskeyFromAnotherDeviceTest
     NotifyFormManagerAndWait(form);
 
     content::ContextMenuParams params = CreateParams(MenuItem::EDITABLE);
-    params.form_renderer_id = form.renderer_id().value();
-    params.field_renderer_id = form.fields()[0].renderer_id().value();
+    params.form_renderer_id = blink::DOMNodeIdType(form.renderer_id().value());
+    params.field_renderer_id =
+        blink::DOMNodeIdType(form.fields()[0].renderer_id().value());
 
     auto menu = std::make_unique<TestRenderViewContextMenu>(
         *web_contents()->GetPrimaryMainFrame(), params);
@@ -1126,7 +1151,8 @@ class RenderViewContextMenuUsePasskeyFromAnotherDeviceTest
   void NotifyFormManagerAndWait(autofill::FormData form) {
     autofill::TestAutofillManagerWaiter waiter(
         autofill_manager(), {autofill::AutofillManagerEvent::kFormsSeen});
-    autofill_manager().OnFormsSeen({form}, {});
+    autofill_manager().OnFormsSeen(
+        {form}, {}, autofill::AutofillManagerTestApi::pass_key());
     ASSERT_TRUE(waiter.Wait());
   }
 
@@ -1155,29 +1181,10 @@ class RenderViewContextMenuUsePasskeyFromAnotherDeviceTest
       af_manager_injector_;
 };
 
-// Verify that "Use passkey from another device" is not displayed when the
-// feature is disabled.
-TEST_F(RenderViewContextMenuUsePasskeyFromAnotherDeviceTest,
-       UsePasskeyFromAnotherDeviceNotInContextMenu) {
-  base::test::ScopedFeatureList features;
-  features.InitAndDisableFeature(
-      password_manager::features::
-          kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu);
-  NavigateAndCommit(get_url());
-
-  auto menu = CreateFormAndDisplayMenu(/*is_webauthn_form=*/true);
-
-  EXPECT_FALSE(
-      menu->IsItemPresent(IDC_CONTENT_CONTEXT_USE_PASSKEY_FROM_ANOTHER_DEVICE));
-}
-
 // Verify that "Use passkey from another device" is not displayed on
-// non-WebAuthn fields when the feature is enabled.
+// non-WebAuthn fields.
 TEST_F(RenderViewContextMenuUsePasskeyFromAnotherDeviceTest,
        UsePasskeyFromAnotherDeviceNotInContextMenuWhenNonWebauthnField) {
-  base::test::ScopedFeatureList features(
-      password_manager::features::
-          kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu);
   NavigateAndCommit(get_url());
   webauthn_delegate()->OnCredentialsReceived(
       {}, ChromeWebAuthnCredentialsDelegate::SecurityKeyOrHybridFlowAvailable(
@@ -1444,6 +1451,82 @@ TEST_F(RenderViewContextMenuPrefsTest,
   menu.Init();
 
   EXPECT_FALSE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_GLICSHAREIMAGE));
+
+  glic::GlicEnabling::SetBypassEnablementChecksForTesting(false);
+}
+
+class MockPageContextEligibilityHelper
+    : public tabs::PageContextEligibilityHelper {
+ public:
+  explicit MockPageContextEligibilityHelper(tabs::TabInterface& tab)
+      : PageContextEligibilityHelper(tab) {}
+  ~MockPageContextEligibilityHelper() override = default;
+
+  MOCK_METHOD(optimization_guide::PageContextEligibilityStatus,
+              IsPageContextEligible,
+              (),
+              (const, override));
+};
+
+TEST_F(RenderViewContextMenuPrefsTest, GlicShareImageEligibility) {
+  base::test::ScopedFeatureList features;
+  features.InitAndEnableFeature(features::kGlicShareImage);
+  glic::GlicEnabling::SetBypassEnablementChecksForTesting(true);
+
+  // Create a MockTabInterface and link it to our web contents
+  tabs::MockTabInterface mock_tab;
+  ui::UnownedUserDataHost unowned_user_data_host;
+  ON_CALL(mock_tab, GetUnownedUserDataHost())
+      .WillByDefault(testing::ReturnRef(unowned_user_data_host));
+  ON_CALL(mock_tab, GetContents())
+      .WillByDefault(testing::Return(web_contents()));
+  ON_CALL(mock_tab, GetProfile()).WillByDefault(testing::Return(profile()));
+  tabs::TabLookupFromWebContents::CreateForWebContents(web_contents(),
+                                                       &mock_tab);
+
+  auto mock_helper =
+      std::make_unique<testing::NiceMock<MockPageContextEligibilityHelper>>(
+          mock_tab);
+
+  content::ContextMenuParams params = CreateParams(MenuItem::IMAGE);
+  params.has_image_contents = true;
+
+  {
+    // Case 1: Helper returns unknown (e.g. inactive or initialization failure)
+    // -> hidden.
+    EXPECT_CALL(*mock_helper, IsPageContextEligible())
+        .WillRepeatedly(testing::Return(
+            optimization_guide::PageContextEligibilityStatus::kUnknown));
+    TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                   params);
+    menu.SetBrowser(GetBrowser());
+    menu.Init();
+    EXPECT_FALSE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_GLICSHAREIMAGE));
+  }
+
+  {
+    // Case 2: Helper returns ineligible -> hidden.
+    EXPECT_CALL(*mock_helper, IsPageContextEligible())
+        .WillRepeatedly(testing::Return(
+            optimization_guide::PageContextEligibilityStatus::kNotEligible));
+    TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                   params);
+    menu.SetBrowser(GetBrowser());
+    menu.Init();
+    EXPECT_FALSE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_GLICSHAREIMAGE));
+  }
+
+  {
+    // Case 3: Helper returns eligible -> visible.
+    EXPECT_CALL(*mock_helper, IsPageContextEligible())
+        .WillRepeatedly(testing::Return(
+            optimization_guide::PageContextEligibilityStatus::kEligible));
+    TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                   params);
+    menu.SetBrowser(GetBrowser());
+    menu.Init();
+    EXPECT_TRUE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_GLICSHAREIMAGE));
+  }
 
   glic::GlicEnabling::SetBypassEnablementChecksForTesting(false);
 }
@@ -1825,7 +1908,6 @@ TEST_F(RenderViewContextMenuPrefsTest,
 }
 
 BASE_FEATURE(kTestUnregisteredFeature,
-             "TestUnregisteredFeature",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 TEST_F(RenderViewContextMenuPrefsTest, GetIsNewFeatureAtValue) {
@@ -2473,8 +2555,6 @@ TEST_F(RenderViewContextMenuMenuSimplificationTest, PureSelectionLayout) {
 
 TEST_F(RenderViewContextMenuMenuSimplificationTest, PageMenuSeparators) {
   content::ContextMenuParams params = CreateParams(MenuItem::PAGE);
-  params.selection_text = u"";
-  params.is_editable = false;
 
   TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
                                  params);
@@ -2572,4 +2652,236 @@ TEST_F(RenderViewContextMenuMenuSimplificationTest,
 
   // Verify that it is present exactly once.
   EXPECT_EQ(1, CountOccurrences(*menu, IDC_CONTENT_CONTEXT_PARTIAL_TRANSLATE));
+}
+
+using send_tab_to_self::EntryPointDisplayReason;
+using send_tab_to_self::StubSendTabToSelfSyncService;
+
+struct SendTabToSelfPageMenuTestParam {
+  bool feature_enabled;
+  std::optional<EntryPointDisplayReason> display_reason;
+  bool expected_present;
+  std::optional<ui::MenuModel::ItemType> expected_type = std::nullopt;
+};
+
+class RenderViewContextMenuSendTabToSelfPageTest
+    : public RenderViewContextMenuMenuSimplificationTest,
+      public testing::WithParamInterface<SendTabToSelfPageMenuTestParam> {
+ public:
+  void SetUp() override {
+    RenderViewContextMenuMenuSimplificationTest::SetUp();
+    SendTabToSelfSyncServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+        profile(),
+        base::BindRepeating(
+            &RenderViewContextMenuSendTabToSelfPageTest::BuildStubSyncService));
+    NavigateAndCommit(GURL("https://www.example.com"));
+  }
+
+  static std::unique_ptr<KeyedService> BuildStubSyncService(
+      content::BrowserContext* context) {
+    return std::make_unique<StubSendTabToSelfSyncService>();
+  }
+};
+
+// Tests Send Tab to Self page menu item presence and type across varied feature
+// flag states and target device availability reasons.
+TEST_P(RenderViewContextMenuSendTabToSelfPageTest, CheckPageMenuState) {
+  const SendTabToSelfPageMenuTestParam& param = GetParam();
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatureState(
+      send_tab_to_self::kSendTabToSelfEnhancedDesktopUIv2,
+      param.feature_enabled);
+
+  auto* sync_service = static_cast<StubSendTabToSelfSyncService*>(
+      SendTabToSelfSyncServiceFactory::GetForProfile(profile()));
+  sync_service->SetEntryPointDisplayReason(param.display_reason);
+
+  content::ContextMenuParams params = CreateParams(MenuItem::PAGE);
+
+  TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                 params);
+  menu.SetBrowser(GetBrowser());
+  menu.Init();
+
+  EXPECT_EQ(param.expected_present, menu.IsItemPresent(IDC_SEND_TAB_TO_SELF));
+  if (param.expected_present) {
+    ASSERT_TRUE(param.expected_type.has_value());
+    std::optional<size_t> index =
+        menu.menu_model().GetIndexOfCommandId(IDC_SEND_TAB_TO_SELF);
+    ASSERT_TRUE(index.has_value());
+    EXPECT_EQ(param.expected_type.value(),
+              menu.menu_model().GetTypeAt(index.value()));
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    RenderViewContextMenuSendTabToSelfPageTest,
+    testing::Values(
+        SendTabToSelfPageMenuTestParam{/*feature_enabled=*/true,
+                                       /*display_reason=*/std::nullopt,
+                                       /*expected_present=*/false},
+        SendTabToSelfPageMenuTestParam{
+            /*feature_enabled=*/true,
+            /*display_reason=*/EntryPointDisplayReason::kInformNoTargetDevice,
+            /*expected_present=*/true,
+            /*expected_type=*/ui::MenuModel::TYPE_COMMAND},
+        SendTabToSelfPageMenuTestParam{
+            /*feature_enabled=*/true,
+            /*display_reason=*/EntryPointDisplayReason::kOfferFeature,
+            /*expected_present=*/true,
+            /*expected_type=*/ui::MenuModel::TYPE_SUBMENU},
+        SendTabToSelfPageMenuTestParam{
+            /*feature_enabled=*/false,
+            /*display_reason=*/EntryPointDisplayReason::kOfferFeature,
+            /*expected_present=*/true,
+            /*expected_type=*/ui::MenuModel::TYPE_COMMAND}));
+
+class RenderViewContextMenuSendTabToSelfLinkTest
+    : public RenderViewContextMenuMenuSimplificationTest {
+ public:
+  void SetUp() override {
+    RenderViewContextMenuMenuSimplificationTest::SetUp();
+    SendTabToSelfSyncServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+        profile(),
+        base::BindRepeating(
+            &RenderViewContextMenuSendTabToSelfLinkTest::BuildStubSyncService));
+    NavigateAndCommit(GURL("https://www.example.com"));
+  }
+
+  static std::unique_ptr<KeyedService> BuildStubSyncService(
+      content::BrowserContext* context) {
+    return std::make_unique<StubSendTabToSelfSyncService>();
+  }
+};
+
+// Tests that right-clicking a hyperlink offers the Send Tab to Self item as a
+// submenu when enhanced desktop UI v2 is enabled.
+TEST_F(RenderViewContextMenuSendTabToSelfLinkTest, SubmenuPresentForLink) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      send_tab_to_self::kSendTabToSelfEnhancedDesktopUIv2);
+
+  auto* sync_service = static_cast<StubSendTabToSelfSyncService*>(
+      SendTabToSelfSyncServiceFactory::GetForProfile(profile()));
+  sync_service->SetEntryPointDisplayReason(
+      EntryPointDisplayReason::kOfferFeature);
+
+  content::ContextMenuParams params = CreateParams(MenuItem::LINK);
+  params.unfiltered_link_url = params.link_url =
+      GURL("https://example.com/link");
+
+  TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                 params);
+  menu.SetBrowser(GetBrowser());
+  menu.set_protocol_handler_registry(protocol_handler_registry());
+  menu.Init();
+
+  ASSERT_TRUE(menu.IsItemPresent(IDC_SEND_TAB_TO_SELF));
+  std::optional<size_t> index =
+      menu.menu_model().GetIndexOfCommandId(IDC_SEND_TAB_TO_SELF);
+  ASSERT_TRUE(index.has_value());
+  EXPECT_EQ(ui::MenuModel::TYPE_SUBMENU,
+            menu.menu_model().GetTypeAt(index.value()));
+}
+
+// Tests that when right-clicking a hyperlink, the Send Tab to Self item is
+// embedded in the same menu group as Save Link As and Copy Link Address (no
+// separators between them).
+TEST_F(RenderViewContextMenuSendTabToSelfLinkTest,
+       InGroupWithSaveLinkAsAndCopyLinkAddress) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      send_tab_to_self::kSendTabToSelfEnhancedDesktopUIv2);
+
+  auto* sync_service = static_cast<StubSendTabToSelfSyncService*>(
+      SendTabToSelfSyncServiceFactory::GetForProfile(profile()));
+  sync_service->SetEntryPointDisplayReason(
+      EntryPointDisplayReason::kOfferFeature);
+
+  content::ContextMenuParams params = CreateParams(MenuItem::LINK);
+  params.unfiltered_link_url = params.link_url =
+      GURL("https://example.com/link");
+
+  TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                 params);
+  menu.SetBrowser(GetBrowser());
+  menu.set_protocol_handler_registry(protocol_handler_registry());
+  menu.Init();
+
+  std::optional<size_t> save_index =
+      menu.menu_model().GetIndexOfCommandId(IDC_CONTENT_CONTEXT_SAVELINKAS);
+  std::optional<size_t> copy_index = menu.menu_model().GetIndexOfCommandId(
+      IDC_CONTENT_CONTEXT_COPYLINKLOCATION);
+  std::optional<size_t> stts_index =
+      menu.menu_model().GetIndexOfCommandId(IDC_SEND_TAB_TO_SELF);
+
+  ASSERT_TRUE(save_index.has_value());
+  ASSERT_TRUE(copy_index.has_value());
+  ASSERT_TRUE(stts_index.has_value());
+  EXPECT_LT(stts_index.value(), save_index.value());
+  EXPECT_LT(save_index.value(), copy_index.value());
+  for (size_t i = stts_index.value(); i <= copy_index.value(); ++i) {
+    EXPECT_NE(ui::MenuModel::TYPE_SEPARATOR, menu.menu_model().GetTypeAt(i));
+  }
+}
+
+// Tests that when right-clicking a hyperlink with no target devices available
+// (`kInformNoTargetDevice`), the Send Tab to Self item is appended as a regular
+// command item rather than as a submenu.
+TEST_F(RenderViewContextMenuSendTabToSelfLinkTest,
+       NoSubmenuWhenNoDevicesForLink) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      send_tab_to_self::kSendTabToSelfEnhancedDesktopUIv2);
+
+  auto* sync_service = static_cast<StubSendTabToSelfSyncService*>(
+      SendTabToSelfSyncServiceFactory::GetForProfile(profile()));
+  sync_service->SetEntryPointDisplayReason(
+      EntryPointDisplayReason::kInformNoTargetDevice);
+
+  content::ContextMenuParams params = CreateParams(MenuItem::LINK);
+  params.unfiltered_link_url = params.link_url =
+      GURL("https://example.com/link");
+
+  TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                 params);
+  menu.SetBrowser(GetBrowser());
+  menu.set_protocol_handler_registry(protocol_handler_registry());
+  menu.Init();
+
+  ASSERT_TRUE(menu.IsItemPresent(IDC_SEND_TAB_TO_SELF));
+  std::optional<size_t> index =
+      menu.menu_model().GetIndexOfCommandId(IDC_SEND_TAB_TO_SELF);
+  ASSERT_TRUE(index.has_value());
+  EXPECT_EQ(ui::MenuModel::TYPE_COMMAND,
+            menu.menu_model().GetTypeAt(index.value()));
+}
+
+// Tests that right-clicking a hyperlink does NOT append the Send Tab to Self
+// item at all when enhanced desktop UI v2 is disabled (even if v1 is enabled).
+TEST_F(RenderViewContextMenuSendTabToSelfLinkTest,
+       ItemNotPresentForLinkWhenV2Disabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{send_tab_to_self::kSendTabToSelfEnhancedDesktopUI},
+      /*disabled_features=*/{
+          send_tab_to_self::kSendTabToSelfEnhancedDesktopUIv2});
+
+  auto* sync_service = static_cast<StubSendTabToSelfSyncService*>(
+      SendTabToSelfSyncServiceFactory::GetForProfile(profile()));
+  sync_service->SetEntryPointDisplayReason(
+      EntryPointDisplayReason::kOfferFeature);
+
+  content::ContextMenuParams params = CreateParams(MenuItem::LINK);
+  params.unfiltered_link_url = params.link_url =
+      GURL("https://example.com/link");
+
+  TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                 params);
+  menu.SetBrowser(GetBrowser());
+  menu.set_protocol_handler_registry(protocol_handler_registry());
+  menu.Init();
+
+  EXPECT_FALSE(menu.IsItemPresent(IDC_SEND_TAB_TO_SELF));
 }

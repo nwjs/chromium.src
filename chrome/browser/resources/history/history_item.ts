@@ -232,8 +232,22 @@ export class HistoryItemElement extends HistoryItemElementBase {
         'title-and-domain';
   }
 
-  protected shouldShowActorTooltip_() {
-    return this.item?.isActorVisit;
+  protected shouldShowActorTooltip_(): boolean {
+    if (this.isCriticalActionsEnabled_()) {
+      return false;
+    }
+    return !!this.item?.isActorVisit;
+  }
+
+  protected shouldShowActorIconNextToFavicon_(): boolean {
+    if (!this.isCriticalActionsEnabled_()) {
+      return false;
+    }
+    return !!this.item?.isActorVisit;
+  }
+
+  private isCriticalActionsEnabled_(): boolean {
+    return loadTimeData.getBoolean('isCriticalActionsEnabled');
   }
 
   /**
@@ -346,7 +360,9 @@ export class HistoryItemElement extends HistoryItemElementBase {
     return 'history-internal:arrow-selector-spark';
     // </if>
     // <if expr="not _google_chrome">
-    return 'history20:arrow-selector-tool';
+    return loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+        'history20:arrow-selector-tool' :
+        'history20:arrow-selector-tool-old';
     // </if>
   }
 }

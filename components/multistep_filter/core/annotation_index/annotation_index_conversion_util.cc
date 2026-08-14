@@ -15,16 +15,14 @@
 #include "components/multistep_filter/core/annotation_index/proto/annotation_index.pb.h"
 #include "components/multistep_filter/core/data_models/filter_annotation.h"
 #include "components/multistep_filter/core/data_models/filter_suggestion_candidate.h"
-#include "components/multistep_filter/core/multistep_filter_util.h"
+#include "components/optimization_guide/proto/filter_execution_metadata.pb.h"
+#include "components/optimization_guide/proto/hints.pb.h"
 #include "url/gurl.h"
 
 namespace multistep_filter {
 
-GetSupportedTasksRequest ToGetSupportedTasksRequest(std::string_view domain) {
-  GetSupportedTasksRequest request;
-  request.set_domain(domain);
-  return request;
-}
+using ::optimization_guide::proto::FilterExecutionRequestContextMetadata;
+using ::optimization_guide::proto::RequestContextMetadata;
 
 std::vector<std::string> ToSupportedTasks(
     const GetSupportedTasksResponse& response) {
@@ -49,15 +47,16 @@ ExecutionCandidate ToExecutionCandidate(const FilterAnnotation& annotation) {
   return candidate;
 }
 
-GetTaskExecutionStrategiesRequest ToGetTaskExecutionStrategiesRequest(
-    const GURL& url,
+RequestContextMetadata ToRequestContextMetadata(
     base::span<const FilterAnnotation> filter_annotations) {
-  GetTaskExecutionStrategiesRequest request;
-  request.set_current_url(url.spec());
+  RequestContextMetadata metadata;
+  FilterExecutionRequestContextMetadata filter_execution_metadata;
   for (const FilterAnnotation& annotation : filter_annotations) {
-    *request.add_candidates() = ToExecutionCandidate(annotation);
+    *filter_execution_metadata.add_execution_candidate() =
+        ToExecutionCandidate(annotation);
   }
-  return request;
+  *metadata.mutable_filter_execution_metadata() = filter_execution_metadata;
+  return metadata;
 }
 
 std::vector<FilterSuggestionCandidate> ToFilterSuggestionCandidates(
@@ -104,12 +103,6 @@ std::vector<FilterSuggestionCandidate> ToFilterSuggestionCandidates(
   return candidates;
 }
 
-ExtractTaskAttributesRequest ToExtractTaskAttributesRequest(const GURL& url) {
-  ExtractTaskAttributesRequest request;
-  request.mutable_source()->set_raw_url(url.spec());
-  return request;
-}
-
 std::optional<FilterAnnotation> ToFilterAnnotation(
     const GURL& url,
     const ExtractTaskAttributesResponse& response) {
@@ -125,8 +118,7 @@ std::optional<FilterAnnotation> ToFilterAnnotation(
   }
 
   return FilterAnnotation(base::Uuid::GenerateRandomV4(), response.task_type(),
-                          host, base::Time::Now(),
-                          std::move(attributes));
+                          host, base::Time::Now(), std::move(attributes));
 }
 
 }  // namespace multistep_filter

@@ -5,7 +5,8 @@
 #ifndef COMPONENTS_VIZ_SERVICE_DISPLAY_FRAME_DEADLINE_DECIDER_H_
 #define COMPONENTS_VIZ_SERVICE_DISPLAY_FRAME_DEADLINE_DECIDER_H_
 
-#include "base/memory/raw_ref.h"
+#include <optional>
+
 #include "base/time/time.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
 #include "components/viz/service/viz_service_export.h"
@@ -18,32 +19,100 @@ class VIZ_SERVICE_EXPORT FrameDeadlineDecider {
   static constexpr base::TimeDelta kPerceptibleLatencyThreshold =
       base::Milliseconds(100);
 
+  // Generates a process-scoped Perfetto flow ID for frame deadline selection
+  // tracking. Uses the top 8 bits for a constant tag (0xFD for Frame Deadline)
+  // and the lower 56 bits for the microsecond timestamp.
+  static constexpr uint64_t GetTraceFlowId(base::TimeDelta frame_time) {
+    constexpr uint64_t kFrameDeadlineTag = 0xFDULL << 56;
+    constexpr uint64_t kFrameTimeBitMask = 0x00FFFFFFFFFFFFFFULL;
+    static_assert((kFrameDeadlineTag & kFrameTimeBitMask) == 0ULL);
+    return kFrameDeadlineTag |
+           (static_cast<uint64_t>(frame_time.InMicroseconds()) &
+            kFrameTimeBitMask);
+  }
+
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  // LINT.IfChange(SelectionReason)
+  enum class SelectionReason {
+    kPlatformPreferred = 0,
+    kOngoingSequence = 1,
+    // Chrome preferred deadline was found in possible deadlines and we didn't
+    // have to fall back to OS preferred due to various reasons when starting a
+    // new sequence.
+    kChromePreferredNewSequence = 2,
+    // Fallback to OS preferred because no deadline exists with present delta <=
+    // target present delta.
+    kOsPreferredNoDeadlineWithinTarget = 3,
+    // Fallback to OS preferred because Chrome preferred is sooner than OS
+    // preferred.
+    kOsPreferredChromePreferredSooner = 4,
+    kMaxValue = kOsPreferredChromePreferredSooner,
+  };
+  // LINT.ThenChange(
+  // //base/tracing/protos/chrome_track_event.proto:SelectionReason,
+  // //tools/metrics/histograms/metadata/gpu/enums.xml:FrameDeadlineDeciderSelectionReason)
+
+  struct QueryResult {
+    size_t deadline_index;
+    SelectionReason reason;
+  };
+
   explicit FrameDeadlineDecider(bool use_platform_preferred_deadlines);
   ~FrameDeadlineDecider();
+
+  void NotifyMinSupportedVsyncInterval(base::TimeDelta min_vsync_interval);
 
   FrameDeadlineDecider(const FrameDeadlineDecider&) = delete;
   FrameDeadlineDecider& operator=(const FrameDeadlineDecider&) = delete;
 
-  // Called at the start of DrawAndSwap to select the best deadline.
-  // Returns the index of the selected deadline. Locks to target present delta
-  // at sequence start, and matches it on subsequent frames in the sequence.
+  // Queries the best deadline index for the given parameters without modifying
+  // any internal state of the decider. This is safe to call multiple times or
+  // from const methods.
+  QueryResult QueryDeadline(const PossibleDeadlines& possible_deadlines,
+                            base::TimeDelta vsync_interval,
+                            int max_allowed_buffers,
+                            base::TimeTicks frame_time,
+                            std::optional<base::TimeTicks> earliest_input_time,
+                            bool is_handling_interaction) const;
+
+  // Selects the best deadline index and updates the internal state of the
+  // decider to lock to the selected deadline for the current sequence.
+  // This should only be called once per frame when we are actually going to
+  // draw. It differs from QueryDeadline in that it has side effects on the
+  // internal sequence tracking state.
   size_t SelectDeadline(const PossibleDeadlines& possible_deadlines,
                         base::TimeDelta vsync_interval,
                         int max_allowed_buffers,
                         base::TimeTicks frame_time,
-                        std::optional<base::TimeTicks> earliest_input_time);
+                        std::optional<base::TimeTicks> earliest_input_time,
+                        bool is_handling_interaction);
 
-  // Called when the display scheduler goes idle or invisible, to reset sequence
-  // state.
-  void OnGoIdle();
+  // Called when the display becomes invisible.
+  void OnDisplayInvisible();
 
  private:
+  bool IsPartOfOngoingFrameSequence(base::TimeTicks frame_time,
+                                    bool is_handling_interaction) const;
+
   size_t FindClosestDeadlineByPresentation(
       const PossibleDeadlines& possible_deadlines) const;
+  void RecordSelectedSustainableDeadlineHistogram(
+      base::TimeDelta selected_present_delta,
+      base::TimeDelta vsync_interval,
+      int max_allowed_buffers) const;
 
-  bool in_frame_sequence_ = false;
-  base::TimeDelta curr_sequence_present_delta_;
-  size_t curr_sequence_deadline_index_ = 0;
+  struct FrameSequenceState {
+    base::TimeDelta present_delta;
+    size_t deadline_index = 0;
+    base::TimeTicks last_frame_time;
+    bool is_interaction_active = false;
+  };
+
+  std::optional<FrameSequenceState> frame_sequence_state_;
+  std::optional<base::TimeDelta> min_supported_vsync_interval_;
+  const base::TimeDelta max_non_interactive_idle_duration_;
+  const base::TimeDelta max_interactive_idle_duration_;
   const bool use_platform_preferred_deadlines_;
 };
 

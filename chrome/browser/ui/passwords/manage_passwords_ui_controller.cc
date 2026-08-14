@@ -1595,9 +1595,7 @@ void ManagePasswordsUIController::StartTrustedVaultErrorResolutionFlow() {
           web_contents());
   OpenTabForSyncKeyRetrieval(
       browser,
-      // TODO(crbug.com/484367376): Introduce a dedicated enum entry for
-      // indicating that the user action corresponds to the in-flow recovery.
-      trusted_vault::TrustedVaultUserActionTriggerForUMA::kProfileMenu);
+      trusted_vault::TrustedVaultUserActionTriggerForUMA::kPasswordSavePrompt);
 }
 
 void ManagePasswordsUIController::
@@ -1639,10 +1637,15 @@ void ManagePasswordsUIController::OnErrorStateChanged(
         new_state == password_manager::ActionableError::kNoError) {
       SavePasswordAfterTrustedVaultErrorResolution();
     }
-    // If the error state of the store changed, the safest option is to hide the
-    // bubble to avoid showing stale UI.
     if (IsShowingBubble()) {
-      HideBubble(/*initiated_by_bubble_manager=*/false);
+      // If the error state of the store changed, the safest option is to hide
+      // the password save / update bubble to avoid showing stale UI.
+      using password_manager::ui::State;
+      const State state = GetState();
+      if (state == State::PENDING_PASSWORD_STATE ||
+          state == State::PENDING_PASSWORD_UPDATE_STATE) {
+        HideBubble(/*initiated_by_bubble_manager=*/false);
+      }
     }
   }
 }

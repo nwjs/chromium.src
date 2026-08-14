@@ -34,14 +34,14 @@ BASE_FEATURE(kGlicSelectionPrompt, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<bool> kGlicSelectionPromptUpdatesOnly{
     &kGlicSelectionPrompt, "updates_only", false};
-const base::FeatureParam<bool> kGlicSelectionPromptUseWidget{
-    &kGlicSelectionPrompt, "use_widget", true};
-const base::FeatureParam<bool> kGlicSelectionPromptEnablePinning{
-    &kGlicSelectionPrompt, "enable_pinning", false};
 const base::FeatureParam<std::string> kGlicSelectionTopCueOnlyList{
     &kGlicSelectionPrompt, "top_cue_only_list", ""};
-const base::FeatureParam<bool> kGlicSelectionEnableSiteSettings{
-    &kGlicSelectionPrompt, "enable_site_settings", false};
+const base::FeatureParam<bool> kGlicSelectionShowCopyButtons{
+    &kGlicSelectionPrompt, "show_copy_buttons", false};
+const base::FeatureParam<bool> kGlicSelectionAutoSendPrompt{
+    &kGlicSelectionPrompt, "auto_send_prompt", true};
+const base::FeatureParam<std::string> kGlicSelectionPromptCta{
+    &kGlicSelectionPrompt, "cta", kGlicSelectionPromptCtaExplain};
 
 BASE_FEATURE(kGlicClearTurnIdOnPanelWillOpen,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -85,11 +85,19 @@ BASE_FEATURE(kGlicSummarizeVideoSuggestion, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicFixTimeToFirstQueryKillSwitch,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kGlicContextMenu, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicContextMenu,
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+);
 const base::FeatureParam<std::string> kGlicContextMenuArm{&kGlicContextMenu,
                                                           "variant", "arm1"};
 const base::FeatureParam<bool> kGlicContextMenuWithOnboarding{
     &kGlicContextMenu, "WithOnboarding", false};
+
+BASE_FEATURE(kGlicContextMenuBelowSearch, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicTextSelectionContextMenu, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -156,7 +164,7 @@ const base::FeatureParam<int> kGlicReloadMaxLoadingTimeMs{
     &kGlicWebClientLoadTimes, "glic-reload-max-loading-time-ms", 30000};
 
 BASE_FEATURE(kGlicContextualCueingV2AutoSubmit,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicWebDragAndDropFileUpload, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -199,6 +207,9 @@ BASE_FEATURE(kGlicNoWebUiLoader, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicGeminiEnterpriseSettingsEnabled,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kGlicGeminiEnterpriseConsentEnabled,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kGlicHotkeyLocalScope,
 #if BUILDFLAG(IS_ANDROID)
              base::FEATURE_ENABLED_BY_DEFAULT
@@ -206,4 +217,21 @@ BASE_FEATURE(kGlicHotkeyLocalScope,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
+
+BASE_FEATURE(kGlicPasteEligibilityCheck,
+             "GlicPasteEligibilityCheck",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicWebPasteEligibilityCheck,
+             "GlicWebPasteEligibilityCheck",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicTabGroups, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicSparkSettingsAccessibleLabels,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicOptInDialogLinkA11yFix, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicOptInDialogA11yFix, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicStructuredYieldMetadata, base::FEATURE_DISABLED_BY_DEFAULT);
 }  // namespace features

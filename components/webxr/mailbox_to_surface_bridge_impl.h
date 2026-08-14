@@ -53,6 +53,8 @@ class MailboxToSurfaceBridgeImpl : public device::MailboxToSurfaceBridge {
   // (except when marked otherwise).
   void GenSyncToken(gpu::SyncToken* out_sync_token) override;
 
+  void VerifySyncToken(gpu::SyncToken& out_sync_token) override;
+
   void WaitSyncToken(const gpu::SyncToken& sync_token) override;
 
   void WaitForClientGpuFence(gfx::GpuFence&) override;
@@ -65,6 +67,7 @@ class MailboxToSurfaceBridgeImpl : public device::MailboxToSurfaceBridge {
       viz::SharedImageFormat format,
       const gfx::Size& size,
       const gfx::ColorSpace& color_space,
+      GrSurfaceOrigin surface_origin,
       gpu::SharedImageUsageSet usage,
       gpu::SyncToken& sync_token) override;
 

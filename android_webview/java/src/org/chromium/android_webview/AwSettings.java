@@ -7,9 +7,7 @@ package org.chromium.android_webview;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.annotation.SuppressLint;
-import android.content.Context;
 import android.content.pm.PackageManager;
-import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
@@ -32,7 +30,6 @@ import org.chromium.android_webview.common.Lifetime;
 import org.chromium.android_webview.common.MediaIntegrityApiStatus;
 import org.chromium.android_webview.metrics.BackForwardCacheNotRestoredReason;
 import org.chromium.android_webview.safe_browsing.AwSafeBrowsingConfigHelper;
-import org.chromium.android_webview.settings.AttributionBehavior;
 import org.chromium.android_webview.settings.ForceDarkBehavior;
 import org.chromium.android_webview.settings.ForceDarkMode;
 import org.chromium.android_webview.settings.SpeculativeLoadingAllowedFlags;
@@ -107,21 +104,6 @@ public class AwSettings {
     @ForceDarkBehavior
     private int mForceDarkBehavior = ForceDarkBehavior.PREFER_MEDIA_QUERY_OVER_FORCE_DARK;
 
-    @AttributionBehavior
-    public static final int ATTRIBUTION_DISABLED = AttributionBehavior.DISABLED;
-
-    @AttributionBehavior
-    public static final int ATTRIBUTION_APP_SOURCE_AND_WEB_TRIGGER =
-            AttributionBehavior.APP_SOURCE_AND_WEB_TRIGGER;
-
-    @AttributionBehavior
-    public static final int ATTRIBUTION_WEB_SOURCE_AND_WEB_TRIGGER =
-            AttributionBehavior.WEB_SOURCE_AND_WEB_TRIGGER;
-
-    @AttributionBehavior
-    public static final int ATTRIBUTION_APP_SOURCE_AND_APP_TRIGGER =
-            AttributionBehavior.APP_SOURCE_AND_APP_TRIGGER;
-
     /**
      * Do not change these constants. Apps rely on them for compatibility across WebView versions.
      */
@@ -149,7 +131,7 @@ public class AwSettings {
     private @HyperlinkContextMenuItems int mHyperlinkContextMenuItems =
             HyperlinkContextMenuItems.DISABLED;
 
-    private final Context mContext;
+    private final AwContents mAwContents;
     private WebContents mWebContents;
 
     // This class must be created on the UI thread. Afterwards, it can be
@@ -200,7 +182,6 @@ public class AwSettings {
     private boolean mDownloadFaviconsEnabled = true;
     private boolean mEnableSupportedHardwareAcceleratedFeatures;
     private int mMixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW;
-    private int mAttributionBehavior = AttributionBehavior.APP_SOURCE_AND_WEB_TRIGGER;
 
     @SpeculativeLoadingAllowedFlags
     private int mSpeculativeLoadingAllowedFlags =
@@ -396,15 +377,17 @@ public class AwSettings {
     }
 
     public AwSettings(
-            Context context,
+            AwContents awContents,
             boolean isAccessFromFileUrlsGrantedByDefault,
             boolean supportsLegacyQuirks,
             boolean allowEmptyDocumentPersistence,
             boolean allowGeolocationOnInsecureOrigins,
             boolean doNotUpdateSelectionOnMutatingSelectionRange) {
-        mContext = context;
+        mAwContents = awContents;
         boolean hasInternetPermission =
-                mContext.checkSelfPermission(android.Manifest.permission.INTERNET)
+                mAwContents
+                                .getProvidedContext()
+                                .checkSelfPermission(android.Manifest.permission.INTERNET)
                         == PackageManager.PERMISSION_GRANTED;
         synchronized (mAwSettingsLock) {
             mHasInternetPermission = hasInternetPermission;
@@ -420,7 +403,9 @@ public class AwSettings {
 
             // Best-guess a sensible initial value based on the features supported on the device.
             mSpatialNavigationEnabled =
-                    !context.getPackageManager()
+                    !mAwContents
+                            .getProvidedContext()
+                            .getPackageManager()
                             .hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN);
 
             // Respect the system setting for password echoing.
@@ -431,7 +416,13 @@ public class AwSettings {
             // By default, scale the text size by the system font scale factor. Embedders
             // may override this by invoking setTextZoom().
             mTextSizePercent =
-                    (int) (mTextSizePercent * context.getResources().getConfiguration().fontScale);
+                    (int)
+                            (mTextSizePercent
+                                    * mAwContents
+                                            .getProvidedContext()
+                                            .getResources()
+                                            .getConfiguration()
+                                            .fontScale);
 
             mSupportLegacyQuirks = supportsLegacyQuirks;
             mAllowEmptyDocumentPersistence = allowEmptyDocumentPersistence;
@@ -480,10 +471,6 @@ public class AwSettings {
         synchronized (mAwSettingsLock) {
             runnable.run();
         }
-    }
-
-    public int getUiModeNight() {
-        return mContext.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
     }
 
     @CalledByNative
@@ -1848,23 +1835,6 @@ public class AwSettings {
         }
     }
 
-    public void setAttributionBehavior(@AttributionBehavior int behavior) {
-        synchronized (mAwSettingsLock) {
-            if (mAttributionBehavior != behavior) {
-                mAttributionBehavior = behavior;
-                mEventHandler.updateWebkitPreferencesLocked();
-            }
-        }
-    }
-
-    @CalledByNative
-    @AttributionBehavior
-    public int getAttributionBehavior() {
-        synchronized (mAwSettingsLock) {
-            return mAttributionBehavior;
-        }
-    }
-
     public void setSpeculativeLoadingAllowed(@SpeculativeLoadingAllowedFlags int flags) {
         synchronized (mAwSettingsLock) {
             // Only trigger an update if the value changed, or this is the first time we call this
@@ -2385,8 +2355,10 @@ public class AwSettings {
         synchronized (mAwSettingsLock) {
             if (support == WebauthnMode.BROWSER) {
                 boolean hasPermission =
-                        mContext.checkSelfPermission(
-                                        android.Manifest.permission.CREDENTIAL_MANAGER_SET_ORIGIN)
+                        ContextUtils.getApplicationContext()
+                                        .checkSelfPermission(
+                                                android.Manifest.permission
+                                                        .CREDENTIAL_MANAGER_SET_ORIGIN)
                                 == android.content.pm.PackageManager.PERMISSION_GRANTED;
                 RecordHistogram.recordBooleanHistogram(
                         "Android.WebView.Webauthn.BrowserModePermissionGranted", hasPermission);

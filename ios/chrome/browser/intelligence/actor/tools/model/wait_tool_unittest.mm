@@ -8,7 +8,7 @@
 #import "base/test/test_future.h"
 #import "components/optimization_guide/proto/features/actions_data.pb.h"
 #import "ios/chrome/browser/intelligence/actor/tools/public/actor_tool_types.h"
-#import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/web/public/web_state.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/platform_test.h"
 
@@ -17,13 +17,23 @@ namespace actor {
 namespace {
 
 class WaitToolTest : public PlatformTest {
- public:
-  WaitToolTest() { profile_ = TestProfileIOS::Builder().Build(); }
-
  protected:
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
-  std::unique_ptr<TestProfileIOS> profile_;
+
+  base::expected<std::unique_ptr<WaitTool>, ToolExecutionResult>
+  CreateToolAndValidate(const optimization_guide::proto::WaitAction& action,
+                        web::WebState* web_state) {
+    auto tool =
+        WaitTool::Create(web_state ? web_state->GetWeakPtr() : nullptr, action);
+    CHECK(tool);
+    base::test::TestFuture<ToolExecutionResult> validate_future;
+    tool->Validate(validate_future.GetCallback());
+    if (!validate_future.Get().IsOk()) {
+      return base::unexpected(validate_future.Get());
+    }
+    return tool;
+  }
 };
 
 // Tests that the tool is created with the default duration when none is
@@ -31,7 +41,7 @@ class WaitToolTest : public PlatformTest {
 TEST_F(WaitToolTest, Create_DefaultDuration) {
   optimization_guide::proto::WaitAction action;
   base::expected<std::unique_ptr<WaitTool>, ToolExecutionResult> result =
-      WaitTool::Create(action, profile_.get());
+      CreateToolAndValidate(action, nullptr);
 
   EXPECT_TRUE(result.has_value());
 
@@ -51,7 +61,7 @@ TEST_F(WaitToolTest, Create_SpecifiedDuration) {
   optimization_guide::proto::WaitAction action;
   action.set_wait_time_ms(5000);
   base::expected<std::unique_ptr<WaitTool>, ToolExecutionResult> result =
-      WaitTool::Create(action, profile_.get());
+      CreateToolAndValidate(action, nullptr);
 
   EXPECT_TRUE(result.has_value());
 
@@ -74,7 +84,7 @@ TEST_F(WaitToolTest, GetToolType) {
   {
     optimization_guide::proto::WaitAction action;
     base::expected<std::unique_ptr<WaitTool>, ToolExecutionResult> result =
-        WaitTool::Create(action, profile_.get());
+        CreateToolAndValidate(action, nullptr);
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value()->GetToolType(), ToolType::kWait);
   }
@@ -84,7 +94,7 @@ TEST_F(WaitToolTest, GetToolType) {
     optimization_guide::proto::WaitAction action;
     action.set_wait_time_ms(5000);
     base::expected<std::unique_ptr<WaitTool>, ToolExecutionResult> result =
-        WaitTool::Create(action, profile_.get());
+        CreateToolAndValidate(action, nullptr);
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value()->GetToolType(), ToolType::kWait);
   }
@@ -94,7 +104,7 @@ TEST_F(WaitToolTest, GetToolType) {
     optimization_guide::proto::WaitAction action;
     action.set_wait_time_ms(0);
     base::expected<std::unique_ptr<WaitTool>, ToolExecutionResult> result =
-        WaitTool::Create(action, profile_.get());
+        CreateToolAndValidate(action, nullptr);
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value()->GetToolType(), ToolType::kWaitZeroDuration);
   }
@@ -104,7 +114,7 @@ TEST_F(WaitToolTest, GetToolType) {
     optimization_guide::proto::WaitAction action;
     action.set_wait_time_ms(-1000);
     base::expected<std::unique_ptr<WaitTool>, ToolExecutionResult> result =
-        WaitTool::Create(action, profile_.get());
+        CreateToolAndValidate(action, nullptr);
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value()->GetToolType(), ToolType::kWaitZeroDuration);
   }

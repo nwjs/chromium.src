@@ -55,6 +55,12 @@ syncer::DataTypeSet GetTypesGatedBehindHistoryOptIn() {
                                syncer::SHARED_TAB_GROUP_ACCOUNT_DATA,
                                syncer::SESSIONS,
                                syncer::USER_EVENTS};
+  if (base::FeatureList::IsEnabled(syncer::kSyncEncryptedTabContextContainer)) {
+    types.Put(syncer::ENCRYPTED_TAB_CONTEXT_CONTAINER);
+  }
+  if (base::FeatureList::IsEnabled(syncer::kSyncNotebook)) {
+    types.Put(syncer::NOTEBOOK);
+  }
   if (base::FeatureList::IsEnabled(
           syncer::kReplaceSyncPromosWithSignInPromos)) {
     types.Put(syncer::WORKSPACE_DESK);
@@ -184,14 +190,10 @@ IN_PROC_BROWSER_TEST_F(SingleClientStandaloneTransportSyncTest,
   // There are no immediate plans to launch additional types on ChromeOS, so the
   // list is hardcoded here.
   syncer::DataTypeSet expected_types{
-      syncer::DEVICE_INFO,     syncer::NIGORI,
-      syncer::USER_CONSENTS,   syncer::SEND_TAB_TO_SELF,
-      syncer::SECURITY_EVENTS, syncer::SHARING_MESSAGE};
-
-  if (base::FeatureList::IsEnabled(
-          syncer::kSyncSupportAlwaysSyncingPriorityPreferences)) {
-    expected_types.Put(syncer::PRIORITY_PREFERENCES);
-  }
+      syncer::DEVICE_INFO,         syncer::NIGORI,
+      syncer::USER_CONSENTS,       syncer::SEND_TAB_TO_SELF,
+      syncer::SECURITY_EVENTS,     syncer::SHARING_MESSAGE,
+      syncer::PRIORITY_PREFERENCES};
 
   if (base::FeatureList::IsEnabled(syncer::kSyncAccountSettings)) {
     expected_types.Put(syncer::ACCOUNT_SETTING);
@@ -241,7 +243,8 @@ IN_PROC_BROWSER_TEST_F(SingleClientStandaloneTransportSyncTest,
   // mode, except the OS types which are disabled by
   // SetSyncFeatureDisabledViaDashboard().
   syncer::DataTypeSet expected_types = AllowedTypesInStandaloneTransportMode();
-  expected_types.RemoveAll({syncer::APP_LIST, syncer::ARC_PACKAGE,
+  expected_types.RemoveAll({syncer::APP_LIST, syncer::APPS,
+                            syncer::APP_SETTINGS, syncer::ARC_PACKAGE,
                             syncer::WEB_APPS, syncer::OS_PREFERENCES,
                             syncer::OS_PRIORITY_PREFERENCES, syncer::PRINTERS,
                             syncer::WIFI_CONFIGURATIONS});

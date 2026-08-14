@@ -24,7 +24,7 @@
 #import "ios/chrome/browser/home_customization/model/user_uploaded_image_manager_factory.h"
 #import "ios/chrome/browser/image_fetcher/model/image_fetcher_service_factory.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
-#import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_availability.h"
+#import "ios/chrome/browser/lens_overlay/public/lens_overlay_availability.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_presenter.h"
 #import "ios/chrome/browser/policy/model/browser_management_service_factory.h"
@@ -98,6 +98,11 @@
 using base::RecordAction;
 using base::UserMetricsAction;
 
+namespace {
+// The KVO key for observing the preferredContentSize of the menu.
+NSString* const kPreferredContentSizeKey = @"preferredContentSize";
+}  // namespace
+
 @interface PopupMenuCoordinator () <MenuCustomizationEventHandler,
                                     OverflowMenuCustomizationCommands,
                                     PopupMenuCommands,
@@ -109,7 +114,6 @@ using base::UserMetricsAction;
 // Mediator to that alerts the main `mediator` when the web content area
 // is blocked by an overlay.
 @property(nonatomic, strong) BrowserContentMediator* contentBlockerMediator;
-
 // Time when the tools menu opened.
 @property(nonatomic, assign) NSTimeInterval toolsMenuOpenTime;
 // Whether the tools menu was scrolled vertically while it was open.
@@ -143,6 +147,9 @@ using base::UserMetricsAction;
   // When the user is taking an action (and not a destination), this is storing
   // the type of action taken.
   std::optional<overflow_menu::ActionType> _actionTriggered;
+
+  // The presented menu view controller.
+  UIViewController* _menu;
 }
 
 @synthesize UIUpdater = _UIUpdater;
@@ -156,10 +163,10 @@ using base::UserMetricsAction;
 #pragma mark - ChromeCoordinator
 
 - (void)start {
-  [self.browser->GetCommandDispatcher()
-      startDispatchingToTarget:self
-                   forProtocol:@protocol(PopupMenuCommands)];
-  [self.browser->GetCommandDispatcher()
+  CommandDispatcher* dispatcher = self.browser->GetCommandDispatcher();
+  [dispatcher startDispatchingToTarget:self
+                           forProtocol:@protocol(PopupMenuCommands)];
+  [dispatcher
       startDispatchingToTarget:self
                    forProtocol:@protocol(OverflowMenuCustomizationCommands)];
   NSNotificationCenter* defaultCenter = [NSNotificationCenter defaultCenter];
@@ -408,6 +415,12 @@ using base::UserMetricsAction;
   popoverPresentationController.backgroundColor =
       [UIColor colorNamed:kBackgroundColor];
 
+  _menu = menu;
+  [_menu addObserver:self
+          forKeyPath:kPreferredContentSizeKey
+             options:NSKeyValueObservingOptionNew
+             context:nil];
+
   [self setupSheetForMenu:menu isCustomizationScreen:NO animated:NO];
 
   // Reset event before presenting.
@@ -508,6 +521,10 @@ using base::UserMetricsAction;
   }
 
   if (self.overflowMenuMediator) {
+    if (_menu) {
+      [_menu removeObserver:self forKeyPath:kPreferredContentSizeKey];
+      _menu = nil;
+    }
     [self.baseViewController dismissViewControllerAnimated:animated
                                                 completion:nil];
     _overflowMenuModel = nil;
@@ -554,6 +571,14 @@ using base::UserMetricsAction;
   CHECK(send_tab_to_self::AreIOSTabRemindersEnabled());
 
   [self.popupMenuHelpCoordinator displayPopupMenuTabRemindersIPH];
+}
+
+- (void)showLevelUpPasswordCheckupWalkthroughIPH {
+  [self.popupMenuHelpCoordinator showLevelUpPasswordCheckupWalkthroughIPH];
+}
+
+- (void)showLevelUpQuickDeleteWalkthroughIPH {
+  [self.popupMenuHelpCoordinator showLevelUpQuickDeleteWalkthroughIPH];
 }
 
 #pragma mark - OverflowMenuCustomizationCommands
@@ -726,26 +751,10 @@ using base::UserMetricsAction;
     sheetPresentationController
         .widthFollowsPreferredContentSizeWhenEdgeAttached = YES;
 
-    if (isCustomizationScreen) {
-      sheetPresentationController.prefersGrabberVisible = NO;
-      sheetPresentationController.detents =
-          @[ [UISheetPresentationControllerDetent largeDetent] ];
-    } else {
-      sheetPresentationController.prefersGrabberVisible = YES;
-
-      NSArray<UISheetPresentationControllerDetent*>* regularDetents = @[
-        [UISheetPresentationControllerDetent mediumDetent],
-        [UISheetPresentationControllerDetent largeDetent]
-      ];
-
-      NSArray<UISheetPresentationControllerDetent*>* largeTextDetents =
-          @[ [UISheetPresentationControllerDetent largeDetent] ];
-
-      BOOL hasLargeText = UIContentSizeCategoryIsAccessibilityCategory(
-          menu.traitCollection.preferredContentSizeCategory);
-      sheetPresentationController.detents =
-          hasLargeText ? largeTextDetents : regularDetents;
-    }
+    [self configureDetentsForSheetPresentationController:
+              sheetPresentationController
+                                                    menu:menu
+                                   isCustomizationScreen:isCustomizationScreen];
   };
 
   if (animated) {
@@ -753,6 +762,94 @@ using base::UserMetricsAction;
   } else {
     changes();
   }
+}
+
+- (void)observeValueForKeyPath:(NSString*)keyPath
+                      ofObject:(id)object
+                        change:(NSDictionary<NSKeyValueChangeKey, id>*)change
+                       context:(void*)context {
+  if ([keyPath isEqualToString:kPreferredContentSizeKey] && object == _menu) {
+    // Invalidate the sheet detents so the sheet resizes to match the new
+    // preferred size.
+    [_menu.popoverPresentationController
+            .adaptiveSheetPresentationController invalidateDetents];
+    return;
+  }
+
+  // Any unhandled KVO keys must be forwarded to the superclass.
+  [super observeValueForKeyPath:keyPath
+                       ofObject:object
+                         change:change
+                        context:context];
+}
+
+#pragma mark - Private
+
+// Resolves the height for the custom sheet detent based on the menu's preferred
+// content size.
+- (CGFloat)resolveCustomDetentHeightWithContext:
+               (id<UISheetPresentationControllerDetentResolutionContext>)context
+                                           menu:(UIViewController*)menu {
+  CGFloat preferredHeight = menu.preferredContentSize.height;
+  if (preferredHeight == 0) {
+    return context.maximumDetentValue;
+  }
+  return MIN(preferredHeight, context.maximumDetentValue);
+}
+
+// Configures the detents for the sheet presentation controller based on the NTP
+// refactor flag and accessibility font settings.
+- (void)configureDetentsForSheetPresentationController:
+            (UISheetPresentationController*)sheetPresentationController
+                                                  menu:(UIViewController*)menu
+                                 isCustomizationScreen:
+                                     (BOOL)isCustomizationScreen {
+  if (isCustomizationScreen) {
+    sheetPresentationController.prefersGrabberVisible = NO;
+    sheetPresentationController.detents =
+        @[ [UISheetPresentationControllerDetent largeDetent] ];
+    return;
+  }
+
+  sheetPresentationController.prefersGrabberVisible = YES;
+
+  BOOL isNTPRefactorEnabled =
+      IsOverflowMenuNTPRefactorEnabled() &&
+      IsVisibleURLNewTabPage(
+          self.browser->GetWebStateList()->GetActiveWebState());
+
+  NSArray<UISheetPresentationControllerDetent*>* regularDetents;
+  if (isNTPRefactorEnabled) {
+    __weak UIViewController* weakMenu = menu;
+    __weak __typeof(self) weakSelf = self;
+    UISheetPresentationControllerDetent* customLargeDetent =
+        [UISheetPresentationControllerDetent
+            customDetentWithIdentifier:kOverflowMenuNTPPreferredHeightDetentId
+                              resolver:^CGFloat(
+                                  id<UISheetPresentationControllerDetentResolutionContext>
+                                      context) {
+                                return [weakSelf
+                                    resolveCustomDetentHeightWithContext:context
+                                                                    menu:
+                                                                        weakMenu];
+                              }];
+    regularDetents = @[
+      [UISheetPresentationControllerDetent mediumDetent], customLargeDetent
+    ];
+  } else {
+    regularDetents = @[
+      [UISheetPresentationControllerDetent mediumDetent],
+      [UISheetPresentationControllerDetent largeDetent]
+    ];
+  }
+
+  NSArray<UISheetPresentationControllerDetent*>* largeTextDetents =
+      @[ [UISheetPresentationControllerDetent largeDetent] ];
+
+  BOOL hasLargeText = UIContentSizeCategoryIsAccessibilityCategory(
+      menu.traitCollection.preferredContentSizeCategory);
+  sheetPresentationController.detents =
+      hasLargeText ? largeTextDetents : regularDetents;
 }
 
 @end

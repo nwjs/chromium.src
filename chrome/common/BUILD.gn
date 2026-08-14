@@ -353,6 +353,8 @@ static_library("common_lib") {
     public_deps += [ "//chrome/common/importer" ]
     sources += [
       "media_galleries/metadata_types.h",
+      "password_manager/remote_actor_credential_sharing_policy.cc",
+      "password_manager/remote_actor_credential_sharing_policy.h",
       "read_anything/read_anything_util.cc",
       "read_anything/read_anything_util.h",
     ]
@@ -365,7 +367,10 @@ static_library("common_lib") {
       "conflicts/remote_module_watcher_win.cc",
       "conflicts/remote_module_watcher_win.h",
     ]
-    deps += [ "//chrome/common/win:eventlog_messages" ]
+    deps += [
+      "//chrome/common/win:eventlog_messages",
+      "//chrome/installer/util:isolation_support",
+    ]
 
     public_deps += [
       "//components/dom_distiller/core",  # Needed by chrome_content_client.cc.
@@ -499,13 +504,8 @@ component("chrome_features") {
 }
 
 static_library("url_constants") {
-  visibility = [
-    "//chrome/browser/contextual_tasks/*",
-    "//chrome/browser/renderer_context_menu/*",
-    "//chrome/browser/tab/*",
-    "//chrome/browser/ui/android",
-    "//chrome/common/*",
-  ]
+  # Do not expand this visibility list. Instead, depend on //chrome/common.
+  visibility = [ "//chrome/common/*" ]
   sources = [
     "url_constants.h",
     "webui_url_constants.cc",
@@ -681,6 +681,7 @@ mojom("mojo_bindings") {
     "network_easter_egg.mojom",
     "open_search_description_document_handler.mojom",
     "plugin.mojom",
+    "readaloud/read_aloud.mojom",
     "renderer_configuration.mojom",
     "trusted_vault_encryption_keys_extension.mojom",
   ]
@@ -731,7 +732,9 @@ mojom("mojo_bindings") {
     "//components/no_state_prefetch/common:mojo_bindings",
     "//components/page_content_annotations/content/mojom",
     "//content/public/common:interfaces",
+    "//media/mojo/mojom",
     "//mojo/public/mojom/base",
+    "//sandbox/policy/mojom",
     "//third_party/blink/public/mojom:mojom_core",
     "//third_party/blink/public/mojom:mojom_platform",
     "//ui/gfx/geometry/mojom",
@@ -748,7 +751,10 @@ mojom("mojo_bindings") {
   }
 
   if (!is_android) {
-    sources += [ "indigo/indigo.mojom" ]
+    sources += [
+      "indigo/indigo.mojom",
+      "password_manager/remote_actor_credential_sharing.mojom",
+    ]
   }
 
   if (safe_browsing_mode == 1) {

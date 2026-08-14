@@ -13,6 +13,7 @@
 #import "components/send_tab_to_self/features.h"
 #import "components/send_tab_to_self/send_tab_to_self_model.h"
 #import "components/send_tab_to_self/target_device_info.h"
+#import "components/strings/grit/components_strings.h"
 #import "components/sync_device_info/device_info.h"
 #import "ios/chrome/browser/send_tab_to_self/ui/send_tab_to_self_image_detail_text_item.h"
 #import "ios/chrome/browser/send_tab_to_self/ui/send_tab_to_self_manage_devices_item.h"
@@ -149,8 +150,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
   self.sendToDevice =
       [[TableViewTextButtonItem alloc] initWithType:ItemTypeSend];
-  self.sendToDevice.buttonText =
-      l10n_util::GetNSString(IDS_IOS_SEND_TAB_TO_SELF_TARGET_DEVICE_ACTION);
+  self.sendToDevice.buttonText = l10n_util::GetNSString(IDS_SEND_TAB_TO_SELF);
   self.sendToDevice.buttonTextColor =
       [UIColor colorNamed:kSolidButtonTextColor];
   self.sendToDevice.buttonBackgroundColor = [UIColor colorNamed:kBlueColor];
@@ -230,20 +230,20 @@ typedef NS_ENUM(NSInteger, ItemType) {
         base::SysUTF16ToNSString(iter->GetLastActiveTimeForDisplay());
     switch (iter->form_factor) {
       case syncer::DeviceInfo::FormFactor::kTablet:
-        deviceItem.image = MakeSymbolMonochrome(
-            DefaultSymbolWithPointSize(kIPadSymbol, kSymbolSize));
+        deviceItem.image =
+            MakeSymbolMonochrome(SymbolWithPointSize(SymbolIPad, kSymbolSize));
         break;
       case syncer::DeviceInfo::FormFactor::kPhone:
         deviceItem.image = MakeSymbolMonochrome(
-            DefaultSymbolWithPointSize(kIPhoneSymbol, kSymbolSize));
+            SymbolWithPointSize(SymbolIPhone, kSymbolSize));
         break;
       case syncer::DeviceInfo::FormFactor::kDesktop:
         deviceItem.image = MakeSymbolMonochrome(
-            DefaultSymbolWithPointSize(kLaptopSymbol, kSymbolSize));
+            SymbolWithPointSize(SymbolLaptop, kSymbolSize));
         break;
       default:
         deviceItem.image = MakeSymbolMonochrome(
-            DefaultSymbolWithPointSize(kLaptopSymbol, kSymbolSize));
+            SymbolWithPointSize(SymbolLaptop, kSymbolSize));
         break;
     }
 

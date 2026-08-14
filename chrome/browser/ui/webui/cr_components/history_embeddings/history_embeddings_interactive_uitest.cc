@@ -22,7 +22,7 @@
 #include "components/history_embeddings/content/history_embeddings_service.h"
 #include "components/history_embeddings/core/history_embeddings_features.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
-#include "components/optimization_guide/core/delivery/test_model_info_builder.h"
+#include "components/optimization_guide/core/delivery/model_info.h"
 #include "components/page_content_annotations/content/page_content_extraction_service.h"
 #include "components/page_content_annotations/core/page_content_annotations_features.h"
 #include "components/page_content_annotations/core/page_content_annotations_service.h"
@@ -101,25 +101,24 @@ class HistoryEmbeddingsInteractiveTest
 
  protected:
   history_embeddings::HistoryEmbeddingsService* service() {
-    return HistoryEmbeddingsServiceFactory::GetForProfile(browser()->profile());
+    return HistoryEmbeddingsServiceFactory::GetForProfile(
+        browser()->GetProfile());
   }
 
   page_content_annotations::PageContentAnnotationsService*
   page_content_annotations_service() {
     return PageContentAnnotationsServiceFactory::GetForProfile(
-        browser()->profile());
+        browser()->GetProfile());
   }
 
   void OverrideVisibilityScoresForTesting(
       const base::flat_map<std::string, double>& visibility_scores_for_input) {
-    std::unique_ptr<optimization_guide::ModelInfo> model_info =
-        optimization_guide::TestModelInfoBuilder()
-            .SetModelFilePath(
-                base::FilePath(FILE_PATH_LITERAL("visibility_model")))
-            .SetVersion(123)
-            .Build();
-    CHECK(model_info);
-    page_content_annotator_.UseVisibilityScores(*model_info,
+    optimization_guide::ModelInfo model_info = {
+        .model_file_path =
+            base::FilePath(FILE_PATH_LITERAL("visibility_model")),
+        .version = 123,
+    };
+    page_content_annotator_.UseVisibilityScores(model_info,
                                                 visibility_scores_for_input);
     page_content_annotations_service()->OverridePageContentAnnotatorForTesting(
         &page_content_annotator_);
@@ -145,8 +144,8 @@ class HistoryEmbeddingsInteractiveTest
 #endif
 IN_PROC_BROWSER_TEST_F(HistoryEmbeddingsInteractiveTest, MAYBE_FeedbackDialog) {
   optimization_guide::EnableSigninAndModelExecutionCapability(
-      browser()->profile());
-  browser()->profile()->GetPrefs()->SetInteger(
+      browser()->GetProfile());
+  browser()->GetProfile()->GetPrefs()->SetInteger(
       optimization_guide::prefs::GetSettingEnabledPrefName(
           optimization_guide::UserVisibleFeatureKey::kHistorySearch),
       static_cast<int>(optimization_guide::prefs::FeatureOptInState::kEnabled));

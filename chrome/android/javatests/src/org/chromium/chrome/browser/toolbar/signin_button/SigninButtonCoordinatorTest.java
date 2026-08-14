@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.toolbar.signin_button;
 
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.isEnabled;
@@ -364,8 +365,21 @@ public class SigninButtonCoordinatorTest {
 
     @Test
     @MediumTest
-    // TODO(crbug.com/496912352): Not including Brya as inconsistent test state causes flakiness.
-    @Restriction(DeviceFormFactor.PHONE_OR_TABLET)
+    @DisableFeatures(SigninFeatures.PROFILE_DISC_ON_ALL_PAGES)
+    public void testSigninButton_InflatesAndShowsWhenNavigatingToNtp() {
+        // Start on a non-NTP page so button should not be inflated.
+        WebPageStation blankPage = mActivityTestRule.startOnBlankPage();
+        onView(withId(R.id.signin_button)).check(doesNotExist());
+
+        // Navigate to the NTP. This triggers updateButtonVisibility -> inflation.
+        blankPage.loadPageProgrammatically(
+                getOriginalNativeNtpUrl(), RegularNewTabPageStation.newBuilder());
+
+        ViewUtils.waitForVisibleView(withId(R.id.signin_button));
+    }
+
+    @Test
+    @MediumTest
     public void testSigninButtonHiddenOnIncognitoNtp() {
         startActivityOnNtp();
 
@@ -564,20 +578,12 @@ public class SigninButtonCoordinatorTest {
     }
 
     private void verifySignedOutButtonVisible() {
-        if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivityTestRule.getActivity())) {
-            ViewUtils.waitForVisibleView(
-                    allOf(
-                            withId(R.id.avatar_button),
-                            isDisplayed(),
-                            withContentDescription(
-                                    R.string.accessibility_toolbar_btn_signed_out_identity_disc)));
-        } else {
-            ViewUtils.waitForVisibleView(
-                    allOf(
-                            withId(R.id.signin_text_button),
-                            isDisplayed(),
-                            withText(R.string.signin_promo_sign_in)));
-        }
+        ViewUtils.waitForVisibleView(
+                allOf(
+                        withId(R.id.avatar_button),
+                        isDisplayed(),
+                        withContentDescription(
+                                R.string.accessibility_toolbar_btn_signed_out_identity_disc)));
     }
 
     private void setSigninAllowed(boolean allowed) {

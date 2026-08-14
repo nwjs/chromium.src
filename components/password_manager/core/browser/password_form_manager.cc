@@ -355,6 +355,11 @@ PasswordFormManager::~PasswordFormManager() {
 }
 
 void PasswordFormManager::OnPasswordFilledManually() {
+  if (client_->IsActorTaskActive()) {
+    client_->OnPasswordFilled(
+        driver_.get(), GetURL(),
+        PasswordManagerClient::PasswordFillTrigger::kAgentTask);
+  }
   allow_filling_upon_fetching_ = false;
   if (!base::FeatureList::IsEnabled(features::kPasswordDateLastFilled) ||
       !parsed_submitted_form_ ||
@@ -1014,13 +1019,11 @@ bool PasswordFormManager::WebAuthnCredentialsAvailable() const {
     WebAuthnCredentialsDelegate* delegate =
         client_->GetWebAuthnCredentialsDelegateForDriver(driver_.get());
 #if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
-    if (base::FeatureList::IsEnabled(
-            features::kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu)) {
-      return delegate && delegate->GetPasskeys().has_value() &&
-             !delegate->GetPasskeys().value()->empty();
-    }
-#endif  //! BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
+    return delegate && delegate->GetPasskeys().has_value() &&
+           !delegate->GetPasskeys().value()->empty();
+#else
     return delegate && delegate->GetPasskeys().has_value();
+#endif
   };
 #if BUILDFLAG(IS_ANDROID)
   auto check_cred_man_delegate = [=, this]() {

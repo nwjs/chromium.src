@@ -38,6 +38,11 @@ public class MockRenderFrameHost implements RenderFrameHost {
     }
 
     @Override
+    public boolean isOutermostMainFrame() {
+        return false;
+    }
+
+    @Override
     public void getCanonicalUrlForSharing(Callback<GURL> callback) {}
 
     @Override

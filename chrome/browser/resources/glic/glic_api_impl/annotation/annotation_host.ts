@@ -2,10 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {enumToClient} from '../../enum_conversions.js';
 import type {AnnotationHandlerInterface, ScrollToSelector as ScrollToSelectorMojo} from '../../glic.mojom-webui.js';
 import type {ScrollToParams} from '../../glic_api/glic_api.js';
 import {ScrollToErrorReason} from '../../glic_api/glic_api.js';
-import {enumToClient} from '../enum_conversions.js';
 import {urlFromClient} from '../host/conversions.js';
 import {ErrorWithReasonImpl} from '../request_types.js';
 import type {MessageHandlerInterface} from '../transport/messaging.js';
@@ -29,7 +29,7 @@ export class AnnotationHostMessageHandler implements
               'searchRangeStartNodeId without documentId');
         }
         return {
-          exactTextSelector: {
+          exactText: {
             text: selector.exactText.text,
             searchRangeStartNodeId:
                 selector.exactText.searchRangeStartNodeId ?? null,
@@ -44,7 +44,7 @@ export class AnnotationHostMessageHandler implements
               'searchRangeStartNodeId without documentId');
         }
         return {
-          textFragmentSelector: {
+          textFragment: {
             textStart: selector.textFragment.textStart,
             textEnd: selector.textFragment.textEnd,
             searchRangeStartNodeId:
@@ -59,7 +59,7 @@ export class AnnotationHostMessageHandler implements
               'nodeId without documentId');
         }
         return {
-          nodeSelector: {
+          node: {
             nodeId: selector.node.nodeId,
           },
         };

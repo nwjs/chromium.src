@@ -4,8 +4,18 @@
 
 module browser.context_hub.mojom;
 
-import "url/mojom/url.mojom";
 import "mojo/public/mojom/base/time.mojom";
+import "url/mojom/url.mojom";
+
+feature kAutoTabGroups {
+  const string name = "AutoTabGroups";
+  const bool default_state = false;
+};
+
+feature kAutoTodos {
+  const string name = "AutoTodos";
+  const bool default_state = false;
+};
 
 struct GmailReference {
   url.mojom.Url message_url;
@@ -20,10 +30,15 @@ union SourceReference {
   PhotosReference photos;
 };
 
+// Represents an item in the Auto Todo list.
 struct AutoTodoItem {
   string title;
   string description;
   array<SourceReference> source_references;
+  // The URL to navigate to when the user clicks to start the item.
+  url.mojom.Url actionable_url;
+  // Importance score between 0 and 1 for the item.
+  float score;
 };
 
 enum EntryType {
@@ -41,6 +56,27 @@ struct MemoryBankEntry {
   array<string> tags;
 };
 
+struct TabInfo {
+  int32 id;
+  string title;
+  url.mojom.Url url;
+};
+
+struct TabGroup {
+  string label;
+  array<TabInfo> tabs;
+};
+
+enum ChatRole {
+  kUser,
+  kAssistant,
+};
+
+struct ChatMessage {
+  ChatRole role;
+  string content;
+};
+
 // Factory used by the WebUI page (caller) to create a PageHandler in the
 // browser process (callee) for the Context Hub page.
 interface PageHandlerFactory {
@@ -52,9 +88,42 @@ interface PageHandlerFactory {
 // The WebUI page (caller) uses this to interact with the browser
 // process (callee).
 interface PageHandler {
-  // Generates and returns a list of Auto Todos.
+  // Generates and returns a list of Auto Todos. Gated by kAutoTodos flag.
+  [RuntimeFeature=kAutoTodos]
   GenerateAutoTodos() => (array<AutoTodoItem>? todos);
 
   // Returns all entries currently stored in the memory bank.
-  GetAllEntries() => (array<MemoryBankEntry> entries);
+  GetAllMemoryBankEntries() => (array<MemoryBankEntry> entries);
+
+  // Deletes entries from the memory bank.
+  DeleteMemoryBankEntries(array<int64> ids) => ();
+
+  // Returns the list of tabs in the current window.
+  [RuntimeFeature=kAutoTabGroups]
+  GetTabs() => (array<TabInfo> tabs);
+
+  // Retrieves and groups related open tabs based on the user command.
+  // User command is inputted via WebUI textbox.
+  [RuntimeFeature=kAutoTabGroups]
+  RetrieveAndGroupTabs(string user_command) => (array<TabGroup> groups,
+                                                array<TabInfo> ungrouped_tabs,
+                                                ChatMessage? llm_response);
+
+  // Returns stored tab groups and chat history from the cache along with
+  // ungrouped tabs. Used on page start up.
+  [RuntimeFeature=kAutoTabGroups]
+  GetExistingTabGroupsAndChats() => (array<TabGroup> groups,
+                                     array<TabInfo> ungrouped_tabs,
+                                     array<ChatMessage> history);
+
+  // Switches to the specified tab.
+  SwitchToTab(int32 tab_id);
+
+  // Clears stored tab groups.
+  [RuntimeFeature=kAutoTabGroups]
+  ClearTabGroups() => ();
+
+  // Clears stored tab group chat history.
+  [RuntimeFeature=kAutoTabGroups]
+  ClearTabGroupChatHistory() => ();
 };

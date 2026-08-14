@@ -21,7 +21,7 @@
 #include "content/public/common/url_constants.h"
 #endif  //  !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
 
-class Browser;
+class BrowserWindowInterface;
 class ManagedUserProfileNoticeHandler;
 
 namespace content {
@@ -81,7 +81,7 @@ class ManagedUserProfileNoticeUI : public content::WebUIController {
   // selected, will indicate that the user wants the current profile to be used
   // as dedicated profile for the new account, linking the current data with
   // synced data from the new account.
-  void Initialize(Browser* browser,
+  void Initialize(BrowserWindowInterface* browser,
                   ScreenType type,
                   std::unique_ptr<signin::EnterpriseProfileCreationDialogParams>
                       create_param);
@@ -92,6 +92,11 @@ class ManagedUserProfileNoticeUI : public content::WebUIController {
  private:
   void UpdateBrowsingDataStringWithCounts(std::u16string domain,
                                           profiles::ProfileCategoryStats stats);
+
+  void InitializeForDeviceSignalsDisclaimer(
+      BrowserWindowInterface* browser,
+      std::unique_ptr<signin::EnterpriseProfileCreationDialogParams>
+          create_param);
 
   // Stored for tests.
   raw_ptr<ManagedUserProfileNoticeHandler> handler_ = nullptr;

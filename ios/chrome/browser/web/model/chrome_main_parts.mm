@@ -100,9 +100,7 @@
 #import "ios/chrome/browser/tracing/ios_tracing_controller.h"
 #endif
 
-namespace {
-
-}  // namespace
+namespace {}  // namespace
 
 IOSChromeMainParts::IOSChromeMainParts(
     const base::CommandLine& parsed_command_line)
@@ -301,7 +299,7 @@ void IOSChromeMainParts::PreMainMessageLoopRun() {
 
   // ContentSettingsPattern need to be initialized before creating the
   // ProfileIOS.
-  ContentSettingsPattern::SetNonWildcardDomainNonPortSchemes(nullptr, 0);
+  ContentSettingsPattern::SetNonWildcardDomainNonPortSchemes({});
 
   // Ensure ClipboadRecentContentIOS is created.
   ClipboardRecentContent::SetInstance(CreateClipboardRecentContentIOS());

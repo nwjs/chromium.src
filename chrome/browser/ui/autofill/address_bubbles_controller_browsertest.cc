@@ -92,8 +92,8 @@ IN_PROC_BROWSER_TEST_P(AddressBubblesControllerBrowserTest,
   }
   SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
   content::WebContents* side_panel_web_contents =
-      side_panel_ui->GetWebContentsForTest(SidePanelEntry::Id::kReadingList);
-  side_panel_ui->Show(SidePanelEntry::Id::kReadingList);
+      side_panel_ui->GetWebContentsForTest(SidePanelEntryId::kReadingList);
+  side_panel_ui->Show(SidePanelEntryId::kReadingList);
   AutofillProfile profile = test::GetFullProfile();
   base::MockCallback<AutofillClient::AddressProfileSavePromptCallback> callback;
 
@@ -131,7 +131,7 @@ IN_PROC_BROWSER_TEST_P(AddressBubblesControllerBrowserTest,
                        DeclinedSaveTriggersSurvey) {
   MockHatsService* mock_hats_service = static_cast<MockHatsService*>(
       HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
-          browser()->profile(), base::BindRepeating(&BuildMockHatsService)));
+          browser()->GetProfile(), base::BindRepeating(&BuildMockHatsService)));
   auto empty_profile = AutofillProfile(AddressCountryCode("US"));
   base::MockCallback<AutofillClient::AddressProfileSavePromptCallback> callback;
   AddressBubblesController::SetUpAndShowSaveOrUpdateAddressBubble(
@@ -155,7 +155,7 @@ IN_PROC_BROWSER_TEST_P(AddressBubblesControllerBrowserTest,
                        DeclinedSaveWithProfileDoesNotTriggerSurvey) {
   MockHatsService* mock_hats_service = static_cast<MockHatsService*>(
       HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
-          browser()->profile(), base::BindRepeating(&BuildMockHatsService)));
+          browser()->GetProfile(), base::BindRepeating(&BuildMockHatsService)));
   base::MockCallback<AutofillClient::AddressProfileSavePromptCallback> callback;
   AddressBubblesController::SetUpAndShowSaveOrUpdateAddressBubble(
       tab_web_contents(), test::GetFullProfile(), /*original_profile=*/nullptr,
@@ -177,7 +177,7 @@ IN_PROC_BROWSER_TEST_P(AddressBubblesControllerBrowserTest,
                        AcceptedSaveDoesNotTriggerSurvey) {
   MockHatsService* mock_hats_service = static_cast<MockHatsService*>(
       HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
-          browser()->profile(), base::BindRepeating(&BuildMockHatsService)));
+          browser()->GetProfile(), base::BindRepeating(&BuildMockHatsService)));
   auto empty_profile = AutofillProfile(AddressCountryCode("US"));
   base::MockCallback<AutofillClient::AddressProfileSavePromptCallback> callback;
   AddressBubblesController::SetUpAndShowSaveOrUpdateAddressBubble(

@@ -8,6 +8,7 @@ import("//third_party/jni_zero/jni_zero.gni")
 android_library("java") {
   sources = [
     "java/src/org/chromium/chrome/browser/readaloud/BoyerMoore.java",
+    "java/src/org/chromium/chrome/browser/readaloud/NativeMetadata.java",
     "java/src/org/chromium/chrome/browser/readaloud/ReadAloudController.java",
     "java/src/org/chromium/chrome/browser/readaloud/ReadAloudControllerSupplier.java",
     "java/src/org/chromium/chrome/browser/readaloud/ReadAloudIphController.java",
@@ -45,6 +46,7 @@ android_library("java") {
     "//chrome/browser/ui/android/toolbar:adaptive_features_java",
     "//chrome/browser/ui/android/toolbar:java",
     "//chrome/browser/ui/android/toolbar:optional_button_java",
+    "//chrome/browser/ui/side_ui/public:java",
     "//chrome/browser/user_education:java",
     "//components/browser_ui/bottomsheet/android:java",
     "//components/browser_ui/widget/android:java",
@@ -66,6 +68,7 @@ android_library("java") {
 
 generate_jni("jni_headers") {
   sources = [
+    "java/src/org/chromium/chrome/browser/readaloud/ReadAloudController.java",
     "java/src/org/chromium/chrome/browser/readaloud/ReadAloudMiniPlayerSceneLayer.java",
     "java/src/org/chromium/chrome/browser/readaloud/ReadAloudPrefs.java",
   ]
@@ -221,6 +224,7 @@ android_library("test_support_java") {
 robolectric_library("junit") {
   testonly = true
   sources = [
+    "java/src/org/chromium/chrome/browser/readaloud/NativeMetadataUnitTest.java",
     "java/src/org/chromium/chrome/browser/readaloud/ReadAloudControllerUnitTest.java",
     "java/src/org/chromium/chrome/browser/readaloud/ReadAloudIphControllerUnitTest.java",
     "java/src/org/chromium/chrome/browser/readaloud/ReadAloudMiniPlayerSceneLayerUnitTest.java",
@@ -343,6 +347,7 @@ android_library("player_java") {
     "//chrome/browser/readaloud/android:metrics_java",
     "//chrome/browser/readaloud/android/resources:ui_strings_grd",
     "//chrome/browser/ui/android/layouts:java",
+    "//chrome/browser/ui/side_ui/public:java",
     "//chrome/browser/user_education:java",
     "//components/browser_ui/bottomsheet/android:java",
     "//components/browser_ui/styles/android:java",
@@ -391,6 +396,7 @@ robolectric_library("player_junit_java") {
     "//chrome/browser/readaloud/android:metrics_java",
     "//chrome/browser/tab:java",
     "//chrome/browser/ui/android/layouts:java",
+    "//chrome/browser/ui/side_ui/public:java",
     "//chrome/browser/user_education:java",
     "//components/browser_ui/bottomsheet/android:java",
     "//components/browser_ui/styles/android:java",
@@ -415,6 +421,8 @@ static_library("native") {
   sources = [
     "//chrome/browser/readaloud/android/prefs.cc",
     "//chrome/browser/readaloud/android/prefs.h",
+    "//chrome/browser/readaloud/android/read_aloud_bridge.cc",
+    "//chrome/browser/readaloud/android/read_aloud_bridge.h",
   ]
 
   deps = [
@@ -423,6 +431,7 @@ static_library("native") {
     "//chrome/common:constants",
     "//components/pref_registry",
     "//components/prefs",
+    "//url",
   ]
 
   public_deps = [

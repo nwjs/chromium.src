@@ -8,7 +8,6 @@
 #include "base/time/time.h"
 #include "components/browsing_topics/common/common_types.h"
 #include "components/keyed_service/core/keyed_service.h"
-#include "content/public/browser/interest_group_api_operation.h"
 
 class GURL;
 
@@ -33,10 +32,20 @@ enum class PrivacySandboxAttestationsGatedAPI {
   kTopics,
   kProtectedAudience,
   kPrivateAggregation,
-  kAttributionReporting,
   kSharedStorage,
 
   kMaxValue = kSharedStorage,
+};
+
+// The possible operations performable by parties related to the Interest
+// Group API.
+enum class InterestGroupApiOperation {
+  kJoin,
+  kLeave,
+  kUpdate,
+  kSell,
+  kBuy,
+  kRead
 };
 
 // A service which acts as a intermediary between Privacy Sandbox APIs and
@@ -131,41 +140,6 @@ class PrivacySandboxSettings : public KeyedService {
   // future, in which case no history is eligible.
   virtual base::Time TopicsDataAccessibleSince() const = 0;
 
-  // Returns whether any Attribution Reporting operation would ever be allowed.
-  // If false, no attribution reporting operation is allowed (e.g. because the
-  // user has disabled the setting). If true, the appropriate context specific
-  // check must also be made.
-  virtual bool IsAttributionReportingEverAllowed() const = 0;
-
-  // Determines whether Attribution Reporting is allowable in a particular
-  // context. Should be called at both source and trigger registration. At each
-  // of these points |top_frame_origin| is the same as either the source origin
-  // or the destination origin respectively.
-  // If provided, `console_frame` is used to log errors to the console upon
-  // attestation failure.
-  virtual bool IsAttributionReportingAllowed(
-      const url::Origin& top_frame_origin,
-      const url::Origin& reporting_origin,
-      content::RenderFrameHost* console_frame = nullptr) const = 0;
-
-  // Called before sending the associated attribution report to
-  // |reporting_origin|. Re-checks that |reporting_origin| is allowable as a 3P
-  // on both |source_origin| and |destination_origin|.
-  // If provided, `console_frame` is used to log errors to the console upon
-  // attestation failure.
-  virtual bool MaySendAttributionReport(
-      const url::Origin& source_origin,
-      const url::Origin& destination_origin,
-      const url::Origin& reporting_origin,
-      content::RenderFrameHost* console_frame = nullptr) const = 0;
-
-  // Determines whether Attribution Reporting API's transitional debug reporting
-  // is allowable in a particular context. Note that
-  // `IsAttributionReportingAllowed()` should be called prior to this.
-  virtual bool IsAttributionReportingTransitionalDebuggingAllowed(
-      const url::Origin& top_frame_origin,
-      const url::Origin& reporting_origin) const = 0;
-
   // Sets the ability for |top_frame_etld_plus1| to join the profile to interest
   // groups to |allowed|. This information is stored in preferences, and is made
   // available to the API via IsFledgeJoiningAllowed(). |top_frame_etld_plus1|
@@ -187,7 +161,7 @@ class PrivacySandboxSettings : public KeyedService {
   virtual bool IsFledgeAllowed(
       const url::Origin& top_frame_origin,
       const url::Origin& auction_party,
-      content::InterestGroupApiOperation interest_group_api_operation,
+      InterestGroupApiOperation interest_group_api_operation,
       content::RenderFrameHost* console_frame = nullptr) const = 0;
 
   // Determine whether |destination_origin| is allowed to receive events

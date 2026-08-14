@@ -3,8 +3,11 @@
 // found in the LICENSE file.
 
 #include "components/safe_browsing/core/browser/db/fake_database_manager.h"
+
+#include "base/feature_list.h"
 #include "base/task/sequenced_task_runner.h"
 #include "components/safe_browsing/core/browser/db/util.h"
+#include "components/safe_browsing/core/common/features.h"
 
 namespace safe_browsing {
 
@@ -18,12 +21,6 @@ void FakeSafeBrowsingDatabaseManager::AddDangerousUrl(
     const GURL& dangerous_url,
     SBThreatType threat_type) {
   dangerous_urls_[dangerous_url] = threat_type;
-}
-
-void FakeSafeBrowsingDatabaseManager::AddDangerousUrlPattern(
-    const GURL& dangerous_url,
-    ThreatPatternType pattern_type) {
-  dangerous_patterns_[dangerous_url] = pattern_type;
 }
 
 void FakeSafeBrowsingDatabaseManager::ClearDangerousUrl(
@@ -51,17 +48,18 @@ bool FakeSafeBrowsingDatabaseManager::CheckBrowseUrl(
     return true;
   }
 
-  ThreatPatternType pattern_type = ThreatPatternType::NONE;
-  const auto it1 = dangerous_patterns_.find(url);
-  if (it1 != dangerous_patterns_.end()) {
-    pattern_type = it1->second;
-  }
-
+  uintptr_t client_id = reinterpret_cast<uintptr_t>(client);
+  pending_clients_.insert(client_id);
   ui_task_runner()->PostTask(
       FROM_HERE,
-      base::BindOnce(&FakeSafeBrowsingDatabaseManager::CheckBrowseURLAsync, url,
-                     result_threat_type, pattern_type, client));
+      base::BindOnce(&FakeSafeBrowsingDatabaseManager::CheckBrowseURLAsync,
+                     weak_factory_.GetWeakPtr(), url, result_threat_type,
+                     client_id));
   return false;
+}
+
+void FakeSafeBrowsingDatabaseManager::CancelCheck(Client* client) {
+  pending_clients_.erase(reinterpret_cast<uintptr_t>(client));
 }
 
 bool FakeSafeBrowsingDatabaseManager::CheckDownloadUrl(
@@ -114,23 +112,30 @@ bool FakeSafeBrowsingDatabaseManager::CheckUrlForSubresourceFilter(
 safe_browsing::ThreatSource
 FakeSafeBrowsingDatabaseManager::GetBrowseUrlThreatSource(
     CheckBrowseUrlType check_type) const {
+  if (base::FeatureList::IsEnabled(kLocalListsUseSBv5)) {
+    return safe_browsing::ThreatSource::LOCAL_PVER5_LOCAL_BLOCKLIST;
+  }
   return safe_browsing::ThreatSource::LOCAL_PVER4;
 }
 
 safe_browsing::ThreatSource
 FakeSafeBrowsingDatabaseManager::GetNonBrowseUrlThreatSource() const {
+  if (base::FeatureList::IsEnabled(kLocalListsUseSBv5)) {
+    return safe_browsing::ThreatSource::LOCAL_PVER5_LOCAL_BLOCKLIST;
+  }
   return safe_browsing::ThreatSource::LOCAL_PVER4;
 }
 
-// static
 void FakeSafeBrowsingDatabaseManager::CheckBrowseURLAsync(
     GURL url,
     SBThreatType result_threat_type,
-    ThreatPatternType pattern_type,
-    Client* client) {
-  ThreatMetadata metadata;
-  metadata.threat_pattern_type = pattern_type;
-  client->OnCheckBrowseUrlResult(url, result_threat_type, metadata);
+    uintptr_t client_id) {
+  if (!pending_clients_.contains(client_id)) {
+    return;
+  }
+  pending_clients_.erase(client_id);
+  reinterpret_cast<Client*>(client_id)->OnCheckBrowseUrlResult(
+      url, result_threat_type);
 }
 
 // static

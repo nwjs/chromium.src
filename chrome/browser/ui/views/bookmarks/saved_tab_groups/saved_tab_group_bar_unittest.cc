@@ -8,15 +8,13 @@
 #include <optional>
 #include <string>
 
-#include "base/task/current_thread.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/uuid.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/frame/window_frame_util.h"
-#include "chrome/browser/ui/layout_constants.h"
-#include "chrome/browser/ui/tabs/projects/projects_panel_state_controller.h"
+#include "chrome/browser/ui/tabs/organizer/organizer_panel_state_controller.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/bookmarks/saved_tab_groups/saved_tab_group_button.h"
@@ -24,19 +22,15 @@
 #include "chrome/browser/ui/views/frame/test_with_browser_view.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/test_browser_window.h"
-#include "chrome/test/base/testing_profile.h"
 #include "chrome/test/user_education/mock_browser_user_education_interface.h"
-#include "chrome/test/views/chrome_views_test_base.h"
 #include "components/collaboration/public/features.h"
 #include "components/data_sharing/public/features.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/prefs/pref_service.h"
 #include "components/saved_tab_groups/internal/tab_group_sync_service_impl.h"
-#include "components/saved_tab_groups/public/collaboration_finder.h"
 #include "components/saved_tab_groups/public/features.h"
 #include "components/saved_tab_groups/public/pref_names.h"
 #include "components/saved_tab_groups/public/saved_tab_group.h"
-#include "components/saved_tab_groups/public/saved_tab_group_tab.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/saved_tab_groups/public/types.h"
 #include "components/saved_tab_groups/test_support/saved_tab_group_test_utils.h"
@@ -64,18 +58,6 @@ const std::u16string kNewTitle(u"kNewTitle");
 const tab_groups::TabGroupColorId kNewColor = tab_groups::TabGroupColorId::kRed;
 }  // anonymous namespace
 
-class MockProjectsPanelStateController : public ProjectsPanelStateController {
- public:
-  explicit MockProjectsPanelStateController(
-      BrowserWindowInterface* browser_window)
-      : ProjectsPanelStateController(browser_window,
-                                     /*root_action_item=*/nullptr,
-                                     /*aim_eligibility_service=*/nullptr,
-                                     /*glic_enabling=*/nullptr) {}
-  MOCK_METHOD(bool, CanShowAimThreads, (), (override));
-  MOCK_METHOD(bool, CanShowGeminiThreads, (), (override));
-};
-
 class SavedTabGroupBarUnitTest : public TestWithBrowserView {
  public:
   SavedTabGroupBarUnitTest() : SavedTabGroupBarUnitTest(true) {}
@@ -92,19 +74,19 @@ class SavedTabGroupBarUnitTest : public TestWithBrowserView {
   SavedTabGroupBar* saved_tab_group_bar() { return saved_tab_group_bar_.get(); }
   TabGroupSyncService* service() {
     return tab_groups::TabGroupSyncServiceFactory::GetForProfile(
-        browser()->profile());
+        browser()->GetProfile());
   }
 
   int button_padding() { return button_padding_; }
 
   void SetUp() override {
     TestWithBrowserView::SetUp();
-    browser()->profile()->GetPrefs()->SetBoolean(
+    browser()->GetProfile()->GetPrefs()->SetBoolean(
         tab_groups::prefs::kAutoPinNewTabGroups, true);
 
     TabGroupSyncService* service =
         tab_groups::TabGroupSyncServiceFactory::GetForProfile(
-            browser()->profile());
+            browser()->GetProfile());
     service->SetIsInitializedForTesting(true);
     Wait();
 
@@ -131,7 +113,7 @@ class SavedTabGroupBarUnitTest : public TestWithBrowserView {
 
   void AddTabToBrowser(Browser* browser, int index) {
     std::unique_ptr<content::WebContents> web_contents =
-        content::WebContentsTester::CreateTestWebContents(browser->profile(),
+        content::WebContentsTester::CreateTestWebContents(browser->GetProfile(),
                                                           nullptr);
 
     browser->tab_strip_model()->AddWebContents(
@@ -607,194 +589,5 @@ TEST_F(SavedTabGroupBarUnitTest, GroupLoadFromModelInOrder) {
   EXPECT_EQ(uuid1,
             views::AsViewClass<SavedTabGroupButton>(children[2])->guid());
 }
-class SavedTabGroupBarAutofocusTest : public SavedTabGroupBarUnitTest {
- public:
-  SavedTabGroupBarAutofocusTest() : SavedTabGroupBarUnitTest(false) {
-    feature_list_.InitWithFeaturesAndParameters(
-        {{features::kTabGroupsFocusing,
-          {{"tab_groups_focusing_default_to_focused", "true"}}},
-         {data_sharing::features::kDataSharingFeature, {}}},
-        {collaboration::features::kCollaborationMessaging});
-  }
-};
-
-TEST_F(SavedTabGroupBarAutofocusTest, OnTabGroupButtonPressedAutofocus) {
-  // Add a group.
-  tab_groups::TabGroupId local_id = CreateNewGroupInBrowser();
-  base::Uuid sync_id = EnforceGroupSaved(
-      SavedTabGroupUtils::CreateSavedTabGroupFromLocalId(local_id));
-  Wait();
-
-  SavedTabGroupButton* button = nullptr;
-  for (SavedTabGroupButton* b :
-       saved_tab_group_bar()->GetSavedTabGroupButtons()) {
-    if (b->guid() == sync_id) {
-      button = b;
-      break;
-    }
-  }
-  ASSERT_TRUE(button);
-
-  // Focus should be empty initially.
-  EXPECT_FALSE(browser()->tab_strip_model()->GetFocusedGroup().has_value());
-
-  // Press the button.
-  // Open the tab group.
-  ui::MouseEvent event(ui::EventType::kMousePressed, gfx::Point(), gfx::Point(),
-                       base::TimeTicks(), ui::EF_LEFT_MOUSE_BUTTON,
-                       ui::EF_LEFT_MOUSE_BUTTON);
-  saved_tab_group_bar()->OnTabGroupButtonPressed(sync_id, event);
-  Wait();
-
-  // Verify the group is focused.
-  std::optional<tab_groups::TabGroupId> focused_group =
-      browser()->tab_strip_model()->GetFocusedGroup();
-  ASSERT_TRUE(focused_group.has_value());
-  EXPECT_EQ(focused_group.value(), local_id);
-}
-
-// Tests the integration between SavedTabGroupBar and
-// ProjectsPanelStateController, specifically verifying that the Resumption Rail
-// IPH promo text adapts correctly based on whether AIM and/or Gemini threads
-// are available.
-class SavedTabGroupBarProjectsPanelUnitTest : public SavedTabGroupBarUnitTest {
- public:
-  SavedTabGroupBarProjectsPanelUnitTest() : SavedTabGroupBarUnitTest(false) {
-    feature_list_.InitWithFeatures(
-        /*enabled_features=*/{tab_groups::kProjectsPanel,
-                              data_sharing::features::kDataSharingFeature},
-        {collaboration::features::kCollaborationMessaging});
-  }
-
-  void SetUp() override {
-    user_ed_override_ =
-        BrowserWindowFeatures::GetUserDataFactoryForTesting()
-            .AddOverrideForTesting<MockBrowserUserEducationInterface>(
-                base::BindRepeating(
-                    [](raw_ptr<MockBrowserUserEducationInterface>* out_mock,
-                       BrowserWindowInterface& browser)
-                        -> std::unique_ptr<MockBrowserUserEducationInterface> {
-                      auto mock = std::make_unique<
-                          testing::NiceMock<MockBrowserUserEducationInterface>>(
-                          &browser);
-                      *out_mock = mock.get();
-                      return mock;
-                    },
-                    base::Unretained(&mock_user_education_interface_)));
-
-    projects_panel_override_ =
-        BrowserWindowFeatures::GetUserDataFactoryForTesting()
-            .AddOverrideForTesting<MockProjectsPanelStateController>(
-                base::BindRepeating(
-                    [](raw_ptr<MockProjectsPanelStateController>* out_mock,
-                       BrowserWindowInterface& browser)
-                        -> std::unique_ptr<MockProjectsPanelStateController> {
-                      auto mock = std::make_unique<
-                          testing::NiceMock<MockProjectsPanelStateController>>(
-                          &browser);
-                      *out_mock = mock.get();
-                      return mock;
-                    },
-                    base::Unretained(&mock_projects_panel_state_controller_)));
-
-    SavedTabGroupBarUnitTest::SetUp();
-  }
-
-  void TearDown() override {
-    mock_user_education_interface_ = nullptr;
-    mock_projects_panel_state_controller_ = nullptr;
-    user_ed_override_ = ui::UserDataFactory::ScopedOverride();
-    projects_panel_override_ = ui::UserDataFactory::ScopedOverride();
-    SavedTabGroupBarUnitTest::TearDown();
-  }
-
-  MockProjectsPanelStateController* projects_panel_state_controller() {
-    return mock_projects_panel_state_controller_;
-  }
-
-  MockBrowserUserEducationInterface* user_education_interface() {
-    return mock_user_education_interface_;
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-  ui::UserDataFactory::ScopedOverride user_ed_override_;
-  ui::UserDataFactory::ScopedOverride projects_panel_override_;
-  raw_ptr<MockBrowserUserEducationInterface> mock_user_education_interface_ =
-      nullptr;
-  raw_ptr<MockProjectsPanelStateController>
-      mock_projects_panel_state_controller_ = nullptr;
-};
-
-// Test parameters for verifying the dynamic IPH body string resolution
-// based on the user's eligibility for AIM and Gemini threads.
-struct ResumptionRailIPHBodyTestCase {
-  bool can_show_aim;
-  bool can_show_gemini;
-  int expected_string_id;
-  std::string test_name;
-};
-
-class SavedTabGroupBarResumptionRailIPHTest
-    : public SavedTabGroupBarProjectsPanelUnitTest,
-      public testing::WithParamInterface<ResumptionRailIPHBodyTestCase> {};
-
-TEST_P(SavedTabGroupBarResumptionRailIPHTest, SetsCorrectBodyString) {
-  const auto& param = GetParam();
-
-  // Setup mock eligibility.
-  EXPECT_CALL(*projects_panel_state_controller(), CanShowAimThreads())
-      .WillRepeatedly(testing::Return(param.can_show_aim));
-  EXPECT_CALL(*projects_panel_state_controller(), CanShowGeminiThreads())
-      .WillRepeatedly(testing::Return(param.can_show_gemini));
-
-  // Capture the promo parameters to inspect the body string.
-  std::optional<user_education::FeaturePromoParams> captured_params;
-  EXPECT_CALL(*user_education_interface(), MaybeShowFeaturePromo)
-      .WillOnce([&](user_education::FeaturePromoParams params) {
-        captured_params = std::move(params);
-        return true;
-      });
-
-  // Trigger the IPH.
-  saved_tab_group_bar()->ShowEverythingMenu();
-
-  // Verify the correct string was passed.
-  ASSERT_TRUE(captured_params);
-  EXPECT_EQ(&feature_engagement::kIPHResumptionRailFeature,
-            &*captured_params->feature);
-  EXPECT_TRUE(
-      std::holds_alternative<std::u16string>(captured_params->body_params));
-  EXPECT_EQ(std::get<std::u16string>(captured_params->body_params),
-            l10n_util::GetStringUTF16(param.expected_string_id));
-}
-
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    SavedTabGroupBarResumptionRailIPHTest,
-    testing::Values(
-        ResumptionRailIPHBodyTestCase{
-            .can_show_aim = false,
-            .can_show_gemini = false,
-            .expected_string_id = IDS_RESUMPTION_RAIL_IPH_BODY_NO_THREADS,
-            .test_name = "NoThreads"},
-        ResumptionRailIPHBodyTestCase{
-            .can_show_aim = false,
-            .can_show_gemini = true,
-            .expected_string_id = IDS_RESUMPTION_RAIL_IPH_BODY_ONLY_GEMINI,
-            .test_name = "OnlyGemini"},
-        ResumptionRailIPHBodyTestCase{
-            .can_show_aim = true,
-            .can_show_gemini = false,
-            .expected_string_id = IDS_RESUMPTION_RAIL_IPH_BODY_ONLY_AI_MODE,
-            .test_name = "OnlyAim"},
-        ResumptionRailIPHBodyTestCase{
-            .can_show_aim = true,
-            .can_show_gemini = true,
-            .expected_string_id = IDS_RESUMPTION_RAIL_IPH_BODY,
-            .test_name = "Both"}),
-    [](const testing::TestParamInfo<ResumptionRailIPHBodyTestCase>& info) {
-      return info.param.test_name;
-    });
 
 }  // namespace tab_groups

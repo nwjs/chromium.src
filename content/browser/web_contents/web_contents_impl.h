@@ -49,6 +49,7 @@
 #include "content/browser/renderer_host/render_view_host_delegate.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_delegate.h"
+#include "content/browser/renderer_host/text_input_manager.h"
 #include "content/browser/renderer_host/visible_time_request_trigger.h"
 #include "content/browser/web_contents/file_chooser_impl.h"
 #include "content/browser/web_contents/slow_web_preference_cache.h"
@@ -217,6 +218,7 @@ class CONTENT_EXPORT WebContentsImpl
       public ui::NativeThemeObserver,
       public ui::ColorProviderSourceObserver,
       public SlowWebPreferenceCacheObserver,
+      public TextInputManager::Observer,
       public input::RenderWidgetHostInputEventRouter::Delegate,
       public base::trace_event::TraceSessionObserver {
  public:
@@ -407,7 +409,7 @@ class CONTENT_EXPORT WebContentsImpl
   BrowserContext* GetBrowserContext() override;
   base::WeakPtr<WebContents> GetWeakPtr() override;
   const UniqueToken& GetUniqueToken() const override;
-  const perfetto::NamedTrack& GetTracingTrack() const override;
+  const perfetto::Track& GetTracingTrack() const override;
   const GURL& GetURL() override;
   const GURL& GetVisibleURL() override;
   const GURL& GetLastCommittedURL() const override;
@@ -539,9 +541,7 @@ class CONTENT_EXPORT WebContentsImpl
   void ScrollToBottomOfDocument() override;
   void Replace(const std::u16string& word) override;
   void ReplaceMisspelling(const std::u16string& word) override;
-  void NotifyContextMenuClosed(
-      const GURL& link_followed,
-      const std::optional<blink::Impression>&) override;
+  void NotifyContextMenuClosed(const GURL& link_followed) override;
   void ExecuteCustomContextMenuCommand(int action,
                                        const GURL& link_followed) override;
   gfx::NativeView GetNativeView() override;
@@ -848,7 +848,8 @@ class CONTENT_EXPORT WebContentsImpl
   void ResourceLoadComplete(
       RenderFrameHostImpl* render_frame_host,
       const GlobalRequestID& request_id,
-      blink::mojom::ResourceLoadInfoPtr resource_load_information) override;
+      const GURL& original_url,
+      blink::mojom::ResourceLoadInfoPtr resource_load_info) override;
   void OnCookiesAccessed(RenderFrameHostImpl*,
                          const CookieAccessDetails& details) override;
   void OnTrustTokensAccessed(RenderFrameHostImpl*,
@@ -960,7 +961,10 @@ class CONTENT_EXPORT WebContentsImpl
                             int error_code) override;
   void DraggableRegionsChanged(
       const std::vector<blink::mojom::DraggableRegionPtr>& regions) override;
-  void OnFirstContentfulPaintInPrimaryMainFrame() override;
+  void OnFirstContentfulPaintInPrimaryMainFrame(
+      base::TimeTicks presentation_time) override;
+  void OnLargestContentfulPaintInPrimaryMainFrame(
+      base::TimeTicks presentation_time) override;
   gfx::NativeWindow GetOwnerNativeWindow() override;
 
   media::PictureInPictureEventsInfo::AutoPipInfo GetAutoPipInfo()
@@ -996,7 +1000,7 @@ class CONTENT_EXPORT WebContentsImpl
   bool ShouldIgnoreInputEvents() override;
   void OnIgnoredUIEvent() override;
   void Activate() override;
-  void ShowCreatedWidget(int process_id,
+  void ShowCreatedWidget(ChildProcessId process_id,
                          int widget_route_id,
                          const gfx::Rect& initial_rect,
                          const gfx::Rect& initial_anchor_rect) override;
@@ -1054,9 +1058,6 @@ class CONTENT_EXPORT WebContentsImpl
       std::optional<base::Location> owner_location) override;
   blink::ColorProviderColorMaps GetColorProviderColorMaps() const override;
 
-  network::mojom::AttributionSupport GetAttributionSupport() override;
-  void UpdateAttributionSupportRenderer() override;
-  static void UpdateAttributionSupportAllRenderers();
   BackForwardTransitionAnimationManager*
   GetBackForwardTransitionAnimationManager() override;
   net::handles::NetworkHandle GetTargetNetwork() override;
@@ -1187,6 +1188,10 @@ class CONTENT_EXPORT WebContentsImpl
                                         bool show_selection_menu) override;
   const std::optional<gfx::Rect> GetTextSelectionBounds(
       RenderFrameHost* render_frame_host) const override;
+  const std::optional<gfx::Point> GetFocusSelectionPoint(
+      RenderFrameHost* render_frame_host) const override;
+  base::CallbackListSubscription RegisterFocusSelectionBoundsChanged(
+      FocusSelectionBoundsChangedCallback callback) override;
   input::RenderWidgetHostInputEventRouter* GetInputEventRouter() override;
   void GetRenderWidgetHostAtPointAsynchronously(
       RenderWidgetHostViewBase* root_view,
@@ -1214,6 +1219,7 @@ class CONTENT_EXPORT WebContentsImpl
   // The following function is already listed under WebContents overrides:
   // bool IsFullscreen() const override;
   blink::mojom::DisplayMode GetDisplayMode() const override;
+  blink::mojom::ApplicationContext GetApplicationContext() const override;
   ui::mojom::WindowShowState GetWindowShowState() override;
   DevicePostureProviderImpl* GetDevicePostureProvider() override;
   bool GetResizable() override;
@@ -1323,6 +1329,11 @@ class CONTENT_EXPORT WebContentsImpl
   gfx::ColorSpace GetOutputColorSpace(gfx::ContentColorUsage color_usage,
                                       bool needs_alpha) override;
 #endif  // BUILDFLAG(IS_ANDROID)
+
+  // TextInputManager::Observer implementation:
+  void OnSelectionBoundsChanged(
+      TextInputManager* text_input_manager,
+      RenderWidgetHostViewBase* updated_view) override;
 
   //  RenderWidgetHostInputEventRouter::Delegate -------------------------------
   input::TouchEmulator* GetTouchEmulator(bool create_if_necessary) override;
@@ -1677,6 +1688,7 @@ class CONTENT_EXPORT WebContentsImpl
   friend class TestWebContentsDestructionObserver;
   friend class BeforeUnloadBlockingDelegate;
   friend class TestWCDelegateForDialogsAndFullscreen;
+  friend class SurfaceEmbedConnectorImpl;
 
   FRIEND_TEST_ALL_PREFIXES(WebContentsImplTest, CaptureHoldsWakeLock);
   FRIEND_TEST_ALL_PREFIXES(WebContentsImplTest,
@@ -2036,12 +2048,13 @@ class CONTENT_EXPORT WebContentsImpl
 
   // Finds the new RenderWidgetHost and returns it. Note that this can only be
   // called once as this call also removes it from the internal map.
-  RenderWidgetHostView* GetCreatedWidget(int process_id, int route_id);
+  RenderWidgetHostView* GetCreatedWidget(ChildProcessId process_id,
+                                         int route_id);
 
   // Finds the new CreatedWindow by |main_frame_widget_route_id|, initializes
   // it for renderer-initiated creation, and returns it. Note that this can only
   // be called once as this call also removes it from the internal map.
-  std::optional<CreatedWindow> GetCreatedWindow(int process_id,
+  std::optional<CreatedWindow> GetCreatedWindow(ChildProcessId process_id,
                                                 int main_frame_widget_route_id);
 
   // Execute a PageBroadcast Mojo method.
@@ -2274,10 +2287,24 @@ class CONTENT_EXPORT WebContentsImpl
       RenderWidgetHostImpl* render_widget_host,
       const blink::WebInputEvent& event);
 
+  // Returns the first WebContentsDelegate found in the embedding chain,
+  // traversing both SurfaceEmbedConnector and outer WebContents.
+  WebContentsDelegate* GetFirstWebContentsDelegate();
+
+  // Returns true if any WebContents in the parent chain (including this one)
+  // has a pointer lock widget.
+  bool HasPointerLockWidgetInParentChain();
+
+  // Sets the pointer lock widget for this WebContents and propagates it to all
+  // parents in the chain (both SurfaceEmbed and GuestView).
+  void SetPointerLockWidgetInParentChain(RenderWidgetHostImpl* widget);
+
 #if BUILDFLAG(IS_ANDROID)
   // Apply the cached primary subframe importance to the primary frame tree.
   void ApplyPrimaryPageSubframeImportance();
 #endif
+
+  void OnFocusSelectionBoundsChangedSubscriptionRemoved();
 
   // Data for core operation ---------------------------------------------------
 
@@ -2636,6 +2663,9 @@ class CONTENT_EXPORT WebContentsImpl
   // by the TextInputManager in the outer WebContents.
   std::unique_ptr<TextInputManager> text_input_manager_;
 
+  base::RepeatingCallbackList<void(RenderWidgetHostView*)>
+      focus_selection_bounds_changed_callback_list_;
+
   // Tests can set this to true in order to force this web contents to always
   // return nullptr for the above `text_input_manager_`, effectively blocking
   // IME events from propagating out of the renderer.
@@ -2837,7 +2867,7 @@ class CONTENT_EXPORT WebContentsImpl
   std::optional<DragId> active_drag_id_;
 
   const UniqueToken web_contents_token_;
-  std::optional<base::trace_event::TrackRegistration<perfetto::NamedTrack>>
+  std::optional<base::trace_event::TrackRegistration<perfetto::StateTrack>>
       tracing_track_;
 
   void EmitTracingSlice(const std::string& name);

@@ -11,6 +11,7 @@
 #include "base/functional/callback.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/frame_tree_node_id.h"
+#include "content/public/browser/weak_document_ptr.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/simple_url_loader.h"
@@ -22,11 +23,6 @@ class DictValue;
 
 namespace content::webid {
 
-using DownloadCallback =
-    base::OnceCallback<void(std::optional<std::string> response_body,
-                            int response_code,
-                            const std::string& mime_type,
-                            bool cors_error)>;
 enum class ParseStatus {
   kSuccess,
   kHttpNotFoundError,
@@ -49,9 +45,6 @@ struct FetchStatus {
   bool from_accounts_push = false;
 };
 
-using ParseJsonCallback =
-    base::OnceCallback<void(FetchStatus, std::optional<base::DictValue>)>;
-
 GURL ExtractEndpoint(const GURL& provider,
                      const base::DictValue& response,
                      const char* key);
@@ -70,12 +63,21 @@ CONTENT_EXPORT std::optional<GURL> ComputeWebIdentitySubdomainWellKnownUrl(
 // Base class containing some methods for creating fetches in webid APIs.
 class CONTENT_EXPORT NetworkRequestManager {
  public:
+  using DownloadCallback =
+      base::OnceCallback<void(std::optional<std::string> response_body,
+                              int response_code,
+                              const std::string& mime_type,
+                              bool cors_error)>;
+  using ParseJsonCallback =
+      base::OnceCallback<void(FetchStatus, std::optional<base::DictValue>)>;
+
   NetworkRequestManager(
       const url::Origin& relying_party_origin,
       scoped_refptr<network::SharedURLLoaderFactory> loader_factory,
       network::mojom::ClientSecurityStatePtr client_security_state,
       network::mojom::RequestDestination destination,
-      content::FrameTreeNodeId frame_tree_node_id);
+      FrameTreeNodeId frame_tree_node_id,
+      WeakDocumentPtr initiator_document);
   virtual ~NetworkRequestManager();
 
   NetworkRequestManager(const NetworkRequestManager&) = delete;
@@ -111,6 +113,9 @@ class CONTENT_EXPORT NetworkRequestManager {
                        DownloadCallback callback,
                        std::optional<std::string> response_body);
 
+  // Called when the download request is going to be blocked.
+  void OnRequestBlocked(DownloadCallback callback, int response_code);
+
   std::unique_ptr<network::ResourceRequest> CreateUncredentialedResourceRequest(
       const GURL& target_url,
       bool send_origin,
@@ -126,7 +131,8 @@ class CONTENT_EXPORT NetworkRequestManager {
 
   network::mojom::ClientSecurityStatePtr client_security_state_;
   const network::mojom::RequestDestination destination_;
-  const content::FrameTreeNodeId frame_tree_node_id_;
+  const FrameTreeNodeId frame_tree_node_id_;
+  const WeakDocumentPtr initiator_document_;
 
  private:
   // Maps each SimpleURLLoader instance to a unique, unguessable token

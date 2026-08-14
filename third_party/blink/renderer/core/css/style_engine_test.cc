@@ -105,7 +105,8 @@ class StyleEngineTest : public PageTestBase {
   }
 
   const CSSValue* ComputedValue(Element* element, String property_name) {
-    CSSPropertyRef ref(property_name, GetDocument());
+    AtomicString atomic_name(property_name);
+    CSSPropertyRef ref(&atomic_name, GetDocument());
     DCHECK(ref.IsValid());
     return ref.GetProperty().CSSValueFromComputedStyle(
         element->ComputedStyleRef(),
@@ -6379,8 +6380,8 @@ TEST_F(StyleEngineTest, ScrollbarStyleNoExcessiveCaching) {
   UpdateAllLifecyclePhases();
   EXPECT_FALSE(container->GetComputedStyle()->GetPseudoElementStyleCache());
   EXPECT_EQ("rgb(255, 0, 0)", custom_scrollbar->GetPart(kThumbPart)
-                                  ->Style()
-                                  ->BackgroundColor()
+                                  ->StyleRef()
+                                  .BackgroundColor()
                                   .GetColor()
                                   .SerializeAsCSSColor());
 
@@ -6388,8 +6389,8 @@ TEST_F(StyleEngineTest, ScrollbarStyleNoExcessiveCaching) {
   UpdateAllLifecyclePhases();
   EXPECT_FALSE(container->GetComputedStyle()->GetPseudoElementStyleCache());
   EXPECT_EQ("rgb(0, 128, 0)", custom_scrollbar->GetPart(kThumbPart)
-                                  ->Style()
-                                  ->BackgroundColor()
+                                  ->StyleRef()
+                                  .BackgroundColor()
                                   .GetColor()
                                   .SerializeAsCSSColor());
 }

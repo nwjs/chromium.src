@@ -39,6 +39,8 @@ class PLATFORM_EXPORT BackForwardCacheDisablingFeatureTracker {
       perfetto::Track parent_track,
       ThreadSchedulerBase* scheduler);
 
+  ~BackForwardCacheDisablingFeatureTracker();
+
   // Sets the delegate to notify the feature usage update. This must be called
   // only once for initialization. `delegate` must not be null and must outlive
   // except for tests.
@@ -104,7 +106,7 @@ class PLATFORM_EXPORT BackForwardCacheDisablingFeatureTracker {
 
   base::flat_map<SchedulingPolicy::Feature, int>
       back_forward_cache_disabling_feature_counts_{};
-  TraceableState<bool, TRACE_DISABLED_BY_DEFAULT("renderer.scheduler")>
+  TraceableState<bool, "renderer.scheduler.status">
       opted_out_from_back_forward_cache_;
 
   BFCacheBlockingFeatureAndLocations last_reported_non_sticky_;

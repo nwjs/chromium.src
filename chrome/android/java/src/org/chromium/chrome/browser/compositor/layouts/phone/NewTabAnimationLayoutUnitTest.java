@@ -27,6 +27,7 @@ import android.app.Activity;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.os.Build;
 import android.view.View;
 import android.widget.FrameLayout;
 
@@ -50,6 +51,7 @@ import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.cc.input.BrowserControlsState;
 import org.chromium.chrome.R;
@@ -91,7 +93,7 @@ import java.util.function.Supplier;
 
 /** Unit tests for {@link NewTabAnimationLayout}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(sdk = 35)
+@Config(sdk = Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @EnableFeatures({
     ChromeFeatureList.SENSITIVE_CONTENT,
     ChromeFeatureList.SENSITIVE_CONTENT_WHILE_SWITCHING_TABS
@@ -129,6 +131,8 @@ public class NewTabAnimationLayoutUnitTest {
     @Mock private NewTabPage mNtp;
     @Mock private TopInsetProvider mTopInsetProvider;
     @Mock private EdgeToEdgeController mEdgeToEdgeController;
+    @Mock private View mBottomBar;
+    @Mock private View mBottomBarTabSwitcherButton;
     private SceneLayer mSceneLayer;
 
     private final SettableNullableObservableSupplier<Tab> mCurrentTabSupplier =
@@ -181,6 +185,8 @@ public class NewTabAnimationLayoutUnitTest {
         when(mTabModel.getTabAt(1)).thenReturn(mNewTab);
         when(mTabModel.getTabById(CURRENT_TAB_ID)).thenReturn(mCurrentTab);
         when(mTabModel.getTabById(NEW_TAB_ID)).thenReturn(mNewTab);
+        when(mTabModel.indexOf(mCurrentTab)).thenReturn(0);
+        when(mTabModel.indexOf(mNewTab)).thenReturn(1);
         when(mCurrentTab.getId()).thenReturn(CURRENT_TAB_ID);
         mUserDataHost = new UserDataHost();
         when(mCurrentTab.getUserDataHost()).thenReturn(mUserDataHost);
@@ -238,6 +244,11 @@ public class NewTabAnimationLayoutUnitTest {
         mNewTabAnimationLayout.setTabContentManager(mTabContentManager);
         when(mAnimationHostView.findViewById(R.id.toolbar)).thenReturn(mToolbar);
         when(mToolbar.findViewById(R.id.tab_switcher_button)).thenReturn(mTabSwitcherButton);
+        when(mAnimationHostView.findViewById(
+                        org.chromium.chrome.browser.ui.bottombar.R.id.bottom_bar_container))
+                .thenReturn(mBottomBar);
+        when(mBottomBar.findViewById(R.id.tab_switcher_button))
+                .thenReturn(mBottomBarTabSwitcherButton);
         when(mAnimationHostView.getWidth()).thenReturn(40);
         when(mAnimationHostView.getHeight()).thenReturn(40);
         doAnswer(
@@ -625,6 +636,7 @@ public class NewTabAnimationLayoutUnitTest {
     }
 
     @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
     public void testOnTabCreated_NtpToWebPage_bottomToolbarCoordination() throws Exception {
         // Configure bottom toolbar preference
         java.lang.reflect.Field field =
@@ -682,6 +694,7 @@ public class NewTabAnimationLayoutUnitTest {
     }
 
     @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
     public void testOnTabCreated_WebPageToNtp_bottomToolbarCoordination() throws Exception {
         // Configure bottom toolbar preference
         java.lang.reflect.Field field =

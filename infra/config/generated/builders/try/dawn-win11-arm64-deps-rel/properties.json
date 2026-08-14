@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Dawn Win11 arm64 DEPS Builder",
-              "project": "chromium-m151"
+              "project": "chromium-m152"
             },
             "builder_spec": {
               "builder_group": "chromium.dawn",
@@ -29,6 +29,35 @@
                 "config": "chromium"
               }
             }
+          },
+          {
+            "builder_id": {
+              "bucket": "ci",
+              "builder": "Dawn Win11 arm64 DEPS Release (Qualcomm Snapdragon X Elite)",
+              "project": "chromium-m152"
+            },
+            "builder_spec": {
+              "builder_group": "chromium.dawn",
+              "execution_mode": "TEST",
+              "legacy_chromium_config": {
+                "apply_configs": [
+                  "mb"
+                ],
+                "build_config": "Release",
+                "config": "chromium",
+                "target_bits": 64,
+                "target_platform": "win"
+              },
+              "legacy_gclient_config": {
+                "config": "chromium"
+              },
+              "parent": {
+                "bucket": "ci",
+                "builder": "Dawn Win11 arm64 DEPS Builder",
+                "project": "chromium-m152"
+              },
+              "run_tests_serially": true
+            }
           }
         ]
       },
@@ -36,7 +65,14 @@
         {
           "bucket": "ci",
           "builder": "Dawn Win11 arm64 DEPS Builder",
-          "project": "chromium-m151"
+          "project": "chromium-m152"
+        }
+      ],
+      "builder_ids_in_scope_for_testing": [
+        {
+          "bucket": "ci",
+          "builder": "Dawn Win11 arm64 DEPS Release (Qualcomm Snapdragon X Elite)",
+          "project": "chromium-m152"
         }
       ],
       "targets_spec_directory": "infra/config/generated/builders/try/dawn-win11-arm64-deps-rel/targets"

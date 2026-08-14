@@ -55,7 +55,7 @@
 #import "ios/chrome/browser/home_customization/model/home_background_customization_service.h"
 #import "ios/chrome/browser/home_customization/model/home_background_customization_service_factory.h"
 #import "ios/chrome/browser/home_customization/model/user_uploaded_image_manager_factory.h"
-#import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_availability.h"
+#import "ios/chrome/browser/lens_overlay/public/lens_overlay_availability.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_presenter.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_request.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_request_queue.h"
@@ -546,14 +546,20 @@ TEST_F(OverflowMenuMediatorTest, TestMenuItemsCount) {
   if (send_tab_to_self::AreIOSTabRemindersEnabled() && !mediator_.incognito) {
     number_of_action_items++;
   }
-  if (base::FeatureList::IsEnabled(kHideToolbarsInOverflowMenu)) {
+  if (IsHideToolbarEnabled()) {
     number_of_action_items++;
   }
 
   // New Tab, New Incognito Tab.
   NSUInteger number_of_tab_actions = 2;
-  if (IsSplitToolbarMode(mediator_.baseViewController)) {
+  BOOL showReloadStopAction;
+  if (IsChromeNextIaEnabled()) {
+    showReloadStopAction = !CanShowTabStrip(mediator_.baseViewController);
+  } else {
     // Stop/Reload only shows in split toolbar mode.
+    showReloadStopAction = IsSplitToolbarMode(mediator_.baseViewController);
+  }
+  if (showReloadStopAction) {
     number_of_tab_actions++;
   }
   if (base::ios::IsMultipleScenesSupported()) {
@@ -580,12 +586,12 @@ TEST_F(OverflowMenuMediatorTest, TestMenuItemsCount) {
 }
 
 // Tests that the Report an Issue item is hidden when the capability is false.
-TEST_F(OverflowMenuMediatorTest, TestFeedbackItemHiddenWhenCapabilityFalse) {
+TEST_F(OverflowMenuMediatorTest, FeedbackItemHiddenWhenCapabilityFalse) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(
       kFeedbackEntryPointsRequireCanSubmitFeedbackCapability);
 
-  const FakeSystemIdentity* identity = [FakeSystemIdentity fakeIdentity1];
+  FakeSystemIdentity* identity = [FakeSystemIdentity fakeIdentity1];
   fake_system_identity_manager()->AddIdentityWithUnknownCapabilities(identity);
   AuthenticationServiceFactory::GetForProfile(profile_.get())
       ->SignIn(identity, signin_metrics::AccessPoint::kStartPage);
@@ -759,7 +765,7 @@ TEST_F(OverflowMenuMediatorTest, TestItemsStatusOnNTP) {
 
   EXPECT_TRUE(HasItem(kToolsMenuNewTabId, /*enabled=*/YES));
   EXPECT_FALSE(HasItem(kToolsMenuSiteInformation, /*enabled=*/YES));
-  if (base::FeatureList::IsEnabled(kHideToolbarsInOverflowMenu)) {
+  if (IsHideToolbarEnabled()) {
     EXPECT_TRUE(HasItem(kToolsMenuHideToolbars, /*enabled=*/NO));
   }
 }
@@ -959,9 +965,9 @@ TEST_F(OverflowMenuMediatorTest, TestFamilyLinkInfoShown) {
   ASSERT_TRUE(HasFamilyLinkInfoItem());
 }
 
-// Tests that the sign-in button is shown in its own group when user is signed
-// out and the IdentityAwareness feature is enabled.
-TEST_F(OverflowMenuMediatorTest, TestIdentityButtonVisibleWhenSignedOut) {
+// Tests that the identity button is not shown when user is signed out even
+// if the IdentityAwareness feature is enabled.
+TEST_F(OverflowMenuMediatorTest, TestIdentityButtonHiddenWhenSignedOut) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(kIdentityAwareness);
 
@@ -971,19 +977,8 @@ TEST_F(OverflowMenuMediatorTest, TestIdentityButtonVisibleWhenSignedOut) {
       AuthenticationServiceFactory::GetForProfile(profile_.get());
   mediator_.model = model_;
 
-  // Check the identity group.
-  EXPECT_TRUE(HasItem(kToolsMenuSigninId, /*enabled=*/YES));
-  EXPECT_EQ(5u, mediator_.model.actionGroups.count);
-  OverflowMenuActionGroup* identity_group = mediator_.model.actionGroups[0];
-  EXPECT_NSEQ(kIdentityGroupName, identity_group.groupName);
-  EXPECT_EQ(1u, identity_group.actions.count);
-
-  // Check the sign-in action button.
-  OverflowMenuAction* signin_action = identity_group.actions[0];
-  EXPECT_NSEQ(kToolsMenuSigninId, signin_action.accessibilityIdentifier);
-  NSString* expectedSubtitle =
-      l10n_util::GetNSString(IDS_IOS_IDENTITY_DISC_SIGN_IN_PROMO_LABEL);
-  EXPECT_NSEQ(expectedSubtitle, signin_action.subtitle);
+  // Check the identity item is not there.
+  EXPECT_FALSE(HasItem(kToolsMenuIdentityId, /*enabled=*/YES));
 }
 
 // Tests that the identity button is shown in its own group when user is signed
@@ -1018,6 +1013,28 @@ TEST_F(OverflowMenuMediatorTest, TestIdentityButtonVisibleWhenSignedIn) {
   EXPECT_NSEQ(expectedName, identity_action.name);
   NSString* expectedSubtitle = identity.userEmail;
   EXPECT_NSEQ(expectedSubtitle, identity_action.subtitle);
+}
+
+// Tests that the identity button is hidden in incognito mode even when signed
+// in.
+TEST_F(OverflowMenuMediatorTest, TestIdentityButtonHiddenInIncognitoMode) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(kIdentityAwareness);
+
+  // Sign in user.
+  const FakeSystemIdentity* identity = [FakeSystemIdentity fakeIdentity1];
+  fake_system_identity_manager()->AddIdentity(identity);
+  AuthenticationServiceFactory::GetForProfile(profile_.get())
+      ->SignIn(identity, signin_metrics::AccessPoint::kStartPage);
+
+  // Create mediator in incognito mode.
+  CreateMediator(/*incognito=*/YES);
+  mediator_.authenticationService =
+      AuthenticationServiceFactory::GetForProfile(profile_.get());
+  mediator_.model = model_;
+
+  // Check the identity item is not present.
+  EXPECT_FALSE(HasItem(kToolsMenuIdentityId, /*enabled=*/YES));
 }
 
 // Tests that 1) the tools menu has an enabled 'Add to Bookmarks' button when

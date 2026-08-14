@@ -15,7 +15,6 @@
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
 #include "base/types/optional_util.h"
-#include "content/browser/interest_group/interest_group_features.h"
 #include "content/browser/process_lock.h"
 #include "content/browser/renderer_host/debug_urls.h"
 #include "content/browser/renderer_host/frame_tree.h"
@@ -474,7 +473,7 @@ bool Navigator::StartHistoryNavigationInNewSubframe(
     RenderFrameHostImpl* render_frame_host,
     mojo::PendingAssociatedRemote<mojom::NavigationClient>* navigation_client,
     blink::LocalFrameToken initiator_frame_token,
-    int initiator_process_id,
+    ChildProcessId initiator_process_id,
     scoped_refptr<InitiatorNavigationState> initiator_navigation_state,
     base::TimeTicks actual_navigation_start) {
   return controller_.StartHistoryNavigationInNewSubframe(
@@ -569,8 +568,9 @@ void Navigator::DidNavigate(
   // Allow main frame paint holding in the following cases:
   //  - We don't have an animated transition. See crbug.com/360844863.
   //  - At least one of the following conditions is true:
-  //    - This is a navigation from the initial document. This part helps with
-  //      tests. See crbug.com/367623929.
+  //    - This is a navigation from the initial document (in cases where this is
+  //      a brand new tab that didn't inherit another origin from an opener).
+  //      This part helps with tests. See crbug.com/367623929.
   //    - This is a same origin navigation (or we're not limiting cross-origin
   //      paint holding)
   //    - There is a user activation. This means that the user interacted with
@@ -583,9 +583,12 @@ void Navigator::DidNavigate(
   // See https://issues.chromium.org/40942531 for reasons we limit paint
   // holding.
   ContentBrowserClient* client = GetContentClient()->browser();
+  const bool allow_paint_holding_for_initial_empty_document =
+      was_on_initial_empty_document && old_frame_origin.opaque() &&
+      !old_frame_origin.GetTupleOrPrecursorTupleIfOpaque().IsValid();
   const bool allow_main_frame_paint_holding =
       !navigation_request->was_initiated_by_animated_transition() &&
-      (was_on_initial_empty_document ||
+      (allow_paint_holding_for_initial_empty_document ||
        old_frame_origin.IsSameOriginWith(params.origin) ||
        old_frame_host->HasStickyUserActivation() ||
        client->AllowNonActivatedCrossOriginPaintHolding() ||
@@ -620,13 +623,6 @@ void Navigator::DidNavigate(
       view_transition_commit_info, navigation_request->GetURL(),
       is_backward_navigation);
 
-  // Reset the old frame host's weak pointer to auction initiator page when it
-  // is a cross-document navigation and the frame does not go into bfcache.
-  if ((base::FeatureList::IsEnabled(features::kDetectInconsistentPageImpl)) &&
-      !was_within_same_document && old_frame_host &&
-      !old_frame_host->IsInBackForwardCache()) {
-    old_frame_host->set_auction_initiator_page(nullptr);
-  }
 
   // The main frame, same site, and cross-site navigation checks for user
   // activation mirror the checks in DocumentLoader::CommitNavigation() (note:
@@ -1093,7 +1089,6 @@ void Navigator::RequestOpenURL(
     blink::mojom::TriggeringEventInfo triggering_event_info,
     const std::string& href_translate,
     scoped_refptr<network::SharedURLLoaderFactory> blob_url_loader_factory,
-    const std::optional<blink::Impression>& impression,
     bool has_rel_opener,
     bool started_by_ad) {
   // Note: This can be called for subframes (even when OOPIFs are not possible)
@@ -1171,7 +1166,6 @@ void Navigator::RequestOpenURL(
 
   params.blob_url_loader_factory = std::move(blob_url_loader_factory);
   params.href_translate = href_translate;
-  params.impression = impression;
   params.has_rel_opener = has_rel_opener;
 
   delegate_->OpenURL(params, /*navigation_handle_callback=*/{});
@@ -1181,7 +1175,7 @@ void Navigator::NavigateFromFrameProxy(
     RenderFrameHostImpl* render_frame_host,
     const GURL& url,
     const blink::LocalFrameToken* initiator_frame_token,
-    int initiator_process_id,
+    ChildProcessId initiator_process_id,
     const url::Origin& initiator_origin,
     const std::optional<GURL>& initiator_base_url,
     scoped_refptr<InitiatorNavigationState> initiator_navigation_state,
@@ -1196,7 +1190,6 @@ void Navigator::NavigateFromFrameProxy(
     network::mojom::SourceLocationPtr source_location,
     bool has_user_gesture,
     bool is_form_submission,
-    const std::optional<blink::Impression>& impression,
     bool started_by_ad,
     base::TimeTicks actual_navigation_start_time,
     base::TimeTicks navigation_start_time,
@@ -1258,11 +1251,11 @@ void Navigator::NavigateFromFrameProxy(
       initiator_navigation_state, referrer_to_use, page_transition,
       should_replace_current_entry, download_policy, method, post_body,
       extra_headers, std::move(source_location),
-      std::move(blob_url_loader_factory), is_form_submission, impression,
-      has_user_gesture, started_by_ad, actual_navigation_start_time,
-      navigation_start_time, is_embedder_initiated_fenced_frame_navigation,
-      is_unfenced_top_navigation, force_new_browsing_instance,
-      is_container_initiated, has_rel_opener, embedder_shared_storage_context);
+      std::move(blob_url_loader_factory), is_form_submission, has_user_gesture,
+      started_by_ad, actual_navigation_start_time, navigation_start_time,
+      is_embedder_initiated_fenced_frame_navigation, is_unfenced_top_navigation,
+      force_new_browsing_instance, is_container_initiated, has_rel_opener,
+      embedder_shared_storage_context);
 }
 
 void Navigator::BeforeUnloadCompleted(FrameTreeNode* frame_tree_node,
@@ -1324,7 +1317,7 @@ void Navigator::OnBeginNavigation(
     mojo::PendingAssociatedRemote<mojom::NavigationClient> navigation_client,
     scoped_refptr<PrefetchedSignedExchangeCache>
         prefetched_signed_exchange_cache,
-    int initiator_process_id,
+    ChildProcessId initiator_process_id,
     mojo::PendingReceiver<mojom::NavigationRendererCancellationListener>
         renderer_cancellation_listener,
     mojo::PendingReceiver<

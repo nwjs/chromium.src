@@ -15,12 +15,13 @@ namespace policy::local_user_files {
 
 constexpr char kCleanupCountHistogram[] = "SkyVault.LocalUserFilesCleanupCount";
 
-LocalFilesCleanup::LocalFilesCleanup() = default;
+LocalFilesCleanup::LocalFilesCleanup(PrefService* local_state)
+    : LocalUserFilesPolicyObserver(local_state) {}
 
 LocalFilesCleanup::~LocalFilesCleanup() = default;
 
 void LocalFilesCleanup::OnLocalUserFilesPolicyChanged() {
-  if (!LocalUserFilesAllowed() && !in_progress_) {
+  if (!LocalUserFilesAllowed(local_state_.get()) && !in_progress_) {
     UMA_HISTOGRAM_CUSTOM_COUNTS(kCleanupCountHistogram, ++cleanups_count_, 1,
                                 50, 50);
     in_progress_ = true;

@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/strings/strcat.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "chrome/browser/collaboration/messaging/messaging_backend_service_factory.h"
 #include "chrome/browser/data_sharing/data_sharing_service_factory.h"
@@ -11,7 +10,6 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_metrics.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -39,21 +37,11 @@
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
-#include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tabs/public/tab_group.h"
 #include "content/public/test/browser_test.h"
-#include "google_apis/gaia/core_account_id.h"
 #include "google_apis/gaia/gaia_id.h"
-#include "net/dns/mock_host_resolver.h"
-#include "net/test/embedded_test_server/http_connection.h"
-#include "net/test/embedded_test_server/http_request.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/base/interaction/element_tracker.h"
-#include "ui/base/interaction/interactive_test_internal.h"
-#include "ui/gfx/codec/png_codec.h"
-#include "ui/gfx/image/image_skia_operations.h"
-#include "ui/gfx/image/image_unittest_util.h"
 
 namespace tab_groups {
 constexpr char kSkipPixelTestsReason[] = "Should only run in pixel_tests.";
@@ -71,18 +59,14 @@ class SharedTabGroupInteractiveUiTest
         {data_sharing::features::kDataSharingFeature, {}},
         {features::kTabGroupMenuMoreEntryPoints, {}}};
 
-    std::vector<base::test::FeatureRef> disabled_features = {
-        tab_groups::kProjectsPanel};
-
-    scoped_feature_list_.InitWithFeaturesAndParameters(enabled_features,
-                                                       disabled_features);
+    scoped_feature_list_.InitWithFeaturesAndParameters(enabled_features, {});
     InProcessBrowserTest::SetUp();
   }
 
   MultiStep ShowBookmarksBar() {
     return Steps(
         Do([this]() {
-          PrefService* prefs = browser()->profile()->GetPrefs();
+          PrefService* prefs = browser()->GetProfile()->GetPrefs();
           if (base::FeatureList::IsEnabled(
                   ntp_features::kNtpSimplificationBookmarkBar)) {
             prefs->SetInteger(
@@ -122,7 +106,7 @@ class SharedTabGroupInteractiveUiTest
                      data_sharing::MemberRole member_role,
                      bool should_sign_in) {
     TabGroupSyncService* service =
-        TabGroupSyncServiceFactory::GetForProfile(browser()->profile());
+        TabGroupSyncServiceFactory::GetForProfile(browser()->GetProfile());
     service->MakeTabGroupSharedForTesting(group_id, collaboration_id);
 
     // Additional Properties.
@@ -137,7 +121,7 @@ class SharedTabGroupInteractiveUiTest
     if (should_sign_in) {
       // Simulate a signed in primary account.
       signin::IdentityManager* identity_manager =
-          IdentityManagerFactory::GetForProfile(browser()->profile());
+          IdentityManagerFactory::GetForProfile(browser()->GetProfile());
       signin::MakePrimaryAccountAvailable(identity_manager, email,
                                           signin::ConsentLevel::kSignin);
       signin::MakePrimaryAccountAvailable(identity_manager, email,
@@ -189,14 +173,14 @@ class SharedTabGroupInteractiveUiTest
   data_sharing::DataSharingService* data_sharing_service() {
     data_sharing::DataSharingService* data_sharing_service =
         data_sharing::DataSharingServiceFactory::GetForProfile(
-            browser()->profile());
+            browser()->GetProfile());
     return data_sharing_service;
   }
 
   collaboration::messaging::MessagingBackendService* messaging_service() {
     collaboration::messaging::MessagingBackendService* messaging_service =
         collaboration::messaging::MessagingBackendServiceFactory::GetForProfile(
-            browser()->profile());
+            browser()->GetProfile());
     return messaging_service;
   }
 

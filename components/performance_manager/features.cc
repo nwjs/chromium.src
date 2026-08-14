@@ -143,6 +143,9 @@ BASE_FEATURE(kUnthrottledTabProcessReporting, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #endif
 
+BASE_FEATURE(kLevelDBSiteDataStoreBestEffort,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kEnableBestEffortTaskInhibitingPolicy,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(base::TimeDelta,
@@ -165,9 +168,8 @@ const base::FeatureParam<bool> kInheritParentPriority{
 const base::FeatureParam<bool> kRenderedOutOfViewIsNotVisible{
     &kPMProcessPriorityPolicy, "rendered_out_of_view_is_not_visible", false};
 
-const base::FeatureParam<bool> kNonSpareRendererHighInitialPriority{
-    &kPMProcessPriorityPolicy, "non_spare_renderer_high_initial_priority",
-    false};
+const base::FeatureParam<bool> kRendererHighInitialPriority{
+    &kPMProcessPriorityPolicy, "renderer_high_initial_priority", false};
 
 BASE_FEATURE(kPMLoadingPageVoter, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -312,6 +314,8 @@ BASE_FEATURE(kDisableTabDiscarding, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kUseLoadingStateToDetectBackgroundTitleOrFaviconUpdate,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kGlicActuationPriorityVoter, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicActuationPriorityVoter, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kIgnoreMediaQueryFaviconUpdates, base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace performance_manager::features

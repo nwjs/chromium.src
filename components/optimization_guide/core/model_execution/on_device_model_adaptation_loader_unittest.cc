@@ -16,8 +16,8 @@
 #include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
+#include "components/optimization_guide/core/delivery/model_info.h"
 #include "components/optimization_guide/core/delivery/model_provider_registry.h"
-#include "components/optimization_guide/core/delivery/test_model_info_builder.h"
 #include "components/optimization_guide/core/delivery/test_optimization_guide_model_provider.h"
 #include "components/optimization_guide/core/model_execution/model_broker_state.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
@@ -58,10 +58,10 @@ class OnDeviceModelAdaptationLoaderTest : public testing::Test {
   }
 
   void SendAdaptationModelUpdated(
-      std::unique_ptr<optimization_guide::ModelInfo> model_info) {
+      const optimization_guide::ModelInfo& model_info) {
     provider_.UpdateModelImmediatelyForTesting(
         proto::OptimizationTarget::OPTIMIZATION_TARGET_MODEL_VALIDATION,
-        std::move(model_info));
+        model_info);
     // Wait for asset to load on background sequence.
     task_environment_.FastForwardBy(base::Seconds(1));
   }
@@ -166,7 +166,7 @@ TEST_F(OnDeviceModelAdaptationLoaderTest, ProvidesValidAsset) {
       .config = SimpleTestFeatureConfig(),
       .metadata = MatchingMetadata(spec_),
   }};
-  SendAdaptationModelUpdated(std::make_unique<ModelInfo>(asset.model_info()));
+  SendAdaptationModelUpdated(asset.model_info());
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.OnDeviceAdaptationModelAvailability."
       "Test",
@@ -182,7 +182,7 @@ TEST_F(OnDeviceModelAdaptationLoaderTest, ProvidesValidAssetWithWeights) {
       .weight = 1,
       .metadata = MatchingMetadata(spec_),
   }};
-  SendAdaptationModelUpdated(std::make_unique<ModelInfo>(asset.model_info()));
+  SendAdaptationModelUpdated(asset.model_info());
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.OnDeviceAdaptationModelAvailability."
       "Test",
@@ -200,7 +200,7 @@ TEST_F(OnDeviceModelAdaptationLoaderTest, ProvidesValidAssetWithEmptyHints) {
           // And Empty set of supported hints is semantically "all hints"
           {}),
   }};
-  SendAdaptationModelUpdated(std::make_unique<ModelInfo>(asset.model_info()));
+  SendAdaptationModelUpdated(asset.model_info());
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.OnDeviceAdaptationModelAvailability."
       "Test",
@@ -211,8 +211,10 @@ TEST_F(OnDeviceModelAdaptationLoaderTest, ProvidesValidAssetWithEmptyHints) {
 
 TEST_F(OnDeviceModelAdaptationLoaderTest, RemovedOnInvalidAsset) {
   loaders_.MaybeRegisterModelDownload(feature(), spec_, true);
-  TestModelInfoBuilder invalid_builder;
-  SendAdaptationModelUpdated(invalid_builder.Build());
+  ModelInfo invalid_model_info = {
+      .model_file_path = base::FilePath::FromUTF8Unsafe(kTestAbsoluteFilePath),
+  };
+  SendAdaptationModelUpdated(invalid_model_info);
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.OnDeviceAdaptationModelAvailability."
       "Test",
@@ -232,7 +234,7 @@ TEST_F(OnDeviceModelAdaptationLoaderTest,
                                           "0.0.9",  // Not compatible
                                           {spec_.selected_performance_hint}),
   }};
-  SendAdaptationModelUpdated(std::make_unique<ModelInfo>(asset.model_info()));
+  SendAdaptationModelUpdated(asset.model_info());
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.OnDeviceAdaptationModelAvailability."
       "Test",
@@ -250,7 +252,7 @@ TEST_F(OnDeviceModelAdaptationLoaderTest, IgnoresIncompatibleAdaptationHints) {
           spec_.model_name, spec_.model_version,
           {proto::ON_DEVICE_MODEL_PERFORMANCE_HINT_CPU}),  // Not compatible
   }};
-  SendAdaptationModelUpdated(std::make_unique<ModelInfo>(asset.model_info()));
+  SendAdaptationModelUpdated(asset.model_info());
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.OnDeviceAdaptationModelAvailability."
       "Test",
@@ -268,10 +270,11 @@ TEST_F(OnDeviceModelAdaptationLoaderTest,
       .config = SimpleTestFeatureConfig(),
       .metadata = MatchingMetadata(spec_),
   }};
-  SendAdaptationModelUpdated(
-      TestModelInfoBuilder(asset.model_info())
-          .RemoveAdditionalFileWithBasename(kOnDeviceModelExecutionConfigFile)
-          .Build());
+  ModelInfo model_info = asset.model_info();
+  std::erase_if(model_info.additional_files, [&](const base::FilePath& path) {
+    return path.BaseName().value() == kOnDeviceModelExecutionConfigFile;
+  });
+  SendAdaptationModelUpdated(model_info);
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.OnDeviceAdaptationModelAvailability."
       "Test",
@@ -291,7 +294,7 @@ TEST_F(OnDeviceModelAdaptationLoaderTest,
       .metadata = MatchingMetadata(spec_),
   }};
   base::DeleteFile(asset.dir().Append(kOnDeviceModelExecutionConfigFile));
-  SendAdaptationModelUpdated(std::make_unique<ModelInfo>(asset.model_info()));
+  SendAdaptationModelUpdated(asset.model_info());
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.OnDeviceAdaptationModelAvailability."
       "Test",
@@ -319,7 +322,7 @@ TEST_F(OnDeviceModelAdaptationLoaderTest,
   CHECK(base::WriteFile(asset.dir().Append(kOnDeviceModelExecutionConfigFile),
                         config.SerializeAsString()));
 
-  SendAdaptationModelUpdated(std::make_unique<ModelInfo>(asset.model_info()));
+  SendAdaptationModelUpdated(asset.model_info());
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.OnDeviceAdaptationModelAvailability."
       "Test",

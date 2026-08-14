@@ -12,12 +12,12 @@
 #include <vector>
 
 #include "base/check.h"
-#include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/memory/raw_ptr.h"
 #include "base/rand_util.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "components/viz/common/display/display_scheduler_draw_result.h"
 #include "components/viz/common/display/update_vsync_parameters_callback.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
 #include "components/viz/common/frame_sinks/delay_based_time_source.h"
@@ -218,11 +218,15 @@ class VIZ_COMMON_EXPORT BeginFrameSource {
   void SetSchedulerClient(SchedulerClient* scheduler_client);
   void SetInputClient(InputClient* input_client);
 
+  static base::flat_set<base::TimeDelta> GetDefaultSupportedFrameIntervals(
+      base::TimeDelta interval);
+
   // BeginFrameObservers use DidFinishFrame to provide back pressure to a frame
   // source about frame processing (rather than toggling SetNeedsBeginFrames
   // every frame). For example, the BackToBackFrameSource uses them to make sure
   // only one frame is pending at a time.
-  virtual void DidFinishFrame(BeginFrameObserver* obs) = 0;
+  virtual void DidFinishFrame(BeginFrameObserver* obs,
+                              DisplaySchedulerDrawResult result) = 0;
 
   // Add/Remove an observer from the source. When no observers are added the BFS
   // should shut down its timers, disable vsync, etc.
@@ -310,7 +314,8 @@ class VIZ_COMMON_EXPORT StubBeginFrameSource : public BeginFrameSource {
  public:
   StubBeginFrameSource();
 
-  void DidFinishFrame(BeginFrameObserver* obs) override {}
+  void DidFinishFrame(BeginFrameObserver* obs,
+                      DisplaySchedulerDrawResult result) override {}
   void AddObserver(BeginFrameObserver* obs) override {}
   void RemoveObserver(BeginFrameObserver* obs) override {}
   void OnGpuNoLongerBusy() override {}
@@ -349,7 +354,8 @@ class VIZ_COMMON_EXPORT BackToBackBeginFrameSource
   // BeginFrameSource implementation.
   void AddObserver(BeginFrameObserver* obs) override;
   void RemoveObserver(BeginFrameObserver* obs) override;
-  void DidFinishFrame(BeginFrameObserver* obs) override;
+  void DidFinishFrame(BeginFrameObserver* obs,
+                      DisplaySchedulerDrawResult result) override;
   void OnGpuNoLongerBusy() override;
 
   // SyntheticBeginFrameSource implementation.
@@ -390,7 +396,8 @@ class VIZ_COMMON_EXPORT DelayBasedBeginFrameSource
   // BeginFrameSource implementation.
   void AddObserver(BeginFrameObserver* obs) override;
   void RemoveObserver(BeginFrameObserver* obs) override;
-  void DidFinishFrame(BeginFrameObserver* obs) override {}
+  void DidFinishFrame(BeginFrameObserver* obs,
+                      DisplaySchedulerDrawResult result) override {}
   void OnGpuNoLongerBusy() override;
 
   // SyntheticBeginFrameSource implementation.
@@ -454,7 +461,8 @@ class VIZ_COMMON_EXPORT ExternalBeginFrameSource : public BeginFrameSource {
   // BeginFrameSource implementation.
   void AddObserver(BeginFrameObserver* obs) override;
   void RemoveObserver(BeginFrameObserver* obs) override;
-  void DidFinishFrame(BeginFrameObserver* obs) override {}
+  void DidFinishFrame(BeginFrameObserver* obs,
+                      DisplaySchedulerDrawResult result) override {}
   void AsProtozeroInto(
       perfetto::EventContext& ctx,
       perfetto::protos::pbzero::BeginFrameSourceStateV2* state) const override;
@@ -480,18 +488,6 @@ class VIZ_COMMON_EXPORT ExternalBeginFrameSource : public BeginFrameSource {
   // Returns the minimium supported frame interval for a given BFS.
   // This gives the maximium refresh rate that can be requested.
   virtual base::TimeDelta GetMinimumFrameInterval();
-
-#if BUILDFLAG(IS_ANDROID)
-  // Sets the refresh rates supported by the display. See
-  // https://developer.android.com/reference/android/view/Display#getSupportedRefreshRates().
-  //
-  // `supported_rates` is a map from supported VSync intervals to the equivalent
-  // supported refresh rates. For example, if the display supports 60 Hz and 120
-  // Hz, `supported_rates` will contain two entries: `base::Milliseconds(8.333)`
-  // → `120.0f` and `base::Milliseconds(16.666)` → `60.0f`.
-  virtual void SetSupportedRefreshRates(
-      const base::flat_map<base::TimeDelta, float>& supported_rates) {}
-#endif
 
   virtual base::flat_set<base::TimeDelta> GetSupportedFrameIntervals(
       base::TimeDelta interval);

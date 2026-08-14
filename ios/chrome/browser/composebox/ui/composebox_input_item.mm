@@ -64,10 +64,12 @@
     copy.type = self.type;
     copy.imageProvider = self.imageProvider;
     copy.fileURL = self.fileURL;
+    copy.tabURL = self.tabURL;
     copy.source = self.source;
     copy.driveIdentifier = self.driveIdentifier;
     copy.driveResourceKey = self.driveResourceKey;
     copy.driveMimeType = self.driveMimeType;
+    copy.performedAnimation = copy.performedAnimation;
   }
   return copy;
 }

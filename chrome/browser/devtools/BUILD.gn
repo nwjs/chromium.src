@@ -67,7 +67,10 @@ action("concatenate_protocols") {
 
   _blink_protocol_path =
       "$root_gen_dir/third_party/blink/public/devtools_protocol/protocol.json"
-  inputs = [ _blink_protocol_path ]
+  inputs = [
+    _blink_protocol_path,
+    "$_inspector_protocol/pdl.py",
+  ]
   output_file = _concatenated_protocol_path
   outputs = [ output_file ]
 
@@ -171,6 +174,7 @@ static_library("devtools") {
       "devtools_contents_resizing_strategy.h",
       "devtools_dispatch_http_request_params.cc",
       "devtools_dispatch_http_request_params.h",
+      "devtools_dock_side.h",
       "devtools_embedder_message_dispatcher.cc",
       "devtools_embedder_message_dispatcher.h",
       "devtools_eye_dropper.cc",
@@ -203,17 +207,13 @@ static_library("devtools") {
       "gca_service_handler.h",
       "gdp_service_handler.cc",
       "gdp_service_handler.h",
+      "protocol/autofill_handler.cc",
+      "protocol/autofill_handler.h",
       "url_constants.cc",
       "url_constants.h",
       "visual_logging.cc",
       "visual_logging.h",
     ]
-    if (toolkit_views) {
-      sources += [
-        "views/devtools_floaty.cc",
-        "views/devtools_floaty.h",
-      ]
-    }
     deps += [
       "//chrome/browser:browser_features",
       "//chrome/browser:browser_process",
@@ -418,8 +418,6 @@ static_library("devtools") {
       "devtools_navigation_throttle.h",
       "protocol/ads_handler.cc",
       "protocol/ads_handler.h",
-      "protocol/autofill_handler.cc",
-      "protocol/autofill_handler.h",
       "protocol/browser_handler.cc",
       "protocol/browser_handler.h",
       "protocol/cast_handler.cc",
@@ -488,7 +486,6 @@ static_library("test_support") {
       "//chrome/browser",
       "//chrome/browser:browser_features",
       "//chrome/browser/ui",
-      "//chrome/browser/ui/omnibox",
       "//chrome/test:test_support",
       "//components/policy/core/common:test_support",
       "//content/public/browser",
@@ -544,6 +541,7 @@ source_set("unit_tests") {
   if (enable_devtools_frontend) {
     sources += [
       "aida_client_unittest.cc",
+      "devtools_contents_resizing_strategy_unittest.cc",
       "devtools_file_helper_unittest.cc",
       "devtools_file_system_indexer_unittest.cc",
       "devtools_file_watcher_unittest.cc",
@@ -594,6 +592,7 @@ if (enable_devtools_frontend) {
 
     sources = [
       "devtools_browsertest.cc",
+      "protocol/devtools_autofill_browsertest.cc",
       "protocol/devtools_protocol_browsertest.cc",
       "protocol/webmcp_browsertest.cc",
     ]
@@ -604,6 +603,7 @@ if (enable_devtools_frontend) {
       "//base",
       "//chrome/browser/actor:test_support",
       "//chrome/browser/actor:tools_test_support",
+      "//chrome/browser/autofill:test_support",
       "//chrome/browser/custom_handlers",
       "//chrome/browser/data_saver",
       "//chrome/browser/lifetime",
@@ -614,6 +614,8 @@ if (enable_devtools_frontend) {
       "//chrome/browser/sync/test/integration:sync_integration_test_support",
       "//chrome/browser/ui/autofill",
       "//chrome/test:test_support",
+      "//components/autofill/content/browser:test_support",
+      "//components/autofill/core/browser:test_support",
       "//components/infobars/content",
       "//components/javascript_dialogs",
       "//components/language/core/browser",
@@ -659,7 +661,6 @@ if (!is_android) {
       "devtools_navigation_throttle_browsertest.cc",
       "devtools_policy_browsertest.cc",
       "protocol/audits_protocol_test.cc",
-      "protocol/devtools_autofill_browsertest.cc",
       "protocol/devtools_extensions_browsertest.cc",
       "protocol/devtools_iwa_browsertest.cc",
       "protocol/devtools_pwa_browsertest.cc",

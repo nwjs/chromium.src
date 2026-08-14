@@ -26,15 +26,19 @@
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
+#include "chrome/browser/ui/javascript_dialogs/javascript_tab_modal_dialog_manager_delegate_android.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "components/actor/core/actor_features.h"
+#include "components/javascript_dialogs/tab_modal_dialog_manager.h"
 #include "components/tabs/public/pinned_tab_collection.h"
 #include "components/tabs/public/tab_collection.h"
 #include "components/tabs/public/tab_group_tab_collection.h"
+#include "content/public/browser/javascript_dialog_manager.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/common/window_container_type.mojom.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/navigation_simulator.h"
@@ -106,11 +110,11 @@ class TabAndroidTest : public testing::Test {
       ASSERT_FALSE(tab_impl_class.is_null());
 
       jmethodID destroy_method =
-          env_->GetMethodID(tab_impl_class.obj(), "destroy", "()V");
+          env_->GetMethodID(tab_impl_class.obj(), "destroy", "()I");
       ASSERT_NE(nullptr, destroy_method)
           << "Failed to find TabImpl.destroy() method";
 
-      env_->CallVoidMethod(java_tab_.obj(), destroy_method);
+      env_->CallIntMethod(java_tab_.obj(), destroy_method);
       // TabAndroid::Destroy calls 'delete this', so tab_android_ is now
       // dangling.
       tab_android_ = nullptr;
@@ -136,7 +140,7 @@ class TabAndroidTest : public testing::Test {
 
 TEST_F(TabAndroidTest, TabIsInitialized) {
   EXPECT_EQ(kTabId, tab_android_->GetAndroidId());
-  EXPECT_NE(nullptr, tab_android_->profile());
+  EXPECT_NE(nullptr, tab_android_->GetProfile());
 }
 
 TEST_F(TabAndroidTest, PinnedCollectionParent) {
@@ -284,6 +288,107 @@ TEST_F(TabAndroidTest, Getters) {
   EXPECT_EQ(GURL("about:blank"), tab_interface.GetURL());
   base::Time last_active_time = tab_interface.GetLastActiveTime();
   EXPECT_LT(base::Time::UnixEpoch(), last_active_time);
+}
+
+TEST_F(TabAndroidTest, DestroyWebContentsWithOpenDialog_GracefulShutdown) {
+  content::RenderViewHostTestEnabler rvh_test_enabler;
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      chrome::android::kTabAndroidGracefulShutdown);
+
+  std::unique_ptr<content::WebContents> web_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(profile_.get()));
+  content::WebContents* raw_web_contents = web_contents.get();
+
+  javascript_dialogs::TabModalDialogManager::CreateForWebContents(
+      raw_web_contents,
+      std::make_unique<JavaScriptTabModalDialogManagerDelegateAndroid>(
+          raw_web_contents));
+
+  std::unique_ptr<TabAndroid> tab = TabAndroid::CreateForTesting(
+      profile_.get(), kTabId + 1, std::move(web_contents));
+
+  auto* dialog_manager =
+      javascript_dialogs::TabModalDialogManager::FromWebContents(
+          raw_web_contents);
+  ASSERT_NE(nullptr, dialog_manager);
+
+  bool did_suppress = false;
+  dialog_manager->RunJavaScriptDialog(
+      raw_web_contents, raw_web_contents->GetPrimaryMainFrame(),
+      content::JavaScriptDialogType::JAVASCRIPT_DIALOG_TYPE_ALERT,
+      u"Test alert", u"",
+      base::BindOnce([](bool accept, const std::u16string& user_input) {}),
+      &did_suppress);
+
+  tab->DestroyWebContentsSlowShutdownForTesting();
+
+  task_environment_.RunUntilIdle();
+}
+
+TEST_F(TabAndroidTest, DestroyWebContentsSlowShutdown_StopsNavigations) {
+  content::RenderViewHostTestEnabler rvh_test_enabler;
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      chrome::android::kTabAndroidGracefulShutdown);
+
+  std::unique_ptr<content::WebContents> web_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(profile_.get()));
+  content::WebContents* raw_web_contents = web_contents.get();
+
+  std::unique_ptr<TabAndroid> tab = TabAndroid::CreateForTesting(
+      profile_.get(), kTabId + 1, std::move(web_contents));
+
+  // Perform slow shutdown.
+  tab->DestroyWebContentsSlowShutdownForTesting();
+
+  // Verify that web_contents is stopped and new navigations do not proceed.
+  EXPECT_FALSE(raw_web_contents->IsLoading());
+
+  task_environment_.RunUntilIdle();
+}
+
+namespace {
+class ObserverUAFTestObserver : public content::WebContentsObserver {
+ public:
+  explicit ObserverUAFTestObserver(content::WebContents* contents)
+      : content::WebContentsObserver(contents) {}
+
+  void DidStartNavigation(content::NavigationHandle* handle) override {
+    EXPECT_TRUE(handle != nullptr);
+    did_start_called_ = true;
+  }
+
+  bool did_start_called_ = false;
+};
+}  // namespace
+
+TEST_F(TabAndroidTest, GracefulShutdownNavigationObserverSafety) {
+  content::RenderViewHostTestEnabler rvh_test_enabler;
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      chrome::android::kTabAndroidGracefulShutdown);
+
+  std::unique_ptr<content::WebContents> web_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(profile_.get()));
+  content::WebContents* raw_web_contents = web_contents.get();
+
+  std::unique_ptr<TabAndroid> tab = TabAndroid::CreateForTesting(
+      profile_.get(), kTabId + 1, std::move(web_contents));
+
+  tab->DestroyWebContentsSlowShutdownForTesting();
+
+  ObserverUAFTestObserver test_observer(raw_web_contents);
+
+  content::NavigationSimulator::NavigateAndCommitFromDocument(
+      GURL("https://example.com"), raw_web_contents->GetPrimaryMainFrame());
+
+  EXPECT_TRUE(test_observer.did_start_called_);
+
+  task_environment_.RunUntilIdle();
 }
 
 DEFINE_JNI(TabAndroidTestHelper)

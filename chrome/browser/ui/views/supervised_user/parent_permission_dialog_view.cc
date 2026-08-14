@@ -37,6 +37,7 @@
 #include "extensions/common/manifest.h"
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/permissions/permission_set.h"
+#include "extensions/strings/grit/extensions_strings.h"
 #include "google_apis/gaia/gaia_auth_fetcher.h"
 #include "google_apis/gaia/gaia_constants.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -682,7 +683,7 @@ void ParentPermissionDialogView::ShowDialogInternal() {
 
 void ParentPermissionDialogView::LoadParentEmailAddresses() {
   supervised_user::SupervisedUserService* service =
-      SupervisedUserServiceFactory::GetForProfile(params_->profile);
+      supervised_user::SupervisedUserServiceFactory::GetForProfile(params_->profile);
 
   if (service->GetCustodian()) {
     parent_permission_email_addresses_.push_back(
@@ -709,7 +710,7 @@ void ParentPermissionDialogView::CloseWithReason(
 GaiaId ParentPermissionDialogView::GetParentObfuscatedGaiaID(
     const std::u16string& parent_email) const {
   supervised_user::SupervisedUserService* service =
-      SupervisedUserServiceFactory::GetForProfile(params_->profile);
+      supervised_user::SupervisedUserServiceFactory::GetForProfile(params_->profile);
 
   if (service->GetCustodian() && service->GetCustodian()->GetEmailAddress() ==
                                      base::UTF16ToUTF8(parent_email)) {

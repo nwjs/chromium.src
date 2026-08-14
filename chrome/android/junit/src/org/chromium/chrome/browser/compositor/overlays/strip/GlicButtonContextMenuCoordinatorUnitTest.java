@@ -16,6 +16,7 @@ import android.graphics.Rect;
 import android.view.View;
 import android.widget.ListView;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -28,7 +29,9 @@ import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.compositor.overlays.strip.TabContextMenuCoordinator.TabStripLayoutType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.glic.GlicPrefNames;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -49,6 +52,7 @@ public class GlicButtonContextMenuCoordinatorUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     private Activity mActivity;
+    private UserActionTester mUserActionTester;
     @Mock private RectProvider mRectProvider;
     @Mock private Profile mProfile;
     @Mock private PrefService mPrefService;
@@ -58,15 +62,24 @@ public class GlicButtonContextMenuCoordinatorUnitTest {
 
     @Before
     public void setUp() {
+        mUserActionTester = new UserActionTester();
         mActivity = Robolectric.buildActivity(Activity.class).setup().get();
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
         when(mRectProvider.getRect())
                 .thenReturn(new Rect(10, 10, mActivity.getWindow().getDecorView().getWidth(), 50));
-        mCoordinator = new GlicButtonContextMenuCoordinator(mActivity);
+        mCoordinator =
+                new GlicButtonContextMenuCoordinator(mActivity, TabStripLayoutType.HORIZONTAL);
 
         UserPrefsJni.setInstanceForTesting(mUserPrefsJniMock);
         when(mUserPrefsJniMock.get(mProfile)).thenReturn(mPrefService);
         when(mPrefService.getBoolean(GlicPrefNames.GLIC_PINNED_TO_TABSTRIP)).thenReturn(true);
+    }
+
+    @After
+    public void tearDown() {
+        if (mUserActionTester != null) {
+            mUserActionTester.tearDown();
+        }
     }
 
     @Test
@@ -79,12 +92,25 @@ public class GlicButtonContextMenuCoordinatorUnitTest {
     }
 
     @Test
-    public void testClickUnpin() {
-        // Show menu
-        mCoordinator.showMenu(mRectProvider, mActivity, mProfile, /* menuWidth= */ 250f);
+    public void testClickUnpin_HorizontalTabStrip() {
+        runClickUnpinTest(mCoordinator, "Glic.Interaction.TabStripButton.UnpinnedInContextMenu");
+    }
 
-        assertNotNull(mCoordinator.getPopupWindow());
-        View contentView = mCoordinator.getPopupWindow().getContentView();
+    @Test
+    public void testClickUnpin_VerticalTabsToolbar() {
+        var vtCoordinator =
+                new GlicButtonContextMenuCoordinator(mActivity, TabStripLayoutType.VERTICAL);
+        runClickUnpinTest(
+                vtCoordinator, "Glic.Interaction.VerticalTabsToolbarButton.UnpinnedInContextMenu");
+    }
+
+    private void runClickUnpinTest(
+            GlicButtonContextMenuCoordinator coordinator, String expectedUserAction) {
+        // Show the context menu.
+        coordinator.showMenu(mRectProvider, mActivity, mProfile, /* menuWidth= */ 250f);
+
+        assertNotNull(coordinator.getPopupWindow());
+        View contentView = coordinator.getPopupWindow().getContentView();
         ListView listView = contentView.findViewById(R.id.menu_list);
         ModelListAdapter adapter = (ModelListAdapter) listView.getAdapter();
 
@@ -92,11 +118,12 @@ public class GlicButtonContextMenuCoordinatorUnitTest {
         PropertyModel model = ((ListItem) adapter.getItem(0)).model;
         assertEquals(R.string.glic_button_cxmenu_unpin, model.get(ListMenuItemProperties.TITLE_ID));
 
-        // Click "Unpin"
-        mCoordinator.getListMenuDelegate(mProfile).onItemSelected(model, listView);
+        // Click the "Unpin" context menu item.
+        coordinator.getListMenuDelegate(mProfile).onItemSelected(model, listView);
 
-        // Verify the menu dismissed and the pin state updated
-        assertFalse("Menu should be dismissed.", mCoordinator.isShowing());
+        // Verify the menu dismissed, the pin state updated, and the expected user action recorded.
+        assertFalse("Menu should be dismissed.", coordinator.isShowing());
         verify(mPrefService).setBoolean(GlicPrefNames.GLIC_PINNED_TO_TABSTRIP, false);
+        assertEquals(1, mUserActionTester.getActionCount(expectedUserAction));
     }
 }

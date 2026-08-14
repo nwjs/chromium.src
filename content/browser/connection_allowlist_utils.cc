@@ -10,19 +10,16 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/time/time.h"
 #include "content/browser/renderer_host/policy_container_host.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
+#include "content/public/browser/connection_allowlist_util.h"
+#include "content/public/browser/render_frame_host.h"
 #include "net/http/http_response_headers.h"
 #include "services/network/public/cpp/connection_allowlist.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
-#include "third_party/blink/public/common/features_generated.h"
-#include "third_party/blink/public/common/origin_trials/trial_token_validator.h"
 #include "url/gurl.h"
 
 namespace content {
-
-bool IsConnectionAllowlistsInEarlyHintsEnabled() {
-  return network::features::kConnectionAllowlistsEarlyHints.Get();
-}
 
 bool ResponseContainsConnectionAllowlist(
     const network::mojom::URLResponseHead* response_head) {
@@ -34,33 +31,18 @@ bool ResponseContainsConnectionAllowlist(
               .has_value());
 }
 
-bool ResponseEnablesConnectionAllowlistsOriginTrial(
-    const GURL& request_url,
-    const net::HttpResponseHeaders* response_headers) {
-  return base::FeatureList::IsEnabled(
-             blink::features::kOverrideConnectionAllowlistOriginTrial) ||
-         blink::TrialTokenValidator().RequestEnablesFeature(
-             request_url, response_headers, "ConnectionAllowlist",
-             base::Time::Now());
-}
-
 bool EnforcesConnectionAllowlist(
     const PolicyContainerPolicies& initiator_policies) {
   // The connection allowlist base feature is the kill switch for the feature.
-  // It is checked first. Then connection allowlist also requires origin trial
-  // enabled. In order to check the origin trial status, the initiator policy
-  // container policies need to be retrieved.
+  // It is checked first.
   if (!base::FeatureList::IsEnabled(network::features::kConnectionAllowlists)) {
     return false;
   }
 
-  // The origin trial status is tied to the existence of allowlists in policy
-  // container. If the initiator doesn't have an enforced allowlist in its
-  // policies, it means either:
-  // 1. the trial was not active for that context.
-  // 2. or the parsed enforced allowlist is null. For example, the
+  // If the initiator doesn't have an enforced allowlist in its
+  // policies, it means the parsed enforced allowlist is null. For example, the
   // "Connection-Allowlist" header has an empty field value.
-  // The connection allowlist is not enforced in both cases.
+  // The connection allowlist is not enforced in this case.
   return initiator_policies.connection_allowlists.enforced.has_value();
 }
 
@@ -110,15 +92,53 @@ network::ConnectionAllowlists GetConnectionAllowlistsForWorker(
   }
 
   // For non-local schemes, the connection allowlist must be provided in the
-  // response headers and the origin trial must be enabled for the request
-  // URL.
-  if (ResponseContainsConnectionAllowlist(response_head) &&
-      ResponseEnablesConnectionAllowlistsOriginTrial(
-          response_url, response_head->headers.get())) {
+  // response headers.
+  if (ResponseContainsConnectionAllowlist(response_head)) {
     return response_head->parsed_headers->connection_allowlists;
   }
 
   return network::ConnectionAllowlists();
+}
+
+bool FrameConnectionAllowlistAllowsRequestAndReportIfNeeded(
+    const RenderFrameHost* render_frame_host,
+    const GURL& url,
+    bool is_redirect) {
+  if (!base::FeatureList::IsEnabled(network::features::kConnectionAllowlists)) {
+    return true;
+  }
+
+  if (!render_frame_host) {
+    return true;
+  }
+
+  // The feature currently does not impact fenced frames.
+  // TODO(crbug.com/447954811): Revisit this if the feature needs to be enabled
+  // and fenced frames need to be supported.
+  if (render_frame_host->IsNestedWithinFencedFrame()) {
+    return true;
+  }
+
+  const auto* rfh_impl =
+      static_cast<const RenderFrameHostImpl*>(render_frame_host);
+  if (!rfh_impl->HasPolicyContainerHost()) {
+    return true;
+  }
+
+  const PolicyContainerPolicies& policies =
+      rfh_impl->policy_container_host()->policies();
+  if (!EnforcesConnectionAllowlist(policies)) {
+    return true;
+  }
+
+  if (is_redirect) {
+    // For redirects, the connection allowlist either allows or blocks the
+    // redirect request based on its `redirects` directive. The request URL is
+    // irrelevant to the decision.
+    return IsRedirectAllowedByConnectionAllowlist(policies);
+  }
+
+  return ConnectionAllowlistAllowsUrlAndReportIfNeeded(policies, url);
 }
 
 }  // namespace content

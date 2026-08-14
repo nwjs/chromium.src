@@ -11,7 +11,6 @@
 import 'chrome://resources/cr_elements/cr_link_row/cr_link_row.js';
 import '/shared/settings/controls/extension_controlled_indicator.js';
 import '/shared/settings/prefs/prefs.js';
-import '../autofill_page/autofill_ai_entries_list.js';
 import '../autofill_page/your_saved_info_shared.css.js';
 import '../controls/settings_toggle_button.js';
 import '../settings_page/settings_subpage.js';
@@ -23,11 +22,12 @@ import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bu
 
 import {AiEnterpriseFeaturePrefName} from '../ai_page/constants.js';
 import type {ModelExecutionEnterprisePolicyValue} from '../ai_page/constants.js';
-import {EntityTypeName} from '../autofill_ai_enums.mojom-webui.js';
 import type {EntityDataManagerProxy} from '../autofill_page/entity_data_manager_proxy.js';
 import {EntityDataManagerProxyImpl} from '../autofill_page/entity_data_manager_proxy.js';
 import type {SettingsToggleButtonElement} from '../controls/settings_toggle_button.js';
 import {loadTimeData} from '../i18n_setup.js';
+import type {MetricsBrowserProxy} from '../metrics_browser_proxy.js';
+import {MetricsBrowserProxyImpl, SuggestionsFromGeminiEntryPoint} from '../metrics_browser_proxy.js';
 import {routes} from '../route.js';
 import {Router} from '../router.js';
 import {SettingsViewMixin} from '../settings_page/settings_view_mixin.js';
@@ -107,13 +107,11 @@ export class SettingsShoppingPageElement extends
         If true, Autofill AI does not depend on whether Autofill for addresses
         is enabled.
       */
-      // TODO(crbug.com/466345561): remove when enhanced autofill will stop
-      // depending on addresses autofill
-      autofillAddOtherDatatypesPrefIsEnabled_: {
+      autofillSettingsEnterprisePolicyEnabled_: {
         type: Boolean,
         value() {
           return loadTimeData.getBoolean(
-              'AutofillAddOtherDatatypesPrefIsEnabled');
+              'AutofillSettingsEnterprisePolicyEnabled');
         },
       },
 
@@ -145,7 +143,7 @@ export class SettingsShoppingPageElement extends
   declare private enhancedAutofillEligibleUser_: boolean;
   declare private enhancedAutofillOptedIn_: boolean;
   declare private shoppingOptedIn_: chrome.settingsPrivate.PrefObject;
-  declare private autofillAddOtherDatatypesPrefIsEnabled_: boolean;
+  declare private autofillSettingsEnterprisePolicyEnabled_: boolean;
   declare private autofillAiAvailableByDefault_: boolean;
   declare private canEnableOrDisableAutofillAi_: boolean;
   declare private prefsInitialized_: boolean;
@@ -153,6 +151,9 @@ export class SettingsShoppingPageElement extends
 
   private entityDataManager_: EntityDataManagerProxy =
       EntityDataManagerProxyImpl.getInstance();
+
+  private metricsBrowserProxy_: MetricsBrowserProxy =
+      MetricsBrowserProxyImpl.getInstance();
 
   override connectedCallback() {
     super.connectedCallback();
@@ -169,7 +170,7 @@ export class SettingsShoppingPageElement extends
 
     const addressAutofillOptInStatus =
         this.getPref<boolean>('autofill.profile_enabled').value;
-    const ignoreAddressAutofill = this.autofillAddOtherDatatypesPrefIsEnabled_;
+    const ignoreAddressAutofill = this.autofillSettingsEnterprisePolicyEnabled_;
     if (this.autofillAiAvailableByDefault_) {
       return !this.canEnableOrDisableAutofillAi_ ||
           (!ignoreAddressAutofill && !addressAutofillOptInStatus);
@@ -227,10 +228,6 @@ export class SettingsShoppingPageElement extends
         this.$.optInToggle.checked);
   }
 
-  private getAllowedEntityTypes_(): Set<EntityTypeName> {
-    return new Set([EntityTypeName.kOrder, EntityTypeName.kShipment]);
-  }
-
   private extensionControlledIndicatorIsVisible_(): boolean {
     if (!this.prefsInitialized_) {
       return false;
@@ -244,8 +241,19 @@ export class SettingsShoppingPageElement extends
   }
 
   private onSuggestionsFromGeminiClick_() {
-    // TODO(crbug.com/512204278): Add metrics.
+    this.metricsBrowserProxy_.recordSuggestionsFromGeminiEntryPointClick(
+        SuggestionsFromGeminiEntryPoint.SHOPPING);
     Router.getInstance().navigateTo(routes.SUGGESTIONS_FROM_GEMINI);
+  }
+
+  // SettingsViewMixin implementation.
+  override getFocusConfig() {
+    const map = new Map();
+    if (routes.SUGGESTIONS_FROM_GEMINI) {
+      map.set(
+          routes.SUGGESTIONS_FROM_GEMINI.path, '#suggestionsFromGeminiLinkRow');
+    }
+    return map;
   }
 
   // SettingsViewMixin implementation.

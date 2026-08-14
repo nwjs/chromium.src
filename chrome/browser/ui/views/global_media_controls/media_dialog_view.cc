@@ -8,27 +8,21 @@
 #include <string>
 #include <utility>
 
-#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/observer_list.h"
-#include "base/strings/string_util.h"
-#include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/global_media_controls/media_item_ui_metrics.h"
 #include "chrome/browser/ui/global_media_controls/media_notification_service.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/controls/rich_hover_button.h"
 #include "chrome/browser/ui/views/global_media_controls/media_dialog_view_observer.h"
-#include "chrome/browser/ui/views/global_media_controls/media_item_ui_device_selector_view.h"
 #include "chrome/browser/ui/views/global_media_controls/media_item_ui_helper.h"
-#include "chrome/browser/ui/views/global_media_controls/media_item_ui_legacy_cast_footer_view.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/global_media_controls/public/constants.h"
 #include "components/global_media_controls/public/media_item_manager.h"
@@ -38,27 +32,21 @@
 #include "components/live_caption/caption_util.h"
 #include "components/live_caption/pref_names.h"
 #include "components/media_router/browser/media_router.h"
-#include "components/media_router/browser/media_router_factory.h"
 #include "components/prefs/pref_change_registrar.h"
-#include "components/sessions/content/session_tab_helper.h"
 #include "components/soda/constants.h"
-#include "components/sync_preferences/pref_service_syncable.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/media_session.h"
 #include "content/public/browser/web_contents.h"
 #include "media/base/media_switches.h"
-#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/base/url_util.h"
 #include "services/media_session/public/mojom/media_session.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/ui_base_features.h"
-#include "ui/gfx/paint_vector_icon.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/bubble/bubble_frame_view.h"
-#include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/toggle_button.h"
 #include "ui/views/controls/combobox/combobox.h"
 #include "ui/views/controls/image_view.h"
@@ -67,9 +55,7 @@
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/layout_provider.h"
-#include "ui/views/style/typography.h"
 #include "ui/views/view_class_properties.h"
-#include "ui/views/views_features.h"
 
 using global_media_controls::GlobalMediaControlsEntryPoint;
 using media_session::mojom::MediaSessionAction;
@@ -102,11 +88,11 @@ bool MediaDialogView::has_been_opened_ = false;
 
 // static
 views::Widget* MediaDialogView::ShowDialogFromToolbar(
-    views::View* anchor_view,
+    views::BubbleAnchor anchor,
     MediaNotificationService* service,
     Profile* profile) {
   return ShowDialog(
-      anchor_view, views::BubbleBorder::TOP_RIGHT, service, profile, nullptr,
+      anchor, views::BubbleBorder::TOP_RIGHT, service, profile, nullptr,
       global_media_controls::GlobalMediaControlsEntryPoint::kToolbarIcon);
 }
 
@@ -117,15 +103,16 @@ views::Widget* MediaDialogView::ShowDialogCentered(
     Profile* profile,
     content::WebContents* contents,
     global_media_controls::GlobalMediaControlsEntryPoint entry_point) {
-  auto* widget = ShowDialog(nullptr, views::BubbleBorder::TOP_CENTER, service,
-                            profile, contents, entry_point);
+  auto* widget =
+      ShowDialog(views::BubbleAnchor(), views::BubbleBorder::TOP_CENTER,
+                 service, profile, contents, entry_point);
   instance_->SetAnchorRect(bounds);
   return widget;
 }
 
 // static
 views::Widget* MediaDialogView::ShowDialog(
-    views::View* anchor_view,
+    views::BubbleAnchor anchor,
     views::BubbleBorder::Arrow anchor_position,
     MediaNotificationService* service,
     Profile* profile,
@@ -135,9 +122,9 @@ views::Widget* MediaDialogView::ShowDialog(
   // Hide the previous instance if it exists, since there can only be one dialog
   // instance at a time.
   HideDialog();
-  instance_ = new MediaDialogView(anchor_view, anchor_position, service,
-                                  profile, contents, entry_point);
-  if (!anchor_view) {
+  instance_ = new MediaDialogView(anchor, anchor_position, service, profile,
+                                  contents, entry_point);
+  if (!anchor) {
     instance_->set_has_parent(false);
   }
 
@@ -366,13 +353,13 @@ MediaDialogView::GetListViewForTesting() const {
 }
 
 MediaDialogView::MediaDialogView(
-    views::View* anchor_view,
+    views::BubbleAnchor anchor,
     views::BubbleBorder::Arrow anchor_position,
     MediaNotificationService* service,
     Profile* profile,
     content::WebContents* contents,
     global_media_controls::GlobalMediaControlsEntryPoint entry_point)
-    : BubbleDialogDelegateView(anchor_view, anchor_position),
+    : BubbleDialogDelegateView(anchor, anchor_position),
       service_(service),
       profile_(profile->GetOriginalProfile()),
       active_sessions_view_(AddChildView(

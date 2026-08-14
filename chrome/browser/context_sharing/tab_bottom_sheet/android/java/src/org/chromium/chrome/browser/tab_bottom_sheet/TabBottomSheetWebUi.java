@@ -9,32 +9,21 @@ import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.browser.tab_bottom_sheet.TabBottomSheetUtils.isActivityFinishingOrDestroyed;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.drawable.Drawable;
-import android.net.Uri;
 import android.view.View;
 import android.view.ViewTreeObserver;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.ContextUtils;
-import org.chromium.base.IntentUtils;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.version_info.VersionInfo;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.intents.BrowserIntentUtils;
-import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestratorFactory;
-import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabLaunchType;
-import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tabmodel.TabModelSelectorSupplier;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuPopulatorFactory;
 import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.components.thinwebview.ThinWebView;
@@ -42,8 +31,9 @@ import org.chromium.components.thinwebview.ThinWebViewAttachParams;
 import org.chromium.components.thinwebview.ThinWebViewConstraints;
 import org.chromium.components.thinwebview.ThinWebViewFactory;
 import org.chromium.components.thinwebview.internal.ThinWebViewContextMenuItemDelegate;
+import org.chromium.content_public.browser.ActionModeCallbackHelper;
 import org.chromium.content_public.browser.ImeAdapter;
-import org.chromium.content_public.browser.LoadUrlParams;
+import org.chromium.content_public.browser.SelectionPopupController;
 import org.chromium.content_public.browser.ViewEventSink;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.selection.SelectionDropdownMenuDelegate;
@@ -66,8 +56,10 @@ public class TabBottomSheetWebUi {
     private final SelectionDropdownMenuDelegate mSelectionDropdownMenuDelegate;
     private final WebViewResizingHelper mWebViewResizingHelper;
     private final @ColorInt int mBackgroundColor;
+    private final @TabBottomSheetClientType int mClientType;
     private final @CoBrowseContainerType int mContainerType;
     private final @Nullable BiConsumer<GURL, String> mEphemeralTabOpener;
+    private final @Nullable BiConsumer<GURL, String> mReadLaterOpener;
 
     private @Nullable ThinWebView mThinWebView;
     private @Nullable WebContents mWebContents;
@@ -86,16 +78,20 @@ public class TabBottomSheetWebUi {
             ContextMenuPopulatorFactory contextMenuPopulatorFactory,
             SelectionDropdownMenuDelegate selectionDropdownMenuDelegate,
             @ColorInt int backgroundColor,
+            @TabBottomSheetClientType int clientType,
             @CoBrowseContainerType int containerType,
-            @Nullable BiConsumer<GURL, String> ephemeralTabOpener) {
+            @Nullable BiConsumer<GURL, String> ephemeralTabOpener,
+            @Nullable BiConsumer<GURL, String> readLaterOpener) {
         mContext = context;
         mWindowAndroid = windowAndroid;
         mContextMenuPopulatorFactory = contextMenuPopulatorFactory;
         mSelectionDropdownMenuDelegate =
                 new SelectionDropdownMenuDelegateWrapper(selectionDropdownMenuDelegate);
         mBackgroundColor = backgroundColor;
+        mClientType = clientType;
         mContainerType = containerType;
         mEphemeralTabOpener = ephemeralTabOpener;
+        mReadLaterOpener = readLaterOpener;
         mWebViewResizingHelper =
                 new WebViewResizingHelper(
                         containerView,
@@ -129,6 +125,24 @@ public class TabBottomSheetWebUi {
         ContentView contentView = createContentView(mContext, mWebContents);
         mContentView = contentView;
 
+        setupContentViewAttachListener(contentView);
+        setupViewAndroidDelegate(contentView);
+        setupContextMenuPopulator();
+        attachToThinWebView(contentView);
+
+        if (requestFocus) {
+            // Only request focus once the web contents have been attached to the activity's
+            // layout tree.
+            View currentlyFocusedView =
+                    assertNonNull(mWindowAndroid.getActivity().get()).getCurrentFocus();
+            if (currentlyFocusedView != null) {
+                currentlyFocusedView.clearFocus();
+            }
+            contentView.requestFocus();
+        }
+    }
+
+    private void setupContentViewAttachListener(ContentView contentView) {
         contentView.addOnAttachStateChangeListener(
                 new View.OnAttachStateChangeListener() {
                     private final ViewTreeObserver.OnWindowFocusChangeListener mListener =
@@ -153,9 +167,13 @@ public class TabBottomSheetWebUi {
                                 .removeOnWindowFocusChangeListener(mListener);
                     }
                 });
+    }
+
+    private void setupViewAndroidDelegate(ContentView contentView) {
         // Most systems assume ViewAndroidDelegate is created alongside WebContents and never
         // changes. SelectionPopupControllerImpl is an example of a system that does this so if
         // we don't reuse the existing delegate, popups will break.
+        assertNonNull(mWebContents);
         ViewAndroidDelegate viewDelegate = mWebContents.getViewAndroidDelegate();
         if (viewDelegate == null) {
             mWebContents.setDelegates(
@@ -177,102 +195,26 @@ public class TabBottomSheetWebUi {
                 ViewEventSink.from(mWebContents).setAccessDelegate(contentView);
             }
         }
+    }
+
+    private void setupContextMenuPopulator() {
+        assertNonNull(mWebContents);
+        boolean isSidePanel = mContainerType == CoBrowseContainerType.SIDE_PANEL;
         ThinWebViewContextMenuItemDelegate.LinkOpener linkOpener =
-                new ThinWebViewContextMenuItemDelegate.LinkOpener() {
-                    private void safeStartActivity(Intent intent) {
-                        Activity activity = mWindowAndroid.getActivity().get();
-                        if (activity != null) {
-                            intent.setPackage(
-                                    ContextUtils.getApplicationContext().getPackageName());
-                            IntentUtils.addTrustedIntentExtras(intent);
-                            activity.startActivity(intent);
-                        }
-                    }
-
-                    @Override
-                    public void openInNewTab(GURL url) {
-                        Intent intent = new Intent(Intent.ACTION_VIEW);
-                        intent.setData(Uri.parse(url.getSpec()));
-                        safeStartActivity(intent);
-                    }
-
-                    @Override
-                    public void openInNewTabInGroup(GURL url) {
-                        TabModelSelector selector =
-                                TabModelSelectorSupplier.getValueOrNullFrom(mWindowAndroid);
-                        Tab currentTab = TabModelSelectorSupplier.getCurrentTabFrom(mWindowAndroid);
-                        if (selector != null && currentTab != null) {
-                            LoadUrlParams loadUrlParams = new LoadUrlParams(url.getSpec());
-                            selector.openNewTab(
-                                    loadUrlParams,
-                                    TabLaunchType.FROM_LONGPRESS_BACKGROUND_IN_GROUP,
-                                    currentTab,
-                                    currentTab.isIncognito());
-                        } else {
-                            Intent intent = new Intent(Intent.ACTION_VIEW);
-                            intent.setData(Uri.parse(url.getSpec()));
-                            intent.putExtra(
-                                    BrowserIntentUtils.EXTRA_TAB_LAUNCH_TYPE,
-                                    TabLaunchType.FROM_LONGPRESS_BACKGROUND_IN_GROUP);
-                            safeStartActivity(intent);
-                        }
-                    }
-
-                    @Override
-                    public void openInNewIncognitoTab(GURL url) {
-                        Intent intent = new Intent(Intent.ACTION_VIEW);
-                        intent.setData(Uri.parse(url.getSpec()));
-                        intent.putExtra(BrowserIntentUtils.EXTRA_OPEN_NEW_INCOGNITO_TAB, true);
-                        safeStartActivity(intent);
-                    }
-
-                    @Override
-                    public void openInNewWindow(GURL url) {
-                        Activity activity = mWindowAndroid.getActivity().get();
-                        if (activity != null) {
-                            LoadUrlParams loadUrlParams = new LoadUrlParams(url.getSpec());
-                            MultiInstanceOrchestratorFactory.getInstance()
-                                    .openUrlInOtherWindow(
-                                            activity,
-                                            loadUrlParams,
-                                            Tab.INVALID_TAB_ID,
-                                            /* preferNew= */ true,
-                                            /* isIncognito= */ false);
-                        }
-                    }
-
-                    @Override
-                    public void openInIncognitoWindow(GURL url) {
-                        Activity activity = mWindowAndroid.getActivity().get();
-                        if (activity != null) {
-                            LoadUrlParams loadUrlParams = new LoadUrlParams(url.getSpec());
-                            MultiInstanceOrchestratorFactory.getInstance()
-                                    .openUrlInOtherWindow(
-                                            activity,
-                                            loadUrlParams,
-                                            Tab.INVALID_TAB_ID,
-                                            /* preferNew= */ false,
-                                            /* isIncognito= */ true);
-                        }
-                    }
-
-                    @Override
-                    public boolean isIncognitoSupported() {
-                        if (mWebContents == null) return false;
-                        Profile profile = Profile.fromWebContents(mWebContents);
-                        return profile != null && IncognitoUtils.isIncognitoModeEnabled(profile);
-                    }
-                };
+                new TabBottomSheetWebUiLinkOpener(mWindowAndroid, mWebContents);
 
         ThinWebViewContextMenuItemDelegate itemDelegate =
                 new ThinWebViewContextMenuItemDelegate(
                         mWebContents,
-                        mContainerType == CoBrowseContainerType.SIDE_PANEL
-                                ? BrowserIntentUtils.CHROME_LAUNCHER_ACTIVITY_CLASS_NAME
-                                : null,
+                        isSidePanel ? BrowserIntentUtils.CHROME_LAUNCHER_ACTIVITY_CLASS_NAME : null,
                         mEphemeralTabOpener,
-                        mContainerType == CoBrowseContainerType.SIDE_PANEL ? linkOpener : null);
+                        isSidePanel ? linkOpener : null,
+                        mReadLaterOpener);
         mContextMenuPopulatorFactory.setItemDelegate(itemDelegate);
+    }
+
+    private void attachToThinWebView(ContentView contentView) {
+        assertNonNull(mWebContents);
         ensureThinWebViewCreated();
         if (mThinWebView != null) {
             mThinWebView.attachWebContents(
@@ -282,23 +224,25 @@ public class TabBottomSheetWebUi {
                             .setContextMenuPopulatorFactory(mContextMenuPopulatorFactory)
                             .setSelectionDropdownMenuDelegate(mSelectionDropdownMenuDelegate)
                             .setSupportTheming(true)
+                            .setEnableBrowserAutofill(false)
                             .build());
+            if (mClientType == TabBottomSheetClientType.CONTEXTUAL_TASKS) {
+                // This disables ActionModeSelectionMenu from ever being shown on AIM.
+                // TODO (crbug.com/534284847): How to handle ActionModeSelectionMenu on non-AL
+                // devices.
+                disableActionModeSelectionMenu(mWebContents);
+            }
             mWebViewResizingHelper.setThinWebView(mThinWebView, mWebContents);
             setAllowFullscreenIme(
                     mContext.getResources().getConfiguration().orientation
                             == Configuration.ORIENTATION_LANDSCAPE);
         }
+    }
 
-        if (requestFocus) {
-            // Only request focus once the web contents have been attached to the activity's
-            // layout tree.
-            View currentlyFocusedView =
-                    assertNonNull(mWindowAndroid.getActivity().get()).getCurrentFocus();
-            if (currentlyFocusedView != null) {
-                currentlyFocusedView.clearFocus();
-            }
-            contentView.requestFocus();
-        }
+    @VisibleForTesting
+    void disableActionModeSelectionMenu(WebContents webContents) {
+        SelectionPopupController.fromWebContents(webContents)
+                .setActionModeCallback(ActionModeCallbackHelper.EMPTY_CALLBACK);
     }
 
     void setAllowFullscreenIme(boolean allow) {

@@ -46,8 +46,8 @@ IN_PROC_BROWSER_TEST_P(BrowserTestParam,
   Browser::CreateParams params =
       is_test_app ? Browser::CreateParams::CreateForApp(
                         "test_browser_app", true /* trusted_source */,
-                        gfx::Rect(), browser()->profile(), true)
-                  : Browser::CreateParams(browser()->profile(), true);
+                        gfx::Rect(), browser()->GetProfile(), true)
+                  : Browser::CreateParams(browser()->GetProfile(), true);
   gfx::Rect original_bounds(gfx::Rect(150, 250, 510, 150));
   params.initial_show_state = ui::mojom::WindowShowState::kNormal;
   params.initial_bounds = original_bounds;
@@ -87,7 +87,7 @@ using BrowserFrameAshTest = InProcessBrowserTest;
 // Tests that the correct bounds are being saved when a snapped window is
 // closed.
 IN_PROC_BROWSER_TEST_F(BrowserFrameAshTest, SnappedWindowSaveBounds) {
-  auto* profile = browser()->profile();
+  auto* profile = browser()->GetProfile();
 
   // Get the params using the same profile.
   Browser* browser = CreateBrowser(profile);

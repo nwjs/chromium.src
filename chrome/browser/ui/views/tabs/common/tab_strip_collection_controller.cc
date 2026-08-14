@@ -25,6 +25,7 @@
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/glass_frame_service.h"
 #include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/tabs/common/root_tab_collection_node.h"
 #include "chrome/browser/ui/views/tabs/common/tab_collection_node.h"
@@ -57,10 +58,23 @@ TabStripCollectionController::TabStripCollectionController(
       browser_view_(browser_view),
       drag_handler_(drag_handler),
       hover_card_controller_(hover_card_controller) {
+  CHECK(browser_view_);
+
   if (menu_model_factory_override) {
     menu_model_factory_ = std::move(menu_model_factory_override);
   } else {
     menu_model_factory_ = std::make_unique<TabMenuModelFactory>();
+  }
+
+  if (GlassFrameService* service = GlassFrameService::GetInstance()) {
+    glass_frame_service_subscription_ =
+        service->RegisterGlassFrameEligibilityChangedCallback(
+            browser_view_->browser(),
+            base::BindRepeating(
+                &TabStripCollectionController::OnGlassFrameEligibilityChanged,
+                base::Unretained(this)));
+    OnGlassFrameEligibilityChanged(
+        service->IsBrowserWindowEligible(browser_view_->browser()));
   }
 }
 
@@ -294,7 +308,7 @@ void TabStripCollectionController::ToggleTabGroupCollapsedState(
   base::WeakPtr<const TabGroup> weak_group = group->AsWeakPtr();
 
   tabs::TabInterface* active_tab = model_->GetActiveTab();
-  if (!is_currently_collapsed && active_tab && !drag_handler_->IsDragging()) {
+  if (!is_currently_collapsed && active_tab) {
     if (active_tab->GetGroup() == group->id()) {
       // If the active tab is in the group that is toggling to collapse, the
       // active tab should switch to the next available tab. If there are no
@@ -311,9 +325,6 @@ void TabStripCollectionController::ToggleTabGroupCollapsedState(
       } else {
         // Create a new tab that will automatically be activated
         should_toggle_group = false;
-        // We intentionally do not call CreateNewTab() here because it
-        // respects the IsNewTabAddsToActiveGroupEnabled() feature, which would
-        // add the new tab to the same group as the currently active tab.
         // In the "collapse group" scenario, we want the new tab to be created
         // outside of any group to avoid it being collapsed immediately.
         model_->delegate()->AddTabAt(GURL(), -1, true);
@@ -446,7 +457,7 @@ bool TabStripCollectionController::GetContextMenuAccelerator(
           ? web_app::AppBrowserController::From(browser)->system_app()
           : nullptr;
   if (system_app && !system_app->ShouldShowTabContextMenuShortcut(
-                        browser->profile(), command_id)) {
+                        browser->GetProfile(), command_id)) {
     return false;
   }
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -459,6 +470,11 @@ bool TabStripCollectionController::GetContextMenuAccelerator(
 
 void TabStripCollectionController::OnTabContextMenuClosed() {
   expand_on_hover_lock_.reset();
+}
+
+std::optional<tab_groups::TabGroupId>
+TabStripCollectionController::GetFocusedGroup() const {
+  return model_->GetFocusedGroup();
 }
 
 void TabStripCollectionController::TabGroupFocusChanged(
@@ -669,4 +685,10 @@ void TabStripCollectionController::AnnounceTabRemovedFromGroup(
           : l10n_util::GetStringFUTF16(
                 IDS_TAB_AX_ANNOUNCE_TAB_REMOVED_FROM_NAMED_GROUP, group_title,
                 contents_string));
+}
+
+void TabStripCollectionController::OnGlassFrameEligibilityChanged(
+    bool is_eligible) {
+  is_glass_ = is_eligible;
+  browser_view_->tab_strip_view()->OnGlassFrameEligibilityChanged(is_eligible);
 }

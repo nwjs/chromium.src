@@ -407,6 +407,43 @@ void OffsetBounds(Window* window, int horizontal, int vertical) {
   window->SetBounds(bounds);
 }
 
+TEST_F(WindowTest, ScopedDeleteBlocker) {
+  std::unique_ptr<Window> w1 = CreateTestWindow(
+      {.parent = root_window(), .bounds = {100, 100}, .window_id = 1});
+  std::unique_ptr<Window> w2 = CreateTestWindow(
+      {.parent = root_window(), .bounds = {100, 100}, .window_id = 2});
+
+  // Test single window blocker.
+  {
+    Window::ScopedDeleteBlocker blocker(w1.get());
+    EXPECT_DEATH(w1.reset(), "");
+    // w2 is not blocked.
+    w2.reset();
+  }
+  // w1 is allowed to be deleted now.
+  w1.reset();
+
+  // Re-create windows for list blocker test.
+  w1 = CreateTestWindow(
+      {.parent = root_window(), .bounds = {100, 100}, .window_id = 1});
+  w2 = CreateTestWindow(
+      {.parent = root_window(), .bounds = {100, 100}, .window_id = 2});
+
+  Window::Windows windows;
+  windows.push_back(w1.get());
+  windows.push_back(w2.get());
+
+  {
+    Window::ScopedDeleteBlocker blocker(windows);
+    EXPECT_DEATH(w1.reset(), "");
+    EXPECT_DEATH(w2.reset(), "");
+  }
+
+  // Deletion is allowed again.
+  w1.reset();
+  w2.reset();
+}
+
 TEST_F(WindowTest, GetChildById) {
   std::unique_ptr<Window> w1 = CreateTestWindow(
       {.parent = root_window(), .bounds = {100, 100}, .window_id = 1});
@@ -547,7 +584,7 @@ TEST_F(WindowTest, LayerReleasingAndSettingOfCapturableWindow) {
   EXPECT_TRUE(w1->subtree_capture_id().is_valid());
 
   // Setting a new layer on the window will set the layer's capture ID.
-  auto new_layer = std::make_unique<ui::Layer>();
+  auto new_layer = std::make_unique<ui::LayerTextured>();
   taken_layer->parent()->Add(new_layer.get());
   w1->Reset(std::move(new_layer));
   EXPECT_TRUE(w1->layer()->GetSubtreeCaptureId().is_valid());
@@ -1032,6 +1069,370 @@ TEST_F(WindowTest, StackChildAbove) {
   EXPECT_EQ(child3.layer(), parent.layer()->children()[2]);
 }
 
+class TestLayoutManager : public LayoutManager {
+ public:
+  TestLayoutManager() {}
+  ~TestLayoutManager() override {}
+
+  // LayoutManager:
+  void OnWindowResized() override {}
+  void OnWindowAddedToLayout(Window* child) override {}
+  void OnWillRemoveWindowFromLayout(Window* child) override {}
+  void OnWindowRemovedFromLayout(Window* child) override {}
+  void OnChildWindowVisibilityChanged(Window* child, bool visible) override {}
+  void SetChildBounds(Window* child,
+                      const gfx::Rect& requested_bounds) override {
+    SetChildBoundsDirect(child, requested_bounds);
+  }
+};
+
+using WindowLayerManagedByParentTest = WindowTest;
+
+TEST_F(WindowLayerManagedByParentTest, BasicOrders) {
+  // Window tree:
+  //        parent
+  //       /   |   \
+  //    child1 child2 child3
+  //
+  // Layer tree (child2 is unmanaged, layer is detached):
+  //        parent (layer)
+  //        /          \
+  //    child1 (layer) child3 (layer)
+  //
+  //    child2 (layer) ---> (detached)
+  Window parent(nullptr);
+  parent.Init(ui::LAYER_NOT_DRAWN);
+  Window child1(nullptr);
+  child1.Init(ui::LAYER_NOT_DRAWN);
+  Window child2(nullptr);
+  child2.Init(ui::LAYER_NOT_DRAWN);
+  Window child3(nullptr);
+  child3.Init(ui::LAYER_NOT_DRAWN);
+
+  // 1. Verify default value.
+  EXPECT_TRUE(child1.layer_managed_by_parent());
+
+  // 2. Mark child2 as not managed by parent before adding.
+  child2.SetLayerManagedByParent(false);
+  EXPECT_FALSE(child2.layer_managed_by_parent());
+
+  parent.AddChild(&child1);
+  parent.AddChild(&child2);
+  parent.AddChild(&child3);
+
+  // Initial order: child1, child2, child3
+  ASSERT_EQ(3u, parent.children().size());
+  // child2's layer should NOT be in parent's layer children.
+  ASSERT_EQ(2u, parent.layer()->children().size());
+  EXPECT_EQ(child1.layer(), parent.layer()->children()[0]);
+  EXPECT_EQ(child3.layer(), parent.layer()->children()[1]);
+
+  // Stack child2 (unmanaged) at top.
+  // Logical order should change: child1, child3, child2
+  // Layer order should NOT change (child2 layer not in parent layer).
+  parent.StackChildAtTop(&child2);
+  EXPECT_EQ(&child2, parent.children()[2]);
+  ASSERT_EQ(2u, parent.layer()->children().size());
+  EXPECT_EQ(child1.layer(), parent.layer()->children()[0]);
+  EXPECT_EQ(child3.layer(), parent.layer()->children()[1]);
+
+  // Stack child1 (managed) above child3 (managed).
+  // Logical order before: child1, child3, child2
+  // Logical order after: child3, child1, child2
+  // Layer order before: child1, child3
+  // Layer order after: child3, child1
+  parent.StackChildAbove(&child1, &child3);
+  EXPECT_EQ(&child3, parent.children()[0]);
+  EXPECT_EQ(&child1, parent.children()[1]);
+  EXPECT_EQ(&child2, parent.children()[2]);
+  ASSERT_EQ(2u, parent.layer()->children().size());
+  EXPECT_EQ(child3.layer(), parent.layer()->children()[0]);
+  EXPECT_EQ(child1.layer(), parent.layer()->children()[1]);
+
+  // Stack child3 (managed) above child2 (unmanaged).
+  // Stacking relative to unmanaged should be ignored for layers.
+  // Logical order should change: child1, child2, child3
+  // Layer order should remain same: child3, child1
+  parent.StackChildAbove(&child3, &child2);
+  EXPECT_EQ(&child1, parent.children()[0]);
+  EXPECT_EQ(&child2, parent.children()[1]);
+  EXPECT_EQ(&child3, parent.children()[2]);
+  ASSERT_EQ(2u, parent.layer()->children().size());
+  EXPECT_EQ(child3.layer(), parent.layer()->children()[0]);
+  EXPECT_EQ(child1.layer(), parent.layer()->children()[1]);
+
+  // Remove child2 (unmanaged). Should not crash.
+  parent.RemoveChild(&child2);
+  ASSERT_EQ(2u, parent.children().size());
+  ASSERT_EQ(2u, parent.layer()->children().size());
+  EXPECT_EQ(child3.layer(), parent.layer()->children()[0]);
+  EXPECT_EQ(child1.layer(), parent.layer()->children()[1]);
+
+  // Add child2 back.
+  parent.AddChild(&child2);
+  // Logical order: child3, child1, child2
+  // Layer order should still be [child3, child1]
+  ASSERT_EQ(3u, parent.children().size());
+  ASSERT_EQ(2u, parent.layer()->children().size());
+  EXPECT_EQ(child3.layer(), parent.layer()->children()[0]);
+  EXPECT_EQ(child1.layer(), parent.layer()->children()[1]);
+
+  // Enable layer management dynamically.
+  child2.SetLayerManagedByParent(true);
+  // Layer should be added.
+  // Logical order: child3, child1, child2
+  // Layer order should become: child3, child1, child2 (added at top by default)
+  ASSERT_EQ(3u, parent.layer()->children().size());
+  EXPECT_EQ(child3.layer(), parent.layer()->children()[0]);
+  EXPECT_EQ(child1.layer(), parent.layer()->children()[1]);
+  EXPECT_EQ(child2.layer(), parent.layer()->children()[2]);
+
+  // Disable layer management dynamically.
+  child2.SetLayerManagedByParent(false);
+  // Layer should be removed.
+  ASSERT_EQ(2u, parent.layer()->children().size());
+  EXPECT_EQ(child3.layer(), parent.layer()->children()[0]);
+  EXPECT_EQ(child1.layer(), parent.layer()->children()[1]);
+
+  // 3. Verify Coordinate Conversion fails with different roots.
+  child1.SetBounds(gfx::Rect(10, 20, 100, 100));
+  child2.SetBounds(gfx::Rect(30, 40, 100, 100));
+
+  gfx::PointF point(10.f, 10.f);
+  EXPECT_DEATH(Window::ConvertPointToTarget(&child2, &child1, &point), "");
+  EXPECT_DEATH(Window::ConvertPointToTarget(&child1, &child2, &point), "");
+}
+
+// Verify SetBounds behavior for unmanaged layer.
+TEST_F(WindowLayerManagedByParentTest, SetBounds) {
+  // 1 No Parent Window
+  {
+    Window standalone(nullptr);
+    standalone.Init(ui::LAYER_NOT_DRAWN);
+    standalone.SetLayerManagedByParent(false);
+    gfx::Rect new_bounds(10, 10, 50, 50);
+    standalone.SetBounds(new_bounds);
+    EXPECT_EQ(new_bounds, standalone.bounds());
+    EXPECT_EQ(new_bounds, standalone.layer()->bounds());
+    EXPECT_EQ(new_bounds, standalone.GetTargetBounds());
+  }
+
+  // 2 Parent Window but Detached Layer
+  {
+    Window parent(nullptr);
+    parent.Init(ui::LAYER_NOT_DRAWN);
+    Window child(nullptr);
+    child.Init(ui::LAYER_NOT_DRAWN);
+    child.SetLayerManagedByParent(false);
+    parent.AddChild(&child);
+
+    gfx::Rect new_bounds(10, 10, 50, 50);
+    child.SetBounds(new_bounds);
+    EXPECT_EQ(new_bounds, child.bounds());
+    EXPECT_EQ(new_bounds, child.layer()->bounds());
+    EXPECT_EQ(new_bounds, child.GetTargetBounds());
+  }
+
+  // 3 Fully Established (Automatic Conversion)
+  {
+    Window parent(nullptr);
+    parent.Init(ui::LAYER_NOT_DRAWN);
+    Window child(nullptr);
+    child.Init(ui::LAYER_NOT_DRAWN);
+    child.SetLayerManagedByParent(false);
+    parent.AddChild(&child);
+
+    // Create an intermediate layer and parent it to parent's layer.
+    // L_X is at (10, 10) relative to L_P.
+    ui::LayerNotDrawn layer_x;
+    layer_x.SetBounds(gfx::Rect(10, 10, 100, 100));
+    parent.layer()->Add(&layer_x);
+
+    // Parent child's layer to L_X.
+    layer_x.Add(child.layer());
+
+    // Call SetBounds on child with (50, 50, 50, 50) relative to parent.
+    // Since L_X is at (10, 10), child's layer bounds should become (40, 40, 50,
+    // 50).
+    gfx::Rect new_bounds(50, 50, 50, 50);
+    child.SetBounds(new_bounds);
+
+    EXPECT_EQ(new_bounds, child.bounds());
+    EXPECT_EQ(gfx::Rect(40, 40, 50, 50), child.layer()->bounds());
+    EXPECT_EQ(new_bounds, child.GetTargetBounds());
+  }
+
+  // 4 Multiple Intermediate Layers (Automatic Conversion)
+  {
+    Window parent(nullptr);
+    parent.Init(ui::LAYER_NOT_DRAWN);
+    Window child(nullptr);
+    child.Init(ui::LAYER_NOT_DRAWN);
+    child.SetLayerManagedByParent(false);
+    parent.AddChild(&child);
+
+    // L_P -> L_X1 (10, 10) -> L_X2 (20, 20) -> L_C
+    ui::LayerNotDrawn layer_x1;
+    layer_x1.SetBounds(gfx::Rect(10, 10, 100, 100));
+    parent.layer()->Add(&layer_x1);
+
+    ui::LayerNotDrawn layer_x2;
+    layer_x2.SetBounds(gfx::Rect(20, 20, 100, 100));
+    layer_x1.Add(&layer_x2);
+
+    // Parent child's layer to L_X2.
+    layer_x2.Add(child.layer());
+
+    // Call SetBounds on child with (100, 100, 50, 50) relative to parent.
+    // L_X2 origin relative to L_P is (30, 30).
+    // child's layer bounds should become (70, 70, 50, 50).
+    gfx::Rect new_bounds(100, 100, 50, 50);
+    child.SetBounds(new_bounds);
+
+    EXPECT_EQ(new_bounds, child.bounds());
+    EXPECT_EQ(gfx::Rect(70, 70, 50, 50), child.layer()->bounds());
+    EXPECT_EQ(new_bounds, child.GetTargetBounds());
+  }
+
+  // 5 Bounds Animation (GetTargetBounds during animation)
+  {
+    gfx::ScopedAnimationDurationScaleMode test_duration_mode(
+        gfx::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+    Window parent(nullptr);
+    parent.Init(ui::LAYER_NOT_DRAWN);
+    Window child(nullptr);
+    child.Init(ui::LAYER_NOT_DRAWN);
+    child.SetLayerManagedByParent(false);
+    parent.AddChild(&child);
+
+    // L_P -> L_X (10, 10) -> L_C
+    ui::LayerNotDrawn layer_x;
+    layer_x.SetBounds(gfx::Rect(10, 10, 100, 100));
+    parent.layer()->Add(&layer_x);
+    layer_x.Add(child.layer());
+
+    // Set initial bounds.
+    gfx::Rect old_bounds(50, 50, 50, 50);
+    child.SetBounds(old_bounds);
+    ASSERT_EQ(gfx::Rect(40, 40, 50, 50), child.layer()->bounds());
+
+    // Enable animation.
+    child.layer()->GetAnimator()->set_disable_timer_for_test(true);
+    ui::ScopedLayerAnimationSettings settings(child.layer()->GetAnimator());
+    settings.SetTransitionDuration(base::Milliseconds(200));
+
+    // Set new bounds. Target window bounds: (100, 100, 50, 50).
+    // Target layer bounds should become (90, 90, 50, 50).
+    gfx::Rect new_bounds(100, 100, 50, 50);
+    child.SetBounds(new_bounds);
+
+    // During animation:
+    // GetTargetBounds() should return the target window bounds (100, 100, 50,
+    // 50).
+    EXPECT_EQ(new_bounds, child.GetTargetBounds());
+
+    // Layer's target bounds should be (90, 90, 50, 50), as it is parented
+    // layer_x, whose origin is (10, 10).
+    EXPECT_EQ(gfx::Rect(90, 90, 50, 50), child.layer()->GetTargetBounds());
+
+    // Since it is animating, layer's current bounds should still be initial
+    // (40, 40, 50, 50).
+    EXPECT_EQ(gfx::Rect(40, 40, 50, 50), child.layer()->bounds());
+
+    // Window's bounds() should still be the old bounds during animation.
+    EXPECT_EQ(old_bounds, child.bounds());
+  }
+
+  // 6 Bounds with Transform on Intermediate Layer (Ignored)
+  {
+    Window parent(nullptr);
+    parent.Init(ui::LAYER_NOT_DRAWN);
+    Window child(nullptr);
+    child.Init(ui::LAYER_NOT_DRAWN);
+    child.SetLayerManagedByParent(false);
+    parent.AddChild(&child);
+
+    // L_P -> L_X (10, 10) -> L_C
+    ui::LayerNotDrawn layer_x;
+    layer_x.SetBounds(gfx::Rect(10, 10, 100, 100));
+
+    // Apply transform to L_X (translate by 100, 100).
+    gfx::Transform transform;
+    transform.Translate(100.f, 100.f);
+    layer_x.SetTransform(transform);
+
+    parent.layer()->Add(&layer_x);
+    layer_x.Add(child.layer());
+
+    // Call SetBounds on child with (50, 50, 50, 50) relative to parent.
+    // The transform on L_X should be IGNORED.
+    // So child's layer bounds should still become (40, 40, 50, 50).
+    gfx::Rect new_bounds(50, 50, 50, 50);
+    child.SetBounds(new_bounds);
+
+    EXPECT_EQ(new_bounds, child.bounds());
+    EXPECT_EQ(gfx::Rect(40, 40, 50, 50), child.layer()->bounds());
+    EXPECT_EQ(new_bounds, child.GetTargetBounds());
+  }
+
+  // 7 Layer Bounds Change Updates Window Bounds (Unmanaged)
+  {
+    Window parent(nullptr);
+    parent.Init(ui::LAYER_NOT_DRAWN);
+    Window child(nullptr);
+    child.Init(ui::LAYER_NOT_DRAWN);
+    child.SetLayerManagedByParent(false);
+    parent.AddChild(&child);
+
+    // L_P -> L_X (10, 10) -> L_C
+    ui::LayerNotDrawn layer_x;
+    layer_x.SetBounds(gfx::Rect(10, 10, 100, 100));
+
+    parent.layer()->Add(&layer_x);
+    layer_x.Add(child.layer());
+
+    // Initial bounds of child: (0, 0, 0, 0)
+    // Now change child's layer bounds directly.
+    // L_X is at (10, 10).
+    // If we set child's layer bounds to (40, 40, 50, 50).
+    // The window bounds of child should become (50, 50, 50, 50) relative to
+    // parent.
+    child.layer()->SetBounds(gfx::Rect(40, 40, 50, 50));
+
+    EXPECT_EQ(gfx::Rect(50, 50, 50, 50), child.bounds());
+    EXPECT_EQ(gfx::Rect(50, 50, 50, 50), child.GetTargetBounds());
+  }
+}
+
+// Verify LayoutManager Constraints
+TEST_F(WindowLayerManagedByParentTest, NoLayoutManager) {
+  // 1 Add Child to LayoutManager
+  {
+    Window parent(nullptr);
+    parent.Init(ui::LAYER_NOT_DRAWN);
+    parent.SetLayoutManager(std::make_unique<TestLayoutManager>());
+
+    Window child(nullptr);
+    child.Init(ui::LAYER_NOT_DRAWN);
+    child.SetLayerManagedByParent(false);
+
+    EXPECT_DEATH(parent.AddChild(&child), "");
+  }
+
+  // 2 Set LayoutManager with Unmanaged Child
+  {
+    Window parent(nullptr);
+    parent.Init(ui::LAYER_NOT_DRAWN);
+    Window child(nullptr);
+    child.Init(ui::LAYER_NOT_DRAWN);
+    child.SetLayerManagedByParent(false);
+    parent.AddChild(&child);
+
+    EXPECT_DEATH(parent.SetLayoutManager(std::make_unique<TestLayoutManager>()),
+                 "");
+  }
+}
+
 // Various capture assertions.
 TEST_F(WindowTest, CaptureTests) {
   CaptureWindowDelegateImpl delegate;
@@ -1437,6 +1838,30 @@ TEST_F(WindowTest, GetBoundsInRootWindowWithLayersAndTranslations) {
   transform3.Translate(-30, -120);
   child->SetTransform(transform3);
   EXPECT_EQ("0,0 100x100", child->GetBoundsInRootWindow().ToString());
+}
+
+TEST_F(WindowTest, GetBoundsInScreenWithoutTransform) {
+  std::unique_ptr<Window> viewport(CreateTestWindow(
+      {.parent = root_window(), .bounds = {100, 50, 200, 200}}));
+
+  std::unique_ptr<Window> child(CreateTestWindow(
+      {.parent = viewport.get(), .bounds = {25, 25, 100, 100}}));
+
+  // Sanity check.
+  EXPECT_EQ(gfx::Rect(125, 75, 100, 100), child->GetBoundsInScreen());
+  EXPECT_EQ(gfx::Rect(125, 75, 100, 100),
+            child->GetBoundsInScreenWithoutTransform());
+
+  gfx::Transform transform;
+  transform.Translate(50, 50);
+  viewport->SetTransform(transform);
+
+  // GetBoundsInScreen should include the transform in the calculations.
+  EXPECT_EQ(gfx::Rect(175, 125, 100, 100), child->GetBoundsInScreen());
+
+  // GetBoundsInScreenWithoutTransforms should completely skip the transform.
+  EXPECT_EQ(gfx::Rect(125, 75, 100, 100),
+            child->GetBoundsInScreenWithoutTransform());
 }
 
 // TODO(tdanderson): Remove this class and use
@@ -2711,7 +3136,7 @@ TEST_F(WindowTest, RecreateLayer) {
   layer->SetVisible(false);
   layer->SetMasksToBounds(true);
 
-  ui::Layer child_layer;
+  ui::LayerTextured child_layer;
   layer->Add(&child_layer);
 
   std::unique_ptr<ui::Layer> old_layer(w.RecreateLayer());
@@ -3205,6 +3630,53 @@ TEST_F(WindowDeathTest, DeleteWindowInBoundsChange) {
   EXPECT_DEATH(window->SetBounds(gfx::Rect(10, 10, 300, 300)), "");
   // Deletion fails with CHECK.
   EXPECT_TRUE(weak_window);
+}
+
+// WindowObserver implementation that deletes the observed window in
+// OnWindowHierarchyChanging().
+class DeleteOnHierarchyChangingObserver : public WindowObserver {
+ public:
+  explicit DeleteOnHierarchyChangingObserver(Window* window) : window_(window) {
+    window_->AddObserver(this);
+  }
+
+  DeleteOnHierarchyChangingObserver(const DeleteOnHierarchyChangingObserver&) =
+      delete;
+  DeleteOnHierarchyChangingObserver& operator=(
+      const DeleteOnHierarchyChangingObserver&) = delete;
+
+  ~DeleteOnHierarchyChangingObserver() override {
+    CHECK(window_);
+    window_->RemoveObserver(this);
+  }
+
+  // WindowObserver:
+  void OnWindowHierarchyChanging(const HierarchyChangeParams& params) override {
+    Window* window = window_;
+    window_ = nullptr;
+    window->RemoveObserver(this);
+    // This will fail with CHECK.
+    delete window;
+  }
+
+ private:
+  raw_ptr<Window> window_;
+};
+
+TEST_F(WindowDeathTest, DeleteReceiverInOnWindowHierarchyChanging) {
+  std::unique_ptr<Window> parent = std::make_unique<Window>(nullptr);
+  parent->Init(ui::LAYER_NOT_DRAWN);
+  std::unique_ptr<Window> child = std::make_unique<Window>(nullptr);
+  child->Init(ui::LAYER_NOT_DRAWN);
+  Window* grandchild = new Window(nullptr);
+  grandchild->Init(ui::LAYER_NOT_DRAWN);
+  child->AddChild(grandchild);
+
+  // |grandchild| is notified as a receiver while recursing down through the
+  // subtree rooted at |child|; deleting it from within the notification must
+  // not be allowed.
+  DeleteOnHierarchyChangingObserver observer(grandchild);
+  EXPECT_DEATH(parent->AddChild(child.get()), "");
 }
 
 // WindowObserver implementation that deletes a window in
@@ -3773,7 +4245,7 @@ TEST_F(WindowTest, WindowDestroyCompletesAnimations) {
 
   animator = ui::LayerAnimator::CreateImplicitAnimator();
   animator->AddObserver(&observer);
-  ui::Layer layer;
+  ui::LayerTextured layer;
   layer.SetAnimator(animator.get());
   {
     std::unique_ptr<Window> window(CreateTestWindow(
@@ -4142,6 +4614,63 @@ TEST_P(WindowActualScreenBoundsTest, VerifyWindowActualBoundsDuringAnimation) {
           base::Unretained(this), child_initial_bounds));
   bounds_checker.WaitForAnimationCompletion();
 }
+
+#if DCHECK_IS_ON()
+TEST_F(WindowTest, GetWindowHierarchy) {
+  std::unique_ptr<Window> w1(CreateTestWindow({.window_id = 1}));
+  std::unique_ptr<Window> w2(CreateTestWindow({.window_id = 2}));
+
+  w1->SetTitle(u"Window 1");
+
+  Window* w11 =
+      CreateTestWindow({.parent = w1.get(), .window_id = 11}).release();
+
+  // Parent them to root
+  root_window()->AddChild(w1.get());
+  root_window()->AddChild(w2.get());
+
+  // Set focus to w11
+  w11->Focus();
+
+  // Set capture to w2
+  w2->SetCapture();
+
+  // Active window mark test (we pass w1 as active window)
+  std::string hierarchy = root_window()->GetWindowHierarchy(0, w1.get());
+
+  // Verify hierarchy contains:
+  // - w1 with title and [active]
+  // - w11 with [focused]
+  // - w2 with [capture]
+
+  size_t pos_w1 = hierarchy.find("<1>");
+  ASSERT_NE(pos_w1, std::string::npos);
+  size_t nl_w1 = hierarchy.find("\n", pos_w1);
+  std::string line_w1 = hierarchy.substr(pos_w1, nl_w1 - pos_w1);
+  EXPECT_TRUE(line_w1.find("title=\"Window 1\"") != std::string::npos);
+  EXPECT_TRUE(line_w1.find("[active]") != std::string::npos);
+  EXPECT_FALSE(line_w1.find("[focused]") != std::string::npos);
+  EXPECT_FALSE(line_w1.find("[capture]") != std::string::npos);
+
+  size_t pos_w11 = hierarchy.find("<11>");
+  ASSERT_NE(pos_w11, std::string::npos);
+  size_t nl_w11 = hierarchy.find("\n", pos_w11);
+  std::string line_w11 = hierarchy.substr(pos_w11, nl_w11 - pos_w11);
+  EXPECT_TRUE(line_w11.find("[focused]") != std::string::npos);
+  EXPECT_FALSE(line_w11.find("[active]") != std::string::npos);
+  EXPECT_FALSE(line_w11.find("[capture]") != std::string::npos);
+
+  size_t pos_w2 = hierarchy.find("<2>");
+  ASSERT_NE(pos_w2, std::string::npos);
+  size_t nl_w2 = hierarchy.find("\n", pos_w2);
+  std::string line_w2 = hierarchy.substr(pos_w2, nl_w2 - pos_w2);
+  EXPECT_TRUE(line_w2.find("[capture]") != std::string::npos);
+  EXPECT_FALSE(line_w2.find("[active]") != std::string::npos);
+  EXPECT_FALSE(line_w2.find("[focused]") != std::string::npos);
+
+  w2->ReleaseCapture();
+}
+#endif
 
 class ReentrantDisplayScreen : public display::Screen {
  public:

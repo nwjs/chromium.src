@@ -105,7 +105,6 @@ void ExtensionsRendererClient::RenderThreadStarted() {
     nw::ExtensionDispatcherCreated(dispatcher());
   }
   content::RenderThread* thread = content::RenderThread::Get();
-  dispatcher()->OnRenderThreadStarted(thread);
   thread->AddObserver(dispatcher());
 
   resource_request_policy_ = std::make_unique<ResourceRequestPolicy>(

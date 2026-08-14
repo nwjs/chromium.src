@@ -6,26 +6,32 @@
  * #type=style-lit
  * #import=//resources/cr_elements/cr_icons_lit.css.js
  * #import=//resources/cr_components/composebox/composebox_shared_style.css.js
+ * #import=./searchbox_shared_style.css.js
  * #scheme=relative
- * #include=cr-icons-lit composebox-shared-style
+ * #include=cr-icons-lit composebox-shared-style searchbox-shared-style
  * #css_wrapper_metadata_end */
 
 :host {
+  -webkit-app-region: drag;
   position: relative;
   border-radius: 28px;
   --input-bottom-spacing: 10px;
   --text-input-top-spacing: 10px;
   --text-input-inline-end-spacing: 80px;
-  --text-input-inline-start-spacing: 16px;
+  --text-input-inline-start-spacing: 24px;
+  --cr-searchbox-match-padding-inline-start: 24px;
   --text-input-max-height: 190px;
   --fade-duration: 100ms;
-  --color-composebox-type-ahead: #5f6368;
-  --color-composebox-type-ahead-chip: rgba(26, 115, 232, 0.1);
-  --color-composebox-font-light: #1f1f1f;
+  --color-composebox-type-ahead: var(--color-omnibox-foreground-disabled);
+  --color-composebox-type-ahead-chip: var(
+      --color-omnibox-composebox-chip-background);
+  --color-composebox-font-light: var(--color-omnibox-text);
+  --color-composebox-submit-button-background: var(
+      --color-omnibox-composebox-submit-button-background);
 }
 
 #composebox {
-  background-color: var(--color-searchbox-background, #fff);
+  background-color: var(--color-searchbox-background);
   border-radius: inherit;
   display: flex;
   flex-direction: column;
@@ -41,6 +47,14 @@
   z-index: 2;
 }
 
+:host([is-collapsible][expanding_]:not([show-dropdown])) #composebox {
+  min-height: unset;
+}
+
+:host([is-dragging-file]) #composebox * {
+  pointer-events: none;
+}
+
 #inputContainer {
   box-sizing: border-box;
   display: flex;
@@ -48,6 +62,12 @@
   padding-bottom: 0;
   overflow: hidden;
   width: 100%;
+}
+
+#carouselContainer {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: row;
 }
 
 #contextEntrypoint::part(entrypoint-button) {
@@ -72,4 +92,106 @@ search-animated-glow {
   border-radius: inherit;
   pointer-events: none;
   z-index: 0;
+}
+
+/* Needed because composebox_submit.css sets opacity: 0.4 on #submitIcon
+ * when disabled. For loomnibox, we want the submit icon to remain at
+ * full opacity even when the input is empty. */
+cr-composebox-submit::part(submit-icon) {
+  opacity: 1;
+}
+
+/* Override default absolute positioning from composebox_submit.css so the
+ * submit button flows normally in #actionButtons next to voice/lens. */
+cr-composebox-submit::part(submit) {
+  position: relative;
+  inset-inline-end: unset;
+  bottom: unset;
+  opacity: 1;
+}
+
+#bottomControls {
+  min-height: 48px;
+  position: relative;
+}
+
+#bottomControls #contextEntrypoint {
+  padding-inline-start: 0;
+}
+
+#actionButtons {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.searchbox-icon-button-container {
+  align-items: center;
+  border-radius: 50%;
+  display: flex;
+  flex-shrink: 0;
+  height: 36px;
+  justify-content: center;
+  position: relative;
+  width: 36px;
+  z-index: 100;
+}
+
+.searchbox-icon-button-container:hover {
+  background-color: var(--color-new-tab-page-realbox-next-icon-hover);
+}
+
+.searchbox-icon-button {
+  background-color: transparent;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 21px 21px;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  height: 100%;
+  outline: none;
+  padding: 0;
+  pointer-events: auto;
+  position: static;
+  width: 26px;
+  z-index: 100;
+}
+
+#voiceSearchButton {
+  background-image: url(//resources/cr_components/searchbox/icons/mic.svg);
+}
+
+#lensSearchButton {
+  background-image: url(//resources/cr_components/searchbox/icons/camera.svg);
+}
+
+#profileIcon {
+  position: absolute;
+  right: 16px;
+  top: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  z-index: 100;
+}
+
+/* TODO(crbug.com/532200145): Refine the selectors. New interactive elements
+ * must be added to this list because the root container has
+ * '-webkit-app-region: drag' enabled; otherwise, clicks will be swallowed by
+ * the window drag handler. */
+cr-composebox-input::part(input),
+cr-composebox-submit::part(submit),
+cr-composebox-submit::part(submit-icon),
+#context,
+#contextEntrypoint,
+cr-composebox-contextual-entrypoint-and-menu,
+cr-composebox-contextual-entrypoint-button,
+cr-composebox-tool-chip,
+.searchbox-icon-button,
+#voiceSearchButton,
+#lensSearchButton,
+#profileIcon {
+  -webkit-app-region: no-drag;
 }

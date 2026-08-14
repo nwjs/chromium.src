@@ -98,6 +98,8 @@ enum FieldTypeGroupForMetrics {
   GROUP_LOYALTY_CARD = 49,
   GROUP_ONE_TIME_PASSWORD = 50,
   GROUP_ADDRESS_HOME_ZIP_AND_CITY = 51,
+  GROUP_ADDRESS_HOME_ZIP_PREFIX = 52,
+  GROUP_ADDRESS_HOME_ZIP_SUFFIX = 53,
   // Note: if adding an enum value here, run
   // tools/metrics/histograms/update_autofill_enums.py
   NUM_FIELD_TYPE_GROUPS_FOR_METRICS
@@ -285,9 +287,13 @@ int GetFieldTypeGroupPredictionQualityMetric(FieldType field_type,
           group = GROUP_ADDRESS_STATE;
           break;
         case ADDRESS_HOME_ZIP:
-        case ADDRESS_HOME_ZIP_PREFIX:
-        case ADDRESS_HOME_ZIP_SUFFIX:
           group = GROUP_ADDRESS_ZIP;
+          break;
+        case ADDRESS_HOME_ZIP_PREFIX:
+          group = GROUP_ADDRESS_HOME_ZIP_PREFIX;
+          break;
+        case ADDRESS_HOME_ZIP_SUFFIX:
+          group = GROUP_ADDRESS_HOME_ZIP_SUFFIX;
           break;
         case ADDRESS_HOME_COUNTRY:
           group = GROUP_ADDRESS_COUNTRY;
@@ -450,6 +456,8 @@ int GetFieldTypeGroupPredictionQualityMetric(FieldType field_type,
         case FLIGHT_RESERVATION_FLIGHT_NUMBER:
         case FLIGHT_RESERVATION_TICKET_NUMBER:
         case FLIGHT_RESERVATION_CONFIRMATION_CODE:
+        case FLIGHT_RESERVATION_ARRIVAL_AIRPORT:
+        case FLIGHT_RESERVATION_DEPARTURE_AIRPORT:
         case FLIGHT_RESERVATION_DEPARTURE_DATE:
         case ORDER_ID:
         case ORDER_DATE:
@@ -1049,53 +1057,6 @@ void LogFieldTypeAtSubmissionMetrics(const AutofillField& field) {
                            "PreferredSource.", "ByFieldType"),
         GetFieldTypePredictionSourceBucket(overall_type,
                                            *field.PredictionSource()));
-  }
-}
-
-void LogPhoneNumberDetectionExperimentMetrics(const AutofillField& field) {
-  const bool is_heuristics_country_code =
-      field.heuristic_type() == PHONE_HOME_COUNTRY_CODE;
-  const bool is_overall_country_code =
-      field.Type().GetAddressType() == PHONE_HOME_COUNTRY_CODE;
-  const bool is_computed_country_code =
-      field.ComputedType().GetAddressType() == PHONE_HOME_COUNTRY_CODE;
-  const bool is_possible_country_code =
-      std::ranges::contains(field.possible_types(), PHONE_HOME_COUNTRY_CODE);
-
-  if (field.IsSelectElement() &&
-      (is_heuristics_country_code || is_overall_country_code)) {
-    const bool is_augmented_country_code_field =
-        LikelyAugmentedPhoneCountryCode(
-            field, base::FeatureList::IsEnabled(
-                       features::kAutofillNewAugmentedPhoneCountryCodeRegex));
-    if (is_heuristics_country_code) {
-      base::UmaHistogramBoolean(
-          "Autofill.FieldPrediction.AugmentedPhoneCountryCode.Heuristics",
-          is_augmented_country_code_field);
-    }
-    if (is_overall_country_code) {
-      base::UmaHistogramBoolean(
-          "Autofill.FieldPrediction.AugmentedPhoneCountryCode.Overall",
-          is_augmented_country_code_field);
-    }
-  }
-
-  if (is_computed_country_code) {
-    const bool reset_by_rationalization =
-        field.Type().GetAddressType() == UNKNOWN_TYPE &&
-        field.PredictionSource() == AutofillPredictionSource::kRationalization;
-    if (reset_by_rationalization || is_overall_country_code) {
-      base::UmaHistogramBoolean(
-          "Autofill.FieldPrediction.PhoneCountryCodeRationalizedToUnknown",
-          reset_by_rationalization);
-    }
-  }
-
-  if (is_overall_country_code && is_possible_country_code &&
-      field.PredictionSource()) {
-    base::UmaHistogramEnumeration(
-        "Autofill.FieldPrediction.PhoneCountryCode.CorrectPredictionSource",
-        *field.PredictionSource());
   }
 }
 

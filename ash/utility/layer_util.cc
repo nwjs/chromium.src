@@ -4,7 +4,6 @@
 
 #include "ash/utility/layer_util.h"
 
-#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/scoped_refptr.h"
 #include "components/viz/common/frame_sinks/copy_output_request.h"
@@ -17,12 +16,9 @@
 namespace ash {
 namespace {
 
-BASE_FEATURE(kAshAlwaysUseColorSpaceFromSharedImage,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 void CopyCopyOutputResultToLayer(
     std::unique_ptr<viz::CopyOutputResult> copy_result,
-    ui::Layer* target_layer) {
+    ui::LayerWithExternalTexture* target_layer) {
   DCHECK(!copy_result->IsEmpty());
   DCHECK_EQ(copy_result->format(), viz::CopyOutputResult::Format::RGBA);
   DCHECK_EQ(copy_result->destination(),
@@ -30,14 +26,10 @@ void CopyCopyOutputResultToLayer(
 
   scoped_refptr<gpu::ClientSharedImage> shared_image =
       copy_result->GetSharedImage();
-  viz::TransferableResource::MetadataOverride overrides;
-  if (!base::FeatureList::IsEnabled(kAshAlwaysUseColorSpaceFromSharedImage)) {
-    overrides.color_space = gfx::ColorSpace();
-  }
   viz::TransferableResource transferable_resource =
       viz::TransferableResource::Make(
           shared_image, viz::TransferableResource::ResourceSource::kUI,
-          gpu::SyncToken(), overrides);
+          gpu::SyncToken());
   viz::ReleaseCallback release_callback =
       copy_result->TakeSharedImageOwnership();
   DCHECK(release_callback);
@@ -70,7 +62,7 @@ void CopyToLayerOnCopyRequestFinished(
   if (!copy_result || copy_result->IsEmpty())
     return;
 
-  ui::Layer* layer = nullptr;
+  ui::LayerWithExternalTexture* layer = nullptr;
   std::move(get_target_layer_callback).Run(&layer);
   if (!layer)
     return;
@@ -83,7 +75,7 @@ void CopyToLayerOnCopyRequestFinished(
 std::unique_ptr<ui::Layer> CreateLayerFromCopyOutputResult(
     std::unique_ptr<viz::CopyOutputResult> copy_result,
     const gfx::Size& layer_size) {
-  auto copy_layer = std::make_unique<ui::Layer>(ui::LAYER_SOLID_COLOR);
+  auto copy_layer = std::make_unique<ui::LayerSolidColor>();
   copy_layer->SetBounds(gfx::Rect(layer_size));
   CopyCopyOutputResultToLayer(std::move(copy_result), copy_layer.get());
   return copy_layer;

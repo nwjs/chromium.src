@@ -16,9 +16,9 @@
 #include "components/sync/base/custom_passphrase_bootstrap_token.h"
 #include "components/sync/base/passphrase_enums.h"
 #include "components/sync/base/time.h"
+#include "components/sync/model/crypto/key_derivation_params.h"
 #include "components/sync/nigori/cross_user_sharing_public_key.h"
 #include "components/sync/nigori/cryptographer_impl.h"
-#include "components/sync/nigori/key_derivation_params.h"
 #include "components/sync/nigori/keystore_keys_cryptographer.h"
 #include "components/sync/nigori/nigori_storage.h"
 #include "components/sync/nigori/pending_local_nigori_commit.h"
@@ -701,7 +701,7 @@ std::optional<ModelError> NigoriSyncBridgeImpl::UpdateLocalState(
   // upon SetExplicitPassphraseDecryptionKey() or equivalent depending on the
   // passphrase type.
   state_.pending_keys = specifics.encryption_keybag();
-  state_.cryptographer->ClearDefaultEncryptionKey();
+  state_.cryptographer->InvalidateDefaultEncryptionKey();
 
   if (specifics.has_cross_user_sharing_public_key()) {
     // Remote update wins over local state.

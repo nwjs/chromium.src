@@ -145,10 +145,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
   return ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE;
 }
 
-- (BOOL)isTabGridSetUp {
-  return [ChromeEarlGreyAppInterface isTabGridSetUp];
-}
-
 - (BOOL)isRTL {
   return [ChromeEarlGreyAppInterface isRTL];
 }
@@ -219,6 +215,19 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
   return [ChromeEarlGreyAppInterface personalProfileName];
 }
 
+- (void)waitForCurrentProfileName:(NSString*)profileName {
+  ConditionBlock condition = ^{
+    return [self.currentProfileName isEqualToString:profileName];
+  };
+  bool success = base::test::ios::WaitUntilConditionOrTimeout(
+      base::test::ios::kWaitForActionTimeout, condition);
+  NSString* errorString =
+      [NSString stringWithFormat:
+                    @"Timed out waiting for current profile name to become %@",
+                    profileName];
+  EG_TEST_HELPER_ASSERT_TRUE(success, errorString);
+}
+
 #pragma mark - History Utilities (EG2)
 
 - (void)clearBrowsingHistory {
@@ -263,6 +272,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
   [self waitForPageToFinishLoading];
 }
 
+- (void)startGoingForward {
+  [ChromeEarlGreyAppInterface startGoingForward];
+}
+
 - (void)goForward {
   [ChromeEarlGreyAppInterface startGoingForward];
   [self waitForPageToFinishLoading];
@@ -278,7 +291,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
     [self waitForPageToFinishLoading];
   }
 }
-
 
 - (void)dismissSettings {
   [ChromeEarlGreyAppInterface dismissSettings];
@@ -467,9 +479,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
   if (pageLoadError) {
     return pageLoadError;
   }
-    // Loading URL (especially the first time) can trigger alerts.
-    [SystemAlertHandler handleSystemAlertIfVisible];
-    return nil;
+  // Loading URL (especially the first time) can trigger alerts.
+  [SystemAlertHandler handleSystemAlertIfVisible];
+  return nil;
 }
 
 - (void)loadURL:(const GURL&)URL withTimeout:(base::TimeDelta)timeout {
@@ -830,9 +842,25 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
 }
 
 - (void)waitForWebStateFrameContainingText:(const std::string&)UTF8Text {
+  [self waitForWebStateFrameContainingText:UTF8Text
+                                   timeout:kWaitForPageLoadTimeout];
+}
+
+- (void)waitForWebStateFrameContainingText:(const std::string&)UTF8Text
+                                   timeout:(base::TimeDelta)timeout {
   NSString* text = base::SysUTF8ToNSString(UTF8Text);
-  EG_TEST_HELPER_ASSERT_NO_ERROR(
-      [ChromeEarlGreyAppInterface waitForWebStateContainingTextInIFrame:text]);
+  NSString* errorString = [NSString
+      stringWithFormat:@"Failed waiting for web state's frames containing %@",
+                       text];
+
+  GREYCondition* waitForText =
+      [GREYCondition conditionWithName:errorString
+                                 block:^{
+                                   return [ChromeEarlGreyAppInterface
+                                       webStateContainsTextInIFrame:text];
+                                 }];
+  bool containsText = [waitForText waitWithTimeout:timeout.InSecondsF()];
+  EG_TEST_HELPER_ASSERT_TRUE(containsText, errorString);
 }
 
 - (void)waitForWebStateContainingText:(const std::string&)UTF8Text
@@ -870,20 +898,48 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
 - (void)waitForWebStateContainingBlockedImageElementWithID:
     (const std::string&)UTF8ImageID {
   NSString* imageID = base::SysUTF8ToNSString(UTF8ImageID);
-  EG_TEST_HELPER_ASSERT_NO_ERROR([ChromeEarlGreyAppInterface
-      waitForWebStateContainingBlockedImage:imageID]);
+  NSString* errorString = [NSString
+      stringWithFormat:@"Failed waiting for web view blocked image %@",
+                       imageID];
+  GREYCondition* condition =
+      [GREYCondition conditionWithName:errorString
+                                 block:^{
+                                   return [ChromeEarlGreyAppInterface
+                                       webStateContainsBlockedImage:imageID];
+                                 }];
+  bool success =
+      [condition waitWithTimeout:kWaitForPageLoadTimeout.InSecondsF()];
+  EG_TEST_HELPER_ASSERT_TRUE(success, errorString);
 }
 
 - (void)waitForWebStateContainingLoadedImageElementWithID:
     (const std::string&)UTF8ImageID {
   NSString* imageID = base::SysUTF8ToNSString(UTF8ImageID);
-  EG_TEST_HELPER_ASSERT_NO_ERROR([ChromeEarlGreyAppInterface
-      waitForWebStateContainingLoadedImage:imageID]);
+  NSString* errorString = [NSString
+      stringWithFormat:@"Failed waiting for web view loaded image %@", imageID];
+  GREYCondition* condition =
+      [GREYCondition conditionWithName:errorString
+                                 block:^{
+                                   return [ChromeEarlGreyAppInterface
+                                       webStateContainsLoadedImage:imageID];
+                                 }];
+  bool success =
+      [condition waitWithTimeout:kWaitForPageLoadTimeout.InSecondsF()];
+  EG_TEST_HELPER_ASSERT_TRUE(success, errorString);
 }
 
 - (void)waitForWebStateZoomScale:(CGFloat)scale {
-  EG_TEST_HELPER_ASSERT_NO_ERROR(
-      [ChromeEarlGreyAppInterface waitForWebStateZoomScale:scale]);
+  NSString* errorString = [NSString
+      stringWithFormat:@"Failed waiting for web state zoom scale %f", scale];
+  GREYCondition* condition =
+      [GREYCondition conditionWithName:errorString
+                                 block:^{
+                                   return [ChromeEarlGreyAppInterface
+                                       webStateZoomScaleCloseTo:scale];
+                                 }];
+  bool success =
+      [condition waitWithTimeout:kWaitForPageLoadTimeout.InSecondsF()];
+  EG_TEST_HELPER_ASSERT_TRUE(success, errorString);
 }
 
 - (GURL)webStateVisibleURL {
@@ -1541,6 +1597,11 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
   return [ChromeEarlGreyAppInterface isTestFeatureEnabled];
 }
 
+- (BOOL)isOverflowMenuHomeCustomizationEntrypointEnabled {
+  return [ChromeEarlGreyAppInterface
+      isOverflowMenuHomeCustomizationEntrypointEnabled];
+}
+
 - (BOOL)isFullscreenSmoothScrollingSupported {
   return [ChromeEarlGreyAppInterface isFullscreenSmoothScrollingSupported];
 }
@@ -1971,6 +2032,8 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
   // Dismiss the Activity View by tapping outside its bounds.
   [[EarlGrey selectElementWithMatcher:grey_keyWindow()]
       performAction:grey_tap()];
+
+  [self verifyActivitySheetNotVisible];
 }
 
 #pragma mark - Unified consent utilities

@@ -948,10 +948,7 @@ void FormStructureRationalizer::RationalizePhoneNumberTrunkTypes(
                                type)
             : base::FindOrNull(kPhoneNumberConversionNotAfterCountryCodeField,
                                type);
-    if (new_type &&
-        (type != PHONE_HOME_WHOLE_NUMBER ||
-         base::FeatureList::IsEnabled(
-             features::kAutofillImprovePhoneNumberRationalization))) {
+    if (new_type) {
       field->SetTypeTo(AutofillType(*new_type),
                        AutofillPredictionSource::kRationalization);
       LOG_AF(log_manager)
@@ -1048,6 +1045,17 @@ void FormStructureRationalizer::RationalizeRepeatedZipCodeFields(
                           AutofillPredictionSource::kRationalization);
       second_zip.SetTypeTo(AutofillType(ADDRESS_HOME_ZIP_SUFFIX),
                            AutofillPredictionSource::kRationalization);
+    } else if (second_zip.PredictionSource() ==
+               AutofillPredictionSource::kHeuristics) {
+      // Prevents filling the full zip code twice when repeated zip fields don't
+      // qualify as a prefix/suffix pair. This only applies to heuristics, since
+      // the confidence in other prediction sources is higher.
+      LOG_AF(log_manager)
+          << LoggingScope::kRationalization << LogMessage::kRationalization
+          << "Zip Code Rationalization: Converting sequence of (zip, "
+             "zip) to (zip, unknown)";
+      second_zip.SetTypeTo(AutofillType(UNKNOWN_TYPE),
+                           AutofillPredictionSource::kRationalization);
     }
   }
 }
@@ -1097,9 +1105,6 @@ void FormStructureRationalizer::RationalizePhoneCountryCode(
   constexpr static FieldTypeSet kRelevantPhoneTypes{
       PHONE_HOME_NUMBER, PHONE_HOME_NUMBER_PREFIX, PHONE_HOME_CITY_AND_NUMBER,
       PHONE_HOME_CITY_AND_NUMBER_WITHOUT_TRUNK_PREFIX};
-  bool improve_phone_number_rationalization_experiment_enabled =
-      base::FeatureList::IsEnabled(
-          features::kAutofillImprovePhoneNumberRationalization);
   if (std::ranges::any_of(fields_, [&](const auto& field) {
         FieldType computed_type = field->ComputedType().GetAddressType();
         FieldType rationalized_type =
@@ -1113,8 +1118,7 @@ void FormStructureRationalizer::RationalizePhoneCountryCode(
         // `kRelevantPhoneTypes`). Which is why we need to look at both
         // `computed_type` and `rationalized_type`.
         return (kRelevantPhoneTypes.contains(computed_type) ||
-                (improve_phone_number_rationalization_experiment_enabled &&
-                 kRelevantPhoneTypes.contains(rationalized_type)));
+                kRelevantPhoneTypes.contains(rationalized_type));
       })) {
     return;
   }

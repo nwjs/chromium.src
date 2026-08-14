@@ -17,10 +17,7 @@
 #include <utility>
 
 #include "base/command_line.h"
-#include "base/containers/fixed_flat_map.h"
-#include "base/debug/leak_annotations.h"
 #include "base/functional/bind.h"
-#include "base/i18n/rtl.h"
 #include "base/metrics/user_metrics.h"
 #include "build/build_config.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
@@ -29,6 +26,7 @@
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_init_state.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window_state.h"
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
@@ -41,23 +39,16 @@
 #include "chrome/browser/ui/views/frame/system_menu_model_builder.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
-#include "content/public/browser/desktop_capture_pip_utils.h"
-#include "media/capture/capture_switches.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/mojom/menu_source_type.mojom-forward.h"
-#include "ui/base/mojom/themes.mojom.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/color/color_provider_key.h"
-#include "ui/events/event_handler.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/widget/native_widget.h"
-#include "ui/wm/core/window_properties.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chromeos/ui/base/window_properties.h"
 #include "chromeos/ui/base/window_state_type.h"
 #include "chromeos/ui/wm/desks/desks_helper.h"
@@ -70,7 +61,12 @@
 #endif
 
 #if BUILDFLAG(IS_WIN)
+#include "base/feature_list.h"
 #include "chrome/browser/win/mica_titlebar.h"
+#include "content/public/browser/desktop_capture_pip_utils.h"
+#include "media/base/media_switches.h"
+#include "media/capture/capture_switches.h"
+#include "ui/wm/core/window_properties.h"
 #endif
 
 namespace {
@@ -185,6 +181,11 @@ bool BrowserWidget::InitBrowserWidget() {
 #endif
   }
 
+#if BUILDFLAG(IS_LINUX)
+  params.startup_id =
+      BrowserInitState::From(browser)->create_params().startup_id;
+#endif
+
 #if BUILDFLAG(IS_OZONE)
   params.inhibit_keyboard_shortcuts =
       browser->is_type_app() || browser->is_type_app_popup();
@@ -204,10 +205,11 @@ bool BrowserWidget::InitBrowserWidget() {
       got_saved_bounds = chrome::GetSavedWindowBoundsAndShowState(browser, &params.bounds,
                                                &params.show_state);
 
-      params.workspace = browser->initial_workspace();
+      params.workspace = BrowserInitState::From(browser)->initial_workspace();
       if (browser_native_widget_->ShouldUseInitialVisibleOnAllWorkspaces()) {
         params.visible_on_all_workspaces =
-            browser->initial_visible_on_all_workspaces_state();
+            BrowserInitState::From(browser)
+                ->initial_visible_on_all_workspaces_state();
       }
       const base::CommandLine& parsed_command_line =
           *base::CommandLine::ForCurrentProcess();
@@ -345,11 +347,11 @@ const ui::ThemeProvider* BrowserWidget::GetThemeProvider() const {
   // display_override so the web contents can blend with the overlay by using
   // the developer-provided theme color for a better experience. Context:
   // https://crbug.com/40771982.
-  if (app_controller && (!IsUsingLinuxSystemTheme(browser->profile()) ||
+  if (app_controller && (!IsUsingLinuxSystemTheme(browser->GetProfile()) ||
                          app_controller->AppUsesWindowControlsOverlay())) {
     return app_controller->GetThemeProvider();
   }
-  return &ThemeService::GetThemeProviderForProfile(browser->profile());
+  return &ThemeService::GetThemeProviderForProfile(browser->GetProfile());
 }
 
 ui::ColorProviderKey::ThemeInitializerSupplier* BrowserWidget::GetCustomTheme()
@@ -365,11 +367,12 @@ ui::ColorProviderKey::ThemeInitializerSupplier* BrowserWidget::GetCustomTheme()
   // display_override so the web contents can blend with the overlay by using
   // the developer-provided theme color for a better experience. Context:
   // https://crbug.com/40771982.
-  if (app_controller && (!IsUsingLinuxSystemTheme(browser->profile()) ||
+  if (app_controller && (!IsUsingLinuxSystemTheme(browser->GetProfile()) ||
                          app_controller->AppUsesWindowControlsOverlay())) {
     return app_controller->GetThemeSupplier();
   }
-  auto* theme_service = ThemeServiceFactory::GetForProfile(browser->profile());
+  auto* theme_service =
+      ThemeServiceFactory::GetForProfile(browser->GetProfile());
   return theme_service->UsingDeviceTheme() ? nullptr
                                            : theme_service->GetThemeSupplier();
 }
@@ -391,7 +394,7 @@ void BrowserWidget::OnNativeWidgetDestroyed() {
   // TODO(crbug.com/413168662): Once clients have been migrated away from
   // closing Browsers via their NativeWidgets explore removing this completely.
   UnloadController::From(browser)->set_force_skip_warning_user_on_close(true);
-  browser->OnWindowClosing();
+  UnloadController::From(browser)->OnWindowClosing();
   Widget::OnNativeWidgetDestroyed();
   browser->SynchronouslyDestroyBrowser();
 }
@@ -476,7 +479,7 @@ void BrowserWidget::OnNativeThemeUpdated(ui::NativeTheme* observed_theme) {
 ui::ColorProviderKey BrowserWidget::GetColorProviderKey() const {
   auto key = Widget::GetColorProviderKey();
 
-  Profile* profile = browser_view_->browser()->profile();
+  Profile* profile = browser_view_->browser()->GetProfile();
   const auto* theme_service = ThemeServiceFactory::GetForProfile(profile);
   CHECK(theme_service);
 
@@ -498,7 +501,7 @@ ui::ColorProviderKey BrowserWidget::GetColorProviderKey() const {
 
 #if BUILDFLAG(IS_CHROMEOS)
   // ChromeOS SystemWebApps use the OS theme all the time.
-  if (ash::IsSystemWebApp(browser_view_->browser())) {
+  if (web_app::GetSystemWebAppType(browser_view_->browser()).has_value()) {
     return key;
   }
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -596,5 +599,5 @@ bool BrowserWidget::RegenerateFrameOnThemeChange(
 }
 
 bool BrowserWidget::IsIncognitoBrowser() const {
-  return browser_view_->browser()->profile()->IsIncognitoProfile();
+  return browser_view_->browser()->GetProfile()->IsIncognitoProfile();
 }

@@ -471,7 +471,9 @@ public class TestTabModelDirectory {
 
     /** Nukes all the testing data. */
     public void tearDown() {
-        FileUtils.recursivelyDeleteFile(mTestingDirectory, FileUtils.DELETE_ALL);
+        if (mTestingDirectory != null) {
+            FileUtils.recursivelyDeleteFile(mTestingDirectory, FileUtils.DELETE_ALL);
+        }
     }
 
     /** Returns the base data directory. */
@@ -500,8 +502,10 @@ public class TestTabModelDirectory {
     public void writeTabModelFiles(TabModelMetaDataInfo info, boolean writeTabStates, int index)
             throws Exception {
         writeFile(mDataDirectory, "tab_state" + Integer.toString(index), info.encodedFile);
-        for (TabStateInfo tabStateInfo : info.contents) {
-            writeTabStateFile(tabStateInfo);
+        if (writeTabStates) {
+            for (TabStateInfo tabStateInfo : info.contents) {
+                writeTabStateFile(tabStateInfo);
+            }
         }
     }
 

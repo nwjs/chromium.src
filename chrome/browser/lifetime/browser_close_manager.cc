@@ -22,7 +22,6 @@
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -47,7 +46,7 @@ void ShowInProgressDownloads(Profile* profile) {
   if (download_core_service &&
       download_core_service->BlockingShutdownCount() > 0) {
     chrome::ScopedTabbedBrowserDisplayer displayer(profile);
-    chrome::ShowDownloads(displayer.browser());
+    chrome::ShowDownloads(displayer.browser_window_interface());
   }
 }
 
@@ -83,7 +82,8 @@ void BrowserCloseManager::CancelBrowserClose() {
   browser_shutdown::SetTryingToQuit(false);
   GlobalBrowserCollection::GetInstance()->ForEach(
       [](BrowserWindowInterface* browser) {
-        browser->GetBrowserForMigrationOnly()->ResetTryToCloseWindow();
+        UnloadController::From(browser->GetBrowserForMigrationOnly())
+            ->ResetTryToCloseWindow();
         return true;
       },
       BrowserCollection::Order::kCreation);
@@ -98,10 +98,11 @@ void BrowserCloseManager::TryToCloseBrowsers() {
   bool should_stop = false;
   GlobalBrowserCollection::GetInstance()->ForEach(
       [this, &should_stop](BrowserWindowInterface* browser) {
-        if (browser->GetBrowserForMigrationOnly()->TryToCloseWindow(
-                false,
-                base::BindRepeating(
-                    &BrowserCloseManager::OnBrowserReportCloseable, this))) {
+        if (UnloadController::From(browser->GetBrowserForMigrationOnly())
+                ->TryToCloseWindow(
+                    false, base::BindRepeating(
+                               &BrowserCloseManager::OnBrowserReportCloseable,
+                               this))) {
           current_browser_ = browser;
           should_stop = true;
         }
@@ -166,7 +167,7 @@ void BrowserCloseManager::ConfirmCloseWithPendingDownloads(
     return;
   }
   BrowserWindow::FromBrowser(bwi)->ConfirmBrowserCloseWithPendingDownloads(
-      download_count, Browser::DownloadCloseType::kBrowserShutdown,
+      download_count, UnloadController::DownloadCloseType::kBrowserShutdown,
       std::move(callback));
 }
 

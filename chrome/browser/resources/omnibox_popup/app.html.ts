@@ -5,7 +5,6 @@
 import {html, nothing} from '//resources/lit/v3_0/lit.rollup.js';
 
 import type {OmniboxPopupAppElement} from './app.js';
-import {getHtml as getContextualEntrypointHtml} from './app_contextual_entrypoint.html.js';
 
 export function getHtml(this: OmniboxPopupAppElement) {
   // clang-format off
@@ -20,7 +19,15 @@ export function getHtml(this: OmniboxPopupAppElement) {
       @dom-change="${this.onDropdownDomChange_}"
       ?hidden="${!this.hasVisibleMatches_}">
   </cr-searchbox-dropdown>
-  ${this.showContextEntrypoint_ ? getContextualEntrypointHtml.call(this) : nothing}
+  ${this.showContextEntrypoint_ ? html`
+    <omnibox-popup-contextual-entrypoint
+        .inputState="${this.inputState_}"
+        .isLensSearchEligible="${this.isLensSearchEligible_}"
+        .isLensIconEligible="${this.isLensIconEligible_}"
+        .isContentSharingEnabled="${this.isContentSharingEnabled_}"
+        .searchboxLayoutMode="${this.searchboxLayoutMode_}">
+    </omnibox-popup-contextual-entrypoint>
+  ` : nothing}
 </div>
 <!--_html_template_end_-->`;
   // clang-format on

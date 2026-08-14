@@ -246,7 +246,7 @@ class PasswordManagerDriver {
   // Checks if the current URL is safe to share password data with. Kills the
   // current renderer process if the URL is not safe and `may_kill_renderer` is
   // `true`.
-  virtual bool HasValidURL(bool may_kill_renderer = true) = 0;
+  virtual bool HasValidURL(bool may_kill_renderer) = 0;
 
   // Performs a number of security checks for the current frame.
   virtual bool IsRenderFrameHostSupported() = 0;

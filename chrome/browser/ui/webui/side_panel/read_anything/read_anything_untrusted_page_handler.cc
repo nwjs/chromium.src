@@ -53,6 +53,7 @@
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/translate/core/browser/language_state.h"
 #include "components/translate/core/browser/translate_driver.h"
+#include "components/translate/core/browser/translate_manager.h"
 #include "content/public/browser/browser_accessibility_state.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
@@ -811,6 +812,18 @@ void ReadAnythingUntrustedPageHandler::OnCopy() {
   }
 }
 
+content::WebContents* ReadAnythingUntrustedPageHandler::GetWebContents() const {
+  // Target the PDF observer's WebContents if available instead of the outer
+  // container frame.
+  if (pdf_observer_ != nullptr) {
+    return pdf_observer_->web_contents();
+  }
+  if (main_observer_ != nullptr) {
+    return main_observer_->web_contents();
+  }
+  return nullptr;
+}
+
 bool ReadAnythingUntrustedPageHandler::IsObservingTree(
     const ui::AXTreeID& tree_id) const {
   content::RenderFrameHost* rfh =
@@ -869,6 +882,30 @@ void ReadAnythingUntrustedPageHandler::OnFontSizeChange(double font_size) {
 void ReadAnythingUntrustedPageHandler::OnLinksEnabledChanged(bool enabled) {
   profile_->GetPrefs()->SetBoolean(
       prefs::kAccessibilityReadAnythingLinksEnabled, enabled);
+}
+
+void ReadAnythingUntrustedPageHandler::OnTranslationRequested() {
+  if (!features::IsReadAnythingTranslateEntryPointEnabled()) {
+    mojo::ReportBadMessage("Translate entry point not enabled");
+    return;
+  }
+  content::WebContents* contents = GetWebContents();
+  if (!contents) {
+    return;
+  }
+
+  ChromeTranslateClient* translate_client =
+      ChromeTranslateClient::FromWebContents(contents);
+  if (!translate_client) {
+    return;
+  }
+
+  translate::TranslateManager* translate_manager =
+      translate_client->GetTranslateManager();
+  if (translate_manager) {
+    translate_manager->ShowTranslateUI(/*auto_translate=*/true,
+                                       /*triggered_from_menu=*/true);
+  }
 }
 
 void ReadAnythingUntrustedPageHandler::OnImagesEnabledChanged(bool enabled) {
@@ -1163,10 +1200,9 @@ void ReadAnythingUntrustedPageHandler::OnCollapseSelection() {
 void ReadAnythingUntrustedPageHandler::OnDistillationStatus(
     read_anything::mojom::DistillationStatus status,
     int word_count) {
-  if (last_open_trigger_.has_value() &&
-      last_open_trigger_.value() == ReadAnythingOpenTrigger::kOmniboxChip) {
+  if (last_open_trigger_ == ReadAnythingOpenTrigger::kOmniboxChip) {
     if (status != read_anything::mojom::DistillationStatus::kStillRunning) {
-      last_open_trigger_.reset();
+      last_open_trigger_ = ReadAnythingOpenTrigger::kUnknown;
       base::UmaHistogramEnumeration(
           "Accessibility.ReadAnything.DistillationStatusAfterOmnibox", status);
       base::UmaHistogramCustomCounts(
@@ -1197,11 +1233,14 @@ void ReadAnythingUntrustedPageHandler::SetDefaultLanguageCode(
 
 void ReadAnythingUntrustedPageHandler::Activate(
     bool active,
-    std::optional<ReadAnythingOpenTrigger> open_trigger,
+    ReadAnythingOpenTrigger open_trigger,
     std::optional<base::TimeDelta> completed_session_duration) {
   active_ = active;
   if (active_) {
     last_open_trigger_ = open_trigger;
+    page_->OnReadingModeShown(
+        static_cast<read_anything::mojom::ReadAnythingOpenTrigger>(
+            open_trigger));
     tab_will_detach_ = false;
     if (features::IsImmersiveReadAnythingEnabled()) {
       // Signal that reading mode has been re-opened and is no longer hidden if
@@ -1599,7 +1638,7 @@ void ReadAnythingUntrustedPageHandler::EvaluateDistillationQuality(
   tab_->GetContents()->RequestAXTreeSnapshot(
       base::BindOnce(
           &ReadAnythingUntrustedPageHandler::OnAXTreeSnapshotReceived,
-          weak_factory_.GetSafeRef(), distilled_html),
+          weak_factory_.GetWeakPtr(), distilled_html),
       ui::kAXModeWebContentsOnly,
       /* max_nodes= */ kMaxNodesForDistillationQualityEvaluation,
       /* timeout= */ {}, content::WebContents::AXTreeSnapshotPolicy::kAll);
@@ -1633,7 +1672,7 @@ void ReadAnythingUntrustedPageHandler::OnAXTreeSnapshotReceived(
       snapshot, distilled_html,
       base::BindOnce(
           &ReadAnythingUntrustedPageHandler::OnQualityMetricsEvaluated,
-          weak_factory_.GetSafeRef()));
+          weak_factory_.GetWeakPtr()));
 }
 
 void ReadAnythingUntrustedPageHandler::OnQualityMetricsEvaluated(
@@ -1654,7 +1693,11 @@ void ReadAnythingUntrustedPageHandler::OnQualityMetricsEvaluated(
   }
 
   const auto& metrics = result.value();
+  LogDistillationQualityMetrics(metrics);
+}
 
+void ReadAnythingUntrustedPageHandler::LogDistillationQualityMetrics(
+    const reading_mode::mojom::DistillationMetricsPtr& metrics) {
   if (tab_ && tab_->GetContents()) {
     ukm::SourceId source_id =
         tab_->GetContents()->GetPrimaryMainFrame()->GetPageUkmSourceId();
@@ -1670,6 +1713,28 @@ void ReadAnythingUntrustedPageHandler::OnQualityMetricsEvaluated(
             static_cast<int>(metrics->link_density_ratio * 100.0))
         .Record(ukm::UkmRecorder::Get());
   }
+
+  base::UmaHistogramPercentage(
+      "Accessibility.ReadAnything.DistillationQuality.RougeLF1",
+      static_cast<int>(metrics->rouge_l_f1 * 100.0));
+  base::UmaHistogramPercentage(
+      "Accessibility.ReadAnything.DistillationQuality.RougeLPrecision",
+      static_cast<int>(metrics->rouge_l_precision * 100.0));
+  base::UmaHistogramPercentage(
+      "Accessibility.ReadAnything.DistillationQuality.RougeLRecall",
+      static_cast<int>(metrics->rouge_l_recall * 100.0));
+  base::UmaHistogramPercentage(
+      "Accessibility.ReadAnything.DistillationQuality.RougeLF2",
+      static_cast<int>(metrics->rouge_l_f2 * 100.0));
+  base::UmaHistogramPercentage(
+      "Accessibility.ReadAnything.DistillationQuality.StructScore",
+      static_cast<int>(metrics->struct_score * 100.0));
+  base::UmaHistogramPercentage(
+      "Accessibility.ReadAnything.DistillationQuality.FormatScore",
+      static_cast<int>(metrics->format_score * 100.0));
+  base::UmaHistogramPercentage(
+      "Accessibility.ReadAnything.DistillationQuality.LinkDensityRatio",
+      static_cast<int>(metrics->link_density_ratio * 100.0));
 }
 
 void ReadAnythingUntrustedPageHandler::SetLanguageCode(

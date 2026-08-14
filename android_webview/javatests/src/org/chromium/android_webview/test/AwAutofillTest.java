@@ -2679,6 +2679,12 @@ public class AwAutofillTest extends AwParameterizedTest {
                     <iframe srcdoc='<input id=csc>'></iframe>
                 </form>\
                 """);
+        // `OnPageFinished` does not guarantee that autofill is fully initialized, therefore let's
+        // wait for a short time.
+        // TODO(b/527998144): Find a better way to wait for the autofill to be initialized.
+        // Note: Prior to https://crrev.com/c/7960537, OnPageFinished was triggered with a 500ms
+        // delay for simple pages like the above, which internally did what the following wait does.
+        Thread.sleep(500);
         ThreadUtils.runOnUiThreadBlocking(
                 () ->
                         AutofillProviderTestHelper

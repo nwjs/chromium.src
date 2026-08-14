@@ -22,6 +22,7 @@
 #include "net/ssl/ssl_config.h"
 #include "net/ssl/ssl_config_service.h"
 #include "net/url_request/url_request_context.h"
+#include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/simple_host_resolver.h"
 #include "services/network/restricted_udp_socket.h"
 #include "services/network/tls_client_socket.h"
@@ -72,6 +73,12 @@ void SocketFactory::CreateRestrictedUDPSocket(
                        std::move(callback));
       break;
     case mojom::RestrictedUDPSocketMode::CONNECTED:
+      if (base::FeatureList::IsEnabled(
+              features::
+                  kDirectSocketsUdpSendRequireMulticastPermissionPolicy)) {
+        // Checked in DirectSocketsServiceImpl::OnResolveCompleteForUDPSocket.
+        CHECK(allow_multicast || !addr.address().IsMulticast());
+      }
       udp_socket->Connect(addr, /*options=*/
                           params ? std::move(params->socket_options) : nullptr,
                           std::move(callback));
@@ -171,13 +178,14 @@ void SocketFactory::CreateTCPConnectedSocket(
     const std::optional<net::IPEndPoint>& local_addr,
     const net::AddressList& remote_addr_list,
     mojom::TCPConnectedSocketOptionsPtr tcp_connected_socket_options,
-    const net::NetworkTrafficAnnotationTag& traffic_annotation,
+    const net::MutableNetworkTrafficAnnotationTag& traffic_annotation,
     mojo::PendingReceiver<mojom::TCPConnectedSocket> receiver,
     mojo::PendingRemote<mojom::SocketObserver> observer,
-    mojom::NetworkContext::CreateTCPConnectedSocketCallback callback) {
+    mojom::SocketFactory::CreateTCPConnectedSocketCallback callback) {
   auto socket = std::make_unique<TCPConnectedSocket>(
       std::move(observer), net_log_, &tls_socket_factory_,
-      client_socket_factory_, traffic_annotation);
+      client_socket_factory_,
+      static_cast<net::NetworkTrafficAnnotationTag>(traffic_annotation));
   TCPConnectedSocket* socket_raw = socket.get();
   tcp_connected_socket_receiver_.Add(std::move(socket), std::move(receiver));
   socket_raw->Connect(local_addr, remote_addr_list,

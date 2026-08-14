@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/base_switches.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
 #include "base/debug/crash_logging.h"
@@ -30,6 +31,7 @@
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
 #include "base/values.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/channel_info.h"
@@ -50,18 +52,17 @@
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/renderer_resources.h"
-#include "chrome/renderer/benchmarking_extension.h"
+#include "chrome/renderer/benchmarking_bindings.h"
 #include "chrome/renderer/browser_exposed_renderer_interfaces.h"
 #include "chrome/renderer/chrome_content_settings_agent_delegate.h"
 #include "chrome/renderer/chrome_render_frame_observer.h"
 #include "chrome/renderer/chrome_render_thread_observer.h"
 #include "chrome/renderer/controlled_frame/controlled_frame_extensions_renderer_api_provider.h"
 #include "chrome/renderer/google_accounts_private_api_extension.h"
-#include "chrome/renderer/loadtimes_extension_bindings.h"
+#include "chrome/renderer/loadtimes_bindings.h"
 #include "chrome/renderer/media/flash_embed_rewrite.h"
 #include "chrome/renderer/media/webrtc_logging_agent_impl.h"
 #include "chrome/renderer/net/net_error_helper.h"
-#include "chrome/renderer/net_benchmarking_extension.h"
 #include "chrome/renderer/plugins/non_loadable_plugin_placeholder.h"
 #include "chrome/renderer/plugins/pdf_plugin_placeholder.h"
 #include "chrome/renderer/process_state.h"
@@ -199,6 +200,7 @@
 #else
 #include "chrome/renderer/indigo/indigo_agent.h"
 #include "chrome/renderer/indigo/onboarding_agent.h"
+#include "chrome/renderer/password_manager/remote_actor_credential_sharing_extension.h"
 #include "chrome/renderer/searchbox/searchbox.h"
 #include "chrome/renderer/searchbox/searchbox_extension.h"
 #include "components/record_replay/content/renderer/record_replay_agent.h"
@@ -347,6 +349,11 @@ bool IsStandaloneContentExtensionProcess() {
 #endif
 }
 
+bool IsTopChromeWebUiProcess() {
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kTopChromeWebUI);
+}
+
 std::unique_ptr<base::Unwinder> CreateV8Unwinder(v8::Isolate* isolate) {
   return std::make_unique<V8Unwinder>(isolate);
 }
@@ -407,6 +414,11 @@ void ChromeContentRendererClient::RenderThreadStarted() {
         base::CurrentProcessType::PROCESS_RENDERER_EXTENSION);
   }
 
+  if (IsTopChromeWebUiProcess()) {
+    base::CurrentProcess::GetInstance().SetProcessType(
+        base::CurrentProcessType::PROCESS_RENDERER_TOP_WEBUI);
+  }
+
 #if BUILDFLAG(IS_WIN)
   mojo::PendingRemote<mojom::ModuleEventSink> module_event_sink;
   thread->BindHostReceiver(module_event_sink.InitWithNewPipeAndPassReceiver());
@@ -447,9 +459,9 @@ void ChromeContentRendererClient::RenderThreadStarted() {
       WebString::FromAscii(extensions::kExtensionScheme));
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
-  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
 #if BUILDFLAG(ENABLE_SPELLCHECK)
-  if (!spellcheck_ && command_line->HasSwitch(switches::kEnableSpellChecking)) {
+  if (!spellcheck_ && base::CommandLine::ForCurrentProcess()->HasSwitch(
+                          switches::kEnableSpellChecking)) {
     InitSpellCheck();
   }
 #endif
@@ -467,19 +479,6 @@ void ChromeContentRendererClient::RenderThreadStarted() {
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   thread->AddObserver(phishing_model_setter_.get());
 #endif
-
-  blink::WebScriptController::RegisterExtension(
-      extensions_v8::LoadTimesExtension::Get());
-
-  if (command_line->HasSwitch(variations::switches::kEnableBenchmarkingApi)) {
-    blink::WebScriptController::RegisterExtension(
-        extensions_v8::BenchmarkingExtension::Get());
-  }
-
-  if (command_line->HasSwitch(switches::kEnableNetBenchmarking)) {
-    blink::WebScriptController::RegisterExtension(
-        extensions_v8::NetBenchmarkingExtension::Get());
-  }
 
   // chrome: is also to be permitted to embeds https:// things and have them
   // treated as first-party.
@@ -548,6 +547,7 @@ void ChromeContentRendererClient::RenderThreadStarted() {
   // kInstantProcess command-line switch and all code that depends on it will be
   // removed. Remove this display-isolation policy block as part of that
   // cleanup.
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   bool should_restrict_chrome_search_scheme =
       !command_line->HasSwitch(switches::kInstantProcess);
 
@@ -570,6 +570,19 @@ void ChromeContentRendererClient::RenderThreadStarted() {
       WebString::FromAscii(dom_distiller::kDomDistillerScheme));
   // TODO(nyquist): Add test to ensure this happens when the flag is set.
   WebSecurityPolicy::RegisterURLSchemeAsDisplayIsolated(dom_distiller_scheme);
+
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || \
+    BUILDFLAG(IS_WIN)
+  if (base::FeatureList::IsEnabled(features::kGoogleChromeScheme)) {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+    WebSecurityPolicy::RegisterURLSchemeAsDirectLaunch(
+        WebString::FromAscii("google-chrome"));
+#else
+    WebSecurityPolicy::RegisterURLSchemeAsDirectLaunch(
+        WebString::FromAscii("chromium"));
+#endif
+  }
+#endif
 
 #if BUILDFLAG(IS_ANDROID)
   WebSecurityPolicy::RegisterURLSchemeAsAllowedForReferrer(
@@ -665,6 +678,12 @@ void ChromeContentRendererClient::RenderFrameCreated(
 #endif
 
   TrustedVaultEncryptionKeysExtension::Create(render_frame);
+#if !BUILDFLAG(IS_ANDROID)
+  if (features::RemoteActorCredentialSharingEnabled() &&
+      render_frame->IsMainFrame()) {
+    RemoteActorCredentialSharingExtension::Create(render_frame);
+  }
+#endif
   GoogleAccountsPrivateApiExtension::Create(render_frame);
 
   if (render_frame->IsMainFrame())
@@ -1529,6 +1548,10 @@ void ChromeContentRendererClient::WillEvaluateServiceWorkerOnWorkerThread(
           context_proxy, v8_context, service_worker_version_id,
           service_worker_scope, script_url, service_worker_token);
 #endif
+  if (AllowScriptExtensionForServiceWorker(url::Origin::Create(script_url))) {
+    BenchmarkingBindings::InstallConditionally(v8_context);
+    LoadTimesBindings::Install(v8_context);
+  }
 }
 
 void ChromeContentRendererClient::DidStartServiceWorkerContextOnWorkerThread(

@@ -5,7 +5,7 @@
 
 load("@chromium-luci//builder_config.star", "builder_config")
 load("@chromium-luci//builder_health_indicators.star", "health_spec")
-load("@chromium-luci//builders.star", "os")
+load("@chromium-luci//builders.star", "cpu", "os")
 load("@chromium-luci//ci.star", "ci")
 load("@chromium-luci//consoles.star", "consoles")
 load("@chromium-luci//gn_args.star", "gn_args")
@@ -272,7 +272,8 @@ ci.builder(
 )
 
 ci.builder(
-    name = "mac-rust-x64-dbg",
+    name = "mac-rust-arm64-dbg",
+    description_html = "Runs rust tests on MacOS on CI",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -290,7 +291,7 @@ ci.builder(
             "debug_builder",
             "remoteexec",
             "mac",
-            "x64",
+            "arm64",
         ],
     ),
     targets = targets.bundle(
@@ -302,15 +303,17 @@ ci.builder(
             "rust_build_tests",
         ],
         mixins = [
-            "mac_default_x64",
+            "mac_default_arm64",
         ],
     ),
-    cores = 12,
+    cores = None,
     os = os.MAC_DEFAULT,
+    cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
-        category = "Mac x64",
+        category = "Mac arm64",
         short_name = "dbg",
     ),
+    contact_team_email = "rust-in-chrome@google.com",
 )
 
 ci.builder(

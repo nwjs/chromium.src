@@ -296,7 +296,7 @@ static unsigned FindLengthOfValidDouble(base::span<const LChar> chars) {
   }
 
   bool decimal_mark_seen = false;
-  size_t valid_length = 0;
+  unsigned valid_length = 0;
 #if defined(__SSE2__) || defined(__ARM_NEON__)
   if (chars.size() >= 16) {
     uint8_t b __attribute__((vector_size(16)));
@@ -1459,6 +1459,8 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
       return (value_id >= CSSValueID::kDrag &&
               value_id <= CSSValueID::kNoDrag) ||
              value_id == CSSValueID::kNone;
+    case CSSPropertyID::kWindowDrag:
+      return value_id == CSSValueID::kNone || value_id == CSSValueID::kMove;
     case CSSPropertyID::kAppearance:
       return (value_id == CSSValueID::kCheckbox ||
               value_id == CSSValueID::kRadio ||
@@ -1831,6 +1833,7 @@ CSSBitset CSSParserFastPaths::handled_by_keyword_fast_paths_properties_{{
     CSSPropertyID::kViewTransitionScope,
     CSSPropertyID::kVisibility,
     CSSPropertyID::kAppRegion,
+    CSSPropertyID::kWindowDrag,
     CSSPropertyID::kBackfaceVisibility,
     CSSPropertyID::kBorderBlockEndStyle,
     CSSPropertyID::kBorderBlockStartStyle,

@@ -1075,13 +1075,19 @@ void SkiaOutputSurfaceImpl::SetCapabilitiesForTesting(
                  /*need_framebuffer=*/false);
 }
 
+struct SkiaOutputSurfaceImpl::InitializeOnGpuThreadResult {
+  // The capabilities are eagerly captured on the GPU thread to avoid a
+  // deadlock. See `SkiaOutputSurfaceSharedImageInterface`'s constructor.
+  gpu::SharedImageCapabilities shared_image_capabilities;
+};
+
 bool SkiaOutputSurfaceImpl::Initialize() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   TRACE_EVENT0("viz", __PRETTY_FUNCTION__);
 
   weak_ptr_ = weak_ptr_factory_.GetWeakPtr();
 
-  bool result = false;
+  std::optional<SkiaOutputSurfaceImpl::InitializeOnGpuThreadResult> result;
   auto callback = base::BindOnce(&SkiaOutputSurfaceImpl::InitializeOnGpuThread,
                                  base::Unretained(this), &result);
   EnqueueGpuTask(std::move(callback), {}, /*make_current=*/false,
@@ -1099,7 +1105,7 @@ bool SkiaOutputSurfaceImpl::Initialize() {
   DCHECK(impl_on_gpu_);
   shared_image_interface_ =
       base::MakeRefCounted<SkiaOutputSurfaceSharedImageInterface>(
-          *this, *impl_on_gpu_);
+          *this, *impl_on_gpu_, std::move(result->shared_image_capabilities));
 
   if (capabilities_.damage_area_from_skia_output_device) {
     damage_of_current_buffer_.emplace();
@@ -1124,7 +1130,9 @@ bool SkiaOutputSurfaceImpl::Initialize() {
   return true;
 }
 
-void SkiaOutputSurfaceImpl::InitializeOnGpuThread(bool* result) {
+void SkiaOutputSurfaceImpl::InitializeOnGpuThread(
+    std::optional<SkiaOutputSurfaceImpl::InitializeOnGpuThreadResult>*
+        out_result) {
   auto did_swap_buffer_complete_callback = base::BindRepeating(
       &SkiaOutputSurfaceImpl::DidSwapBuffersComplete, weak_ptr_);
   auto buffer_presented_callback =
@@ -1151,10 +1159,15 @@ void SkiaOutputSurfaceImpl::InitializeOnGpuThread(bool* result) {
       std::move(add_child_window_to_browser_callback),
       std::move(release_overlays_callback));
   if (!impl_on_gpu_) {
-    *result = false;
+    *out_result = std::nullopt;
     return;
   }
+  SkiaOutputSurfaceImpl::InitializeOnGpuThreadResult result;
   capabilities_ = impl_on_gpu_->capabilities();
+
+  if (auto* shared_image_factory = impl_on_gpu_->shared_image_factory()) {
+    result.shared_image_capabilities = shared_image_factory->MakeCapabilities();
+  }
 
   auto shared_context_state = dependency_->GetSharedContextState();
   gr_context_type_ = shared_context_state->gr_context_type();
@@ -1174,7 +1187,7 @@ void SkiaOutputSurfaceImpl::InitializeOnGpuThread(bool* result) {
   graphite_use_volatile_promise_images_ = can_use_non_volatile_images
                                               ? skgpu::graphite::Volatile::kNo
                                               : skgpu::graphite::Volatile::kYes;
-  *result = true;
+  *out_result = result;
 }
 
 GrSurfaceCharacterization
@@ -1199,21 +1212,6 @@ SkiaOutputSurfaceImpl::CreateGrSurfaceCharacterizationRenderPass(
   auto backend_format = gr_context_thread_safe_->defaultBackendFormat(
       color_type, GrRenderable::kYes);
   DCHECK(backend_format.isValid());
-#if BUILDFLAG(IS_APPLE)
-  if (is_overlay) {
-    DCHECK_EQ(gr_context_type_, gpu::GrContextType::kGL);
-    // For overlay, IOSurface will be used. Hence, we need to ensure that we are
-    // using the correct texture target for IOSurfaces, which depends on the GL
-    // implementation.
-    backend_format = GrBackendFormats::MakeGL(
-        GrBackendFormats::AsGLFormatEnum(backend_format),
-#if BUILDFLAG(IS_MAC)
-        gpu::GetTextureTargetForIOSurfaces());
-#else
-        GL_TEXTURE_2D);
-#endif
-  }
-#endif
   auto image_info =
       SkImageInfo::Make(surface_size.width(), surface_size.height(), color_type,
                         alpha_type, std::move(color_space));
@@ -1252,15 +1250,6 @@ SkiaOutputSurfaceImpl::CreateGrSurfaceCharacterizationCurrentFrame(
       gr_context_thread_safe_->maxSurfaceSampleCountForColorType(color_type));
   auto backend_format = gr_context_thread_safe_->defaultBackendFormat(
       color_type, GrRenderable::kYes);
-#if BUILDFLAG(IS_MAC)
-  DCHECK_EQ(gr_context_type_, gpu::GrContextType::kGL);
-  // For root render pass, IOSurface will be used. Hence, we need to ensure that
-  // we are using the correct texture target for IOSurfaces, which depends on
-  // the GL implementation.
-  backend_format =
-      GrBackendFormats::MakeGL(GrBackendFormats::AsGLFormatEnum(backend_format),
-                               gpu::GetTextureTargetForIOSurfaces());
-#endif
   DCHECK(backend_format.isValid())
       << "GrBackendFormat is invalid for color_type: " << color_type;
   auto surface_origin =

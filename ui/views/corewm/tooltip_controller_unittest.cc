@@ -852,6 +852,70 @@ TEST_F(TooltipControllerTest, ShowTooltipOnTooltipTextUpdate) {
   EXPECT_EQ(nullptr, helper_->GetTooltipParentWindow());
 }
 
+TEST_F(TooltipControllerTest, SynthesizedMouseMoveUpdatesObservedWindow) {
+  std::u16string expected_tooltip;
+  wm::SetTooltipText(GetWindow(), &expected_tooltip);
+
+  // Send a synthesized mouse move event. It shouldn't show a tooltip,
+  // but it should update |observed_window_| and position.
+  gfx::Point point(10, 15);
+  View::ConvertPointToWidget(view_, &point);
+  ui::MouseEvent synthesized_move(ui::EventType::kMouseMoved, point, point,
+                                  base::TimeTicks::Now(), ui::EF_IS_SYNTHESIZED,
+                                  0);
+  ui::Event::DispatcherApi(&synthesized_move).set_target(GetWindow());
+  helper_->controller()->OnMouseEvent(&synthesized_move);
+
+  EXPECT_EQ(std::u16string(), helper_->GetTooltipText());
+  EXPECT_EQ(nullptr, helper_->GetTooltipParentWindow());
+  EXPECT_EQ(GetWindow(), helper_->GetObservedWindow());
+  EXPECT_FALSE(helper_->IsTooltipVisible());
+
+  // Updating the tooltip text and calling UpdateTooltip should now show
+  // the tooltip at the location of the synthesized mouse move.
+  expected_tooltip = u"Tooltip text";
+  helper_->controller()->UpdateTooltip(GetWindow());
+
+  EXPECT_EQ(expected_tooltip, wm::GetTooltipText(GetWindow()));
+  EXPECT_EQ(expected_tooltip, helper_->GetTooltipText());
+  EXPECT_EQ(GetWindow(), helper_->GetTooltipParentWindow());
+  EXPECT_TRUE(helper_->IsTooltipVisible());
+  EXPECT_EQ(point, helper_->GetTooltipPosition());
+
+  helper_->HideAndReset();
+}
+
+// TODO(crbug.com/534947622): Disable on Fuchsia due to test failures.
+#if BUILDFLAG(IS_FUCHSIA)
+#define MAYBE_DontCrashWhenScreenTargetIsNullAfterCapture \
+  DISABLED_DontCrashWhenScreenTargetIsNullAfterCapture
+#else
+#define MAYBE_DontCrashWhenScreenTargetIsNullAfterCapture \
+  DontCrashWhenScreenTargetIsNullAfterCapture
+#endif
+TEST_F(TooltipControllerTest,
+       MAYBE_DontCrashWhenScreenTargetIsNullAfterCapture) {
+  // Set capture on the main widget.
+  widget_->SetCapture(view_);
+  EXPECT_TRUE(widget_->HasCapture());
+
+  // Create a second window under the mouse cursor that has no delegate and
+  // no event-handling children, so GetEventHandlerForPoint returns nullptr.
+  std::unique_ptr<aura::Window> target_window(
+      CreateNormalWindow(100, GetRootWindow(), nullptr));
+  target_window->SetBounds(gfx::Rect(10, 10, 100, 100));
+  target_window->SetEventTargetingPolicy(
+      aura::EventTargetingPolicy::kDescendantsOnly);
+
+  // Move the mouse over the second window. This should not crash when
+  // GetTooltipTarget attempts to convert points to the target window.
+  generator_->MoveMouseTo(target_window->GetBoundsInScreen().CenterPoint());
+  EXPECT_EQ(nullptr, helper_->GetObservedWindow());
+  EXPECT_FALSE(helper_->IsTooltipVisible());
+
+  helper_->HideAndReset();
+}
+
 // This test validates that the TooltipController correctly triggers a position
 // update for a tooltip that is about to be shown.
 TEST_F(TooltipControllerTest, TooltipPositionUpdatedWhenTimerRunning) {

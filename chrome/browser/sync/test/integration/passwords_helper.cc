@@ -27,8 +27,8 @@
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
 #include "components/password_manager/core/browser/sync/password_proto_utils.h"
 #include "components/sync/engine/loopback_server/persistent_unique_client_entity.h"
+#include "components/sync/model/crypto/key_derivation_params.h"
 #include "components/sync/nigori/cryptographer_impl.h"
-#include "components/sync/nigori/key_derivation_params.h"
 #include "components/sync/protocol/entity_specifics.pb.h"
 #include "components/sync/protocol/password_specifics.pb.h"
 #include "components/sync/service/sync_service_impl.h"
@@ -150,21 +150,9 @@ PasswordStoreInterface* GetProfilePasswordStoreInterface(int index) {
       .get();
 }
 
-PasswordStoreInterface* GetVerifierProfilePasswordStoreInterface() {
-  return ProfilePasswordStoreFactory::GetForProfile(
-             test()->verifier(), ServiceAccessType::IMPLICIT_ACCESS)
-      .get();
-}
-
 PasswordStoreInterface* GetAccountPasswordStoreInterface(int index) {
   return AccountPasswordStoreFactory::GetForProfile(
              test()->GetProfile(index), ServiceAccessType::IMPLICIT_ACCESS)
-      .get();
-}
-
-PasswordStoreInterface* GetVerifierAccountPasswordStoreInterface() {
-  return AccountPasswordStoreFactory::GetForProfile(
-             test()->verifier(), ServiceAccessType::IMPLICIT_ACCESS)
       .get();
 }
 
@@ -179,36 +167,6 @@ password_manager::PasswordStoreInterface* GetPasswordStoreInterface(
     case PasswordForm::Store::kAccountStore:
       return GetAccountPasswordStoreInterface(index);
   }
-}
-
-password_manager::PasswordStoreInterface* GetVerifierPasswordStoreInterface(
-    PasswordForm::Store store) {
-  switch (store) {
-    case PasswordForm::Store::kNotSet:
-      NOTREACHED();
-    case PasswordForm::Store::kProfileStore:
-      return GetVerifierProfilePasswordStoreInterface();
-    case PasswordForm::Store::kAccountStore:
-      return GetVerifierAccountPasswordStoreInterface();
-  }
-}
-
-bool ProfileContainsSamePasswordFormsAsVerifier(int index,
-                                                PasswordForm::Store store) {
-  std::vector<std::unique_ptr<PasswordForm>> verifier_forms =
-      GetLogins(GetVerifierPasswordStoreInterface(store));
-  std::vector<std::unique_ptr<PasswordForm>> forms =
-      GetLogins(GetPasswordStoreInterface(index, store));
-
-  std::ostringstream mismatch_details_stream;
-  bool is_matching = password_manager::ContainsEqualPasswordFormsUnordered(
-      verifier_forms, forms, &mismatch_details_stream);
-  if (!is_matching) {
-    VLOG(1) << "Profile " << index
-            << " does not contain the same Password forms as Verifier Profile.";
-    VLOG(1) << mismatch_details_stream.str();
-  }
-  return is_matching;
 }
 
 bool ProfilesContainSamePasswordForms(int index_a,
@@ -232,19 +190,6 @@ bool ProfilesContainSamePasswordForms(int index_a,
   return is_matching;
 }
 
-bool AllProfilesContainSamePasswordFormsAsVerifier(
-    password_manager::PasswordForm::Store store) {
-  for (int i = 0; i < test()->num_clients(); ++i) {
-    if (!ProfileContainsSamePasswordFormsAsVerifier(i, store)) {
-      DVLOG(1) << "Profile " << i
-               << " does not contain the same password"
-                  " forms as the verifier.";
-      return false;
-    }
-  }
-  return true;
-}
-
 bool AllProfilesContainSamePasswordForms(PasswordForm::Store store) {
   for (int i = 1; i < test()->num_clients(); ++i) {
     if (!ProfilesContainSamePasswordForms(0, i, store)) {
@@ -259,10 +204,6 @@ bool AllProfilesContainSamePasswordForms(PasswordForm::Store store) {
 
 int GetPasswordCount(int index, PasswordForm::Store store) {
   return GetLogins(GetPasswordStoreInterface(index, store)).size();
-}
-
-int GetVerifierPasswordCount(password_manager::PasswordForm::Store store) {
-  return GetLogins(GetVerifierPasswordStoreInterface(store)).size();
 }
 
 PasswordForm CreateTestPasswordForm(int index, PasswordForm::Store store) {
@@ -382,38 +323,6 @@ bool SamePasswordFormsChecker::IsExitConditionSatisfied(std::ostream* os) {
   do {
     needs_recheck_ = false;
     result = passwords_helper::AllProfilesContainSamePasswordForms(store_);
-  } while (needs_recheck_);
-  in_progress_ = false;
-  return result;
-}
-
-SamePasswordFormsAsVerifierChecker::SamePasswordFormsAsVerifierChecker(
-    int i,
-    password_manager::PasswordForm::Store store)
-    : SingleClientStatusChangeChecker(
-          sync_datatype_helper::test()->GetSyncService(i)),
-      index_(i),
-      store_(store) {}
-
-// This method uses the same re-entrancy prevention trick as
-// the SamePasswordFormsChecker.
-bool SamePasswordFormsAsVerifierChecker::IsExitConditionSatisfied(
-    std::ostream* os) {
-  *os << "Waiting for passwords to match verifier";
-
-  if (in_progress_) {
-    LOG(WARNING) << "Setting flag and returning early to prevent nesting.";
-    needs_recheck_ = true;
-    return false;
-  }
-
-  // Keep retrying until we get a good reading.
-  bool result = false;
-  in_progress_ = true;
-  do {
-    needs_recheck_ = false;
-    result = passwords_helper::ProfileContainsSamePasswordFormsAsVerifier(
-        index_, store_);
   } while (needs_recheck_);
   in_progress_ = false;
   return result;

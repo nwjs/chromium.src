@@ -254,6 +254,9 @@ LenOverlayEntryPointFromInvocationSource(
     // used by the Lens overlay query controller, which is not used by those
     // flows, it is not necessary.
     case lens::LensOverlayInvocationSource::kNtpContextualQuery:
+    case lens::LensOverlayInvocationSource::kNtpActionChips:
+    case lens::LensOverlayInvocationSource::kAppBarAimButton:
+    case lens::LensOverlayInvocationSource::kOmniboxEverywhereComposebox:
   }
   return lens::LensOverlayClientLogs::UNKNOWN_ENTRY_POINT;
 }

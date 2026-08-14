@@ -20,7 +20,7 @@
 namespace autofill {
 
 // LINT.IfChange(FillingProductToString)
-std::string FillingProductToString(FillingProduct filling_product) {
+std::string_view FillingProductToString(FillingProduct filling_product) {
   switch (filling_product) {
     case FillingProduct::kNone:
       return "None";
@@ -103,6 +103,7 @@ FillingProduct GetFillingProductFromSuggestionType(SuggestionType type) {
       return FillingProduct::kCompose;
     case SuggestionType::kDatalistEntry:
       return FillingProduct::kDataList;
+    case SuggestionType::kAtMemoryAiDisclosure:
     case SuggestionType::kAtMemoryGenericError:
     case SuggestionType::kAtMemoryInactivityNudge:
     case SuggestionType::kAtMemoryNoConnection:
@@ -120,6 +121,8 @@ FillingProduct GetFillingProductFromSuggestionType(SuggestionType type) {
     case SuggestionType::kUndoOrClear:
       return FillingProduct::kNone;
     case SuggestionType::kAutofillAiOtherOrders:
+    case SuggestionType::kAutofillAiOtherShipments:
+    case SuggestionType::kAutofillAiPrivateInferenceNotice:
     case SuggestionType::kFetchingAmbientData:
     case SuggestionType::kFillAutofillAi:
     case SuggestionType::kManageAutofillAi:
@@ -136,6 +139,8 @@ FillingProduct GetFillingProductFromSuggestionType(SuggestionType type) {
     case SuggestionType::kOneTimePasswordEntry:
       return FillingProduct::kOneTimePassword;
     case SuggestionType::kAtMemorySearchResult:
+    case SuggestionType::kAtMemorySourceAttribution:
+    case SuggestionType::kManageEnhancedAutofill:
       return FillingProduct::kAtMemory;
     case SuggestionType::kWebauthnCredential:
     case SuggestionType::kWebauthnPasskeyQrCode:

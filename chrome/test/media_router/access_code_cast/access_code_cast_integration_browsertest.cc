@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include "base/auto_reset.h"
+#include "base/byte_size.h"
 #include "base/memory/ptr_util.h"
 #include "base/strings/string_util.h"
 #include "base/task/sequenced_task_runner.h"
@@ -197,12 +198,12 @@ void AccessCodeCastIntegrationBrowserTest::SetUpOnMainThread() {
   identity_test_environment_ =
       std::make_unique<signin::IdentityTestEnvironment>();
   // In case of multiple BrowserContext created, we should reassign
-  // `media_router_` to the one associated with `browser()->profile()`.
+  // `media_router_` to the one associated with `browser()->GetProfile()`.
   if (browser()) {
     media_router_ = static_cast<TestMediaRouter*>(
         media_router::MediaRouterFactory::GetInstance()
             ->MediaRouterFactory::GetApiForBrowserContext(
-                browser()->profile()));
+                browser()->GetProfile()));
   }
 
   // Support multiple sites on the test server.
@@ -244,7 +245,7 @@ void AccessCodeCastIntegrationBrowserTest::SetUpPrimaryAccountWithHostedDomain(
 }
 
 void AccessCodeCastIntegrationBrowserTest::EnableAccessCodeCasting() {
-  browser()->profile()->GetPrefs()->SetBoolean(
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
       media_router::prefs::kAccessCodeCastEnabled, true);
   base::RunLoop().RunUntilIdle();
 }
@@ -531,7 +532,7 @@ bool AccessCodeCastIntegrationBrowserTest::InterceptRequest(
       static_cast<int>(response_code_), GetHttpReasonPhrase(response_code_)));
 
   network::URLLoaderCompletionStatus status(error_);
-  status.decoded_body_length = response_data_.size();
+  status.decoded_body_length = base::ByteSize(response_data_.size());
 
   content::URLLoaderInterceptor::WriteResponse(headers, response_data_,
                                                params->client.get());
@@ -571,7 +572,7 @@ void AccessCodeCastIntegrationBrowserTest::ExpectStartRouteCallFromTabMirroring(
   if (!media_router) {
     media_router = static_cast<TestMediaRouter*>(
         media_router::MediaRouterFactory::GetInstance()
-            ->GetApiForBrowserContext(browser()->profile()));
+            ->GetApiForBrowserContext(browser()->GetProfile()));
   }
   EXPECT_CALL(*media_router, CreateRouteInternal(media_source_id, sink_name, _,
                                                  web_contents, _, timeout));

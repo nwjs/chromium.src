@@ -2,9 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#import "base/strings/sys_string_conversions.h"
 #import "components/autofill/core/common/autofill_features.h"
-#import "ios/chrome/browser/autofill/atmemory/public/at_memory_constants.h"
-#import "ios/chrome/common/ui/elements/form_input_accessory_view.h"
+#import "ios/chrome/browser/autofill/atmemory/test/at_memory_test_util.h"
 #import "ios/chrome/test/earl_grey/chrome_actions.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
 #import "ios/chrome/test/earl_grey/chrome_matchers.h"
@@ -52,32 +52,7 @@ void LoadMultiFormPage(net::test_server::EmbeddedTestServer* test_server) {
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
       performAction:chrome_test_util::TapWebElementWithId(kNameFieldID)];
 
-  id<GREYMatcher> atMemoryButton = grey_accessibilityID(
-      kFormInputAccessoryViewAtMemoryButtonAccessibilityIdentifier);
-
-  // Tap the AtMemory button.
-  [[EarlGrey selectElementWithMatcher:atMemoryButton] performAction:grey_tap()];
-
-  // Verify the AtMemory bottom sheet views are shown.
-  id<GREYMatcher> closeButton =
-      grey_accessibilityID(kAtMemoryCloseButtonAccessibilityIdentifier);
-  id<GREYMatcher> searchBar =
-      grey_accessibilityID(kAtMemorySearchBarAccessibilityIdentifier);
-
-  [[EarlGrey selectElementWithMatcher:closeButton]
-      assertWithMatcher:grey_sufficientlyVisible()];
-  [[EarlGrey selectElementWithMatcher:searchBar]
-      assertWithMatcher:grey_sufficientlyVisible()];
-
-  // Type text to test focus and typing.
-  [[EarlGrey selectElementWithMatcher:searchBar]
-      performAction:grey_replaceText(@"test query")];
-
-  // Tap the close button to dismiss.
-  [[EarlGrey selectElementWithMatcher:closeButton] performAction:grey_tap()];
-
-  // Verify the AtMemory views are no longer visible.
-  [[EarlGrey selectElementWithMatcher:searchBar] assertWithMatcher:grey_nil()];
+  // TODO(crbug.com/532090671): add verification after the cleanup.
 }
 
 @end

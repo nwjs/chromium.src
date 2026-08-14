@@ -149,6 +149,16 @@ StaticElementList* SelectorQuery::QueryAll(ContainerNode& root_node) const {
   NthIndexCache nth_index_cache(root_node.GetDocument());
   HeapVector<Member<Element>> result;
   Execute<AllElementsSelectorQueryTrait>(root_node, result);
+#if EXPENSIVE_DCHECKS_ARE_ON()
+  HeapVector<Member<Element>> result_slow;
+  // Need to ignore slow path stats for unit tests.
+  QueryStats stored_stats = CurrentQueryStats();
+  ExecuteSlow<AllElementsSelectorQueryTrait>(root_node, result_slow);
+  CurrentQueryStats() = stored_stats;
+  CHECK(result == result_slow)
+      << "Fast path did not match slow path for QueryAll(): "
+      << selector_list_->SelectorsText();
+#endif
   return StaticElementList::Adopt(result);
 }
 
@@ -159,6 +169,16 @@ Element* SelectorQuery::QueryFirst(ContainerNode& root_node) const {
   NthIndexCache nth_index_cache(root_node.GetDocument());
   Element* matched_element = nullptr;
   Execute<SingleElementSelectorQueryTrait>(root_node, matched_element);
+#if EXPENSIVE_DCHECKS_ARE_ON()
+  Element* matched_element_slow = nullptr;
+  // Need to ignore slow path stats for unit tests.
+  QueryStats stored_stats = CurrentQueryStats();
+  ExecuteSlow<SingleElementSelectorQueryTrait>(root_node, matched_element_slow);
+  CurrentQueryStats() = stored_stats;
+  CHECK_EQ(matched_element, matched_element_slow)
+      << "Fast path did not match slow path for QueryFirst(): "
+      << selector_list_->SelectorsText();
+#endif
   return matched_element;
 }
 
@@ -612,7 +632,7 @@ bool SelectorQuery::ExecuteSearch(
          (element &&
           MatchCompound(*element, *compound, sibling_idx, is_html_doc)));
     if (match) {
-      if (compound->nth_child && !(sibling_idx & kUnknownSiblingIndex)) {
+      if (compound->nth_child && (sibling_idx & kUnknownSiblingIndex) != 0) {
         // This compound required :nth-child(), but we don't know
         // our element index, so we need a full recheck.
         // (This can only happen on the root node, so it's fine
@@ -726,7 +746,7 @@ SelectorQuery::SelectorQuery(CSSSelectorList* selector_list)
     if (selector->MatchesPseudoElement()) {
       continue;
     }
-    selector_start_offsets_.push_back(selector - base);
+    selector_start_offsets_.push_back(CheckedDistance(base, selector));
   }
 
   if (selector_start_offsets_.size() == 1) {
@@ -783,6 +803,12 @@ void SelectorQuery::BuildCompounds(const CSSSelector* first_selector) {
               CSSSelector::AttributeMatchType::kCaseInsensitive;
           current_compound.legacy_case_insensitive =
               current->LegacyCaseInsensitiveMatch();
+          if (current_compound.legacy_case_insensitive &&
+              !current_compound.match_type_case_insensitive) {
+            // The fast exact-attribute check does not know whether the matched
+            // element should use the legacy HTML case-insensitive rule.
+            need_full_check_ = true;
+          }
         } else {
           need_full_check_ = true;
         }
@@ -871,9 +897,9 @@ void SelectorQuery::BuildCompounds(const CSSSelector* first_selector) {
 
   for (unsigned compound_idx = compounds_.size(); compound_idx-- > 0;) {
     const Compound& compound = compounds_[compound_idx];
-    // NOTE: compound.attr_case_insensitive has not been set yet,
-    // so we use a more conservative test.
+    // The document and element are unknown here, so use a conservative test.
     if (compound.id_needed || (compound.attr_needed == html_names::kIdAttr &&
+                               !compound.attr_value.empty() &&
                                !compound.match_type_case_insensitive &&
                                !compound.legacy_case_insensitive)) {
       last_compound_with_id_selector_ = compound_idx;

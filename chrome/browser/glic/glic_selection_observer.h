@@ -32,6 +32,7 @@ class RenderFrameHost;
 }  // namespace content
 
 class BrowserWindowInterface;
+enum class ToastId;
 
 namespace optimization_guide {
 class PageContextEligibilityObserver;
@@ -89,6 +90,7 @@ class GlicSelectionObserver
   void RenderFrameDeleted(content::RenderFrameHost* render_frame_host) override;
   void OnVisibilityChanged(content::Visibility visibility) override;
   void PrimaryPageChanged(content::Page& page) override;
+  void PrimaryMainFrameWasResized(bool width_changed) override;
   void OnWebContentsLostFocus(
       content::RenderWidgetHost* render_widget_host) override;
 
@@ -114,12 +116,12 @@ class GlicSelectionObserver
 
 
   bool ShouldShowSelectionWidget();
-  void OnWidgetPinToggled(bool is_pinned);
   void OnAskGemini();
   void OnCopy();
   void OnCopyLink();
-  void OnHideForThisSite();
+  void OnHide();
   void OnSettings();
+  void ShowHiddenToast(ToastId toast_id);
 
   void CopyLinkToHighlight(content::WeakDocumentPtr weak_document_ptr);
 
@@ -161,8 +163,6 @@ class GlicSelectionObserver
   // True if the selection context was sent to the Glic panel, so we know to
   // clear it if the selection becomes empty while the panel remains open.
   bool has_sent_selection_context_ = false;
-  // Preserves the widget's pinned state across subsequent selection updates.
-  bool is_widget_pinned_ = false;
   // True during active user selection (mouse drag or key hold) to defer UI
   // updates until the input event completes.
   bool is_selecting_ = false;
@@ -178,17 +178,17 @@ class GlicSelectionObserver
 
   std::unique_ptr<GlicSelectionWidgetDelegate> widget_delegate_;
   std::unique_ptr<WidgetActionDelegate> action_delegate_;
-  // True if the user temporarily blocked the selection widget for the current
-  // page load.
-  // TODO(b/519247911): Remove this.
-  bool is_hidden_on_current_page_ = false;
-
   mojo::Remote<blink::mojom::TextFragmentReceiver> text_fragment_remote_;
   std::optional<GURL> generated_link_;
 
   friend class GlicSelectionObserverTest;
 
  protected:
+  // True if the user temporarily blocked the selection widget for the current
+  // page load.
+  // TODO(b/519247911): Remove this.
+  bool is_hidden_on_current_page_ = false;
+
   bool IsPageContextEligible() const;
 
   ::optimization_guide::PageContextEligibilityObserver* page_context_tracker() {

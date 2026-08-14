@@ -587,13 +587,21 @@ DeveloperPrivateUpdateProfileConfigurationFunction::Run() {
 
   const developer::ProfileConfigurationUpdate& update = params->update;
 
+  Profile* profile = Profile::FromBrowserContext(browser_context());
+  CHECK(profile);
+
   if (update.in_developer_mode) {
-    Profile* profile = Profile::FromBrowserContext(browser_context());
-    CHECK(profile);
     if (supervised_user::AreExtensionsPermissionsEnabled(profile)) {
       return RespondNow(Error(kCannotUpdateChildAccountProfileSettingsError));
     }
     util::SetDeveloperModeForProfile(profile, *update.in_developer_mode);
+  }
+
+  if (update.extensions_pinned_by_default) {
+    profile->GetPrefs()->SetBoolean(prefs::kExtensionsPinnedByDefault,
+                                    *update.extensions_pinned_by_default);
+    base::UmaHistogramBoolean("Extensions.Settings.DefaultPinningToggled",
+                              *update.extensions_pinned_by_default);
   }
 
   if (update.is_mv2_deprecation_notice_dismissed.value_or(false)) {
@@ -1044,7 +1052,9 @@ DeveloperPrivateInstallDroppedFileFunction::Run() {
         ->InstallZipFileToUnpackedExtensionsDir(
             file.path, registrar->unpacked_install_directory());
   } else {
-    auto prompt = std::make_unique<ExtensionInstallPrompt>(web_contents);
+    auto prompt = std::make_unique<ExtensionInstallPrompt>(
+        web_contents, std::make_unique<extensions::InstallPromptData>(
+                          extensions::InstallPromptData::UNSET_PROMPT_TYPE));
     scoped_refptr<CrxInstaller> crx_installer =
         CrxInstaller::Create(browser_context(), std::move(prompt));
     crx_installer->set_error_on_unsupported_requirements(true);
@@ -1052,10 +1062,7 @@ DeveloperPrivateInstallDroppedFileFunction::Run() {
         CrxInstaller::OffStoreInstallAllowedFromSettingsPage);
     crx_installer->set_install_immediately(true);
 
-    if (MatchesExtension(file, FILE_PATH_LITERAL(".user.js"))) {
-      crx_installer->InstallUserScript(file.path,
-                                       net::FilePathToFileURL(file.path));
-    } else if (MatchesExtension(file, FILE_PATH_LITERAL(".crx"))) {
+    if (MatchesExtension(file, FILE_PATH_LITERAL(".crx"))) {
       crx_installer->InstallCrx(file.path);
     } else {
       EXTENSION_FUNCTION_VALIDATE(false);

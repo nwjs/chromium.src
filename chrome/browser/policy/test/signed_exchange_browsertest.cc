@@ -94,7 +94,7 @@ IN_PROC_BROWSER_TEST_F(SignedExchangePolicyTest, SignedExchangeDisabled) {
   SetSignedExchangePolicy(false);
 
   content::DownloadTestObserverTerminal download_observer(
-      browser()->profile()->GetDownloadManager(), 1,
+      browser()->GetProfile()->GetDownloadManager(), 1,
       content::DownloadTestObserver::ON_DANGEROUS_DOWNLOAD_DENY);
 
   GURL url = embedded_test_server()->GetURL("/sxg/test.example.org_test.sxg");
@@ -104,7 +104,7 @@ IN_PROC_BROWSER_TEST_F(SignedExchangePolicyTest, SignedExchangeDisabled) {
 
   // Check that the SXG file was not loaded as a page, but downloaded.
   std::vector<raw_ptr<download::DownloadItem, VectorExperimental>> downloads;
-  browser()->profile()->GetDownloadManager()->GetAllDownloads(&downloads);
+  browser()->GetProfile()->GetDownloadManager()->GetAllDownloads(&downloads);
   ASSERT_EQ(1u, downloads.size());
   EXPECT_EQ(downloads[0]->GetURL(), url);
 

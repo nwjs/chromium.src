@@ -28,6 +28,7 @@
 #include "ash/style/dark_light_mode_controller_impl.h"
 #include "ash/system/geolocation/test_geolocation_url_loader_factory.h"
 #include "ash/system/model/system_tray_model.h"
+#include "ash/system/notification_center/notification_grouping_controller.h"
 #include "ash/system/notification_center/session_state_notification_blocker.h"
 #include "ash/system/screen_layout_observer.h"
 #include "ash/test/ash_test_views_delegate.h"
@@ -165,9 +166,13 @@ AshTestHelper::AshTestHelper(ui::ContextFactory* context_factory)
   // SystemLocationProvider has to be initialized before
   // GeolocationController, which is constructed during Shell::Init().
   if (::chromeos::features::IsCachedLocationProviderEnabled()) {
-    SystemLocationProvider::Initialize(std::make_unique<CachedLocationProvider>(
+    auto cached_location_provider = std::make_unique<CachedLocationProvider>(
         std::make_unique<LocationFetcher>(
-            base::MakeRefCounted<TestGeolocationUrlLoaderFactory>())));
+            base::MakeRefCounted<TestGeolocationUrlLoaderFactory>()));
+    // Disable rate limiting in tests so that mock location updates propagate
+    // immediately.
+    cached_location_provider->SetRateLimitForTesting(base::TimeDelta::Min());
+    SystemLocationProvider::Initialize(std::move(cached_location_provider));
   } else {
     SystemLocationProvider::Initialize(std::make_unique<LiveLocationProvider>(
         std::make_unique<LocationFetcher>(
@@ -193,6 +198,8 @@ AshTestHelper::~AshTestHelper() {
   // ViewsTestHelperAura instance or the instance is currently in its
   // destructor.
   views::ViewsTestHelperAura::SetFallbackTestViewsDelegateFactory(nullptr);
+
+  NotificationGroupingController::ResetGroupIdMapForTesting();
 }
 
 void AshTestHelper::SetUp() {

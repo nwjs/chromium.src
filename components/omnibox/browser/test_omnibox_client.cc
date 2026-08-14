@@ -23,14 +23,8 @@
 
 TestOmniboxClient::TestOmniboxClient()
     : session_id_(SessionID::FromSerializedValue(1)),
-      ai_mode_button_service_(std::make_unique<TestAiModeButtonService>(
-          GetTemplateURLService(),
-          []() {
-            AiModeButtonService::GoogleStrings strings;
-            strings.entrypoint_label = u"Google AI";
-            strings.context_menu_label = u"Show Google AI";
-            return strings;
-          }())),
+      ai_mode_button_service_(
+          std::make_unique<TestAiModeButtonService>(GetTemplateURLService())),
       autocomplete_classifier_(
           std::make_unique<AutocompleteController>(
               CreateAutocompleteProviderClient(),
@@ -135,6 +129,14 @@ std::u16string TestOmniboxClient::GetURLForDisplay() const {
 
 GURL TestOmniboxClient::GetNavigationEntryURL() const {
   return location_bar_model_.GetURL();
+}
+
+const GURL& TestOmniboxClient::GetURL() const {
+  return url_;
+}
+
+void TestOmniboxClient::SetURL(const GURL& url) {
+  url_ = url;
 }
 
 metrics::OmniboxEventProto::PageClassification

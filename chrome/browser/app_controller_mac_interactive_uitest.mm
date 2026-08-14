@@ -58,7 +58,7 @@ using AppControllerInteractiveUITest = InteractiveBrowserTest;
 // Regression test for https://crbug.com/40192595
 IN_PROC_BROWSER_TEST_F(AppControllerInteractiveUITest, DeleteEphemeralProfile) {
   EXPECT_EQ(1u, GlobalBrowserCollection::GetInstance()->GetSize());
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
 
   AppController* app_controller = AppController.sharedController;
   ASSERT_EQ(profile, app_controller.lastProfileIfLoaded);
@@ -111,7 +111,7 @@ IN_PROC_BROWSER_TEST_F(AppControllerMainMenuInteractiveUITest,
   GURL simple(embedded_test_server()->GetURL("/simple.html"));
   SendOpenUrlToAppController(simple);
 
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
   EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 1u);
 
   // Load profile's History Service backend so it will be assigned to the
@@ -151,9 +151,9 @@ IN_PROC_BROWSER_TEST_F(AppControllerMainMenuInteractiveUITest,
   EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 1u);
 
   // Create an incognito browser.
-  Profile* original_profile = browser()->profile();
+  Profile* original_profile = browser()->GetProfile();
   Browser* incognito_browser = CreateIncognitoBrowser(original_profile);
-  EXPECT_TRUE(incognito_browser->profile()->IsIncognitoProfile());
+  EXPECT_TRUE(incognito_browser->GetProfile()->IsIncognitoProfile());
   EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 2u);
 
   // Close the original browser.
@@ -174,8 +174,8 @@ IN_PROC_BROWSER_TEST_F(AppControllerMainMenuInteractiveUITest,
   // Check that a new non-incognito browser is opened.
   Browser* new_browser = browser_created_observer.Wait();
   EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 2u);
-  EXPECT_TRUE(new_browser->profile()->IsRegularProfile());
-  EXPECT_EQ(original_profile, new_browser->profile());
+  EXPECT_TRUE(new_browser->GetProfile()->IsRegularProfile());
+  EXPECT_EQ(original_profile, new_browser->GetProfile());
 }
 
 // Test that when the ProfilePicker is shown, a reopen event focuses the
@@ -386,7 +386,7 @@ class AppControllerIncognitoSwitchInteractiveUITest
 IN_PROC_BROWSER_TEST_F(AppControllerIncognitoSwitchInteractiveUITest,
                        ObserveProfileDestruction) {
   // Chrome is launched in incognito.
-  Profile* otr_profile = browser()->profile();
+  Profile* otr_profile = browser()->GetProfile();
   EXPECT_EQ(otr_profile,
             otr_profile->GetPrimaryOTRProfile(/*create_if_needed=*/false));
   EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 1u);

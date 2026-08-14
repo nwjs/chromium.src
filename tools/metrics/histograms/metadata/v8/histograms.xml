@@ -49,7 +49,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.AsmjsInstantiateResult" enum="AsmJsInstantiateResult"
-    expires_after="2026-11-01">
+    expires_after="2027-01-03">
   <owner>ecmziegler@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>
   <summary>
@@ -529,6 +529,23 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram name="V8.GC.Cycle{Priority}.FoundJSGlobalProxies.Full" units="count"
+    expires_after="M156">
+  <owner>hpayer@chromium.org</owner>
+  <owner>mlippautz@chromium.org</owner>
+  <owner>v8-memory-sheriffs@google.com</owner>
+  <summary>
+    The number of JSGlobalProxy objects found during a full garbage collection.
+    Reported at the end of the garbage collection cycle.
+  </summary>
+  <token key="Priority">
+    <variant name="" summary="(aggregated across all priorities)"/>
+    <variant name=".BestEffort" summary="best effort"/>
+    <variant name=".UserBlocking" summary="user blocking"/>
+    <variant name=".UserVisible" summary="user visible"/>
+  </token>
+</histogram>
+
 <histogram name="V8.GC.Cycle{Priority}.Full.Compact{Heap}" units="ms"
     expires_after="M156">
   <owner>omerkatz@chromium.org</owner>
@@ -630,7 +647,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.GC.Cycle{Priority}.Full{InputState}" units="MB"
-    expires_after="M154">
+    expires_after="2027-01-03">
   <owner>thiabaud@google.com</owner>
   <owner>etiennep@chromium.org</owner>
   <owner>v8-memory-sheriffs@google.com</owner>
@@ -925,7 +942,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.GC.Cycle{Priority}.MainThread.Full{InputState}" units="MB"
-    expires_after="M154">
+    expires_after="2027-01-03">
   <owner>thiabaud@google.com</owner>
   <owner>etiennep@chromium.org</owner>
   <owner>v8-memory-sheriffs@google.com</owner>
@@ -1059,7 +1076,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.GC.Cycle{Priority}.Reason.Full{InputState}"
-    enum="GarbageCollectionReason" expires_after="M154">
+    enum="GarbageCollectionReason" expires_after="2027-01-03">
   <owner>thiabaud@google.com</owner>
   <owner>etiennep@chromium.org</owner>
   <owner>v8-memory-sheriffs@google.com</owner>
@@ -1297,7 +1314,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.JSDispatchTableEntriesCount" units="count"
-    expires_after="2026-11-01">
+    expires_after="2027-01-03">
   <owner>mlippautz@chromium.org</owner>
   <owner>olivf@chromium.org</owner>
   <summary>
@@ -1455,7 +1472,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.SandboxMode" enum="V8SandboxMode"
-    expires_after="2026-11-15">
+    expires_after="2027-01-17">
   <owner>mlippautz@chromium.org</owner>
   <owner>ishell@chromium.org</owner>
   <summary>
@@ -1850,7 +1867,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmLazyCompileTimeMicroSeconds" units="microseconds"
-    expires_after="2026-11-15">
+    expires_after="2027-01-17">
   <owner>clemensb@chromium.org</owner>
   <owner>ecmziegler@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>
@@ -1889,7 +1906,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmModuleCodeSizeKiB" units="KB"
-    expires_after="2026-11-15">
+    expires_after="2027-01-17">
   <owner>ecmziegler@chromium.org</owner>
   <owner>clemensb@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>
@@ -1956,7 +1973,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmModuleSizeBytes{V8WasmSeparateAsmAndWasm}"
-    units="bytes" expires_after="2026-11-08">
+    units="bytes" expires_after="2027-01-10">
   <owner>ecmziegler@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>
   <summary>

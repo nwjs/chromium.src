@@ -26,11 +26,11 @@
 #include "chrome/browser/ash/app_list/search/search_controller.h"
 #include "chrome/browser/ash/app_list/search/search_provider.h"
 #include "chrome/browser/ash/app_list/test/chrome_app_list_test_support.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/test/base/interactive_test_utils.h"
 #include "components/user_manager/user_names.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/test/browser_test.h"
@@ -375,8 +375,9 @@ class SpokenFeedbackAppListSearchTest : public SpokenFeedbackAppListBaseTest {
     // set of results shown in the search result UI.
     std::unique_ptr<app_list::SearchController> search_controller =
         std::make_unique<app_list::SearchController>(
+            g_browser_process->local_state(),
             app_list_client->GetModelUpdaterForTest(), app_list_client, nullptr,
-            browser()->profile());
+            browser()->GetProfile());
     search_controller->Initialize();
     // Disable ranking, which may override the explicitly set relevance scores
     // and best match status of results.

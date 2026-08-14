@@ -13,6 +13,8 @@
 #include <utility>
 #include <vector>
 
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/lazy_instance.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/trace_event/trace_event.h"
@@ -42,7 +44,7 @@
 #include "url/gurl.h"
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"  // nogncheck crbug.com/423799622
 #endif
@@ -113,6 +115,21 @@ void IdentityAPI::EraseStaleGaiaIdsForAllExtensions() {
   }
 }
 
+base::ScopedClosureRunner IdentityAPI::StartTrackingWebAuthFlow(
+    const extensions::ExtensionId& extension_id) {
+  if (active_web_auth_flows_.insert(extension_id).second) {
+    return base::ScopedClosureRunner(
+        base::BindOnce(&IdentityAPI::StopTrackingWebAuthFlow,
+                       weak_ptr_factory_.GetWeakPtr(), extension_id));
+  }
+  return base::ScopedClosureRunner();
+}
+
+void IdentityAPI::StopTrackingWebAuthFlow(
+    const extensions::ExtensionId& extension_id) {
+  active_web_auth_flows_.erase(extension_id);
+}
+
 void IdentityAPI::Shutdown() {
   on_shutdown_callback_list_.Notify();
   identity_manager_->RemoveObserver(this);
@@ -173,7 +190,7 @@ void IdentityAPI::MaybeShowChromeSigninDialog(
   }
 
   chrome::ScopedTabbedBrowserDisplayer displayer(profile_);
-  Browser* browser = displayer.browser();
+  BrowserWindowInterface* browser = displayer.browser_window_interface();
   if (!browser) {
     DVLOG(1) << "Could not create a browser to show Extensions Chrome Sign in "
                 "dialog.";

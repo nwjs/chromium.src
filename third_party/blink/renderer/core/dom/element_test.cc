@@ -17,9 +17,12 @@
 #include "third_party/blink/renderer/core/dom/column_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/dom_token_list.h"
+#include "third_party/blink/renderer/core/dom/events/event.h"
+#include "third_party/blink/renderer/core/dom/events/native_event_listener.h"
 #include "third_party/blink/renderer/core/dom/focusgroup_flags.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/editing/testing/editing_test_base.h"
+#include "third_party/blink/renderer/core/event_type_names.h"
 #include "third_party/blink/renderer/core/exported/web_plugin_container_impl.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
@@ -1795,6 +1798,85 @@ TEST_F(ElementTest, OverscrollBackdropPseudoElement) {
               nullptr);
     EXPECT_EQ(menu->GetPseudoElement(PseudoId::kPseudoIdBackdrop), nullptr);
   }
+}
+
+class DetachOriginatingElementListener : public NativeEventListener {
+ public:
+  explicit DetachOriginatingElementListener(Element* element)
+      : element_(element) {}
+  void Invoke(ExecutionContext*, Event* event) override { element_->remove(); }
+  void Trace(Visitor* visitor) const override {
+    visitor->Trace(element_);
+    NativeEventListener::Trace(visitor);
+  }
+
+ private:
+  Member<Element> element_;
+};
+
+TEST_F(ElementTest, OverscrollBackdropClickDisposeCrash) {
+  ScopedOverscrollGesturesForTest enabled(true);
+
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <style>
+    #menu::overscroll-backdrop { display: block; }
+    </style>
+    <div id="container" overscrollcontainer>
+      <div id="menu" overscrollarea></div>
+    </div>
+  )HTML");
+
+  GetDocument().UpdateStyleAndLayoutTree();
+
+  Element* menu = GetElementById("menu");
+  ASSERT_NE(menu, nullptr);
+
+  PseudoElement* backdrop =
+      menu->GetPseudoElement(PseudoId::kPseudoIdOverscrollBackdrop);
+  ASSERT_NE(backdrop, nullptr);
+
+  auto* listener = MakeGarbageCollected<DetachOriginatingElementListener>(menu);
+  menu->addEventListener(event_type_names::kClick, listener,
+                         /*use_capture=*/false);
+
+  Event* event = Event::Create(event_type_names::kClick);
+
+  backdrop->DispatchEvent(*event);
+}
+
+TEST_F(ElementTest, DelegatesFocusWasLastFocusFromUserGesture) {
+  SetBodyContent("<div id='host'></div>");
+  ShadowRoot* shadow_root =
+      SetShadowContent("<div id='probe' contenteditable='true'></div>", "host");
+  shadow_root->SetDelegatesFocus(true);
+  UpdateAllLifecyclePhasesForTest();
+
+  Element* host = GetElementById("host");
+  Element* probe = shadow_root->getElementById(AtomicString("probe"));
+  ASSERT_TRUE(host);
+  ASSERT_TRUE(probe);
+
+  EXPECT_FALSE(probe->WasLastFocusFromUserGesture());
+
+  host->Focus();
+  EXPECT_EQ(probe, GetDocument().FocusedElement());
+  EXPECT_FALSE(probe->WasLastFocusFromUserGesture());
+
+  probe->blur();
+  EXPECT_NE(probe, GetDocument().FocusedElement());
+
+  host->Focus(FocusParams(SelectionBehaviorOnFocus::kRestore,
+                          mojom::blink::FocusType::kScript, nullptr));
+  EXPECT_EQ(probe, GetDocument().FocusedElement());
+  EXPECT_FALSE(probe->WasLastFocusFromUserGesture());
+
+  probe->blur();
+  EXPECT_NE(probe, GetDocument().FocusedElement());
+
+  host->Focus(FocusParams(SelectionBehaviorOnFocus::kRestore,
+                          mojom::blink::FocusType::kMouse, nullptr));
+  EXPECT_EQ(probe, GetDocument().FocusedElement());
+  EXPECT_TRUE(probe->WasLastFocusFromUserGesture());
 }
 
 }  // namespace blink

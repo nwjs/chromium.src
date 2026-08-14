@@ -25,6 +25,8 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
+namespace content::webid {
+
 using ::testing::_;
 using ::testing::ByMove;
 using ::testing::NiceMock;
@@ -32,8 +34,6 @@ using ::testing::Optional;
 using ::testing::Return;
 using ::testing::StrictMock;
 using ::testing::WithArgs;
-
-namespace content::webid {
 
 class MockEmailVerificationRequest : public EmailVerificationRequest {
  public:

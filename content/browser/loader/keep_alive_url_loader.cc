@@ -22,7 +22,6 @@
 #include "base/trace_event/typed_macros.h"
 #include "base/unguessable_token.h"
 #include "content/browser/devtools/devtools_instrumentation.h"
-#include "content/browser/loader/keep_alive_attribution_request_helper.h"
 #include "content/browser/renderer_host/mixed_content_checker.h"
 #include "content/browser/renderer_host/policy_container_host.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
@@ -428,9 +427,7 @@ KeepAliveURLLoader::KeepAliveURLLoader(
     std::optional<ukm::SourceId> ukm_source_id,
     StoragePartitionImpl* storage_partition,
     URLLoaderThrottlesGetter throttles_getter,
-    base::PassKey<KeepAliveURLLoaderService>,
-    std::unique_ptr<KeepAliveAttributionRequestHelper>
-        attribution_request_helper)
+    base::PassKey<KeepAliveURLLoaderService>)
     : request_id_(request_id),
       devtools_request_id_(base::UnguessableToken::Create().ToString()),
       options_(options),
@@ -457,8 +454,7 @@ KeepAliveURLLoader::KeepAliveURLLoader(
       storage_partition_(storage_partition),
       initial_url_(resource_request.url),
       last_url_(resource_request.url),
-      throttles_getter_(throttles_getter),
-      attribution_request_helper_(std::move(attribution_request_helper)) {
+      throttles_getter_(throttles_getter) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   CHECK(network_loader_factory_);
   CHECK(policy_container_host_);
@@ -667,11 +663,6 @@ void KeepAliveURLLoader::EndReceiveRedirect(
     return;
   }
 
-  if (attribution_request_helper_) {
-    attribution_request_helper_->OnReceiveRedirect(headers,
-                                                   redirect_info.new_url);
-  }
-
   // TODO(crbug.com/40236167): Figure out how to deal with lost
   // ResourceFetcher's counter & dev console logging (renderer is dead).
 
@@ -731,11 +722,6 @@ void KeepAliveURLLoader::OnReceiveResponse(
       devtools_instrumentation::OnFetchKeepAliveResponseReceived(
           rfh->frame_tree_node(), devtools_request_id_, last_url_, *response);
     }
-  }
-
-  if (attribution_request_helper_) {
-    attribution_request_helper_->OnReceiveResponse(response->headers.get());
-    attribution_request_helper_.reset();
   }
 
   // In case the renderer is alive, the stored response data will be forwarded
@@ -844,14 +830,6 @@ void KeepAliveURLLoader::OnComplete(
 
 void KeepAliveURLLoader::OnCompleteInternal(
     const network::URLLoaderCompletionStatus& completion_status) {
-  // Note that we don't need to reset the attribution helper if we retry.
-  if (completion_status.error_code != net::OK) {
-    if (attribution_request_helper_) {
-      attribution_request_helper_->OnError();
-      attribution_request_helper_.reset();
-    }
-  }
-
   // In case the renderer is alive, the stored status will be forwarded
   // at the end of `ForwardURLLoad()`.
   stored_url_load_->completion_status = completion_status;
@@ -1009,6 +987,7 @@ bool KeepAliveURLLoader::MaybeScheduleRetry(
   // received another error signal after this (e.g. OnComplete with error
   // happened, then the disconnection triggers CancelWithStatus).
   url_loader_.reset();
+  last_attempt_completion_status_ = std::nullopt;
 
   // Set a timer to delete self when the max age has been reached. Note that
   // we check if the timer is already set here, because it could've been set
@@ -1026,12 +1005,8 @@ bool KeepAliveURLLoader::MaybeScheduleRetry(
                        base::Unretained(this)));
   }
 
-  // Update the retry-tracking states. Note that there's no need to reset any
-  // of the actual request-related state, since the retry is attempted from the
-  // last request attempt, and no state has been updated in response of the
-  // failed result yet. All states relating to previous attempts (e.g. stored
-  // loads storing previous redirects) only contain results from successful
-  // redirects/responses so there's no need to reset.
+  // Update the retry-tracking states. The per-attempt request state will be
+  // reset when the retry actually starts in `AttemptRetryIfAllowed()`.
   retry_count_++;
   CHECK_LE(retry_count_, GetMaxAttemptsForRetry());
   retry_state_ = RetryState::kRetryScheduled;
@@ -1074,8 +1049,13 @@ void KeepAliveURLLoader::AttemptRetryIfAllowed() {
   devtools_request_id_ = base::UnguessableToken::Create().ToString();
 
   // Retry using the original request, even if the failure happens after
-  // redirects.
+  // redirects. Any per-attempt state derived from the failed attempt's redirect
+  // chain must be reset so that only results from the retried attempt are
+  // forwarded to the renderer. Note that `redirect_limit_` and
+  // `did_encounter_redirect_` are intentionally tracked across retries.
   resource_request_ = original_resource_request_;
+  stored_url_load_ = std::make_unique<StoredURLLoad>();
+  last_url_ = initial_url_;
   if (features::kAddRetryHeader.Get()) {
     // Add retry information in the header.
     resource_request_.headers.SetHeader(kRetryAttemptsHeader,
@@ -1156,8 +1136,6 @@ void KeepAliveURLLoader::ForwardURLLoad() {
     // guaranteed.
     // Note: The renderer might get shut down before
     // `forwarding_client_->OnReceiveResponse()` finish response handling.
-    // In such case, the attributionsrc handling cannot be dropped and should be
-    // taken over by browser in `OnRendererConnectionError().
     forwarding_client_->OnReceiveResponse(
         std::move(stored_url_load_->response->head),
         std::move(stored_url_load_->response->body),
@@ -1240,6 +1218,7 @@ bool KeepAliveURLLoader::RetryOrDelayErrorIfNeeded(
     return false;
   }
 
+  last_attempt_completion_status_ = status;
   // Schedule retry if needed.
   if (MaybeScheduleRetry(status)) {
     return true;
@@ -1337,9 +1316,6 @@ void KeepAliveURLLoader::ForwardingClient::OnDisconnected() {
       !keep_alive_url_loader_->HasReceivedResponse()) {
     // The renderer disconnects before this loader forwards anything to it.
     // But the in-browser request processing may not complete yet.
-
-    // TODO(crbug.com/40259706): Ensure that attributionsrc response handling is
-    // taken over by browser.
     return;
   }
 
@@ -1386,7 +1362,7 @@ void KeepAliveURLLoader::OnDisconnectedLoaderTimerFired() {
   if (resource_request_.fetch_retry_options.has_value() &&
       resource_request_.fetch_retry_options->retry_after_unload &&
       (IsAttemptingRetry(/*include_failed_retry=*/false) ||
-       MaybeScheduleRetry(/*completion_status=*/std::nullopt))) {
+       MaybeScheduleRetry(last_attempt_completion_status_))) {
     // A retry is already pending or we just scheduled a retry. Don't delete
     // the loader, and instead keep it around for the retry.
     return;
@@ -1473,7 +1449,7 @@ void KeepAliveURLLoader::LogFetchKeepAliveRequestMetric(
     case blink::mojom::ResourceType::kXhr:
       sample_type = FetchKeepAliveRequestMetricType::kFetch;
       break;
-    // Includes BEACON/PING/ATTRIBUTION_SRC types
+    // Includes BEACON/PING types
     case blink::mojom::ResourceType::kPing:
       sample_type = FetchKeepAliveRequestMetricType::kPing;
       break;

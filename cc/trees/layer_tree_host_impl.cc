@@ -368,7 +368,7 @@ gfx::Rect CalculateVisibleBounds(
     int inner_scroll_id,
     int outer_scroll_id,
     base::flat_map<int, int>& sticky_or_viewport_scroll_cache) {
-  gfx::Rect visible_layer_rect = layer->draw_properties().visible_layer_rect;
+  gfx::Rect visible_layer_rect = layer->VisibleLayerRect();
   visible_layer_rect.Intersect(rect_data_in_layer_space.visible_bounds);
 
   // Map tracked element visible bounds to screen space first.
@@ -1183,10 +1183,10 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame,
     return DrawResult::kSuccess;
   }
 
-  TRACE_EVENT_BEGIN2("cc,benchmark", "LayerTreeHostImpl::CalculateRenderPasses",
-                     "render_surface_list.size()",
-                     static_cast<uint64_t>(frame->render_surface_list->size()),
-                     "RequiresHighResToDraw", RequiresHighResToDraw());
+  TRACE_EVENT_BEGIN("cc,benchmark", "LayerTreeHostImpl::CalculateRenderPasses",
+                    "render_surface_list.size()",
+                    static_cast<uint64_t>(frame->render_surface_list->size()),
+                    "RequiresHighResToDraw", RequiresHighResToDraw());
 
   // HandleVisibilityChanged contributed to the above damage check, so reset it
   // now that we're going to draw.
@@ -1269,8 +1269,6 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame,
       active_tree()->property_trees()->effect_tree().HasCopyRequests();
 
   bool have_missing_animated_tiles = false;
-  const bool compute_video_layer_preferred_interval =
-      !features::UseSurfaceLayerForVideo();
 
   if (settings_.enable_compositing_based_throttling) {
     throttle_decider_.Prepare();
@@ -1378,16 +1376,6 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame,
         // LayerTreeHostImpl::DidDrawAllLayers().
         frame->will_draw_layers.push_back(layer);
 
-        if (output_frame_data && compute_video_layer_preferred_interval &&
-            layer->GetLayerType() == mojom::LayerType::kVideo) {
-          VideoLayerImpl* video_layer = static_cast<VideoLayerImpl*>(layer);
-          std::optional<base::TimeDelta> video_preferred_interval =
-              video_layer->GetPreferredRenderInterval();
-          if (video_preferred_interval) {
-            frame->video_layer_preferred_intervals[video_preferred_interval
-                                                       .value()]++;
-          }
-        }
         layer->NotifyKnownResourceIdsBeforeAppendQuads(known_resource_ids);
         if (output_frame_data) {
           layer->AppendQuads(context, target_render_pass, &append_quads_data);
@@ -1549,12 +1537,10 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame,
 
   if (settings_.TreesInVizInClientProcess()) {
     // num_missing_tiles is not counted.
-    TRACE_EVENT_END1("cc,benchmark", "LayerTreeHostImpl::CalculateRenderPasses",
-                     "draw_result", draw_result);
+    TRACE_EVENT_END("cc,benchmark", "draw_result", draw_result);
   } else {
-    TRACE_EVENT_END2("cc,benchmark", "LayerTreeHostImpl::CalculateRenderPasses",
-                     "draw_result", draw_result, "missing tiles",
-                     num_missing_tiles);
+    TRACE_EVENT_END("cc,benchmark", "draw_result", draw_result, "missing tiles",
+                    num_missing_tiles);
   }
 
   // Draw has to be successful to not drop the copy request layer.
@@ -2402,9 +2388,6 @@ viz::TrackedElementRects LayerTreeHostImpl::CollectTrackedElementRects(
 
           viz::TrackedElementRect transformed_rect = rect_data;
 
-          // TODO(http://crbug.com/441532128): Elements that are being added to
-          // the compositor frame metadata should be transformed to the
-          // coordinate space of the compositor frame.
           transformed_rect.visible_bounds = CalculateVisibleBounds(
               layer, rect_data, front_occluders, transform_tree,
               inner_scroll_id, outer_scroll_id,
@@ -3520,6 +3503,12 @@ void LayerTreeHostImpl::UpdateRasterCapabilities() {
       settings_.use_gpu_memory_buffer_resources &&
       shared_image_caps.supports_scanout_shared_images;
 
+  // Graphite-Dawn does not support RGBA_4444 formats.
+  const bool is_graphite_enabled =
+      gpu_feature_info.status_values[gpu::GPU_FEATURE_TYPE_SKIA_GRAPHITE] ==
+      gpu::kGpuFeatureStatusEnabled;
+  const bool use_rgba_4444 = settings_.prefer_rgba_4444 && !is_graphite_enabled;
+
   if (settings_.gpu_rasterization_disabled ||
       gpu_feature_info
               .status_values[gpu::GPU_FEATURE_TYPE_GPU_TILE_RASTERIZATION] !=
@@ -3527,7 +3516,7 @@ void LayerTreeHostImpl::UpdateRasterCapabilities() {
     // This is the GPU compositing but software rasterization path. Pick the
     // best format for GPU textures to be uploaded to.
     raster_caps_.tile_format =
-        settings_.use_rgba_4444
+        use_rgba_4444
             ? viz::SinglePlaneFormat::kRGBA_4444
             : viz::PlatformColor::BestSupportedTextureFormat(context_caps);
     return;
@@ -3540,7 +3529,7 @@ void LayerTreeHostImpl::UpdateRasterCapabilities() {
       !context_caps.msaa_is_slow && !context_caps.avoid_stencil_buffers;
 
   raster_caps_.tile_format =
-      settings_.use_rgba_4444
+      use_rgba_4444
           ? viz::SinglePlaneFormat::kRGBA_4444
           : viz::PlatformColor::BestSupportedRenderbufferFormat(context_caps);
 }
@@ -5583,9 +5572,6 @@ void LayerTreeHostImpl::CreateUIResource(UIResourceId uid,
     case UIResourceBitmap::RGBA8:
       format = raster_caps_.ui_rgba_format;
       break;
-    case UIResourceBitmap::ALPHA_8:
-      format = viz::SinglePlaneFormat::kALPHA_8;
-      break;
     case UIResourceBitmap::ETC1:
       format = viz::SinglePlaneFormat::kETC1;
       break;
@@ -5724,8 +5710,7 @@ void LayerTreeHostImpl::CreateUIResource(UIResourceId uid,
   // Mailbox+SyncToken as well. The OnUIResourceReleased() method will be called
   // once the resource is deleted and the display compositor is no longer using
   // it, to free the memory allocated in this method above.
-  gpu::SyncToken sync_token = layer_tree_frame_sink_->shared_image_interface()
-                                  ->GenUnverifiedSyncToken();
+  gpu::SyncToken sync_token = client_shared_image->creation_sync_token();
 
   viz::TransferableResource transferable = viz::TransferableResource::Make(
       client_shared_image, viz::TransferableResource::ResourceSource::kUI,

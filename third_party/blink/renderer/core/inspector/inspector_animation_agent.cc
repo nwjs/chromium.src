@@ -27,6 +27,7 @@
 #include "third_party/blink/renderer/core/animation/effect_model.h"
 #include "third_party/blink/renderer/core/animation/element_animations.h"
 #include "third_party/blink/renderer/core/animation/scroll_snapshot_timeline.h"
+#include "third_party/blink/renderer/core/animation/scroll_timeline.h"
 #include "third_party/blink/renderer/core/animation/string_keyframe.h"
 #include "third_party/blink/renderer/core/animation/view_timeline.h"
 #include "third_party/blink/renderer/core/css/css_keyframe_rule.h"
@@ -44,10 +45,12 @@
 #include "third_party/blink/renderer/core/inspector/inspector_style_sheet.h"
 #include "third_party/blink/renderer/core/inspector/protocol/animation.h"
 #include "third_party/blink/renderer/core/inspector/v8_inspector_string.h"
+#include "third_party/blink/renderer/core/layout/geometry/axis.h"
 #include "third_party/blink/renderer/platform/animation/timing_function.h"
 #include "third_party/blink/renderer/platform/crypto.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
+#include "third_party/blink/renderer/platform/text/writing_direction_mode.h"
 #include "third_party/blink/renderer/platform/wtf/hash_traits.h"
 #include "third_party/blink/renderer/platform/wtf/text/base64.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
@@ -55,25 +58,6 @@
 namespace blink {
 
 namespace {
-
-protocol::DOM::ScrollOrientation ToScrollOrientation(
-    ScrollSnapshotTimeline::ScrollAxis scroll_axis_enum,
-    bool is_horizontal_writing_mode) {
-  switch (scroll_axis_enum) {
-    case ScrollSnapshotTimeline::ScrollAxis::kBlock:
-      return is_horizontal_writing_mode
-                 ? protocol::DOM::ScrollOrientationEnum::Vertical
-                 : protocol::DOM::ScrollOrientationEnum::Horizontal;
-    case ScrollSnapshotTimeline::ScrollAxis::kInline:
-      return is_horizontal_writing_mode
-                 ? protocol::DOM::ScrollOrientationEnum::Horizontal
-                 : protocol::DOM::ScrollOrientationEnum::Vertical;
-    case ScrollSnapshotTimeline::ScrollAxis::kX:
-      return protocol::DOM::ScrollOrientationEnum::Horizontal;
-    case ScrollSnapshotTimeline::ScrollAxis::kY:
-      return protocol::DOM::ScrollOrientationEnum::Vertical;
-  }
-}
 
 double NormalizedDuration(
     V8UnionCSSNumericValueOrStringOrUnrestrictedDouble* duration) {
@@ -102,11 +86,9 @@ double AsDoubleOrZero(Timing::V8Delay* value) {
 
 InspectorAnimationAgent::InspectorAnimationAgent(
     InspectedFrames* inspected_frames,
-    InspectorCSSAgent* css_agent,
-    v8_inspector::V8InspectorSession* v8_session)
+    InspectorCSSAgent* css_agent)
     : inspected_frames_(inspected_frames),
       css_agent_(css_agent),
-      v8_session_(v8_session),
       is_cloning_(false),
       enabled_(&agent_state_, /*default_value=*/false),
       playback_rate_(&agent_state_, /*default_value=*/1.0) {
@@ -209,17 +191,20 @@ BuildObjectForViewOrScrollTimeline(AnimationTimeline* timeline) {
       return nullptr;
     }
 
-    LayoutBox* scroll_container = scroll_snapshot_timeline->ScrollContainer();
-    if (!scroll_container) {
+    std::optional<PhysicalDirection> scroll_direction =
+        scroll_snapshot_timeline->GetResolvedScrollDirection();
+    if (!scroll_direction) {
       return nullptr;
     }
 
+    PhysicalAxis physical_axis =
+        ScrollSnapshotTimeline::ToPhysicalAxis(*scroll_direction);
     std::unique_ptr<protocol::Animation::ViewOrScrollTimeline> timeline_object =
         protocol::Animation::ViewOrScrollTimeline::create()
             .setSourceNodeId(IdentifiersFactory::IntIdForNode(resolved_source))
-            .setAxis(ToScrollOrientation(
-                scroll_snapshot_timeline->GetAxis(),
-                scroll_container->IsHorizontalWritingMode()))
+            .setAxis(physical_axis == PhysicalAxis::kHorizontal
+                         ? protocol::DOM::ScrollOrientationEnum::Horizontal
+                         : protocol::DOM::ScrollOrientationEnum::Vertical)
             .build();
     std::optional<ScrollSnapshotTimeline::ScrollOffsets> scroll_offsets =
         scroll_snapshot_timeline->GetResolvedScrollOffsets();
@@ -522,9 +507,9 @@ protocol::Response InspectorAnimationAgent::resolveAnimation(
 
   ScriptState::Scope scope(script_state);
   static const char kAnimationObjectGroup[] = "animation";
-  v8_session_->releaseObjectGroup(
+  V8Session()->releaseObjectGroup(
       ToV8InspectorStringView(kAnimationObjectGroup));
-  *result = v8_session_->wrapObject(
+  *result = V8Session()->wrapObject(
       script_state->GetContext(),
       ToV8Traits<Animation>::ToV8(script_state, animation),
       ToV8InspectorStringView(kAnimationObjectGroup),

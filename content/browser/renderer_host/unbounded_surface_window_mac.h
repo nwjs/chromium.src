@@ -27,6 +27,7 @@ class NSEvent;
 #include "components/viz/host/host_frame_sink_client.h"
 
 namespace ui {
+class LayerSolidColor;
 class RecyclableCompositorMac;
 class DisplayCALayerTree;
 }  // namespace ui
@@ -34,6 +35,7 @@ class DisplayCALayerTree;
 namespace content {
 
 class RenderWidgetHostViewMac;
+class RenderWidgetHostViewBase;
 
 class UnboundedSurfaceWindowMac : public UnboundedSurfaceWindow,
                                   public viz::HostFrameSinkClient,
@@ -45,7 +47,8 @@ class UnboundedSurfaceWindowMac : public UnboundedSurfaceWindow,
       mojo::PendingAssociatedReceiver<blink::mojom::UnboundedSurfaceHost> host,
       mojo::PendingAssociatedRemote<blink::mojom::UnboundedSurfaceClient>
           client,
-      const gfx::Rect& bounds_in_dips);
+      const gfx::Rect& bounds_in_screen,
+      base::WeakPtr<RenderWidgetHostViewBase> subframe_view);
   ~UnboundedSurfaceWindowMac() override;
 
   // UnboundedSurfaceWindow overrides:
@@ -97,11 +100,11 @@ class UnboundedSurfaceWindowMac : public UnboundedSurfaceWindow,
   };
 
   DisplayInfo GetDisplayInfo() const;
-  void InitWindow(const gfx::Rect& bounds_in_dips);
+  void InitWindow(const gfx::Rect& bounds_in_screen);
   void OnConnectionError();
-  gfx::Rect ConvertDIPToScreenBounds(const gfx::Rect& bounds_in_dips) const;
 
   raw_ptr<RenderWidgetHostViewMac> parent_view_;
+  base::WeakPtr<RenderWidgetHostViewBase> subframe_view_;
   viz::FrameSinkId frame_sink_id_;
   viz::ParentLocalSurfaceIdAllocator local_surface_id_allocator_;
   mojo::AssociatedReceiver<blink::mojom::UnboundedSurfaceHost> receiver_{this};
@@ -113,7 +116,7 @@ class UnboundedSurfaceWindowMac : public UnboundedSurfaceWindow,
 #endif
 
   std::unique_ptr<ui::RecyclableCompositorMac> recyclable_compositor_;
-  std::unique_ptr<ui::Layer> root_layer_;
+  std::unique_ptr<ui::LayerSolidColor> root_layer_;
   std::unique_ptr<ui::DisplayCALayerTree> display_ca_layer_tree_;
   base::WeakPtrFactory<UnboundedSurfaceWindow> weak_ptr_factory_{this};
 };

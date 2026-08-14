@@ -9,7 +9,6 @@
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/public/glic_context_menu_invocation_helper.h"
 
-class GlicExperimentalTriggeringMessageHandler;
 namespace tabs {
 class TabInterface;
 }
@@ -36,7 +35,7 @@ class SkillsInvocationInteractiveUiTest;
 
 namespace glic {
 
-class AnchoredNudgeController;
+class GlicExperimentalTriggeringCoordinator;
 class GlicInternalsPageHandler;
 
 template <mojom::InvocationSource Source>
@@ -54,7 +53,6 @@ class InvokeWithAutoSubmitPasskeyProvider {
   // Example of how to add new friends:
   // friend class SomeClassThatNeedsAutoSubmit;
   // friend void SomeClass::SomeFunctionThatNeedsAutoSubmit();
-  friend class AnchoredNudgeController;
   friend void GlicContextMenuInvocationHelper::HandleContextualMenuClick(
       tabs::TabInterface* tab, const std::u16string& selection_text,
       content::GlobalRenderFrameHostId rfh_id);
@@ -66,8 +64,9 @@ class InvokeWithAutoSubmitPasskeyProvider {
   friend class GlicInvokeBrowserTest;
   friend class GlicInstanceCoordinatorTrustFirstOnboardingArm1BrowserTest;
   friend class GlicApiTestPasskeys;
-  friend class ::GlicExperimentalTriggeringMessageHandler;
+  friend class GlicExperimentalTriggeringCoordinator;
   friend class GlicCueTarget;
+  friend class GlicSelectionObserver;
   friend class ::indigo::IndigoPageActionController;
   friend class ::ttc::AiOverlayTools;
   friend class ::skills::SkillsUiTabController;

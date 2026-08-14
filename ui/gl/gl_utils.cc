@@ -128,17 +128,26 @@ void SetGlWorkarounds(const GlWorkarounds& workarounds) {
 
 #if BUILDFLAG(IS_WIN)
 unsigned int DirectCompositionRootSurfaceBufferCount() {
+  if (switches::GetFakeVsyncIntervalFromCommandLine().has_value()) {
+    // We assume 2 swapchain buffers are intended for a standard 60Hz display.
+    // If we are simulating a high refresh rate, we increase the buffer count
+    // to 10 to prevent blocking on presentation if the actual hardware
+    // display refresh rate is slower.
+    // Note: The simulated refresh rate is used here as a heuristic for
+    // debugging high refresh rate behaviors and does not need to be exact.
+    return 10u;
+  }
   return 2u;
 }
 
 // Labels swapchain buffers with the string name_prefix + _Buffer_ +
 // <buffer_number>
-void LabelSwapChainBuffers(IDXGISwapChain* swap_chain,
+void LabelSwapChainBuffers(IDXGISwapChain3* swap_chain,
                            const char* name_prefix) {
-  DXGI_SWAP_CHAIN_DESC desc;
-  HRESULT hr = swap_chain->GetDesc(&desc);
+  DXGI_SWAP_CHAIN_DESC1 desc;
+  HRESULT hr = swap_chain->GetDesc1(&desc);
   if (FAILED(hr)) {
-    DLOG(ERROR) << "Failed to GetDesc from swap chain: "
+    DLOG(ERROR) << "Failed to GetDesc1 from swap chain: "
                 << logging::SystemErrorCodeToString(hr);
     return;
   }
@@ -162,7 +171,7 @@ void LabelSwapChainBuffers(IDXGISwapChain* swap_chain,
 
 // Labels swapchain with the name_prefix and its buffers with the string
 // name_prefix + _Buffer_ + <buffer_number>.
-void LabelSwapChainAndBuffers(IDXGISwapChain* swap_chain,
+void LabelSwapChainAndBuffers(IDXGISwapChain3* swap_chain,
                               const char* name_prefix) {
   SetDebugName(swap_chain, name_prefix);
   LabelSwapChainBuffers(swap_chain, name_prefix);

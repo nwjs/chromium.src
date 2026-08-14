@@ -28,20 +28,20 @@
 
 namespace glic {
 
+// TODO(crbug.com/537847029): Migrate this test suite to GlicBrowserTest.
 class GlicNudgeControllerInteractiveUiTest : public test::InteractiveGlicTest {
  public:
   GlicNudgeControllerInteractiveUiTest() {
     feature_list_.InitWithFeatures(
         /*enabled_features=*/{},
-        /*disabled_features=*/{kUseAnchoredMessage,
-                               contextual_cueing::kContextualCueingV2});
+        /*disabled_features=*/{contextual_cueing::kContextualCueingV2});
   }
 
   void SetUpOnMainThread() override {
     InteractiveBrowserTest::SetUpOnMainThread();
     GlicEnabling::SetBypassEnablementChecksForTesting(true);
-    browser()->profile()->GetPrefs()->SetBoolean(prefs::kGlicPinnedToTabstrip,
-                                                 true);
+    browser()->GetProfile()->GetPrefs()->SetBoolean(
+        prefs::kGlicPinnedToTabstrip, true);
 
     ASSERT_TRUE(tab_strip_action_container());
   }
@@ -70,9 +70,9 @@ IN_PROC_BROWSER_TEST_F(GlicNudgeControllerInteractiveUiTest,
 
   EXPECT_FALSE(tab_strip_action_container()->GetIsShowingGlicNudge());
   LOG(ERROR) << "asdf about to update\n";
-  nudge_controller()->UpdateNudgeLabel(
-      web_contents, "Nudge Label", "Prompt Suggestion", "Anchored Message Text",
-      std::nullopt, base::DoNothing());
+  nudge_controller()->UpdateNudgeLabel(web_contents, "Nudge Label",
+                                       "Prompt Suggestion", std::nullopt,
+                                       base::DoNothing());
 
   EXPECT_TRUE(tab_strip_action_container()->GetIsShowingGlicNudge());
 }
@@ -83,75 +83,17 @@ IN_PROC_BROWSER_TEST_F(GlicNudgeControllerInteractiveUiTest,
       browser()->tab_strip_model()->GetActiveWebContents();
 
   EXPECT_FALSE(tab_strip_action_container()->GetIsShowingGlicNudge());
-  nudge_controller()->UpdateNudgeLabel(
-      web_contents, "Nudge Label", "Prompt Suggestion", "Anchored Message Text",
-      std::nullopt, base::DoNothing());
+  nudge_controller()->UpdateNudgeLabel(web_contents, "Nudge Label",
+                                       "Prompt Suggestion", std::nullopt,
+                                       base::DoNothing());
 
   EXPECT_TRUE(tab_strip_action_container()->GetIsShowingGlicNudge());
 
   nudge_controller()->UpdateNudgeLabel(
-      web_contents, std::string(), std::nullopt, std::string(),
+      web_contents, std::string(), std::nullopt,
       GlicNudgeActivity::kNudgeDismissed, base::DoNothing());
   EXPECT_FALSE(tab_strip_action_container()->GetIsShowingGlicNudge());
 }
 
-class GlicNudgeControllerAnchoredMessageInteractiveUiTest
-    : public GlicNudgeControllerInteractiveUiTest {
- public:
-  GlicNudgeControllerAnchoredMessageInteractiveUiTest() {
-    feature_list_.InitWithFeatures(
-        /*enabled_features=*/{kUseAnchoredMessage},
-        /*disabled_features=*/{contextual_cueing::kContextualCueingV2});
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(GlicNudgeControllerAnchoredMessageInteractiveUiTest,
-                       ShowsAnchoredMessage) {
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-
-  page_actions::PageActionController* page_action_controller =
-      browser()
-          ->GetActiveTabInterface()
-          ->GetTabFeatures()
-          ->page_action_controller();
-  page_actions::PageActionObserver observer(kActionGlicContextualCueing);
-  observer.RegisterAsPageActionObserver(*page_action_controller);
-
-  nudge_controller()->UpdateNudgeLabel(
-      web_contents, "Nudge Label", "Prompt Suggestion", "Anchored Message Text",
-      std::nullopt, base::DoNothing());
-
-  EXPECT_TRUE(observer.GetCurrentPageActionState().anchored_message_showing);
-}
-
-IN_PROC_BROWSER_TEST_F(GlicNudgeControllerAnchoredMessageInteractiveUiTest,
-                       HidesAnchoredMessage) {
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-
-  page_actions::PageActionController* page_action_controller =
-      browser()
-          ->GetActiveTabInterface()
-          ->GetTabFeatures()
-          ->page_action_controller();
-  page_actions::PageActionObserver observer(kActionGlicContextualCueing);
-  observer.RegisterAsPageActionObserver(*page_action_controller);
-
-  nudge_controller()->UpdateNudgeLabel(
-      web_contents, "Nudge Label", "Prompt Suggestion", "Anchored Message Text",
-      std::nullopt, base::DoNothing());
-
-  ASSERT_TRUE(observer.GetCurrentPageActionState().anchored_message_showing);
-
-  nudge_controller()->UpdateNudgeLabel(
-      web_contents, std::string(), std::nullopt, std::string(),
-      GlicNudgeActivity::kNudgeDismissed, base::DoNothing());
-
-  EXPECT_FALSE(observer.GetCurrentPageActionState().anchored_message_showing);
-}
 
 }  // namespace glic

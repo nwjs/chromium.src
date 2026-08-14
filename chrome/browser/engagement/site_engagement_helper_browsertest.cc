@@ -8,11 +8,9 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
-#include "base/test/scoped_feature_list.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/site_engagement/content/engagement_type.h"
@@ -65,16 +63,7 @@ class SiteEngagementHelperBrowserTest : public InProcessBrowserTest {
   SiteEngagementHelperBrowserTest()
       : prerender_helper_(
             base::BindRepeating(&SiteEngagementHelperBrowserTest::web_contents,
-                                base::Unretained(this))) {
-    webui_omnibox_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{},
-        /*disabled_features=*/
-        // TODO(crbug.com/452061489): Fix tests that fail when the WebUI Omnibox
-        // is enabled and then remove these two Features.
-        {omnibox::internal::kWebUIOmniboxPopup,
-         omnibox::internal::kWebUIOmniboxAimPopup});
-  }
-
+                                base::Unretained(this))) {}
   ~SiteEngagementHelperBrowserTest() override = default;
 
   // InProcessBrowserTest:
@@ -82,6 +71,10 @@ class SiteEngagementHelperBrowserTest : public InProcessBrowserTest {
     host_resolver()->AddRule("*", "127.0.0.1");
     ASSERT_TRUE(test_server_handle_ =
                     embedded_test_server()->StartAndReturnHandle());
+    // Initialize histogram_tester_ on main thread setup rather than member
+    // field construction so that background WebUI page navigations during
+    // browser startup do not contribute extra to histogram measurements.
+    histogram_tester_ = std::make_unique<base::HistogramTester>();
   }
 
   // Set a pause timer on the input tracker for test purposes.
@@ -110,13 +103,12 @@ class SiteEngagementHelperBrowserTest : public InProcessBrowserTest {
     return browser()->tab_strip_model()->GetActiveWebContents();
   }
 
-  base::HistogramTester* histogram_tester() { return &histogram_tester_; }
+  base::HistogramTester* histogram_tester() { return histogram_tester_.get(); }
 
  private:
   content::test::PrerenderTestHelper prerender_helper_;
-  base::test::ScopedFeatureList webui_omnibox_feature_list_;
   net::test_server::EmbeddedTestServerHandle test_server_handle_;
-  base::HistogramTester histogram_tester_;
+  std::unique_ptr<base::HistogramTester> histogram_tester_;
   raw_ptr<TestOneShotTimer, AcrossTasksDanglingUntriaged> input_tracker_timer_;
   raw_ptr<TestOneShotTimer, AcrossTasksDanglingUntriaged> media_tracker_timer_;
 };
@@ -213,7 +205,7 @@ class ObserverTester : public SiteEngagementObserver {
 IN_PROC_BROWSER_TEST_F(SiteEngagementHelperBrowserTest,
                        SiteEngagementHelperMediaTrackerInPrerendering) {
   site_engagement::SiteEngagementService* service =
-      site_engagement::SiteEngagementService::Get(browser()->profile());
+      site_engagement::SiteEngagementService::Get(browser()->GetProfile());
   ObserverTester tester(service);
 
   SiteEngagementService::Helper* helper =

@@ -32,21 +32,6 @@ function addPrivacyChildRoutes(r: Partial<SettingsRoutes>) {
 
   r.COOKIES = r.PRIVACY.createChild('/cookies');
 
-  if (loadTimeData.getBoolean('isAdPrivacyAvailable')) {
-    r.PRIVACY_SANDBOX = r.PRIVACY.createChild('/adPrivacy');
-    if (!loadTimeData.getBoolean('isPrivacySandboxRestricted')) {
-      r.PRIVACY_SANDBOX_TOPICS =
-          r.PRIVACY_SANDBOX.createChild('/adPrivacy/interests');
-      r.PRIVACY_SANDBOX_MANAGE_TOPICS =
-          r.PRIVACY_SANDBOX_TOPICS.createChild('/adPrivacy/interests/manage');
-      r.PRIVACY_SANDBOX_FLEDGE =
-          r.PRIVACY_SANDBOX.createChild('/adPrivacy/sites');
-    }
-    // Ad Measurement is available whenever Ad Privacy is available.
-    r.PRIVACY_SANDBOX_AD_MEASUREMENT =
-        r.PRIVACY_SANDBOX.createChild('/adPrivacy/measurement');
-  }
-
   if (loadTimeData.getBoolean('enableSecurityKeysSubpage')) {
     r.SECURITY_KEYS = r.SECURITY.createChild('/securityKeys');
   }
@@ -236,12 +221,12 @@ function createRoutes(): SettingsRoutes {
       r.YOUR_SAVED_INFO_IDENTITY_DOCS =
           r.YOUR_SAVED_INFO.createChild('/identityDocs');
       r.YOUR_SAVED_INFO_TRAVEL = r.YOUR_SAVED_INFO.createChild('/travel');
-      if (loadTimeData.getBoolean('enableYourSavedInfoShoppingPage')) {
+      if (loadTimeData.getBoolean('shoppingIntegrationEnabled')) {
         r.YOUR_SAVED_INFO_SHOPPING = r.YOUR_SAVED_INFO.createChild('/shopping');
       }
       if (loadTimeData.getBoolean('showSuggestionsFromGeminiSettings')) {
         r.SUGGESTIONS_FROM_GEMINI =
-            r.YOUR_SAVED_INFO.createChild('/autofill/suggestionsFromGemini');
+            r.YOUR_SAVED_INFO.createChild('/enhancedAutofill');
       }
       // <if expr="is_win or is_macosx">
       r.PASSKEYS = r.YOUR_SAVED_INFO.createChild('/passkeys');

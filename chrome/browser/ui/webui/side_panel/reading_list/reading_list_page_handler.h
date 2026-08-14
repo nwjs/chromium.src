@@ -28,7 +28,7 @@ namespace content {
 class WebUI;
 }  // namespace content
 
-class Browser;
+class BrowserWindowInterface;
 class GURL;
 class ReadingListUI;
 class ReadingListEntry;
@@ -49,7 +49,6 @@ class ReadingListPageHandler : public reading_list::mojom::PageHandler,
   // reading_list::mojom::PageHandler:
   void GetReadLaterEntries(GetReadLaterEntriesCallback callback) override;
   void OpenURL(const GURL& url,
-               bool mark_as_read,
                ui::mojom::ClickModifiersPtr click_modifiers) override;
   void UpdateReadStatus(const GURL& url, bool read) override;
   void MarkCurrentTabAsRead() override;
@@ -84,7 +83,7 @@ class ReadingListPageHandler : public reading_list::mojom::PageHandler,
   }
 
   std::unique_ptr<ui::SimpleMenuModel> GetItemContextMenuModelForTesting(
-      Browser* browser,
+      BrowserWindowInterface* browser,
       ReadingListModel* reading_list_model,
       GURL url);
 

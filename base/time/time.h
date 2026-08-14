@@ -482,8 +482,7 @@ class TimeBase {
 #if !defined(__aarch64__) && BUILDFLAG(IS_ANDROID)
   NOINLINE  // https://crbug.com/1369775
 #endif
-      constexpr TimeDelta
-      operator-(const TimeBase<TimeClass>& other) const;
+      constexpr TimeDelta operator-(const TimeBase<TimeClass>& other) const;
 
   // Return a new time modified by some delta.
   constexpr TimeClass operator+(TimeDelta delta) const;
@@ -543,7 +542,7 @@ class BASE_EXPORT Time : public time_internal::TimeBase<Time> {
   // following: ((1970-1601)*365+89)*24*60*60*1000*1000, where 89 is the number
   // of leap year days between 1601 and 1970: (1970-1601)/4 excluding 1700,
   // 1800, and 1900.
-  static constexpr int64_t kTimeTToMicrosecondsOffset =
+  static constexpr int64_t kMicrosecondsFromWindowsToUnixEpoch =
       INT64_C(11644473600000000);
 
 #if BUILDFLAG(IS_WIN)
@@ -624,7 +623,9 @@ class BASE_EXPORT Time : public time_internal::TimeBase<Time> {
   constexpr Time() : TimeBase(0) {}
 
   // Returns the time for epoch in Unix-like system (Jan 1, 1970).
-  static constexpr Time UnixEpoch() { return Time(kTimeTToMicrosecondsOffset); }
+  static constexpr Time UnixEpoch() {
+    return Time(kMicrosecondsFromWindowsToUnixEpoch);
+  }
 
   // Returns the current time. Watch out, the system might adjust its clock
   // in which case time will actually go backwards. We don't guarantee that
@@ -1284,26 +1285,6 @@ class BASE_EXPORT TimeTicks : public time_internal::TimeBase<TimeTicks> {
   int64_t ToUptimeMicros() const;
 
 #endif  // BUILDFLAG(IS_ANDROID)
-
-  // Get an estimate of the TimeTick value at the time of the UnixEpoch. Because
-  // Time and TimeTicks respond differently to user-set time and NTP
-  // adjustments, this number is only an estimate. Nevertheless, this can be
-  // useful when you need to relate the value of TimeTicks to a real time and
-  // date. Note: Upon first invocation, this function takes a snapshot of the
-  // realtime clock to establish a reference point.  This function will return
-  // the same value for the duration of the application, but will be different
-  // in future application runs.
-  // DEPRECATED:
-  // Because TimeTicks increments can get suspended on some platforms (e.g. Mac)
-  // and because this function returns a static value, this value will not get
-  // suspension time into account on those platforms.
-  // As TimeTicks is intended to be used to track a process duration and not an
-  // absolute time, if you plan to use this function, please consider using a
-  // Time instead.
-  // TODO(crbug.com/355423207): Remove function.
-  static TimeTicks UnixEpoch();
-
-  static void SetSharedUnixEpoch(TimeTicks);
 
   // Returns an enum indicating the underlying clock being used to generate
   // TimeTicks timestamps. This function should only be used for debugging and

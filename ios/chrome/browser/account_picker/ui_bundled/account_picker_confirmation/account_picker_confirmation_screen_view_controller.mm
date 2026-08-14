@@ -57,21 +57,25 @@ UIFont* GetNavigationBarTitleFont() {
 }
 
 // Returns the width and height of a single pixel in point.
-CGFloat GetPixelLength() {
-  return 1.0 / [UIScreen mainScreen].scale;
+CGFloat GetPixelLength(UITraitCollection* traitCollection) {
+  CGFloat scale = traitCollection.displayScale;
+  if (scale == 0) {
+    scale = 2.0;
+  }
+  return 1.0 / scale;
 }
 
 // Creates the google photos branded title view for the navigation.
 BrandedNavigationItemTitleView* CreateGooglePhotosImageView(
     NSString* title,
-    NSString* brandedSymbolName) {
+    Symbol brandedSymbol) {
   BrandedNavigationItemTitleView* title_view =
       [[BrandedNavigationItemTitleView alloc]
           initWithFont:ios::provider::GetBrandedProductRegularFont(
                            UIFont.labelFontSize)];
   title_view.title = title;
-  title_view.imageLogo = MakeSymbolMulticolor(CustomSymbolWithPointSize(
-      brandedSymbolName, UIFont.labelFontSize * kLogoTitleFontMultiplier));
+  title_view.imageLogo = MakeSymbolMulticolor(SymbolWithPointSize(
+      brandedSymbol, UIFont.labelFontSize * kLogoTitleFontMultiplier));
   title_view.titleLogoSpacing = kTitleLogoSpacing;
   return title_view;
 }
@@ -204,9 +208,9 @@ UILabel* CreateGooglePhotosTitleLabel(NSString* title) {
   // Set the navigation title in the left bar button item to have left
   // alignment.
   if (_configuration.useBrandedTitle) {
-    if (_configuration.brandedSymbolName) {
+    if (_configuration.brandedSymbol.has_value()) {
       self.navigationItem.titleView = CreateGooglePhotosImageView(
-          _configuration.titleText, _configuration.brandedSymbolName);
+          _configuration.titleText, _configuration.brandedSymbol.value());
     } else {
       self.navigationItem.titleView =
           CreateGooglePhotosTitleLabel(_configuration.titleText);
@@ -376,7 +380,8 @@ UILabel* CreateGooglePhotosTitleLabel(NSString* title) {
                          constant:16.],
       [separator.trailingAnchor
           constraintEqualToAnchor:identityStackView.trailingAnchor],
-      [separator.heightAnchor constraintEqualToConstant:GetPixelLength()],
+      [separator.heightAnchor
+          constraintEqualToConstant:GetPixelLength(self.traitCollection)],
       // Switch with label constraints
       [switchWithLabelContainer.widthAnchor
           constraintEqualToAnchor:identityStackView.widthAnchor],

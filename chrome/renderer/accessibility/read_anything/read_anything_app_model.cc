@@ -16,10 +16,15 @@
 #include "base/containers/flat_map.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/no_destructor.h"
+#include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "chrome/common/read_anything/read_anything_util.h"
+#include "read_anything_app_model.h"
 #if !BUILDFLAG(IS_CHROMEOS)
 #include "chrome/common/webui_url_constants.h"
 #include "content/public/common/url_constants.h"
@@ -28,6 +33,7 @@
 #include "chrome/renderer/accessibility/read_anything/read_anything_node_utils.h"
 #include "content/public/renderer/render_thread.h"
 #include "services/strings/grit/services_strings.h"
+#include "third_party/re2/src/re2/re2.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_enum_util.h"
 #include "ui/accessibility/ax_enums.mojom-shared.h"
@@ -334,6 +340,55 @@ bool ReadAnythingAppModel::ContentNodesOnlyContainHeadings() {
   return true;
 }
 
+// This method uses a heuristic to make an educated guess about whether the
+// original page that reading mode was opened on has some type of key points
+// section. This heuristic checks if there's a heading or button that has
+// text that matches kKeyPointsRegex i.e. if the text contains English words
+// that could likely indicate that a section represents a "key points."
+// This is just intended as an approximation for metrics purposes to better
+// understand the types of pages that reading mode is opened on.
+bool ReadAnythingAppModel::MaybeHasKeyPointsSection() const {
+  if (!ContainsActiveTree()) {
+    return false;
+  }
+  ui::AXSerializableTree* active_tree = GetTreeFromId(active_tree_id_);
+  if (!active_tree || !active_tree->root()) {
+    return false;
+  }
+
+  for (ui::AXNode* node = active_tree->root(); node;
+       node = node->GetNextUnignoredInTreeOrder()) {
+    if (IsNodeLikelyKeyPoints(node)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Checks if a specific AXNode seems likely to indicate a key points section.
+bool ReadAnythingAppModel::IsNodeLikelyKeyPoints(ui::AXNode* node) const {
+  if (node->GetRole() == ax::mojom::Role::kHeading ||
+      node->GetRole() == ax::mojom::Role::kButton ||
+      node->GetRole() == ax::mojom::Role::kPopUpButton ||
+      node->GetRole() == ax::mojom::Role::kToggleButton ||
+      node->GetRole() == ax::mojom::Role::kDisclosureTriangle) {
+    int hierarchical_level =
+        node->GetIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel);
+    if (hierarchical_level == 1 &&
+        node->GetRole() == ax::mojom::Role::kHeading) {
+      return false;
+    }
+    std::u16string node_text16 = a11y::GetTextContent(node, is_pdf_, IsDocs());
+    std::string node_text = base::ToLowerASCII(base::UTF16ToUTF8(node_text16));
+
+    static const base::NoDestructor<re2::RE2> key_points_re(kKeyPointsRegex);
+    if (re2::RE2::PartialMatch(node_text, *key_points_re)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void ReadAnythingAppModel::ComputeDisplayNodeIdsForDistilledTree() {
   DCHECK(!content_node_ids_.empty());
 
@@ -613,7 +668,8 @@ void ReadAnythingAppModel::UnserializeUpdates(const Updates& updates,
   // Set URL info if it hasn't already been set.
   SetTreeInfoUrlInformation(*it->second);
 
-  ProcessGeneratedEvents(event_generator, prev_tree_size, tree->size());
+  ProcessGeneratedEvents(tree_id, event_generator, prev_tree_size,
+                         tree->size());
 }
 
 void ReadAnythingAppModel::PrepareForAXTreeUpdates(
@@ -660,7 +716,11 @@ void ReadAnythingAppModel::UpdateActiveTreeIfNeeded(
   // in case there has been a delay in receiving valid accessibility tree
   // updates.
   if (root_tree_id_ == tree_id) {
-    SetRootTreeId(root_tree_id_);
+    // For PDFs, the active tree should remain the child tree containing the PDF
+    // content, rather than falling back to the root PDF viewer frame tree.
+    if (!is_pdf_) {
+      SetRootTreeId(root_tree_id_);
+    }
   } else if (active_tree_id_ != ui::AXTreeIDUnknown() &&
              active_tree_id_ != tree_id &&
              child_tree_ids_.find(tree_id) != child_tree_ids_.end()) {
@@ -864,8 +924,7 @@ void ReadAnythingAppModel::OnScroll(bool on_selection,
                                     bool from_reading_mode) const {
   // Scroll events shouldn't be logged when reading mode is inactive.
   if (features::IsImmersiveReadAnythingEnabled() &&
-      active_presentation_state_ ==
-          read_anything::mojom::ReadAnythingPresentationState::kInactive) {
+      !is_active_presentation_state_opened()) {
     return;
   }
   // Enum for logging how a scroll occurs.
@@ -1061,6 +1120,7 @@ void ReadAnythingAppModel::ProcessNonGeneratedEvents(
 }
 
 void ReadAnythingAppModel::ProcessGeneratedEvents(
+    const ui::AXTreeID& tree_id,
     const ui::AXEventGenerator& event_generator,
     size_t prev_tree_size,
     size_t tree_size) {
@@ -1127,7 +1187,8 @@ void ReadAnythingAppModel::ProcessGeneratedEvents(
         // displaying). To avoid distilling and causing RM to flicker, only
         // distill if the size of the updated tree is larger than before (to
         // capture the complete PDF load mentioned earlier).
-        if (is_pdf_ && prev_tree_size < tree_size) {
+        if (is_pdf_ && tree_id == active_tree_id_ &&
+            prev_tree_size < tree_size) {
           requires_distillation_ = true;
           reset_distillation_delay_timer_ = true;
         }

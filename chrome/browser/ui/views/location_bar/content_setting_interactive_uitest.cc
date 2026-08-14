@@ -6,8 +6,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/interaction/browser_elements.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/content_setting_bubble_contents.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
@@ -130,7 +128,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewContentSettingsInteractiveTest,
                   base::StringPrintf(R"(
         () => {
           const icon = %s;
-          const button = icon.shadowRoot.querySelector('cr-icon-button');
+          const button = icon.$.chip.$.button;
           button.click();
         }
       )",

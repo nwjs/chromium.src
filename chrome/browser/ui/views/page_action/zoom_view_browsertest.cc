@@ -12,7 +12,6 @@
 #include "chrome/browser/ui/views/location_bar/zoom_bubble_coordinator.h"
 #include "chrome/browser/ui/views/location_bar/zoom_bubble_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
-#include "chrome/browser/ui/views/page_action/page_action_view.h"
 #include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "content/public/test/browser_test.h"
@@ -34,7 +33,7 @@ views::View* GetZoomView(Browser* browser) {
 
 IN_PROC_BROWSER_TEST_F(ZoomViewBrowserTest, SharedPageVisibility) {
   auto* zoom_icon = GetZoomView(browser());
-  auto* second_zoom_icon = GetZoomView(CreateBrowser(browser()->profile()));
+  auto* second_zoom_icon = GetZoomView(CreateBrowser(browser()->GetProfile()));
 
   ZoomBubbleCoordinator* zoom_bubble_coordinator =
       ZoomBubbleCoordinator::From(browser());

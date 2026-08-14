@@ -11,6 +11,7 @@
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/service/gl_utils.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
+#include "gpu/command_buffer/service/shared_image/gl_texture_holder.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_gl_utils.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_representation.h"
 #include "gpu/command_buffer/service/shared_image/skia_gl_image_representation.h"
@@ -27,46 +28,15 @@
 
 namespace gpu {
 
-class EGLImageBacking::TextureHolder : public base::RefCounted<TextureHolder> {
- public:
-  explicit TextureHolder(gles2::Texture* texture) : texture_(texture) {}
-  explicit TextureHolder(
-      scoped_refptr<gles2::TexturePassthrough> texture_passthrough)
-      : texture_passthrough_(std::move(texture_passthrough)) {}
 
-  void MarkContextLost() {
-    context_lost_ = true;
-    if (texture_passthrough_)
-      texture_passthrough_->MarkContextLost();
-  }
-
-  gles2::Texture* texture() { return texture_; }
-  const scoped_refptr<gles2::TexturePassthrough>& texture_passthrough() const {
-    return texture_passthrough_;
-  }
-
- private:
-  friend class base::RefCounted<TextureHolder>;
-
-  ~TextureHolder() {
-    if (texture_) {
-      texture_.ExtractAsDangling()->RemoveLightweightRef(!context_lost_);
-    }
-  }
-
-  raw_ptr<gles2::Texture> texture_ = nullptr;
-  const scoped_refptr<gles2::TexturePassthrough> texture_passthrough_;
-  bool context_lost_ = false;
-};
 
 // Implementation of GLTextureImageRepresentation which uses GL texture
 // which is an EGLImage sibling.
 class EGLImageBacking::GLRepresentationShared {
  public:
-  using TextureHolder = EGLImageBacking::TextureHolder;
   GLRepresentationShared(
       EGLImageBacking* backing,
-      std::vector<scoped_refptr<TextureHolder>> texture_holders)
+      std::vector<scoped_refptr<GLTextureHolder>> texture_holders)
       : backing_(backing), texture_holders_(std::move(texture_holders)) {}
 
   GLRepresentationShared(const GLRepresentationShared&) = delete;
@@ -76,7 +46,7 @@ class EGLImageBacking::GLRepresentationShared {
     EndAccess();
     if (!backing_->have_context()) {
       for (auto texture_holder : texture_holders_) {
-        texture_holder->MarkContextLost();
+        texture_holder->SetContextLost();
       }
     }
     texture_holders_.clear();
@@ -112,13 +82,14 @@ class EGLImageBacking::GLRepresentationShared {
     mode_ = RepresentationAccessMode::kNone;
   }
 
-  const scoped_refptr<TextureHolder>& texture_holder(size_t plane_index) const {
+  const scoped_refptr<GLTextureHolder>& texture_holder(
+      size_t plane_index) const {
     return texture_holders_[plane_index];
   }
 
  private:
   const raw_ptr<EGLImageBacking> backing_;
-  std::vector<scoped_refptr<TextureHolder>> texture_holders_;
+  std::vector<scoped_refptr<GLTextureHolder>> texture_holders_;
   RepresentationAccessMode mode_ = RepresentationAccessMode::kNone;
 };
 
@@ -129,7 +100,7 @@ class EGLImageBacking::GLTextureEGLImageRepresentation
       SharedImageManager* manager,
       EGLImageBacking* backing,
       MemoryTypeTracker* tracker,
-      std::vector<scoped_refptr<TextureHolder>> texture_holders)
+      std::vector<scoped_refptr<GLTextureHolder>> texture_holders)
       : GLTextureImageRepresentation(manager, backing, tracker),
         shared_(backing, std::move(texture_holders)) {}
 
@@ -162,7 +133,7 @@ class EGLImageBacking::GLTexturePassthroughEGLImageRepresentation
       SharedImageManager* manager,
       EGLImageBacking* backing,
       MemoryTypeTracker* tracker,
-      std::vector<scoped_refptr<TextureHolder>> texture_holders)
+      std::vector<scoped_refptr<GLTextureHolder>> texture_holders)
       : GLTexturePassthroughImageRepresentation(manager, backing, tracker),
         shared_(backing, std::move(texture_holders)) {}
 
@@ -181,8 +152,8 @@ class EGLImageBacking::GLTexturePassthroughEGLImageRepresentation
       size_t plane_index) override {
     CHECK(format().IsValidPlaneIndex(plane_index));
     // TODO(crbug.com/40166788): Remove this CHECK.
-    CHECK(shared_.texture_holder(plane_index)->texture_passthrough());
-    return shared_.texture_holder(plane_index)->texture_passthrough();
+    CHECK(shared_.texture_holder(plane_index)->passthrough_texture());
+    return shared_.texture_holder(plane_index)->passthrough_texture();
   }
 
   bool SupportsMultipleConcurrentReadAccess() override { return true; }
@@ -190,6 +161,40 @@ class EGLImageBacking::GLTexturePassthroughEGLImageRepresentation
  private:
   GLRepresentationShared shared_;
 };
+
+// static
+bool EGLImageBacking::SupportsPixelReadbackWithFormat(
+    viz::SharedImageFormat format) {
+  // NOTE: Using MultiPlaneFormats is okay here are this is only used with
+  // SharedMemory GMBs which correspond to specific multiplanar formats.
+  return (format.is_multi_plane() ||
+          format == viz::SinglePlaneFormat::kRGBA_8888 ||
+          format == viz::SinglePlaneFormat::kBGRA_8888 ||
+          format == viz::SinglePlaneFormat::kR_8 ||
+          format == viz::SinglePlaneFormat::kRG_88 ||
+          format == viz::SinglePlaneFormat::kRGBX_8888 ||
+          format == viz::SinglePlaneFormat::kBGRX_8888);
+}
+
+// static
+bool EGLImageBacking::SupportsPixelUploadWithFormat(
+    viz::SharedImageFormat format) {
+  // NOTE: Using MultiPlaneFormats is okay here are this is only used with
+  // SharedMemory GMBs which correspond to specific multiplanar formats.
+  return (format.is_multi_plane() ||
+          format == viz::SinglePlaneFormat::kRGBA_8888 ||
+          format == viz::SinglePlaneFormat::kRGBA_4444 ||
+          format == viz::SinglePlaneFormat::kBGRA_8888 ||
+          format == viz::SinglePlaneFormat::kR_8 ||
+          format == viz::SinglePlaneFormat::kRG_88 ||
+          format == viz::SinglePlaneFormat::kRGBA_F16 ||
+          format == viz::SinglePlaneFormat::kR_16 ||
+          format == viz::SinglePlaneFormat::kRG_1616 ||
+          format == viz::SinglePlaneFormat::kRGBX_8888 ||
+          format == viz::SinglePlaneFormat::kBGRX_8888 ||
+          format == viz::SinglePlaneFormat::kRGBA_1010102 ||
+          format == viz::SinglePlaneFormat::kBGRA_1010102);
+}
 
 EGLImageBacking::EGLImageBacking(
     const Mailbox& mailbox,
@@ -464,7 +469,7 @@ gl::ScopedEGLImage EGLImageBacking::GenEGLImageSibling(
       reinterpret_cast<EGLClientBuffer>(service_ids[plane]), egl_attrib_list);
 }
 
-std::vector<scoped_refptr<EGLImageBacking::TextureHolder>>
+std::vector<scoped_refptr<GLTextureHolder>>
 EGLImageBacking::GenEGLImageSiblings(base::span<const uint8_t> pixel_data) {
   GLenum target = GL_TEXTURE_2D;
   gl::GLApi* api = gl::g_current_gl_context;
@@ -547,19 +552,32 @@ EGLImageBacking::GenEGLImageSiblings(base::span<const uint8_t> pixel_data) {
     SetCleared();
   }
 
-  std::vector<scoped_refptr<EGLImageBacking::TextureHolder>> texture_holders;
+  std::vector<scoped_refptr<GLTextureHolder>> texture_holders;
   texture_holders.reserve(num_planes);
   for (int plane = 0; plane < num_planes; plane++) {
+    auto plane_format = GLTextureHolder::GetPlaneFormat(format(), plane);
+    gfx::Size plane_size = format().GetPlaneSize(plane, size());
+    auto holder = base::MakeRefCounted<GLTextureHolder>(
+        plane_format, plane_size, use_passthrough_, nullptr);
+
+    GLFormatDesc format_desc;
+    format_desc.target = GL_TEXTURE_2D;
+    format_desc.data_format = format_info_[plane].gl_format;
+    format_desc.data_type = format_info_[plane].gl_type;
+    format_desc.image_internal_format =
+        format_info_[plane].image_internal_format;
+    format_desc.storage_internal_format =
+        format_info_[plane].storage_internal_format;
+
     if (use_passthrough_) {
       auto texture_passthrough =
           base::MakeRefCounted<gpu::gles2::TexturePassthrough>(
               service_ids[plane], GL_TEXTURE_2D);
-      texture_holders.push_back(
-          base::MakeRefCounted<TextureHolder>(std::move(texture_passthrough)));
+      holder->InitializeWithTexture(format_desc,
+                                    std::move(texture_passthrough));
     } else {
       auto* texture = gles2::CreateGLES2TextureWithLightRef(service_ids[plane],
                                                             GL_TEXTURE_2D);
-      gfx::Size plane_size = format().GetPlaneSize(plane, size());
       // If the backing is already cleared, no need to clear it again.
       gfx::Rect cleared_rect;
       if (IsCleared()) {
@@ -573,9 +591,9 @@ EGLImageBacking::GenEGLImageSiblings(base::span<const uint8_t> pixel_data) {
                             format_info_[plane].gl_type, cleared_rect);
 
       texture->SetImmutable(/*immutable=*/true, /*immutable_storage=*/false);
-      texture_holders.push_back(
-          base::MakeRefCounted<TextureHolder>(std::move(texture)));
+      holder->InitializeWithTexture(format_desc, texture);
     }
+    texture_holders.push_back(std::move(holder));
   }
   return texture_holders;
 }
@@ -586,10 +604,97 @@ void EGLImageBacking::MarkForDestruction() {
 
   if (!have_context()) {
     for (auto source_texture_holder : source_texture_holders_) {
-      source_texture_holder->MarkContextLost();
+      source_texture_holder->SetContextLost();
     }
   }
   source_texture_holders_.clear();
+}
+
+bool EGLImageBacking::UploadFromMemory(const std::vector<SkPixmap>& pixmaps) {
+  if (!BeginWrite()) {
+    return false;
+  }
+
+  // Use existing source texture holders if they were created on the current
+  // context. Otherwise, create new EGLImage siblings.
+  std::vector<scoped_refptr<GLTextureHolder>> texture_holders;
+  if (created_on_context_ == gl::g_current_gl_context &&
+      !source_texture_holders_.empty()) {
+    texture_holders = source_texture_holders_;
+  } else {
+    texture_holders = GenEGLImageSiblings(/*pixel_data=*/{});
+  }
+
+  if (texture_holders.empty()) {
+    EndWrite();
+    return false;
+  }
+
+  bool success = true;
+  int num_planes = format().NumberOfPlanes();
+  for (int i = 0; i < num_planes; ++i) {
+    if (!texture_holders[i]->UploadFromMemory(pixmaps[i])) {
+      success = false;
+    }
+
+    if (!success) {
+      break;
+    }
+  }
+
+  EndWrite();
+  if (success) {
+    SetCleared();
+  }
+  return success;
+}
+
+bool EGLImageBacking::ReadbackToMemory(const std::vector<SkPixmap>& pixmaps) {
+  {
+    AutoLock auto_lock(this);
+    if (is_writing_) {
+      return false;
+    }
+    // Wait for any pending writes to complete before starting readback.
+    if (write_fence_) {
+      write_fence_->ServerWait();
+    }
+  }
+
+  // Use existing source texture holders if they were created on the current
+  // context. Otherwise, create new EGLImage siblings.
+  std::vector<scoped_refptr<GLTextureHolder>> texture_holders;
+  if (created_on_context_ == gl::g_current_gl_context &&
+      !source_texture_holders_.empty()) {
+    texture_holders = source_texture_holders_;
+  } else {
+    texture_holders = GenEGLImageSiblings(/*pixel_data=*/{});
+  }
+
+  if (texture_holders.empty()) {
+    return false;
+  }
+
+  bool success = true;
+  int num_planes = format().NumberOfPlanes();
+  for (int i = 0; i < num_planes; ++i) {
+    if (!texture_holders[i]->ReadbackToMemory(pixmaps[i])) {
+      success = false;
+    }
+
+    if (!success) {
+      break;
+    }
+  }
+
+  {
+    AutoLock auto_lock(this);
+    // Create a read fence to synchronize with future writes.
+    read_fences_[gl::g_current_gl_context] =
+        base::MakeRefCounted<gl::SharedGLFenceEGL>();
+  }
+
+  return success;
 }
 
 }  // namespace gpu

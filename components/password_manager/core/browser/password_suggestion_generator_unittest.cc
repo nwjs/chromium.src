@@ -1591,6 +1591,21 @@ TEST_F(
   EXPECT_THAT(suggestions[0], Not(FaviconCanBeRequestedFromGoogle()));
 }
 
+TEST_F(PasswordSuggestionGeneratorTest,
+       ManualFallback_Favicons_NoFaviconDetailsForNonHttpsUrl) {
+  PasswordForm form =
+      CreateEntry("user@example.com", "pass", GURL("http://127.0.0.1:8080/"),
+                  PasswordForm::MatchType::kExact);
+  form.signon_realm = "https://example.com/";
+
+  std::vector<Suggestion> suggestions = GenerateSuggestedPasswordsSection(
+      {form}, IsTriggeredOnPasswordForm(true));
+
+  ASSERT_GE(suggestions.size(), 1u);
+  EXPECT_FALSE(std::holds_alternative<Suggestion::FaviconDetails>(
+      suggestions[0].custom_icon));
+}
+
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -1949,8 +1964,7 @@ TEST_F(PasswordSuggestionGeneratorTest,
 }
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-TEST_F(PasswordSuggestionGeneratorTest,
-       GetWebauthnSignInWithAnotherDeviceSuggestion_QrEnabled) {
+TEST_F(PasswordSuggestionGeneratorTest, GetWebauthnInlineQrCodeSuggestion) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
       switches::kMagiChromePasskeySignIn, {{"flow_type", "autofill"}});
@@ -1961,7 +1975,7 @@ TEST_F(PasswordSuggestionGeneratorTest,
   EXPECT_CALL(client(), IsChromeSigninPage).WillOnce(Return(true));
 
   std::optional<Suggestion> suggestion =
-      generator().GetWebauthnSignInWithAnotherDeviceSuggestion();
+      generator().GetWebauthnInlineQrCodeSuggestion();
   ASSERT_TRUE(suggestion.has_value());
   EXPECT_THAT(*suggestion,
               EqualsSuggestion(SuggestionType::kWebauthnPasskeyQrCode,
@@ -1974,7 +1988,7 @@ TEST_F(PasswordSuggestionGeneratorTest,
 }
 
 TEST_F(PasswordSuggestionGeneratorTest,
-       GetWebauthnSignInWithAnotherDeviceSuggestion_QrEnabled_NotChromeSigninPage) {
+       GetWebauthnInlineQrCodeSuggestion_NotChromeSigninPage) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
       switches::kMagiChromePasskeySignIn, {{"flow_type", "autofill"}});
@@ -1982,27 +1996,11 @@ TEST_F(PasswordSuggestionGeneratorTest,
   const std::string kTestQrString = "test_qr_string";
   ON_CALL(credentials_delegate(), GetCableQrString)
       .WillByDefault(Return(kTestQrString));
-  ON_CALL(credentials_delegate(), IsSecurityKeyOrHybridFlowAvailable)
-      .WillByDefault(Return(true));
-  const std::vector<PasskeyCredential> passkeys;
-  ON_CALL(credentials_delegate(), GetPasskeys)
-      .WillByDefault(Return(base::ok(&passkeys)));
   EXPECT_CALL(client(), IsChromeSigninPage).WillOnce(Return(false));
 
   std::optional<Suggestion> suggestion =
-      generator().GetWebauthnSignInWithAnotherDeviceSuggestion();
-  ASSERT_TRUE(suggestion.has_value());
-  EXPECT_THAT(
-      *suggestion,
-      EqualsSuggestion(
-          SuggestionType::kWebauthnSignInWithAnotherDevice,
-#if BUILDFLAG(IS_IOS)
-          l10n_util::GetStringUTF16(IDS_PASSWORD_MANAGER_USE_PASSKEY),
-#else
-          l10n_util::GetStringUTF16(
-              IDS_PASSWORD_MANAGER_USE_PASSKEY_OTHER_DEVICE),
-#endif  // BUILDFLAG(IS_IOS)
-          Suggestion::Icon::kDevice));
+      generator().GetWebauthnInlineQrCodeSuggestion();
+  EXPECT_FALSE(suggestion.has_value());
 }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
@@ -2029,33 +2027,6 @@ TEST_F(PasswordSuggestionGeneratorTest,
                                expected_message, Suggestion::Icon::kDevice));
 }
 
-TEST_F(PasswordSuggestionGeneratorTest,
-       GetWebauthnSignInWithAnotherDeviceSuggestionWhenContextMenuIsEnabled) {
-#if !BUILDFLAG(IS_IOS)
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      features::kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu);
-#endif  // !BUILDFLAG(IS_IOS)
-  const std::vector<PasskeyCredential> passkeys;
-  ON_CALL(credentials_delegate(), GetPasskeys)
-      .WillByDefault(Return(base::ok(&passkeys)));
-  ON_CALL(credentials_delegate(), IsSecurityKeyOrHybridFlowAvailable)
-      .WillByDefault(Return(true));
-
-  std::optional<Suggestion> suggestion =
-      generator().GetWebauthnSignInWithAnotherDeviceSuggestion();
-  ASSERT_TRUE(suggestion.has_value());
-  EXPECT_THAT(*suggestion,
-              EqualsSuggestion(
-                  SuggestionType::kWebauthnSignInWithAnotherDevice,
-#if BUILDFLAG(IS_IOS)
-                  l10n_util::GetStringUTF16(IDS_PASSWORD_MANAGER_USE_PASSKEY),
-#else
-                  l10n_util::GetStringUTF16(
-                      IDS_PASSWORD_MANAGER_USE_PASSKEY_OTHER_DEVICE),
-#endif  // BUILDFLAG(IS_IOS)
-                  Suggestion::Icon::kDevice));
-}
 
 TEST_F(PasswordSuggestionGeneratorTest,
        NoWebauthnSignInWithAnotherDeviceSuggestionWhenNoPasskeys) {
@@ -2117,5 +2088,49 @@ TEST_F(PasswordSuggestionGeneratorTest, WebAuthnSuggestionPosition) {
           EqualsManagePasswordsSuggestion()));
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+TEST_F(PasswordSuggestionGeneratorTest,
+       GetSuggestionsForDomain_InlineQrAndHybridBothIncluded) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      switches::kMagiChromePasskeySignIn, {{"flow_type", "autofill"}});
+
+  const std::string kTestQrString = "test_qr_string";
+  ON_CALL(credentials_delegate(), GetCableQrString)
+      .WillByDefault(Return(kTestQrString));
+  ON_CALL(client(), IsChromeSigninPage).WillByDefault(Return(true));
+  ON_CALL(credentials_delegate(), IsSecurityKeyOrHybridFlowAvailable)
+      .WillByDefault(Return(true));
+  const std::vector<PasskeyCredential> passkeys;
+  ON_CALL(credentials_delegate(), GetPasskeys)
+      .WillByDefault(Return(base::ok(&passkeys)));
+
+  std::vector<Suggestion> suggestions = generator().GetSuggestionsForDomain(
+      undo_controller(), password_form_fill_data(), favicon(),
+      /*username_filter=*/u"", OffersGeneration(false),
+      ShowPasswordSuggestions(true), ShowWebAuthnCredentials(false),
+      ShowIdentityCredentials(false));
+
+  EXPECT_THAT(
+      suggestions,
+      ElementsAre(
+          EqualsDomainPasswordSuggestion(SuggestionType::kPasswordEntry,
+                                         u"username", password_label(8u),
+                                         /*realm_label=*/u"", favicon()),
+          EqualsSuggestion(SuggestionType::kSeparator),
+          EqualsSuggestion(SuggestionType::kWebauthnPasskeyQrCode,
+                           l10n_util::GetStringUTF16(
+                               IDS_PASSWORD_MANAGER_PASSKEY_QR_CODE_TITLE)),
+          EqualsSuggestion(
+              SuggestionType::kWebauthnSignInWithAnotherDevice,
+              l10n_util::GetStringUTF16(
+                  BUILDFLAG(IS_IOS)
+                      ? IDS_PASSWORD_MANAGER_USE_PASSKEY
+                      : IDS_PASSWORD_MANAGER_USE_PASSKEY_OTHER_DEVICE),
+              Suggestion::Icon::kDevice),
+          EqualsManagePasswordsSuggestion()));
+}
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 }  // namespace password_manager

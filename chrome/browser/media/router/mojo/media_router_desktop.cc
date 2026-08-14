@@ -14,6 +14,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/no_destructor.h"
 #include "base/observer_list.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -43,13 +44,14 @@
 #include "components/media_router/common/media_source.h"
 #include "components/media_router/common/providers/cast/cast_media_source.h"
 #include "components/media_router/common/providers/cast/channel/cast_socket_service.h"
-#include "components/openscreen_platform/network_context.h"
+#include "components/openscreen_platform/socket_factory.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "services/network/public/mojom/socket_factory.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -59,6 +61,10 @@
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "extensions/common/constants.h"
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+
+#if BUILDFLAG(ENABLE_MEDIA_REMOTING_REDIRECTION)
+#include "chrome/browser/media/router/providers/redirection/redirection_media_route_provider.h"
+#endif  // BUILDFLAG(ENABLE_MEDIA_REMOTING_REDIRECTION)
 
 namespace media_router {
 namespace {
@@ -742,17 +748,39 @@ void MediaRouterDesktop::InitializeMediaRouteProviders() {
   DCHECK(!base::CommandLine::ForCurrentProcess()->HasSwitch(
       kDisableMediaRouteProvidersForTestSwitch));
 
-  if (!openscreen_platform::HasNetworkContextGetter()) {
-    openscreen_platform::SetNetworkContextGetter(base::BindRepeating([] {
-      DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-      return g_browser_process->system_network_context_manager()->GetContext();
-    }));
+  if (!openscreen_platform::SocketFactoryGetter::IsSet()) {
+    openscreen_platform::SocketFactoryGetter::Set(
+        base::BindRepeating([]() -> network::mojom::SocketFactory* {
+          DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+          static base::NoDestructor<mojo::Remote<network::mojom::SocketFactory>>
+              socket_factory;
+          if (!socket_factory->is_bound()) {
+            network::mojom::NetworkContext* context =
+                g_browser_process->system_network_context_manager()
+                    ->GetContext();
+            if (context) {
+              context->CreateSocketFactory(
+                  socket_factory->BindNewPipeAndPassReceiver());
+              mojo::Remote<network::mojom::SocketFactory>* raw_remote =
+                  socket_factory.get();
+              socket_factory->set_disconnect_handler(base::BindOnce(
+                  [](mojo::Remote<network::mojom::SocketFactory>* remote) {
+                    remote->reset();
+                  },
+                  raw_remote));
+            }
+          }
+          return socket_factory->get();
+        }));
   }
 
   InitializeWiredDisplayMediaRouteProvider();
   InitializeCastMediaRouteProvider();
   if (DialMediaRouteProviderEnabled()) {
     InitializeDialMediaRouteProvider();
+  }
+  if (RedirectionMediaRouteProviderEnabled()) {
+    InitializeRedirectionMediaRouteProvider();
   }
 }
 
@@ -809,6 +837,22 @@ void MediaRouterDesktop::InitializeDialMediaRouteProvider() {
           base::OnTaskRunnerDeleter(task_runner));
   RegisterMediaRouteProvider(mojom::MediaRouteProviderId::DIAL,
                              std::move(dial_provider_remote));
+}
+
+void MediaRouterDesktop::InitializeRedirectionMediaRouteProvider() {
+#if BUILDFLAG(ENABLE_MEDIA_REMOTING_REDIRECTION)
+  mojo::PendingRemote<mojom::MediaRouter> media_router_remote;
+  MediaRouterDesktop::BindToMojoReceiver(
+      media_router_remote.InitWithNewPipeAndPassReceiver());
+  mojo::PendingRemote<mojom::MediaRouteProvider> redirection_provider_remote;
+  redirection_provider_ = std::make_unique<RedirectionMediaRouteProvider>(
+      redirection_provider_remote.InitWithNewPipeAndPassReceiver(),
+      std::move(media_router_remote));
+  RegisterMediaRouteProvider(mojom::MediaRouteProviderId::REDIRECTION,
+                             std::move(redirection_provider_remote));
+#else
+  NOTREACHED() << "Redirection Media Route Provider is not enabled.";
+#endif  // BUILDFLAG(ENABLE_MEDIA_REMOTING_REDIRECTION)
 }
 
 #if BUILDFLAG(IS_WIN)
@@ -1001,6 +1045,7 @@ void MediaRouterDesktop::RecordPresentationRequestUrlBySink(
       }
       break;
     case mojom::MediaRouteProviderId::ANDROID_CAF:
+    case mojom::MediaRouteProviderId::REDIRECTION:
     case mojom::MediaRouteProviderId::TEST:
       break;
   }

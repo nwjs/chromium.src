@@ -45,8 +45,8 @@ rust_static_library("bridge_rust_side") {
   deps = [
     ":path_bridge",
     "//third_party/rust/font_types/v0_12:lib",
-    "//third_party/rust/read_fonts/v0_40:lib",
-    "//third_party/rust/skrifa/v0_43:lib",
+    "//third_party/rust/read_fonts/v0_41:lib",
+    "//third_party/rust/skrifa/v0_44:lib",
   ]
   configs -= [ "//build/config/compiler:chromium_code" ]
   configs += [
@@ -252,7 +252,6 @@ component("skia") {
     "ext/legacy_display_globals.h",
     "ext/opacity_filter_canvas.h",
     "ext/pmcolor_utils.h",
-    "ext/recursive_gaussian_convolution.h",
     "ext/rgba_to_yuva.h",
     "ext/skcms_ext.h",
     "ext/skcolorspace_primaries.h",
@@ -281,7 +280,6 @@ component("skia") {
     "ext/image_operations.cc",
     "ext/legacy_display_globals.cc",
     "ext/opacity_filter_canvas.cc",
-    "ext/recursive_gaussian_convolution.cc",
     "ext/rgba_to_yuva.cc",
     "ext/skcms_ext.cc",
     "ext/skcolorspace_primaries.cc",
@@ -1221,7 +1219,6 @@ test("skia_unittests") {
     "ext/geometry_unittest.cc",
     "ext/image_operations_unittest.cc",
     "ext/platform_canvas_unittest.cc",
-    "ext/recursive_gaussian_convolution_unittest.cc",
     "ext/rgba_to_yuva_unittest.cc",
     "ext/skcolorspace_primaries_unittest.cc",
     "ext/skcolorspace_trfn_unittest.cc",
@@ -1239,6 +1236,8 @@ test("skia_unittests") {
     sources -= [ "ext/platform_canvas_unittest.cc" ]
   }
 
+  fuzztests = [ "ImageOperationsResize.ResizeFuzzTest" ]
+
   deps = [
     ":skcms",
     ":skia",
@@ -1247,6 +1246,7 @@ test("skia_unittests") {
     "//base/test:test_support",
     "//mojo/core/test:run_all_unittests",
     "//testing/gtest",
+    "//third_party/fuzztest",
     "//ui/gfx",
     "//ui/gfx/geometry",
   ]
@@ -1298,17 +1298,6 @@ if (!is_ios) {
       "//build/win:default_exe_manifest",
     ]
   }
-}
-
-fuzzer_test("image_operations_resize_fuzzer") {
-  sources = [ "ext/image_operations_resize_fuzzer.cc" ]
-
-  deps = [
-    ":skia",
-    "//base",
-  ]
-
-  libfuzzer_options = [ "max_len=48" ]
 }
 
 group("fuzzers") {

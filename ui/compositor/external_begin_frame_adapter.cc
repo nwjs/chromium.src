@@ -45,7 +45,7 @@ void ExternalBeginFrameAdapter::OnBeginFrame(
                frame_time, "sequence_number", args.frame_id.sequence_number);
 
   compositor_->IssueExternalBeginFrame(
-      args, /*force=*/true,
+      args,
       base::BindOnce(&ExternalBeginFrameAdapter::OnBeginFrameAck,
                      weak_factory_.GetWeakPtr(), std::move(ack_callback)));
 }
@@ -55,9 +55,7 @@ ExternalBeginFrameAdapter::CreateExternalBeginFrameControllerClient() {
   TRACE_EVENT0("ui", "ExternalBeginFrameAdapter::CreateClient");
   DVLOG(1) << "ExternalBeginFrameAdapter client bound";
   receivers_.Clear();
-
-  // Disable before enabling to re-initialize after a GPU crash.
-  source_->SetNeedsBeginFrame(false);
+  source_->Reset();
 
   mojo::PendingAssociatedRemote<viz::mojom::ExternalBeginFrameControllerClient>
       remote;

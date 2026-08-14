@@ -10,9 +10,7 @@ import android.view.MotionEvent;
 import androidx.annotation.Px;
 
 import org.chromium.build.annotations.NullMarked;
-import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.tab_bottom_sheet.TabBottomSheetWebUiContainer.TouchHandler;
-import org.chromium.chrome.browser.tab_bottom_sheet.WebViewResizingHelper.ResizeLock;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
 import org.chromium.components.browser_ui.widget.R;
 import org.chromium.content_public.browser.GestureStateListener;
@@ -23,29 +21,53 @@ import org.chromium.ui.modelutil.PropertyModel;
 /** Mediator for tab bottom sheet */
 @NullMarked
 public class TabBottomSheetMediator extends GestureStateListener {
+
     private static final int MIN_SHEET_HEIGHT_DP = 240;
 
     private final Context mContext;
     private final PropertyModel mModel;
+
     private final TouchArbitrator mTouchArbitrator;
-    private final float mFullheightRatio;
-    private final float mKeyboardShowingHeightRatio;
 
     private @SheetState int mCurrentSheetState = SheetState.HIDDEN;
     private int mPeekHeight;
-    private @Nullable ResizeLock mResizeLock;
 
-    public TabBottomSheetMediator(
-            Context context,
-            PropertyModel model,
-            CoBrowseViews coBrowseViews,
-            float fullheightRatio,
-            float keyboardShowingHeightRatio) {
+    public TabBottomSheetMediator(Context context, PropertyModel model) {
         mContext = context;
         mModel = model;
+
         mTouchArbitrator = new TouchArbitrator();
-        mFullheightRatio = fullheightRatio;
-        mKeyboardShowingHeightRatio = keyboardShowingHeightRatio;
+    }
+
+    /**
+     * Updates the offset height fraction for the sheet during scrolling/resizing.
+     *
+     * @param offsetPx The offset in pixels.
+     */
+    public void onSheetOffsetChanged(float offsetPx) {
+        updateCrossFadeAlpha(offsetPx);
+    }
+
+    /** Updates the state used for resizing the sheet. */
+    public void setToFlexibleHeight() {
+        WebViewResizingHelper helper =
+                mModel.get(TabBottomSheetProperties.WEB_VIEW_RESIZING_HELPER);
+        if (helper != null) {
+            helper.setToFlexibleHeight();
+        }
+    }
+
+    /**
+     * Updates the state used for resizing the sheet.
+     *
+     * @param maxOffset The maximum offset height for the sheet.
+     */
+    public void setToFixedHeight(@Px int maxOffset) {
+        WebViewResizingHelper helper =
+                mModel.get(TabBottomSheetProperties.WEB_VIEW_RESIZING_HELPER);
+        if (helper != null) {
+            helper.setToFixedHeight(maxOffset);
+        }
     }
 
     void onSheetStateChanged(@SheetState int state) {
@@ -159,56 +181,8 @@ public class TabBottomSheetMediator extends GestureStateListener {
         }
     }
 
-    /** Sets whether the sheet is resizing. */
-    public void onSheetResizingStatusChanged(boolean isResizing) {
-        WebViewResizingHelper helper =
-                mModel.get(TabBottomSheetProperties.WEB_VIEW_RESIZING_HELPER);
-        if (helper != null && isResizing) {
-            if (mResizeLock == null) {
-                mResizeLock = helper.requestResize();
-            }
-        } else if (mResizeLock != null) {
-            mResizeLock.unlock();
-            mResizeLock = null;
-        }
-    }
-
-    /** Updates the state used for resizing the sheet. */
-    public void setToFlexibleHeight() {
-        WebViewResizingHelper helper =
-                mModel.get(TabBottomSheetProperties.WEB_VIEW_RESIZING_HELPER);
-        if (helper != null) {
-            helper.setToFlexibleHeight();
-        }
-    }
-
-    /**
-     * Updates the state used for resizing the sheet.
-     *
-     * @param maxOffset The maximum offset height for the sheet.
-     */
-    public void setToFixedHeight(@Px int maxOffset) {
-        WebViewResizingHelper helper =
-                mModel.get(TabBottomSheetProperties.WEB_VIEW_RESIZING_HELPER);
-        if (helper != null) {
-            helper.setToFixedHeight(maxOffset);
-        }
-    }
-
     @SheetState
     int getSheetStateForTesting() {
         return mCurrentSheetState;
-    }
-
-    PropertyModel getModelForTesting() {
-        return mModel;
-    }
-
-    float getFullHeightRatioForTesting() {
-        return mFullheightRatio;
-    }
-
-    float getKeyboardShowingHeightRatioForTesting() {
-        return mKeyboardShowingHeightRatio;
     }
 }

@@ -10,8 +10,6 @@ import static androidx.test.espresso.intent.matcher.IntentMatchers.hasExtra;
 
 import static org.hamcrest.Matchers.allOf;
 
-import static org.chromium.chrome.browser.autofill.AutofillClientProviderUtils.setAutofillOptionsDeepLinkPref;
-
 import android.content.Intent;
 
 import androidx.test.core.app.ActivityScenario;
@@ -26,9 +24,10 @@ import org.junit.runner.RunWith;
 
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DoNotBatch;
-import org.chromium.chrome.browser.autofill.options.AutofillOptionsFragment;
+import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsFragment;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.settings.SettingsActivity;
+import org.chromium.chrome.browser.settings.SettingsIntentUtil;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 
 /** Tests for the {@link AutofillOptionsLauncher}. */
@@ -50,22 +49,13 @@ public class AutofillOptionsLauncherTest {
     @Test
     @MediumTest
     public void testLauncherStartsAutofillOptionsFragment() {
-        setAutofillOptionsDeepLinkPref(true);
         launchActivity();
         intended(
                 allOf(
                         hasComponent(SettingsActivity.class.getName()),
                         hasExtra(
-                                SettingsActivity.EXTRA_SHOW_FRAGMENT,
+                                SettingsIntentUtil.EXTRA_SHOW_FRAGMENT,
                                 AutofillOptionsFragment.class.getName())));
-    }
-
-    @Test
-    @MediumTest
-    public void testAutofillOptionsFragmentNotStartedWithDeepLinkFeatureOff() {
-        setAutofillOptionsDeepLinkPref(false);
-        launchActivity();
-        intended(hasComponent(SettingsActivity.class.getName()), Intents.times(0));
     }
 
     public void launchActivity() {

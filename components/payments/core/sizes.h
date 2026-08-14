@@ -27,6 +27,16 @@ inline constexpr int kSecurePaymentConfirmationHeaderLogoWidth = 130;
 // The height of the header logo in the SPC Transaction UX.
 inline constexpr int kSecurePaymentConfirmationHeaderLogoHeight = 30;
 
+// The size of the error icon in the Payment Handler error message view.
+inline constexpr int kPaymentHandlerErrorIconSize = 24;
+
+// The top inset of the error message row in the Payment Handler error message
+// view.
+inline constexpr int kPaymentHandlerErrorRowTopInset = 24;
+
+// The top inset of the loading message in the payment app loading view.
+inline constexpr int kPaymentAppLoadingViewMessageTopInset = 120;
+
 }  // namespace payments
 
 #endif  // COMPONENTS_PAYMENTS_CORE_SIZES_H_

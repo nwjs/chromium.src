@@ -185,8 +185,8 @@ class BrowserFeaturePromoControllerTestBase : public TestWithBrowserView {
     scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
 
     TestWithBrowserView::SetUp();
-    auto* const service =
-        UserEducationServiceFactory::GetForBrowserContext(browser()->profile());
+    auto* const service = UserEducationServiceFactory::GetForBrowserContext(
+        browser()->GetProfile());
     auto* const interface = BrowserUserEducationInterface::From(browser());
     controller_ = static_cast<user_education::FeaturePromoControllerImpl*>(
         service->GetFeaturePromoControllerForTesting());
@@ -207,7 +207,8 @@ class BrowserFeaturePromoControllerTestBase : public TestWithBrowserView {
     // Register placeholder tutorials and IPH journeys.
 
     auto* const user_education_service =
-        UserEducationServiceFactory::GetForBrowserContext(browser()->profile());
+        UserEducationServiceFactory::GetForBrowserContext(
+            browser()->GetProfile());
 
     // Ensure that the new profile grace period has ended by default.
     auto& storage_service =
@@ -1396,7 +1397,7 @@ TEST_F(BrowserFeaturePromoControllerTrackerInitializedTest, StartsTutorial) {
 
   // We should be running the tutorial now.
   auto& tutorial_service =
-      UserEducationServiceFactory::GetForBrowserContext(browser()->profile())
+      UserEducationServiceFactory::GetForBrowserContext(browser()->GetProfile())
           ->tutorial_service();
   EXPECT_TRUE(tutorial_service.IsRunningTutorial());
   tutorial_service.CancelTutorialIfRunning();
@@ -2158,10 +2159,8 @@ TEST_F(BrowserFeaturePromoControllerRotatingPromoTest,
 namespace {
 
 BASE_FEATURE(kLegalNoticeFeature,
-             "LegalNoticeFeature",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kLegalNoticeFeature2,
-             "LegalNoticeFeature2",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kActionableAlertIPHFeature,
              "kActionableAlertIPHFeature",
@@ -2191,7 +2190,7 @@ class RequiredNotice {
  public:
   explicit RequiredNotice(Browser* browser)
       : controller_(UserEducationServiceFactory::GetForBrowserContext(
-                        browser->profile())
+                        browser->GetProfile())
                         ->product_messaging_controller()) {}
   RequiredNotice(const RequiredNotice&) = delete;
   void operator=(const RequiredNotice&) = delete;
@@ -2542,10 +2541,8 @@ TEST_F(BrowserFeaturePromoControllerPriorityTest,
 
 namespace {
 BASE_FEATURE(kKeyedPromoFeature,
-             "KeyedPromoFeature",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kKeyedPromoFeature2,
-             "KeyedPromoFeature2",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 constexpr char kAppName1[] = "app1";

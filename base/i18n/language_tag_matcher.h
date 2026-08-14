@@ -11,14 +11,13 @@
 #include "base/containers/span.h"
 #include "base/i18n/base_i18n_export.h"
 #include "base/i18n/language_tag.h"
-#include "base/i18n/tags.h"
 #include "third_party/rust/cxx/v1/cxx.h"
 
-namespace base::i18n {
-
-namespace internal {
+namespace base::i18n_internal {
 struct IcuFallbacker;
 }
+
+namespace base::i18n {
 
 // A class that matches a preferred language tag against a set of supported
 // language tags using ICU fallback rules and precomputed distances.
@@ -26,22 +25,22 @@ struct IcuFallbacker;
 // Example usage:
 //   const LanguageTagConverter& builder = LanguageTagConverter::GetInstance();
 //   LanguageTagMatcher matcher = LanguageTagMatcher::Create({
-//      language_tags::ENGLISH_US(),
-//      language_tags::FRENCH_FRANCE(),
-//      language_tags::SPANISH_ARGENTINA(),
+//      GetKnownLanguageTag<"en-US">(),
+//      GetKnownLanguageTag<"fr-FR">(),
+//      GetKnownLanguageTag<"es-AR">(),
 //   });
 //
 //   // Exact match:
-//   matcher.Match(language_tags::ENGLISH_US()); // Returns "en-US"
+//   matcher.Match(GetKnownLanguageTag<"en-US">()); // Returns "en-US"
 //
 //   // Fallback match:
-//   matcher.Match(language_tags::BRITISH_ENGLISH()); // Returns "en-US"
+//   matcher.Match(GetKnownLanguageTag<"en-GB">()); // Returns "en-US"
 //
 //   // Macro-region match:
-//   matcher.Match(language_tags::SPANISH_MEXICO()); // Returns "es-419"
+//   matcher.Match(GetKnownLanguageTag<"es-MX">()); // Returns "es-419"
 //
 //   // No match:
-//   matcher.Match(language_tags::GERMAN()); // Returns nullopt
+//   matcher.Match(GetKnownLanguageTag<"de">()); // Returns nullopt
 class BASE_I18N_EXPORT LanguageTagMatcher {
  public:
   // Creates a new matcher for the given set of supported locales.
@@ -56,6 +55,9 @@ class BASE_I18N_EXPORT LanguageTagMatcher {
 
   LanguageTagMatcher(const LanguageTagMatcher&) = delete;
   LanguageTagMatcher& operator=(const LanguageTagMatcher&) = delete;
+
+  LanguageTagMatcher(LanguageTagMatcher&&) noexcept;
+  LanguageTagMatcher& operator=(LanguageTagMatcher&&) noexcept;
 
   // Finds the best match between the supported tags and the preferred
   // tag. Returns the matched LanguageTag from the supported list, or
@@ -77,13 +79,47 @@ class BASE_I18N_EXPORT LanguageTagMatcher {
   //   Supported: {"es-419"}, Preferred: "es-AR" -> Matches "es-419" (Latin Am.)
   std::optional<LanguageTag> Match(const LanguageTag& preferred_tag) const;
 
+  // Returns true whether there is an exact match or not.
+  bool HasExactMatch(const LanguageTag& preferred_tag) const;
+
  private:
   explicit LanguageTagMatcher(
       base::flat_map<LanguageTag, LanguageTag> closest_supported_tag,
-      rust::Box<internal::IcuFallbacker> icu_fallbacker);
+      rust::Box<i18n_internal::IcuFallbacker> icu_fallbacker);
 
-  const base::flat_map<LanguageTag, LanguageTag> closest_supported_tag_;
-  rust::Box<internal::IcuFallbacker> icu_fallbacker_;
+  base::flat_map<LanguageTag, LanguageTag> closest_supported_tag_;
+  rust::Box<i18n_internal::IcuFallbacker> icu_fallbacker_;
+};
+
+// This class provides the same methods as `LanguageTagMatcher` with an
+// additional `MatchOrDefault` that always returns a `LanguageTag`. The default
+// language tag needs to be given during construction which makes it useful for
+// usages where a default is needed but the client does not necessarily know
+// which language to use as default.
+class BASE_I18N_EXPORT LanguageTagMatcherWithDefault {
+ public:
+  // Similar to `LanguageTagMatcher::Create` but also takes as the first
+  // argument, a default locale.
+  static LanguageTagMatcherWithDefault Create(
+      LanguageTag default_tag,
+      base::span<const LanguageTag> supported_tags);
+
+  // Same as `LanguageTagMatcher::Match`.
+  std::optional<LanguageTag> Match(const LanguageTag& preferred_tag) const;
+
+  // Same as `LanguageTagMatcher::HasExactMatch`.
+  bool HasExactMatch(const LanguageTag& preferred_tag) const;
+
+  // Same as `LanguageTagMatcher::Match` but returns the default tag (received
+  // during construction) if there is no match in the set of supported language
+  // tags.
+  LanguageTag MatchOrDefault(const LanguageTag& preferred_tag) const;
+
+ private:
+  LanguageTagMatcherWithDefault(LanguageTag default_tag,
+                                LanguageTagMatcher matcher);
+  LanguageTag default_tag_;
+  LanguageTagMatcher matcher_;
 };
 
 }  // namespace base::i18n

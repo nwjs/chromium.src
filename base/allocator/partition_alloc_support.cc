@@ -67,6 +67,7 @@
 #include "partition_alloc/partition_root.h"
 #include "partition_alloc/pointers/instance_tracer.h"
 #include "partition_alloc/pointers/raw_ptr.h"
+#include "partition_alloc/random.h"
 #include "partition_alloc/scheduler_loop_quarantine.h"
 #include "partition_alloc/shim/allocator_shim.h"
 #include "partition_alloc/shim/allocator_shim_default_dispatch_to_partition_alloc.h"
@@ -1074,6 +1075,11 @@ void PartitionAllocSupport::ReconfigureAfterZygoteFork(
     established_process_type_ = process_type;
   }
 
+  // The generator backing GetRandomPageBase() is seeded once and its state is
+  // inherited across fork(). Reinitialize it so that each child process
+  // derives its own address-space-randomization hints.
+  partition_alloc::internal::ReinitializeRandomGenerator();
+
   if (process_type != switches::kZygoteProcess) {
     ReconfigurePartitionForKnownProcess(process_type);
   }
@@ -1140,9 +1146,8 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
 
   // Configure ASAN hooks to report the `MiraclePtr status`. This is enabled
   // only if BackupRefPtr is normally enabled in the current process for the
-  // current platform. Note that CastOS is not protected by BackupRefPtr
-  // a the moment, so they are excluded.
-#if PA_BUILDFLAG(USE_ASAN_BACKUP_REF_PTR) && !PA_BUILDFLAG(IS_CASTOS)
+  // current platform.
+#if PA_BUILDFLAG(USE_ASAN_BACKUP_REF_PTR)
 #if PA_BUILDFLAG(USE_ASAN_BACKUP_REF_PTR_V2)
   base::RawPtrAsanService::GetInstance().Configure(
       ShouldEnableFeatureOnProcess(
@@ -1168,7 +1173,7 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
                                                EnableInstantiationCheck(false));
   }
 #endif  // PA_BUILDFLAG(USE_ASAN_BACKUP_REF_PTR_V2)
-#endif  // PA_BUILDFLAG(USE_ASAN_BACKUP_REF_PTR) && !PA_BUILDFLAG(IS_CASTOS)
+#endif  // PA_BUILDFLAG(USE_ASAN_BACKUP_REF_PTR)
 
 #if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
   auto bucket_distribution = allocator_shim::BucketDistribution::kNeutral;
@@ -1197,20 +1202,7 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
               process_type_identifier,
               SchedulerLoopQuarantineBranchType::kAdvancedMemorySafetyChecks);
 
-  const auto scheduler_loop_quarantine_main_config =
-      GetSchedulerLoopQuarantineConfiguration(
-          process_type, SchedulerLoopQuarantineBranchType::kMain);
-  const auto scheduler_loop_quarantine_io_config =
-      GetSchedulerLoopQuarantineConfiguration(
-          process_type, SchedulerLoopQuarantineBranchType::kIO);
-
-  if (scheduler_loop_quarantine_thread_local_config
-          .enable_task_controlled_purge ||
-      scheduler_loop_quarantine_thread_local_config.pause_in_between_tasks ||
-      scheduler_loop_quarantine_main_config.enable_task_controlled_purge ||
-      scheduler_loop_quarantine_main_config.pause_in_between_tasks ||
-      scheduler_loop_quarantine_io_config.enable_task_controlled_purge ||
-      scheduler_loop_quarantine_io_config.pause_in_between_tasks) {
+  if (HasSchedulerLoopQuarantineTaskControl(process_type_identifier)) {
     base::EnableSchedulerLoopQuarantineTaskControlledPurge();
   }
 
@@ -1358,9 +1350,6 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
                               true);
   }
 #endif
-
-  partition_alloc::internal::StackTopRegistry::Get().NotifyThreadCreated(
-      partition_alloc::internal::GetStackTop());
 
   for (size_t alloc_token = 0; alloc_token < allocator_shim::kNumPartitions;
        alloc_token++) {

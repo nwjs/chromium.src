@@ -16,7 +16,6 @@
 #include "components/web_modal/web_modal_utils.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/devtools_agent_host.h"
-#include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
@@ -133,7 +132,7 @@ void ExtensionPopup::AddedToWidget() {
   CHECK_EQ(radii.lower_left(), radii.lower_right());
 
   const bool contents_has_rounded_corners =
-      extension_view_->holder()->SetCornerRadii(radii);
+      extension_view_->holder()->SetNativeViewCornerRadii(radii);
   SetBorder(views::CreateEmptyBorder(gfx::Insets::TLBR(
       contents_has_rounded_corners ? 0 : radii.upper_left(), 0,
       contents_has_rounded_corners ? 0 : radii.lower_left(), 0)));

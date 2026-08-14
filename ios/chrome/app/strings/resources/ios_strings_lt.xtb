@@ -126,12 +126,12 @@
 <translation id="1396260204083880024">Prisijungta kaip <ph name="USER_NAME" />. <ph name="USER_EMAIL" />. Atidaryti paskyros meniu.</translation>
 <translation id="1397144142234474689">Slėpti istoriją</translation>
 <translation id="1399268420835656394">Jei nesate vaikas, galbūt norėsite patikrinti amžių „Apple“ paskyroje šiame įrenginyje. <ph name="BEGIN_LINK" />Sužinokite daugiau<ph name="END_LINK" /></translation>
+<translation id="140486444381639942">Anksčiau užpildyta</translation>
 <translation id="1407135791313364759">Atidaryti viską</translation>
 <translation id="1408847409015257906">Palieskite „Privatumas ir sauga“.</translation>
 <translation id="1411386976162024013">„Lens“ vaizdinė paieška</translation>
 <translation id="1417474386970818917">Atsijungti ir ištrinti</translation>
 <translation id="1426410128494586442">Taip</translation>
-<translation id="1429187656584513419">Atidarykite „Slaptažodžiai“</translation>
 <translation id="1430915738399379752">Spausdinti</translation>
 <translation id="1433478348197382180">Skaitymo režimas</translation>
 <translation id="1435271730600332883">Atidarykite skiltį „Automatinis pildymas ir slaptažodžiai“</translation>
@@ -148,6 +148,7 @@
 <translation id="1469381646033328562">Jūsų paskyrą tvarko vienas iš tėvų.
 <ph name="BEGIN_LINK" />Sužinokite daugiau<ph name="END_LINK" /></translation>
 <translation id="147982357559798527">Pakeista</translation>
+<translation id="1481450969185702334">Rasti ir užpildyti</translation>
 <translation id="1483493594462132177">Siųsti</translation>
 <translation id="1486096554574027028">Ieškoti slaptažodžių</translation>
 <translation id="1486593497476255523">Skirtukų grupių užduotis baigta!</translation>
@@ -156,6 +157,7 @@
 <translation id="1497590942294823549">Meniu → Slaptažodžių tvarkyklė</translation>
 <translation id="1498283581832036924"><ph name="WEBSITE" /> paskyra nebus ištrinta.</translation>
 <translation id="1503814213414825943">Pasirinkite paskyras, kurias norite eksportuoti į kitą programą.</translation>
+<translation id="1503850843654701910"><ph name="USER_NAME" />, <ph name="EMAIL" />.</translation>
 <translation id="1506061864768559482">Paieškos variklis</translation>
 <translation id="1506063256525392513">Galite fotografuoti ir įkelti nuotraukas bei nuskaityti QR kodus</translation>
 <translation id="1506733063065214205">RCS MLS klientas</translation>
@@ -271,6 +273,7 @@
 <translation id="183878838231635348">Šioje kortelėje rodomos visos privatumo ar saugos problemos, kurias saugos patikra automatiškai aptinka.</translation>
 <translation id="1840320537320704887">Pašalintos naujo skirtuko puslapio nuostatos</translation>
 <translation id="1845230888742614096">Palikti grupę</translation>
+<translation id="1853558655412913122">Dabar galite pakeisti adreso juostos poziciją skiltyje „Nustatymai“, tada „Adreso juosta“</translation>
 <translation id="1853692000353488670">Naujas inkognito skirtukas</translation>
 <translation id="1854463785401910334">Paieška atidarytuose skirtukuose</translation>
 <translation id="1860609647735325606">Paaiškinti naudojant „Gemini“</translation>
@@ -286,6 +289,7 @@
 <translation id="188177382966899059">Deep Search</translation>
 <translation id="188237709236611317">Išmaniojo rūšiavimo meniu juosta</translation>
 <translation id="1883255238294161206">Sutraukti sąrašą</translation>
+<translation id="1883898928879467646">Skirtukas pašalintas</translation>
 <translation id="1888854257756214946">Pasirinkite slaptažodį…</translation>
 <translation id="1890237935065108104">Šis nustatymas nepasiekiamas.</translation>
 <translation id="1894023287452300670">Čia stebėkite kainą</translation>
@@ -574,6 +578,7 @@
 <translation id="2858204748079866344">Siekiant apsaugoti jūsų privatumą, „Chrome“ šio lauko automatiškai nepildys jūsų slaptažodžiu.</translation>
 <translation id="2858951819750638913">Gemini Live</translation>
 <translation id="286382692684806520">{COUNT,plural, =1{1 svetainė (daugiau sinchronizuotuose įrenginiuose)}one{# svetainė (daugiau sinchronizuotuose įrenginiuose)}few{# svetainės (daugiau sinchronizuotuose įrenginiuose)}many{# svetainės (daugiau sinchronizuotuose įrenginiuose)}other{# svetainių (daugiau sinchronizuotuose įrenginiuose)}}</translation>
+<translation id="2865392654629180917">Paklauskite ko nors ir gaukite DI pagrįstų atsakymų</translation>
 <translation id="2870560284913253234">Svetainė</translation>
 <translation id="2876369937070532032">Siunčia „Google“ kai kurių puslapių, kuriuose lankotės, URL, kai kyla pavojus jūsų saugai</translation>
 <translation id="2883151425485251736">Peržiūrėkite ir redaguokite temas, kurias paslėpėte paskyroje</translation>
@@ -613,6 +618,7 @@
 <translation id="3037177537145227281">Kaina stebima</translation>
 <translation id="3038136505713492417">Patvirtinkite savo tapatybę, kad galėtumėte naudoti prieigos raktus šiame įrenginyje</translation>
 <translation id="3039671569659952257">Ištrinti aplanką</translation>
+<translation id="3050988301648974170">Atidarykite Slaptažodžio tikrinimo funkciją</translation>
 <translation id="3053332585453689122">Siunčia URL, kuriais lankotės, ir nedidelį puslapio turinio, atsisiuntimų, plėtinių veiklos ir sistemos informacijos pavyzdį „Google“ saugaus naršymo paslaugai, kad patikrintų, ar jie yra žalingi.</translation>
 <translation id="3055102495753300780">Informacijos saugykla</translation>
 <translation id="3059270601560379555">Nauja paieška</translation>
@@ -658,6 +664,7 @@
 <translation id="3183362380688692618">Nauja skirtukų grupė...</translation>
 <translation id="3185760469172949183">Paieška naudojant fotoaparatą baigta!</translation>
 <translation id="3186796054637504691">Išvalyti istoriją ir svetainės duomenis</translation>
+<translation id="3190558889382726167">Slaptažodis išsaugotas</translation>
 <translation id="3190736958609431397">Nebestebėti</translation>
 <translation id="3208260410153224535">Organizacija išjungė prisijungimą. Nauji slaptažodžiai, žymės ir kt. bus išsaugoti tik šiame įrenginyje.</translation>
 <translation id="3211969308836412674">Atsegti svetainę</translation>
@@ -852,6 +859,7 @@
 <translation id="3905384981098338147">DI režimo istorija</translation>
 <translation id="3909222758573607742">Išsaugoti slaptažodžius ir kitus elementus paskyroje</translation>
 <translation id="3913463964270756493">Slėpti Paiešką ekrane naudojant „Google Lens“</translation>
+<translation id="3914173277599553213">Būtina</translation>
 <translation id="3914640181019354363">Adresų aptikimas</translation>
 <translation id="391904960191284041">Atsiliepimai apie produktą</translation>
 <translation id="3921585859122905677">Adreso juostos pozicija</translation>
@@ -973,7 +981,6 @@
 <translation id="4294506173142861371">Prisijungti kaip <ph name="FIRST_NAME" />?</translation>
 <translation id="4302061870579014542">Nustatyti poziciją</translation>
 <translation id="4304713468139749426">Slaptažodžių tvarkytuvė</translation>
-<translation id="4306349443295056740">OCSP pasirašymas</translation>
 <translation id="4309403553630140242">Norėdami gauti daugiau informacijos, dukart palieskite.</translation>
 <translation id="4310738531374808763">Tinkinkite pagrindinį puslapį</translation>
 <translation id="4316794575239200608">Nei jūsų pokalbių su „Gemini“, nei <ph name="BEGIN_LINK" />„Google Workspace“ duomenų<ph name="END_LINK" /> neperžiūrės tikrinantys žmonės, ir šis turinys nebus naudojamas generatyviniams DI modeliams tobulinti.</translation>
@@ -1104,7 +1111,6 @@
 <translation id="4744428388659507035">Jei norite pasiekti žymes visuose įrenginiuose, nustatymuose įjunkite nustatymą „Žymės“.</translation>
 <translation id="4746926359847517643">Visada galite juos peržiūrėti istorijoje.</translation>
 <translation id="4749529195026091676">{count,plural, =1{Importuota {count} kortelė}one{Importuota {count} kortelė}few{Importuotos {count} kortelės}many{Importuota {count} kortelės}other{Importuota {count} kortelių}}</translation>
-<translation id="4749924365937394956">Serverio autentifikavimas</translation>
 <translation id="4751645464639803239">Naujas inkognito skirtukas</translation>
 <translation id="4752348350801431746">Išjunkite Saugos patikros pranešimus…</translation>
 <translation id="4759238208242260848">Atsisiuntimai</translation>
@@ -1185,6 +1191,7 @@
 <translation id="4985921635659180565">Kai failas suplanuotas ištrinti, jo negalima atšaukti.</translation>
 <translation id="498624032394115435">Visi nuorodą turintys žmonės gali redaguoti visus skirtukus.</translation>
 <translation id="499122600724363620"><ph name="NAME" />, <ph name="EMAIL" />, valdo jūsų organizacija.</translation>
+<translation id="4991383000638469704"><ph name="USER_NAME" />, <ph name="EMAIL" />. <ph name="AI_TIER" />.</translation>
 <translation id="4992255726304765516">Skirtukų grupės spalva <ph name="COLOR" /></translation>
 <translation id="5005498671520578047">Kopijuoti slaptažodį</translation>
 <translation id="5009127379503001909">Naršyti toliau</translation>
@@ -1193,6 +1200,7 @@
 <translation id="5017529052065664584">Pastarosios penkiolika minučių</translation>
 <translation id="5020732097997376541">Palieskite „Lens“ piktogramą</translation>
 <translation id="5021500396464456616">Susisiekite su asmeniu, kuris atsiuntė šią nuorodą</translation>
+<translation id="503173149952522259">Paspauskite ir palaikykite, kad prisegtumėte šį skirtuką</translation>
 <translation id="5039804452771397117">Leisti</translation>
 <translation id="5050042263972837708">Grupės pavadinimas</translation>
 <translation id="5050810143224996149">Slaptažodžio bendrinimas</translation>
@@ -1448,7 +1456,6 @@ Be to, reikia įgalinti „Handoff“ nustatymų skiltyje „Bendrieji“, o įr
 <translation id="5859715514067755465">Pirmyn</translation>
 <translation id="5860491529813859533">Įjungti</translation>
 <translation id="5868644772996939262">Automatinis slaptažodžių ir prieigos raktų pildymas</translation>
-<translation id="5869522115854928033">Išsaugoti slaptažodžiai</translation>
 <translation id="5873179562631407582">Palieskite ir palaikykite bet kuriuos atidarytus skirtukus</translation>
 <translation id="5887400589839399685">Kortelė išsaugota</translation>
 <translation id="5888889603768021126">Prisijungta naudojant</translation>
@@ -1492,7 +1499,6 @@ Be to, reikia įgalinti „Handoff“ nustatymų skiltyje „Bendrieji“, o įr
 <translation id="6027619584715411062">Prisijunkite, kad visuose įrenginiuose gautumėte žymes, slaptažodžius ir kt.</translation>
 <translation id="6027945736510816438">Turėjote omenyje <ph name="WEBSITE" />?</translation>
 <translation id="6032845897905314562">nauja funkcija</translation>
-<translation id="6037458223703682108">Skaitmeninis parašas</translation>
 <translation id="6038823991892265570">Tvarkyti „Google“ saugyklą</translation>
 <translation id="6039429417015973673">„<ph name="TITLE" />“, <ph name="PUBLISHER_INFORMATION" />, <ph name="PUBLICATION_DATE" /></translation>
 <translation id="6040143037577758943">Uždaryti</translation>
@@ -1624,6 +1630,7 @@ Be to, reikia įgalinti „Handoff“ nustatymų skiltyje „Bendrieji“, o įr
 <translation id="6406506848690869874">Sinchronizavimas</translation>
 <translation id="6410390304316730527">Saugaus naršymo funkcija apsaugo jus nuo atakų vykdytojų, kurie gali bandyti apgaule priversti jus atlikti pavojingus veiksmus, pvz., įdiegti kenkėjišką programinę įrangą ar atskleisti asmens informaciją (pvz., slaptažodžius, telefono numerius ar kredito kortelių duomenis). Jei ją išjungsite, būkite atsargūs naršydami nežinomose ar nepatikimose svetainėse.</translation>
 <translation id="6410883413783534063">Atidarykite skirtukus ir vienu metu lankykitės skirtinguose puslapiuose</translation>
+<translation id="6412195388778525440">Pašalinti skirtuką</translation>
 <translation id="6418346271604475326">Ruošiamas PDF</translation>
 <translation id="6420292512900923139">Importuojant duomenis iškilo problema</translation>
 <translation id="6421038304268477484">Išverstas tekstas</translation>
@@ -1647,7 +1654,6 @@ Be to, reikia įgalinti „Handoff“ nustatymų skiltyje „Bendrieji“, o įr
 <translation id="6476284679642588870">Tvarkyti mokėjimo metodus</translation>
 <translation id="6476800141292307438">Puslapis verčiamas į <ph name="LANGUAGE" />. Parinktys pasiekiamos netoli ekrano apačios.</translation>
 <translation id="647867789226964031">Slaptažodžių keitimas</translation>
-<translation id="6480363549849064919">Kliento tapatybės nustatymas</translation>
 <translation id="6489174933860678546">Atidarykite inkognito skirtukus, kad galėtumėte naršyti žiniatinklį privačiau.</translation>
 <translation id="6489775505977274806">Slėpti lygio padidinimą</translation>
 <translation id="6494931198667773526">Baigiasi</translation>
@@ -1684,7 +1690,6 @@ Be to, reikia įgalinti „Handoff“ nustatymų skiltyje „Bendrieji“, o įr
 <translation id="6589001036857939353">Sujungti tikslias kopijas</translation>
 <translation id="659407965921887085">Šioje kortelėje rodomi produktų, kuriuos šiuo metu stebite, kainų sumažėjimai žiniatinklyje</translation>
 <translation id="6596481460663245319">Ieškoti vaizdo „Google“</translation>
-<translation id="6598432073497341323">{COUNT,plural, =1{1 slaptažodis}one{# slaptažodis}few{# slaptažodžiai}many{# slaptažodžio}other{# slaptažodžių}}</translation>
 <translation id="6601302169302852717">Vaizdas, išsaugotas „Google“ nuotraukose <ph name="USER_EMAIL" /> paskyroje</translation>
 <translation id="6602173570135186741">Automatinis pildymas ir slaptažodžiai</translation>
 <translation id="6603393121510733479">Organizacija išjungė privatų naršymą.
@@ -1800,6 +1805,7 @@ Jei norite tęsti kompiuteryje, perjunkite į <ph name="OTHER_EMAIL" />. Gausite
 <translation id="6924299883035848912">Slėpti naršymo duomenų ištrynimą</translation>
 <translation id="6930162026494574854">Nust. vert. iš n.</translation>
 <translation id="6930799952781667037">Palieskite, kad pakeistumėte šią kalbą.</translation>
+<translation id="6932739965694346873"><ph name="USER_NAME" />, <ph name="EMAIL" />. <ph name="MANAGED_STATUS" />.</translation>
 <translation id="693761253105515415">Slaptažodžio nustatymas</translation>
 <translation id="6945221475159498467">Pasirinkti</translation>
 <translation id="6946722113367118030">Susimąstęs</translation>
@@ -1849,6 +1855,7 @@ Jei norite tęsti kompiuteryje, perjunkite į <ph name="OTHER_EMAIL" />. Gausite
 <translation id="713215255510512027"><ph name="FILENAME" /> (<ph name="FILESIZE" />)</translation>
 <translation id="7136892417564438900">Fotoaparatas nepasiekiamas</translation>
 <translation id="7138678301420049075">Kitas</translation>
+<translation id="7140355148730164340"><ph name="EMAIL" />. <ph name="AI_TIER" />.</translation>
 <translation id="7141960840225504692">Skirtukai bus uždaryti, o naršymo duomenys ištrinti</translation>
 <translation id="714291438898585119">Pažymėta žvaigždute</translation>
 <translation id="7145337554745942724">Atnaujinkite vairuotojo pažymėjimą</translation>
@@ -1878,7 +1885,6 @@ Jei norite tęsti kompiuteryje, perjunkite į <ph name="OTHER_EMAIL" />. Gausite
 <translation id="7233006041370588369">Pasirinkite slaptažodį, kuris turi būti įrašytas užpildytas automatiškai.</translation>
 <translation id="723874023660911012">Perjungti profilius</translation>
 <translation id="7241135764990439166">Inkognito režimas nepasiekiamas</translation>
-<translation id="7248046129087111453"><ph name="BEGIN_LINK" />Paieškos istorija<ph name="END_LINK" /> ir <ph name="BEGIN_LINK" />kitos veiklos formos<ph name="END_LINK" /> gali būti išsaugotos jūsų „Google“ paskyroje.</translation>
 <translation id="7253951228444156601">Tikrinami slaptažodžiai…</translation>
 <translation id="7261217796641151584">Grupės bendrinimas</translation>
 <translation id="7266578100016339897">Tai padės išlaikyti tvarką. Galite bet kada pakeisti nustatymuose.</translation>
@@ -1915,12 +1921,14 @@ Jei norite tęsti kompiuteryje, perjunkite į <ph name="OTHER_EMAIL" />. Gausite
 <translation id="7402602673739047753">{count,plural, =1{Viena žymė išsaugota tik šiame įrenginyje. Jei norite ją naudoti kituose įrenginiuose, išsaugokite „Google“ paskyroje {email}.}one{{count} žymė išsaugota tik šiame įrenginyje. Jei norite jas naudoti kituose įrenginiuose, išsaugokite „Google“ paskyroje {email}.}few{{count} žymės išsaugotos tik šiame įrenginyje. Jei norite jas naudoti kituose įrenginiuose, išsaugokite „Google“ paskyroje {email}.}many{{count} žymės išsaugota tik šiame įrenginyje. Jei norite jas naudoti kituose įrenginiuose, išsaugokite „Google“ paskyroje {email}.}other{{count} žymių išsaugota tik šiame įrenginyje. Jei norite jas naudoti kituose įrenginiuose, išsaugokite „Google“ paskyroje {email}.}}</translation>
 <translation id="7403227077090127147"><ph name="USER_NAME" /> (<ph name="USER_EMAIL" />) iškart neteks prieigos prie skirtukų grupės „<ph name="GROUP_NAME" />“</translation>
 <translation id="7409985198648820906">Neskaitytų straipsnių: <ph name="UNREAD_COUNT" />.</translation>
+<translation id="7411034503745719324"><ph name="EMAIL" />. <ph name="MANAGED_STATUS" />.</translation>
 <translation id="7412027924265291969">Tęsti</translation>
 <translation id="741204030948306876">Taip, sutinku</translation>
 <translation id="7419565702166471774">Visada naudoti saugų ryšį</translation>
 <translation id="7425053386765766120">Pridėti mokėjimo metodą…</translation>
 <translation id="7425346204213733349">Žymių, istorijos, slaptažodžių ir kitų nustatymų pakeitimai nebebus sinchronizuojami su „Google“ paskyra. Tačiau esami duomenys ir toliau bus saugomi „Google“ paskyroje.</translation>
 <translation id="742664698522525515">Palikti grupę?</translation>
+<translation id="7426745633088095666">Bendrinami skirtukai</translation>
 <translation id="7431851541687113774">Išjungti adreso aptikimą</translation>
 <translation id="7431991332293347422">Naršymo istorijos naudojimo paieškai ir kitoms funkcijoms suasmeninti valdymas</translation>
 <translation id="7435356471928173109">Išjungė jūsų administratorius</translation>
@@ -2009,6 +2017,7 @@ Jei norite tęsti kompiuteryje, perjunkite į <ph name="OTHER_EMAIL" />. Gausite
 <translation id="7696316012653762532">Puslapio vertimo parinktys</translation>
 <translation id="7700527812567437847">Paieška ekrane naudojant „Google Lens“</translation>
 <translation id="7701040980221191251">Nėra</translation>
+<translation id="7702428539671224160">Mokėjimo informacijos automatinis pildymas įjungtas <ph name="URL" /></translation>
 <translation id="7708994397325774423">Gaukite visus slaptažodžius</translation>
 <translation id="7711440461521638739">Pakartotinai naudojamų slaptažodžių nėra</translation>
 <translation id="7712361583414030698">Peržiūros neprisijungus versija</translation>
@@ -2188,7 +2197,6 @@ Jei norite tęsti kompiuteryje, perjunkite į <ph name="OTHER_EMAIL" />. Gausite
 <translation id="8264966119170358612">Kai kurie jūsų išsaugoti slaptažodžiai buvo atskleisti dėl ne „Google“ duomenų saugos pažeidimo. <ph name="BEGIN_LINK" />Sužinokite daugiau<ph name="END_LINK" /></translation>
 <translation id="826614135184049678">Buvote atjungti nuo paskyros <ph name="USER_NAME" /> nustatant „iPad“ iš naujo. Jei norite vėl prisijungti, toliau palieskite „Tęsti“.</translation>
 <translation id="8270320981823560179">Diskas</translation>
-<translation id="8273982424131314219">Informaciją užpildysite adresu <ph name="URL" /></translation>
 <translation id="8274795744553482834">Ketinate perjungti profilius</translation>
 <translation id="8275068909952022340">Daugiau…</translation>
 <translation id="8280797717392145626">Nuorodos gautos</translation>
@@ -2201,6 +2209,7 @@ Jei norite tęsti kompiuteryje, perjunkite į <ph name="OTHER_EMAIL" />. Gausite
 <translation id="8292893224181644074">Atsisiuntimas baigtas</translation>
 <translation id="8299417921174340354">Jei norite naudoti slaptažodžius, pirmiausia turite nustatyti įrenginio slaptažodį.</translation>
 <translation id="8307481894409578819">Nepavyksta įkelti šio failo</translation>
+<translation id="8311561577623915832"><ph name="EMAIL" />. <ph name="MANAGED_STATUS" />. <ph name="AI_TIER" />.</translation>
 <translation id="8319076807703933069">Nauja paieška</translation>
 <translation id="8319282042900445670">Nustatytas priminimas <ph name="TIME" />, <ph name="DATE" /></translation>
 <translation id="8320212361750431956">Naujausia veikla</translation>
@@ -2309,6 +2318,7 @@ Jei norite tęsti kompiuteryje, perjunkite į <ph name="OTHER_EMAIL" />. Gausite
 <translation id="8643403533759285912">Ištrinti grupę</translation>
 <translation id="8647280737650867362">Nepavyko atsisakyti kainos stebėjimo.</translation>
 <translation id="8654802032646794042">Atšaukti</translation>
+<translation id="8655861111558401309">Pasirinkite „Ištrinti naršymo duomenis“</translation>
 <translation id="8659875081143553823">Šiek tiek palaukite</translation>
 <translation id="8660600697590740984">Nukopijuotas „Lens“ vaizdas</translation>
 <translation id="866266761389616183">Oi!</translation>
@@ -2326,7 +2336,6 @@ Jei norite tęsti kompiuteryje, perjunkite į <ph name="OTHER_EMAIL" />. Gausite
 <translation id="8692689525339542358">Gaukite apsaugą nuo pavojingų svetainių, atsisiuntimų ir plėtinių.</translation>
 <translation id="8692897097252418799">Pasirinkite duomenis, kuriuos norite eksportuoti</translation>
 <translation id="8694281486652655615">Rodomas šis elementas</translation>
-<translation id="8696297579102085705">Siųsti į įrenginį</translation>
 <translation id="8697136149718343437">Perkelti adreso juostą į apačią</translation>
 <translation id="869891660844655955">Galiojimo data</translation>
 <translation id="8706253136355675497">Temperatūra</translation>
@@ -2423,6 +2432,7 @@ Jei norite tęsti kompiuteryje, perjunkite į <ph name="OTHER_EMAIL" />. Gausite
 <translation id="8988107725234939347">„<ph name="WEBSITE_TITLE" />“, prisegta svetainė</translation>
 <translation id="8990960056509724223">Failo nepavyko išsaugoti dėl organizacijos politikos</translation>
 <translation id="8998289560386111590">Nepasiekiama jūsų įrenginyje</translation>
+<translation id="9003263770394939629">Siūlo „Gemini“. Tvarkykite patobulintą automatinį pildymą nustatymuose.</translation>
 <translation id="9003677638446136377">Tikrinti dar kartą</translation>
 <translation id="9006453925669499173">Meniu → „Naujas inkognito skirtukas“</translation>
 <translation id="9008201768610948239">Nepaisyti</translation>
@@ -2430,6 +2440,7 @@ Jei norite tęsti kompiuteryje, perjunkite į <ph name="OTHER_EMAIL" />. Gausite
 <translation id="9013605037177245304">Įjungti pranešimus</translation>
 <translation id="9029650858822697271">Buvote atjungti</translation>
 <translation id="9032405509996909363">Patvirtinti naršymo duomenų ištrynimą</translation>
+<translation id="9035699147763101514">Teikia Asmeninis intelektas su „Gemini“. Tvarkykite pasirinkimus nustatymuose.</translation>
 <translation id="9039373489628511875">Pralaidumas</translation>
 <translation id="9042893549633094279">Privatumas ir sauga</translation>
 <translation id="9055291197094969722">Kurkite skirtukų grupes, kad galėtumėte tvarkyti atidarytus skirtukus ir išlikti produktyvūs</translation>
@@ -2441,6 +2452,7 @@ Jei norite tęsti kompiuteryje, perjunkite į <ph name="OTHER_EMAIL" />. Gausite
 <translation id="9070824521421603770">Būsite atjungti, o skirtukai bus uždaryti</translation>
 <translation id="9072837124205571418">Skirtukų grupės iš visų įrenginių</translation>
 <translation id="9081058212938299310">Atnaujinti <ph name="USERNAME" /> slaptažodį?</translation>
+<translation id="908365381820697818">Dabar galite rasti ir užpildyti informaciją iš „Gmail“ ir kt.</translation>
 <translation id="9083838294503912307">Kad turinys būtų sinchronizuojamas ir suasmeninamas visuose įrenginiuose, įjunkite sinchronizavimą</translation>
 <translation id="9084367296493549256">{count,plural, =1{Turite {count} nesudėtingą slaptažodį, dėl kurio gali kilti saugos pavojus. Pataisykite dabar, kad užtikrintumėte saugą.}one{Turite {count} nesudėtingą slaptažodį, dėl kurio gali kilti saugos pavojus. Pataisykite dabar, kad užtikrintumėte saugą.}few{Turite {count} nesudėtingus slaptažodžius, dėl kurių gali kilti saugos pavojus. Pataisykite dabar, kad užtikrintumėte saugą.}many{Turite {count} nesudėtingo slaptažodžio, dėl kurių gali kilti saugos pavojus. Pataisykite dabar, kad užtikrintumėte saugą.}other{Turite {count} nesudėtingų slaptažodžių, dėl kurių gali kilti saugos pavojus. Pataisykite dabar, kad užtikrintumėte saugą.}}</translation>
 <translation id="9084369964545892485">Naujas inkognito skirtukas grupėje</translation>
@@ -2485,6 +2497,7 @@ Jei norite tęsti kompiuteryje, perjunkite į <ph name="OTHER_EMAIL" />. Gausite
 <translation id="9219154867334666734">Ieškoti skirtukų…</translation>
 <translation id="9223358826628549784">Strigties ataskaita išsiųsta.</translation>
 <translation id="926455622548529175">Perjungti ir ištrinti</translation>
+<translation id="927648083916327561"><ph name="USER_NAME" />, <ph name="EMAIL" />. <ph name="MANAGED_STATUS" />. <ph name="AI_TIER" />.</translation>
 <translation id="929748059769569925">Paryškintas tekstas</translation>
 <translation id="932305336591073205">{count,plural, =1{Uždaryti skirtuką}one{Uždaryti skirtukus}few{Uždaryti skirtukus}many{Uždaryti skirtukus}other{Uždaryti skirtukus}}</translation>
 <translation id="939472100615258482">Dabartinė svetainė</translation>

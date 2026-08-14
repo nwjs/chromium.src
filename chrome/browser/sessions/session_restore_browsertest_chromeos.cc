@@ -22,6 +22,7 @@
 #include "chrome/browser/sessions/session_restore_test_helper.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_init_state.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
@@ -108,10 +109,10 @@ class SessionRestoreTestChromeOS : public InProcessBrowserTest {
   // Turn on session restore before we restart.
   void TurnOnSessionRestore() {
     SessionStartupPref::SetStartupPref(
-        browser()->profile(), SessionStartupPref(SessionStartupPref::LAST));
+        browser()->GetProfile(), SessionStartupPref(SessionStartupPref::LAST));
   }
 
-  Profile* profile() { return browser()->profile(); }
+  Profile* profile() { return browser()->GetProfile(); }
 
  private:
   gfx::ScopedAnimationDurationScaleMode faster_animations_;
@@ -196,7 +197,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTestChromeOS,
             [&](BrowserWindowInterface* browser) {
               int desk_index = 0;
               EXPECT_TRUE(base::StringToInt(
-                  browser->GetBrowserForMigrationOnly()->initial_workspace(),
+                  BrowserInitState::From(browser)->initial_workspace(),
                   &desk_index));
               return desk_index == i;
             })
@@ -264,7 +265,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTestChromeOS,
                aura::client::kWindowWorkspaceVisibleOnAllWorkspaces;
       }).front();
   ASSERT_TRUE(visible_on_all_desks_browser);
-  EXPECT_EQ("", visible_on_all_desks_browser->GetBrowserForMigrationOnly()
+  EXPECT_EQ("", BrowserInitState::From(visible_on_all_desks_browser)
                     ->initial_workspace());
 
   // Visible on all desks windows should always reside on the active desk,
@@ -487,11 +488,12 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppSessionRestoreTestChromeOS,
   LaunchApp(GetAppType());
 
   // Should have one SWA window and one default browser window.
-  EXPECT_TRUE(ash::FindSystemWebAppBrowser(browser()->profile(), GetAppType()));
+  EXPECT_TRUE(ash::FindSystemWebAppBrowser(
+      browser()->GetProfile(), GetAppType(), ash::BrowserType::kApp));
   EXPECT_EQ(2u, GlobalBrowserCollection::GetInstance()->GetSize());
 
   SessionStartupPref::SetStartupPref(
-      browser()->profile(), SessionStartupPref(SessionStartupPref::LAST));
+      browser()->GetProfile(), SessionStartupPref(SessionStartupPref::LAST));
 }
 
 IN_PROC_BROWSER_TEST_P(SystemWebAppSessionRestoreTestChromeOS,

@@ -4,7 +4,6 @@
 
 #include "chrome/browser/ui/views/frame/dbus_appmenu.h"
 
-#include <dlfcn.h>
 #include <stddef.h>
 
 #include <array>
@@ -15,10 +14,8 @@
 
 #include "base/check_op.h"
 #include "base/containers/span.h"
-#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
-#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -40,7 +37,6 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/profiles/profile_picker.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/dbus_appmenu_registrar.h"
 #include "chrome/grit/generated_resources.h"
@@ -50,7 +46,6 @@
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "dbus/object_path.h"
-#include "ui/base/accelerators/menu_label_accelerator_util_linux.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/base/models/menu_separator_types.h"
@@ -217,7 +212,7 @@ DbusAppmenu::DbusAppmenu(BrowserView* browser_view,
                          ui::PlatformWindow* platform_window,
                          uint32_t browser_frame_id)
     : browser_(browser_view->browser()),
-      profile_(browser_->profile()),
+      profile_(browser_->GetProfile()),
       browser_view_(browser_view),
       platform_window_(platform_window),
       browser_frame_id_(browser_frame_id),
@@ -260,9 +255,9 @@ void DbusAppmenu::Initialize(DbusMenu::InitializedCallback callback) {
   history_menu_ = BuildStaticMenu(IDS_HISTORY_MENU_LINUX, kHistoryMenu);
   BuildStaticMenu(IDS_TOOLS_MENU_LINUX, kToolsMenu);
   profiles_menu_ = BuildStaticMenu(IDS_PROFILES_MENU_NAME, kProfilesMenu);
-  BuildStaticMenu(IDS_HELP_MENU_LINUX, BuildHelpMenu(*browser_->profile()));
+  BuildStaticMenu(IDS_HELP_MENU_LINUX, BuildHelpMenu(*browser_->GetProfile()));
 
-  pref_change_registrar_.Init(browser_->profile()->GetPrefs());
+  pref_change_registrar_.Init(browser_->GetProfile()->GetPrefs());
   pref_change_registrar_.Add(
       bookmarks::prefs::kShowBookmarkBar,
       base::BindRepeating(&DbusAppmenu::OnBookmarkBarVisibilityChanged,
@@ -610,7 +605,7 @@ void DbusAppmenu::TabRestoreServiceDestroyed(
 
 bool DbusAppmenu::IsCommandIdChecked(int command_id) const {
   if (command_id == IDC_SHOW_BOOKMARK_BAR) {
-    return browser_->profile()->GetPrefs()->GetBoolean(
+    return browser_->GetProfile()->GetPrefs()->GetBoolean(
         bookmarks::prefs::kShowBookmarkBar);
   }
 

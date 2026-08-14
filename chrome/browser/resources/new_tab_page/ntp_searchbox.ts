@@ -406,7 +406,8 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
         inline: '',
         moveCursorToEnd: true,
       });
-      this.queryAutocomplete(newText, false);
+      this.queryAutocomplete(
+          newText, /*preventInlineAutocomplete=*/ false, /*isOnFocus=*/ false);
       e.preventDefault();
       return;
     }
@@ -493,10 +494,6 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
       return true;
     }
     return !this.$.input.lastInput()!.text.trim();
-  }
-
-  queryInputAutocomplete() {
-    this.queryAutocomplete(this.$.input.inputElement.value, false);
   }
 
   setInputText(text: string) {
@@ -798,6 +795,11 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
     this.setInputText('');
   }
 
+  protected onSearchboxInputPasted_() {
+    chrome.histograms.recordCount('NewTabPage.Realbox.Paste', 1);
+    chrome.histograms.recordUserAction('NewTabPage.Realbox.Paste');
+  }
+
   protected onSearchboxInputFilesPasted_(e: CustomEvent<{files: FileList}>) {
     this.processFiles_(e.detail.files, ComposeboxContextAddedMethod.COPY_PASTE);
   }
@@ -827,7 +829,7 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
   protected onSearchboxInputTextUpdated_(
       e: CustomEvent<{value: string, isComposing: boolean}>) {
     this.hasUserInput_ = !!e.detail.value.trim();
-    this.onSearchboxInputTextUpdated(e, /*is_composing=*/ false);
+    this.onSearchboxInputTextUpdated(e);
   }
 
   protected onLensSearchClick_() {
@@ -877,6 +879,10 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
       return placeholderText;
     }
     return this.i18n('searchBoxHint');
+  }
+
+  getInputStateForTesting(): InputState|null {
+    return this.inputState_;
   }
 }
 

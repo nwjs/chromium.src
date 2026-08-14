@@ -23,6 +23,7 @@ import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.Acces
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_CUT;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_EXPAND;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_FOCUS;
+import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_HIDE_TOOLTIP;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_IME_ENTER;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_LONG_CLICK;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_NEXT_AT_MOVEMENT_GRANULARITY;
@@ -45,6 +46,7 @@ import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.Acces
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SET_SELECTION;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SET_TEXT;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SHOW_ON_SCREEN;
+import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SHOW_TOOLTIP;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_LENGTH;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_START_INDEX;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.EXTRA_DATA_TEXT_CHARACTER_LOCATION_IN_WINDOW_KEY;
@@ -911,6 +913,14 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         if (mDelegate.getWebContents() != null) {
             registerWebContentsObserver(mDelegate.getWebContents());
             mWebContentsObserver.onVisibilityChanged(Visibility.VISIBLE);
+
+            assumeNonNull(mDelegate.getWebContents().getViewAndroidDelegate()).addObserver(this);
+            ViewGroup newContainer =
+                    (ViewGroup)
+                            mDelegate.getWebContents().getViewAndroidDelegate().getContainerView();
+            if (mView != newContainer) {
+                updateContainerViewInternal(newContainer);
+            }
         }
 
         refreshNativeState();
@@ -966,6 +976,10 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
 
     @Override
     public void onUpdateContainerView(@Nullable ViewGroup view) {
+        updateContainerViewInternal(view);
+    }
+
+    private void updateContainerViewInternal(@Nullable ViewGroup view) {
         // When the ContainerView is updated, we must update the |mView| variable and remove all
         // previous references to it. We clear the AccessibilityEventDispatcher queue, which may
         // have posted Runnable(s) to the old view. We also clear the AccessibilityNodeInfo cache
@@ -995,6 +1009,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                 WindowEventObserverManager.from(webContents).removeObserver(this);
                 webContents.removeUserData(WebContentsAccessibilityImpl.class);
             }
+            assumeNonNull(webContents.getViewAndroidDelegate()).removeObserver(this);
         }
         TraceEvent.end("WebContentsAccessibilityImpl.destroy");
     }
@@ -1032,6 +1047,13 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
             // Update the list of events we dispatch to enabled services.
             mEventDispatcher.updateRelevantEventTypes(
                     AccessibilityState.relevantEventTypesForCurrentServices());
+
+            // If we are disabling the cache for assistive technology users, clear the cache when
+            // an AT is activated.
+            if (ContentFeatureList.sAccessibilityDeprecateJavaNodeCacheDisableCache.getValue()
+                    && AccessibilityState.isAccessibilityToolPresent()) {
+                mNodeInfoCache.clear();
+            }
 
             // When no accessibility services are running, disable renderer accessibility and tear
             // down objects. If we have disabled then re-enabled the renderer accessibility multiple
@@ -1325,8 +1347,10 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
             if (WebContentsAccessibilityImplJni.get()
                     .populateAccessibilityNodeInfo(mNativeObj, info, virtualViewId)) {
                 // After successfully populating this node, add it to our cache then return.
-                if (!ContentFeatureList.sAccessibilityDeprecateJavaNodeCacheDisableCache
-                        .getValue()) {
+                // Cache is only disabled when accessibility tools are present, to preserve
+                // performance for the less correctness-oriented general user population.
+                if (!(ContentFeatureList.sAccessibilityDeprecateJavaNodeCacheDisableCache.getValue()
+                        && AccessibilityState.isAccessibilityToolPresent())) {
                     mNodeInfoCache.put(virtualViewId, AccessibilityNodeInfoCompat.obtain(info));
                 }
                 mHistogramRecorder.incrementNodeWasCreatedFromScratch();
@@ -1742,6 +1766,10 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                             /* endNodeId= */ selectionEnd.first,
                             /* endNodeOffset= */ selectionEnd.second,
                             /* endOffsetType= */ endOffsetType);
+        } else if (action == ACTION_SHOW_TOOLTIP.getId()) {
+            return WebContentsAccessibilityImplJni.get().showTooltip(mNativeObj, virtualViewId);
+        } else if (action == ACTION_HIDE_TOOLTIP.getId()) {
+            return WebContentsAccessibilityImplJni.get().hideTooltip(mNativeObj, virtualViewId);
         } else {
             // This should never be hit, so do the equivalent of NOTREACHED;
             assert false : "AccessibilityNodeProvider called performAction with unexpected action.";
@@ -2146,60 +2174,6 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
             return;
         }
 
-        if (mFakeAndroidCache != null) {
-            if (virtualViewId == getCurrentRootIdForExperiment()) {
-                // We clear the whole cache when the event is on the root
-                mFakeAndroidCache.clearNode(virtualViewId, /* recursive= */ true);
-            }
-            switch (eventType) {
-                case AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED:
-                    {
-                        mFakeAndroidCache.clearNode(virtualViewId, /* recursive= */ false);
-                    }
-                    break;
-
-                case AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUS_CLEARED:
-                    {
-                        mFakeAndroidCache.clearNode(virtualViewId, /* recursive= */ false);
-                    }
-                    break;
-
-                case AccessibilityEvent.TYPE_VIEW_FOCUSED:
-                    {
-                        mFakeAndroidCache.clearNode(virtualViewId, /* recursive= */ false);
-                    }
-                    break;
-
-                case AccessibilityEvent.TYPE_VIEW_SELECTED:
-                case AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED:
-                case AccessibilityEvent.TYPE_VIEW_CLICKED:
-                case AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED:
-                    {
-                        mFakeAndroidCache.clearNode(virtualViewId, /* recursive= */ false);
-                    }
-                    break;
-
-                case AccessibilityEvent.TYPE_VIEW_SCROLLED:
-                    {
-                        mFakeAndroidCache.clearNode(virtualViewId, /* recursive= */ true);
-                    }
-                    break;
-
-                case AccessibilityEvent.TYPE_WINDOWS_CHANGED:
-                    {
-                        mFakeAndroidCache.clearNode(
-                                getCurrentRootIdForExperiment(), /* recursive= */ true);
-                    }
-                    break;
-                case AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED:
-                    {
-                        mFakeAndroidCache.clearNode(
-                                getCurrentRootIdForExperiment(), /* recursive= */ true);
-                    }
-                    break;
-            }
-        }
-
         mHistogramRecorder.incrementEnqueuedEvents();
         mEventDispatcher.enqueueEvent(virtualViewId, eventType, /* setSubtreeChanged= */ false);
     }
@@ -2212,10 +2186,6 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         if (virtualViewId == View.NO_ID) {
             mView.sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED);
             return;
-        }
-
-        if (mFakeAndroidCache != null) {
-            mFakeAndroidCache.clearNode(virtualViewId, /* recursive= */ setSubtreeChanged);
         }
 
         mHistogramRecorder.incrementEnqueuedEvents();
@@ -2562,14 +2532,13 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
     @CalledByNative
     private void handleDefaultActionVerbChanged(int virtualViewId) {
         if (isAccessibilityEnabled()) {
-            // TODO(crbug.com/460580025): Check if AccessibilityEvent.CONTENT_CHANGE_TYPE_UNDEFINED
-            // is the right type to use here.
             AccessibilityEvent event =
-                    AccessibilityEvent.obtain(AccessibilityEvent.CONTENT_CHANGE_TYPE_UNDEFINED);
+                    AccessibilityEvent.obtain(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED);
             if (event == null) {
                 return;
             }
             event.setSource(mView, virtualViewId);
+            event.setContentChangeTypes(AccessibilityEvent.CONTENT_CHANGE_TYPE_UNDEFINED);
             requestSendAccessibilityEvent(event, WindowContentChangedSubtype.NONE, virtualViewId);
         }
     }
@@ -2632,6 +2601,9 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
             if (mTracker != null) mTracker.addEvent(event, subtype, virtualViewId);
             try {
                 mView.getParent().requestSendAccessibilityEvent(mView, event);
+                if (mFakeAndroidCache != null) {
+                    mFakeAndroidCache.clearNodeOnEvent(event, virtualViewId);
+                }
                 mDidSendAnyEvent = true;
             } catch (IllegalStateException ignored) {
                 // During boot-up of some content shell tests, events will erroneously be sent even
@@ -2957,6 +2929,10 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         void collapse(long nativeWebContentsAccessibilityAndroid, int id);
 
         void showContextMenu(long nativeWebContentsAccessibilityAndroid, int id);
+
+        boolean showTooltip(long nativeWebContentsAccessibilityAndroid, int id);
+
+        boolean hideTooltip(long nativeWebContentsAccessibilityAndroid, int id);
 
         boolean isRootManagerConnected(long nativeWebContentsAccessibilityAndroid);
 

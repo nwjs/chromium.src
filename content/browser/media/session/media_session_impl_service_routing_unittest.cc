@@ -12,8 +12,8 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
 #include "content/browser/media/session/media_session_impl.h"
-#include "content/browser/media/session/media_session_player_observer.h"
 #include "content/browser/media/session/mock_media_session_service_impl.h"
+#include "content/public/browser/media_session_player_observer.h"
 #include "content/public/test/test_media_session_client.h"
 #include "content/test/test_render_view_host.h"
 #include "content/test/test_web_contents.h"
@@ -88,6 +88,7 @@ class MockMediaSessionPlayerObserver : public MediaSessionPlayerObserver {
                const media::PictureInPictureEventsInfo::AutoPipInfo&
                    auto_picture_in_picture_info),
               (override));
+  MOCK_METHOD(void, OnSaveVideoFrame, (int player_id), (override));
 
   std::optional<media_session::MediaPosition> GetPosition(
       int player_id) const override {
@@ -106,6 +107,8 @@ class MockMediaSessionPlayerObserver : public MediaSessionPlayerObserver {
   bool HasSufficientlyVisibleVideo(int player_id) const override {
     return false;
   }
+
+  bool IsVideoFrameAvailable(int player_id) const override { return false; }
 
   bool HasAudio(int player_id) const override {
     return audio_video_state_ == MediaAudioVideoState::kAudioOnly ||

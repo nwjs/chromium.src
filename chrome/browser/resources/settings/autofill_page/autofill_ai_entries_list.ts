@@ -207,11 +207,11 @@ export class SettingsAutofillAiEntriesListElement extends
         If true, Autofill AI does not depend on whether Autofill for addresses
         is enabled.
       */
-      autofillAddOtherDatatypesPrefIsEnabled_: {
+      autofillSettingsEnterprisePolicyEnabled_: {
         type: Boolean,
         value() {
           return loadTimeData.getBoolean(
-              'AutofillAddOtherDatatypesPrefIsEnabled');
+              'AutofillSettingsEnterprisePolicyEnabled');
         },
       },
     };
@@ -241,7 +241,7 @@ export class SettingsAutofillAiEntriesListElement extends
   declare private showRemoveEntityInstanceDialog_: boolean;
   declare private activeEntityInstanceDeleteTitle_: string;
   declare private entityInstances_: EntityInstanceWithLabels[];
-  declare private autofillAddOtherDatatypesPrefIsEnabled_: boolean;
+  declare private autofillSettingsEnterprisePolicyEnabled_: boolean;
   declare private autofillAiAvailableByDefault_: boolean;
   declare private canEnableOrDisableAutofillAi_: boolean;
   private activeEntityInstanceGuid_: string|null = null;
@@ -472,7 +472,7 @@ export class SettingsAutofillAiEntriesListElement extends
     const autofillAiPref = this.getPref<ModelExecutionEnterprisePolicyValue>(
         AiEnterpriseFeaturePrefName.AUTOFILL_AI);
     const meetsAddressPrefRequirement =
-        this.autofillAddOtherDatatypesPrefIsEnabled_ || addressPref.value;
+        this.autofillSettingsEnterprisePolicyEnabled_ || addressPref.value;
     const meetsAiPrefRequirement =
         autofillAiPref.value !== ModelExecutionEnterprisePolicyValue.DISABLE;
 
@@ -514,13 +514,17 @@ export class SettingsAutofillAiEntriesListElement extends
       case EntityTypeName.kFlightReservation:
         return 'settings20:travel';
       case EntityTypeName.kKnownTravelerNumber:
-        return 'privacy20:person-check';
+        return loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+            'privacy20:person-check' :
+            'privacy20:person-check-old';
       case EntityTypeName.kNationalIdCard:
         return 'settings20:id-card';
       case EntityTypeName.kPassport:
         return 'settings20:passport';
       case EntityTypeName.kRedressNumber:
-        return 'privacy20:person-check';
+        return loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+            'privacy20:person-check' :
+            'privacy20:person-check-old';
       case EntityTypeName.kVehicle:
         return 'settings20:directions-car';
       default:

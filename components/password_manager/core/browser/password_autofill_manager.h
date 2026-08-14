@@ -75,12 +75,15 @@ class PasswordAutofillManager : public autofill::AutofillSuggestionDelegate,
       const AutofillSuggestionDelegate::SuggestionMetadata& metadata) override;
   std::optional<autofill::Suggestion>
   GetWebauthnSignInWithAnotherDeviceSuggestion() const override;
+  std::optional<autofill::Suggestion> GetWebauthnInlineQrCodeSuggestion()
+      const override;
 
   // AutofillSuggestionDelegate implementation.
-  std::variant<autofill::AutofillDriver*, PasswordManagerDriver*> GetDriver()
-      override;
-  void OnSuggestionsShown(
-      base::span<const autofill::Suggestion> suggestions) override;
+  std::variant<autofill::AutofillDriver*, PasswordManagerDriver*>
+  GetDriver_DoNotUse() override;
+  void OnSuggestionsShown(base::span<const autofill::Suggestion> suggestions,
+                          base::optional_ref<const SuggestionMetadata>
+                              parent_suggestion_metadata) override;
   void OnSuggestionsHidden(autofill::SuggestionHidingReason reason) override;
   bool OnFilterChanged(const std::u16string& filter) override;
   bool OnSearchSubmitted(const std::u16string& filter) override;
@@ -104,13 +107,15 @@ class PasswordAutofillManager : public autofill::AutofillSuggestionDelegate,
   // This is currently used for cases in which the automatic generation
   // option is offered through a different UI surface than the popup
   // (e.g. via the keyboard accessory on Android).
-  bool MaybeShowPasswordSuggestions(const gfx::RectF& bounds,
+  bool MaybeShowPasswordSuggestions(const autofill::FieldGlobalId& field_id,
+                                    const gfx::RectF& bounds,
                                     base::i18n::TextDirection text_direction);
 
   // If there are relevant credentials for the current frame, shows them with
   // an additional 'generation' option and returns true. Otherwise, does nothing
   // and returns false.
   bool MaybeShowPasswordSuggestionsWithGeneration(
+      const autofill::FieldGlobalId& field_id,
       const gfx::RectF& bounds,
       base::i18n::TextDirection text_direction,
       bool show_password_suggestions);
@@ -145,7 +150,8 @@ class PasswordAutofillManager : public autofill::AutofillSuggestionDelegate,
 
  private:
   // Validates and forwards the given objects to the autofill client.
-  bool ShowPopup(const gfx::RectF& bounds,
+  bool ShowPopup(const autofill::FieldGlobalId& field_id,
+                 const gfx::RectF& bounds,
                  base::i18n::TextDirection text_direction,
                  const std::vector<autofill::Suggestion>& suggestions,
                  bool is_for_webauthn_request);

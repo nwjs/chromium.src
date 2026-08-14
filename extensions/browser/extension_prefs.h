@@ -90,7 +90,29 @@ class URLPatternSet;
 //       maintains as the underlying extensions change.
 class ExtensionPrefs : public KeyedService {
  public:
-  using ExtensionsInfo = std::vector<ExtensionInfo>;
+  // Handy struct to pass around info about an installed extension.
+  struct InstallRecord {
+    InstallRecord(const base::DictValue* manifest,
+                  const ExtensionId& id,
+                  const base::FilePath& path,
+                  mojom::ManifestLocation location);
+    InstallRecord(InstallRecord&&) noexcept;
+    InstallRecord(const InstallRecord&) = delete;
+    InstallRecord& operator=(const InstallRecord&) = delete;
+    InstallRecord& operator=(InstallRecord&&);
+    ~InstallRecord();
+
+    // Note: This may be null (e.g. for unpacked extensions retrieved from the
+    // Preferences file).
+    std::unique_ptr<base::DictValue> extension_manifest;
+
+    ExtensionId extension_id;
+    base::FilePath extension_path;
+    mojom::ManifestLocation extension_location;
+  };
+
+  using InstallRecords = std::vector<InstallRecord>;
+  using ExtensionsInfo = std::vector<InstallRecord>;
   using ChromeSettingScope = extensions::api::types::ChromeSettingScope;
 
   // Vector containing identifiers for preferences.
@@ -498,6 +520,12 @@ class ExtensionPrefs : public KeyedService {
   bool IsExternalInstallFirstRun(const ExtensionId& extension_id) const;
   void SetExternalInstallFirstRun(const ExtensionId& extension_id);
 
+  // Whether the extension was pinned by default upon installation.
+  // Returns std::nullopt if the extension was installed before this preference
+  // was introduced.
+  std::optional<bool> WasPinnedByDefault(const ExtensionId& extension_id) const;
+  void SetWasPinnedByDefault(const ExtensionId& extension_id, bool was_pinned);
+
   // Returns true if the extension notification code has already run for the
   // first time for this profile. Currently we use this flag to mean that any
   // extensions that would trigger notifications should get silently
@@ -641,15 +669,15 @@ class ExtensionPrefs : public KeyedService {
   bool HasAllowFileAccessPendingUpdate(const ExtensionId& extension_id) const;
 #endif
 
-  // Saves ExtensionInfo for each installed extension with the path to the
+  // Saves InstallRecord for each installed extension with the path to the
   // version directory and the location. Blocklisted extensions won't be saved
   // and neither will external extensions the user has explicitly uninstalled.
-  ExtensionsInfo GetInstalledExtensionsInfo(
+  InstallRecords GetInstalledExtensionsInfo(
       bool include_component_extensions = false) const;
 
-  // Returns the ExtensionInfo from the prefs for the given extension. If the
+  // Returns the InstallRecord from the prefs for the given extension. If the
   // extension is not present, std::nullopt is returned.
-  std::optional<ExtensionInfo> GetInstalledExtensionInfo(
+  std::optional<InstallRecord> GetInstalledExtensionInfo(
       const ExtensionId& extension_id,
       bool include_component_extensions = false) const;
 
@@ -678,9 +706,9 @@ class ExtensionPrefs : public KeyedService {
   void SetDelayedInstallInfo(const Extension* extension,
                              DelayedInstallInfo install_info);
 
-  // Returns the ExtensionInfo from the prefs for delayed install information
+  // Returns the InstallRecord from the prefs for delayed install information
   // for `extension_id`, if we have any. Otherwise returns std::nullopt.
-  std::optional<ExtensionInfo> GetDelayedInstallExtensionInfo(
+  std::optional<InstallRecord> GetDelayedInstallExtensionInfo(
       const ExtensionId& extension_id) const;
 
   // Returns the delayed install info for `extension_id`. Returns a
@@ -692,7 +720,7 @@ class ExtensionPrefs : public KeyedService {
 
   // Returns information about all the extensions that have delayed install
   // information.
-  ExtensionsInfo GetAllDelayedInstallInfo() const;
+  InstallRecords GetAllDelayedInstallInfo() const;
 
   // Returns true if there is an extension which controls the preference value
   //  for `pref_key` *and* it is specific to incognito mode.
@@ -824,9 +852,9 @@ class ExtensionPrefs : public KeyedService {
   void MakePathsRelative();
 
   // Helper function used by GetInstalledExtensionInfo() and
-  // GetDelayedInstallExtensionInfo() to construct an ExtensionInfo from the
+  // GetDelayedInstallExtensionInfo() to construct an InstallRecord from the
   // provided `extension` dictionary.
-  std::optional<ExtensionInfo> GetInstalledInfoHelper(
+  std::optional<InstallRecord> GetInstalledInfoHelper(
       const ExtensionId& extension_id,
       const base::DictValue& extension,
       bool include_component_extensions) const;
@@ -923,7 +951,7 @@ class ExtensionPrefs : public KeyedService {
                                   prefs::DictionaryValueUpdate* extension_dict,
                                   base::ListValue& removed_prefs);
 
-  void InitExtensionControlledPrefs(const ExtensionsInfo& extensions_info);
+  void InitExtensionControlledPrefs(const InstallRecords& extensions_info);
 
   // Loads preferences for the given `extension_id` into the pref value map.
   void LoadExtensionControlledPrefs(const ExtensionId& extension_id,

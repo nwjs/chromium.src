@@ -282,6 +282,10 @@ bool ValidateResponseExtensions(
       if (!request.min_pin_length_requested || !it.second.is_unsigned()) {
         return false;
       }
+    } else if (ext_name == kExtensionCmtgKey) {
+      if (!request.cmtg_key || !it.second.is_bytestring()) {
+        return false;
+      }
     } else {
       // Authenticators may not return unknown extensions.
       return false;
@@ -1072,6 +1076,10 @@ void MakeCredentialRequestHandler::SpecializeRequestForAuthenticator(
        authenticator->Options().max_cred_blob_length.value() <
            request->cred_blob->size())) {
     request->cred_blob.reset();
+  }
+
+  if (request->cmtg_key && !authenticator->Options().supports_cmtg_key) {
+    request->cmtg_key = false;
   }
 }
 

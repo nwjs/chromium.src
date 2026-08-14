@@ -20,6 +20,7 @@
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/actor/action_result.h"
+#include "chrome/common/actor/actor_constants.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "components/actor/core/actor_features.h"
@@ -38,6 +39,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
+#include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "pdf/buildflags.h"
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
@@ -106,6 +108,47 @@ bool ValidateTargetFrameCandidate(
 #endif
 
   return false;
+}
+
+mojom::ActionResultPtr ValidateTargetInLastApc(
+    const PageToolRequest& request,
+    WebContents& web_contents,
+    base::optional_ref<const TargetNodeInfo> observed_target_node_info) {
+  if (!request.RequiresTargetInLastApc()) {
+    return nullptr;
+  }
+
+  const DomNode* node = std::get_if<DomNode>(&request.GetTarget());
+  if (!node || node->node_id == kRootElementDomNodeId) {
+    // APC identifies targets by DOM node id. Coordinates and the root sentinel
+    // cannot name a target in the saved snapshot.
+    return MakeResult(mojom::ActionResultCode::kArgumentsInvalid,
+                      /*requires_page_stabilization=*/false,
+                      "This action requires a non-root DOM node target.");
+  }
+
+  if (!request.IsSubframeTargetingAllowed() &&
+      node->document_identifier !=
+          DocumentIdentifierUserData::GetOrCreateForCurrentDocument(
+              web_contents.GetPrimaryMainFrame())
+              ->serialized_token()) {
+    // Reject actions that only support main-frame targets.
+    return MakeResult(
+        mojom::ActionResultCode::kArgumentsInvalid,
+        /*requires_page_stabilization=*/false,
+        "This action is only supported for main-frame DOM node targets.");
+  }
+
+  if (!observed_target_node_info) {
+    // Reject targets that were not in the action generator's last APC.
+    // TODO(aleventhal): Add kTargetNotFoundInLastApcSnapshot to distinguish
+    // this case from a node that no longer exists in the live DOM.
+    return MakeResult(mojom::ActionResultCode::kInvalidDomNodeId,
+                      /*requires_page_stabilization=*/false,
+                      "The target was not found in the last APC snapshot.");
+  }
+
+  return nullptr;
 }
 
 // Helper function to create ObservedToolTarget mojom struct from
@@ -285,6 +328,12 @@ void PageTool::Validate(ToolCallback callback) {
                                         journal().AllocateDynamicTrackUUID(),
                                         "ContentAnalysisScan", {});
 
+  // If the enterprise scan drops this callback (e.g. frame/content torn down
+  // midscan and the warn dialog is destroyed), resolve as kFrameWentAway
+  // instead of hanging the action indefinitely.
+  ToolCallback wrapped_callback = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+      std::move(callback), MakeResult(mojom::ActionResultCode::kFrameWentAway));
+
   checker.ValidateContentSentToRenderer(
       frame, text,
       base::BindOnce(
@@ -331,7 +380,7 @@ void PageTool::Validate(ToolCallback callback) {
               std::move(callback).Run(MakeOkResult());
             }
           },
-          weak_ptr_factory_.GetWeakPtr(), std::move(callback),
+          weak_ptr_factory_.GetWeakPtr(), std::move(wrapped_callback),
           std::move(invocation), validation_supported, std::move(trace_entry)));
 }
 
@@ -456,6 +505,11 @@ mojom::ActionResultPtr PageTool::ComputeObservedTargetAndValidateFrame(
                   JournalDetailsBuilder()
                       .Add("details", "No observed target found in APC.")
                       .Build());
+  }
+
+  if (mojom::ActionResultPtr validation_result = ValidateTargetInLastApc(
+          *request_, *tab->GetContents(), observed_target_node_info)) {
+    return validation_result;
   }
 
   // Perform validation for coordinate based target only.

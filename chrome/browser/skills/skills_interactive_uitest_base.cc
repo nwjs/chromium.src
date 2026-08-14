@@ -9,13 +9,16 @@
 #include "base/values.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/host/glic_features.mojom.h"
+#include "chrome/browser/glic/host/glic_skills_manager.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/skills/skills_glic_mojom_util.h"
 #include "chrome/browser/skills/skills_service_factory.h"
 #include "chrome/browser/skills/skills_ui_window_controller.h"
+#include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "chrome/browser/sync/data_type_store_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -56,7 +59,8 @@ SkillsInteractiveUiTestBase::SkillsInteractiveUiTestBase() {
   scoped_feature_list_.InitWithFeatures(
       /*enabled_features=*/{features::kGlic, features::kGlicRollout,
                             features::kSkillsEnabled,
-                            features::kGlicMultitabUnderlines},
+                            features::kGlicMultitabUnderlines,
+                            features::kSkillsServiceApi},
       /*disabled_features=*/{features::kGlicWarming});
   // TODO(b:504651450): Consider adding support for the new FRE.
 }
@@ -109,15 +113,29 @@ SkillsInteractiveUiTestBase::CheckToastIsShowing(ToastId toast_id) {
       "polling until toast is showing");
 }
 
+void SkillsInteractiveUiTestBase::SetUpBrowserContextKeyedServices(
+    content::BrowserContext* context) {
+  IdentityTestEnvironmentProfileAdaptor::
+      SetIdentityTestEnvironmentFactoriesOnBrowserContext(context);
+  skills::SkillsFunctionalBrowserTestBase::SetUpBrowserContextKeyedServices(
+      context);
+}
+
 void SkillsInteractiveUiTestBase::SetUpOnMainThread() {
   skills::SkillsFunctionalBrowserTestBase::SetUpOnMainThread();
 
+  identity_test_env_adaptor_ =
+      std::make_unique<IdentityTestEnvironmentProfileAdaptor>(
+          browser()->GetProfile());
+  identity_test_env_adaptor_->identity_test_env()
+      ->SetAutomaticIssueOfAccessTokens(true);
+
   skills::SkillsServiceFactory::GetInstance()->SetTestingFactory(
-      browser()->profile(),
+      browser()->GetProfile(),
       base::BindRepeating(&SkillsInteractiveUiTestBase::CreateSkillsService,
                           base::Unretained(this)));
 
-  skills::SkillsServiceFactory::GetForProfile(browser()->profile())
+  skills::SkillsServiceFactory::GetForProfile(browser()->GetProfile())
       ->SetServiceStatusForTesting(
           skills::SkillsService::ServiceStatus::kReady);
 
@@ -128,6 +146,14 @@ void SkillsInteractiveUiTestBase::SetUpOnMainThread() {
   GURL expected_url(skills::kSkillsDownloaderGstaticUrl);
   test_url_loader_factory_.AddResponse(expected_url.spec(), response_data,
                                        net::HTTP_OK);
+  GURL api_url(features::kSkillsServiceApiUrl.Get());
+  test_url_loader_factory_.AddResponse(api_url.spec(), response_data,
+                                       net::HTTP_OK);
+}
+
+void SkillsInteractiveUiTestBase::TearDownOnMainThread() {
+  identity_test_env_adaptor_.reset();
+  skills::SkillsFunctionalBrowserTestBase::TearDownOnMainThread();
 }
 
 std::unique_ptr<KeyedService> SkillsInteractiveUiTestBase::CreateSkillsService(
@@ -147,8 +173,11 @@ SkillsInteractiveUiTestBase::UpdateContextualSkillPreviews(
     std::vector<glic::mojom::SkillPreviewPtr> contextual_skill_previews) {
   return Steps(Do([this, contextual_skill_previews =
                              std::move(contextual_skill_previews)]() mutable {
-    GetGlicInstanceImpl()->host().NotifyContextualSkillsChanged(
-        std::move(contextual_skill_previews));
+    GetGlicInstanceImpl()
+        ->host()
+        .instance_delegate()
+        .skills_manager()
+        .NotifyContextualSkillsChanged(std::move(contextual_skill_previews));
   }));
 }
 
@@ -205,10 +234,10 @@ SkillsInteractiveUiTestBase::VerifyInvocationInWebUI(
     const std::string& expected_prompt) {
   return Steps(
       Log("Verifying Glic Panel Opened via Toast Interaction"),
-      WaitForShow(glic::test::kGlicHostElementId),
+      WaitForShow(glic::kGlicHostElementId),
 
       WaitForJsResult(
-          glic::test::kGlicContentsElementId,
+          glic::kGlicContentsElementId,
           base::StringPrintf(
               "() => {"
               "  const input = document.getElementById('skillPromptInput');"
@@ -277,7 +306,7 @@ SkillsInteractiveUiTestBase::WaitForSkillPreviewShown(
                         std::string(skill_name) + "\"]"};
   state_change.test_function = "el => el.checkVisibility()";
   state_change.event = kSkillPreviewShown;
-  return WaitForStateChange(glic::test::kGlicContentsElementId, state_change);
+  return WaitForStateChange(glic::kGlicContentsElementId, state_change);
 }
 
 ui::test::InteractiveTestApi::MultiStep
@@ -304,12 +333,12 @@ SkillsInteractiveUiTestBase::WaitForSkillPreviewOrder(
       "}",
       expected_json.c_str());
   state_change.event = kSkillPreviewOrderMatched;
-  return WaitForStateChange(glic::test::kGlicContentsElementId, state_change);
+  return WaitForStateChange(glic::kGlicContentsElementId, state_change);
 }
 
 ui::test::InteractiveTestApi::StepBuilder
 SkillsInteractiveUiTestBase::ClickOnGlicClientElement(DeepQuery where) {
-  return ExecuteJsAt(glic::test::kGlicContentsElementId, where, kClickFn);
+  return ExecuteJsAt(glic::kGlicContentsElementId, where, kClickFn);
 }
 
 ui::test::InteractiveTestApi::MultiStep
@@ -333,6 +362,9 @@ SkillsInteractiveUiTestBase::Seed1PSkills(
     GURL expected_url(skills::kSkillsDownloaderGstaticUrl);
     test_url_loader_factory_.AddResponse(expected_url.spec(), response_data,
                                          net::HTTP_OK);
+    GURL api_url(features::kSkillsServiceApiUrl.Get());
+    test_url_loader_factory_.AddResponse(api_url.spec(), response_data,
+                                         net::HTTP_OK);
   });
 }
 
@@ -341,7 +373,7 @@ SkillsInteractiveUiTestBase::WaitFor1PSkills() {
   return PollUntil(
       [this]() {
         return !skills::SkillsServiceFactory::GetForProfile(
-                    browser()->profile())
+                    browser()->GetProfile())
                     ->Get1PSkills()
                     .empty();
       },
@@ -360,7 +392,11 @@ SkillsInteractiveUiTestBase::WaitForTabOpenedTo(int tab, GURL url) {
             if (model->active_index() != tab) {
               return GURL();
             }
-            return model->GetTabAtIndex(tab)->GetContents()->GetVisibleURL();
+            GURL url =
+                model->GetTabAtIndex(tab)->GetContents()->GetVisibleURL();
+            GURL::Replacements clear_query;
+            clear_query.ClearQuery();
+            return url.ReplaceComponents(clear_query);
           }),
       WaitForState(kOpenedTabUrlState, url),
       StopObservingState(kOpenedTabUrlState));

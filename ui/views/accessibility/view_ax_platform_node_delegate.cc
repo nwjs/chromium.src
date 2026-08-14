@@ -16,7 +16,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/no_destructor.h"
 #include "base/notimplemented.h"
-#include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
@@ -596,6 +595,18 @@ bool ViewAXPlatformNodeDelegate::IsLeaf() const {
   return ViewAccessibility::IsLeaf() || AXPlatformNodeDelegate::IsLeaf();
 }
 
+bool ViewAXPlatformNodeDelegate::IsIgnored() const {
+  if (GetIsIgnored()) {
+    return true;
+  }
+
+  // ViewAXPlatformNodeDelegate::GetChildCount() gives virtual children
+  // precedence over the real ones, hiding them and their subtrees from
+  // platform APIs.
+  const View* parent = view()->parent();
+  return parent && !parent->GetViewAccessibility().virtual_children().empty();
+}
+
 bool ViewAXPlatformNodeDelegate::IsInvisibleOrIgnored() const {
   return GetIsIgnored() || GetData().IsInvisible();
 }
@@ -832,18 +843,6 @@ bool ViewAXPlatformNodeDelegate::ShouldIgnoreHoveredStateForTesting() {
 bool ViewAXPlatformNodeDelegate::IsOffscreen() const {
   // TODO(katydek): need to implement.
   return false;
-}
-
-std::u16string ViewAXPlatformNodeDelegate::GetAuthorUniqueId() const {
-  const View* v = view();
-  if (v) {
-    const int view_id = v->GetID();
-    if (view_id) {
-      return u"view_" + base::NumberToString16(view_id);
-    }
-  }
-
-  return std::u16string();
 }
 
 bool ViewAXPlatformNodeDelegate::IsMinimized() const {

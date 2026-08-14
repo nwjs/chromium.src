@@ -47,6 +47,7 @@ using DigestWithPrefix =
     base::StrongAlias<class TypeTagDigestWithPrefix, std::vector<uint8_t>>;
 
 // Values should not be reused or renumbered.
+// LINT.IfChange(Error)
 enum class COMPONENT_EXPORT(KCER) Error {
   kUnknownError = 0,
   kNotImplemented = 1,
@@ -99,6 +100,7 @@ enum class COMPONENT_EXPORT(KCER) Error {
   kAlreadyExists = 48,
   kMaxValue = kAlreadyExists,
 };
+// LINT.ThenChange(//tools/metrics/histograms/metadata/enterprise/enums.xml:KcerError)
 
 // Handles for tokens on ChromeOS.
 enum class COMPONENT_EXPORT(KCER) Token {
@@ -299,6 +301,8 @@ class COMPONENT_EXPORT(KCER) Kcer {
       base::expected<std::optional<chaps::KeyPermissions>, Error>)>;
   using GetCertProvisioningProfileIdCallback = base::OnceCallback<void(
       base::expected<std::optional<std::string>, Error>)>;
+  using GetBrowserEnterpriseClientCertTagCallback =
+      base::OnceCallback<void(base::expected<bool, Error>)>;
 
   Kcer() = default;
   virtual ~Kcer() = default;
@@ -448,6 +452,13 @@ class COMPONENT_EXPORT(KCER) Kcer {
   virtual void GetCertProvisioningProfileId(
       PrivateKeyHandle key,
       GetCertProvisioningProfileIdCallback callback) = 0;
+  // Returns whether the `key` is tagged as being owned by the browser
+  // enterprise client certificate provisioning flow (CA Connector). Returns
+  // true when the tag is present, false when it is absent, and an error
+  // when the attribute could not be read.
+  virtual void GetBrowserEnterpriseClientCertTag(
+      PrivateKeyHandle key,
+      GetBrowserEnterpriseClientCertTagCallback callback) = 0;
 
   // Sets the `nickname` on the `key`. (Not to be confused with the nickname of
   // the certificate.) Returns an error on failure.
@@ -468,6 +479,11 @@ class COMPONENT_EXPORT(KCER) Kcer {
   virtual void SetCertProvisioningProfileId(PrivateKeyHandle key,
                                             std::string profile_id,
                                             StatusCallback callback) = 0;
+  // Tags the `key` as owned by the browser enterprise client certificate
+  // provisioning flow (CA Connector). Should be called once, immediately
+  // after key generation. Returns an error on failure.
+  virtual void SetBrowserEnterpriseClientCertTag(PrivateKeyHandle key,
+                                                 StatusCallback callback) = 0;
 };
 
 }  // namespace kcer

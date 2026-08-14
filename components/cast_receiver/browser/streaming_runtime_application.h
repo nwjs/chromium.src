@@ -9,7 +9,9 @@
 #include "components/cast_receiver/browser/public/application_config.h"
 #include "components/cast_receiver/browser/runtime_application_base.h"
 #include "components/cast_receiver/browser/streaming_input_capabilities_observer.h"
+#include "components/cast_receiver/browser/streaming_receiver_channel.h"
 #include "components/cast_receiver/browser/streaming_receiver_session_client.h"
+#include "components/cast_receiver/proto/input_event.pb.h"
 #include "net/base/net_errors.h"
 #include "services/network/public/cpp/network_context_getter.h"
 
@@ -17,6 +19,8 @@ namespace cast_receiver {
 
 class ApplicationClient;
 class MessagePortService;
+class StreamingInputObserver;
+class StreamingReceiverChannel;
 
 class StreamingRuntimeApplication final
     : public RuntimeApplicationBase,
@@ -44,6 +48,8 @@ class StreamingRuntimeApplication final
   void OnStreamingSessionStarted() override;
   void OnError() override;
 
+  void OnBootstrapComplete(ExoBootstrapMessage request);
+
   // Returns the network context used by |receiver_session_client_|.
   const network::NetworkContextGetter network_context_getter_;
 
@@ -53,8 +59,14 @@ class StreamingRuntimeApplication final
   // Object responsible for maintaining the lifetime of the streaming session.
   std::unique_ptr<StreamingReceiverSessionClient> receiver_session_client_;
 
+  std::unique_ptr<StreamingReceiverChannel> streaming_receiver_channel_;
+
+  std::unique_ptr<StreamingInputObserver> streaming_input_observer_;
   std::unique_ptr<StreamingInputCapabilitiesObserver>
       streaming_input_capabilities_observer_;
+
+  void OnInputEvent(const cast_receiver::InputEvent& event);
+  void OnInputCapabilitiesChanged(const cast_receiver::InputCapabilities& caps);
 
   SEQUENCE_CHECKER(sequence_checker_);
   base::WeakPtrFactory<StreamingRuntimeApplication> weak_factory_{this};

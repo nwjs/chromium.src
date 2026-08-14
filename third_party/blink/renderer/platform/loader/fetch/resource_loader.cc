@@ -622,9 +622,11 @@ bool ResourceLoader::WillFollowRedirect(
                              new_request->GetRedirectInfo());
 
     if (std::optional<AdProvenance> ad_provenance =
-            Context().CalculateIfAdSubresource(
-                *new_request, /*alias_url=*/std::nullopt, resource_type,
-                options.initiator_info, /*scan_stack_for_ads=*/false)) {
+            Context()
+                .CalculateResourceAnnotations(
+                    *new_request, /*alias_url=*/std::nullopt, resource_type,
+                    options.initiator_info, /*scan_javascript_stack=*/false)
+                .ad_provenance) {
       new_request->SetIsAdResource(std::move(*ad_provenance));
     }
 
@@ -1297,7 +1299,6 @@ void ResourceLoader::RequestSynchronously() {
   if (!IsLoading()) {
     return;
   }
-  DCHECK_GE(response_out.ToResourceResponse().EncodedBodyLength(), 0);
 
   // Follow the async case convention of not calling DidReceiveData or
   // appending data to m_resource if the response body is empty. Copying the
@@ -1563,9 +1564,11 @@ bool ResourceLoader::ShouldBlockRequestBasedOnSubresourceFilterDnsAliasCheck(
 
     if (!resource_->GetResourceRequest().IsAdResource()) {
       if (std::optional<AdProvenance> ad_provenance =
-              Context().CalculateIfAdSubresource(
-                  resource_->GetResourceRequest(), alias_url, resource_type,
-                  options.initiator_info, /*scan_stack_for_ads=*/false)) {
+              Context()
+                  .CalculateResourceAnnotations(
+                      resource_->GetResourceRequest(), alias_url, resource_type,
+                      options.initiator_info, /*scan_javascript_stack=*/false)
+                  .ad_provenance) {
         resource_->SetIsAdResource(std::move(*ad_provenance));
         cname_alias_info_for_testing_.was_ad_tagged_based_on_alias = true;
       }

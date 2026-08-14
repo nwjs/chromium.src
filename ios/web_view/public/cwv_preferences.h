@@ -48,6 +48,11 @@ CWV_EXPORT
 @property(nonatomic, assign, getter=isPasswordLeakCheckEnabled)
     BOOL passwordLeakCheckEnabled;
 
+// Controls whether or not WebViewPasswordManagerClient is hardened against
+// WebState destruction.
+@property(nonatomic, assign, getter=isPasswordManagerSafeLifecycleEnabled)
+    BOOL passwordManagerSafeLifecycleEnabled;
+
 // Whether or not safe browsing is enabled.
 // Specifically this controls whether or not
 // -[CWVNavigationDelegate handleUnsafeURLWithHandler:] is called.
@@ -66,6 +71,11 @@ CWV_EXPORT
 // Whether or not credit card virtual card usage is enabled.
 @property(nonatomic, assign, getter=isAutofillVCNUsageEnabled)
     BOOL autofillVCNUsageEnabled;
+
+// Controls whether or not CWVAutofillController is hardened against WebState
+// destruction.
+@property(nonatomic, assign, getter=isAutofillSafeLifecycleEnabled)
+    BOOL autofillSafeLifecycleEnabled;
 
 // Whether or not to trigger a non-fatal check during initialization.
 // This is for integration testing purposes of non-fatal checks on clients.

@@ -15,6 +15,7 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_query_set_descriptor.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_queue_descriptor.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_render_pipeline_descriptor.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_resource_table_descriptor.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_uncaptured_error_event_init.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
@@ -38,6 +39,7 @@
 #include "third_party/blink/renderer/modules/webgpu/gpu_queue.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_render_bundle_encoder.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_render_pipeline.h"
+#include "third_party/blink/renderer/modules/webgpu/gpu_resource_table.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_sampler.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_shader_module.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_supported_features.h"
@@ -48,6 +50,7 @@
 #include "third_party/blink/renderer/modules/webgpu/string_utils.h"
 #include "third_party/blink/renderer/platform/heap/thread_state.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
+#include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 
 namespace blink {
@@ -577,6 +580,19 @@ GPUPipelineLayout* GPUDevice::createPipelineLayout(
   return GPUPipelineLayout::Create(this, descriptor);
 }
 
+GPUResourceTable* GPUDevice::createResourceTable(
+    const GPUResourceTableDescriptor* descriptor,
+    ExceptionState& exception_state) {
+  static constexpr uint32_t kMaxResourceTableSizeInSpec = 65536;
+  if (descriptor->size() > kMaxResourceTableSizeInSpec) {
+    exception_state.ThrowRangeError(
+        "GPUResourceTableDescriptor.size is too large.");
+    return nullptr;
+  }
+
+  return GPUResourceTable::Create(this, descriptor);
+}
+
 GPUShaderModule* GPUDevice::createShaderModule(
     const GPUShaderModuleDescriptor* descriptor) {
   return GPUShaderModule::Create(this, descriptor);
@@ -823,31 +839,22 @@ void GPUDevice::SetDescriptorCallbacks(wgpu::DeviceDescriptor& dawn_desc) {
   // passed to the device lost callback immediately after.
   std::unique_ptr<WGPURepeatingCallback<wgpu::UncapturedErrorCallback<void>>>
       error_callback;
-  if (IsWebGPUMultithreadedWorker(execution_context)) {
-    // When the IO thread processes GPU process responses, the uncaptured error
-    // callback is called on the IO thread. This initialization, however,
-    // happens on the main thread, hence the need for the initial CrossThread
-    // wrapping. The internal call to the *Impl function, however, is proxied
-    // back to the main thread, so we need to create it here on the main thread
-    // via BindRepeating and pass it in.
-    error_callback.reset(MakeWGPURepeatingCallback(
-        ConvertToBaseRepeatingCallback(CrossThreadBindRepeating(
-            [](scoped_refptr<base::SingleThreadTaskRunner> main_runner,
-               base::RepeatingCallback<void(wgpu::ErrorType, const String&)> cb,
-               const wgpu::Device& device, wgpu::ErrorType errorType,
-               wgpu::StringView message) {
-              String messageStr = StringFromASCIIAndUTF8(message);
-              main_runner->PostTask(
-                  FROM_HERE, ConvertToBaseOnceCallback(CrossThreadBindOnce(
-                                 cb, errorType, std::move(messageStr))));
-            },
-            execution_context->GetTaskRunner(TaskType::kWebGPU),
-            BindRepeating(&GPUDevice::OnUncapturedErrorImpl,
-                          WrapWeakPersistent(this))))));
-  } else {
-    error_callback.reset(MakeWGPURepeatingCallback(blink::BindRepeating(
-        &GPUDevice::OnUncapturedError, WrapWeakPersistent(this))));
-  }
+  // Always post the uncaptured error callback to the WebGPU task runner to
+  // prevent synchronous re-entrancy deadlocks.
+  error_callback.reset(MakeWGPURepeatingCallback(
+      ConvertToBaseRepeatingCallback(CrossThreadBindRepeating(
+          [](scoped_refptr<base::SingleThreadTaskRunner> main_runner,
+             base::RepeatingCallback<void(wgpu::ErrorType, const String&)> cb,
+             const wgpu::Device& device, wgpu::ErrorType errorType,
+             wgpu::StringView message) {
+            String messageStr = StringFromASCIIAndUTF8(message);
+            main_runner->PostTask(FROM_HERE,
+                                  ConvertToBaseOnceCallback(CrossThreadBindOnce(
+                                      cb, errorType, std::move(messageStr))));
+          },
+          execution_context->GetTaskRunner(TaskType::kWebGPU),
+          BindRepeating(&GPUDevice::OnUncapturedErrorImpl,
+                        WrapWeakPersistent(this))))));
   dawn_desc.SetUncapturedErrorCallback(error_callback->UnboundCallback(),
                                        error_callback->AsUserdata());
 

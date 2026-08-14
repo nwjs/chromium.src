@@ -11,7 +11,6 @@
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
-#include "chrome/browser/ui/views/page_action/page_action_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_view_interface.h"
 #include "ui/views/widget/widget.h"
 
@@ -48,10 +47,6 @@ views::BubbleAnchor ZoomBubbleManagerViews::GetZoomBubbleAnchor() {
 
 gfx::NativeView ZoomBubbleManagerViews::GetNativeView() {
   return browser_view_->GetWidget()->GetNativeView();
-}
-
-void ZoomBubbleManagerViews::UpdateLegacyPageActionIcon() {
-  browser_view_->UpdatePageActionIcon(PageActionIconType::kZoom);
 }
 
 std::u16string ZoomBubbleManagerViews::GetZoomActionAccessibleName() {

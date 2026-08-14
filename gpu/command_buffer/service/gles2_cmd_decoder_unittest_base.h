@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #ifndef GPU_COMMAND_BUFFER_SERVICE_GLES2_CMD_DECODER_UNITTEST_BASE_H_
 #define GPU_COMMAND_BUFFER_SERVICE_GLES2_CMD_DECODER_UNITTEST_BASE_H_
 
@@ -16,6 +11,7 @@
 #include <array>
 #include <memory>
 
+#include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/task_environment.h"
@@ -71,7 +67,6 @@ class GLES2DecoderTestBase : public ::testing::TestWithParam<bool>,
   void OnRescheduleAfterFinished() override;
   void ScheduleGrContextCleanup() override {}
   void HandleReturnData(base::span<const uint8_t> data) override {}
-  bool ShouldYield() override;
 
   // Template to call glGenXXX functions.
   template <typename T>
@@ -95,7 +90,8 @@ class GLES2DecoderTestBase : public ::testing::TestWithParam<bool>,
   }
 
   void ClearSharedMemory() {
-    memset(shared_memory_base_, kInitialMemoryValue, kSharedBufferSize);
+    UNSAFE_TODO(
+        memset(shared_memory_base_, kInitialMemoryValue, kSharedBufferSize));
   }
 
   void SetUp() override;
@@ -820,8 +816,9 @@ void GLES2DecoderTestBase::SpecializedSetup<cmds::LinkProgram, 0>(bool valid);
 
 MATCHER_P2(PointsToArray, array, size, "") {
   for (size_t i = 0; i < static_cast<size_t>(size); ++i) {
-    if (arg[i] != array[i])
+    if (UNSAFE_TODO(arg[i]) != UNSAFE_TODO(array[i])) {
       return false;
+    }
   }
   return true;
 }
@@ -841,7 +838,6 @@ class GLES2DecoderPassthroughTestBase : public testing::Test,
   void OnRescheduleAfterFinished() override;
   void ScheduleGrContextCleanup() override {}
   void HandleReturnData(base::span<const uint8_t> data) override {}
-  bool ShouldYield() override;
 
   void SetUp() override;
   void TearDown() override;

@@ -22,7 +22,7 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "build/build_config.h"
-#include "components/client_update_protocol/ecdsa.h"
+#include "components/client_update_protocol/cup.h"
 #include "components/network_time/time_tracker/time_tracker.h"
 #include "url/gurl.h"
 
@@ -46,9 +46,11 @@ namespace network_time {
 
 // Clock resolution is platform dependent.
 #if BUILDFLAG(IS_WIN)
-const int64_t kTicksResolutionMs = base::Time::kMinLowResolutionThresholdMs;
+inline constexpr int64_t kTicksResolutionMs =
+    base::Time::kMinLowResolutionThresholdMs;
 #else
-const int64_t kTicksResolutionMs = 1;  // Assume 1ms for non-windows platforms.
+// Assume 1ms for non-windows platforms.
+inline constexpr int64_t kTicksResolutionMs = 1;
 #endif
 
 // Feature that enables network time service querying.
@@ -265,7 +267,7 @@ class NetworkTimeTracker {
   base::RepeatingTimer timer_;
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
   std::unique_ptr<network::SimpleURLLoader> time_fetcher_;
-  client_update_protocol::Ecdsa query_signer_;
+  client_update_protocol::Cup query_signer_;
 
   // The |Clock| and |TickClock| are used to sanity-check one another, allowing
   // the NetworkTimeTracker to notice e.g. suspend/resume events and clock

@@ -15,7 +15,6 @@
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/common/autofill_features.h"
-#include "components/autofill/core/common/dense_set.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/compose/core/browser/compose_features.h"
 #include "components/feature_engagement/public/feature_constants.h"
@@ -34,14 +33,6 @@
 
 namespace autofill {
 
-bool IsAcceptableSuggestionType(SuggestionType id) {
-  using enum SuggestionType;
-  static constexpr auto kUnacceptableItemIds =
-      DenseSet({kSeparator, kInsecureContextPaymentDisabledMessage,
-                kMixedFormMessage, kTitle});
-  return !kUnacceptableItemIds.contains(id);
-}
-
 SuggestionSection GetSuggestionSection(SuggestionType type) {
   switch (type) {
     // Structural items.
@@ -52,6 +43,8 @@ SuggestionSection GetSuggestionSection(SuggestionType type) {
     // Footer items.
     case SuggestionType::kAllLoyaltyCardsEntry:
     case SuggestionType::kAllSavedPasswordsEntry:
+    case SuggestionType::kAtMemoryAiDisclosure:
+    case SuggestionType::kAtMemorySourceAttribution:
     case SuggestionType::kAutocompleteAtMemoryButton:
     case SuggestionType::kBnplFootnote:
     case SuggestionType::kFreeformFooter:
@@ -64,6 +57,7 @@ SuggestionSection GetSuggestionSection(SuggestionType type) {
     case SuggestionType::kManageIban:
     case SuggestionType::kManageLoyaltyCard:
     case SuggestionType::kPendingStateSignin:
+    case SuggestionType::kManageEnhancedAutofill:
     case SuggestionType::kScanCreditCard:
     case SuggestionType::kSeePromoCodeDetails:
     case SuggestionType::kUndoOrClear:
@@ -82,6 +76,8 @@ SuggestionSection GetSuggestionSection(SuggestionType type) {
     case SuggestionType::kAtMemorySearchResult:
     case SuggestionType::kAutocompleteEntry:
     case SuggestionType::kAutofillAiOtherOrders:
+    case SuggestionType::kAutofillAiOtherShipments:
+    case SuggestionType::kAutofillAiPrivateInferenceNotice:
     case SuggestionType::kBackupPasswordEntry:
     case SuggestionType::kBnplEntry:
     case SuggestionType::kComposeDisable:
@@ -159,7 +155,7 @@ bool IsStandaloneSuggestionType(SuggestionType type) {
   NOTREACHED();
 }
 
-content::RenderFrameHost* GetRenderFrameHost(
+content::RenderFrameHost* GetRenderFrameHost_DoNotUse(
     AutofillSuggestionDelegate& delegate) {
   return std::visit(
       absl::Overload{
@@ -172,7 +168,7 @@ content::RenderFrameHost* GetRenderFrameHost(
                        driver)
                 ->render_frame_host();
           }},
-      delegate.GetDriver());
+      delegate.GetDriver_DoNotUse());
 }
 
 bool IsAncestorOf(content::RenderFrameHost* ancestor,

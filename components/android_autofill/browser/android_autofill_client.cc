@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/check_op.h"
+#include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/functional/function_ref.h"
 #include "base/notimplemented.h"
@@ -264,6 +265,10 @@ bool AndroidAutofillClient::IsPasswordManagerEnabled() const {
   // doesn't call this function. If it ever does, the function needs to
   // be implemented in a meaningful way.
   NOTREACHED();
+}
+
+bool AndroidAutofillClient::UsesPlatformAutofill() const {
+  return true;
 }
 
 bool AndroidAutofillClient::IsContextSecure() const {

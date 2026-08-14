@@ -19,7 +19,6 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/profile_deletion_observer.h"
 #include "components/signin/public/base/signin_metrics.h"
-#include "components/signin/public/base/signin_switches.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/test/browser_test.h"
@@ -87,7 +86,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerSignInProviderBrowserTest,
                       base::OnceClosure callback) {
           provider_profile_path = GetContentsProfile(contents)->GetPath();
           EXPECT_FALSE(provider_profile_path.empty());
-          EXPECT_NE(browser()->profile()->GetPath(), provider_profile_path);
+          EXPECT_NE(browser()->GetProfile()->GetPath(), provider_profile_path);
 
           EXPECT_TRUE(url.spec().starts_with(kExpectedSigninBaseUrl));
           EXPECT_THAT(url.GetQuery(), HasSubstr("flow=promo"));
@@ -128,14 +127,14 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerSignInProviderBrowserTest,
         signin_metrics::AccessPoint::kForYouFre,
         std::string(),
         signin_finished_callback.Get(),
-        browser()->profile()->GetPath()};
+        browser()->GetProfile()->GetPath()};
 
     EXPECT_CALL(*host(), ShowScreen(_, _, _))
         .WillOnce([&](content::WebContents* contents, const GURL& url,
                       base::OnceClosure callback) {
           provider_profile_path = GetContentsProfile(contents)->GetPath();
           EXPECT_FALSE(provider_profile_path.empty());
-          EXPECT_EQ(browser()->profile()->GetPath(), provider_profile_path);
+          EXPECT_EQ(browser()->GetProfile()->GetPath(), provider_profile_path);
 
           EXPECT_TRUE(url.spec().starts_with(kExpectedSigninBaseUrl));
           EXPECT_THAT(url.GetQuery(), HasSubstr("flow=promo"));

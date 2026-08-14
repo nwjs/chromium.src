@@ -25,6 +25,8 @@
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/signin/model/identity_test_environment_browser_state_adaptor.h"
+#import "ios/chrome/browser/sync/model/sync_service_factory.h"
+#import "ios/chrome/browser/sync/model/test_sync_service_utils.h"
 #import "ios/chrome/common/app_group/app_group_constants.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/web/public/test/web_task_environment.h"
@@ -46,14 +48,19 @@ class GeminiCapabilitiesManagerTest : public PlatformTest {
         IdentityManagerFactory::GetInstance(),
         base::BindRepeating(IdentityTestEnvironmentBrowserStateAdaptor::
                                 BuildIdentityManagerForTests));
-    builder.AddTestingFactory(GeminiServiceFactory::GetInstance(),
-                              base::BindOnce([](ProfileIOS* profile) {
-                                return std::unique_ptr<KeyedService>(
-                                    std::make_unique<FakeGeminiService>());
-                              }));
+    builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
+                              base::BindRepeating(&CreateTestSyncService));
+    builder.AddTestingFactory(
+        GeminiServiceFactory::GetInstance(),
+        base::BindRepeating(
+            [](ProfileIOS* profile) -> std::unique_ptr<KeyedService> {
+              return std::make_unique<FakeGeminiService>();
+            }));
     profile_ = std::move(builder).Build();
 
     auth_service_ = AuthenticationServiceFactory::GetForProfile(profile_.get());
+    fake_gemini_service_ = static_cast<FakeGeminiService*>(
+        GeminiServiceFactory::GetForProfile(profile_.get()));
   }
 
   void SetUp() override {
@@ -81,6 +88,7 @@ class GeminiCapabilitiesManagerTest : public PlatformTest {
   base::test::ScopedFeatureList scoped_feature_list_;
   std::unique_ptr<TestProfileIOS> profile_;
   raw_ptr<AuthenticationService> auth_service_;
+  raw_ptr<FakeGeminiService> fake_gemini_service_;
 };
 
 // Tests that when the feature is disabled, all capabilities are cleared.
@@ -97,14 +105,9 @@ TEST_F(GeminiCapabilitiesManagerTest, FeatureDisabledClearsCapabilities) {
   }
                forKey:app_group::kChromeCapabilitiesPreference];
 
-  signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(profile_.get());
-  GeminiService* gemini_service =
-      GeminiServiceFactory::GetForProfile(profile_.get());
-
   // Constructor automatically calls UpdateCapabilities()!
-  GeminiCapabilitiesManagerImpl manager(identity_manager, auth_service_,
-                                        gemini_service);
+  GeminiCapabilitiesManagerImpl manager(profile_.get(), auth_service_,
+                                        fake_gemini_service_);
 
   EXPECT_NSEQ(nil, [defaults objectForKey:app_group::kAppSwitcherHashedUserID]);
   NSDictionary* capabilities =
@@ -122,15 +125,10 @@ TEST_F(GeminiCapabilitiesManagerTest, FeatureEnabledNoUser) {
   scoped_feature_list_.InitWithFeatures(
       {kPageActionMenu, kAppSwitcherAISummarization}, {});
 
-  signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(profile_.get());
-  FakeGeminiService* fake_gemini_service = static_cast<FakeGeminiService*>(
-      GeminiServiceFactory::GetForProfile(profile_.get()));
-  fake_gemini_service->SetIsEligible(false);
-
   // Constructor automatically calls UpdateCapabilities()!
-  GeminiCapabilitiesManagerImpl manager(identity_manager, auth_service_,
-                                        fake_gemini_service);
+  GeminiCapabilitiesManagerImpl manager(profile_.get(), auth_service_,
+                                        fake_gemini_service_);
+  fake_gemini_service_->SetIsEligible(false);
 
   NSUserDefaults* defaults = app_group::GetCommonGroupUserDefaults();
   EXPECT_NSEQ(nil, [defaults objectForKey:app_group::kAppSwitcherHashedUserID]);
@@ -165,13 +163,10 @@ TEST_F(GeminiCapabilitiesManagerTest, FeatureEnabledWithUser) {
 
   auth_service_->SignIn(identity, signin_metrics::AccessPoint::kStartPage);
 
-  FakeGeminiService* fake_gemini_service = static_cast<FakeGeminiService*>(
-      GeminiServiceFactory::GetForProfile(profile_.get()));
-  fake_gemini_service->SetIsEligible(true);
-
   // Constructor automatically calls UpdateCapabilities()!
-  GeminiCapabilitiesManagerImpl manager(identity_manager, auth_service_,
-                                        fake_gemini_service);
+  GeminiCapabilitiesManagerImpl manager(profile_.get(), auth_service_,
+                                        fake_gemini_service_);
+  fake_gemini_service_->SetIsEligible(true);
 
   NSUserDefaults* defaults = app_group::GetCommonGroupUserDefaults();
   NSString* hashed_uid =

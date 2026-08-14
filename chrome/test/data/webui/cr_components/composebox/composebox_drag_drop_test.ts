@@ -2,12 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 import 'chrome://contextual-tasks/strings.m.js';
-import 'chrome://resources/cr_components/composebox/composebox.js';
+import './test_composebox_mixin.js';
 import 'chrome://resources/cr_components/composebox/file_carousel.js';
 
 import type {ComposeboxFile} from 'chrome://resources/cr_components/composebox/common.js';
-import type {ComposeboxElement} from 'chrome://resources/cr_components/composebox/composebox.js';
-import {PageCallbackRouter, PageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
+import {PageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
 import {ComposeboxProxyImpl} from 'chrome://resources/cr_components/composebox/composebox_proxy.js';
 import type {ComposeboxFileCarouselElement} from 'chrome://resources/cr_components/composebox/file_carousel.js';
 import {WindowProxy} from 'chrome://resources/cr_components/composebox/window_proxy.js';
@@ -22,6 +21,7 @@ import type {TestMock} from 'chrome://webui-test/test_mock.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {installMock, MockInputState} from './composebox_test_utils.js';
+import type {TestComposeboxMixinElement} from './test_composebox_mixin.js';
 
 const ADD_FILE_CONTEXT_FN = 'addFileContext';
 
@@ -200,7 +200,7 @@ suite('DragAndDropHandler', () => {
 
 // --- SUITE 2: Integration Tests for the Element ---
 suite('ComposeboxDragAndDrop', () => {
-  let composeboxElement: ComposeboxElement;
+  let composeboxElement: TestComposeboxMixinElement;
   let pageHandler: TestMock<PageHandlerRemote>;
   let searchboxHandler: TestMock<SearchboxPageHandlerRemote>;
   let windowProxy: TestMock<WindowProxy>;
@@ -211,7 +211,7 @@ suite('ComposeboxDragAndDrop', () => {
     pageHandler = installMock(
         PageHandlerRemote,
         mock => ComposeboxProxyImpl.setInstance(new ComposeboxProxyImpl(
-            mock, new PageCallbackRouter(), new SearchboxPageHandlerRemote(),
+            mock, new SearchboxPageHandlerRemote(),
             new SearchboxPageCallbackRouter())));
     searchboxHandler = installMock(
         SearchboxPageHandlerRemote,
@@ -264,7 +264,7 @@ suite('ComposeboxDragAndDrop', () => {
   });
 
   async function createComposeboxElement() {
-    composeboxElement = document.createElement('cr-composebox');
+    composeboxElement = document.createElement('test-composebox-mixin');
     document.body.appendChild(composeboxElement);
     await composeboxElement.updateComplete;
   }

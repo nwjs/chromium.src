@@ -96,6 +96,8 @@ const char kFirstRunPromoActionHistogram[] = "IOS.Gemini.FRE.PromoAction";
 
 const char kFirstRunConsentActionHistogram[] = "IOS.Gemini.FRE.ConsentAction";
 
+const char kGeminiLiveFREOutcomeHistogram[] = "IOS.Gemini.Live.FREOutcome";
+
 const char kGeminiInvocationPageTypeHistogram[] =
     "IOS.Gemini.InvocationPageType";
 
@@ -182,6 +184,9 @@ const char kSessionPromptCountHistogram[] = "IOS.Gemini.Session.PromptCount";
 
 const char kSessionFirstPromptHistogram[] = "IOS.Gemini.Session.FirstPrompt";
 
+const char kSessionTabSwitchCountHistogram[] =
+    "IOS.Gemini.Session.TabSwitchCount";
+
 const char kGeminiLiveDormantReasonHistogram[] =
     "IOS.Gemini.Live.DormantReason";
 const char kGeminiLiveResponseLatencyHistogram[] =
@@ -264,6 +269,63 @@ void RecordFirstRunConsentAction(IOSGeminiFirstRunAction action) {
   base::UmaHistogramEnumeration(kFirstRunConsentActionHistogram, action);
 }
 
+void RecordLiveFREOutcome(IOSGeminiLiveFREOutcome outcome) {
+  base::UmaHistogramEnumeration(kGeminiLiveFREOutcomeHistogram, outcome);
+}
+
+void RecordLiveButtonTapped() {
+  base::RecordAction(base::UserMetricsAction("MobileGeminiLiveButtonTapped"));
+}
+
+void RecordLiveSessionStarted() {
+  base::RecordAction(base::UserMetricsAction("MobileGeminiLiveSessionStarted"));
+}
+
+void RecordLiveOSMicPromptShown() {
+  base::RecordAction(
+      base::UserMetricsAction("MobileGeminiLiveOSMicPromptShown"));
+}
+
+void RecordLiveOSMicPromptAllowed() {
+  base::RecordAction(
+      base::UserMetricsAction("MobileGeminiLiveOSMicPromptAllowed"));
+}
+
+void RecordLiveOSMicPromptDenied() {
+  base::RecordAction(
+      base::UserMetricsAction("MobileGeminiLiveOSMicPromptDenied"));
+}
+
+void RecordLiveChromeMicPromptShown() {
+  base::RecordAction(
+      base::UserMetricsAction("MobileGeminiLiveChromeMicPromptShown"));
+}
+
+void RecordLiveChromeMicPromptAllowed() {
+  base::RecordAction(
+      base::UserMetricsAction("MobileGeminiLiveChromeMicPromptAllowed"));
+}
+
+void RecordLiveChromeMicPromptDenied() {
+  base::RecordAction(
+      base::UserMetricsAction("MobileGeminiLiveChromeMicPromptDenied"));
+}
+
+void RecordLiveSettingsRedirectShown() {
+  base::RecordAction(
+      base::UserMetricsAction("MobileGeminiLiveSettingsRedirectShown"));
+}
+
+void RecordLiveSettingsRedirectOpenSettings() {
+  base::RecordAction(
+      base::UserMetricsAction("MobileGeminiLiveSettingsRedirectOpenSettings"));
+}
+
+void RecordLiveSettingsRedirectCancel() {
+  base::RecordAction(
+      base::UserMetricsAction("MobileGeminiLiveSettingsRedirectCancel"));
+}
+
 void RecordGeminiInvocationPageType(IOSGeminiInvocationPageType page_type) {
   base::UmaHistogramEnumeration(kGeminiInvocationPageTypeHistogram, page_type);
 }
@@ -306,6 +368,10 @@ void RecordGeminiIneligibilityReasons(gemini::IneligibilityReasons reasons) {
 void RecordGeminiSessionCancellation(
     IOSGeminiSessionCancellationReason reason) {
   base::UmaHistogramEnumeration(kGeminiSessionCancellationHistogram, reason);
+}
+
+void RecordGeminiSessionOpened() {
+  base::RecordAction(base::UserMetricsAction("MobileGeminiSessionOpened"));
 }
 
 void RecordGeminiSessionTime(base::TimeDelta session_duration) {
@@ -455,6 +521,11 @@ void RecordSessionPromptCount(int prompt_count) {
 
 void RecordSessionFirstPrompt(bool had_first_prompt) {
   base::UmaHistogramBoolean(kSessionFirstPromptHistogram, had_first_prompt);
+}
+
+void RecordSessionTabSwitchCount(int tab_switch_count) {
+  base::UmaHistogramCounts100(kSessionTabSwitchCountHistogram,
+                              tab_switch_count);
 }
 
 void RecordFloatyExpandedToCollapsed() {

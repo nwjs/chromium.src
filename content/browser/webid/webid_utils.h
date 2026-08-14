@@ -14,7 +14,7 @@
 #include "url/origin.h"
 
 namespace blink::mojom {
-enum class FederatedAuthRequestResult;
+enum class FederatedRequestResult;
 enum class IdpSigninStatus;
 }  // namespace blink::mojom
 
@@ -57,9 +57,9 @@ void SetIdpSigninStatus(base::WeakPtr<BrowserContext> context,
 // request with the passed-in `endpoint_name` and which returns the passed-in
 // `http_response_code`. Returns std::nullopt if the `http_response_code` does
 // not represent an error in the fetch.
-std::optional<std::string> ComputeConsoleMessageForHttpResponseCode(
-    const char* endpoint_name,
-    int http_response_code);
+CONTENT_EXPORT std::optional<std::string>
+ComputeConsoleMessageForHttpResponseCode(const char* endpoint_name,
+                                         int http_response_code);
 
 // Returns whether a FedCM endpoint URL is valid given the passed-in config
 // endpoint URL.
@@ -85,9 +85,9 @@ void UpdateIdpSigninStatusForAccountsEndpointResponse(
     FederatedIdentityPermissionContextDelegate* permission_delegate);
 
 // Returns a string to be used as the console error message from a
-// FederatedAuthRequestResult.
+// FederatedRequestResult.
 CONTENT_EXPORT std::string GetConsoleErrorMessageFromResult(
-    blink::mojom::FederatedAuthRequestResult result);
+    blink::mojom::FederatedRequestResult result);
 
 // Returns a string to be used as the console error message for a disconnect()
 // call.
@@ -110,7 +110,7 @@ bool HasSharingPermissionOrIdpHasThirdPartyCookiesAccess(
     FederatedIdentityPermissionContextDelegate* sharing_permission_delegate,
     FederatedIdentityApiPermissionContextDelegate* api_permission_delegate);
 
-RequestPageData* GetPageData(Page& page);
+CONTENT_EXPORT RequestPageData* GetPageData(Page& page);
 
 // Returns the frame type of the requester.
 RequesterFrameType ComputeRequesterFrameType(const RenderFrameHost& rfh,

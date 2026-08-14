@@ -64,6 +64,8 @@ class TabGroupEditorBubbleView : public views::BubbleDialogDelegateView,
   static constexpr int TAB_GROUP_HEADER_CXMENU_RECENT_ACTIVITY = 10;
   static constexpr int TAB_GROUP_HEADER_CXMENU_CONVERT_TO_BOOKMARK = 11;
   static constexpr int TAB_GROUP_HEADER_CXMENU_FOCUS_GROUP = 12;
+  static constexpr int TAB_GROUP_HEADER_CXMENU_HOME = 13;
+  static constexpr int TAB_GROUP_HEADER_CXMENU_ASK_GEMINI = 14;
 
   friend class TabGroupEditorBubbleInteractiveUiTest;
 
@@ -121,9 +123,10 @@ class TabGroupEditorBubbleView : public views::BubbleDialogDelegateView,
   std::unique_ptr<views::Separator> BuildSeparator();
   std::unique_ptr<ColorPickerView> BuildColorPicker();
   std::unique_ptr<views::LabelButton> BuildNewTabInGroupButton();
+  std::unique_ptr<views::LabelButton> BuildHomeButton();
+  std::unique_ptr<views::LabelButton> BuildAskGeminiButton();
   std::unique_ptr<views::LabelButton> BuildUngroupButton();
   std::unique_ptr<views::LabelButton> BuildCloseGroupButton();
-  std::unique_ptr<views::LabelButton> BuildConvertToBookmarkButton();
   std::unique_ptr<views::LabelButton> BuildDeleteGroupButton();
   std::unique_ptr<views::LabelButton> BuildLeaveGroupButton();
   std::unique_ptr<views::LabelButton> BuildMoveGroupToNewWindowButton();
@@ -134,10 +137,11 @@ class TabGroupEditorBubbleView : public views::BubbleDialogDelegateView,
   std::unique_ptr<views::LabelButton> BuildRecentActivityButton();
 
   void NewTabInGroupPressed();
+  void HomePressed();
+  void AskGeminiPressed();
   void UngroupPressed();
   void ShareOrManagePressed();
   void CloseGroupPressed();
-  void ConvertToBookmarkPressed();
   void DeleteGroupPressed();
   void LeaveGroupPressed();
   void MoveGroupToNewWindowPressed();
@@ -174,7 +178,7 @@ class TabGroupEditorBubbleView : public views::BubbleDialogDelegateView,
 
   // the implementation of the ungroup command. This method is static so that
   // it can be called from dialogs as a callback.
-  static void Ungroup(const Browser* browser, tab_groups::TabGroupId group);
+  static void Ungroup(Browser* browser, tab_groups::TabGroupId group);
 
   class TitleFieldController : public views::TextfieldController {
    public:
@@ -225,7 +229,7 @@ class TabGroupEditorBubbleView : public views::BubbleDialogDelegateView,
   class Footer : public views::View {
     METADATA_HEADER(Footer, views::View)
    public:
-    explicit Footer(const Browser* browser_);
+    explicit Footer(Browser* browser_);
     ~Footer() override = default;
 
     static void OpenLearnMorePage(const Browser* browser_);

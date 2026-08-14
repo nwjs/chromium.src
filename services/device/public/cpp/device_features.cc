@@ -16,9 +16,8 @@ BASE_FEATURE(kGenericSensorExtraClasses, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kSensorsAllowAskBlockPermissionModel,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables severing sensor connections on permission revocation.
-BASE_FEATURE(kSeverSensorConnectionsOnPermissionRevocation,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// Enables browser-side privacy mitigations for generic sensors.
+BASE_FEATURE(kSensorPrivacyMitigations, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Expose serial port logical connection state and dispatch connection events
 // for Bluetooth serial ports when the Bluetooth device connection state
@@ -127,6 +126,10 @@ BASE_FEATURE(kBatteryStatusManagerBroadcastReceiverInBackground,
 BASE_FEATURE(kSecurityKeyHidInterfacesAreFido,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+// Enables recursive filtering of nested HID collections to prevent WebHID
+// security bypasses (e.g., nested keyboards or FIDO keys).
+BASE_FEATURE(kWebHidRecursiveFiltering, base::FEATURE_ENABLED_BY_DEFAULT);
 
 const base::FeatureParam<device::mojom::LocationProviderManagerMode>::Option
     location_provider_manager_mode_options[] = {

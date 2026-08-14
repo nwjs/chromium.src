@@ -10,8 +10,10 @@ source_set("actor_tool_factory") {
     "actor_tool_factory.h",
     "actor_tool_factory.mm",
   ]
+  public_deps = [ "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver" ]
   deps = [
     ":actor_tool_interface",
+    ":attempt_form_filling_tool",
     ":attempt_login_tool",
     ":click_tool",
     ":history_tool",
@@ -19,12 +21,15 @@ source_set("actor_tool_factory") {
     ":scroll_to_tool",
     ":scroll_tool",
     ":select_tool",
+    ":tab_management_tool",
     ":type_tool",
     ":wait_tool",
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//ios/chrome/browser/intelligence/actor/tools/public",
     "//ios/chrome/browser/intelligence/features",
+    "//ios/chrome/browser/shared/model/web_state_list",
+    "//ios/web/public",
   ]
 }
 
@@ -42,6 +47,7 @@ source_set("actor_tool_interface") {
   deps = [
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//components/password_manager/core/browser/actor_login:common",
     "//ios/chrome/browser/intelligence/actor/public:actor_types",
     "//ios/chrome/browser/intelligence/actor/tools/public",
     "//ios/chrome/browser/intelligence/actor/tools/utils:actor_browser_utils",
@@ -83,12 +89,31 @@ source_set("navigate_tool") {
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//ios/chrome/browser/intelligence/actor/tools/public",
+    "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
     "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/model/web_state_list:utils",
     "//ios/chrome/browser/url_loading/model",
     "//ios/web/public",
     "//url",
+  ]
+}
+
+source_set("tab_management_tool") {
+  sources = [
+    "tab_management_tool.h",
+    "tab_management_tool.mm",
+  ]
+  deps = [
+    ":actor_tool_interface",
+    "//base",
+    "//components/optimization_guide/proto:optimization_guide_proto",
+    "//ios/chrome/browser/intelligence/actor/tools/public",
+    "//ios/chrome/browser/intelligence/actor/tools/utils:actor_browser_utils",
+    "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
+    "//ios/chrome/browser/shared/model/profile",
+    "//ios/chrome/browser/shared/model/web_state_list",
+    "//ios/web/public",
   ]
 }
 
@@ -103,6 +128,7 @@ source_set("wait_tool") {
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//ios/chrome/browser/intelligence/actor/tools/public",
+    "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
     "//ios/web/public",
   ]
 }
@@ -117,7 +143,29 @@ source_set("attempt_login_tool") {
     ":actor_tool_interface",
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//components/password_manager/core/browser/actor_login:actor_login_service_impl",
+    "//components/password_manager/core/browser/actor_login:common",
     "//ios/chrome/browser/intelligence/actor/tools/public",
+    "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
+    "//ios/chrome/browser/optimization_guide/model",
+    "//ios/chrome/browser/passwords/model/actor_login",
+    "//ios/chrome/browser/shared/model/application_context",
+    "//ios/web/public",
+  ]
+}
+
+source_set("attempt_form_filling_tool") {
+  sources = [
+    "attempt_form_filling_tool.h",
+    "attempt_form_filling_tool.mm",
+  ]
+
+  deps = [
+    ":actor_tool_interface",
+    "//base",
+    "//components/optimization_guide/proto:optimization_guide_proto",
+    "//ios/chrome/browser/intelligence/actor/tools/public",
+    "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
     "//ios/web/public",
   ]
 }
@@ -133,6 +181,7 @@ source_set("history_tool") {
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//ios/chrome/browser/intelligence/actor/tools/public",
+    "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
     "//ios/web/public",
   ]
 }
@@ -221,6 +270,7 @@ source_set("click_tool") {
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//ios/chrome/browser/intelligence/actor/tools/public",
+    "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
     "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/model/web_state_list:utils",
@@ -242,6 +292,7 @@ source_set("select_tool") {
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//ios/chrome/browser/intelligence/actor/tools/public",
+    "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
     "//ios/chrome/browser/shared/model/profile",
     "//ios/web/public",
     "//ios/web/public/js_messaging",
@@ -261,6 +312,7 @@ source_set("type_tool") {
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//ios/chrome/browser/intelligence/actor/tools/public",
+    "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
     "//ios/chrome/browser/shared/model/profile",
     "//ios/web/public",
     "//ios/web/public/js_messaging",
@@ -281,6 +333,7 @@ source_set("scroll_tool") {
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//ios/chrome/browser/intelligence/actor/tools/public",
+    "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
     "//ios/chrome/browser/shared/model/profile",
     "//ios/web/public",
     "//ios/web/public/js_messaging",
@@ -300,6 +353,7 @@ source_set("scroll_to_tool") {
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//ios/chrome/browser/intelligence/actor/tools/public",
+    "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
     "//ios/chrome/browser/shared/model/profile",
     "//ios/web/public",
     "//ios/web/public/js_messaging",
@@ -407,13 +461,15 @@ source_set("unit_tests") {
     "action_target_js_unittest.mm",
     "actor_tool_factory_unittest.mm",
     "actor_tool_request_unittest.mm",
+    "attempt_login_tool_unittest.mm",
     "click_tool_java_script_feature_unittest.mm",
     "click_tool_js_unittest.mm",
     "click_tool_unittest.mm",
+    "fake_tool_delegate.h",
+    "fake_tool_delegate.mm",
     "history_tool_unittest.mm",
     "navigate_tool_unittest.mm",
     "observation_delay_controller_unittest.mm",
-    "page_stability_java_script_feature_unittest.mm",
     "page_stability_js_unittest.mm",
     "page_stability_monitor_unittest.mm",
     "scroll_to_tool_unittest.mm",
@@ -423,6 +479,7 @@ source_set("unit_tests") {
     "select_tool_java_script_feature_unittest.mm",
     "select_tool_js_unittest.mm",
     "select_tool_unittest.mm",
+    "tab_management_tool_unittest.mm",
     "tool_controller_unittest.mm",
     "type_tool_java_script_feature_unittest.mm",
     "type_tool_js_unittest.mm",
@@ -447,6 +504,7 @@ source_set("unit_tests") {
     ":scroll_tool_ts",
     ":select_tool",
     ":select_tool_ts",
+    ":tab_management_tool",
     ":tool_controller",
     ":type_tool",
     ":type_tool_ts",
@@ -459,14 +517,21 @@ source_set("unit_tests") {
     "//components/autofill/ios/form_util:autofill_form_features_ts_bundling",
     "//components/autofill/ios/form_util:child_frame_registrar",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//components/password_manager/core/browser/actor_login:actor_login_service_impl",
+    "//components/password_manager/core/browser/actor_login:common",
     "//ios/chrome/browser/intelligence/actor/public:actor_types",
     "//ios/chrome/browser/intelligence/actor/tools/public",
+    "//ios/chrome/browser/intelligence/actor/tools/utils:actor_browser_utils",
+    "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
     "//ios/chrome/browser/intelligence/actor/util:test_support",
     "//ios/chrome/browser/intelligence/features",
+    "//ios/chrome/browser/passwords/model/actor_login",
+    "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
     "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/model/browser/test:test_support",
     "//ios/chrome/browser/shared/model/profile/test",
     "//ios/chrome/browser/shared/model/web_state_list",
+    "//ios/chrome/browser/tab_insertion/model",
     "//ios/chrome/browser/url_loading/model",
     "//ios/chrome/browser/url_loading/model:test_support",
     "//ios/chrome/test:ios_chrome_test_with_web_state",

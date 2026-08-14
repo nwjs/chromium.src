@@ -24,7 +24,9 @@ source_set("page_action") {
     "page_action_view.h",
     "page_action_view_interface.h",
     "page_action_view_params.h",
-    "zoom_view.h",
+    "page_action_view_util.h",
+    "webui_page_action_control.h",
+    "webui_page_action_view.h",
   ]
 
   public_deps = [
@@ -35,10 +37,12 @@ source_set("page_action") {
     "//chrome/browser/ui/actions:actions_headers",
     "//chrome/browser/ui/page_action",
     "//chrome/browser/ui/page_action:icon_type",
+    "//chrome/browser/ui/side_panel",
     "//chrome/browser/ui/tabs",
     "//chrome/browser/ui/toolbar",
     "//chrome/browser/ui/toolbar/pinned_toolbar",
     "//chrome/browser/ui/views/location_bar:icon_label_bubble",
+    "//components/browser_apis/ui_controllers/toolbar:mojom",
     "//components/metrics/structured:structured_events",
     "//components/prefs",
     "//components/saved_tab_groups/public",
@@ -66,7 +70,9 @@ source_set("impl") {
     "page_action_icon_params.cc",
     "page_action_icon_view.cc",
     "page_action_view.cc",
-    "zoom_view.cc",
+    "page_action_view_util.cc",
+    "webui_page_action_control.cc",
+    "webui_page_action_view.cc",
   ]
 
   public_deps = [ "//chrome/browser:browser_public_dependencies" ]
@@ -82,6 +88,7 @@ source_set("impl") {
     "//chrome/browser/themes",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/interaction",
     "//chrome/browser/ui/lens",
     "//chrome/browser/ui/page_action:page_action_impl",
     "//chrome/browser/ui/search",
@@ -90,6 +97,7 @@ source_set("impl") {
     "//chrome/browser/ui/views/interaction",
     "//chrome/browser/ui/views/location_bar",
     "//chrome/browser/ui/views/location_bar/cookie_controls",
+    "//chrome/browser/ui/views/sharing",
     "//chrome/browser/ui/views/sharing_hub",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/browser/ui/web_applications",
@@ -166,6 +174,7 @@ source_set("unit_tests") {
     "page_action_container_view_unittest.cc",
     "page_action_icon_view_unittest.cc",
     "page_action_view_unittest.cc",
+    "webui_page_action_control_unittest.cc",
   ]
 
   deps = [
@@ -175,6 +184,7 @@ source_set("unit_tests") {
     "//chrome/browser/ui/page_action:unit_tests",
     "//chrome/browser/ui/toolbar/pinned_toolbar",
     "//chrome/browser/ui/views/location_bar",
+    "//chrome/browser/ui/views/toolbar",
     "//chrome/test:test_support",
     "//components/tabs:test_support",
     "//ui/events:test_support",

@@ -50,6 +50,11 @@ message GlicExperimentalTriggering {
       optional string initial_prompt = 1;
     }
 
+    message ContinueActuationRequest {
+      // The prompt to be sent to server to continue the actuation.
+      optional string continuation_prompt = 1;
+    }
+
     message StopActuationRequest {
       // The reason for stopping. This may be surfaced to the user, so it should
       // be human readable.
@@ -67,6 +72,9 @@ message GlicExperimentalTriggering {
 
       // Ephemeral auth secret.
       optional bytes auth_secret = 2;
+
+      // Opaque identifier to correlate this request with its response.
+      optional bytes request_token = 3;
     }
 
     oneof payload {
@@ -74,6 +82,7 @@ message GlicExperimentalTriggering {
       StopActuationRequest stop_actuation_request = 2;
       DeviceOptInRequest device_opt_in_request = 3;
       GetScreenshotRequest get_screenshot_request = 4;
+      ContinueActuationRequest continue_actuation_request = 5;
     }
   }
 
@@ -90,6 +99,7 @@ message GlicExperimentalTriggering {
         STOPPED = 5;   // Task Ended: Halted by user or system.
         COMPLETE = 6;  // Task Ended: Finished successfully.
         FAILED = 7;    // Task Ended: Terminated due to model error or failure.
+        RESUMED = 8;   // Task resumed after pause or yield.
       }
 
       // Defines the type of string payload being sent in the `data` field.
@@ -122,9 +132,32 @@ message GlicExperimentalTriggering {
       FAILED = 3;
     }
 
+    message ScreenshotResult {
+      enum Status {
+        // Default value.
+        UNSPECIFIED = 0;
+        // Capture successful.
+        SUCCESS = 1;
+        // Capture failure.
+        ERROR_CAPTURE = 2;
+        // Transient failure.
+        ERROR_SERVER = 3;
+      }
+
+      // The status of the screenshot capture operation.
+      optional Status status = 1;
+      // A screenshot file identifier.
+      optional string file_token = 2;
+      // Detailed error message.
+      optional string error_message = 3;
+      // Opaque identifier to correlate this response with its request.
+      optional bytes request_token = 4;
+    }
+
     oneof payload {
       TaskUpdate task_update = 3;
       DeviceOptInResult device_opt_in_result = 4;
+      ScreenshotResult screenshot_result = 5;
     }
   }
 

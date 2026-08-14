@@ -82,10 +82,6 @@ class NET_EXPORT_PRIVATE TcpConnectJob
   // In cases where both IPv6 and IPv4 addresses were returned from DNS,
   // TcpConnectJobs will start a second connection attempt to just
   // the IPv4 addresses after this much time. (This is "Happy Eyeballs".)
-  //
-  // TODO(willchan): Base this off RTT instead of statically setting it. Note we
-  // choose a timeout that is different from the backup Connector timer so
-  // they don't synchronize.
   static constexpr base::TimeDelta kIPv6FallbackTime = base::Milliseconds(300);
 
   struct NET_EXPORT_PRIVATE ServiceEndpointOverride {
@@ -112,7 +108,8 @@ class NET_EXPORT_PRIVATE TcpConnectJob
                 ConnectJob::Delegate* delegate,
                 const NetLogWithSource* net_log,
                 std::optional<ServiceEndpointOverride>
-                    endpoint_result_override = std::nullopt);
+                    endpoint_result_override = std::nullopt,
+                bool disable_stale_dns = false);
 
   TcpConnectJob(const TcpConnectJob&) = delete;
   TcpConnectJob& operator=(const TcpConnectJob&) = delete;
@@ -126,6 +123,7 @@ class NET_EXPORT_PRIVATE TcpConnectJob
   ResolveErrorInfo GetResolveErrorInfo() const override;
   std::optional<HostResolverEndpointResult> GetHostResolverEndpointResult()
       const override;
+  bool IsConnectedViaStaleDns() const override;
   std::optional<ResolutionDetails> GetResolutionDetails() const override;
 
   // Callers should use this instead of GetHostResolverEndpointResult(). May
@@ -136,6 +134,12 @@ class NET_EXPORT_PRIVATE TcpConnectJob
   ServiceEndpoint PassServiceEndpoint();
 
   static base::TimeDelta ConnectionTimeout();
+
+  // Calculates the IPv6 fallback time. If the `kIPv6FallbackBasedOnRTT` feature
+  // is enabled, it attempts to base this time dynamically on the estimated RTT.
+  static base::TimeDelta GetIPv6FallbackTime(
+      const CommonConnectJobParams* common_connect_job_params,
+      const TransportSocketParams* params);
 
   // Returns true if there are two live connectors. CHECKs if complete, since
   // both connectors are deleted at that point, which is probably not what
@@ -421,6 +425,14 @@ class NET_EXPORT_PRIVATE TcpConnectJob
 
   // ServiceEndpoint that was used, in the case of success.
   std::optional<ServiceEndpoint> final_service_endpoint_;
+
+  // Whether the connection was established using a stale DNS result. Evaluated
+  // once the connection completes and cached here.
+  std::optional<bool> is_connected_via_stale_dns_;
+
+  // True if the job should not use stale DNS results. This is used by
+  // SSLConnectJob to retry connections with fresh DNS results.
+  const bool disable_stale_dns_;
 
   // Whether this is complete or not. Mostly serves a safety valve for async
   // calls that can't be cancelled coming in late, and to double-check that the

@@ -26,7 +26,7 @@ NSString* const kPinnedTabTitlePrefix = @"PinnedTab";
 // Creates a regular tab with `title` using `test_server`.
 void CreateRegularTab(net::test_server::EmbeddedTestServer* test_server,
                       NSString* title) {
-  [ChromeEarlGreyUI openNewTab];
+  [ChromeEarlGrey openNewTab];
   [ChromeEarlGrey loadURL:GetQueryTitleURL(test_server, title)];
 }
 
@@ -77,5 +77,11 @@ void WaitForSnackbarTriggeredByTappingItem(NSString* snackbarLabel,
   [ChromeEarlGrey testUIElementAppearanceWithMatcher:snackbar_matcher];
   // Tap the snackbar to make it disappear.
   [[EarlGrey selectElementWithMatcher:snackbar_matcher]
+      performAction:grey_tap()];
+}
+
+void OpenTabGridOverflowMenu() {
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TabGridOverflowMenuButton()]
       performAction:grey_tap()];
 }

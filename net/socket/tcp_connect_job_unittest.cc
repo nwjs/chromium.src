@@ -37,6 +37,7 @@
 #include "net/socket/transport_client_socket_pool_test_util.h"
 #include "net/ssl/ssl_config_service.h"
 #include "net/ssl/test_ssl_config_service.h"
+#include "net/ssl/test_static_ech_mode_getter.h"
 #include "net/test/gtest_util.h"
 #include "net/test/test_with_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -90,7 +91,7 @@ class TcpConnectJobTest : public TcpConnectJobTestBase,
             /*network_quality_estimator=*/nullptr,
             NetLog::Get(),
             /*websocket_endpoint_lock_manager=*/nullptr,
-            /*http_server_properties=*/nullptr,
+            &http_server_properties_,
             /*alpn_protos=*/nullptr,
             /*application_settings=*/nullptr,
             /*ignore_certificate_errors=*/nullptr,
@@ -161,7 +162,7 @@ class TcpConnectJobTest : public TcpConnectJobTestBase,
     connect_job_ = std::make_unique<TcpConnectJob>(
         initial_priority_, SocketTag(), &common_connect_job_params_,
         SocketParams(), test_delegate_.get(), /*net_log=*/nullptr,
-        service_endpoint_override_);
+        service_endpoint_override_, disable_stale_dns_);
     start_time_ = base::TimeTicks::Now();
   }
 
@@ -385,9 +386,11 @@ class TcpConnectJobTest : public TcpConnectJobTestBase,
   // Passed in to TcpConnectJob constructor.
   std::optional<TcpConnectJob::ServiceEndpointOverride>
       service_endpoint_override_;
+  bool disable_stale_dns_ = false;
 
   // Use pointers so can easily re-initialize these.
   std::unique_ptr<TestConnectJobDelegate> test_delegate_;
+  HttpServerProperties http_server_properties_;
   std::unique_ptr<TcpConnectJob> connect_job_;
 
   // Time `connect_job_` was started. Set by InitConnectJob(), rather than on
@@ -1329,6 +1332,31 @@ TEST_F(TcpConnectJobTest, EchDisabled) {
       /*expected_connection_attempts=*/{{IPEndPoint(), ERR_NAME_NOT_RESOLVED}});
 
   // Ech will no longer disable non-svcb records.
+  host_resolver_.ConfigureDefaultResolution()
+      .add_endpoint(
+          CreateServiceEndpoint({kIpV4Endpoint1}, {"h3"}, /*ech=*/true))
+      .add_endpoint(CreateServiceEndpoint({kIpV6Endpoint1}))
+      .CompleteStartSynchronously(OK);
+  AddConnect(MockConnect(ASYNC, OK), kIpV6Endpoint1);
+  InitRunAndExpectSuccess(kIpV6Endpoint1,
+                          CreateServiceEndpoint({kIpV6Endpoint1}),
+                          /*expect_sync_result=*/false);
+}
+
+// Test that setting EchMode::kDisabled makes `svcb_optional_` true.
+TEST_F(TcpConnectJobTest, EchModeDisabled) {
+  ssl_config_service_.SetEchModeGetter(
+      std::make_unique<TestStaticEchModeGetter>(EchMode::kDisabled, kHostName));
+
+  // IPs with H3 alpns still rejected.
+  host_resolver_.ConfigureDefaultResolution()
+      .add_endpoint(CreateServiceEndpoint({kIpV4Endpoint1}, {"h3"}))
+      .CompleteStartSynchronously(OK);
+  InitRunAndExpectError(
+      ERR_NAME_NOT_RESOLVED, /*expect_sync_result=*/true,
+      /*expected_connection_attempts=*/{{IPEndPoint(), ERR_NAME_NOT_RESOLVED}});
+
+  // ECH mode kDisabled will no longer disable non-svcb records.
   host_resolver_.ConfigureDefaultResolution()
       .add_endpoint(
           CreateServiceEndpoint({kIpV4Endpoint1}, {"h3"}, /*ech=*/true))
@@ -3131,6 +3159,56 @@ TEST_F(TcpConnectJobTest, TwoConnectorsGetLoadState) {
   WaitForSuccess(kIpV6Endpoint1, service_endpoint);
 }
 
+class TcpConnectJobRTTFallbackTest : public TcpConnectJobTest {
+ public:
+  TcpConnectJobRTTFallbackTest()
+      : TcpConnectJobTest(
+            /*enabled_features=*/
+            {{features::kHappyEyeballsV2, {}},
+             {features::kIPv6FallbackBasedOnRTT,
+              {{"IPv6FallbackRTTMultiplier", "2.0"},
+               {"IPv6FallbackMin", "10ms"},
+               {"IPv6FallbackMax", "1s"}}}},
+            /*disabled_features=*/{}) {}
+};
+
+TEST_F(TcpConnectJobRTTFallbackTest, UsesRTTForFallback) {
+  // Set up HttpServerProperties with a specific RTT.
+  url::SchemeHostPort server(url::kHttpsScheme, kHostName, 443);
+  ServerNetworkStats stats;
+  stats.srtt = base::Milliseconds(50);
+  http_server_properties_.SetServerNetworkStats(
+      server, NetworkAnonymizationKey(), stats);
+
+  const auto service_endpoint =
+      CreateServiceEndpoint({kIpV4Endpoint1, kIpV6Endpoint1});
+  host_resolver_.ConfigureDefaultResolution()
+      .add_endpoint(service_endpoint)
+      .CompleteStartSynchronously(OK);
+
+  AddConnect(MockConnect(ASYNC, ERR_FAILED), kIpV6Endpoint1);
+  MockConnectCompleter connect_completer;
+  AddConnect(MockConnect(&connect_completer), kIpV4Endpoint1);
+
+  base::Time start_time = base::Time::Now();
+  EXPECT_THAT(InitAndStart(), IsError(ERR_IO_PENDING));
+  connect_completer.WaitForConnect();
+  // Check time to make sure that the IPv4 Connector wasn't created.
+  EXPECT_EQ(base::Time::Now() - start_time, base::TimeDelta());
+  EXPECT_EQ(1u, connect_job_->GetFreshConnectorCountForTesting());
+
+  // RTT is 50ms, multiplier is 2.0, so fallback should be 100ms.
+  FastForwardBy(base::Milliseconds(100));
+  EXPECT_EQ(2u, connect_job_->GetFreshConnectorCountForTesting());
+
+  connect_completer.Complete(OK);
+  WaitForSuccess(
+      kIpV4Endpoint1, service_endpoint,
+      /*expected_connection_attempts=*/{{kIpV6Endpoint1, ERR_FAILED}});
+  EXPECT_TRUE(connect_job_->HasEstablishedConnection());
+  CheckConnectTiming(/*dns_start=*/start_time_, /*dns_end=*/start_time_);
+}
+
 class TcpConnectJobOptimisticDnsTest
     : public TcpConnectJobTest,
       public testing::WithParamInterface<bool> {
@@ -3147,6 +3225,41 @@ class TcpConnectJobOptimisticDnsTest
 };
 
 INSTANTIATE_TEST_SUITE_P(All, TcpConnectJobOptimisticDnsTest, testing::Bool());
+
+TEST_P(TcpConnectJobOptimisticDnsTest, OptimisticDnsRequiresTlsEnabled) {
+  const auto fresh_endpoint = CreateServiceEndpoint({kIpV4Endpoint1});
+  auto request = host_resolver_.AddFakeRequest();
+
+  std::array<MockConnectCompleter, 1> connect_completers;
+  AddConnect(MockConnect(&connect_completers[0]), kIpV4Endpoint1);
+
+  // Explicitly disable stale DNS to simulate a plain text connection (or a
+  // TLS connection retry) where optimistic DNS is disallowed.
+  disable_stale_dns_ = true;
+  InitConnectJob();
+  EXPECT_THAT(connect_job_->Connect(), IsError(ERR_IO_PENDING));
+
+  // The request should not have requested stale results because it is not for
+  // TLS.
+  EXPECT_NE(request->resolve_host_params().cache_usage,
+            HostResolver::ResolveHostParameters::CacheUsage::
+                STALE_ALLOWED_WHILE_REFRESHING);
+
+  // Since it didn't request stale endpoints, the HostResolver will only
+  // provide fresh endpoints.
+  request->set_crypto_ready(true)
+      .set_is_stale_while_refreshing(false)
+      .set_endpoints({fresh_endpoint})
+      .set_aliases(kDnsAliases)
+      .CallOnServiceEndpointsUpdated();
+
+  EXPECT_TRUE(connect_completers[0].is_connecting());
+
+  request->CallOnServiceEndpointRequestFinished(OK);
+
+  connect_completers[0].Complete(OK);
+  CheckConnection(kIpV4Endpoint1, fresh_endpoint);
+}
 
 TEST_P(TcpConnectJobOptimisticDnsTest, StaleAThenFreshA) {
   const auto stale_endpoint = CreateServiceEndpoint({kIpV4Endpoint1});

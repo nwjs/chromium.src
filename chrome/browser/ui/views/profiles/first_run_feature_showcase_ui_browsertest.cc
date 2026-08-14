@@ -11,6 +11,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/test/test_browser_ui.h"
 #include "chrome/browser/ui/views/profiles/feature_showcase/default_browser_step_eligibility_checker.h"
+#include "chrome/browser/ui/views/profiles/feature_showcase/feature_showcase_constants.h"
 #include "chrome/browser/ui/views/profiles/feature_showcase/google_lens_step_eligibility_checker.h"
 #include "chrome/browser/ui/views/profiles/feature_showcase/password_manager_feature_showcase_eligibility_checker.h"
 #include "chrome/browser/ui/views/profiles/feature_showcase/themes_and_customization_step_eligibility_checker.h"
@@ -33,6 +34,7 @@ namespace {
 struct FeatureShowcaseTestParam {
   PixelTestParam pixel_test_param;
   std::string step;
+  bool sound_enabled = false;
 };
 
 const std::vector<FeatureShowcaseTestParam>& GetTestParams() {
@@ -52,6 +54,7 @@ const std::vector<FeatureShowcaseTestParam>& GetTestParams() {
         const std::string kSteps[] = {
             kFeatureShowcaseDefaultBrowserStepIdentifier,
             kFeatureShowcaseGoogleLensStepIdentifier,
+            kFeatureShowcaseGeminiStepIdentifier,
             kFeatureShowcasePasswordManagerStepIdentifier,
             kFeatureShowcaseThemesAndCustomizationStepIdentifier,
         };
@@ -59,7 +62,11 @@ const std::vector<FeatureShowcaseTestParam>& GetTestParams() {
         std::vector<FeatureShowcaseTestParam> params;
         for (const auto& pixel_test_param : kBaseTestParams) {
           for (const auto& step : kSteps) {
-            params.push_back({pixel_test_param, step});
+            for (bool sound_enabled : {true, false}) {
+              params.push_back({.pixel_test_param = pixel_test_param,
+                                .step = step,
+                                .sound_enabled = sound_enabled});
+            }
           }
         }
         return params;
@@ -75,11 +82,11 @@ class FirstRunFeatureShowcasePixelTest
  public:
   FirstRunFeatureShowcasePixelTest()
       : ProfilesPixelTestBaseT<UiBrowserTest>(GetParam().pixel_test_param) {
-    scoped_feature_list_.InitWithFeatures(
-        {switches::kFirstRunDesktopRefresh,
-         switches::kFirstRunDesktopChoiceScreenRefresh,
-         switches::kFirstRunDesktopRevamp},
-        {});
+    scoped_feature_list_.InitWithFeatureStates(
+        {{switches::kFirstRunDesktopRefresh, true},
+         {switches::kFirstRunDesktopRevampSound, GetParam().sound_enabled},
+         {switches::kFirstRunDesktopChoiceScreenRefresh, true},
+         {switches::kFirstRunDesktopRevamp, true}});
   }
 
   ~FirstRunFeatureShowcasePixelTest() override {
@@ -102,7 +109,7 @@ class FirstRunFeatureShowcasePixelTest
         policy::EnterpriseManagementAuthority::NONE);
 
     profile_picker_view_ = new ProfileManagementStepTestView(
-        ProfilePicker::Params::ForFirstRun(browser()->profile()->GetPath(),
+        ProfilePicker::Params::ForFirstRun(browser()->GetProfile()->GetPath(),
                                            base::DoNothing()),
         ProfileManagementFlowController::Step::kFeatureShowcase,
         /*step_controller_factory=*/
@@ -111,7 +118,7 @@ class FirstRunFeatureShowcasePixelTest
                 -> std::unique_ptr<ProfileManagementStepController> {
               return CreateFeatureShowcaseStep(host, profile);
             },
-            browser()->profile()));
+            browser()->GetProfile()));
 
     profile_picker_view_->views::View::AddObserver(this);
     profile_picker_view_->ShowAndWait(GetParam().pixel_test_param.window_size);
@@ -179,11 +186,14 @@ INSTANTIATE_TEST_SUITE_P(
         step_name = "DefaultBrowser";
       } else if (step_name == kFeatureShowcaseGoogleLensStepIdentifier) {
         step_name = "GoogleLens";
+      } else if (step_name == kFeatureShowcaseGeminiStepIdentifier) {
+        step_name = "Gemini";
       } else if (step_name == kFeatureShowcasePasswordManagerStepIdentifier) {
         step_name = "PasswordManager";
       } else if (step_name ==
                  kFeatureShowcaseThemesAndCustomizationStepIdentifier) {
         step_name = "ThemesAndCustomization";
       }
-      return info.param.pixel_test_param.test_suffix + step_name;
+      return base::StrCat({info.param.pixel_test_param.test_suffix, step_name,
+                           info.param.sound_enabled ? "" : "SoundDisabled"});
     });

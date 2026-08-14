@@ -47,10 +47,12 @@
 #include "chrome/browser/ui/webui/managed_ui_handler.h"
 #include "chrome/browser/ui/webui/metrics_handler.h"
 #include "chrome/browser/ui/webui/page_not_available_for_guest/page_not_available_for_guest_ui.h"
+#include "chrome/browser/ui/webui/theme_source.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/history_resources.h"
 #include "chrome/grit/history_resources_map.h"
+#include "components/critical_actions/core/browser/features.h"
 #include "components/grit/components_scaled_resources.h"
 #include "components/history/core/browser/features.h"
 #include "components/history/core/common/pref_names.h"
@@ -226,6 +228,9 @@ content::WebUIDataSource* CreateAndAddHistoryUIHTMLSource(Profile* profile) {
   source->AddLocalizedStrings(kHistoryEmbeddingsStrings);
   source->AddBoolean("isBrowsingHistoryActorIntegrationM3Enabled",
                      history::IsBrowsingHistoryActorIntegrationM3Enabled());
+  source->AddBoolean("isCriticalActionsEnabled",
+                     base::FeatureList::IsEnabled(
+                         critical_actions::features::kCriticalActionHistory));
 
   source->AddString("webuiRefresh2026", features::IsWebuiRefresh2026Enabled()
                                             ? "webui-refresh-2026"
@@ -261,6 +266,8 @@ HistoryUI::HistoryUI(content::WebUI* web_ui)
   content::WebUIDataSource* data_source =
       CreateAndAddHistoryUIHTMLSource(profile);
   ManagedUIHandler::Initialize(web_ui, data_source);
+
+  content::URLDataSource::Add(profile, std::make_unique<ThemeSource>(profile));
 
   pref_change_registrar_.Init(profile->GetPrefs());
   pref_change_registrar_.Add(history_clusters::prefs::kVisible,

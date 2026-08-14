@@ -581,7 +581,7 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest, DisabledForHostedApps) {
   // Open a new app window.
   Browser::CreateParams params = Browser::CreateParams::CreateForApp(
       "test_browser_app", true /* trusted_source */, gfx::Rect(),
-      browser()->profile(), true);
+      browser()->GetProfile(), true);
   params.initial_show_state = ui::mojom::WindowShowState::kDefault;
   Browser* browser = Browser::Create(params);
   AddBlankTabAndShow(browser);
@@ -1501,7 +1501,7 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest,
 // Regression test for crbug.com/470873053.
 IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest,
                        LayerWithoutCompositorIsHandledSafely) {
-  auto layer = std::make_unique<ui::Layer>(ui::LAYER_SOLID_COLOR);
+  auto layer = std::make_unique<ui::LayerSolidColor>();
   EXPECT_EQ(nullptr, layer->GetCompositor());
 
   ui::Layer* browser_layer = browser_view()->browser_widget()->GetLayer();

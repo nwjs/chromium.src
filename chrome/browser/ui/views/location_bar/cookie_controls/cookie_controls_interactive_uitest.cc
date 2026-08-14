@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <algorithm>
 #include <vector>
 
 #include "base/strings/utf_string_conversions.h"
@@ -14,25 +13,19 @@
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/views/controls/rich_controls_container_view.h"
 #include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_bubble_view.h"
 #include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_content_view.h"
-#include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_icon_view.h"
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "chrome/browser/ui/webui/feedback/feedback_dialog.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
-#include "chrome/test/interaction/interactive_browser_test.h"
 #include "chrome/test/user_education/interactive_feature_promo_test.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/features.h"
 #include "components/content_settings/core/common/pref_names.h"
-#include "components/feature_engagement/public/feature_constants.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
-#include "components/profile_metrics/browser_profile_type.h"
 #include "components/site_engagement/content/site_engagement_service.h"
-#include "components/strings/grit/privacy_sandbox_strings.h"
 #include "components/user_education/views/help_bubble_view.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -42,7 +35,6 @@
 #include "ui/base/interaction/interaction_sequence.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
-#include "ui/views/controls/button/md_text_button_with_spinner.h"
 #include "ui/views/controls/button/toggle_button.h"
 #include "ui/views/vector_icons.h"
 
@@ -54,7 +46,6 @@ const char kUMABubbleAllowThirdPartyCookies[] =
     "CookieControls.Bubble.AllowThirdPartyCookies";
 const char kUMABubbleBlockThirdPartyCookies[] =
     "CookieControls.Bubble.BlockThirdPartyCookies";
-const char kUMABubbleSendFeedback[] = "CookieControls.Bubble.SendFeedback";
 const char kUMABubbleReloadingShown[] = "CookieControls.Bubble.ReloadingShown";
 const char kUMABubbleReloadingTimeout[] =
     "CookieControls.Bubble.ReloadingTimeout";
@@ -172,17 +163,8 @@ class CookieControlsInteractiveTestBase : public InteractiveFeaturePromoTest {
                       : views::kEyeCrossedRefreshOldIcon));
   }
 
-  auto CheckFeedbackButtonVisible(bool visible) {
-    if (visible) {
-      return Steps(EnsurePresent(CookieControlsContentView::kFeedbackButton));
-    } else {
-      return Steps(
-          EnsureNotPresent(CookieControlsContentView::kFeedbackButton));
-    }
-  }
-
   void BlockThirdPartyCookies() {
-    browser()->profile()->GetPrefs()->SetInteger(
+    browser()->GetProfile()->GetPrefs()->SetInteger(
         prefs::kCookieControlsMode,
         static_cast<int>(
             content_settings::CookieControlsMode::kBlockThirdParty));
@@ -191,14 +173,14 @@ class CookieControlsInteractiveTestBase : public InteractiveFeaturePromoTest {
   void SetHighSiteEngagement() {
     // Force high site engagement.
     auto* site_engagement =
-        site_engagement::SiteEngagementService::Get(browser()->profile());
+        site_engagement::SiteEngagementService::Get(browser()->GetProfile());
     site_engagement->ResetBaseScoreForURL(third_party_cookie_page_url(),
                                           /*score=*/100);
   }
 
   net::EmbeddedTestServer* https_server() { return https_server_.get(); }
   content_settings::CookieSettings* cookie_settings() {
-    return CookieSettingsFactory::GetForProfile(browser()->profile()).get();
+    return CookieSettingsFactory::GetForProfile(browser()->GetProfile()).get();
   }
 
   // If slow is set to true will return a URL for a page that never finishes
@@ -233,26 +215,15 @@ class CookieControlsInteractiveTestBase : public InteractiveFeaturePromoTest {
 
 class CookieControlsUiTest : public CookieControlsInteractiveTestBase {};
 
-class CookieControlsInteractiveUiNoFeedbackTest : public CookieControlsUiTest {
- public:
-  CookieControlsInteractiveUiNoFeedbackTest() = default;
-  ~CookieControlsInteractiveUiNoFeedbackTest() override = default;
-
- protected:
-  std::vector<base::test::FeatureRef> DisabledFeatures() override {
-    return {content_settings::features::kUserBypassFeedback};
-  }
-};
-
-IN_PROC_BROWSER_TEST_F(CookieControlsUiTest, BubbleOpensWhenIconPressed) {
+IN_PROC_BROWSER_TEST_F(CookieControlsInteractiveTestBase,
+                       BubbleOpensWhenIconPressed) {
   BlockThirdPartyCookies();
   RunTestSequence(
       InstrumentTab(kWebContentsElementId),
       NavigateWebContents(kWebContentsElementId, third_party_cookie_page_url()),
       PressButton(kCookieControlsIconElementId),
       InAnyContext(
-          WaitForShow(CookieControlsBubbleView::kCookieControlsBubble)),
-      CheckFeedbackButtonVisible(false));
+          WaitForShow(CookieControlsBubbleView::kCookieControlsBubble)));
 }
 
 IN_PROC_BROWSER_TEST_F(CookieControlsUiTest, CreateException) {
@@ -271,24 +242,7 @@ IN_PROC_BROWSER_TEST_F(CookieControlsUiTest, CreateException) {
       CheckStateForException());
 }
 
-IN_PROC_BROWSER_TEST_F(CookieControlsInteractiveUiNoFeedbackTest,
-                       CreateExceptionFeedbackDisabled) {
-  // Open the bubble while 3PC are blocked, re-enable them for the site, and
-  // confirm the appropriate exception is created.
-  BlockThirdPartyCookies();
-  RunTestSequence(
-      InstrumentTab(kWebContentsElementId),
-      NavigateWebContents(kWebContentsElementId, third_party_cookie_page_url()),
-      PressButton(kCookieControlsIconElementId),
-      InAnyContext(WaitForShow(CookieControlsContentView::kToggleButton)),
-      CheckStateForNoException(),
-      CheckViewProperty(CookieControlsContentView::kToggleButton,
-                        &views::ToggleButton::GetIsOn, false),
-      PressButton(CookieControlsContentView::kToggleButton),
-      CheckFeedbackButtonVisible(false), CheckStateForException());
-}
-
-IN_PROC_BROWSER_TEST_F(CookieControlsUiTest, RemoveExceptionPre3pcd) {
+IN_PROC_BROWSER_TEST_F(CookieControlsUiTest, RemoveException) {
   // Open the bubble while 3PC are blocked, but the page already has an
   // exception. Disable 3PC for the page, and confirm the exception is removed.
   BlockThirdPartyCookies();
@@ -302,7 +256,6 @@ IN_PROC_BROWSER_TEST_F(CookieControlsUiTest, RemoveExceptionPre3pcd) {
       InAnyContext(WaitForShow(CookieControlsContentView::kToggleButton)),
       CheckStateForException(),
       PressButton(CookieControlsContentView::kToggleButton),
-      CheckFeedbackButtonVisible(false),
       CheckViewProperty(kCookieControlsIconElementId,
                         &IconLabelBubbleView::is_animating_label, false),
       CheckStateForNoException());
@@ -513,7 +466,6 @@ IN_PROC_BROWSER_TEST_F(CookieControlsUiTest, NoReloadView) {
       WaitForHide(CookieControlsBubbleView::kCookieControlsBubble));
   EXPECT_EQ(user_actions_.GetActionCount(kUMABubbleAllowThirdPartyCookies), 1);
   EXPECT_EQ(user_actions_.GetActionCount(kUMABubbleBlockThirdPartyCookies), 1);
-  EXPECT_EQ(user_actions_.GetActionCount(kUMABubbleSendFeedback), 0);
   EXPECT_EQ(user_actions_.GetActionCount(kUMABubbleReloadingShown), 0);
   EXPECT_EQ(user_actions_.GetActionCount(kUMABubbleReloadingTimeout), 0);
 }

@@ -17,6 +17,7 @@
 #include "components/component_updater/component_installer.h"
 #include "mojo/public/cpp/base/proto_wrapper.h"
 #include "net/base/hash_value.h"
+#include "net/cert/root_store_proto_lite/mtc_config.pb.h"
 #include "net/net_buildflags.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "third_party/protobuf/src/google/protobuf/repeated_field.h"
@@ -86,6 +87,8 @@ class PKIMetadataComponentInstallerService final {
                                             const std::string& contents);
   [[nodiscard]] bool WriteMtcMetadataForTesting(const base::FilePath& path,
                                                 const std::string& contents);
+  [[nodiscard]] bool WriteSignerSetDataForTesting(const base::FilePath& path,
+                                                  const std::string& contents);
 #endif
 
   void AddObserver(Observer* observer);
@@ -101,11 +104,20 @@ class PKIMetadataComponentInstallerService final {
   void UpdateNetworkServiceKPListOnUI(const std::string& kp_config_bytes);
 
 #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
+  static std::optional<mojo_base::ProtoWrapper> ParseChromeRootStore(
+      const base::FilePath& crs_pb_path);
+  static std::optional<chrome_root_store::MtcConfig> ParseMtcConfig(
+      const base::FilePath& mtc_config_pb_path);
+
+  struct ChromeRootStoreAndMtcConfig {
+    std::optional<mojo_base::ProtoWrapper> chrome_root_store;
+    std::optional<mojo_base::ProtoWrapper> mtc_config;
+  };
+
   // Updates SystemNetworkContextManager and cert verifiers with the component
-  // delivered Chrome Root Store data. `chrome_root_store` should be a wrapped
-  // chrome_root_store.RootStore proto message.
+  // delivered Chrome Root Store data and optional Mtc Config data.
   void UpdateChromeRootStoreOnUI(
-      std::optional<mojo_base::ProtoWrapper> chrome_root_store);
+      ChromeRootStoreAndMtcConfig root_store_and_mtc_config);
 
   // Updates SystemNetworkContextManager and cert verifiers with the component
   // delivered MTC Metadata. `mtc_metadata` should be a wrapped

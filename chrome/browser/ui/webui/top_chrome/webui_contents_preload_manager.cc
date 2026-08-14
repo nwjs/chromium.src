@@ -80,7 +80,7 @@ class FixedCandidateSelector : public webui::PreloadCandidateSelector {
     DCHECK(std::ranges::contains(preloadable_urls, webui_url_));
   }
   std::optional<GURL> GetURLToPreload(
-      const webui::PreloadContext& context) const override {
+      webui::PreloadContext context) const override {
     return IsUrlExcludedByFlag(webui_url_) ? std::nullopt
                                            : std::make_optional(webui_url_);
   }
@@ -270,16 +270,9 @@ RequestResult& RequestResult::operator=(RequestResult&&) = default;
 namespace {
 
 constexpr base::MemoryConsumerTraits kWebUIContentsPreloadManagerTraits(
-    // Passive consumer. No memory will be reclaimed.
-    base::MemoryConsumerTraits::EstimatedMemoryUsage::kMedium,
-    // Passive consumer. Zero release/traversal overhead.
-    base::MemoryConsumerTraits::ReleaseMemoryCost::kFreesPagesWithoutTraversal,
-    // Discards no data.
-    base::MemoryConsumerTraits::InformationRetention::kLossless,
-    // Checks execute synchronously inline.
-    base::MemoryConsumerTraits::ExecutionType::kSynchronous,
-    // Evaluates pressure as a binary state (avoids preloading).
-    base::MemoryConsumerTraits::SupportsMemoryLimit::kNo);
+    base::MemoryConsumerTraits::ConsumerType::kPassive,
+    // Preloaded WebUI contents live in child renderer processes.
+    base::MemoryConsumerTraits::InProcess::kNo);
 
 }  // namespace
 
@@ -332,10 +325,11 @@ void WebUIContentsPreloadManager::WarmupForBrowser(Browser* browser) {
 
   if (IsDelayPreloadEnabled()) {
     MaybePreloadForBrowserContextLater(
-        browser->profile(), browser->tab_strip_model()->GetActiveWebContents(),
+        browser->GetProfile(),
+        browser->tab_strip_model()->GetActiveWebContents(),
         PreloadReason::kBrowserWarmup);
   } else {
-    MaybePreloadForBrowserContext(browser->profile(),
+    MaybePreloadForBrowserContext(browser->GetProfile(),
                                   PreloadReason::kBrowserWarmup);
   }
 }

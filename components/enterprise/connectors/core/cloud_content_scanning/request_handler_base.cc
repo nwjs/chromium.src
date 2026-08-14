@@ -56,6 +56,16 @@ ContentAnalysisInfoBase* RequestHandlerBase::content_analysis_info() const {
   return content_analysis_info_.get();
 }
 
+const GURL& RequestHandlerBase::url() const {
+  return url_;
+}
+
+void RequestHandlerBase::AddRequestTokenToAckFinalAction(
+    const std::string& token,
+    ContentAnalysisAcknowledgement::FinalAction final_action) {
+  request_tokens_to_ack_final_actions_[token] = final_action;
+}
+
 std::string RequestHandlerBase::access_point_string() const {
   switch (access_point_) {
     case DeepScanAccessPoint::FILE_TRANSFER:
@@ -67,7 +77,10 @@ std::string RequestHandlerBase::access_point_string() const {
       return kFileUploadDataTransferEventTrigger;
     case DeepScanAccessPoint::DOWNLOAD:
       return kFileDownloadDataTransferEventTrigger;
+    case DeepScanAccessPoint::NETWORK_REQUEST:
+      return kNetworkRequestDataTransferEventTrigger;
     case DeepScanAccessPoint::COPY:
+      return kClipboardCopyDataTransferEventTrigger;
     case DeepScanAccessPoint::PRINT:
       return kPagePrintDataTransferEventTrigger;
   }

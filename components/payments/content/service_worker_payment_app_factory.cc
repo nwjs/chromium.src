@@ -19,6 +19,7 @@
 #include "components/payments/core/error_message_util.h"
 #include "components/payments/core/features.h"
 #include "components/payments/core/method_strings.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/stored_payment_app.h"
 #include "content/public/browser/supported_delegations.h"
 #include "content/public/browser/web_contents.h"
@@ -54,6 +55,8 @@ class ServiceWorkerPaymentAppCreator {
 
     base::RepeatingClosure show_processing_spinner = base::BindRepeating(
         &PaymentAppFactory::Delegate::ShowProcessingSpinner, delegate_);
+    base::RepeatingClosure show_loading_view = base::BindRepeating(
+        &PaymentAppFactory::Delegate::ShowLoadingView, delegate_);
     std::vector<std::string> skipped_app_names;
     for (auto& installed_app : apps) {
       std::vector<std::string> enabled_methods =
@@ -70,7 +73,8 @@ class ServiceWorkerPaymentAppCreator {
           delegate_->GetWebContents(), delegate_->GetTopOrigin(),
           delegate_->GetFrameOrigin(), delegate_->GetSpec(),
           std::move(installed_app.second), delegate_->IsOffTheRecord(),
-          delegate_->PrefsCanMakePayment(), show_processing_spinner);
+          delegate_->PrefsCanMakePayment(), show_processing_spinner,
+          show_loading_view);
       app->ValidateCanMakePayment(base::BindOnce(
           &ServiceWorkerPaymentAppCreator::OnSWPaymentAppValidated,
           weak_ptr_factory_.GetWeakPtr()));
@@ -89,11 +93,12 @@ class ServiceWorkerPaymentAppCreator {
         continue;
       }
       auto app = std::make_unique<ServiceWorkerPaymentApp>(
-          delegate_->GetWebContents(), delegate_->GetTopOrigin(),
+          delegate_->GetWebContents(),
+          delegate_->GetInitiatorRenderFrameHostId(), delegate_->GetTopOrigin(),
           delegate_->GetFrameOrigin(), delegate_->GetSpec(),
           std::move(installable_app.second), installable_app.first.spec(),
           delegate_->IsOffTheRecord(), delegate_->PrefsCanMakePayment(),
-          show_processing_spinner);
+          show_processing_spinner, show_loading_view);
       app->ValidateCanMakePayment(base::BindOnce(
           &ServiceWorkerPaymentAppCreator::OnSWPaymentAppValidated,
           weak_ptr_factory_.GetWeakPtr()));

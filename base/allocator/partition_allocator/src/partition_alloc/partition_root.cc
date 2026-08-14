@@ -1448,7 +1448,7 @@ size_t PartitionRoot::GetUsableSize(const void* ptr) {
 // returned value, it'd use the same amount of underlying memory as the
 // allocation with |size|.
 size_t PartitionRoot::AllocationCapacityFromRequestedSize(size_t size) const {
-#if defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
+#if PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR)
   return size;
 #else
   PA_DCHECK(PartitionRoot::initialized_);
@@ -1592,7 +1592,8 @@ void PartitionRoot::DumpStats(const char* partition_name,
     direct_map_lengths =
         std::unique_ptr<uint32_t[]>(new uint32_t[kMaxReportableDirectMaps]);
   }
-  PartitionBucketMemoryStats bucket_stats[BucketIndexLookup::kNumBuckets];
+  std::array<PartitionBucketMemoryStats, BucketIndexLookup::kNumBuckets>
+      bucket_stats;
   size_t num_direct_mapped_allocations = 0;
   PartitionMemoryStats stats = {};
 
@@ -2074,12 +2075,9 @@ PA_NOINLINE PA_MALLOC_FN void* PartitionRoot::AlignedAlloc(
   return AlignedAllocInline<flags>(alignment, requested_size);
 }
 
-// Unfortunately, pdfium directly invokes AllocInline(). After fixing pdfium,
-// AllocInline() will removed or be an inline method.
 template <AllocFlags flags>
-PA_NOINLINE PA_MALLOC_FN void* PartitionRoot::AllocInline(
-    size_t requested_size,
-    const char* type_name) {
+PA_NOINLINE PA_MALLOC_FN void* PartitionRoot::Alloc(size_t requested_size,
+                                                    const char* type_name) {
   static_assert(!ContainsFlags(flags, AllocFlags::kAlignedAlloc));
   return AllocInternal<flags>(requested_size, internal::PartitionPageSize(),
                               type_name);
@@ -2116,11 +2114,11 @@ PA_NOINLINE void PartitionRoot::AlignedFree(void* object) {
   // Normally kAlignedFree is a no-op call into Free, but with memory tools it
   // will instead remap to the appropriate system aligned free call.
   constexpr FreeFlags kMaybeAlignedFreeForMemoryTool =
-#if defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
+#if PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR)
       FreeFlags::kAlignedFreeForMemoryTool;
 #else
       FreeFlags::kNone;
-#endif  // defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
+#endif  // PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR)
   FreeInline<flags | kMaybeAlignedFreeForMemoryTool>(object);
 }
 

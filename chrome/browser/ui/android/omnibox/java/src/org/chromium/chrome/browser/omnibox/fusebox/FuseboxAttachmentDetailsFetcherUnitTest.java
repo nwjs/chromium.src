@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.omnibox.fusebox;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -25,6 +26,7 @@ import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.provider.OpenableColumns;
+import android.util.Size;
 
 import androidx.test.core.app.ApplicationProvider;
 
@@ -42,10 +44,14 @@ import org.chromium.base.Callback;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.device.DeviceConditions;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxAttachmentRecyclerViewAdapter.FuseboxAttachmentType;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxMetrics.FuseboxAttachmentButtonType;
+import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.ui.base.MimeTypeUtils;
 
 import java.io.ByteArrayInputStream;
@@ -53,10 +59,17 @@ import java.io.IOException;
 
 /** Unit tests for {@link FuseboxAttachmentDetailsFetcher}. */
 @RunWith(BaseRobolectricTestRunner.class)
+@DisableFeatures(OmniboxFeatureList.OMNIBOX_AIM_IMAGE_DOWNSCALING)
 public class FuseboxAttachmentDetailsFetcherUnitTest {
+    private static final int MAX_SQUARE_IMAGE_EDGE_SIZE =
+            (int) Math.sqrt(FuseboxAttachmentDetailsFetcher.MAX_IMAGE_AREA);
     private static final long FILE_SIZE_SMALL = 1L;
     private static final String SAMPLE_TITLE = "file.txt";
+    private static final String SAMPLE_PNG_TITLE = "photo.png";
+    private static final int SAMPLE_IMAGE_DIMENSION = 512;
     private static final byte[] SAMPLE_DATA = new byte[] {1, 2, 3};
+    private static final Bitmap SAMPLE_SMALL_BITMAP =
+            Bitmap.createBitmap(/* width= */ 1, /* height= */ 1, Bitmap.Config.ARGB_8888);
     private static final Uri SAMPLE_URI = Uri.parse("content://media/external/1");
     private static final Uri SAMPLE_URI_NO_FINAL_PATH_SEGMENT = Uri.parse("content://media");
 
@@ -69,6 +82,7 @@ public class FuseboxAttachmentDetailsFetcherUnitTest {
 
     private Context mContext;
     private FuseboxAttachmentDetailsFetcher mFetcher;
+    private HistogramWatcher mOomHistogramWatcher;
 
     @Before
     public void setUp() {
@@ -85,6 +99,29 @@ public class FuseboxAttachmentDetailsFetcherUnitTest {
                         /* powerSaveOn= */ false,
                         isMetered,
                         /* screenOnAndUnlocked= */ true));
+    }
+
+    private void setupOomHistogramWatcher(
+            @Nullable Boolean oomExpected, @MimeTypeUtils.Type int fileType) {
+        if (oomExpected == null) {
+            mOomHistogramWatcher =
+                    HistogramWatcher.newBuilder()
+                            .expectNoRecords(FuseboxMetrics.ATTACHMENT_LOAD_OOM_HISTOGRAM)
+                            .expectNoRecords(FuseboxMetrics.getAttachmentLoadOomHistogram(fileType))
+                            .build();
+            return;
+        }
+        mOomHistogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectBooleanRecord(
+                                FuseboxMetrics.ATTACHMENT_LOAD_OOM_HISTOGRAM, oomExpected)
+                        .expectBooleanRecord(
+                                FuseboxMetrics.getAttachmentLoadOomHistogram(fileType), oomExpected)
+                        .build();
+    }
+
+    private void verifyOomHistogram() {
+        mOomHistogramWatcher.assertExpected();
     }
 
     /**
@@ -164,6 +201,47 @@ public class FuseboxAttachmentDetailsFetcherUnitTest {
                 : ((BitmapDrawable) attachment.thumbnail).getBitmap();
     }
 
+    private static void setupMockBitmapDecoder(@Nullable Bitmap bitmap, boolean throwOom) {
+        FuseboxAttachmentDetailsFetcher.setBitmapDecoderForTesting(
+                (array, offset, length, options) -> {
+                    if (options != null && options.inJustDecodeBounds) {
+                        options.outWidth = SAMPLE_IMAGE_DIMENSION;
+                        options.outHeight = SAMPLE_IMAGE_DIMENSION;
+                        return null;
+                    }
+                    if (throwOom) {
+                        throw new OutOfMemoryError("Triggered OOM for testing");
+                    }
+                    return bitmap;
+                });
+    }
+
+    private static void setupMockFileStreamReader(boolean throwOom, boolean throwIoException) {
+        FuseboxAttachmentDetailsFetcher.setFileStreamReaderForTesting(
+                (inputStream) -> {
+                    if (throwOom) {
+                        throw new OutOfMemoryError("Triggered OOM for testing");
+                    }
+                    if (throwIoException) {
+                        throw new IOException("Triggered IOException for testing");
+                    }
+                    return SAMPLE_DATA;
+                });
+    }
+
+    private static void setupMockImageDecoder(boolean throwOom, boolean throwIoException) {
+        FuseboxAttachmentDetailsFetcher.setImageDecoderForTesting(
+                (source, listener) -> {
+                    if (throwOom) {
+                        throw new OutOfMemoryError("Triggered OOM for testing");
+                    }
+                    if (throwIoException) {
+                        throw new IOException("Triggered IOException for testing");
+                    }
+                    return SAMPLE_SMALL_BITMAP;
+                });
+    }
+
     private void verifyAttachmentResult(
             String expectedTitle,
             String expectedMimeType,
@@ -182,6 +260,15 @@ public class FuseboxAttachmentDetailsFetcherUnitTest {
         assertEquals(expectedThumbnail, getThumbnailFromAttachment(attachment));
         assertEquals(expectedType, attachment.type);
         assertEquals(expectedButtonType, attachment.buttonType);
+    }
+
+    private static void verifyDownscaleTargetWithinLimits(@Nullable Size target, String message) {
+        assertWithMessage(message).that(target).isNotNull();
+
+        long targetArea = (long) target.getWidth() * target.getHeight();
+        long maxArea = FuseboxAttachmentDetailsFetcher.MAX_IMAGE_AREA;
+
+        assertWithMessage(message).that(targetArea).isAtMost(maxArea);
     }
 
     @Test
@@ -245,12 +332,12 @@ public class FuseboxAttachmentDetailsFetcherUnitTest {
 
     @Test
     public void testFetchAttachmentDetails_forImageWithThumbnail() {
-        String title = "photo.png";
+        String title = SAMPLE_PNG_TITLE;
         String mimeType = MimeTypeUtils.IMAGE_PNG_MIME_TYPE;
         byte[] data = SAMPLE_DATA;
-        Bitmap thumbnail = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
         @FuseboxAttachmentButtonType int buttonType = FuseboxAttachmentButtonType.FILES;
-        setupFetcherWithAttachment(title, mimeType, data, thumbnail, buttonType);
+        setupFetcherWithAttachment(title, mimeType, data, SAMPLE_SMALL_BITMAP, buttonType);
+        setupOomHistogramWatcher(/* oomExpected= */ false, MimeTypeUtils.Type.IMAGE);
 
         mFetcher.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
         RobolectricUtil.runAllBackgroundAndUi();
@@ -259,9 +346,10 @@ public class FuseboxAttachmentDetailsFetcherUnitTest {
                 title,
                 mimeType,
                 data,
-                thumbnail,
+                SAMPLE_SMALL_BITMAP,
                 FuseboxAttachmentType.ATTACHMENT_IMAGE,
                 buttonType);
+        verifyOomHistogram();
     }
 
     @Test
@@ -303,7 +391,7 @@ public class FuseboxAttachmentDetailsFetcherUnitTest {
 
     @Test
     public void testFetchAttachmentDetails_forImageNoThumbnail() {
-        String title = "photo.png";
+        String title = SAMPLE_PNG_TITLE;
         String mimeType = MimeTypeUtils.IMAGE_PNG_MIME_TYPE;
         // We pass an empty byte array so that the fallback thumbnail generation fails.
         byte[] data = new byte[] {};
@@ -435,5 +523,204 @@ public class FuseboxAttachmentDetailsFetcherUnitTest {
 
         verify(mCallback).onResult(null);
         verifyNoMoreInteractions(mCallback);
+    }
+
+    @Test
+    public void testFetchAttachmentDetails_thumbnailGenRequired_passesWithThumbnail() {
+        String title = SAMPLE_PNG_TITLE;
+        String mimeType = MimeTypeUtils.IMAGE_PNG_MIME_TYPE;
+        byte[] data = SAMPLE_DATA;
+        Bitmap thumbnail = SAMPLE_SMALL_BITMAP;
+        @FuseboxAttachmentButtonType int buttonType = FuseboxAttachmentButtonType.GALLERY;
+        setupFetcherWithAttachment(title, mimeType, data, /* thumbnail= */ null, buttonType);
+        setupMockBitmapDecoder(thumbnail, /* throwOom= */ false);
+
+        mFetcher.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        verifyAttachmentResult(
+                title,
+                mimeType,
+                data,
+                thumbnail,
+                FuseboxAttachmentType.ATTACHMENT_IMAGE,
+                buttonType);
+    }
+
+    @Test
+    public void testFetchAttachmentDetails_oomOnThumbnailGen_passesWithoutThumbnail() {
+        String title = SAMPLE_PNG_TITLE;
+        String mimeType = MimeTypeUtils.IMAGE_PNG_MIME_TYPE;
+        byte[] data = SAMPLE_DATA;
+        Bitmap thumbnail = null;
+        @FuseboxAttachmentButtonType int buttonType = FuseboxAttachmentButtonType.GALLERY;
+        setupFetcherWithAttachment(title, mimeType, data, thumbnail, buttonType);
+        setupMockBitmapDecoder(thumbnail, /* throwOom= */ true);
+
+        mFetcher.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        verifyAttachmentResult(
+                title,
+                mimeType,
+                data,
+                /* expectedThumbnail= */ null,
+                FuseboxAttachmentType.ATTACHMENT_IMAGE_NO_THUMBNAIL,
+                buttonType);
+    }
+
+    @Test
+    public void testFetchAttachmentDetails_oomOnReadStream_fails() {
+        setupFetcherWithTxtFileAttachment(FILE_SIZE_SMALL);
+        setupMockFileStreamReader(/* throwOom= */ true, /* throwIoException= */ false);
+        setupOomHistogramWatcher(/* oomExpected= */ true, MimeTypeUtils.Type.TEXT);
+
+        mFetcher.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        verify(mCallback).onResult(null);
+        verifyNoMoreInteractions(mCallback);
+        verifyOomHistogram();
+    }
+
+    @Test
+    public void testFetchAttachmentDetails_ioExceptionOnReadStream_fails() {
+        setupFetcherWithTxtFileAttachment(FILE_SIZE_SMALL);
+        setupMockFileStreamReader(/* throwOom= */ false, /* throwIoException= */ true);
+
+        mFetcher.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        verify(mCallback).onResult(null);
+        verifyNoMoreInteractions(mCallback);
+    }
+
+    @Test
+    @EnableFeatures("OmniboxAimImageDownscaling")
+    public void testFetchAttachmentDetails_oomOnDownscaledImage_fallsBackToRegular() {
+        String title = SAMPLE_PNG_TITLE;
+        String mimeType = MimeTypeUtils.IMAGE_PNG_MIME_TYPE;
+        byte[] data = SAMPLE_DATA;
+        @FuseboxAttachmentButtonType int buttonType = FuseboxAttachmentButtonType.FILES;
+        setupFetcherWithAttachment(title, mimeType, data, SAMPLE_SMALL_BITMAP, buttonType);
+        setupMockImageDecoder(/* throwOom= */ true, /* throwIoException= */ false);
+        setupOomHistogramWatcher(/* oomExpected= */ true, MimeTypeUtils.Type.IMAGE);
+
+        mFetcher.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        verifyAttachmentResult(
+                title,
+                mimeType,
+                data,
+                SAMPLE_SMALL_BITMAP,
+                FuseboxAttachmentType.ATTACHMENT_IMAGE,
+                buttonType);
+        verifyOomHistogram();
+    }
+
+    @Test
+    @EnableFeatures("OmniboxAimImageDownscaling")
+    public void testFetchAttachmentDetails_ioExceptionOnDownscaledImage_fallsBackToRegular() {
+        String title = SAMPLE_PNG_TITLE;
+        String mimeType = MimeTypeUtils.IMAGE_PNG_MIME_TYPE;
+        byte[] data = SAMPLE_DATA;
+        Bitmap thumbnail = SAMPLE_SMALL_BITMAP;
+        @FuseboxAttachmentButtonType int buttonType = FuseboxAttachmentButtonType.FILES;
+        setupFetcherWithAttachment(title, mimeType, data, thumbnail, buttonType);
+        setupMockImageDecoder(/* throwOom= */ false, /* throwIoException= */ true);
+        setupOomHistogramWatcher(/* oomExpected= */ false, MimeTypeUtils.Type.IMAGE);
+
+        mFetcher.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        verifyAttachmentResult(
+                title,
+                mimeType,
+                data,
+                thumbnail,
+                FuseboxAttachmentType.ATTACHMENT_IMAGE,
+                buttonType);
+        verifyOomHistogram();
+    }
+
+    @Test
+    public void testFetchAttachmentDetails_imageOomOnReadStream_fails() {
+        String title = SAMPLE_PNG_TITLE;
+        String mimeType = MimeTypeUtils.IMAGE_PNG_MIME_TYPE;
+        byte[] data = SAMPLE_DATA;
+        @FuseboxAttachmentButtonType int buttonType = FuseboxAttachmentButtonType.FILES;
+        setupFetcherWithAttachment(title, mimeType, data, SAMPLE_SMALL_BITMAP, buttonType);
+        setupMockFileStreamReader(/* throwOom= */ true, /* throwIoException= */ false);
+        setupOomHistogramWatcher(/* oomExpected= */ true, MimeTypeUtils.Type.IMAGE);
+
+        mFetcher.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        verify(mCallback).onResult(null);
+        verifyNoMoreInteractions(mCallback);
+        verifyOomHistogram();
+    }
+
+    @Test
+    public void testFetchAttachmentDetails_imageIoExceptionOnReadStream_fails() {
+        String title = SAMPLE_PNG_TITLE;
+        String mimeType = MimeTypeUtils.IMAGE_PNG_MIME_TYPE;
+        byte[] data = SAMPLE_DATA;
+        @FuseboxAttachmentButtonType int buttonType = FuseboxAttachmentButtonType.FILES;
+        setupFetcherWithAttachment(title, mimeType, data, SAMPLE_SMALL_BITMAP, buttonType);
+        setupMockFileStreamReader(/* throwOom= */ false, /* throwIoException= */ true);
+        setupOomHistogramWatcher(/* oomExpected= */ false, MimeTypeUtils.Type.IMAGE);
+
+        mFetcher.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        verify(mCallback).onResult(null);
+        verifyNoMoreInteractions(mCallback);
+        verifyOomHistogram();
+    }
+
+    @Test
+    public void testGetTargetSizeForDownscaling_areaUnder_edgesUnder_notScaled() {
+        int width = MAX_SQUARE_IMAGE_EDGE_SIZE;
+        int height = MAX_SQUARE_IMAGE_EDGE_SIZE / 2;
+
+        Size targetSize =
+                FuseboxAttachmentDetailsFetcher.getTargetSizeForDownscaling(width, height);
+
+        assertWithMessage("Area under limit, image should not be scaled").that(targetSize).isNull();
+    }
+
+    @Test
+    public void testGetTargetSizeForDownscaling_areaUnder_oneEdgeOver_notScaled() {
+        int width = MAX_SQUARE_IMAGE_EDGE_SIZE * 2;
+        int height = MAX_SQUARE_IMAGE_EDGE_SIZE / 2 - 1;
+
+        Size targetSize =
+                FuseboxAttachmentDetailsFetcher.getTargetSizeForDownscaling(width, height);
+
+        assertWithMessage("Area under limit, image should not be scaled").that(targetSize).isNull();
+    }
+
+    @Test
+    public void testGetTargetSizeForDownscaling_areaOver_edgesOver_scaled() {
+        int width = MAX_SQUARE_IMAGE_EDGE_SIZE * 2;
+        int height = MAX_SQUARE_IMAGE_EDGE_SIZE * 2;
+
+        Size targetSize =
+                FuseboxAttachmentDetailsFetcher.getTargetSizeForDownscaling(width, height);
+
+        verifyDownscaleTargetWithinLimits(targetSize, "Area over limit, image should be scaled");
+    }
+
+    @Test
+    public void testGetTargetSizeForDownscaling_areaOver_oneEdgeOver_scaled() {
+        int width = MAX_SQUARE_IMAGE_EDGE_SIZE * 3;
+        int height = MAX_SQUARE_IMAGE_EDGE_SIZE / 2;
+
+        Size targetSize =
+                FuseboxAttachmentDetailsFetcher.getTargetSizeForDownscaling(width, height);
+
+        verifyDownscaleTargetWithinLimits(targetSize, "Area over limit, image should be scaled");
     }
 }

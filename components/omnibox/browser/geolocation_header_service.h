@@ -48,6 +48,33 @@ enum class OmniboxInlineLocationSuggestionShown {
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/enums.xml:OmniboxInlineLocationSuggestionShown)
 
+// LINT.IfChange(GeolocationHeaderPrimeLocationOutcome)
+enum class GeolocationHeaderPrimeLocationOutcome {
+  kNotTriedAlreadyBound = 0,
+  kNotTriedNoDefaultProvider = 1,
+  kNotTriedProviderDoesNotAcceptHeader = 2,
+  kNotTriedInvalidUrlOrInsecure = 3,
+  kNotTriedPermissionStatusMismatch = 4,
+  kNotTriedCachedLocationFresh = 5,
+  kTriedFailedConnection = 6,
+  kTriedQueryCachedPosition = 7,
+  kTriedQueryNextPosition = 8,
+  kMaxValue = kTriedQueryNextPosition,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/enums.xml:GeolocationHeaderPrimeLocationOutcome)
+
+// LINT.IfChange(GeolocationHeaderGetLocationOutcome)
+enum class GeolocationHeaderGetLocationOutcome {
+  kSuccess = 0,
+  kNoCachedLocation = 1,
+  kPermissionStateMismatch = 2,
+  kInsecureConnection = 3,
+  kIneligibleUrl = 4,
+  kHeaderGranularityMismatch = 5,
+  kMaxValue = kHeaderGranularityMismatch,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/enums.xml:GeolocationHeaderGetLocationOutcome)
+
 // A KeyedService that handles the generation of the X-Geo header for valid DSE
 // navigations after checking that permissions allow for it.
 class GeolocationHeaderService : public KeyedService {
@@ -98,7 +125,7 @@ class GeolocationHeaderService : public KeyedService {
   void RecordInlineLocationSuggestionShown(
       OmniboxInlineLocationSuggestionShown shown_state,
       size_t match_index) const;
-  void RecordInlineLocationSuggestionClicked(
+  void MaybeRecordInlineLocationSuggestionClicked(
       const AutocompleteMatch& match) const;
 
   // Returns true if the given URL is eligible for the X-Geo header.

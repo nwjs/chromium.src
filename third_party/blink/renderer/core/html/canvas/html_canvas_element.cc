@@ -64,6 +64,7 @@
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
+#include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
 #include "third_party/blink/renderer/core/fileapi/file.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -108,7 +109,6 @@
 #include "third_party/blink/renderer/platform/fonts/plain_text_painter.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_dispatcher.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/compositing/paint_artifact_compositor.h"
 #include "third_party/blink/renderer/platform/graphics/exported_canvas_resource.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/canvas_utils.h"
@@ -381,7 +381,6 @@ void HTMLCanvasElement::AttributeChanged(
     bool has_layoutsubtree = !params.new_value.IsNull();
     if (had_layoutsubtree != has_layoutsubtree) {
       setLayoutSubtree(has_layoutsubtree);
-      UseCounter::Count(GetDocument(), WebFeature::kHTMLInCanvas);
       if (accessibility_manager_) {
         accessibility_manager_->SetHasLayoutSubtree(has_layoutsubtree);
       }
@@ -404,7 +403,6 @@ LayoutObject* HTMLCanvasElement::CreateLayoutObject(
 
 Node::InsertionNotificationRequest HTMLCanvasElement::InsertedInto(
     ContainerNode& node) {
-  SetIsCanvasOrInCanvasSubtree(true);
   ColorSchemeMayHaveChanged();
   return HTMLElement::InsertedInto(node);
 }
@@ -923,12 +921,9 @@ bool HTMLCanvasElement::VerifyDrawElementImageEligibility(
     Element* element,
     const String& func_name,
     ExceptionState& exception_state) const {
-  if (IsInCanvasSubtree()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
-                                      "Nested canvases are not supported.");
-    return false;
-  }
-  if (element->parentElement() != this) {
+  const Element* parent =
+      FlatTreeTraversal::ParentElementSkippingSlots(*element);
+  if (parent != this) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
         "Only immediate children of the <canvas> element can be passed to " +
@@ -1475,11 +1470,6 @@ CanvasResourceDispatcher* HTMLCanvasElement::GetOrCreateResourceDispatcher() {
         surface_layer_bridge_->GetFrameSinkId().sink_id(), Size());
   }
   return frame_dispatcher_.get();
-}
-
-bool HTMLCanvasElement::PushFrame(scoped_refptr<CanvasResource>&& image) {
-  NOTIMPLEMENTED();
-  return false;
 }
 
 bool HTMLCanvasElement::ShouldAccelerate() const {
@@ -2128,6 +2118,16 @@ String HTMLCanvasElement::CanvasAnnotation() const {
     return accessibility_manager_->CanvasAnnotation();
   }
   return String();
+}
+
+bool HTMLCanvasElement::HasRequestedOCR() const {
+  return accessibility_manager_ && accessibility_manager_->HasRequestedOCR();
+}
+
+void HTMLCanvasElement::ClearHasRequestedOCR() {
+  if (accessibility_manager_) {
+    accessibility_manager_->ClearHasRequestedOCR();
+  }
 }
 
 void HTMLCanvasElement::EnsureAccessibilityManager() {

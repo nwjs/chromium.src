@@ -26,7 +26,6 @@
 #include "android_webview/browser/network_service/net_helpers.h"
 #include "android_webview/browser/prefetch/aw_prefetch_manager.h"
 #include "android_webview/browser/renderer_host/auto_login_parser.h"
-#include "android_webview/browser/supervised_user/aw_supervised_user_url_classifier.h"
 #include "android_webview/common/aw_features.h"
 #include "android_webview/common/aw_switches.h"
 #include "android_webview/common/url_constants.h"
@@ -39,7 +38,6 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/task/bind_post_task.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "components/embedder_support/android/util/input_stream.h"
@@ -200,9 +198,6 @@ class InterceptedRequest : public network::mojom::URLLoader,
 
   std::unique_ptr<AwContentsIoThreadClient> GetIoThreadClient();
 
-  void CheckSupervisedUserRestrictions();
-  void ContinueRestart(bool should_block);
-
   // This is called when the original URLLoaderClient has a connection error.
   void OnURLLoaderClientError();
 
@@ -247,6 +242,7 @@ class InterceptedRequest : public network::mojom::URLLoader,
   // error didn't occur.
   int error_status_ = net::OK;
 
+  GURL last_url_;
   network::ResourceRequest request_;
 
   const net::MutableNetworkTrafficAnnotationTag traffic_annotation_;
@@ -368,6 +364,7 @@ InterceptedRequest::InterceptedRequest(
       options_(options),
       intercept_only_(intercept_only),
       security_options_(security_options),
+      last_url_(request.url),
       request_(std::move(request)),
       traffic_annotation_(traffic_annotation),
       proxied_loader_receiver_(this, std::move(loader_receiver)),
@@ -399,49 +396,6 @@ void InterceptedRequest::Restart() {
     SendErrorAndCompleteImmediately(net::ERR_ACCESS_DENIED);
     return;
   }
-
-  if (AwPrefetchManager::IsPrefetchRequest(request_)) {
-    // TODO(https://crbug.com/452389538): revert this when prefetch requests
-    // move out of aw_proxying_url_loader_factory.
-    CheckSupervisedUserRestrictions();
-    return;
-  }
-
-  ContinueRestart(/* should_block = */ false);
-}
-
-void InterceptedRequest::CheckSupervisedUserRestrictions() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
-
-  auto callback_on_io =
-      base::BindPostTask(content::GetIOThreadTaskRunner({}),
-                         base::BindOnce(&InterceptedRequest::ContinueRestart,
-                                        weak_factory_.GetWeakPtr()));
-
-  content::GetUIThreadTaskRunner({})->PostTask(
-      FROM_HERE,
-      base::BindOnce(
-          [](const GURL& url, base::OnceCallback<void(bool)> callback) {
-            DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-            AwSupervisedUserUrlClassifier* url_classifier =
-                AwSupervisedUserUrlClassifier::GetInstance();
-            if (!url_classifier->ShouldCreateThrottle()) {
-              std::move(callback).Run(false);
-              return;
-            }
-            url_classifier->ShouldBlockUrl(url, std::move(callback));
-          },
-          request_.url, std::move(callback_on_io)));
-}
-
-void InterceptedRequest::ContinueRestart(bool should_block) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
-  if (should_block) {
-    SendErrorAndCompleteImmediately(net::ERR_BLOCKED_BY_CLIENT);
-    return;
-  }
-  std::unique_ptr<AwContentsIoThreadClient> io_thread_client =
-      GetIoThreadClient();
 
   if (!request_was_redirected_) {
     // Do not call this if the request has already been redirected, as it will
@@ -793,6 +747,7 @@ void InterceptedRequest::OnReceiveRedirect(
     network::mojom::URLResponseHeadPtr head) {
   // TODO(timvolodine): handle redirect override.
   request_was_redirected_ = true;
+  last_url_ = request_.url;
   target_client_->OnReceiveRedirect(redirect_info, std::move(head));
   request_.url = redirect_info.new_url;
   request_.method = redirect_info.new_method;
@@ -827,6 +782,14 @@ void InterceptedRequest::OnComplete(
 void InterceptedRequest::FollowRedirect(
     network::HttpRequestHeadersUpdateParams headers_update_params,
     const std::optional<GURL>& new_url) {
+  GURL target_url = new_url.value_or(request_.url);
+  if (request_was_redirected_ &&
+      !content::IsSafeRedirectTarget(last_url_, target_url)) {
+    target_loader_.reset();
+    SendErrorAndCompleteImmediately(net::ERR_UNSAFE_REDIRECT);
+    return;
+  }
+
   if (target_loader_) {
     if (!origin_matched_headers_.empty()) {
       ApplyOriginMatchedHeaders(&headers_update_params.removed_headers,

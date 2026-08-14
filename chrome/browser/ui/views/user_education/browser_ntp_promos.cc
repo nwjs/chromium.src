@@ -113,10 +113,8 @@ void InvokeCustomizationPromo(ContextPtr context) {
                       ->root_action_item())
       ->InvokeAction(
           actions::ActionInvocationContext::Builder()
-              .SetProperty(
-                  kSidePanelOpenTriggerKey,
-                  static_cast<std::underlying_type_t<SidePanelOpenTrigger>>(
-                      SidePanelOpenTrigger::kNewTabPageCustomizationPromo))
+              .SetProperty(kSidePanelOpenTriggerKey,
+                           SidePanelOpenTrigger::kNewTabPageCustomizationPromo)
               .Build());
 }
 
@@ -140,7 +138,7 @@ void MaybeRegisterNtpPromos(user_education::NtpPromoRegistry& registry) {
 
   registry.AddPromo(NtpPromoSpecification(
       kNtpCustomizationPromoId,
-      NtpPromoContent("palette", IDS_NTP_CUSTOMIZATION_PROMO,
+      NtpPromoContent("palette-custom", IDS_NTP_CUSTOMIZATION_PROMO,
                       IDS_NTP_CUSTOMIZATION_PROMO),
       base::BindRepeating(&CheckCustomizationPromoEligibility),
       /*show_callback=*/base::DoNothing(),
@@ -151,7 +149,7 @@ void MaybeRegisterNtpPromos(user_education::NtpPromoRegistry& registry) {
 
   registry.AddPromo(NtpPromoSpecification(
       kNtpExtensionsPromoId,
-      NtpPromoContent("my_extensions", IDS_NTP_EXTENSIONS_PROMO,
+      NtpPromoContent("my-extensions-custom", IDS_NTP_EXTENSIONS_PROMO,
                       IDS_NTP_EXTENSIONS_PROMO),
       base::BindRepeating(&CheckExtensionsPromoEligibility),
       /*show_callback=*/base::DoNothing(),

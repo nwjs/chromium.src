@@ -500,10 +500,6 @@
     "channel": "stable",
     "extension_types": ["extension", "platform_app"]
   },
-  "idltest": {
-    "channel": "trunk",
-    "extension_types": ["extension"]
-  },
   "indigoPrivate": {
     "channel": "stable",
     "extension_types": ["extension"],
@@ -852,17 +848,6 @@
       "7D7A4B147FE39908A5AF13F85E38989C54BBE41C",  // http://crbug.com/40364348
       "0EEDFC0EED87871237213F34EBC7B4982A195C95"   // http://crbug.com/40364348
     ]
-  }],
-  "proxy": [{
-    "channel": "stable",
-    "extension_types": [
-      "extension",
-      "legacy_packaged_app"
-    ]
-  }, {
-    "channel": "stable",
-    "extension_types": ["platform_app"],
-    "platforms": ["chromeos"]
   }],
   "proxyOverrideRulesPrivate": {
     "channel": "stable",

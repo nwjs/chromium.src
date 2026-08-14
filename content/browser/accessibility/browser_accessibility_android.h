@@ -79,6 +79,10 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
   bool IsSuperscript() const;
   bool IsTableHeader() const;
   bool IsTextSelectable() const;
+
+  // Returns true if this node acts as a selection boundary that blocks
+  // selections from crossing into or out of its sub-hierarchy.
+  bool IsSelectionContextBoundary() const;
   bool IsVisibleToUser() const;
   bool ShouldUsePaneTitle() const;
 
@@ -393,6 +397,14 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
 
   // Get canvas description string.
   std::u16string GetCanvasAnnotationText() const;
+
+  // Returns true if we should inform the user that this image is unlabeled
+  // (e.g., to invite them to enable image descriptions).
+  bool ShouldInformUserAboutUnlabeledImage(
+      ax::mojom::ImageAnnotationStatus status) const;
+
+  std::optional<std::u16string> GetPopupRoleDescription(
+      ax::mojom::HasPopup has_popup) const;
 
   std::u16string old_value_;
   std::u16string new_value_;

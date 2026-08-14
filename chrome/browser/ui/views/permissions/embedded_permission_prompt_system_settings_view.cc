@@ -4,14 +4,12 @@
 
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt_system_settings_view.h"
 
+#include "base/barrier_callback.h"
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/permissions/system/system_permission_settings.h"
-#include "chrome/browser/ui/url_identity.h"
 #include "chrome/grit/branded_strings.h"
-#include "components/content_settings/core/common/content_settings_types.h"
-#include "components/permissions/features.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/views/widget/widget.h"
@@ -83,21 +81,17 @@ void EmbeddedPermissionPromptSystemSettingsView::OnWidgetTreeActivated(
     return;
   }
 
-  for (const auto& request : delegate()->Requests()) {
-    if (system_permission_settings::IsDenied(
-            request->GetContentSettingsType())) {
-      return;
-    }
-  }
+  const auto& requests = delegate()->Requests();
+  auto barrier = base::BarrierCallback<bool>(
+      requests.size(),
+      base::BindOnce(
+          &EmbeddedPermissionPromptSystemSettingsView::OnPermissionChecksDone,
+          weak_factory_.GetWeakPtr()));
 
-  // Asynchronously notify the delegate that the current prompt can be resolved.
-  // This is done asyncronouly to avoid checks in the focus logic which prevent
-  // a new widget from activating the current window again at this exact moment
-  // in time.
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(&EmbeddedPermissionPromptViewDelegate::
-                                    SystemPermissionsNoLongerDenied,
-                                delegate()));
+  for (const auto& request : requests) {
+    system_permission_settings::IsDeniedFresh(request->GetContentSettingsType(),
+                                              barrier);
+  }
 }
 
 std::vector<
@@ -128,4 +122,35 @@ EmbeddedPermissionPromptSystemSettingsView::GetButtonsConfiguration() const {
                                       operating_system_name),
            ButtonType::kSystemSettings, ui::ButtonStyle::kTonal,
            kOpenSettingsId}};
+}
+
+void EmbeddedPermissionPromptSystemSettingsView::OnPermissionChecksDone(
+    const std::vector<bool>& results) {
+  if (!delegate() || prompt_resolved_) {
+    return;
+  }
+
+  for (bool is_denied : results) {
+    if (is_denied) {
+      return;
+    }
+  }
+
+  prompt_resolved_ = true;
+
+  // Asynchronously notify the delegate that the current prompt can be resolved.
+  // This is done asyncronouly to avoid checks in the focus logic which prevent
+  // a new widget from activating the current window again at this exact moment
+  // in time.
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(&EmbeddedPermissionPromptSystemSettingsView::
+                                    NotifyDelegatePermissionNoLongerDenied,
+                                weak_factory_.GetWeakPtr()));
+}
+
+void EmbeddedPermissionPromptSystemSettingsView::
+    NotifyDelegatePermissionNoLongerDenied() {
+  if (delegate()) {
+    delegate()->SystemPermissionsNoLongerDenied();
+  }
 }

@@ -20,7 +20,6 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
-#include "chrome/browser/ui/views/location_bar/intent_chip_button.h"
 #include "chrome/browser/ui/views/location_bar/intent_chip_button_test_base.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_view.h"
@@ -59,14 +58,12 @@ namespace {
 
 std::string GetLinkCapturingTestName(
     const testing::TestParamInfo<
-        std::tuple<std::string, LinkCapturingFeatureVersion, bool>>& info) {
+        std::tuple<std::string, LinkCapturingFeatureVersion>>& info) {
   std::string test_name;
   test_name = std::get<std::string>(info.param);
   test_name.append("_");
   test_name.append(
       apps::test::ToString(std::get<LinkCapturingFeatureVersion>(info.param)));
-  test_name.append(std::get<bool>(info.param) ? "MigrationEnabled"
-                                              : "MigrationNotEnabled");
   return test_name;
 }
 
@@ -75,10 +72,7 @@ std::string GetLinkCapturingTestName(
 class IntentPickerBrowserTest : public web_app::WebAppNavigationBrowserTest {
  public:
   IntentPickerBrowserTest() {
-    scoped_feature_list_.InitAndEnableFeatureWithParameters(
-        features::kPageActionsMigration,
-        {{features::kPageActionsMigrationIntentPicker.name,
-          IsMigrationEnabled() ? "true" : "false"}});
+    scoped_feature_list_.InitAndEnableFeature(features::kPageActionsMigration);
   }
 
   template <typename Action>
@@ -152,7 +146,7 @@ class IntentPickerBrowserTest : public web_app::WebAppNavigationBrowserTest {
 class IntentPickerIconBrowserTest
     : public IntentPickerBrowserTest,
       public ::testing::WithParamInterface<
-          std::tuple<std::string, LinkCapturingFeatureVersion, bool>>,
+          std::tuple<std::string, LinkCapturingFeatureVersion>>,
       public IntentChipButtonTestBase {
  public:
   // TODO(crbug.com/40097608): Stop disabling Paint Holding.
@@ -161,16 +155,9 @@ class IntentPickerIconBrowserTest
         apps::test::GetFeaturesToEnableLinkCapturingUX(LinkCapturingVersion());
 
     features_to_enable.push_back({blink::features::kPaintHolding, {}});
-    features_to_enable.push_back(
-        {::features::kPageActionsMigration,
-         {{::features::kPageActionsMigrationIntentPicker.name,
-           IsMigrationEnabled() ? "true" : "false"}}});
+    features_to_enable.push_back({::features::kPageActionsMigration, {}});
 
     feature_list_.InitWithFeaturesAndParameters(features_to_enable, {});
-  }
-
-  bool IsMigrationEnabled() const override {
-    return std::get<bool>(GetParam());
   }
 
   LinkCapturingFeatureVersion LinkCapturingVersion() {
@@ -416,7 +403,8 @@ IN_PROC_BROWSER_TEST_P(IntentPickerIconBrowserTest,
   // The test infra doesn't run the scope extension validation, so we can just
   // copy them to the validated set.
   web_app_info->validated_scope_extensions = web_app_info->scope_extensions;
-  web_app::test::InstallWebApp(browser()->profile(), std::move(web_app_info));
+  web_app::test::InstallWebApp(browser()->GetProfile(),
+                               std::move(web_app_info));
 
   // Go to a URL in the extended scope and wait for the intent picker icon to
   // load.
@@ -428,16 +416,19 @@ IN_PROC_BROWSER_TEST_P(IntentPickerIconBrowserTest,
 INSTANTIATE_TEST_SUITE_P(
     All,
     IntentPickerIconBrowserTest,
-    testing::Combine(testing::Values("", "noopener", "noreferrer", "nofollow"),
-                     testing::Values(LinkCapturingFeatureVersion::kV2DefaultOff,
-                                     LinkCapturingFeatureVersion::kV2DefaultOn),
-                     testing::Bool()),
+    testing::Combine(
+        testing::Values("", "noopener", "noreferrer", "nofollow"),
+        testing::Values(LinkCapturingFeatureVersion::kV2DefaultOff,
+                        LinkCapturingFeatureVersion::kV2DefaultOn)),
     GetLinkCapturingTestName);
 
+#if BUILDFLAG(IS_CHROMEOS)
+// This test verifies UXes that show up when an app is not set to be the
+// preferred app for capturing links.
 class IntentPickerIconBrowserBubbleTest
     : public IntentPickerBrowserTest,
       public ::testing::WithParamInterface<
-          std::tuple<std::string, LinkCapturingFeatureVersion, bool>>,
+          std::tuple<std::string, LinkCapturingFeatureVersion>>,
       public IntentChipButtonTestBase {
  public:
   // TODO(crbug.com/40097608): Stop disabling Paint Holding.
@@ -445,17 +436,10 @@ class IntentPickerIconBrowserBubbleTest
     std::vector<base::test::FeatureRefAndParams> features_to_enable =
         apps::test::GetFeaturesToEnableLinkCapturingUX(LinkCapturingVersion());
 
-    features_to_enable.push_back(
-        {::features::kPageActionsMigration,
-         {{::features::kPageActionsMigrationIntentPicker.name,
-           IsMigrationEnabled() ? "true" : "false"}}});
+    features_to_enable.push_back({::features::kPageActionsMigration, {}});
 
     feature_list_.InitWithFeaturesAndParameters(
         features_to_enable, {blink::features::kPaintHolding});
-  }
-
-  bool IsMigrationEnabled() const override {
-    return std::get<bool>(GetParam());
   }
 
   LinkCapturingFeatureVersion LinkCapturingVersion() const {
@@ -471,21 +455,24 @@ class IntentPickerIconBrowserBubbleTest
         .size();
   }
 
+  // The intent picker icon bubble shows up only when the app is not set as
+  // the preferred app to capture links on ChromeOS.
+  void InstallTestWebAppAndDisableLinkCapturingIfNecessary() {
+    InstallTestWebApp();
+    if (LinkCapturingEnabledByDefault()) {
+      auto result =
+          apps::test::DisableLinkCapturingByUser(profile(), test_web_app_id());
+      ASSERT_TRUE(result.has_value()) << result.error();
+    }
+  }
+
  private:
   base::test::ScopedFeatureList feature_list_;
 };
 
-#if BUILDFLAG(IS_CHROMEOS)
 IN_PROC_BROWSER_TEST_P(IntentPickerIconBrowserBubbleTest,
                        IntentChipOpensBubble) {
-  // TODO(b/521860617): Under kV2DefaultOn, navigation directly launches the
-  // app on ChromeOS. Skip this test under kV2DefaultOn until default-on
-  // behavior is resolved.
-  if (LinkCapturingEnabledByDefault()) {
-    GTEST_SKIP() << "Skipping due to default-on auto-launch on ChromeOS";
-  }
-
-  InstallTestWebApp();
+  InstallTestWebAppAndDisableLinkCapturingIfNecessary();
   const GURL in_scope_url =
       embedded_https_test_server().GetURL(GetAppUrlHost(), GetInScopeUrlPath());
 
@@ -501,15 +488,9 @@ IN_PROC_BROWSER_TEST_P(IntentPickerIconBrowserBubbleTest,
 
 // Test that the "Remember this choice" checkbox works.
 IN_PROC_BROWSER_TEST_P(IntentPickerIconBrowserBubbleTest, RememberOpenWebApp) {
-  // TODO(b/521860617): Skipping because under kV2DefaultOn, navigations need to
-  // be fixed on ChromeOS.
-  if (LinkCapturingEnabledByDefault()) {
-    GTEST_SKIP() << "Skipping due to default-on auto-launch on ChromeOS";
-  }
-
   base::HistogramTester histogram_tester;
 
-  InstallTestWebApp();
+  InstallTestWebAppAndDisableLinkCapturingIfNecessary();
   const GURL in_scope_url =
       embedded_https_test_server().GetURL(GetAppUrlHost(), GetInScopeUrlPath());
 
@@ -549,38 +530,15 @@ IN_PROC_BROWSER_TEST_P(IntentPickerIconBrowserBubbleTest, RememberOpenWebApp) {
       apps::IntentHandlingMetrics::LinkCapturingEvent::kSettingsChanged, 1);
 }
 
-#else
-IN_PROC_BROWSER_TEST_P(IntentPickerIconBrowserBubbleTest,
-                       DISABLED_IntentChipLaunchesAppDirectly) {
-  InstallTestWebApp();
-  const GURL in_scope_url =
-      embedded_https_test_server().GetURL(GetAppUrlHost(), GetInScopeUrlPath());
-
-  views::Button* intent_picker_icon = GetIntentChip(browser());
-
-  OpenNewTab(in_scope_url);
-  EXPECT_TRUE(intent_picker_icon->GetVisible());
-
-  views::test::ButtonTestApi test_api(intent_picker_icon);
-  test_api.NotifyClick(ui::MouseEvent(
-      ui::EventType::kMousePressed, gfx::Point(), gfx::Point(),
-      base::TimeTicks(), ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON));
-  Browser* app_browser = ui_test_utils::WaitForBrowserToOpen();
-  EXPECT_FALSE(intent_picker_bubble());
-  EXPECT_TRUE(app_browser);
-  ASSERT_TRUE(web_app::AppBrowserController::IsForWebApp(app_browser,
-                                                         test_web_app_id()));
-}
-#endif  // BUILDFLAG(IS_CHROMEOS)
-
 INSTANTIATE_TEST_SUITE_P(
     All,
     IntentPickerIconBrowserBubbleTest,
-    testing::Combine(testing::Values("", "noopener", "noreferrer", "nofollow"),
-                     testing::Values(LinkCapturingFeatureVersion::kV2DefaultOff,
-                                     LinkCapturingFeatureVersion::kV2DefaultOn),
-                     testing::Bool()),
+    testing::Combine(
+        testing::Values("", "noopener", "noreferrer", "nofollow"),
+        testing::Values(LinkCapturingFeatureVersion::kV2DefaultOff,
+                        LinkCapturingFeatureVersion::kV2DefaultOn)),
     GetLinkCapturingTestName);
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 // This test only works when link capturing is set to default off for desktop
 // platforms, as prerendering navigations are aborted during link captured app
@@ -604,10 +562,6 @@ class IntentPickerIconPrerenderingBrowserTest
   void SetUp() override {
     prerender_helper_.RegisterServerRequestMonitor(embedded_test_server());
     IntentPickerIconBrowserTest::SetUp();
-  }
-
-  bool IsMigrationEnabled() const override {
-    return std::get<bool>(GetParam());
   }
 
   void SetUpOnMainThread() override {
@@ -663,8 +617,7 @@ INSTANTIATE_TEST_SUITE_P(
     IntentPickerIconPrerenderingBrowserTest,
     testing::Combine(
         testing::Values("", "noopener", "noreferrer", "nofollow"),
-        testing::Values(LinkCapturingFeatureVersion::kV2DefaultOff),
-        testing::Bool()),
+        testing::Values(LinkCapturingFeatureVersion::kV2DefaultOff)),
     GetLinkCapturingTestName);
 
 class IntentPickerIconFencedFrameBrowserTest
@@ -680,10 +633,6 @@ class IntentPickerIconFencedFrameBrowserTest
 
   content::test::FencedFrameTestHelper& fenced_frame_test_helper() {
     return fenced_frame_helper_;
-  }
-
-  bool IsMigrationEnabled() const override {
-    return std::get<bool>(GetParam());
   }
 
  private:
@@ -713,8 +662,8 @@ IN_PROC_BROWSER_TEST_P(IntentPickerIconFencedFrameBrowserTest,
 INSTANTIATE_TEST_SUITE_P(
     All,
     IntentPickerIconFencedFrameBrowserTest,
-    testing::Combine(testing::Values("", "noopener", "noreferrer", "nofollow"),
-                     testing::Values(LinkCapturingFeatureVersion::kV2DefaultOff,
-                                     LinkCapturingFeatureVersion::kV2DefaultOn),
-                     testing::Bool()),
+    testing::Combine(
+        testing::Values("", "noopener", "noreferrer", "nofollow"),
+        testing::Values(LinkCapturingFeatureVersion::kV2DefaultOff,
+                        LinkCapturingFeatureVersion::kV2DefaultOn)),
     GetLinkCapturingTestName);

@@ -105,7 +105,6 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
                 Features.IMAGE_DRAG_DROP,
                 Features.USER_AGENT_METADATA,
                 Features.MULTI_PROFILE,
-                Features.ATTRIBUTION_BEHAVIOR,
                 Features.WEBVIEW_MEDIA_INTEGRITY_API_STATUS,
                 Features.MUTE_AUDIO,
                 Features.WEB_AUTHENTICATION,
@@ -113,8 +112,8 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
                 Features.BACK_FORWARD_CACHE,
                 Features.PREFETCH_WITH_URL,
                 Features.PREFETCH_WITH_CALLBACK_RESULT_V1,
-                Features.PREFETCH_CACHE + Features.DEV_SUFFIX,
-                Features.SET_MAX_PRERENDERS + Features.DEV_SUFFIX,
+                Features.PREFETCH_CACHE,
+                Features.SET_MAX_PRERENDERS,
                 Features.DEFAULT_TRAFFICSTATS_TAGGING,
                 Features.ASYNC_WEBVIEW_STARTUP,
                 Features.PRERENDER_WITH_URL,
@@ -148,9 +147,15 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
                 Features.WEBVIEW_NAVIGATE_V1,
                 Features.DOWNLOAD_FAVICONS_ENABLED,
                 Features.HTTP_CACHE_MANAGER,
+                Features.CROSS_ORIGIN_ISOLATED_ALLOW_LIST + Features.DEV_SUFFIX,
                 // Add new features above. New features must include `+ Features.DEV_SUFFIX`
-                // when they're initially added (this can be removed in a future CL). The final
-                // feature should have a trailing comma for cleaner diffs.
+                // when they're initially added (this can be removed in a future CL). The one
+                // exception is when adding a new method to an interface that extends from
+                // FeatureFlagHolderBoundaryInterface - these may be added without the suffix.
+                // For more information, see:
+                // https://android.googlesource.com/platform/frameworks/support/+/androidx-main/webkit/webkit/CONTRIBUTING.md#feature-checking-callback-interfaces
+                //
+                // The final feature should have a trailing comma for cleaner diffs.
             };
 
     // ENQUEUE_PRECONNECT schedules a preconnect task to run asynchronously once native Chromium
@@ -271,8 +276,6 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         ApiCall.GET_PROFILE_SERVICE_WORKER_CONTROLLER,
         ApiCall.SET_WEBVIEW_PROFILE,
         ApiCall.GET_WEBVIEW_PROFILE,
-        ApiCall.SET_ATTRIBUTION_BEHAVIOR,
-        ApiCall.GET_ATTRIBUTION_BEHAVIOR,
         ApiCall.GET_WEBVIEW_MEDIA_INTEGRITY_API_DEFAULT_STATUS,
         ApiCall.GET_WEBVIEW_MEDIA_INTEGRITY_API_OVERRIDE_RULES,
         ApiCall.SET_WEBVIEW_MEDIA_INTEGRITY_API_STATUS,
@@ -472,8 +475,8 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         int GET_PROFILE_SERVICE_WORKER_CONTROLLER = 92;
         int SET_WEBVIEW_PROFILE = 93;
         int GET_WEBVIEW_PROFILE = 94;
-        int SET_ATTRIBUTION_BEHAVIOR = 95;
-        int GET_ATTRIBUTION_BEHAVIOR = 96;
+        @Deprecated int SET_ATTRIBUTION_BEHAVIOR = 95;
+        @Deprecated int GET_ATTRIBUTION_BEHAVIOR = 96;
         int GET_WEBVIEW_MEDIA_INTEGRITY_API_DEFAULT_STATUS = 97;
         int GET_WEBVIEW_MEDIA_INTEGRITY_API_OVERRIDE_RULES = 98;
         int SET_WEBVIEW_MEDIA_INTEGRITY_API_STATUS = 99;
@@ -583,8 +586,10 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         int HTTP_CACHE_GET_QUOTA_BYTES = 201;
         int HTTP_CACHE_SET_QUOTA_BYTES = 202;
         int ENQUEUE_PRECONNECT = 203;
+        int SET_CROSS_ORIGIN_ISOLATED_ALLOW_LIST = 204;
+        int GET_CROSS_ORIGIN_ISOLATED_ALLOW_LIST = 205;
         // Remember to update AndroidXWebkitApiCall in enums.xml when adding new values here
-        int COUNT = 204;
+        int COUNT = 206;
     }
 
     // LINT.ThenChange(/tools/metrics/histograms/metadata/android/enums.xml:AndroidXWebkitApiCall)

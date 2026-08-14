@@ -161,6 +161,8 @@ component("net") {
     "base/backoff_entry_serializer.h",
     "base/base64.cc",
     "base/base64.h",
+    "base/bssl_refcounted.cc",
+    "base/bssl_refcounted.h",
     "base/cache_type.h",
     "base/chunked_upload_data_stream.cc",
     "base/chunked_upload_data_stream.h",
@@ -639,6 +641,8 @@ component("net") {
     "http/http_byte_range.h",
     "http/http_cache.cc",
     "http/http_cache.h",
+    "http/http_cache_invalidation_pickle_traits.cc",
+    "http/http_cache_invalidation_pickle_traits.h",
     "http/http_cache_transaction.cc",
     "http/http_cache_transaction.h",
     "http/http_cache_util.cc",
@@ -745,6 +749,7 @@ component("net") {
     "http/proxy_client_socket.h",
     "http/proxy_fallback.cc",
     "http/proxy_fallback.h",
+    "http/structured_headers.cc",
     "http/structured_headers.h",
     "http/transport_security_persister.cc",
     "http/transport_security_persister.h",
@@ -983,11 +988,16 @@ component("net") {
     "socket/datagram_client_socket.h",
     "socket/datagram_server_socket.h",
     "socket/datagram_socket.h",
+    "socket/delayed_socket_config.h",
+    "socket/delayed_stream_socket.cc",
+    "socket/delayed_stream_socket.h",
     "socket/diff_serv_code_point.h",
     "socket/network_binding_client_socket_factory.cc",
     "socket/network_binding_client_socket_factory.h",
     "socket/next_proto.cc",
     "socket/next_proto.h",
+    "socket/read_multiple_emulator.cc",
+    "socket/read_multiple_emulator.h",
     "socket/server_socket.cc",
     "socket/server_socket.h",
     "socket/socket.cc",
@@ -1214,6 +1224,7 @@ component("net") {
     "//components/network_time/time_tracker",
     "//components/unexportable_keys",
     "//net/http:transport_security_state_generated_files",
+    "//third_party/rust/sfv/v0_15/wrapper",
     "//third_party/simdutf",
   ]
 
@@ -1285,6 +1296,7 @@ component("net") {
 
   if (enable_device_bound_sessions) {
     sources += [
+      "device_bound_sessions/cookie_access_check_params.h",
       "device_bound_sessions/cookie_craving.cc",
       "device_bound_sessions/cookie_craving.h",
       "device_bound_sessions/dbsc_request.cc",
@@ -1542,6 +1554,7 @@ component("net") {
       "disk_cache/cache_util_posix.cc",
       "disk_cache/simple/simple_util_posix.cc",
       "http/url_security_manager_posix.cc",
+      "socket/extra_socket_defines.h",
       "socket/socket_posix.cc",
       "socket/socket_posix.h",
       "socket/tcp_socket_posix.cc",
@@ -1900,6 +1913,10 @@ component("net") {
       "disk_cache/sql/sql_persistent_store_queries.h",
       "disk_cache/sql/sql_read_cache_memory_monitor.cc",
       "disk_cache/sql/sql_read_cache_memory_monitor.h",
+      "disk_cache/sql/sql_shared_cache.cc",
+      "disk_cache/sql/sql_shared_cache.h",
+      "disk_cache/sql/sql_shared_cache_handle.cc",
+      "disk_cache/sql/sql_shared_cache_handle.h",
       "disk_cache/sql/sql_shared_cache_index_database.cc",
       "disk_cache/sql/sql_shared_cache_index_database.h",
       "disk_cache/sql/sql_shared_cache_index_database_queries.h",
@@ -1908,6 +1925,8 @@ component("net") {
       "disk_cache/sql/sql_shared_cache_isolated_database_queries.h",
       "disk_cache/sql/sql_shared_cache_isolated_database_reader.cc",
       "disk_cache/sql/sql_shared_cache_isolated_database_reader.h",
+      "disk_cache/sql/sql_shared_cache_manager.cc",
+      "disk_cache/sql/sql_shared_cache_manager.h",
       "disk_cache/sql/sql_tracked_sequence_bound.h",
       "disk_cache/sql/sql_write_buffer_memory_monitor.cc",
       "disk_cache/sql/sql_write_buffer_memory_monitor.h",
@@ -2251,6 +2270,8 @@ static_library("test_support") {
     "ssl/test_ssl_config_service.h",
     "ssl/test_ssl_private_key.cc",
     "ssl/test_ssl_private_key.h",
+    "ssl/test_static_ech_mode_getter.cc",
+    "ssl/test_static_ech_mode_getter.h",
     "test/cert_builder.cc",
     "test/cert_builder.h",
     "test/cert_test_util.cc",
@@ -2393,6 +2414,10 @@ static_library("test_support") {
   ]
 
   if (chrome_root_store_supported) {
+    sources += [
+      "test/chrome_root_store_test_util.cc",
+      "test/chrome_root_store_test_util.h",
+    ]
     deps += [ "//net/cert:root_store_proto_lite" ]
   }
 
@@ -2969,6 +2994,7 @@ target(_test_target_type, "net_unittests") {
     "http/http_auth_unittest.cc",
     "http/http_basic_state_unittest.cc",
     "http/http_byte_range_unittest.cc",
+    "http/http_cache_invalidation_pickle_traits_unittest.cc",
     "http/http_cache_unittest.cc",
     "http/http_cache_writers_unittest.cc",
     "http/http_chunked_decoder_unittest.cc",
@@ -3007,6 +3033,7 @@ target(_test_target_type, "net_unittests") {
     "http/no_vary_search_cache_storage_unittest.cc",
     "http/no_vary_search_cache_unittest.cc",
     "http/proxy_fallback_unittest.cc",
+    "http/structured_headers_unittest.cc",
     "http/test_upload_data_stream_not_allow_http1.cc",
     "http/test_upload_data_stream_not_allow_http1.h",
     "http/transport_security_persister_unittest.cc",
@@ -3095,6 +3122,7 @@ target(_test_target_type, "net_unittests") {
     "socket/connect_job_test_util.cc",
     "socket/connect_job_test_util.h",
     "socket/connect_job_unittest.cc",
+    "socket/delayed_stream_socket_unittest.cc",
     "socket/mock_client_socket_pool_manager.cc",
     "socket/mock_client_socket_pool_manager.h",
     "socket/sequenced_socket_data_unittest.cc",
@@ -3156,6 +3184,7 @@ target(_test_target_type, "net_unittests") {
     "ssl/ssl_config_unittest.cc",
     "ssl/ssl_connection_status_flags_unittest.cc",
     "ssl/ssl_platform_key_util_unittest.cc",
+    "test/cert_builder_unittest.cc",
     "test/embedded_test_server/embedded_test_server_unittest.cc",
     "test/embedded_test_server/http_request_unittest.cc",
     "test/embedded_test_server/http_response_unittest.cc",
@@ -3170,6 +3199,7 @@ target(_test_target_type, "net_unittests") {
     "tools/dump_cache/dump_cache_helper_unittest.cc",
     "tools/quic/quic_simple_client_test.cc",
     "tools/tld_cleanup/tld_cleanup_util_unittest.cc",
+    "url_request/multinetwork_unittest.cc",
     "url_request/redirect_info_unittest.cc",
     "url_request/redirect_util_unittest.cc",
     "url_request/storage_access_status_cache_unittest.cc",
@@ -3275,6 +3305,9 @@ target(_test_target_type, "net_unittests") {
     "QuicheHostnameUtilsFuzzTest.FuzzPropertyNormalizationIsIdempotentForValidSni",
     "QuicVersionsFuzzTest.ParseSerializeParseIdentityProperty",
     "SocketPoolAdditionalCapacityTest.ValidateRandomizedInputs",
+    "StructuredHeadersTest.ParseDictionaryParity",
+    "StructuredHeadersTest.ParseItemParity",
+    "StructuredHeadersTest.ParseListParity",
     "TransportParametersFuzzTest.ParseTransportParametersDoesNotCrash",
     "UrlUnescapeIteratorTest.SameOutputAsUnescapePercentEncodedUrl",
   ]
@@ -3622,6 +3655,7 @@ target(_test_target_type, "net_unittests") {
     deps += [
       "//base/version_info",
       "//net/data/ssl/chrome_root_store:gen_root_store_test_inc",
+      "//net/data/ssl/chrome_root_store:gen_signer_set_inc",
     ]
 
     if (is_win) {
@@ -3682,6 +3716,8 @@ target(_test_target_type, "net_unittests") {
       "disk_cache/sql/sql_shared_cache_index_database_unittest.cc",
       "disk_cache/sql/sql_shared_cache_isolated_database_reader_unittest.cc",
       "disk_cache/sql/sql_shared_cache_isolated_database_unittest.cc",
+      "disk_cache/sql/sql_shared_cache_manager_unittest.cc",
+      "disk_cache/sql/sql_shared_cache_unittest.cc",
       "disk_cache/sql/sql_tracked_sequence_bound_unittest.cc",
       "disk_cache/sql/test_util.cc",
       "disk_cache/sql/test_util.h",
@@ -4183,20 +4219,7 @@ if (use_fuzzing_engine) {
   # binaries.
   source_set("net_web_socket_encoder_fuzzer_deps") {
     testonly = true
-    visibility = [
-      ":net_web_socket_encoder_fuzzer",
-      ":net_web_socket_encoder_fuzzer__apk__compile_java",
-      ":net_web_socket_encoder_fuzzer__apk__compile_resources",
-      ":net_web_socket_encoder_fuzzer__apk__create",
-      ":net_web_socket_encoder_fuzzer__apk__java",
-      ":net_web_socket_encoder_fuzzer__apk__java__dex",
-      ":net_web_socket_encoder_fuzzer__apk__java__header",
-      ":net_web_socket_encoder_fuzzer__apk__java__validate",
-      ":net_web_socket_encoder_fuzzer__library",
-      ":net_web_socket_encoder_fuzzer__library__jni_registration__native_sources",
-      ":net_web_socket_encoder_fuzzer_executable",
-      ":run_net_web_socket_encoder_fuzzer",
-    ]
+    visibility = [ ":*" ]
     public_deps = [
       ":net_fuzzer_test_support",
       "//net",

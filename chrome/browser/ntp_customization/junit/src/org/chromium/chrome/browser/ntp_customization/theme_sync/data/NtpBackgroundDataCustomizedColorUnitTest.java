@@ -25,7 +25,6 @@ import org.robolectric.annotation.Config;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundType;
 import org.chromium.chrome.browser.ntp_customization.R;
-import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataBase.PlatformType;
 
 /** Tests for {@link NtpBackgroundDataCustomizedColor}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -43,7 +42,7 @@ public class NtpBackgroundDataCustomizedColorUnitTest {
 
     @Test
     public void testEquals() {
-        @PlatformType int platformType = PlatformType.ANDROID_LOCAL;
+        @PlatformType int platformType = PlatformType.ANDROID;
         @ColorInt int lightModeColor = Color.RED;
         @ColorInt int darkModeColor = Color.BLUE;
         @ColorInt int lightModeBackgroundColor = Color.YELLOW;
@@ -83,7 +82,7 @@ public class NtpBackgroundDataCustomizedColorUnitTest {
 
     @Test
     public void testToJsonAndFromJson() throws JSONException {
-        @PlatformType int platformType = PlatformType.ANDROID_LOCAL;
+        @PlatformType int platformType = PlatformType.ANDROID;
         @ColorInt int lightModeColor = Color.RED;
         @ColorInt int darkModeColor = Color.BLUE;
         @ColorInt int lightModeBackgroundColor = Color.YELLOW;

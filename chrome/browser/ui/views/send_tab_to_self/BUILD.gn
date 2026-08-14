@@ -10,9 +10,23 @@ source_set("send_tab_to_self") {
     "send_tab_to_self_bubble_device_button.h",
     "send_tab_to_self_bubble_view.h",
     "send_tab_to_self_device_picker_bubble_view.h",
+    "send_tab_to_self_no_target_device_bubble_view.h",
     "send_tab_to_self_promo_bubble_view.h",
     "send_tab_to_self_toolbar_bubble_controller.h",
     "send_tab_to_self_toolbar_bubble_view.h",
+  ]
+  sources = [
+    "manage_account_devices_link_view.cc",
+    "manage_account_devices_link_view.h",
+    "send_tab_to_self_bubble.cc",
+    "send_tab_to_self_bubble_controller.cc",
+    "send_tab_to_self_bubble_device_button.cc",
+    "send_tab_to_self_bubble_view.cc",
+    "send_tab_to_self_device_picker_bubble_view.cc",
+    "send_tab_to_self_no_target_device_bubble_view.cc",
+    "send_tab_to_self_promo_bubble_view.cc",
+    "send_tab_to_self_toolbar_bubble_controller.cc",
+    "send_tab_to_self_toolbar_bubble_view.cc",
   ]
 
   public_deps = [
@@ -27,25 +41,8 @@ source_set("send_tab_to_self") {
     "//ui/base/metadata",
     "//ui/views",
   ]
-  deps = [ "//chrome/browser/ui/views/toolbar" ]
-}
-
-source_set("impl") {
-  sources = [
-    "manage_account_devices_link_view.cc",
-    "manage_account_devices_link_view.h",
-    "send_tab_to_self_bubble.cc",
-    "send_tab_to_self_bubble_controller.cc",
-    "send_tab_to_self_bubble_device_button.cc",
-    "send_tab_to_self_bubble_view.cc",
-    "send_tab_to_self_device_picker_bubble_view.cc",
-    "send_tab_to_self_promo_bubble_view.cc",
-    "send_tab_to_self_toolbar_bubble_controller.cc",
-    "send_tab_to_self_toolbar_bubble_view.cc",
-  ]
 
   deps = [
-    ":send_tab_to_self",
     "//chrome/app:generated_resources",
     "//chrome/app/vector_icons",
     "//chrome/browser:primitives",
@@ -66,22 +63,16 @@ source_set("impl") {
     "//chrome/browser/user_education",
     "//components/pref_registry",
     "//components/prefs",
-    "//components/send_tab_to_self",
     "//components/signin/public/base",
     "//components/signin/public/identity_manager",
     "//components/strings",
     "//components/url_formatter",
-    "//content/public/browser",
-    "//ui/base",
     "//ui/color",
     "//ui/events",
     "//ui/gfx",
     "//ui/strings:ui_strings",
     "//ui/strings:ui_strings_grit",
-    "//ui/views",
   ]
-
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("interactive_ui_tests") {
@@ -89,7 +80,6 @@ source_set("interactive_ui_tests") {
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
   sources = [ "send_tab_to_self_bubble_controller_interactive_uitest.cc" ]
   deps = [
-    ":impl",
     ":send_tab_to_self",
     "//chrome/browser/sync",
     "//chrome/browser/ui",

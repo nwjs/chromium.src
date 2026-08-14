@@ -15,6 +15,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_init_state.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
@@ -64,7 +65,7 @@ ui::BaseWindow* FindMostRecentWindow(
 // and persistent state from the browser window and the user's profile.
 class DefaultStateProvider : public WindowSizer::StateProvider {
  public:
-  explicit DefaultStateProvider(const Browser* browser) : browser_(browser) {}
+  explicit DefaultStateProvider(Browser* browser) : browser_(browser) {}
 
   DefaultStateProvider(const DefaultStateProvider&) = delete;
   DefaultStateProvider& operator=(const DefaultStateProvider&) = delete;
@@ -77,7 +78,7 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
     DCHECK(bounds);
     DCHECK(show_state);
 
-    if (!browser_ || !browser_->profile()->GetPrefs()) {
+    if (!browser_ || !browser_->GetProfile()->GetPrefs()) {
       return false;
     }
 
@@ -85,7 +86,7 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
       return false;
 
     const base::DictValue* pref = chrome::GetWindowPlacementDictionaryReadOnly(
-        chrome::GetWindowName(browser_), browser_->profile()->GetPrefs());
+        chrome::GetWindowName(browser_), browser_->GetProfile()->GetPrefs());
 
     std::optional<gfx::Rect> pref_bounds = RectFromPrefixedPref(pref, "");
     std::optional<gfx::Rect> pref_area =
@@ -135,7 +136,7 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
       window = browser_->GetWindow();
     } else if (web_app::AppBrowserController::IsWebApp(browser_)) {
       window = FindMostRecentWindow(
-          [profile = browser_->profile(),
+          [profile = browser_->GetProfile(),
            app_id = web_app::AppBrowserController::From(browser_)->app_id(),
            display = display::Screen::Get()->GetDisplayForNewWindows()](
               BrowserWindowInterface* browser) {
@@ -210,13 +211,13 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
   std::string app_name_;
 
   // If set, is used as the reference browser for GetLastActiveWindowState.
-  raw_ptr<const Browser> browser_;
+  const raw_ptr<Browser> browser_;
 };
 
 }  // namespace
 
 WindowSizer::WindowSizer(std::unique_ptr<StateProvider> state_provider,
-                         const Browser* browser)
+                         Browser* browser)
     : state_provider_(std::move(state_provider)), browser_(browser) {}
 
 WindowSizer::~WindowSizer() = default;
@@ -224,7 +225,7 @@ WindowSizer::~WindowSizer() = default;
 // static
 bool WindowSizer::GetBrowserWindowBoundsAndShowState(
     const gfx::Rect& specified_bounds,
-    const Browser* browser,
+    Browser* browser,
     gfx::Rect* window_bounds,
     ui::mojom::WindowShowState* show_state) {
   return GetBrowserWindowBoundsAndShowState(
@@ -238,7 +239,7 @@ bool WindowSizer::GetBrowserWindowBoundsAndShowState(
 bool WindowSizer::GetBrowserWindowBoundsAndShowState(
     std::unique_ptr<StateProvider> state_provider,
     const gfx::Rect& specified_bounds,
-    const Browser* browser,
+    Browser* browser,
     gfx::Rect* bounds,
     ui::mojom::WindowShowState* show_state) {
   DCHECK(bounds);
@@ -331,7 +332,7 @@ bool WindowSizer::GetSavedWindowBounds(
   return true;
 }
 
-bool WindowSizer::GetSavedWindowBounds(const Browser* browser,
+bool WindowSizer::GetSavedWindowBounds(Browser* browser,
                                        gfx::Rect* bounds,
                                        ui::mojom::WindowShowState* show_state) {
   WindowSizer sizer(std::make_unique<DefaultStateProvider>(browser), browser);
@@ -475,7 +476,7 @@ void WindowSizer::AdjustBoundsToBeVisibleOnDisplay(
 
 // static
 ui::mojom::WindowShowState WindowSizer::GetWindowDefaultShowState(
-    const Browser* browser) {
+    Browser* browser) {
   if (!browser) {
     return ui::mojom::WindowShowState::kDefault;
   }
@@ -495,7 +496,7 @@ ui::mojom::WindowShowState WindowSizer::GetWindowDefaultShowState(
     return ui::mojom::WindowShowState::kMaximized;
   }
 
-  return browser->initial_show_state();
+  return BrowserInitState::From(browser)->initial_show_state();
 }
 
 // static

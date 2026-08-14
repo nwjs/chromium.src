@@ -15,15 +15,13 @@
 <translation id="1131805035311359397">Lai pārbaudītu, vai jūsu paroles ir aizsargātas pret datu pārkāpumiem un citām drošības problēmām, <ph name="BEGIN_LINK" />pierakstieties pārlūkā Chromium<ph name="END_LINK" />.</translation>
 <translation id="1153368717515616349">Noklikšķiniet uz Chromium izvēlnes</translation>
 <translation id="1157985233335035034">Nesen izmantotās valodas</translation>
-<translation id="1171831736360285680"><ph name="PARTNER_NAME" /> pievienoja paplašinājumu, kas var ietekmēt pārlūka Chromium darbību.
-
-<ph name="EXTENSION_NAME" /></translation>
 <translation id="1184145431117212167">Instalēšana neizdevās, jo jūsu izmantotā Windows versija netiek atbalstīta.</translation>
 <translation id="1185134272377778587">Par Chromium</translation>
 <translation id="1186645291482254714">Brīdinājumu saņemšana par cenu izsekošanu, izmantojot pārlūku Chromium savā tālrunī</translation>
 <translation id="1203500561924088507">Pateicamies, ka veicāt instalēšanu. Pirms <ph name="BUNDLE_NAME" /> izmantošanas ir jārestartē pārlūkprogramma.</translation>
 <translation id="1232234696885483911">Kad atvērsiet attēlu meklēšanu, serverim tiks automātiski nosūtīts lapas nosaukums, vietrādis URL un saturs, tostarp PDF faili. <ph name="LEARN_MORE" /></translation>
 <translation id="123265588161106468">Kamēr esat pierakstījies, pārlūkā Chromium varat izmantot savas paroles un citu saturu no Google konta. Lai to mainītu, pārejiet uz sadaļu “Jūsu konts pārlūkā Chromium”.</translation>
+<translation id="1244381985120794049">Rādīt Gemini pārlūkā Chromium Mac izvēļņu joslā</translation>
 <translation id="1257483544893909270">Lai pakalpojumā Gemini pārlūkā Chromium atlasītu ekrāna daļu, izmantojiet īsinājumtaustiņu.</translation>
 <translation id="1262876892872089030">Kamēr šī cilne bija neaktīva, tika atbrīvota atmiņa pārlūka Chromium ātrākai darbībai. Varat izvēlēties vienmēr saglabāt šo vietni aktīvu.</translation>
 <translation id="1265577313130862557">Pārlūkā Chromium šī lejupielāde tika bloķēta, jo fails ir bīstams.</translation>
@@ -35,14 +33,12 @@
 <translation id="1324107359134968521">Pārlūkam Chromium ir nepieciešama Bluetooth piekļuve, lai atrastu Bluetooth ierīces. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="1329040302064168406">Pierakstieties pārlūkā Chromium savā tālrunī</translation>
 <translation id="1330562121671411446">Valodas noteikšana</translation>
-<translation id="1330742950061766891">Izmantojiet Chromium ieteicamos pārlūka iestatījumus</translation>
 <translation id="1342274909142618978">Dzēst arī datus no pārlūka Chromium (<ph name="URL" />)</translation>
 <translation id="1345251407431278948">Piesprausts! Varat atkal piekļūt funkcijai Attēlu meklēšana, izmantojot jauno pogu rīkjoslā.</translation>
 <translation id="1356661055722410047">Jaunums! Varat tulkot gan ekrānā redzamo tekstu, gan attēlus.</translation>
 <translation id="1383876407941801731">Meklēt</translation>
 <translation id="1388276868779258475">Izmantojiet lietotni Chromium, lai turpinātu pārlūkošanu, atrodoties ceļā</translation>
 <translation id="1397530502368084401">&amp;Pārvaldīt Chromium profilus</translation>
-<translation id="1404026649028693342">Vienmēr rādīt MI režīmu</translation>
 <translation id="141901961143729572">Dalieties domās!</translation>
 <translation id="1465192221147974788">Lai kopīgotu logu, sistēmas iestatījumos atļaujiet ekrāna ierakstīšanu pārlūkā Chromium.</translation>
 <translation id="1478370723027452770">Saņemt palīdzību saistībā ar Chrome for Testing</translation>
@@ -51,7 +47,6 @@
 <translation id="1524282610922162960">Chromium cilnes kopīgošana</translation>
 <translation id="154404805518949443">Pierakstīties pārlūkā Chromium</translation>
 <translation id="1547469039832541117">Tiek pabeigts atzīmētais uzdevums.</translation>
-<translation id="1553461853655228091">Pārlūkam Chromium ir nepieciešama atļauja piekļūt jūsu kamerai, lai varētu izveidot jūsu apkārtnes 3D karti</translation>
 <translation id="1562320819937089394">Piespraust pārlūku Chromium</translation>
 <translation id="1574377791422810894">Chromium drošības rīki</translation>
 <translation id="1594928384848033697">Chromium pieprasa dzēst jūsu paroļu pārvaldnieka datus. Lai to atļautu, ierakstiet savu Windows paroli.</translation>
@@ -59,7 +54,7 @@
 <translation id="1623563412065267963">Izmantojiet pārlūku Chromium savā tālrunī, lai pilnvērtīgi izmantotu Google piedāvātās iespējas</translation>
 <translation id="1625909126243026060">Pārskatiet svarīgākās konfidencialitātes un drošības vadīklas pārlūkā Chromium.</translation>
 <translation id="1640672724030957280">Notiek lejupielāde...</translation>
-<translation id="1680687534629375545">Jautāt attēlu meklēšanas funkcijai par šo lapu</translation>
+<translation id="1665602916345474427">Veikta pierakstīšanās kā lietotājam <ph name="USER_NAME" /> (<ph name="USER_EMAIL" />), un jums ir abonements. Atvērt konta izvēlni</translation>
 <translation id="1708414395296835197">Varat izmantot pārlūku Chromium ikreiz, kad noklikšķināt uz saitēm ziņojumos, dokumentos un citās lietotnēs. Tas arī tiks piesprausts uzdevumu joslai.</translation>
 <translation id="1709772298389099340">Nodrošina augstas privilēģijas pārlūkam <ph name="BROWSER_NAME" />.</translation>
 <translation id="1722488837206509557">Tādējādi varēsiet atlasīt kādu no pieejamām ierīcēm un parādīt tajā saturu.</translation>
@@ -75,7 +70,6 @@
 <translation id="1820835682567584003">Chromium mēģina <ph name="AUTHENTICATION_PURPOSE" /></translation>
 <translation id="183031085822326697">Kad nākamreiz savā ierīcē (<ph name="DEVICE_TYPE" />) atvērsiet pārlūku Chromium, tiks parādīts aicinājums izmantot Google paroļu pārvaldnieku.</translation>
 <translation id="1838374766361614909">Notīrīt meklēšanas vaicājumu</translation>
-<translation id="1846849503013521481">Lai aizsargātu jūsu darbu pārlūkā Chromium, jūsu organizācija varēs skatīt vai pārvaldīt noteiktu informāciju.</translation>
 <translation id="18552579716432081">Lai dzēstu pārlūkošanas datus tikai no šīs ierīces un paturētu tos Google kontā, <ph name="BEGIN_LINK" />izrakstieties no Chromium<ph name="END_LINK" />.</translation>
 <translation id="1857749206890802997">Lejupielādējiet pārlūku Chromium savā tālrunī, lai atvērtu vai izveidotu jaunas ciļņu grupas, atrodoties ceļā.</translation>
 <translation id="185970820835152459">Varat pārvaldīt Google kontus, kuros esat pierakstījies. Jūsu Google konti tiek izmantoti pārlūkā Chromium, Play veikalā, pakalpojumā Gmail un citur. Ja vēlaties pievienot kontu kādam citam, piemēram, ģimenes loceklim, pievienojiet jaunu personu savai <ph name="DEVICE_TYPE" /> ierīcei. <ph name="LINK_BEGIN" />Uzziniet vairāk<ph name="LINK_END" />.</translation>
@@ -83,7 +77,6 @@
 <translation id="1880677175115548835">Atlasīt tekstu</translation>
 <translation id="1881322772814446296">Jūs pierakstāties ar pārvaldītu kontu, kura administrators var kontrolēt jūsu profilu. Jūsu Chromium dati, piemēram, lietotnes, grāmatzīmes, vēsture, paroles un citi iestatījumi, tiks neatgriezeniski saistīti ar lietotāju <ph name="USER_NAME" />. Varēsiet dzēst šos datus, izmantojot Google kontu informācijas paneli, taču nevarēsiet šos datus saistīt ar citu kontu. Ja vēlaties, varat izveidot jaunu profilu, lai atsevišķi glabātu Chromium datus. <ph name="LEARN_MORE" /></translation>
 <translation id="1896836275755235458">Pārlūkā Chromium tiek taupīta akumulatora enerģija, ierobežojot darbības fonā un vizuālos efektus, piemēram, vienmērīgu ritināšanu un video kadru nomaiņas ātrumu. Varat <ph name="BEGIN_LINK" />uzzināt vairāk par enerģijas taupīšanas režīmu<ph name="END_LINK" />.</translation>
-<translation id="1898804291554630487">Jautājiet par šo lapu</translation>
 <translation id="1900969832270057921">Chromium atjauninātāja pakalpojums</translation>
 <translation id="1911763535808217981">Ja izslēgsiet šo iestatījumu, varēsiet pierakstīties Google vietnēs, piemēram, pakalpojumā Gmail, nepierakstoties pārlūkā Chromium.</translation>
 <translation id="1929939181775079593">Chromium nereaģē. Vai restartēt to tūlīt?</translation>
@@ -101,7 +94,6 @@
 <translation id="2049376729098081731">Izvēlieties, vai iekļaut Chromium vēsturi, lai iegūtu personalizētākas iespējas Google pakalpojumos.</translation>
 <translation id="2050698962207788467">Iebūvēts pārlūkā Chromium, lai palīdzētu jums izveidot, saglabāt un automātiski aizpildīt drošas paroles. Pievienojiet saīsni ērtai piekļuvei.</translation>
 <translation id="2064856577282482477">Jaunas cilnes lapā noklikšķiniet uz pogas Pielāgot Chromium, lai piešķirtu pārlūkam Chromium jaunu izskatu.</translation>
-<translation id="2066690553719545730">Vienmēr rādīt MI režīmu</translation>
 <translation id="2086476982681781442">Pārlūkā Chromium šī lejupielāde tika bloķēta, jo fails ir maldinošs un var veikt neparedzētas izmaiņas jūsu ierīcē.</translation>
 <translation id="208726765006323911">Kad nākamreiz iOS ierīcē atvērsiet pārlūku Chromium, tiks parādīts aicinājums izmēģināt funkciju <ph name="FEATURE_NAME" />.</translation>
 <translation id="2099452623287920103">Jūsu paroles un citi Chromium dati, ko saglabājāt savā Google kontā, tiks noņemti no šīs ierīces. Lai atkal izmantotu šos datus pārlūkā Chromium, atkārtoti pierakstieties.</translation>
@@ -128,7 +120,6 @@
 <translation id="2287771843518581140">{NUM_TABS,plural, =1{Chromium iesaka pārtraukt tās cilnes darbību, kas palēnina pārlūka darbību}zero{Chromium iesaka pārtraukt to ciļņu darbību, kas palēnina pārlūka darbību}one{Chromium iesaka pārtraukt to ciļņu darbību, kas palēnina pārlūka darbību}other{Chromium iesaka pārtraukt to ciļņu darbību, kas palēnina pārlūka darbību}}</translation>
 <translation id="2307973900865360088">Paturēt dokā</translation>
 <translation id="2313870531055795960">Vietrāži URL tiek pārbaudīti, salīdzinot ar nedrošo vietņu sarakstu, kas ir saglabāts pārlūkprogrammā Chromium. Ja kādā vietnē tiek mēģināts nozagt jūsu paroli vai ja jūs lejupielādējat kaitīgu failu, Chromium var arī nosūtīt attiecīgos URL, tostarp lapas satura fragmentus, uz funkciju Droša pārlūkošana.</translation>
-<translation id="2343156876103232566">Lai nosūtītu numuru no šejienes uz savu Android tālruni, abās ierīcēs pierakstieties pārlūkā Chromium.</translation>
 <translation id="2356070529366658676">Vaicāt</translation>
 <translation id="2359808026110333948">Turpināt</translation>
 <translation id="2361918034042471035">Paplašinājums “<ph name="EXTENSION_NAME" />” pieprasa, lai jūs pierakstītos pārlūkā Chromium</translation>
@@ -215,9 +206,6 @@
 <translation id="3155163173539279776">Restartēt Chromium</translation>
 <translation id="3161522574479303604">Visas valodas</translation>
 <translation id="3179665906251668410">Atvērt saiti inko&amp;gnito režīma logā</translation>
-<translation id="3183357154200327217">Cita datorā instalēta programma pievienoja motīvu, kas var ietekmēt pārlūka Chromium darbību.
-
-<ph name="EXTENSION_NAME" /></translation>
 <translation id="3185330573522821672">Pielāgojiet savu jauno Chromium profilu.</translation>
 <translation id="3189205223539394158">Varat turpināt tērzēšanu MI režīmā, nepārslēdzot cilnes. Lai sāktu darbu, pierakstieties pārlūkā Chromium. Jūs arī varēsiet piekļūt parolēm un citiem datiem visās savās ierīcēs.</translation>
 <translation id="3224847870593914902">Lai noņemtu savu Google kontu no pārlūka Chromium, lapā “Iestatījumi” izrakstieties no pārlūka Chromium.</translation>
@@ -233,7 +221,6 @@
 <translation id="3316771292331273802">Aizverot visus Chromium logus, automātiski izrakstīsieties no lielākās daļas vietņu, bet ne no Google konta, ja esat pierakstījies pārlūkā Chromium. Lai atļautu vietnēm jūs atcerēties, <ph name="SETTINGS_LINK" />.</translation>
 <translation id="3352986031709923790">meklēšanas apgabala augšējais labais stūris: <ph name="RIGHT" />% pa labi, <ph name="TOP" />% augšdaļā</translation>
 <translation id="3366305173356742781">Chromium dati jūsu kontā</translation>
-<translation id="3369405342922656244">Meklēt šajā lapā, izmantojot attēlu meklēšanas funkciju</translation>
 <translation id="3375770072980084583">Izmantojiet savas paroles pārlūkā Chromium savā tālrunī</translation>
 <translation id="3387527074123400161">Chromium OS</translation>
 <translation id="3406848076815591792">Vai pāriet uz esošo Chromium profilu?</translation>
@@ -253,7 +240,6 @@
 <translation id="3600428265489994557">Pierakstīšanās pārlūkā Chromium</translation>
 <translation id="3639635944603682591">Šī lietotāja pārlūkošanas dati tiks dzēsti no šīs ierīces. Lai atkoptu datus, pierakstieties pārlūkprogrammā Chromium kā lietotājs <ph name="USER_EMAIL" />.</translation>
 <translation id="364817392622123556">{COUNT,plural, =0{Pieejams Chromium atjauninājums, un tas tiks lietots, tiklīdz restartēsiet pārlūku.}=1{Pieejams Chromium atjauninājums, un tas tiks lietots, tiklīdz restartēsiet pārlūku. Jūsu inkognito režīma logs netiks atkārtoti atvērts.}zero{Pieejams Chromium atjauninājums, un tas tiks lietots, tiklīdz restartēsiet pārlūku. # jūsu inkognito režīma logi netiks atkārtoti atvērti.}one{Pieejams Chromium atjauninājums, un tas tiks lietots, tiklīdz restartēsiet pārlūku. # jūsu inkognito režīma logs netiks atkārtoti atvērts.}other{Pieejams Chromium atjauninājums, un tas tiks lietots, tiklīdz restartēsiet pārlūku. # jūsu inkognito režīma logi netiks atkārtoti atvērti.}}</translation>
-<translation id="3651803019964686660">Lai nosūtītu numuru no vietnes <ph name="ORIGIN" /> uz savu Android tālruni, abās ierīcēs pierakstieties pārlūkā Chromium.</translation>
 <translation id="3667616615096815454">Nevar instalēt. Lietojumprogramma serverim nav zināma.</translation>
 <translation id="3675854891107786059">Izmantot jūsu <ph name="BEGIN_LINK" />ieejas frāzi<ph name="END_LINK" /> visu Chromium datu šifrēšanai jūsu Google kontā. Maksājumu veidi un adreses no pakalpojuma Google Pay netiks šifrētas. Pārlūkā Chromium saglabātā pārlūkošanas vēsture netiks sinhronizēta.</translation>
 <translation id="370962675267501463">{COUNT,plural, =0{Lai lietotu šo atjauninājumu, administrators lūdz restartēt pārlūku Chromium.}=1{Lai lietotu šo atjauninājumu, administrators lūdz restartēt pārlūku Chromium. Jūsu inkognito režīma logs netiks atkārtoti atvērts.}zero{Lai lietotu šo atjauninājumu, administrators lūdz restartēt pārlūku Chromium. # jūsu inkognito režīma logi netiks atkārtoti atvērti.}one{Lai lietotu šo atjauninājumu, administrators lūdz restartēt pārlūku Chromium. # jūsu inkognito režīma logs netiks atkārtoti atvērts.}other{Lai lietotu šo atjauninājumu, administrators lūdz restartēt pārlūku Chromium. # jūsu inkognito režīma logi netiks atkārtoti atvērti.}}</translation>
@@ -270,6 +256,7 @@
 
           **Jautājumu ieteikšana:** ģenerējiet sarakstu ar aizzīmēm ar 3–5 jautājumiem, kas liek aizdomāties un kurus lietotājs varētu uzdot, lai labāk izprastu ekrānuzņēmumu. Šajos jautājumos ir jābūt vismaz vienam jautājumam, kas ir saistīts ar vizuālu objektu, tā dizainu vai izvietojumu.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> — Chromium</translation>
+<translation id="387514319934708384">Pārlūkam Chromium ir nepieciešama atļauja izmantot lokālo tīklu šajā vietnē.</translation>
 <translation id="3885770153807205175">Valodas atlasītājs</translation>
 <translation id="388648406173476553">Pielāgojiet un kontrolējiet pārlūkprogrammu Chromium. Ir nepieciešama jūsu uzmanība. Noklikšķiniet, lai skatītu plašāku informāciju.</translation>
 <translation id="3889543394854987837">Noklikšķiniet uz sava vārda, lai atvērtu Chromium un sāktu pārlūkošanu.</translation>
@@ -295,9 +282,6 @@
 <translation id="4036079820698952681">Palīdziet uzlabot pārlūku Chromium, ziņojot par <ph name="BEGIN_LINK" />pašreizējiem iestatījumiem<ph name="END_LINK" />.</translation>
 <translation id="4050175100176540509">Jaunākajā versijā ir pieejami svarīgi drošības uzlabojumi un jaunas funkcijas.</translation>
 <translation id="4055805654398742145">P&amp;aroļu pārvaldnieks</translation>
-<translation id="4061696872429826774">Cita datorā instalēta programma pievienoja paplašinājumu, kas var ietekmēt pārlūka Chromium darbību.
-
-<ph name="EXTENSION_NAME" /></translation>
 <translation id="4095980151185649725">{COUNT,plural, =1{Jūsu organizācija automātiski aizver pārlūku Chromium, ja tas nav izmantots vienu minūti. Pārlūkošanas dati tiek izdzēsti. Tie var ietvert vēsturi, automātiskās aizpildes datus un lejupielādes.}zero{Jūsu organizācija automātiski aizver pārlūku Chromium, ja tas nav izmantots # minūtes. Pārlūkošanas dati tiek izdzēsti. Tie var ietvert vēsturi, automātiskās aizpildes datus un lejupielādes.}one{Jūsu organizācija automātiski aizver pārlūku Chromium, ja tas nav izmantots # minūti. Pārlūkošanas dati tiek izdzēsti. Tie var ietvert vēsturi, automātiskās aizpildes datus un lejupielādes.}other{Jūsu organizācija automātiski aizver pārlūku Chromium, ja tas nav izmantots # minūtes. Pārlūkošanas dati tiek izdzēsti. Tie var ietvert vēsturi, automātiskās aizpildes datus un lejupielādes.}}</translation>
 <translation id="4118474109249235144">Chromium inkognito režīms</translation>
 <translation id="4122186850977583290">Pāriet uz lapu “Par Chromium”</translation>
@@ -351,6 +335,7 @@
 <translation id="4625064703209785397">Paātrina vietņu darbību, izmantojot Chromium programmu V8, taču nedaudz samazina Chromium izturību pret uzbrukumiem.</translation>
 <translation id="4665829708273112819">Brīdinājums! Chromium nevar novērst to, ka paplašinājumi ieraksta jūsu pārlūkošanas vēsturi. Lai atspējotu šo paplašinājumu inkognito režīmā, noņemiet šīs opcijas atlasi.</translation>
 <translation id="4673151026126227699">Ja kopīgojat arī Chromium lietojuma pārskatus, šajos pārskatos tiek iekļauti jūsu apmeklētie vietrāži URL.</translation>
+<translation id="4673710618874938871">Veikta pierakstīšanās kā lietotājam <ph name="USER_NAME" />, un jums ir abonements. Atvērt konta izvēlni</translation>
 <translation id="4677944499843243528">Šķiet, ka profils tiek izmantots citā Chromium procesā (<ph name="PROCESS_ID" />) citā datorā (<ph name="HOST_NAME" />). Lai profils netiktu bojāts, pārlūkā Chromium tas ir bloķēts. Ja esat pārliecināts, ka šis profils netiek izmantots citos procesos, varat to atbloķēt un restartēt pārlūku Chromium.</translation>
 <translation id="4680828127924988555">Atcelt instalēšanu</translation>
 <translation id="469259825538636168">Noteikti jūsu Chromium dati vēl nav saglabāti jūsu Google kontā. Pirms izrakstāties, uzgaidiet dažas minūtes. Ja izrakstīsieties tūlīt, šie dati tiks dzēsti.</translation>
@@ -384,7 +369,6 @@
 <translation id="5231355151045086930">Izrakstīšanās no Chromium</translation>
 <translation id="5234764350956374838">Nerādīt</translation>
 <translation id="5249261924633168472">Atvērt saiti inko&amp;gnito režīma logā</translation>
-<translation id="5254739261293693943">Uzdot jautājumus par šo videoklipu</translation>
 <translation id="5276305953263010518">Iegūstiet lietotni Chromium, lai saglabātu paroles, atrodoties ceļā</translation>
 <translation id="5277894862589591112">Lai ieviestu veiktās izmaiņas, atkārtoti palaidiet pārlūku Chromium.</translation>
 <translation id="5286907366254680517">Noteiktā valoda</translation>
@@ -410,7 +394,6 @@
 <translation id="5460618461609401056">{NUM_TABS,plural, =1{Chromium iesaka pārtraukt tās cilnes darbību, kas palēnina pārlūka darbību}zero{Chromium iesaka pārtraukt to ciļņu darbību, kas palēnina pārlūka darbību}one{Chromium iesaka pārtraukt to ciļņu darbību, kas palēnina pārlūka darbību}other{Chromium iesaka pārtraukt to ciļņu darbību, kas palēnina pārlūka darbību}}</translation>
 <translation id="5473971139929175403">Iespējams, pārlūks Chromium nedarbosies pareizi, jo tas vairs netiek atbalstīts šajā Linux izdevumā.</translation>
 <translation id="5475924890392386523">Pārlūkā Chromium šī lejupielāde tika bloķēta, jo šis fails var kaitēt jūsu personīgajiem un sociālo tīklu kontiem</translation>
-<translation id="5480860683791598150">Pārlūkam Chromium ir nepieciešama piekļuve jūsu atrašanās vietas datiem, lai varētu tos kopīgot ar šo vietni.</translation>
 <translation id="549669000822060376">Lūdzu, uzgaidiet, kamēr Chromium instalē jaunākos sistēmas atjauninājumus.</translation>
 <translation id="5496810170689441661">Chromium mēģina rediģēt paroles. Lai to atļautu, ierakstiet savu Windows paroli.</translation>
 <translation id="549975168243349205">Izmantojot Chromium, varat turpināt strādāt ar savām iecienītākajām lietotnēm, piemēram, Google disku un YouTube, atrodoties ceļā.</translation>
@@ -435,6 +418,7 @@ Ja šī lapa nedarbojas, kā paredzēts, mēģiniet atļaut optimizāciju.</tran
 <translation id="5768371961535086509">Pārlūkā Chromium neaktīvās cilnēs tiek atbrīvota atmiņa. Tādējādi aktīvajām cilnēm un citām lietotnēm tiek nodrošināts vairāk datora resursu un tiek uzlabots Chromium darbības ātrums. Neaktīvās cilnes atkal tiek automātiski aktivizētas, kad tās atverat. Varat <ph name="BEGIN_LINK" />uzzināt vairāk par atmiņas taupīšanas režīmu<ph name="END_LINK" />.</translation>
 <translation id="5775198138441669627">Ja aizmirsāt ieejas frāzi vai vēlaties mainīt šo iestatījumu, varat <ph name="SETTINGS_LINK" /> Chromium datus savā kontā.</translation>
 <translation id="5800158606660203929">Pielāgojiet un kontrolējiet pārlūku Chromium. Iestatiet Chromium kā noklusējuma pārlūku.</translation>
+<translation id="5802618941556161431">Nevainojami sinhronizējiet savas paroles, grāmatzīmes un vēsturi visās ierīcēs, iestatot Chromium kā noklusējuma pārlūku.</translation>
 <translation id="5809516625706423866">Nevar izveidot savienojumu ar internetu. HTTP 401 — neatļauts. Lūdzu, pārbaudiet starpniekservera konfigurāciju.</translation>
 <translation id="5817952762723416573">Paātrina vietņu darbību, izmantojot Chromium programmu V8, bet nedaudz samazina Chromium izturību pret uzbrukumiem. Šis iestatījums ir izslēgts.</translation>
 <translation id="5821520528363214608">Lai izmantotu un saglabātu Chromium datus Google kontā, atjauniniet pārlūku Chromium.</translation>
@@ -452,7 +436,6 @@ Ja šī lapa nedarbojas, kā paredzēts, mēģiniet atļaut optimizāciju.</tran
 <translation id="5949225980829865667">Lai varētu izmantot šo grāmatzīmi un citus datus visās savās ierīcēs, pierakstieties pārlūkā Chromium.</translation>
 <translation id="5953657885167112863">Chromium personalizēšana</translation>
 <translation id="5960071705175224773">Jūsu iestatījumus mainīja nezināma lietotne</translation>
-<translation id="5968400720580217226">MI režīms</translation>
 <translation id="5977420883993828287">Piesprausta! Varat atkal piekļūt kontekstuālo uzdevumu funkcijai, izmantojot rīkjoslu.</translation>
 <translation id="5986585015444752010">{COUNT,plural, =1{Jūsu organizācija automātiski aizver pārlūku Chromium, ja tas nav izmantots vienu minūti.}zero{Jūsu organizācija automātiski aizver pārlūku Chromium, ja tas nav izmantots # minūtes.}one{Jūsu organizācija automātiski aizver pārlūku Chromium, ja tas nav izmantots # minūti.}other{Jūsu organizācija automātiski aizver pārlūku Chromium, ja tas nav izmantots # minūtes.}}</translation>
 <translation id="5987687638152509985">Lai sāktu sinhronizēšanu, atjauniniet Chromium.</translation>
@@ -477,12 +460,8 @@ Ja šī lapa nedarbojas, kā paredzēts, mēģiniet atļaut optimizāciju.</tran
 <translation id="6174920971222007286">Šis fails var būt bīstams.<ph name="LINE_BREAK" />Chromium var pārbaudīt šo lejupielādi, ja norādīsiet paroli. Informācija par failu tiek nosūtīta funkcijai “Google droša pārlūkošana”, taču faila saturs un parole paliek jūsu ierīcē.</translation>
 <translation id="6182736845697986886">Instalēšana neizdevās, jo radās atjauninājumu servera iekšēja kļūda.</translation>
 <translation id="6183079672144801177">Ierīcē <ph name="TARGET_DEVICE_NAME" /> pierakstieties pārlūkā Chromium un pēc tam vēlreiz mēģiniet veikt sūtīšanu.</translation>
-<translation id="6204922163963157461">Cita datorā instalēta programma pievienoja lietotni, kas var ietekmēt pārlūka Chromium darbību.
-
-<ph name="EXTENSION_NAME" /></translation>
 <translation id="6212496753309875659">Šim datoram jau ir jaunākā Chromium versija. Ja programmatūra nedarbojas, atinstalējiet pārlūku Chromium un mēģiniet vēlreiz.</translation>
 <translation id="6219195342503754812">{0,plural, =0{Pārlūks Chromium tūlīt tiks restartēts}=1{Pārlūks Chromium pēc 1 sekundes tiks restartēts}zero{Pārlūks Chromium pēc # sekundēm tiks restartēts}one{Pārlūks Chromium pēc # sekundes tiks restartēts}other{Pārlūks Chromium pēc # sekundēm tiks restartēts}}</translation>
-<translation id="6239161312595354541">Jautāt attēlu meklēšanas funkcijai par šo videoklipu</translation>
 <translation id="6241367896540709610">Pārlūkam Chromium ir nepieciešama atļauja piekļūt krātuvei, lai varētu lejupielādēt failus.</translation>
 <translation id="6245734527075554892">Vietrāži URL tiek pārbaudīti, salīdzinot ar nedrošo vietņu sarakstu, kas ir saglabāts pārlūkprogrammā Chromium.</translation>
 <translation id="6248213926982192922">Padarīt Chromium par noklusējuma pārlūku</translation>
@@ -573,14 +552,12 @@ Dažas funkcijas var nebūt pieejamas. Norādiet citu profila direktoriju vai iz
             • Tiks atiestatīti Chromium īsinājumtaustiņi.
             <ph name="LINE_BREAKS" />
             Grāmatzīmes, vēsture un saglabātās paroles netiks ietekmētas.</translation>
-<translation id="6934579572334859869">Jautāt attēlu meklēšanas funkcijai par šo attēlu</translation>
 <translation id="6948031725951063910">Ir sasniegts Chromium grāmatzīmju skaita ierobežojums (<ph name="BOOKMARK_LIMIT" />), tāpēc noteiktas jūsu grāmatzīmes vēl nav saglabātas jūsu Google kontā.
 
 Jaunas grāmatzīmes nevar saglabāt jūsu kontā, kamēr neizdzēsīsiet dažas no tām. Ja izrakstīsieties tūlīt, nesaglabātās grāmatzīmes tiks dzēstas.</translation>
 <translation id="6964305034639999644">Atvērt saiti inko&amp;gnito režīma logā</translation>
 <translation id="6965382102122355670">Labi</translation>
 <translation id="6985329841647292029">Chromium OS noteikumi</translation>
-<translation id="6990124437352146030">Pārlūkam Chromium ir nepieciešama atļauja piekļūt jūsu mikrofonam šajā vietnē.</translation>
 <translation id="7003299027384820442">Lai savā kontā (<ph name="ACCOUNT_EMAIL" />) izmantotu un saglabātu Chromium datus, ievadiet ieejas frāzi.</translation>
 <translation id="7011190694940573312">Instalēšana neizdevās, jo šī operētājsistēmas versija netiek atbalstīta.</translation>
 <translation id="7024536598735240744">Atpakošanas kļūda: <ph name="UNPACK_ERROR" />.</translation>
@@ -596,6 +573,7 @@ Jaunas grāmatzīmes nevar saglabāt jūsu kontā, kamēr neizdzēsīsiet dažas
 <translation id="7173822816570314652">Jūsu organizācija dzēš Chromium datus, ja šis pārlūks <ph name="TIMEOUT_DURATION" /> netiek izmantots. Tie var ietvert vēsturi, automātiskās aizpildes datus un lejupielādes.</translation>
 <translation id="718435575166326686">Pārlūkam Chromium ir nepieciešama atļauja izmantot kameru šajā vietnē.</translation>
 <translation id="7196312274710523067">Neizdevās palaist Chromium. Mēģiniet vēlreiz.</translation>
+<translation id="7204669035546236137">Atvērtajā ekrānā varat jautāt jebko Gemini pārlūkā Chromium</translation>
 <translation id="7213008767289637091">Paturiet pārlūku Chromium dokā, lai jebkurā laikā varētu tam ātri piekļūt.</translation>
 <translation id="7213407614656404070">Izmantojiet Chromium ikreiz, kad noklikšķināt uz saitēm ziņojumos, dokumentos un citās lietotnēs</translation>
 <translation id="7216228761061470870">Kad izmantojat attēlu meklēšanu, serverim tiek nosūtīts lapas nosaukums, URL un saturs, tostarp PDF faili.</translation>
@@ -615,6 +593,7 @@ Jaunas grāmatzīmes nevar saglabāt jūsu kontā, kamēr neizdzēsīsiet dažas
 <translation id="7368826207863345663">Lai saņemtu turpmākus Chromium atjauninājumus, nepieciešama operētājsistēma macOS 13 vai jaunāka versija. Šajā datorā tiek izmantota operētājsistēma macOS 12.</translation>
 <translation id="7376384068949534168">Pēdējā laikā šī vietne nav apmeklēta. Pārlūkā Chromium tika noņemtas šādas atļaujas: <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" />.</translation>
 <translation id="73786666777299047">Atveriet Chrome interneta veikalu</translation>
+<translation id="7394275517973019558">Rādīt Gemini pārlūkā Chromium sistēmas teknē</translation>
 <translation id="7407655596887111931">Tagad Chromium ir jūsu noklusējuma pārlūks.</translation>
 <translation id="7413153308467572558">Turpiniet darbu no vietas, kur to pārtraucāt: pārlūkā Chromium tiek atjaunotas jūsu cilnes ikreiz, kad to restartējat. Lai to izslēgtu, pārejiet uz lapu</translation>
 <translation id="7427879960656355200">Paroļu importēšana pārlūkā Chromium</translation>
@@ -623,7 +602,6 @@ Jaunas grāmatzīmes nevar saglabāt jūsu kontā, kamēr neizdzēsīsiet dažas
 3. Windows paziņojumā noklikšķiniet uz <ph name="BUTTON_3" />, lai piespraustu pārlūku Chromium uzdevumu joslai, tādējādi nodrošinot ātru piekļuvi.</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> — Chromium izstrādātāju versija</translation>
 <translation id="7450541714075000668">Teksts ir nokopēts</translation>
-<translation id="7451052299415159299">Pārlūkam Chromium ir nepieciešama atļauja piekļūt jūsu kamerai šajā vietnē.</translation>
 <translation id="7458892263350425044">Lai izmantotu mikrofonu, piešķiriet pārlūkam Chromium piekļuvi <ph name="BEGIN_LINK" />sistēmas iestatījumos<ph name="END_LINK" />.</translation>
 <translation id="7461356015007898716">Lai saņemtu turpmākus Chromium atjauninājumus, nepieciešama operētājsistēma Windows 10 vai jaunāka versija. Šajā datorā tiek izmantota operētājsistēma Windows 7.</translation>
 <translation id="7467949745582939695">Vai atkārtoti palaist Chromium?</translation>
@@ -650,6 +628,7 @@ Jaunas grāmatzīmes nevar saglabāt jūsu kontā, kamēr neizdzēsīsiet dažas
 <translation id="7745317241717453663">Veicot šo darbību, no šīs ierīces tiks dzēsti pārlūkošanas dati. Lai vēlāk izgūtu datus, pierakstieties pārlūkā Chromium kā <ph name="USER_EMAIL" />.</translation>
 <translation id="7747138024166251722">Instalētājam neizdevās izveidot pagaidu katalogu. Lūdzu, pārbaudiet, vai diskā pietiek vietas un vai ir atļauja instalēt programmatūru.</translation>
 <translation id="7750130090210923118">Atiestatīt Chromium noklusējuma motīvu</translation>
+<translation id="7752521946322750699">Lai aizsargātu jūsu darbu pārlūkā Chromium, jūsu organizācija varēs skatīt vai pārvaldīt noteiktu informāciju, kad būsiet pierakstījies pārlūkā Chromium.</translation>
 <translation id="7781047659465034537">Iestatiet Chromium kā noklusējuma pārlūku un piespraudiet to uzdevumu joslai</translation>
 <translation id="7786760609782648049">Pārlūka Chromium darbības paātrināšana</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> — Chromium Canary</translation>
@@ -664,7 +643,6 @@ Jaunas grāmatzīmes nevar saglabāt jūsu kontā, kamēr neizdzēsīsiet dažas
 <translation id="7872446069773932638">Notiek lejupielāde... Atlikušais laiks: <ph name="SECONDS" /> sekunde(-es).</translation>
 <translation id="7873537467422636035">Ja aizmirstat ieejas frāzi vai vēlaties mainīt šo iestatījumu, <ph name="BEGIN_LINK" />izdzēsiet Chromium datus savā kontā<ph name="END_LINK" />.</translation>
 <translation id="7874369989024033742">Ātri atveriet pakalpojumu Gemini pārlūkā Chromium, kad tas ir nepieciešams.</translation>
-<translation id="7877212753140190672">Jautāt par šo attēlu</translation>
 <translation id="7888981273428720788">Iestatīt Chromium kā noklusējuma pārlūku</translation>
 <translation id="7934340546140346950">Pārlūkā Chromium nedrošie savienojumi tiek automātiski jaunināti uz HTTPS, ja iespējams.</translation>
 <translation id="7937630085815544518">Operētājsistēmā Chromium iepriekš pierakstījāties kā lietotājs <ph name="USER_EMAIL_ADDRESS" />. Lai pierakstītos vēlreiz, lūdzu, izmantojiet to pašu kontu.</translation>
@@ -748,7 +726,6 @@ Jaunas grāmatzīmes nevar saglabāt jūsu kontā, kamēr neizdzēsīsiet dažas
 <translation id="8719993436687031146">Vai pierakstīties pārlūkā Chromium?</translation>
 <translation id="8747073452963259673">meklēšanas apgabala apakšējais kreisais stūris: <ph name="LEFT" />% pa kreisi, <ph name="BOTTOM" />% apakšdaļā</translation>
 <translation id="878572486461146056">Instalēšanas kļūda: administrators ir piemērojis grupas politiku, kas neļauj veikt instalēšanu: <ph name="INSTALL_ERROR" />.</translation>
-<translation id="8796602469536043152">Pārlūkam Chromium ir nepieciešama atļauja piekļūt jūsu kamerai un mikrofonam šajā vietnē.</translation>
 <translation id="8813277370772331957">Atgādināt vēlāk</translation>
 <translation id="8816416449795340678">Kopīgojiet šo dokumentu ar Gemini pārlūkā Chromium, lai iegūtu īsu kopsavilkumu un uzdotu papildu jautājumus.</translation>
 <translation id="8818550178040858407">Vai pierakstīties pārlūkā Chromium?</translation>

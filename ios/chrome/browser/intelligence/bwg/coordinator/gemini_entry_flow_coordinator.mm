@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/intelligence/bwg/coordinator/gemini_entry_flow_coordinator.h"
 
+#import "base/notreached.h"
+#import "components/signin/public/base/signin_metrics.h"
 #import "ios/chrome/browser/authentication/account_menu/coordinator/account_menu_coordinator.h"
 #import "ios/chrome/browser/authentication/account_menu/public/account_menu_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
@@ -12,6 +14,7 @@
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_availability.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -32,13 +35,33 @@ typedef NS_ENUM(NSInteger, IneligibilitySnackbarType) {
   kIneligibilitySnackbarTypePage,
 };
 
+namespace {
+
+// Returns the sign-in access point for a given Gemini entry point.
+signin_metrics::AccessPoint AccessPointFromGeminiEntryPoint(
+    gemini::EntryPoint entryPoint) {
+  switch (entryPoint) {
+    case gemini::EntryPoint::AppBar:
+      return signin_metrics::AccessPoint::kIosAppBar;
+    case gemini::EntryPoint::Toolbar:
+      return signin_metrics::AccessPoint::kIosGeminiButtonToolbar;
+    case gemini::EntryPoint::AIHubSignInSheet:
+      return signin_metrics::AccessPoint::kIosPageActionMenu;
+    case gemini::EntryPoint::ExternalAppStoreEvent:
+    case gemini::EntryPoint::AppSwitcherAISummarization:
+      return signin_metrics::AccessPoint::kDeepLinkDefault;
+    default:
+      NOTREACHED();
+  }
+}
+
+}  // namespace
+
 @implementation GeminiEntryFlowCoordinator {
   // The sign-in coordinator presented when the user is signed out.
   SigninCoordinator* _signinCoordinator;
   // The startup state for the Gemini session.
   GeminiStartupState* _startupState;
-  // The sign-in access point for metrics.
-  signin_metrics::AccessPoint _accessPoint;
   // Whether to show a snackbar on ineligible completion.
   BOOL _showSnackbarOnCompletion;
   // Called with the final result of the flow.
@@ -54,13 +77,11 @@ typedef NS_ENUM(NSInteger, IneligibilitySnackbarType) {
     initWithBaseViewController:(UIViewController*)baseViewController
                        browser:(Browser*)browser
                   startupState:(GeminiStartupState*)startupState
-                   accessPoint:(signin_metrics::AccessPoint)accessPoint
       showSnackbarOnCompletion:(BOOL)showSnackbarOnCompletion
                     completion:(GeminiEntryFlowCompletion)completion {
   self = [super initWithBaseViewController:baseViewController browser:browser];
   if (self) {
     _startupState = startupState;
-    _accessPoint = accessPoint;
     _showSnackbarOnCompletion = showSnackbarOnCompletion;
     _completion = [completion copy];
   }
@@ -110,9 +131,11 @@ typedef NS_ENUM(NSInteger, IneligibilitySnackbarType) {
   [self stopAccountMenu];
 
   // Re-check eligibility after the account switch.
-  GeminiService* geminiService =
-      GeminiServiceFactory::GetForProfile(self.browser->GetProfile());
-  if (geminiService && geminiService->IsProfileEligibleForGemini()) {
+  web::WebState* activeWebState =
+      self.browser->GetWebStateList()->GetActiveWebState();
+  gemini::GeminiAvailabilityResult availability = gemini::IsGeminiAvailable(
+      _startupState.entryPoint, self.browser->GetProfile(), activeWebState);
+  if (!availability.ineligibility_reasons.has_value()) {
     [self startGeminiIfPageEligible];
     return;
   }
@@ -124,13 +147,15 @@ typedef NS_ENUM(NSInteger, IneligibilitySnackbarType) {
 
 // Presents the sign-in sheet.
 - (void)presentSignIn {
+  signin_metrics::AccessPoint accessPoint =
+      AccessPointFromGeminiEntryPoint(_startupState.entryPoint);
   _signinCoordinator = [SigninCoordinator
       signinAndHistorySyncCoordinatorWithBaseViewController:
           self.baseViewController
                                                     browser:self.browser
                                                contextStyle:SigninContextStyle::
                                                                 kDefault
-                                                accessPoint:_accessPoint
+                                                accessPoint:accessPoint
                                                 promoAction:
                                                     signin_metrics::PromoAction::
                                                         PROMO_ACTION_NO_SIGNIN_PROMO
@@ -184,11 +209,13 @@ typedef NS_ENUM(NSInteger, IneligibilitySnackbarType) {
   // Trigger the workspace policy check if it hasn't started yet.
   geminiService->CheckGeminiEnterpriseEligibilityIfNeeded();
 
-  std::optional<gemini::IneligibilityReasons> result =
-      geminiService->GeminiIneligibilityForProfile();
+  web::WebState* activeWebState =
+      self.browser->GetWebStateList()->GetActiveWebState();
+  gemini::GeminiAvailabilityResult availability = gemini::IsGeminiAvailable(
+      _startupState.entryPoint, self.browser->GetProfile(), activeWebState);
 
   // Eligible — check page availability.
-  if (!result.has_value()) {
+  if (!availability.ineligibility_reasons.has_value()) {
     [self startGeminiIfPageEligible];
     return;
   }
@@ -197,14 +224,14 @@ typedef NS_ENUM(NSInteger, IneligibilitySnackbarType) {
   [self showSnackbarForIneligibilityType:kIneligibilitySnackbarTypeAccount];
 
   // Enterprise policy restriction.
-  if (result.value().chrome_enterprise) {
+  if (availability.ineligibility_reasons->chrome_enterprise) {
     [self finishWithResult:kGeminiEntryFlowResultAccountIneligibleByEnterprise];
     return;
   }
 
   // Gemini policy restriction (workspace) — present account menu
   // for switching accounts.
-  if (result.value().workspace) {
+  if (availability.ineligibility_reasons->workspace) {
     [self presentAccountMenu];
     return;
   }
@@ -244,8 +271,9 @@ typedef NS_ENUM(NSInteger, IneligibilitySnackbarType) {
     return;
   }
 
-  GeminiTabHelper* tabHelper = GeminiTabHelper::FromWebState(activeWebState);
-  if (!tabHelper || !tabHelper->IsGeminiAvailableForWebState()) {
+  if (!gemini::IsGeminiAvailable(_startupState.entryPoint,
+                                 self.browser->GetProfile(), activeWebState)
+           .enabled) {
     [self showSnackbarForIneligibilityType:kIneligibilitySnackbarTypePage];
     [self finishWithResult:kGeminiEntryFlowResultPageIneligible];
     return;

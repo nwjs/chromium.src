@@ -41,6 +41,10 @@ class ProfileIOS;
 class TemplateURLService;
 class WebStateList;
 
+namespace base {
+class UnguessableToken;
+}  // namespace base
+
 namespace contextual_search {
 class ContextualSearchSessionHandle;
 }  // namespace contextual_search
@@ -58,11 +62,11 @@ class ContextualSearchSessionHandle;
 
 // Mediator for the composebox composebox.
 @interface ComposeboxInputPlateMediator
-    : NSObject <ComposeboxOmniboxClientDelegate,
+    : NSObject <ComposeboxContextUploadObserver,
                 ComposeboxInputPlateMutator,
-                ComposeboxContextUploadObserver,
-                TextFieldViewContainingHeightDelegate,
                 ComposeboxInputStateManagerDelegate,
+                ComposeboxOmniboxClientDelegate,
+                TextFieldViewContainingHeightDelegate,
                 VoiceSearchDelegate>
 
 // The composebox input plate consumer.
@@ -70,6 +74,8 @@ class ContextualSearchSessionHandle;
 // The current real-time attachment selection.
 @property(nonatomic, readonly)
     ComposeboxAttachmentSelection* currentAttachmentSelection;
+// The current computed UI input state.
+@property(nonatomic, readonly) ComposeboxUIInputState* currentUIInputState;
 // The composebox URL loader.
 @property(nonatomic, weak) id<ComposeboxURLLoader> URLLoader;
 // The delegate for this mediator.
@@ -113,6 +119,12 @@ class ContextualSearchSessionHandle;
 // composebox mode and current number of attachments.
 - (NSUInteger)remainingNumberOfImagesAllowed;
 
+// Returns the asset IDs of all currently attached image items.
+- (NSArray<NSString*>*)attachedImageAssetIDs;
+
+// Removes the image item associated with the given `assetID`.
+- (void)removeImageWithAssetID:(NSString*)assetID;
+
 // Records that the plus menu opened with the given visible attachment buttons,
 // and maps dynamically injected Tools and Models to metrics.
 - (void)recordPlusMenuOpenedWithVisibleInternalButtons:
@@ -124,6 +136,10 @@ class ContextualSearchSessionHandle;
 // Unpacks and attaches all items within the selection wrapper.
 - (void)updateAttachments:(ComposeboxAttachmentSelection*)attachments;
 
+// Removes the shared tab with the given `serverToken`.
+- (void)removeSharedTabWithServerToken:
+    (const base::UnguessableToken&)serverToken;
+
 // Applies the focus parameters to initialize the session state.
 - (void)applyFocusParams:(ComposeboxFocusParams*)params;
 
@@ -131,7 +147,8 @@ class ContextualSearchSessionHandle;
 // session upload.
 - (void)processDriveFileWithIdentifier:(NSString*)identifier
                                   name:(NSString*)name
-                              mimeType:(NSString*)mimeType;
+                              mimeType:(NSString*)mimeType
+                                  icon:(UIImage*)icon;
 
 // Returns the associated IDs for all currently attached tabs.
 - (std::set<web::WebStateID>)allAttachedWebStateIDs;

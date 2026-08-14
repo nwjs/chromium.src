@@ -4,7 +4,6 @@
 
 #include <memory>
 
-#include "base/feature_list.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time_override.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
@@ -27,7 +26,6 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/content_settings/core/common/features.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
-#include "components/strings/grit/components_strings.h"
 #include "components/strings/grit/privacy_sandbox_strings.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
@@ -79,7 +77,6 @@ class MockCookieControlsContentView : public CookieControlsContentView {
   MOCK_METHOD(void, SetToggleIsOn, (bool), (override));
   MOCK_METHOD(void, SetToggleIcon, (const gfx::VectorIcon&), (override));
   MOCK_METHOD(void, SetCookiesLabel, (const std::u16string&), (override));
-  MOCK_METHOD(void, SetFeedbackSectionVisibility, (bool), (override));
   MOCK_METHOD(void, SetContentLabelsVisible, (bool), (override));
   MOCK_METHOD(void, SetToggleVisible, (bool), (override));
   MOCK_METHOD(void,
@@ -254,16 +251,7 @@ IN_PROC_BROWSER_TEST_F(CookieControlsBubbleViewControllerBrowserTest,
   OnStatusChanged();
 }
 
-class CookieControlsBubbleViewControllerPre3pcdBrowserTest
-    : public CookieControlsBubbleViewControllerBrowserTest {
- public:
-  CookieControlsBubbleViewControllerPre3pcdBrowserTest() {
-    feature_list_.InitAndEnableFeatureWithParameters(
-        content_settings::features::kUserBypassUI, {{"expiration", "30d"}});
-  }
-};
-
-IN_PROC_BROWSER_TEST_F(CookieControlsBubbleViewControllerPre3pcdBrowserTest,
+IN_PROC_BROWSER_TEST_F(CookieControlsBubbleViewControllerBrowserTest,
                        ThirdPartyCookiesBlocked) {
   EXPECT_CALL(*mock_bubble_view(),
               UpdateTitle(l10n_util::GetStringUTF16(
@@ -275,7 +263,6 @@ IN_PROC_BROWSER_TEST_F(CookieControlsBubbleViewControllerPre3pcdBrowserTest,
               IDS_COOKIE_CONTROLS_BUBBLE_SITE_NOT_WORKING_TITLE),
           l10n_util::GetStringUTF16(
               IDS_COOKIE_CONTROLS_BUBBLE_SITE_NOT_WORKING_DESCRIPTION)));
-  EXPECT_CALL(*mock_content_view(), SetFeedbackSectionVisibility(false));
   EXPECT_CALL(*mock_content_view(), SetToggleIsOn(false));
   EXPECT_CALL(*mock_content_view(),
               SetCookiesLabel(l10n_util::GetStringUTF16(
@@ -289,7 +276,7 @@ IN_PROC_BROWSER_TEST_F(CookieControlsBubbleViewControllerPre3pcdBrowserTest,
   OnStatusChanged();
 }
 
-IN_PROC_BROWSER_TEST_F(CookieControlsBubbleViewControllerPre3pcdBrowserTest,
+IN_PROC_BROWSER_TEST_F(CookieControlsBubbleViewControllerBrowserTest,
                        ThirdPartyCookiesAllowedPermanent) {
   EXPECT_CALL(*mock_bubble_view(),
               UpdateTitle(l10n_util::GetStringUTF16(
@@ -301,7 +288,6 @@ IN_PROC_BROWSER_TEST_F(CookieControlsBubbleViewControllerPre3pcdBrowserTest,
               IDS_TRACKING_PROTECTION_BUBBLE_PERMANENT_ALLOWED_TITLE),
           l10n_util::GetStringUTF16(
               IDS_TRACKING_PROTECTION_BUBBLE_PERMANENT_ALLOWED_DESCRIPTION)));
-  EXPECT_CALL(*mock_content_view(), SetFeedbackSectionVisibility(true));
   EXPECT_CALL(*mock_content_view(), SetToggleIsOn(true));
   EXPECT_CALL(*mock_content_view(),
               SetCookiesLabel(l10n_util::GetStringUTF16(
@@ -315,8 +301,8 @@ IN_PROC_BROWSER_TEST_F(CookieControlsBubbleViewControllerPre3pcdBrowserTest,
   OnStatusChanged();
 }
 
-IN_PROC_BROWSER_TEST_F(CookieControlsBubbleViewControllerPre3pcdBrowserTest,
-                       ThirdPartyCookiesAllowedTemporary) {
+IN_PROC_BROWSER_TEST_F(CookieControlsBubbleViewControllerBrowserTest,
+                       ThirdPartyCookiesAllowed) {
   EXPECT_CALL(*mock_bubble_view(),
               UpdateTitle(l10n_util::GetStringUTF16(
                   IDS_COOKIE_CONTROLS_BUBBLE_COOKIES_ALLOWED_TITLE)));
@@ -327,7 +313,6 @@ IN_PROC_BROWSER_TEST_F(CookieControlsBubbleViewControllerPre3pcdBrowserTest,
               IDS_TRACKING_PROTECTION_BUBBLE_PERMANENT_ALLOWED_TITLE),
           l10n_util::GetStringUTF16(
               IDS_TRACKING_PROTECTION_BUBBLE_PERMANENT_ALLOWED_DESCRIPTION)));
-  EXPECT_CALL(*mock_content_view(), SetFeedbackSectionVisibility(true));
   EXPECT_CALL(*mock_content_view(), SetToggleIsOn(true));
   EXPECT_CALL(*mock_content_view(),
               SetCookiesLabel(l10n_util::GetStringUTF16(

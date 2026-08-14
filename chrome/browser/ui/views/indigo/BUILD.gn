@@ -45,9 +45,10 @@ source_set("unit_tests") {
   deps = [
     ":impl",
     ":indigo",
+    "//base/test:test_support",
     "//chrome/browser/ui",
     "//chrome/browser/ui/views/controls",
-    "//chrome/test:test_support",
+    "//chrome/test/views",
     "//testing/gmock",
     "//testing/gtest",
     "//ui/events:test_support",

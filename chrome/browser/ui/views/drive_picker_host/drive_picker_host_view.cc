@@ -4,7 +4,6 @@
 
 #include "chrome/browser/ui/views/drive_picker_host/drive_picker_host_view.h"
 
-#include <algorithm>
 #include <memory>
 
 #include "chrome/browser/profiles/profile.h"
@@ -19,18 +18,18 @@
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "third_party/skia/include/core/SkColor.h"
-#include "ui/base/base_window.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/compositor/layer.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/gfx/geometry/size.h"
+#include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/layout/fill_layout.h"
-#include "ui/views/layout/layout_provider.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/window/dialog_delegate.h"
 
 DrivePickerHostView::DrivePickerHostView(
     Profile* profile,
@@ -89,6 +88,10 @@ gfx::Size DrivePickerHostView::CalculatePreferredSize(
       drive_picker_host::DrivePickerHostRequest::RequestType::kConsentDialog) {
     // Tight fit for the Google ConsentKit card
     size = gfx::Size(520, 580);
+  } else if (current_ui_type_ == drive_picker_host::DrivePickerHostRequest::
+                                     RequestType::kErrorDialog) {
+    // Small size for the error dialog
+    size = gfx::Size(512, 180);
   } else {
     // Standard size for the Google Drive Picker UI
     size = gfx::Size(830, 600);
@@ -99,6 +102,15 @@ gfx::Size DrivePickerHostView::CalculatePreferredSize(
 void DrivePickerHostView::OnTransitionToPicker() {
   current_ui_type_ =
       drive_picker_host::DrivePickerHostRequest::RequestType::kPickerUi;
+  PreferredSizeChanged();
+  if (GetWidget()) {
+    GetWidget()->CenterWindow(GetPreferredSize());
+  }
+}
+
+void DrivePickerHostView::OnTransitionToError() {
+  current_ui_type_ =
+      drive_picker_host::DrivePickerHostRequest::RequestType::kErrorDialog;
   PreferredSizeChanged();
   if (GetWidget()) {
     GetWidget()->CenterWindow(GetPreferredSize());
@@ -122,7 +134,7 @@ void DrivePickerHostView::AddedToWidget() {
       views::AsViewClass<views::WebView>(view_tracker_.view());
   if (web_view) {
     // Remove rounded corners to align with the Drive Picker's rectangular look.
-    web_view->holder()->SetCornerRadii(gfx::RoundedCornersF(0));
+    web_view->holder()->SetNativeViewCornerRadii(gfx::RoundedCornersF(0));
 
     // Also ensure this view's layer is rectangular.
     layer()->SetRoundedCornerRadius(gfx::RoundedCornersF(0));
@@ -209,6 +221,9 @@ content::WebContents* DrivePickerHostView::OpenURLFromTab(
   if (!browser_window_interface_) {
     return nullptr;
   }
+  if (!params.url.SchemeIsHTTPOrHTTPS()) {
+    return nullptr;
+  }
   content::OpenURLParams new_params(params);
   if (new_params.disposition == WindowOpenDisposition::CURRENT_TAB ||
       new_params.disposition == WindowOpenDisposition::NEW_FOREGROUND_TAB) {
@@ -227,6 +242,12 @@ content::WebContents* DrivePickerHostView::AddNewContents(
     bool user_gesture,
     bool* was_blocked) {
   if (!browser_window_interface_) {
+    if (was_blocked) {
+      *was_blocked = true;
+    }
+    return nullptr;
+  }
+  if (!target_url.SchemeIsHTTPOrHTTPS()) {
     if (was_blocked) {
       *was_blocked = true;
     }

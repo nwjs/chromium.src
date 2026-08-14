@@ -53,6 +53,7 @@
 #include "chrome/browser/ui/toasts/api/toast_id.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/waap/initial_webui_window_metrics_manager.h"
 #include "chrome/browser/ui/webui/whats_new/whats_new_util.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/chrome_version.h"
@@ -68,6 +69,7 @@
 #include "url/origin.h"
 
 #if BUILDFLAG(IS_LINUX)
+#include "base/nix/xdg_util.h"
 #include "ui/display/screen.h"
 #endif
 
@@ -301,10 +303,19 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(
   // |browser|. While we may not end up actually using |browser| (since it
   // could be a popup window), we can at least use the profile.
   if (!profile_ && browser) {
-    profile_ = browser->profile();
+    profile_ = browser->GetProfile();
   }
 
-  if (!browser || !browser->is_type_normal()) {
+#if BUILDFLAG(IS_LINUX)
+  std::string startup_id =
+      command_line_->GetSwitchValueASCII(base::nix::kXdgActivationTokenSwitch);
+  if (startup_id.empty()) {
+    startup_id = command_line_->GetSwitchValueASCII("desktop-startup-id");
+  }
+#endif
+
+  const bool create_new_browser = !browser || !browser->is_type_normal();
+  if (create_new_browser) {
     CHECK(profile_);
     // In some conditions a new browser object cannot be created. The most
     // common reason for not being able to create browser is having this call
@@ -322,15 +333,19 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(
     Browser::CreateParams params = Browser::CreateParams(profile_, false);
     params.creation_source = Browser::CreationSource::kStartupCreator;
 #if BUILDFLAG(IS_LINUX)
-    params.startup_id =
-        command_line_->GetSwitchValueASCII("desktop-startup-id");
+    params.startup_id = startup_id;
 #endif
     if (command_line_->HasSwitch(switches::kWindowName)) {
       params.user_title =
           command_line_->GetSwitchValueUTF8(switches::kWindowName);
     }
 
+    base::TimeTicks now = base::TimeTicks::Now();
     browser = Browser::Create(params);
+    if (auto* manager = InitialWebUIWindowMetricsManager::From(browser)) {
+      manager->SetWindowCreationInfo(
+          waap::NewWindowCreationSource::kBrowserInitiated, now);
+    }
   }
   CHECK(profile_);
 
@@ -442,6 +457,11 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(
     }
   }
 
+#if BUILDFLAG(IS_LINUX)
+  if (!create_new_browser && !startup_id.empty()) {
+    base::nix::SetActivationToken(startup_id);
+  }
+#endif
   browser->GetWindow()->Show();
 
   return browser;

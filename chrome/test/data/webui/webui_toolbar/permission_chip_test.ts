@@ -5,6 +5,7 @@
 import 'chrome://webui-toolbar.top-chrome/app.js';
 
 import type {DragEventSource} from 'chrome://resources/mojo/ui/base/dragdrop/mojom/drag_drop_types.mojom-webui.js';
+import type {MenuSourceType} from 'chrome://resources/mojo/ui/base/mojom/menu_source_type.mojom-webui.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
@@ -25,6 +26,8 @@ class TestToolbarUiHandler extends TestBrowserProxy implements
       'onLhsChipPointerEntered',
       'onLhsChipPointerExited',
       'onLhsChipDrag',
+      'movePinnedToolbarAction',
+      'movePinnedToolbarActionBy',
     ]);
   }
 
@@ -47,6 +50,10 @@ class TestToolbarUiHandler extends TestBrowserProxy implements
     return new Promise<never>(() => {});
   }
   invokePinnedToolbarAction() {}
+  movePinnedToolbarAction() {}
+  movePinnedToolbarActionBy() {}
+  moveExtensionAction(_extensionId: string, _targetIndex: number) {}
+  moveExtensionActionBy(_extensionId: string, _delta: number) {}
   onHomeButtonDropUrl() {}
   onHomeButtonDropFile() {}
   onToolbarDropFile() {}
@@ -63,6 +70,10 @@ class TestToolbarUiHandler extends TestBrowserProxy implements
     return new Promise<never>(() => {});
   }
   onAppMenuFocusChanged(_focused: boolean) {}
+  executeExtensionAction(_extensionId: string) {}
+  showExtensionContextMenu(_extensionId: string, _source: MenuSourceType) {}
+
+  onLocationBarFocusWithinChanged(_focusInside: boolean) {}
 
   onLhsChipMousePressed(id: LhsChipIdentifier) {
     this.methodCalled('onLhsChipMousePressed', id);
@@ -90,6 +101,14 @@ class TestToolbarUiHandler extends TestBrowserProxy implements
 
   onLhsChipDrag(id: LhsChipIdentifier, source: DragEventSource) {
     this.methodCalled('onLhsChipDrag', [id, source]);
+  }
+
+  adjustOmniboxTextForCopy(text: string, _selectionStart: number) {
+    return Promise.resolve({
+      adjustedText: text,
+      adjustedUrl: null,
+      pageTitle: null,
+    });
   }
 }
 
@@ -150,6 +169,25 @@ class TestToolbarBrowserProxy extends TestBrowserProxy implements BrowserProxy {
   }
   removeNavigationStateListener() {}
   removeFocusRequestListener() {}
+
+  onChipClicked(chip: LhsChipIdentifier, isPointerClick: boolean) {
+    this.toolbarUIHandler.onLhsChipClicked(chip, isPointerClick);
+  }
+  onChipPointerEntered(chip: LhsChipIdentifier) {
+    this.toolbarUIHandler.onLhsChipPointerEntered(chip);
+  }
+  onChipPointerExited(chip: LhsChipIdentifier) {
+    this.toolbarUIHandler.onLhsChipPointerExited(chip);
+  }
+  onChipMousePressed(chip: LhsChipIdentifier) {
+    this.toolbarUIHandler.onLhsChipMousePressed(chip);
+  }
+  onChipExpandAnimationEnded(chip: LhsChipIdentifier) {
+    this.toolbarUIHandler.onLhsChipExpandAnimationEnded(chip);
+  }
+  onChipCollapseAnimationEnded(chip: LhsChipIdentifier) {
+    this.toolbarUIHandler.onLhsChipCollapseAnimationEnded(chip);
+  }
 }
 
 suite('PermissionChipTest', function() {
@@ -180,6 +218,7 @@ suite('PermissionChipTest', function() {
 
     chip = document.createElement('permission-chip');
     chip.id = 'request-chip';
+    chip.delegate = browserProxy;
     document.body.appendChild(chip);
   });
 
@@ -190,15 +229,21 @@ suite('PermissionChipTest', function() {
     await microtasksFinished();
 
     const chipEl = chip.shadowRoot.querySelector<HTMLElement>('#chip');
-    assertFalse(!!chipEl);
+    assertTrue(!!chipEl);
+    const style = window.getComputedStyle(chipEl);
+    assertEquals('hidden', style.visibility);
+    assertEquals('0', style.opacity);
   });
 
   test('Render visible state', async function() {
+    chip.setAttribute('visible', '');
     chip.chipState = createBaseState();
     await microtasksFinished();
 
     const chipEl = chip.shadowRoot.querySelector<HTMLElement>('#chip');
     assertTrue(!!chipEl);
+    const style = window.getComputedStyle(chipEl);
+    assertEquals('visible', style.visibility);
     assertFalse(chipEl.hasAttribute('collapsed'));
 
     const iconEl = chip.shadowRoot.querySelector<HTMLElement>('#icon');

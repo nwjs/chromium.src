@@ -46,6 +46,8 @@ class RenderFrameHostAndroid : public base::SupportsUserData::Data {
 
   base::android::ScopedJavaLocalRef<jobject> GetMainFrame(JNIEnv* env);
 
+  bool IsOutermostMainFrame(JNIEnv* env) const;
+
   void GetCanonicalUrlForSharing(
       base::OnceCallback<void(const std::optional<GURL>&)> callback) const;
 

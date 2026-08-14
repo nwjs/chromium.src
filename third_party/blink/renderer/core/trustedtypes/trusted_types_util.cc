@@ -17,6 +17,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_sanitizer_config.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_set_html_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_set_html_unsafe_options.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_union_sanitizer_sanitizerconfig_sanitizerpresets.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_sethtmlunsafeoptions_trustedparseroptions.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_string_trustedhtml.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_string_trustedscript.h"
@@ -242,7 +243,7 @@ bool TrustedTypeFail(TrustedTypeViolationKind kind,
       strip = strlen(kGeneratorAnonymousPrefix);
     } else if (value.starts_with(kAsyncGeneratorAnonymousPrefix)) {
       strip = strlen(kAsyncGeneratorAnonymousPrefix);
-    };
+    }
   }
 
   // This issue_id is used to generate a link in the DevTools front-end from
@@ -250,10 +251,12 @@ bool TrustedTypeFail(TrustedTypeViolationKind kind,
   // ContentSecurityPolicy::ReportViolation via the call to
   // AllowTrustedTypeAssignmentFailure below.
   base::UnguessableToken issue_id = base::UnguessableToken::Create();
-  bool allow = execution_context->GetContentSecurityPolicy()
-                   ->AllowTrustedTypeAssignmentFailure(
-                       GetMessage(kind), strip ? value.substr(strip) : value,
-                       prefix, issue_id);
+  bool allow =
+      execution_context->GetContentSecurityPolicy()
+          ->AllowTrustedTypeAssignmentFailure(
+              GetMessage(kind),
+              strip ? value.substr(static_cast<string_size_t>(strip)) : value,
+              prefix, issue_id);
 
   // TODO(1087743): Add a console message for Trusted Type-related Function
   // constructor failures, to warn the developer of the outstanding issues
@@ -694,8 +697,9 @@ TrustedTypesCheckForParserOptions(FragmentParserOptions options,
 
       unsafe_options_for_policy->setSanitizer(sanitizer);
     }
-    result = default_policy->createParserOptions(unsafe_options_for_policy,
-                                                 exception_state);
+    result = default_policy->createParserOptions(
+        execution_context->GetIsolate(), unsafe_options_for_policy,
+        exception_state);
   }
 
   if (exception_state.HadException()) {

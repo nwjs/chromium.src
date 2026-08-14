@@ -9,7 +9,14 @@ static_library("eye_dropper") {
     "eye_dropper_view.cc",
     "eye_dropper_view.h",
     "eye_dropper_view_aura.cc",
-    "features.cc",
+    # NW: kAllowEyeDropperWGCScreenCapture is also defined in
+    # chrome/browser/ui/ui_features.cc (upstream duplicate; the BASE_FEATURE
+    # macro emits the same unmangled symbol from both namespaces). libnw.so's
+    # --whole-archive solink pulls in both copies and lld errors on the
+    # duplicate. Drop this copy here; eye_dropper_view.cc's reference resolves
+    # to the ui_features.o definition. Upstream links chrome as an executable
+    # so the .a member is never force-loaded.
+    # "features.cc",
     "features.h",
   ]
 

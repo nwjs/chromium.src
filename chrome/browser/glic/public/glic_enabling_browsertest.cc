@@ -73,7 +73,7 @@ class GlicEnablingTest : public InProcessBrowserTest {
         {});
   }
 
-  Profile* profile() { return browser()->profile(); }
+  Profile* profile() { return browser()->GetProfile(); }
   ProfileManager* profile_manager() {
     return g_browser_process->profile_manager();
   }
@@ -423,7 +423,7 @@ class GlicEnablingTieredRolloutV2Test : public GlicEnablingTest {
   ~GlicEnablingTieredRolloutV2Test() override = default;
 
   void SetUserTier(int32_t tier) {
-    browser()->profile()->GetPrefs()->SetInteger(
+    browser()->GetProfile()->GetPrefs()->SetInteger(
         subscription_eligibility::prefs::kAiSubscriptionTier, tier);
   }
 
@@ -557,9 +557,8 @@ class GlicEnablingSystemRequirementsTest
 
 IN_PROC_BROWSER_TEST_P(GlicEnablingSystemRequirementsTest,
                        IsSystemRequirementMet) {
-  GlicGlobalEnabling::Delegate delegate;
   EXPECT_EQ(GetParam().expected_result,
-            GlicGlobalEnabling(delegate).IsSystemRequirementMet());
+            GlicGlobalEnabling().IsSystemRequirementMet());
 }
 
 INSTANTIATE_TEST_SUITE_P(

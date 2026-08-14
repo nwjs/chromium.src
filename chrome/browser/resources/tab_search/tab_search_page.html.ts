@@ -15,7 +15,10 @@ export function getHtml(this: TabSearchPageElement) {
 <div id="tabSearchPage">
   <div id="searchField" @keydown="${this.onSearchKeydown_}"
       clear-label="$i18n{clearSearch}">
-    <cr-icon id="searchIcon" icon="tab-search:search"></cr-icon>
+    <cr-icon id="searchIcon"
+        icon="${this.webuiRoundedIconsEnabled_
+            ? 'tab-search:search'
+            : 'tab-search:search-old'}"></cr-icon>
     <div id="searchWrapper">
       <label id="searchLabel" for="searchInput" aria-hidden="true">
         <span>$i18n{searchTabs}</span>
@@ -59,8 +62,8 @@ export function getHtml(this: TabSearchPageElement) {
                   aria-label="$i18n{recentlyClosedExpandA11yLabel}"
                   data-title="${item.title}"
                   data-index="${index}"
-                  expand-icon="cr:arrow-drop-down"
-                  collapse-icon="cr:arrow-drop-up"
+                  expand-icon="cr:expand-more"
+                  collapse-icon="cr:expand-less"
                   ?expanded="${item.expanded}"
                   expand-title="$i18n{expandRecentlyClosed}"
                   collapse-title="$i18n{collapseRecentlyClosed}"

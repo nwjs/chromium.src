@@ -27,6 +27,7 @@ import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestratorFactory;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabDestroyStatus;
 import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabUtils;
@@ -91,14 +92,20 @@ public abstract class TabModelJniBridge implements TabModelInternal {
         return mNativeTabModelJniBridge != 0;
     }
 
+    @CalledByNative
+    public long getNativePtr() {
+        return mNativeTabModelJniBridge;
+    }
+
     @Override
     @CallSuper
-    public void destroy() {
+    public @TabDestroyStatus int destroy() {
         if (isNativeInitialized()) {
             // This will invalidate all other native references to this object in child classes.
             TabModelJniBridgeJni.get().destroy(mNativeTabModelJniBridge);
             mNativeTabModelJniBridge = 0;
         }
+        return TabDestroyStatus.NO_SHUTDOWN;
     }
 
     @Override
@@ -131,6 +138,16 @@ public abstract class TabModelJniBridge implements TabModelInternal {
     @Override
     @CalledByNative
     public abstract @JniType("std::vector<TabAndroid*>") List<Tab> getOrderedMultiSelectedTabs();
+
+    @Override
+    @CalledByNative
+    public abstract @JniType("TabAndroid*") @Nullable Tab getTabById(int id);
+
+    @CalledByNative
+    public boolean hasTab(@JniType("TabAndroid*") @Nullable Tab tab) {
+        if (tab == null) return false;
+        return getTabById(tab.getId()) == tab;
+    }
 
     @Override
     public Profile getProfile() {
@@ -561,7 +578,7 @@ public abstract class TabModelJniBridge implements TabModelInternal {
         for (Tab tab : tabs) tabIds.add(tab.getId());
         assert tabIds.contains(tabToActivate.getId()) : "tabToActivate not found in tab list";
         clearMultiSelection(/* notifyObservers= */ false);
-        setIndex(TabModelUtils.getTabIndexById(this, tabToActivate.getId()));
+        setIndex(indexOf(tabToActivate));
         setTabsMultiSelected(tabIds, /* isSelected= */ true);
     }
 

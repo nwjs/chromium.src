@@ -7,28 +7,39 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/memory/weak_ptr.h"
+#include "base/types/expected.h"
+#include "chrome/browser/actor/tools/attempt_otp_filling_tool_request.h"
 #include "chrome/browser/actor/tools/tool.h"
 #include "chrome/browser/actor/tools/tool_delegate.h"
 #include "chrome/common/actor.mojom-forward.h"
+#include "chrome/common/actor_webui.mojom-forward.h"
 #include "components/actor/core/shared_types.h"
 #include "components/actor/core/task_id.h"
+#include "components/actor/public/mojom/actor_types.mojom-forward.h"
 #include "components/autofill/core/common/unique_ids.h"
+#include "components/one_time_tokens/core/browser/one_time_token_retrieval_error.h"
 
 namespace actor {
+
+class ActorLoginFlowVerifier;
 
 // A tool that attempts to retrieve a one-time password (OTP) and fill it into
 // the specified fields on the page. (One field or many smaller ones.)
 // If this is part of a sign-in flow, set `for_signin` to true.
 class AttemptOtpFillingTool : public Tool {
  public:
-  AttemptOtpFillingTool(TaskId task_id,
-                        ToolDelegate& tool_delegate,
-                        tabs::TabHandle tab_handle,
-                        std::vector<PageTarget> trigger_fields,
-                        bool for_signin);
+  AttemptOtpFillingTool(
+      TaskId task_id,
+      ToolDelegate& tool_delegate,
+      tabs::TabHandle tab_handle,
+      std::vector<PageTarget> trigger_fields,
+      bool for_signin,
+      AttemptOtpFillingToolRequest::OtpType predicted_otp_type,
+      std::unique_ptr<ActorLoginFlowVerifier> actor_login_flow_verifier);
   ~AttemptOtpFillingTool() override;
 
   // Tool:
@@ -49,13 +60,25 @@ class AttemptOtpFillingTool : public Tool {
   tabs::TabHandle GetTargetTab() const override;
 
  private:
-  void OnOtpRetrieved(ToolCallback callback, std::string otp);
+  void OnGmailOtpOptInResponse(ToolCallback callback,
+                               webui::mojom::GmailOtpOptInResultPtr response);
+  void OnOtpRetrieved(
+      ToolCallback callback,
+      base::expected<std::string, one_time_tokens::OneTimeTokenRetrievalError>
+          result);
   void OnOtpFilled(ToolCallback callback, bool success);
+  void OnActorLoginFlowChecked(ToolCallback callback, bool is_actor_login);
+
+  void LogJournalEvent(std::string_view event_name,
+                       std::vector<mojom::JournalDetailsPtr> journal_details);
 
   tabs::TabHandle tab_handle_;
   std::vector<PageTarget> trigger_fields_;
   std::vector<autofill::FieldGlobalId> trigger_field_ids_;
   bool for_signin_;
+  AttemptOtpFillingToolRequest::OtpType predicted_otp_type_;
+
+  std::unique_ptr<ActorLoginFlowVerifier> actor_login_flow_verifier_;
 
   base::WeakPtrFactory<AttemptOtpFillingTool> weak_factory_{this};
 };

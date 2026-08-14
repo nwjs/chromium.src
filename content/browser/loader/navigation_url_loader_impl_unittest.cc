@@ -158,7 +158,7 @@ class NavigationURLLoaderImplTest : public testing::Test {
             std::string() /* searchable_form_encoding */,
             GURL() /* client_side_redirect_url */,
             std::nullopt /* devtools_initiator_info */,
-            nullptr /* trust_token_params */, std::nullopt /* impression */,
+            nullptr /* trust_token_params */,
             base::TimeTicks() /* renderer_before_unload_start */,
             base::TimeTicks() /* renderer_before_unload_end */,
             base::TimeTicks() /* before_unload_dialog_opened */,
@@ -201,10 +201,8 @@ class NavigationURLLoaderImplTest : public testing::Test {
             base::UnguessableToken::Create() /* devtools_frame_token */,
             nullptr /* client_security_state */,
             std::nullopt /* devtools_accepted_stream_types */,
-            false /* is_pdf */,
-            ChildProcessHost::kInvalidUniqueID /* initiator_process_id */,
+            false /* is_pdf */, ChildProcessId() /* initiator_process_id */,
             std::nullopt /* initiator_document_token */,
-            nullptr /* serving_page_metrics_container */,
             false /* allow_cookies_from_browser */, 0 /* navigation_id */,
             false /* shared_storage_writable */,
             is_ad_tagged /* is_ad_tagged */,
@@ -627,7 +625,6 @@ class TestAsyncInterceptor final : public NavigationLoaderInterceptor {
       const network::ResourceRequest& request,
       network::mojom::URLResponseHeadPtr* response_head,
       mojo::ScopedDataPipeConsumerHandle* response_body,
-      mojo::PendingRemote<network::mojom::URLLoader>* loader,
       mojo::PendingReceiver<network::mojom::URLLoaderClient>* client_receiver,
       blink::ThrottlingURLLoader* url_loader,
       bool* skip_other_interceptors) override {
@@ -667,7 +664,6 @@ class TestResponseInterceptor final : public NavigationLoaderInterceptor {
       const network::ResourceRequest& request,
       network::mojom::URLResponseHeadPtr* response_head,
       mojo::ScopedDataPipeConsumerHandle* response_body,
-      mojo::PendingRemote<network::mojom::URLLoader>* loader,
       mojo::PendingReceiver<network::mojom::URLLoaderClient>* client_receiver,
       blink::ThrottlingURLLoader* url_loader,
       bool* skip_other_interceptors) override {
@@ -1430,6 +1426,22 @@ TEST_F(NavigationURLLoaderImplTest, MAYBE_NavigationTimeoutRedirectTest) {
   EXPECT_EQ(net::ERR_TIMED_OUT, delegate.net_error());
 }
 
+TEST_F(NavigationURLLoaderImplTest, NavigationTimeoutAfterResponseStartedTest) {
+  ASSERT_TRUE(http_test_server_.Start());
+  const GURL url = http_test_server_.GetURL("/echo");
+  TestNavigationURLLoaderDelegate delegate;
+  auto loader = CreateTestLoader(url, std::string(), "GET", &delegate);
+  loader->Start();
+  loader->SetNavigationTimeout(base::Seconds(30));
+  delegate.WaitForResponseStarted();
+
+  // Once response has started, OnReceiveResponse() cancels the navigation
+  // timeout timer. Advancing time past the timeout should not trigger the
+  // timer or cause any request failure.
+  task_environment_->FastForwardBy(base::Seconds(35));
+  EXPECT_EQ(net::OK, delegate.net_error());
+}
+
 // Verify that UKMs are recorded when OnAcceptCHFrameReceived is called.
 TEST_F(NavigationURLLoaderImplTest, OnAcceptCHFrameReceivedUKM) {
   ASSERT_TRUE(http_test_server_.Start());
@@ -1575,6 +1587,7 @@ TEST_F(NavigationURLLoaderImplTest, StorageAccessApiStatus_AccessViaAPI) {
 
   TestRenderFrameHost* rfh =
       static_cast<TestRenderFrameHost*>(web_contents_->GetPrimaryMainFrame());
+  rfh->SetLastCommittedOriginForTesting(url::Origin::Create(url));
   rfh->document_associated_data().PutCookieSettingOverride(
       net::CookieSettingOverride::kStorageAccessGrantEligible);
 
@@ -1598,6 +1611,7 @@ TEST_F(NavigationURLLoaderImplTest,
 
   TestRenderFrameHost* rfh =
       static_cast<TestRenderFrameHost*>(web_contents_->GetPrimaryMainFrame());
+  rfh->SetLastCommittedOriginForTesting(url::Origin::Create(url));
   rfh->document_associated_data().PutCookieSettingOverride(
       net::CookieSettingOverride::kStorageAccessGrantEligible);
 
@@ -1620,6 +1634,8 @@ TEST_F(NavigationURLLoaderImplTest, StorageAccessApiStatus_None_CrossOrigin) {
 
   TestRenderFrameHost* rfh =
       static_cast<TestRenderFrameHost*>(web_contents_->GetPrimaryMainFrame());
+  rfh->SetLastCommittedOriginForTesting(
+      url::Origin::Create(GURL("http://a.com")));
   rfh->document_associated_data().PutCookieSettingOverride(
       net::CookieSettingOverride::kStorageAccessGrantEligible);
 

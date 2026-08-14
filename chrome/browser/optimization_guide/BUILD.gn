@@ -81,6 +81,7 @@ source_set("impl") {
     "//chrome/browser/profiles:profile_manager",
     "//chrome/browser/signin",
     "//chrome/browser/sync",
+    "//components/component_updater/installer_policies:installer_policies_with_content_deps",
     "//components/metrics_services_manager",
     "//components/no_state_prefetch/browser",
     "//components/private_ai",
@@ -205,4 +206,21 @@ source_set("unit_tests") {
     "//components/unified_consent",
     "//components/variations:test_support",
   ]
+
+  if (is_android) {
+    sources += [
+      "android/optimization_guide_bridge_unittest.cc",
+      "android/optimization_guide_tab_url_provider_android_unittest.cc",
+    ]
+    deps += [
+      "//chrome/browser/android:tabs_public",
+      "//chrome/browser/optimization_guide/android:native",
+      "//chrome/browser/optimization_guide/android:native_j_unittests_jni_headers",
+      "//chrome/browser/profiles:profile",
+      "//chrome/browser/ui/android/tab_model",
+      "//chrome/browser/ui/android/tab_model:test_support",
+      "//chrome/common:constants",
+      "//components/optimization_guide/proto:optimization_guide_proto",
+    ]
+  }
 }

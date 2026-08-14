@@ -19,6 +19,7 @@
 #include "components/autofill/core/browser/foundations/autofill_manager_test_api.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #include "components/autofill/core/browser/integrators/one_time_tokens/otp_manager_impl.h"
+#include "components/autofill/core/browser/payments/ai_card_recommendation_manager.h"
 #include "components/autofill/core/browser/payments/amount_extraction_manager.h"
 #include "components/autofill/core/browser/payments/bnpl_manager.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
@@ -33,6 +34,10 @@ class BrowserAutofillManagerTestApi : public AutofillManagerTestApi {
  public:
   explicit BrowserAutofillManagerTestApi(BrowserAutofillManager* manager)
       : AutofillManagerTestApi(manager), manager_(*manager) {}
+
+  void ResetBrowserAutofillManagerWithoutDynamicDispatch() {
+    manager_->BrowserAutofillManager::Reset();
+  }
 
   void SetExternalDelegate(
       std::unique_ptr<AutofillExternalDelegate> external_delegate) {
@@ -93,7 +98,7 @@ class BrowserAutofillManagerTestApi : public AutofillManagerTestApi {
   std::vector<Suggestion> GetProfileSuggestions(const FormData& form,
                                                 const FormFieldData& field) {
     auto [form_structure, autofill_field] =
-        manager_->GetCachedFormAndField(form.global_id(), field.global_id());
+        manager_->FindMutableFormAndField(form.global_id(), field.global_id());
     return manager_->GetProfileSuggestions(
         form, CHECK_DEREF(form_structure), field, CHECK_DEREF(autofill_field),
         mojom::AutofillSuggestionTriggerSource::kFormControlElementClicked);
@@ -106,6 +111,13 @@ class BrowserAutofillManagerTestApi : public AutofillManagerTestApi {
 
   AccountNameEmailStrikeManager* account_name_email_strike_manager() {
     return manager_->account_name_email_strike_manager_.get();
+  }
+
+  void set_ai_card_recommendation_manager(
+      std::unique_ptr<payments::AiCardRecommendationManager>
+          ai_card_recommendation_manager) {
+    manager_->ai_card_recommendation_manager_ =
+        std::move(ai_card_recommendation_manager);
   }
 
  private:

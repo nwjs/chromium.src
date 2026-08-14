@@ -9,6 +9,7 @@ import static org.chromium.build.NullUtil.assumeNonNull;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
+import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.transition.ChangeBounds;
@@ -406,38 +407,55 @@ class OptionalButtonView extends FrameLayout implements TransitionListener {
             mActionChipLabelString = getContext().getString(chipLabelResId);
         }
 
-        // The button's height precisely matches the avatar and its padding. When an error badge is
-        // added in the avatar's bottom-right corner, the avatar height increases. To maintain the
-        // original position of the avatar, the button's bottom padding is then reduced.
-        int paddingBottom =
-                getDimensionPixelSize(
-                        buttonSpec.hasErrorBadge()
-                                ? R.dimen
-                                        .optional_toolbar_phone_button_with_error_badge_padding_bottom
-                                : R.dimen
-                                        .toolbar_phone_optional_button_foreground_vertical_padding);
+        // The button's bounds precisely match the avatar and its padding. When additional elements
+        // like an error badge or an AI tier ring are added to the avatar, the effective size
+        // increases.
+        // To maintain the original position and bounds of the avatar, the button's paddings are
+        // adjusted accordingly.
+        int paddingBottomRes;
+        int paddingTopRes;
+        int paddingStartRes;
+
+        if (buttonSpec.hasAiTierRing()) {
+            paddingBottomRes = R.dimen.optional_toolbar_phone_button_with_ai_ring_padding_vertical;
+            paddingTopRes = R.dimen.optional_toolbar_phone_button_with_ai_ring_padding_vertical;
+            paddingStartRes = R.dimen.optional_toolbar_phone_button_with_ai_ring_padding_start;
+        } else if (buttonSpec.hasErrorBadge()) {
+            paddingBottomRes =
+                    R.dimen.optional_toolbar_phone_button_with_error_badge_padding_bottom;
+            paddingTopRes = R.dimen.toolbar_phone_optional_button_foreground_vertical_padding;
+            paddingStartRes = R.dimen.toolbar_phone_optional_button_foreground_start_padding;
+        } else {
+            paddingBottomRes = R.dimen.toolbar_phone_optional_button_foreground_vertical_padding;
+            paddingTopRes = R.dimen.toolbar_phone_optional_button_foreground_vertical_padding;
+            paddingStartRes = R.dimen.toolbar_phone_optional_button_foreground_start_padding;
+        }
+
+        int paddingEnd = mButton.getPaddingEnd();
 
         mButton.setPaddingRelative(
-                mButton.getPaddingStart(),
-                mButton.getPaddingTop(),
-                mButton.getPaddingEnd(),
-                paddingBottom);
+                getDimensionPixelSize(paddingStartRes),
+                getDimensionPixelSize(paddingTopRes),
+                paddingEnd,
+                getDimensionPixelSize(paddingBottomRes));
 
         mClickListener = buttonSpec.getOnClickListener();
         mLongClickListener = buttonSpec.getOnLongClickListener();
         mButton.setEnabled(buttonData.isEnabled());
         mActionChipLabel.setEnabled(buttonData.isEnabled());
 
-        // Set hover state tooltip text for optional toolbar buttons(e.g. share, voice search, new
-        // tab and profile).
-        if (buttonSpec.getHoverTooltipTextId() != ButtonSpec.INVALID_TOOLTIP_TEXT_ID
-                && mButton != null) {
+        mContentDescription = buttonSpec.getContentDescription();
+        // Set hover state tooltip text for optional toolbar buttons(e.g. share, voice search and
+        // new tab).
+        if (buttonSpec.getHoverTooltipTextId() != ButtonSpec.INVALID_TOOLTIP_TEXT_ID) {
             TooltipCompat.setTooltipText(
                     mButton, getContext().getString(buttonSpec.getHoverTooltipTextId()));
+        } else if (buttonSpec.getContentDescription() != null) {
+            // Fallback to the content description if a static tooltip string ID is not provided.
+            TooltipCompat.setTooltipText(mButton, mContentDescription);
         } else {
             TooltipCompat.setTooltipText(mButton, null);
         }
-        mContentDescription = buttonSpec.getContentDescription();
         mButton.setContentDescription(mContentDescription);
         boolean showTextBubble = buttonData.shouldShowTextBubble();
 
@@ -611,6 +629,17 @@ class OptionalButtonView extends FrameLayout implements TransitionListener {
         mButton = findViewById(R.id.optional_toolbar_button);
         mAnimationImage = findViewById(R.id.swappable_icon_animation_image);
         mActionChipLabel = findViewById(R.id.action_chip_label);
+
+        if (ToolbarVariationUtils.isToolbarUiRefactorEnabled(getContext())) {
+            // Override the intrinsic horizontal padding from the background drawable to ensure
+            // the exact programmatic width calculations in LocationBarPhone work correctly.
+            // This prevents unwanted spacing and aligns the action chip precisely.
+            mBackground.setPaddingRelative(
+                    /* start= */ 0,
+                    mBackground.getPaddingTop(),
+                    /* end= */ 0,
+                    mBackground.getPaddingBottom());
+        }
 
         // The background is overridden in #updateButtonWithAnimation.
         mBackground.setImageDrawable(
@@ -1187,5 +1216,26 @@ class OptionalButtonView extends FrameLayout implements TransitionListener {
         }
 
         return mForegroundColorTint;
+    }
+
+    @Override
+    public boolean hasOverlappingRendering() {
+        return false;
+    }
+
+    @Override
+    public void setLayerType(int layerType, @Nullable Paint paint) {
+        if (layerType == LAYER_TYPE_HARDWARE && (getWidth() <= 0 || getHeight() <= 0)) {
+            layerType = LAYER_TYPE_NONE;
+        }
+        super.setLayerType(layerType, paint);
+    }
+
+    @Override
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        super.onLayout(changed, left, top, right, bottom);
+        if (getLayerType() == LAYER_TYPE_HARDWARE && (getWidth() <= 0 || getHeight() <= 0)) {
+            super.setLayerType(LAYER_TYPE_NONE, null);
+        }
     }
 }

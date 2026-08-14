@@ -5,41 +5,18 @@
 import("//components/optimization_guide/features.gni")
 import("//third_party/protobuf/proto_library.gni")
 
-source_set("personal_context_resolver") {
-  sources = [
-    "personal_context_resolver.h",
-    "personal_context_resolver_impl.cc",
-    "personal_context_resolver_impl.h",
-  ]
-
-  deps = [
-    ":annotation_reducer",
-    "//base",
-    "//components/accessibility_annotator/core/data_models",
-    "//components/personal_context/core",
-    "//components/personal_context/proto:personal_context_proto",
-  ]
-}
-
 source_set("annotation_reducer") {
   sources = [
     "ingested_content_annotation.cc",
     "ingested_content_annotation.h",
     "ingested_content_annotation_utils.cc",
     "ingested_content_annotation_utils.h",
-    "memory_data_provider.h",
-    "memory_data_type.h",
-    "memory_data_type_util.cc",
-    "memory_data_type_util.h",
-    "memory_search_result.cc",
-    "memory_search_result.h",
-    "query_classifier.cc",
-    "query_classifier.h",
-    "util.cc",
-    "util.h",
   ]
 
-  public_deps = [ "//base" ]
+  public_deps = [
+    "//base",
+    "//components/personal_context/proto:personal_context_proto",
+  ]
   deps = [
     "//components/accessibility_annotator/core/data_models",
     "//components/accessibility_annotator/core/storage",
@@ -51,18 +28,10 @@ source_set("annotation_reducer") {
 
 source_set("unit_tests") {
   testonly = true
-  sources = [
-    "ingested_content_annotation_utils_unittest.cc",
-    "memory_data_type_util_unittest.cc",
-    "memory_search_result_unittest.cc",
-    "personal_context_resolver_impl_unittest.cc",
-    "query_classifier_unittest.cc",
-    "util_unittest.cc",
-  ]
+  sources = [ "ingested_content_annotation_utils_unittest.cc" ]
 
   deps = [
     ":annotation_reducer",
-    ":personal_context_resolver",
     "//base",
     "//base/test:test_support",
     "//components/accessibility_annotator/core:features",

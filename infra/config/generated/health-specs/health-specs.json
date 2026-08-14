@@ -30,6 +30,27 @@
   ],
   "specs": {
     "ci": {
+      "Android FYI Release (Pixel 10)": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
       "Android FYI Release (Pixel 6)": {
         "contact_team_email": "chrome-gpu-infra@google.com",
         "problem_specs": [
@@ -534,6 +555,27 @@
           }
         ]
       },
+      "Dawn Win11 arm64 DEPS Release (Qualcomm Snapdragon X Elite)": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
       "GPU FYI Android arm64 Builder": {
         "contact_team_email": "chrome-gpu-infra@google.com",
         "problem_specs": [
@@ -556,6 +598,27 @@
         ]
       },
       "GPU FYI Mac arm64 Builder": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
+      "GPU FYI Win arm64 Builder": {
         "contact_team_email": "chrome-gpu-infra@google.com",
         "problem_specs": [
           {
@@ -1144,6 +1207,27 @@
         ]
       },
       "Win10 x64 Release (NVIDIA)": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
+      "Win11 FYI arm64 Release (Qualcomm Snapdragon X Elite)": {
         "contact_team_email": "chrome-gpu-infra@google.com",
         "problem_specs": [
           {
@@ -2387,27 +2471,6 @@
           }
         ]
       },
-      "mac15-tests-dbg": {
-        "contact_team_email": "bling-engprod@google.com",
-        "problem_specs": [
-          {
-            "name": "Unhealthy",
-            "period_days": 7,
-            "score": 5,
-            "thresholds": {
-              "_default": "_default"
-            }
-          },
-          {
-            "name": "Low Value",
-            "period_days": 90,
-            "score": 1,
-            "thresholds": {
-              "_default": "_default"
-            }
-          }
-        ]
-      },
       "mac15-x64-rel-tests": {
         "contact_team_email": "bling-engprod@google.com",
         "problem_specs": [
@@ -2430,6 +2493,48 @@
         ]
       },
       "mac26-arm64-rel-tests": {
+        "contact_team_email": "bling-engprod@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
+      "mac26-tests-dbg": {
+        "contact_team_email": "bling-engprod@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
+      "mac26-x64-rel-tests": {
         "contact_team_email": "bling-engprod@google.com",
         "problem_specs": [
           {

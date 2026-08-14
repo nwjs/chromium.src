@@ -110,6 +110,7 @@
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/common/switches.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
+#include "ui/base/ui_base_features.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -651,7 +652,7 @@ TEST_F(ChromeContentBrowserClientTestWithWebContents,
   search_test_utils::WaitForTemplateURLServiceToLoad(template_url_service);
   TemplateURLData data;
   data.SetShortName(u"example.com");
-  data.SetURL("http://example.com/test?q={searchTerms}");
+  data.SetURL("https://example.com/test?q={searchTerms}");
   data.new_tab_url = chrome::kChromeUINewTabURL;
   TemplateURL* template_url =
       template_url_service->Add(std::make_unique<TemplateURL>(data));
@@ -667,6 +668,38 @@ TEST_F(ChromeContentBrowserClientTestWithWebContents,
       profile(), GURL("https://example.com/test?q=")));
   EXPECT_TRUE(browser_client.IsServiceWorkerSyntheticResponseAllowed(
       profile(), GURL("https://example.com/test?q=test")));
+}
+
+TEST_F(ChromeContentBrowserClientTestWithWebContents,
+       IsServiceWorkerSyntheticResponseAllowedForAlternateUrls) {
+  ChromeContentBrowserClient browser_client;
+
+  // Update the default search engine with an alternate URL on a different
+  // origin.
+  TemplateURLServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+      profile(),
+      base::BindRepeating(&TemplateURLServiceFactory::BuildInstanceFor));
+  TemplateURLService* template_url_service =
+      TemplateURLServiceFactory::GetForProfile(profile());
+  search_test_utils::WaitForTemplateURLServiceToLoad(template_url_service);
+  TemplateURLData data;
+  data.SetShortName(u"example.com");
+  data.SetURL("https://example.com/test?q={searchTerms}");
+  data.alternate_urls.push_back("https://other.test/{searchTerms}");
+  data.new_tab_url = chrome::kChromeUINewTabURL;
+  TemplateURL* template_url =
+      template_url_service->Add(std::make_unique<TemplateURL>(data));
+  template_url_service->SetUserSelectedDefaultSearchProvider(template_url);
+
+  // The synthetic response should only be allowed for navigations to the
+  // default search provider's own origin, even when an alternate URL on a
+  // different origin matches.
+  EXPECT_TRUE(browser_client.IsServiceWorkerSyntheticResponseAllowed(
+      profile(), GURL("https://example.com/test?q=test")));
+  EXPECT_FALSE(browser_client.IsServiceWorkerSyntheticResponseAllowed(
+      profile(), GURL("https://other.test/page")));
+  EXPECT_FALSE(browser_client.IsServiceWorkerSyntheticResponseAllowed(
+      profile(), GURL("http://example.com/test?q=test")));
 }
 
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -1223,18 +1256,6 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectHelpURL) {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
 
-TEST_F(ChromeContentSettingsRedirectTest, RedirectEnhancedAutofillURL) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      autofill::features::kYourSavedInfoSettingsPage);
-
-  TestChromeContentBrowserClient test_content_browser_client;
-  const GURL enhanced_autofill_url("chrome://settings/enhancedAutofill");
-  GURL dest_url = enhanced_autofill_url;
-  test_content_browser_client.HandleWebUI(&dest_url, &profile_);
-  EXPECT_EQ(GURL("chrome://settings/autofill"), dest_url);
-}
-
 TEST_F(ChromeContentSettingsRedirectTest, RedirectAddressesURL) {
   base::test::ScopedFeatureList scoped_feature_list{
       autofill::features::kYourSavedInfoSettingsPage};
@@ -1643,6 +1664,32 @@ TEST_F(ChromeContentBrowserClientSwitchTest, LegacyTechReportEnabled) {
   base::CommandLine result = FetchCommandLineSwitchesForRendererProcess();
   EXPECT_TRUE(
       result.HasSwitch(blink::switches::kLegacyTechReportPolicyEnabled));
+}
+
+TEST_F(ChromeContentBrowserClientSwitchTest,
+       AllowBackForwardCacheForWebSocketsDefault) {
+  base::CommandLine result = FetchCommandLineSwitchesForRendererProcess();
+  EXPECT_FALSE(result.HasSwitch(
+      blink::switches::kDisableBackForwardCacheForWebSockets));
+}
+
+TEST_F(ChromeContentBrowserClientSwitchTest,
+       AllowBackForwardCacheForWebSocketsDisabled) {
+  profile()->GetPrefs()->SetBoolean(
+      policy::policy_prefs::kBackForwardCacheForWebSocketsAllowed, false);
+  base::CommandLine result = FetchCommandLineSwitchesForRendererProcess();
+  EXPECT_TRUE(result.HasSwitch(
+      blink::switches::kDisableBackForwardCacheForWebSockets));
+}
+
+TEST_F(ChromeContentBrowserClientSwitchTest,
+       AllowBackForwardCacheForWebSocketsEnabled) {
+  profile()->GetPrefs()->SetBoolean(
+      policy::policy_prefs::kBackForwardCacheForWebSocketsAllowed,
+                                     true);
+  base::CommandLine result = FetchCommandLineSwitchesForRendererProcess();
+  EXPECT_FALSE(result.HasSwitch(
+      blink::switches::kDisableBackForwardCacheForWebSockets));
 }
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -2107,6 +2154,44 @@ TEST_F(WillComputeSiteForNavigationTest,
   EXPECT_FALSE(IsOriginIsolatedByUser(url));
 }
 
+class IsJitDisabledForSiteTest : public ChromeContentBrowserClientTest {
+ protected:
+  bool IsJitDisabledForSite(const GURL& site_url) {
+    return browser_client_.IsJitDisabledForSite(&profile_, site_url);
+  }
+
+  ChromeContentBrowserClient browser_client_;
+};
+
+TEST_F(IsJitDisabledForSiteTest, DefaultContentSettingAppliesToWebSafeSchemes) {
+  auto* map = HostContentSettingsMapFactory::GetForProfile(&profile_);
+  map->SetDefaultContentSetting(ContentSettingsType::JAVASCRIPT_JIT,
+                                ContentSetting::CONTENT_SETTING_BLOCK);
+
+  EXPECT_TRUE(IsJitDisabledForSite(GURL()));
+  EXPECT_TRUE(IsJitDisabledForSite(GURL("http://example.test")));
+  EXPECT_TRUE(IsJitDisabledForSite(GURL("https://example.test")));
+
+  // The default content setting also covers web-safe schemes other than
+  // http(s), since those can host web-controlled script as well.
+  EXPECT_TRUE(IsJitDisabledForSite(GURL("blob:https://example.test/guid")));
+  EXPECT_TRUE(IsJitDisabledForSite(GURL("blob:null/guid")));
+  EXPECT_TRUE(IsJitDisabledForSite(GURL("filesystem:http://example.test/f")));
+  EXPECT_TRUE(IsJitDisabledForSite(GURL("data:text/html,hello")));
+
+  // Schemes that are not web safe, such as WebUI schemes, are unaffected.
+  EXPECT_FALSE(IsJitDisabledForSite(GURL("chrome://settings")));
+  EXPECT_FALSE(IsJitDisabledForSite(GURL("chrome-untrusted://foo")));
+  EXPECT_FALSE(IsJitDisabledForSite(GURL("file:///tmp/foo.html")));
+}
+
+TEST_F(IsJitDisabledForSiteTest, AllowedByDefault) {
+  EXPECT_FALSE(IsJitDisabledForSite(GURL()));
+  EXPECT_FALSE(IsJitDisabledForSite(GURL("https://example.test")));
+  EXPECT_FALSE(IsJitDisabledForSite(GURL("blob:null/guid")));
+  EXPECT_FALSE(IsJitDisabledForSite(GURL("chrome://settings")));
+}
+
 #if BUILDFLAG(IS_ANDROID)
 
 class ChromeContentBrowserClientPreferredColorSchemeAndroidTest
@@ -2225,6 +2310,31 @@ class ChromeContentBrowserClientAIPrefsTest
   ChromeContentBrowserClient client_;
   base::test::ScopedFeatureList feature_list_;
 };
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
+class ChromeContentBrowserClientTouchDragDropTest
+    : public ChromeRenderViewHostTestHarness {
+ protected:
+  ChromeContentBrowserClient client_;
+  base::test::ScopedFeatureList feature_list_;
+};
+
+TEST_F(ChromeContentBrowserClientTouchDragDropTest,
+       TouchDragEndContextMenuFollowsTouchDragDrop) {
+  feature_list_.InitAndEnableFeature(features::kTouchDragAndDrop);
+
+  auto web_contents = CreateTestWebContents();
+  content::WebContentsTester::For(web_contents.get())
+      ->NavigateAndCommit(GURL("https://www.example.com"));
+
+  blink::web_pref::WebPreferences web_preferences;
+  client_.OverrideWebPreferences(
+      web_contents.get(), *web_contents->GetSiteInstance(), &web_preferences);
+
+  EXPECT_TRUE(web_preferences.touch_drag_drop_enabled);
+  EXPECT_TRUE(web_preferences.touch_dragend_context_menu);
+}
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 
 // Verifies the web preference is enabled in DevTools when
 // kDevToolsAiOriginTrialsApis is enabled.
@@ -2502,7 +2612,7 @@ class MockWebContentsDelegate : public content::WebContentsDelegate {
 };
 
 TEST_F(ChromeContentBrowserClientHandleExternalProtocolTest,
-       GoogleChromeScheme) {
+       GoogleChromeSchemeFromOSAllowed) {
   ChromeContentBrowserClient client;
   base::test::ScopedFeatureList feature_list{features::kGoogleChromeScheme};
 
@@ -2511,23 +2621,18 @@ TEST_F(ChromeContentBrowserClientHandleExternalProtocolTest,
     GTEST_SKIP() << "Direct launch scheme not defined.";
   }
 
-  // Use the opaque format (scheme:inner_url) to avoid GURL canonicalization
-  // issues with nested standard schemes. StripGoogleChromeScheme now supports
-  // stripping "scheme:" as well as "scheme://".
-  GURL url(scheme + ":http://example.com");
-
-  // Mock factory for out param
-  mojo::PendingRemote<network::mojom::URLLoaderFactory> out_factory;
-
   MockWebContentsDelegate delegate;
   web_contents()->SetDelegate(&delegate);
 
-  EXPECT_CALL(delegate, OpenURLFromTab(web_contents(), _, _))
+  GURL url(scheme + ":http://example.com");
+  mojo::PendingRemote<network::mojom::URLLoaderFactory> out_factory;
+
+  EXPECT_CALL(delegate, OpenURLFromTab)
       .WillOnce([](content::WebContents* source,
                    const content::OpenURLParams& params,
-                   base::OnceCallback<void(content::NavigationHandle&)>
-                       navigation_handle_callback) {
-        EXPECT_EQ(params.url, GURL("http://example.com/"));
+                   base::OnceCallback<void(content::NavigationHandle&)>) {
+        EXPECT_EQ(GURL("http://example.com"), params.url);
+        EXPECT_TRUE(params.is_renderer_initiated);
         return nullptr;
       });
 
@@ -2538,8 +2643,36 @@ TEST_F(ChromeContentBrowserClientHandleExternalProtocolTest,
           base::Unretained(this)),
       content::FrameTreeNodeId(), nullptr, false, false,
       network::mojom::WebSandboxFlags::kNone, ui::PAGE_TRANSITION_LINK, false,
-      std::nullopt, nullptr, net::IsolationInfo(), &out_factory);
+      std::nullopt, /*initiator_document=*/nullptr, net::IsolationInfo(),
+      &out_factory);
 
   EXPECT_TRUE(handled);
+  EXPECT_EQ(0, process()->bad_msg_count());
+}
+
+TEST_F(ChromeContentBrowserClientHandleExternalProtocolTest,
+       GoogleChromeSchemeFromRendererBlocked) {
+  ChromeContentBrowserClient client;
+  base::test::ScopedFeatureList feature_list{features::kGoogleChromeScheme};
+
+  std::string scheme = shell_integration::GetDirectLaunchUrlScheme();
+  if (scheme.empty()) {
+    GTEST_SKIP() << "Direct launch scheme not defined.";
+  }
+
+  GURL url(scheme + ":http://example.com");
+  mojo::PendingRemote<network::mojom::URLLoaderFactory> out_factory;
+
+  bool handled = client.HandleExternalProtocol(
+      url,
+      base::BindRepeating(
+          &ChromeContentBrowserClientHandleExternalProtocolTest::web_contents,
+          base::Unretained(this)),
+      content::FrameTreeNodeId(), nullptr, false, false,
+      network::mojom::WebSandboxFlags::kNone, ui::PAGE_TRANSITION_LINK, false,
+      std::nullopt, main_rfh(), net::IsolationInfo(), &out_factory);
+
+  EXPECT_FALSE(handled);
+  EXPECT_EQ(1, process()->bad_msg_count());
 }
 #endif

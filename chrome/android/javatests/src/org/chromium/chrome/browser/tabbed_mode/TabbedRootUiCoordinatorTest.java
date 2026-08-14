@@ -14,6 +14,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 
 import androidx.annotation.Nullable;
@@ -29,6 +30,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.FakeTimeTestRule;
 import org.chromium.base.FeatureOverrides;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.transit.ViewFinder;
@@ -36,7 +38,9 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisabledTest;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
@@ -49,18 +53,20 @@ import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManagerSupplier;
 import org.chromium.chrome.browser.glic.GlicEnabling;
 import org.chromium.chrome.browser.glic.GlicNavigationUtils;
+import org.chromium.chrome.browser.metrics.UmaSessionStats;
+import org.chromium.chrome.browser.metrics.UmaSessionStatsJni;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarButtonVariant;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarPrefs;
-import org.chromium.chrome.test.ChromeBrowserTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.chrome.test.transit.testhtmls.NavigatePageStations;
+import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
@@ -69,6 +75,8 @@ import org.chromium.components.policy.test.annotations.Policies.Add;
 import org.chromium.components.search_engines.SearchEngineChoiceService;
 import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.test.util.TestAccounts;
+import org.chromium.components.variations.SyntheticTrialAnnotationMode;
+import org.chromium.content_public.browser.test.NativeLibraryTestUtils;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.ViewUtils;
@@ -78,7 +86,8 @@ import org.chromium.ui.test.util.ViewUtils;
 @Batch(Batch.PER_CLASS)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 public class TabbedRootUiCoordinatorTest {
-    @Rule public ChromeBrowserTestRule mBrowserTestRule = new ChromeBrowserTestRule();
+    @Rule public SigninTestRule mSigninTestRule = new SigninTestRule();
+    @Rule public FakeTimeTestRule mFakeTimeTestRule = new FakeTimeTestRule();
 
     @Rule
     public FreshCtaTransitTestRule mActivityTestRule =
@@ -94,9 +103,11 @@ public class TabbedRootUiCoordinatorTest {
     @Mock private BookmarkBarSceneLayer.Natives mBookmarkBarSceneLayerJni;
     @Mock private SearchEngineChoiceService mSearchEngineChoiceService;
     @Mock private Tracker mTracker;
+    @Mock private UmaSessionStats.Natives mUmaSessionStatsJniMock;
 
     @Before
     public void setUp() {
+        NativeLibraryTestUtils.loadNativeLibraryAndInitBrowserProcess();
         BookmarkBarSceneLayerJni.setInstanceForTesting(mBookmarkBarSceneLayerJni);
 
         ThreadUtils.runOnUiThreadBlocking(
@@ -112,7 +123,7 @@ public class TabbedRootUiCoordinatorTest {
 
     @After
     public void tearDown() {
-        mBrowserTestRule.signOut();
+        mSigninTestRule.signOut();
         TrackerFactory.setTrackerForTests(null);
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -171,7 +182,7 @@ public class TabbedRootUiCoordinatorTest {
     @EnableFeatures(SigninFeatures.SUPPORT_FORCED_SIGNIN_POLICY)
     @Add({@Policies.Item(key = "BrowserSignin", string = "2")})
     public void testForcedSignin() {
-        mBrowserTestRule.addAccountThenSigninAndEnableHistorySync(TestAccounts.ACCOUNT1);
+        mSigninTestRule.addAccountThenSigninAndEnableHistorySync(TestAccounts.ACCOUNT1);
 
         // The user is already signed in at first, so the fullscreen signin prompt is not displayed.
         mPage = mActivityTestRule.startOnBlankPage();
@@ -180,7 +191,7 @@ public class TabbedRootUiCoordinatorTest {
         ViewFinder.waitForNoView(withText(R.string.signin_fre_title_signin_forced_by_policy));
 
         // The fullscreen prompt should be displayed upon signout.
-        mBrowserTestRule.signOut();
+        mSigninTestRule.signOut();
         ViewUtils.waitForVisibleView(withText(R.string.signin_fre_title_signin_forced_by_policy));
     }
 
@@ -252,6 +263,7 @@ public class TabbedRootUiCoordinatorTest {
     @Test
     @MediumTest
     @CommandLineFlags.Remove({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
     public void testMaybeShowGlicPromo_WouldTrigger_ToolbarNotPinned() {
         mPage = mActivityTestRule.startOnBlankPage();
         mTabbedRootUiCoordinator =
@@ -295,6 +307,7 @@ public class TabbedRootUiCoordinatorTest {
     @Test
     @MediumTest
     @CommandLineFlags.Remove({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
     public void testMaybeShowGlicPromo_WouldTrigger_ToolbarPinned() {
         mPage = mActivityTestRule.startOnBlankPage();
         mTabbedRootUiCoordinator =
@@ -339,6 +352,7 @@ public class TabbedRootUiCoordinatorTest {
     @Test
     @MediumTest
     @CommandLineFlags.Remove({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
     public void testMaybeShowGlicPromo_WouldNotTrigger() {
         mPage = mActivityTestRule.startOnBlankPage();
         mTabbedRootUiCoordinator =
@@ -382,6 +396,7 @@ public class TabbedRootUiCoordinatorTest {
     @Test
     @MediumTest
     @CommandLineFlags.Remove({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
     public void testMaybeShowGlicPromo_DisabledByParam() {
         mPage = mActivityTestRule.startOnBlankPage();
         mTabbedRootUiCoordinator =
@@ -421,5 +436,125 @@ public class TabbedRootUiCoordinatorTest {
 
         // Verify that the trigger event was notified to the tracker.
         verify(mTracker).notifyEvent(EventConstants.ADAPTIVE_TOOLBAR_GLIC_IPH_TRIGGER);
+    }
+
+    @Test
+    @MediumTest
+    @CommandLineFlags.Remove({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
+    public void testMaybeShowGlicPromo_GlicDisabledByFlags_ResetsPref() {
+        mPage = mActivityTestRule.startOnBlankPage();
+        mTabbedRootUiCoordinator =
+                (TabbedRootUiCoordinator) mPage.getActivity().getRootUiCoordinatorForTesting();
+
+        GlicEnabling.setEnabledForTesting(false);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    ChromeSharedPreferences.getInstance()
+                            .writeBoolean(ChromePreferenceKeys.GLIC_PROMO_ACCEPTED, true);
+                    assertFalse(mTabbedRootUiCoordinator.maybeShowGlicPromo());
+                });
+
+        assertFalse(
+                ChromeSharedPreferences.getInstance()
+                        .contains(ChromePreferenceKeys.GLIC_PROMO_ACCEPTED));
+    }
+
+    @Test
+    @MediumTest
+    @Restriction({DeviceFormFactor.ONLY_TABLET})
+    @EnableFeatures(ChromeFeatureList.ANDROID_VERTICAL_TABS)
+    public void testToggleTabStripMetrics() {
+        mPage = mActivityTestRule.startOnBlankPage();
+        mTabbedRootUiCoordinator =
+                (TabbedRootUiCoordinator) mPage.getActivity().getRootUiCoordinatorForTesting();
+
+        // Ensure we start with VT disabled.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    ChromeSharedPreferences.getInstance()
+                            .writeBoolean(ChromePreferenceKeys.VERTICAL_TABS_ENABLED, false);
+                    ChromeSharedPreferences.getInstance()
+                            .removeKey(ChromePreferenceKeys.VERTICAL_TABS_ENABLED_TIMESTAMP);
+                });
+
+        // 1. Toggle ON: HT -> VT.
+        ThreadUtils.runOnUiThreadBlocking(() -> mTabbedRootUiCoordinator.toggleTabStrip());
+
+        // Verify preference is set to true, and timestamp is stored.
+        assertTrue(
+                ChromeSharedPreferences.getInstance()
+                        .readBoolean(ChromePreferenceKeys.VERTICAL_TABS_ENABLED, false));
+        long startTime =
+                ChromeSharedPreferences.getInstance()
+                        .readLong(ChromePreferenceKeys.VERTICAL_TABS_ENABLED_TIMESTAMP, 0);
+        assertTrue(startTime > 0);
+
+        var histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher("Android.VerticalTabs.DurationEnabled");
+
+        mFakeTimeTestRule.advanceMillis(5);
+
+        // 2. Toggle OFF: VT -> HT
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mTabbedRootUiCoordinator.toggleTabStrip();
+                });
+
+        // Verify preference is set to false, and timestamp is cleared.
+        assertFalse(
+                ChromeSharedPreferences.getInstance()
+                        .readBoolean(ChromePreferenceKeys.VERTICAL_TABS_ENABLED, false));
+        assertEquals(
+                0,
+                ChromeSharedPreferences.getInstance()
+                        .readLong(ChromePreferenceKeys.VERTICAL_TABS_ENABLED_TIMESTAMP, 0));
+
+        // Verify histogram was logged.
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @MediumTest
+    @Restriction({DeviceFormFactor.ONLY_TABLET})
+    @EnableFeatures(ChromeFeatureList.ANDROID_VERTICAL_TABS)
+    public void testVerticalTabsSyntheticFieldTrial_StartupAndToggle() {
+        UmaSessionStatsJni.setInstanceForTesting(mUmaSessionStatsJniMock);
+
+        // Ensure we start with VT disabled.
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.VERTICAL_TABS_ENABLED, false);
+
+        // Start activity. This will trigger onFinishNativeInitialization.
+        mPage = mActivityTestRule.startOnBlankPage();
+        mTabbedRootUiCoordinator =
+                (TabbedRootUiCoordinator) mPage.getActivity().getRootUiCoordinatorForTesting();
+
+        // Verify startup registration (should be Disabled because preference is false).
+        verify(mUmaSessionStatsJniMock)
+                .registerSyntheticFieldTrial(
+                        "VerticalTabsAndroid", "Disabled", SyntheticTrialAnnotationMode.NEXT_LOG);
+
+        // Reset mock to verify toggle registration.
+        reset(mUmaSessionStatsJniMock);
+
+        // Toggle ON: HT -> VT
+        ThreadUtils.runOnUiThreadBlocking(() -> mTabbedRootUiCoordinator.toggleTabStrip());
+
+        // Verify toggle registration (should be Enabled).
+        verify(mUmaSessionStatsJniMock)
+                .registerSyntheticFieldTrial(
+                        "VerticalTabsAndroid", "Enabled", SyntheticTrialAnnotationMode.NEXT_LOG);
+
+        // Reset mock again.
+        reset(mUmaSessionStatsJniMock);
+
+        // Toggle OFF: VT -> HT
+        ThreadUtils.runOnUiThreadBlocking(() -> mTabbedRootUiCoordinator.toggleTabStrip());
+
+        // Verify toggle registration (should be Disabled).
+        verify(mUmaSessionStatsJniMock)
+                .registerSyntheticFieldTrial(
+                        "VerticalTabsAndroid", "Disabled", SyntheticTrialAnnotationMode.NEXT_LOG);
     }
 }

@@ -7,6 +7,7 @@
 
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
+#include "content/browser/webid/request_service.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_throttle.h"
@@ -14,15 +15,16 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/http/structured_headers.h"
 #include "services/data_decoder/public/cpp/data_decoder.h"
-#include "third_party/blink/public/mojom/webid/federated_auth_request.mojom.h"
+#include "third_party/blink/public/mojom/webid/federated_request.mojom.h"
+#include "url/gurl.h"
 
 namespace content {
 
 class NavigationThrottleRegistry;
 class RenderFrameHost;
+class NavigationHandle;
 
 namespace webid {
-class Request;
 
 // The NavigationInterceptor enables Identity Providers to control
 // navigations to their endpoints by cancelling it and replacing it
@@ -42,22 +44,28 @@ class CONTENT_EXPORT NavigationInterceptor
   class ResponseBuilder {
    public:
     ResponseBuilder() = default;
-    CONTENT_EXPORT std::optional<content::NavigationController::LoadURLParams>
-    Build(const base::Value& response);
+    CONTENT_EXPORT std::optional<NavigationController::LoadURLParams> Build(
+        const base::Value& response);
   };
 
-  using RequestFactory =
-      base::RepeatingCallback<Request*(content::RenderFrameHost* rfh)>;
+  using RequestInitiator = base::RepeatingCallback<bool(
+      RenderFrameHost* rfh,
+      std::vector<blink::mojom::IdentityProviderGetParametersPtr>
+          idp_get_params,
+      ::password_manager::CredentialMediationRequirement requirement,
+      NavigationHandle* navigation_handle,
+      const GURL& intercepted_url,
+      Request::RequestTokenCallback callback)>;
 
   explicit NavigationInterceptor(NavigationThrottleRegistry& registry);
   NavigationInterceptor(NavigationThrottleRegistry& registry,
-                        RequestFactory request_factory);
+                        RequestInitiator request_initiator);
   ~NavigationInterceptor() override;
 
   NavigationInterceptor(const NavigationInterceptor&) = delete;
   NavigationInterceptor& operator=(const NavigationInterceptor&) = delete;
 
-  // content::NavigationThrottle overrides:
+  // NavigationThrottle overrides:
   ThrottleCheckResult WillStartRequest() override;
   ThrottleCheckResult WillRedirectRequest() override;
   ThrottleCheckResult WillProcessResponse() override;
@@ -81,7 +89,9 @@ class CONTENT_EXPORT NavigationInterceptor
       blink::mojom::TokenErrorPtr error,
       bool is_auto_selected);
 
-  RequestFactory request_factory_;
+  RequestInitiator request_initiator_;
+  bool is_inside_onheaderparsed_ = false;
+  bool should_cancel_ = false;
   // Tracks the document present in the target RenderFrameHost at the time the
   // relevant navigation began. This will be navigated to complete the FedCM
   // flow after the initiating navigation is canceled and replaced. A

@@ -263,8 +263,8 @@ void WebAppFrameToolbarView::LayoutForWindowControlsOverlay(
   SetBounds(x, available_space.y(), width, available_space.height());
 }
 
-ExtensionsToolbarDesktop*
-WebAppFrameToolbarView::GetExtensionsToolbarDesktop() {
+ExtensionsContainerViews*
+WebAppFrameToolbarView::GetExtensionsContainerViews() {
   return right_container_->extensions_container();
 }
 
@@ -278,10 +278,10 @@ gfx::Size WebAppFrameToolbarView::GetToolbarButtonSize() const {
 }
 
 views::BubbleAnchor WebAppFrameToolbarView::GetDefaultExtensionDialogAnchor() {
-  ExtensionsToolbarDesktop* extensions_container =
-      GetExtensionsToolbarDesktop();
-  if (extensions_container && extensions_container->GetVisible()) {
-    return views::BubbleAnchor(extensions_container->GetExtensionsButton());
+  ExtensionsContainerViews* extensions_container =
+      GetExtensionsContainerViews();
+  if (extensions_container && extensions_container->IsVisible()) {
+    return extensions_container->GetExtensionsButtonAnchor();
   }
   auto* control = GetAppMenuControl();
   return control ? control->GetAnchor() : views::BubbleAnchor();
@@ -339,7 +339,7 @@ gfx::Rect WebAppFrameToolbarView::GetFindBarBoundingBox(int contents_bottom) {
 }
 
 void WebAppFrameToolbarView::FocusToolbar() {
-  SetPaneFocus(nullptr);
+  SetPaneFocusAndFocusDefault();
 }
 
 views::AccessiblePaneView* WebAppFrameToolbarView::GetAsAccessiblePaneView() {
@@ -366,19 +366,13 @@ views::BubbleAnchor WebAppFrameToolbarView::GetPageActionBubbleAnchor(
 }
 
 void WebAppFrameToolbarView::ZoomChangedForActiveTab(bool can_show_bubble) {
-  if (IsPageActionMigrated(PageActionIconType::kZoom)) {
-    auto* zoom_view_controller = browser_view_->browser()
-                                     ->GetActiveTabInterface()
-                                     ->GetTabFeatures()
-                                     ->zoom_view_controller();
-    CHECK(zoom_view_controller);
-    zoom_view_controller->UpdatePageActionIconAndBubbleVisibility(
-        /*prefer_to_show_bubble=*/can_show_bubble, /*from_user_gesture=*/false);
-    return;
-  }
-
-  right_container_->page_action_icon_controller()->ZoomChangedForActiveTab(
-      can_show_bubble);
+  auto* zoom_view_controller = browser_view_->browser()
+                                   ->GetActiveTabInterface()
+                                   ->GetTabFeatures()
+                                   ->zoom_view_controller();
+  CHECK(zoom_view_controller);
+  zoom_view_controller->UpdatePageActionIconAndBubbleVisibility(
+      /*prefer_to_show_bubble=*/can_show_bubble, /*from_user_gesture=*/false);
 }
 
 AvatarToolbarButtonInterface*
@@ -394,9 +388,6 @@ ReloadControl* WebAppFrameToolbarView::GetReloadButton() {
   return left_container_ ? left_container_->reload_button() : nullptr;
 }
 
-IntentChipButton* WebAppFrameToolbarView::GetIntentChipButton() {
-  return nullptr;
-}
 
 ToolbarButton* WebAppFrameToolbarView::GetDownloadButton() {
   return right_container_ ? right_container_->GetDownloadButton() : nullptr;
@@ -424,6 +415,7 @@ void WebAppFrameToolbarView::OnWindowControlsOverlayEnabledChanged() {
     DestroyLayer();
     views::SetHitTestComponent(this, static_cast<int>(HTNOWHERE));
   }
+  right_container_->WindowControlsOverlayEnabledChanged();
   right_container_->extensions_toolbar_coordinator()
       ->GetExtensionsContainerViewController()
       ->WindowControlsOverlayEnabledChanged(
@@ -451,6 +443,38 @@ void WebAppFrameToolbarView::SetWindowControlsOverlayToggleVisible(
 PageActionIconController*
 WebAppFrameToolbarView::GetPageActionIconControllerForTesting() {
   return right_container_->page_action_icon_controller();
+}
+views::View* WebAppFrameToolbarView::GetDefaultFocusableChild() {
+  // If the app is in minimal-ui mode and navigation buttons (like back/reload)
+  // are visible, we want focus to start on the leftmost navigation control.
+  const auto* app_controller =
+      web_app::AppBrowserController::From(browser_view_->browser());
+  if (app_controller && app_controller->HasMinimalUiButtons() &&
+      left_container_ && left_container_->GetVisible()) {
+    views::View* first_focusable = GetFirstFocusableChild();
+    if (first_focusable && left_container_->Contains(first_focusable)) {
+      return first_focusable;
+    }
+  }
+
+  // Focus content settings buttons first if active.
+  if (right_container_ && right_container_->content_settings_container()) {
+    for (views::View* view : right_container_->content_settings_container()
+                                 ->get_content_setting_views()) {
+      if (view && view->IsFocusable()) {
+        return view;
+      }
+    }
+  }
+
+  // Fall back to the 3-dot app menu button as the standard default
+  // focus point when the toolbar is focused.
+  if (right_container_ && right_container_->web_app_menu_button() &&
+      right_container_->web_app_menu_button()->IsFocusable()) {
+    return right_container_->web_app_menu_button();
+  }
+
+  return GetFirstFocusableChild();
 }
 
 void WebAppFrameToolbarView::ChildPreferredSizeChanged(views::View* child) {

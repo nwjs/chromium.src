@@ -47,7 +47,8 @@ class ChromeSigninClientHatsSurveyBrowserTest : public InProcessBrowserTest {
   void SetUpOnMainThread() override {
     mock_hats_service_ = static_cast<MockHatsService*>(
         HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
-            browser()->profile(), base::BindRepeating(&BuildMockHatsService)));
+            browser()->GetProfile(),
+            base::BindRepeating(&BuildMockHatsService)));
   }
 
   void TearDownOnMainThread() override { mock_hats_service_ = nullptr; }
@@ -85,7 +86,7 @@ IN_PROC_BROWSER_TEST_F(ChromeSigninClientHatsSurveyBrowserTest,
   // Simulate a user signing in via the password bubble, which should trigger
   // the survey.
   signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(browser()->profile());
+      IdentityManagerFactory::GetForProfile(browser()->GetProfile());
   signin::MakeAccountAvailable(
       identity_manager,
       signin::AccountAvailabilityOptionsBuilder()
@@ -99,7 +100,7 @@ IN_PROC_BROWSER_TEST_F(ChromeSigninClientHatsSurveyBrowserTest,
 // launched immediately when a browser is subsequently created for that profile.
 IN_PROC_BROWSER_TEST_F(ChromeSigninClientHatsSurveyBrowserTest,
                        HatsSurveyLaunchedOnBrowserCreationAfterSignin) {
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
   // Keep the browser process running while browsers are closed.
   ScopedKeepAlive keep_alive(KeepAliveOrigin::BROWSER,
                              KeepAliveRestartOption::DISABLED);
@@ -159,7 +160,7 @@ IN_PROC_BROWSER_TEST_F(ChromeSigninClientHatsSurveyBrowserTest,
   // Simulate a user signing in via the password bubble.
   // This would normally trigger the survey if the locale was supported.
   signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(browser()->profile());
+      IdentityManagerFactory::GetForProfile(browser()->GetProfile());
   signin::MakeAccountAvailable(
       identity_manager,
       signin::AccountAvailabilityOptionsBuilder()

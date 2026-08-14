@@ -126,7 +126,6 @@ template("chrome_extra_paks") {
       "$root_gen_dir/chrome/common_resources.pak",
       "$root_gen_dir/chrome/contextual_tasks_resources.pak",
       "$root_gen_dir/chrome/glic_resources.pak",
-      "$root_gen_dir/chrome/private_ai_internals_resources.pak",
       "$root_gen_dir/chrome/saved_tab_groups_unsupported_resources.pak",
       "$root_gen_dir/chrome/segmentation_internals_resources.pak",
       "$root_gen_dir/components/autofill/core/browser/geo/autofill_address_rewriter_resources.pak",
@@ -146,11 +145,9 @@ template("chrome_extra_paks") {
       "$root_gen_dir/components/translate_internals_resources.pak",
       "$root_gen_dir/components/user_actions_ui_resources.pak",
       "$root_gen_dir/components/version_ui_resources.pak",
-      "$root_gen_dir/content/attribution_internals_resources.pak",
       "$root_gen_dir/content/content_resources.pak",
       "$root_gen_dir/content/histograms_resources.pak",
       "$root_gen_dir/content/indexed_db_resources.pak",
-      "$root_gen_dir/content/private_aggregation_internals_resources.pak",
       "$root_gen_dir/content/quota_internals_resources.pak",
       "$root_gen_dir/mojo/public/js/mojo_bindings_resources.pak",
       "$root_gen_dir/net/net_resources.pak",
@@ -241,6 +238,7 @@ template("chrome_extra_paks") {
         "$root_gen_dir/chrome/history_resources.pak",
         "$root_gen_dir/chrome/indigo_resources.pak",
         "$root_gen_dir/chrome/inspect_resources.pak",
+        "$root_gen_dir/chrome/iwa_dev_resources.pak",
         "$root_gen_dir/chrome/key_value_pair_viewer_shared_resources.pak",
         "$root_gen_dir/chrome/lens_shared_resources.pak",
         "$root_gen_dir/chrome/lens_untrusted_resources.pak",
@@ -507,14 +505,21 @@ template("chrome_extra_paks") {
       ]
     }
 
-    if (is_win || is_mac || is_linux || is_chromeos || is_desktop_android) {
+    if (is_win || is_mac || is_linux || is_chromeos || is_android) {
       sources += [
-        "$root_gen_dir/chrome/discards_resources.pak",
         "$root_gen_dir/chrome/management_resources.pak",
       ]
       deps += [
-        "//chrome/browser/resources/discards:resources",
         "//chrome/browser/resources/management:resources",
+      ]
+    }
+
+    if (is_win || is_mac || is_linux || is_chromeos || is_desktop_android) {
+      sources += [
+        "$root_gen_dir/chrome/discards_resources.pak",
+      ]
+      deps += [
+        "//chrome/browser/resources/discards:resources",
       ]
     }
 
@@ -524,8 +529,8 @@ template("chrome_extra_paks") {
         "$root_gen_dir/chrome/skills_resources.pak",
       ]
       deps += [
-        "//chrome/browser/resources/ai_overlay_dialog:resources",
         "//chrome/browser/resources/skills:resources",
+        "//chrome/browser/ttc/resources",
       ]
     }
 

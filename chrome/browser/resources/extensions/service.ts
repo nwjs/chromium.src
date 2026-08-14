@@ -40,6 +40,21 @@ export interface ServiceInterface extends ActivityLogDelegate,
       extensionId: string,
       eventType: chrome.developerPrivate.EventType): boolean;
   showSiteSettings(extensionId: string): void;
+  setProfileExtensionsPinnedByDefault(extensionsPinnedByDefault: boolean): void;
+}
+
+// Throws the `error` if it was anything other than the extension no longer
+// being in the system. The "no such extension found" error is always safe to
+// catch because the `ExtensionsManagerElement` will navigate away from an
+// extension specific page (e.g. DETAILS or ERRORS) back to the LIST page or
+// delete the extension's item on the LIST page when an extension is
+// uninstalled.
+function throwIfIsUnexpectedError(error: Error, functionName: string): void {
+  if (error?.message !==
+      `No such extension found for call to 'developerPrivate.${
+          functionName}'.`) {
+    throw error;
+  }
 }
 
 export class Service implements ServiceInterface {
@@ -76,28 +91,22 @@ export class Service implements ServiceInterface {
 
   getExtensionSize(id: string) {
     return chrome.developerPrivate.getExtensionSize(id).catch(error => {
-      // The extension is no longer in the system so we should no longer
-      // remain on this page. It's safe to catch this error here because
-      // `ExtensionsManagerElement` should navigate back to the LIST page if
-      // an extension for an extension specific page (such as this one) is
-      // uninstalled.
-      // For this API call, check that this should be the only error message
-      // that could be returned.
-      if (error.message !==
-          `No such extension found for call to ` +
-              `'developerPrivate.getExtensionSize'.`) {
-        throw error;
-      }
+      throwIfIsUnexpectedError(error, 'getExtensionSize');
       return '';
     });
   }
 
   addRuntimeHostPermission(id: string, host: string): Promise<void> {
-    return chrome.developerPrivate.addHostPermission(id, host);
+    return chrome.developerPrivate.addHostPermission(id, host).catch(error => {
+      throwIfIsUnexpectedError(error, 'addHostPermission');
+    });
   }
 
   removeRuntimeHostPermission(id: string, host: string): Promise<void> {
-    return chrome.developerPrivate.removeHostPermission(id, host);
+    return chrome.developerPrivate.removeHostPermission(id, host).catch(
+        error => {
+          throwIfIsUnexpectedError(error, 'removeHostPermission');
+        });
   }
 
   recordUserAction(metricName: string): void {
@@ -209,10 +218,27 @@ export class Service implements ServiceInterface {
     });
   }
 
+  private updateExtensionConfiguration_(
+      config: chrome.developerPrivate.ExtensionConfigurationUpdate):
+      Promise<void> {
+    return chrome.developerPrivate.updateExtensionConfiguration(config).catch(
+        error => {
+          throwIfIsUnexpectedError(error, 'updateExtensionConfiguration');
+        });
+  }
+
+  private openDevTools_(
+      properties: chrome.developerPrivate.OpenDevToolsProperties):
+      Promise<void> {
+    return chrome.developerPrivate.openDevTools(properties).catch(error => {
+      throwIfIsUnexpectedError(error, 'openDevTools');
+    });
+  }
+
   setItemSafetyCheckWarningAcknowledged(
       id: string,
       reason: chrome.developerPrivate.SafetyCheckWarningReason): Promise<void> {
-    return chrome.developerPrivate.updateExtensionConfiguration({
+    return this.updateExtensionConfiguration_({
       extensionId: id,
       acknowledgeSafetyCheckWarningReason: reason,
     });
@@ -232,21 +258,21 @@ export class Service implements ServiceInterface {
   }
 
   setItemAllowedIncognito(id: string, isAllowedIncognito: boolean) {
-    chrome.developerPrivate.updateExtensionConfiguration({
+    this.updateExtensionConfiguration_({
       extensionId: id,
       incognitoAccess: isAllowedIncognito,
     });
   }
 
   setItemAllowedUserScripts(id: string, isAllowedUserScripts: boolean) {
-    chrome.developerPrivate.updateExtensionConfiguration({
+    this.updateExtensionConfiguration_({
       extensionId: id,
       userScriptsAccess: isAllowedUserScripts,
     });
   }
 
   setItemAllowedOnFileUrls(id: string, isAllowedOnFileUrls: boolean) {
-    chrome.developerPrivate.updateExtensionConfiguration({
+    this.updateExtensionConfiguration_({
       extensionId: id,
       fileAccess: isAllowedOnFileUrls,
     });
@@ -254,21 +280,21 @@ export class Service implements ServiceInterface {
 
   setItemHostAccess(id: string, hostAccess: chrome.developerPrivate.HostAccess):
       void {
-    chrome.developerPrivate.updateExtensionConfiguration({
+    this.updateExtensionConfiguration_({
       extensionId: id,
       hostAccess: hostAccess,
     });
   }
 
   setItemCollectsErrors(id: string, collectsErrors: boolean): void {
-    chrome.developerPrivate.updateExtensionConfiguration({
+    this.updateExtensionConfiguration_({
       extensionId: id,
       errorCollection: collectsErrors,
     });
   }
 
   setItemPinnedToToolbar(id: string, pinnedToToolbar: boolean) {
-    chrome.developerPrivate.updateExtensionConfiguration({
+    this.updateExtensionConfiguration_({
       extensionId: id,
       pinnedToToolbar,
     });
@@ -276,7 +302,7 @@ export class Service implements ServiceInterface {
 
   inspectItemView(id: string, view: chrome.developerPrivate.ExtensionView):
       void {
-    chrome.developerPrivate.openDevTools({
+    this.openDevTools_({
       extensionId: id,
       renderProcessId: view.renderProcessId,
       renderViewId: view.renderViewId,
@@ -303,7 +329,7 @@ export class Service implements ServiceInterface {
       devToolsProperties.columnNumber = stackFrame.columnNumber;
     }
 
-    chrome.developerPrivate.openDevTools(devToolsProperties);
+    this.openDevTools_(devToolsProperties);
   }
 
   openUrl(url: string): void {
@@ -341,7 +367,9 @@ export class Service implements ServiceInterface {
     // </if>
 
     if (openInTab) {
-      chrome.developerPrivate.showOptions(extension.id);
+      chrome.developerPrivate.showOptions(extension.id).catch(error => {
+        throwIfIsUnexpectedError(error, 'showOptions');
+      });
     } else {
       navigation.navigateTo({
         page: Page.DETAILS,
@@ -425,11 +453,16 @@ export class Service implements ServiceInterface {
 
   requestFileSource(args: chrome.developerPrivate.RequestFileSourceProperties):
       Promise<chrome.developerPrivate.RequestFileSourceResponse> {
-    return chrome.developerPrivate.requestFileSource(args);
+    return chrome.developerPrivate.requestFileSource(args).catch(error => {
+      throwIfIsUnexpectedError(error, 'requestFileSource');
+      return null!;
+    });
   }
 
   showInFolder(id: string) {
-    chrome.developerPrivate.showPath(id);
+    chrome.developerPrivate.showPath(id).catch(error => {
+      throwIfIsUnexpectedError(error, 'showPath');
+    });
   }
 
   getExtensionActivityLog(extensionId: string):
@@ -584,6 +617,11 @@ export class Service implements ServiceInterface {
 
   showSiteSettings(extensionId: string) {
     chrome.developerPrivate.showSiteSettings(extensionId);
+  }
+
+  setProfileExtensionsPinnedByDefault(extensionsPinnedByDefault: boolean) {
+    chrome.developerPrivate.updateProfileConfiguration(
+        {extensionsPinnedByDefault});
   }
 
   static getInstance(): ServiceInterface {

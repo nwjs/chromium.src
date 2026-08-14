@@ -21,7 +21,8 @@ ColorChangeHandler::~ColorChangeHandler() = default;
 
 void ColorChangeHandler::Bind(
     mojo::PendingReceiver<color_change_listener::mojom::PageHandler>
-        pending_receiver) {
+        pending_receiver,
+    bool allow_non_webui) {
   // Note: This binder is registered for all renderers, as its exposed via
   // RegisterWebUIControllerInterfaceBinder as well as
   // WebUIBrowserInterfaceBrokerRegistry. Once its only exposed via
@@ -29,7 +30,7 @@ void ColorChangeHandler::Bind(
   // TODO(crbug.com/452983498): Remove this check once we have migrated all
   // RegisterWebUIControllerInterfaceBinder calls to registry.ForWebUI().Add()
   // calls.
-  if (!render_frame_host().GetWebUI()) {
+  if (!allow_non_webui && !render_frame_host().GetWebUI()) {
     mojo::ReportBadMessage(
         "Attempted to bind ColorChangeHandler to a non-WebUI frame");
     return;
@@ -40,6 +41,14 @@ void ColorChangeHandler::Bind(
 void ColorChangeHandler::SetPage(
     mojo::PendingRemote<color_change_listener::mojom::Page> pending_page) {
   page_.Bind(std::move(pending_page));
+  // Fire an event immediately to ensure the page has the most up-to-date color.
+  // This handles the race condition where the WebContents' ColorProvider
+  // changes before the WebUI Javascript has finished loading and bound the
+  // page.
+  // TODO(crbug.com/532226039): Investigate whether we can improve the
+  // performance, such as creating ColorChangeHandler earlier than the mojo
+  // binding.
+  page_->OnColorProviderChanged();
 }
 
 void ColorChangeHandler::OnColorProviderChanged() {

@@ -13,7 +13,10 @@ import os
 import pathlib
 import sys
 import tempfile
-from typing import Any, List
+from typing import Any, List, Set
+
+_NEW_HISTOGRAMS_THRESHOLD = 500
+
 
 # PRESUBMIT infrastructure doesn't guarantee that the cwd() will be on
 # path requiring manual path manipulation to call setup_modules.
@@ -30,7 +33,7 @@ import chromium_src.tools.metrics.common.path_util as path_util
 import chromium_src.tools.metrics.common.presubmit_util as presubmit_caching_support
 import chromium_src.tools.metrics.histograms.histogram_paths as histogram_paths
 import chromium_src.tools.metrics.histograms.histograms_allowlist_check as histograms_allowlist_check
-import chromium_src.tools.metrics.histograms.print_histogram_names as print_histogram_names
+import chromium_src.tools.metrics.histograms.histogram_validation as histogram_validation
 
 # Cannot be called CheckType because by convention PRESUBMIT will try to call
 # anything with a Check prefix as a function.
@@ -48,6 +51,7 @@ class HistogramsPresubmitCheckType(enum.Enum):
 
 _CACHE_DIR_PATH = os.path.join(tempfile.gettempdir(),
                                'histograms_presubmit_cache')
+
 
 def GetPrettyPrintErrors(input_api, output_api, cwd, rel_path, results):
   """Runs pretty-print command for specified file."""
@@ -311,71 +315,127 @@ def CheckBooleansAreEnums(input_api,
 # Execute prefix for executing the checks on cache miss.
 def ExecuteCheckBooleansAreEnums(input_api, output_api):
   """Checks that histograms that use Booleans do not use units."""
-  results = []
   cwd = input_api.PresubmitLocalPath()
-  inclusion_pattern = input_api.re.compile(r'units="[Bb]oolean')
-  units_warning = """
-  You are using 'units' for a boolean histogram, but you should be using
-  'enum' instead."""
 
-  # Only for changed files, do corresponding checks if the file is
-  # histograms.xml or enums.xml.
+  affected_files = []
   for affected_file in input_api.AffectedFiles(include_deletes=False):
     filepath = input_api.os_path.relpath(affected_file.AbsoluteLocalPath(), cwd)
     if 'histograms.xml' in filepath:
-      for line_number, line in affected_file.ChangedContents():
-        if inclusion_pattern.search(line):
-          results.append('%s:%s\n\t%s' % (filepath, line_number, line.strip()))
+      affected_files.append(
+          histogram_validation.AffectedFileForLineCheck(
+              path=filepath,
+              changed_lines=list(affected_file.ChangedContents())))
 
-  # If a histograms.xml file was changed, check for units="[Bb]oolean".
-  if results:
-    return [output_api.PresubmitPromptOrNotify(units_warning, results)]
-  return results
+  validation_errors = histogram_validation.check_booleans_are_enums(
+      affected_files)
 
-
-def CheckRemovedSegmentationHistograms(input_api, output_api):
-  """Checks if any histogram used by segmentation platform is removed."""
-  affected_xml_files = [
-      f for f in input_api.AffectedFiles(include_deletes=True)
-      if 'histograms.xml' in f.LocalPath()
-  ]
-  if not affected_xml_files:
+  if not validation_errors:
     return []
 
-  removed_histograms = set()
-  for f in affected_xml_files:
-    old_histograms = set()
-    if f.Action() != 'A':
-      old_histograms = print_histogram_names.get_names_from_contents(
-          f.OldContents())
+  results = []
+  for filepath, line_number, line in validation_errors:
+    results.append('%s:%s\n\t%s' % (filepath, line_number, line.strip()))
 
-    new_histograms = set()
-    if f.Action() != 'D':
-      new_histograms = print_histogram_names.get_names_from_contents(
-          f.NewContents())
+  units_warning = '''
+  You are using 'units' for a boolean histogram, but you should be using
+  'enum' instead.'''
 
-    removed_histograms.update(old_histograms - new_histograms)
+  return [output_api.PresubmitPromptOrNotify(units_warning, results)]
 
+
+def _CheckRemovedSegmentationHistograms(
+    output_api: Any, removed_histograms: Set[str]) -> List[Any]:
+  """Checks if any removed histograms are used by the segmentation platform."""
   if not removed_histograms:
     return []
 
-  # Load the list of all histograms required by segmentation models.
-  segmentation_histograms = generate_histogram_list.GetActualHistogramNames()
-
+  segmentation_histograms = set(
+      generate_histogram_list.GetActualHistogramNames())
   if not segmentation_histograms:
-    # If the file is empty or doesn't exist, there's nothing to check.
     return []
 
-  removed_segmentation_histograms = removed_histograms.intersection(
-      segmentation_histograms)
+  removed_seg = (histogram_validation.check_removed_segmentation_histograms(
+      removed_histograms, segmentation_histograms))
+  if not removed_seg:
+    return []
 
-  if removed_segmentation_histograms:
+  return [
+      output_api.PresubmitError(
+          'The following histograms are used by segmentation platform '
+          'and should not be removed without a migration plan. Please '
+          'reach out to chrome-segmentation-platform@google.com for '
+          'questions.',
+          items=sorted(list(removed_seg)))
+  ]
+
+
+def _CheckTooManyHistograms(output_api: Any,
+                            added_histograms: Set[str]) -> List[Any]:
+  """Checks if an excessive number of new histograms are being introduced."""
+  if histogram_validation.check_if_introduced_too_many_histograms(
+      added_histograms, _NEW_HISTOGRAMS_THRESHOLD):
     return [
-        output_api.PresubmitError(
-            'The following histograms are used by segmentation platform and '
-            'should not be removed without a migration plan. Please reach out '
-            'to chrome-segmentation-platform@google.com for questions.',
-            items=sorted(list(removed_segmentation_histograms)))
+        output_api.PresubmitPromptWarning(
+            f'More than {_NEW_HISTOGRAMS_THRESHOLD} new histograms are being '
+            f'introduced ({len(added_histograms)}). Are you sure you want to '
+            'continue?')
     ]
-
   return []
+
+
+def CheckHistogramsChanges(input_api: Any, output_api: Any) -> List[Any]:
+  """Runs histogram changes checks (e.g. segmentation and threshold checks)."""
+  relevant_paths = set(
+      os.path.normpath(str(path_util.CHROMIUM_SRC_PATH / p))
+      for p in histogram_paths._HISTOGRAMS_XMLS_RELATIVE).union(
+          os.path.normpath(str(path_util.CHROMIUM_SRC_PATH / p))
+          for p in histogram_paths._VARIANTS_XML_RELATIVE)
+  relevant_paths.update(
+      os.path.normpath(p) for p in histogram_paths.HISTOGRAMS_XMLS)
+
+  affected_files = []
+  for f in input_api.AffectedFiles(include_deletes=True):
+    abs_path = os.path.normpath(f.AbsoluteLocalPath())
+    if abs_path in relevant_paths:
+      affected_files.append(
+          histogram_validation.HistogramFileState(
+              path=abs_path,
+              old_contents=f.OldContents(),
+              new_contents=f.NewContents(),
+              action=f.Action(),
+          ))
+
+  variants_paths = [
+      str(path_util.CHROMIUM_SRC_PATH / p)
+      for p in histogram_paths._VARIANTS_XML_RELATIVE
+  ]
+  histograms_paths = histogram_paths.HISTOGRAMS_XMLS
+
+  files_res = histogram_validation.get_files_to_check(
+      affected_files,
+      input_api.ReadFile,
+      variants_paths=variants_paths,
+      histograms_paths=histograms_paths,
+  )
+
+  if not files_res.files_to_check:
+    return []
+
+  all_old_histograms = histogram_validation.get_histogram_names(
+      [f.old_contents for f in files_res.files_to_check],
+      files_res.old_variants_doc,
+  )
+  all_new_histograms = histogram_validation.get_histogram_names(
+      [f.new_contents for f in files_res.files_to_check],
+      files_res.new_variants_doc,
+  )
+
+  added_histograms = all_new_histograms - all_old_histograms
+  removed_histograms = all_old_histograms - all_new_histograms
+
+  results = []
+  results.extend(
+      _CheckRemovedSegmentationHistograms(output_api, removed_histograms))
+  results.extend(_CheckTooManyHistograms(output_api, added_histograms))
+
+  return results

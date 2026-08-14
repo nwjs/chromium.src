@@ -77,8 +77,6 @@ import org.chromium.chrome.browser.media.MediaCaptureNotificationServiceImpl;
 import org.chromium.chrome.browser.media.MediaViewerUtils;
 import org.chromium.chrome.browser.metrics.LaunchMetrics;
 import org.chromium.chrome.browser.metrics.PackageMetrics;
-import org.chromium.chrome.browser.metrics.StorageSystem;
-import org.chromium.chrome.browser.metrics.UmaSessionStats;
 import org.chromium.chrome.browser.metrics.UmaUtils;
 import org.chromium.chrome.browser.night_mode.GlobalNightModeStateProviderHolder;
 import org.chromium.chrome.browser.night_mode.NightModeStateProvider;
@@ -102,6 +100,7 @@ import org.chromium.chrome.browser.profiles.ProfileManagerUtils;
 import org.chromium.chrome.browser.quickactionsearchwidget.QuickActionSearchWidgetProvider;
 import org.chromium.chrome.browser.rlz.RevenueStats;
 import org.chromium.chrome.browser.searchwidget.SearchWidgetProvider;
+import org.chromium.chrome.browser.share.send_tab_to_self.OtherDevicesShortcutControllerFactory;
 import org.chromium.chrome.browser.signin.SigninCheckerProvider;
 import org.chromium.chrome.browser.tab.state.PersistedTabData;
 import org.chromium.chrome.browser.tab.state.ShoppingPersistedTabData;
@@ -133,7 +132,6 @@ import org.chromium.components.webapps.AppBannerManager;
 import org.chromium.components.webapps.AppDetailsDelegate;
 import org.chromium.content_public.browser.ChildProcessLauncherHelper;
 import org.chromium.content_public.browser.DeviceUtils;
-import org.chromium.content_public.browser.JavalessRenderersFeatureList;
 import org.chromium.content_public.browser.SpeechRecognition;
 import org.chromium.net.NetworkChangeNotifier;
 import org.chromium.net.RegistrationPolicyApplicationStatus;
@@ -491,9 +489,6 @@ public class ProcessInitializationHandler {
         SpeechRecognition.initialize();
         TrampolineActivityTracker.getInstance().onNativeInitialized();
 
-        JavalessRenderersFeatureList.setRegisterSyntheticFieldTrialCallback(
-                UmaSessionStats::registerSyntheticFieldTrial);
-
         if (GlicEnabling.isEnabledByFlags()) {
             ActorForegroundServiceManager.initialize();
         }
@@ -658,8 +653,6 @@ public class ProcessInitializationHandler {
 
                     initAsyncDiskTask();
 
-                    StorageSystem.recordStorageType();
-
                     AfterStartupTaskUtils.setStartupComplete();
 
                     PartnerBrowserCustomizations.getInstance()
@@ -754,6 +747,9 @@ public class ProcessInitializationHandler {
 
         // Initialize the SigninChecker.
         tasks.add(() -> SigninCheckerProvider.get(profile));
+
+        // Initialize the OtherDevicesShortcutController.
+        tasks.add(() -> OtherDevicesShortcutControllerFactory.getForProfile(profile));
 
         tasks.add(
                 () -> {

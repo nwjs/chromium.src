@@ -11,18 +11,20 @@ import org.json.JSONException;
 
 import org.chromium.base.Log;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
+import org.chromium.base.task.PostTask;
+import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
-import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataBase.PlatformType;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 
 /** Centralizes management of NTP background preference data. */
 @NullMarked
 public class NtpBackgroundDataManager {
+    public static final int MAXIMUM_LOCAL_HISTORY = 3;
+
     private static final String TAG = "NtpBackgroundData";
-    private static final int MAXIMUM_LOCAL_HISTORY = 3;
     private static final int MAXIMUM_REMOTE_HISTORY = 2;
 
     private final Context mContext;
@@ -36,13 +38,12 @@ public class NtpBackgroundDataManager {
 
     /**
      * Saves the NTP's background types from cross device sync to the shared preference.
-     * TODO(https://crbug.com/488439751): Saves the sync data in a background thread.
      *
      * @param backgroundDataGroup The group of background data to save.
      */
     public void saveRemoteSyncDataToSharedPreference(NtpBackgroundDataGroup backgroundDataGroup) {
         for (NtpBackgroundDataBase data : backgroundDataGroup) {
-            if (data.getPlatformType() <= PlatformType.ANDROID_LOCAL) continue;
+            if (data.getPlatformType() <= PlatformType.ANDROID) continue;
             saveRemoteSyncDataToSharedPreference(data);
         }
     }
@@ -53,15 +54,20 @@ public class NtpBackgroundDataManager {
      * @param backgroundData The background data to save.
      */
     public void saveRemoteSyncDataToSharedPreference(NtpBackgroundDataBase backgroundData) {
+        PostTask.postTask(
+                TaskTraits.USER_VISIBLE_MAY_BLOCK,
+                () -> saveRemoteSyncDataToSharedPreferenceImpl(backgroundData));
+    }
+
+    private void saveRemoteSyncDataToSharedPreferenceImpl(NtpBackgroundDataBase backgroundData) {
         try {
             @PlatformType int platformType = backgroundData.getPlatformType();
             NtpBackgroundDataGroup currentGroup =
                     getBackgroundDataGroupFromSharedPreference(platformType);
 
             if (currentGroup.isEmpty()) {
-                JSONArray newList = new JSONArray();
-                newList.put(backgroundData.toJson());
-                writeToSharedPreference(newList, platformType);
+                currentGroup.add(backgroundData);
+                writeToSharedPreference(currentGroup.toJsonArray(), platformType);
                 return;
             }
 
@@ -98,14 +104,13 @@ public class NtpBackgroundDataManager {
     public void saveUserSelectedBackgroundTypeToSharedPreference(
             NtpBackgroundDataBase backgroundData) {
         try {
-            @PlatformType int platformTypeToSave = PlatformType.ANDROID_LOCAL;
+            @PlatformType int platformTypeToSave = PlatformType.ANDROID;
             NtpBackgroundDataGroup currentGroup =
                     getBackgroundDataGroupFromSharedPreference(platformTypeToSave);
 
             if (currentGroup.isEmpty()) {
-                JSONArray newList = new JSONArray();
-                newList.put(backgroundData.toJson());
-                writeToSharedPreference(newList, platformTypeToSave);
+                currentGroup.add(backgroundData);
+                writeToSharedPreference(currentGroup.toJsonArray(), platformTypeToSave);
                 return;
             }
 
@@ -115,7 +120,7 @@ public class NtpBackgroundDataManager {
             // local selection history. This allows to cache only the latest chosen background type
             // from any remote platform.
             int platformTypeOfNewData = backgroundData.getPlatformType();
-            if (platformTypeOfNewData != PlatformType.ANDROID_LOCAL) {
+            if (platformTypeOfNewData != PlatformType.ANDROID) {
                 currentGroup.removeIf(item -> item.getPlatformType() == platformTypeOfNewData);
             }
 
@@ -125,13 +130,16 @@ public class NtpBackgroundDataManager {
                 currentGroup.remove(index);
             }
             currentGroup.add(0, backgroundData);
+            NtpBackgroundDataBase dataToRemove = null;
             if (currentGroup.size() > MAXIMUM_LOCAL_HISTORY) {
                 int indexToRemove = currentGroup.size() - 1;
-                NtpBackgroundDataBase dataToRemove = currentGroup.get(indexToRemove);
-                cleanUpForBackgroundData(dataToRemove);
+                dataToRemove = currentGroup.get(indexToRemove);
                 currentGroup.remove(indexToRemove);
             }
             writeToSharedPreference(currentGroup.toJsonArray(), platformTypeToSave);
+            if (dataToRemove != null) {
+                cleanUpForBackgroundData(dataToRemove);
+            }
         } catch (JSONException e) {
             Log.i(
                     TAG,
@@ -143,10 +151,10 @@ public class NtpBackgroundDataManager {
 
     /** Removes the image file for the backgroundData. */
     private void cleanUpForBackgroundData(NtpBackgroundDataBase backgroundData) {
-        if (backgroundData instanceof NtpBackgroundDataUploadImage uploadImage) {
+        if (backgroundData instanceof NtpBackgroundDataImageBase imageBaseData) {
             NtpCustomizationUtils.maybeDeleteFile(
                     NtpCustomizationUtils.getBackgroundImageFileFromPath(
-                            uploadImage.getLastUploadImageFilePath()));
+                            imageBaseData.getLastUploadImageFilePath()));
         }
     }
 
@@ -158,7 +166,7 @@ public class NtpBackgroundDataManager {
      */
     public NtpBackgroundDataGroup[] getBackgroundDataListFromSharedPreference() {
         NtpBackgroundDataGroup[] dataList = new NtpBackgroundDataGroup[PlatformType.MAX_COUNT];
-        for (int i = PlatformType.ANDROID_LOCAL; i < PlatformType.MAX_COUNT; i++) {
+        for (int i = PlatformType.ANDROID; i < PlatformType.MAX_COUNT; i++) {
             dataList[i] = getBackgroundDataGroupFromSharedPreference(i);
         }
         return dataList;
@@ -236,7 +244,7 @@ public class NtpBackgroundDataManager {
     /** Resets the shared preferences used by this manager for testing purposes. */
     public void resetSharedPreferenceForTesting() {
         SharedPreferencesManager sharedPreferencesManager = ChromeSharedPreferences.getInstance();
-        for (int i = PlatformType.ANDROID_LOCAL; i < PlatformType.MAX_COUNT; i++) {
+        for (int i = PlatformType.ANDROID; i < PlatformType.MAX_COUNT; i++) {
             sharedPreferencesManager.removeKey(getSharedPreferenceKey(i));
         }
     }

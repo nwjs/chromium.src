@@ -17,22 +17,10 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/views/autofill/payments/filled_card_information_icon_view.h"
-#include "chrome/browser/ui/views/autofill/payments/mandatory_reauth_icon_view.h"
-#include "chrome/browser/ui/views/autofill/payments/save_payment_icon_view.h"
-#include "chrome/browser/ui/views/autofill/payments/virtual_card_enroll_icon_view.h"
-#include "chrome/browser/ui/views/location_bar/ai_mode_page_action_icon_view.h"
-#include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_icon_view.h"
-#include "chrome/browser/ui/views/location_bar/intent_picker_view.h"
-#include "chrome/browser/ui/views/location_bar/lens_overlay_homework_page_action_icon_view.h"
-#include "chrome/browser/ui/views/location_bar/star_view.h"
 #include "chrome/browser/ui/views/location_bar/zoom_bubble_view.h"
-#include "chrome/browser/ui/views/optimization_guide/optimization_guide_icon_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_container.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_params.h"
-#include "chrome/browser/ui/views/page_action/zoom_view.h"
 #include "chrome/browser/ui/views/sharing/sharing_dialog_view.h"
-#include "chrome/browser/ui/views/sharing/sharing_icon_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_icon_container_view.h"
 #include "chrome/common/chrome_features.h"
 #include "components/content_settings/core/common/features.h"
@@ -65,27 +53,6 @@ void PageActionIconController::Init(const PageActionIconParams& params,
   browser_ = params.browser;
   icon_container_ = icon_container;
 
-  auto add_page_action_icon = [&params, this](PageActionIconType type,
-                                              auto icon) {
-    icon->SetVisible(false);
-    views::InkDrop::Get(icon.get())
-        ->SetVisibleOpacity(params.page_action_icon_delegate
-                                ->GetPageActionInkDropVisibleOpacity());
-    if (params.icon_color) {
-      icon->SetIconColor(*params.icon_color);
-    }
-    if (params.font_list) {
-      icon->SetFontList(*params.font_list);
-    }
-    icon->AddPageIconViewObserver(this);
-    auto* icon_ptr = icon.get();
-    if (params.button_observer) {
-      params.button_observer->ObserveButton(icon_ptr);
-    }
-    this->icon_container_->AddPageActionIcon(std::move(icon));
-    this->page_action_icon_views_.emplace(type, icon_ptr);
-    return icon_ptr;
-  };
 
   for (PageActionIconType type : params.types_enabled) {
     // When the page action migration is enabled, the new
@@ -94,79 +61,7 @@ void PageActionIconController::Init(const PageActionIconParams& params,
       continue;
     }
     switch (type) {
-      case PageActionIconType::kBookmarkStar:
-        add_page_action_icon(type, std::make_unique<StarView>(
-                                       params.command_updater, params.browser,
-                                       params.icon_label_bubble_delegate,
-                                       params.page_action_icon_delegate));
-        break;
-      case PageActionIconType::kCookieControls:
-        add_page_action_icon(
-            type, std::make_unique<CookieControlsIconView>(
-                      params.browser, params.icon_label_bubble_delegate,
-                      params.page_action_icon_delegate));
-        break;
-      case PageActionIconType::kIntentPicker:
-        add_page_action_icon(
-            type, std::make_unique<IntentPickerView>(
-                      params.browser, params.icon_label_bubble_delegate,
-                      params.page_action_icon_delegate));
-        break;
-      case PageActionIconType::kMandatoryReauth:
-        add_page_action_icon(
-            type, std::make_unique<autofill::MandatoryReauthIconView>(
-                      params.command_updater, params.icon_label_bubble_delegate,
-                      params.page_action_icon_delegate));
-        break;
-      case PageActionIconType::kSaveCard:
-        add_page_action_icon(
-            type, std::make_unique<autofill::SavePaymentIconView>(
-                      params.command_updater, params.icon_label_bubble_delegate,
-                      params.page_action_icon_delegate,
-                      IDC_SAVE_CREDIT_CARD_FOR_PAGE));
-        break;
-      case PageActionIconType::kSaveIban:
-        add_page_action_icon(
-            type,
-            std::make_unique<autofill::SavePaymentIconView>(
-                params.command_updater, params.icon_label_bubble_delegate,
-                params.page_action_icon_delegate, IDC_SAVE_IBAN_FOR_PAGE));
-        break;
-      case PageActionIconType::kVirtualCardEnroll:
-        add_page_action_icon(
-            type, std::make_unique<autofill::VirtualCardEnrollIconView>(
-                      params.command_updater, params.icon_label_bubble_delegate,
-                      params.page_action_icon_delegate));
-        break;
-      case PageActionIconType::kFilledCardInformation:
-        add_page_action_icon(
-            type, std::make_unique<autofill::FilledCardInformationIconView>(
-                      params.command_updater, params.icon_label_bubble_delegate,
-                      params.page_action_icon_delegate));
-        break;
-      case PageActionIconType::kZoom:
-        zoom_icon_ = add_page_action_icon(
-            type, std::make_unique<ZoomView>(params.icon_label_bubble_delegate,
-                                             params.page_action_icon_delegate));
-        break;
-      case PageActionIconType::kAiMode:
-        add_page_action_icon(
-            type, std::make_unique<AiModePageActionIconView>(
-                      params.icon_label_bubble_delegate,
-                      params.page_action_icon_delegate, params.browser));
-        break;
-      case PageActionIconType::kLensOverlayHomework:
-        add_page_action_icon(
-            type, std::make_unique<LensOverlayHomeworkPageActionIconView>(
-                      params.icon_label_bubble_delegate,
-                      params.page_action_icon_delegate, params.browser));
-        break;
       case PageActionIconType::kOptimizationGuide:
-        add_page_action_icon(
-            type, std::make_unique<OptimizationGuideIconView>(
-                      params.icon_label_bubble_delegate,
-                      params.page_action_icon_delegate, params.browser));
-        break;
       case PageActionIconType::kFind:
       case PageActionIconType::kFederation:
         // Do nothing as these actions were added after the migration, or
@@ -178,10 +73,7 @@ void PageActionIconController::Init(const PageActionIconParams& params,
   }
 
   if (params.browser) {
-    zoom_observation_.Observe(zoom::ZoomEventManager::GetForBrowserContext(
-        params.browser->profile()));
-
-    pref_change_registrar_.Init(params.browser->profile()->GetPrefs());
+    pref_change_registrar_.Init(params.browser->GetProfile()->GetPrefs());
     pref_change_registrar_.Add(
         omnibox::kShowGoogleLensShortcut,
         base::BindRepeating(&PageActionIconController::UpdateAll,
@@ -269,12 +161,6 @@ void PageActionIconController::OnPageActionIconViewClicked(
   RecordClickMetrics(GetIconType(view), view);
 }
 
-void PageActionIconController::ZoomChangedForActiveTab(bool can_show_bubble) {
-  if (zoom_icon_) {
-    zoom_icon_->ZoomChangedForActiveTab(can_show_bubble);
-  }
-}
-
 std::vector<const PageActionIconView*>
 PageActionIconController::GetPageActionIconViewsForTesting() const {
   std::vector<const PageActionIconView*> icon_views;
@@ -282,10 +168,6 @@ PageActionIconController::GetPageActionIconViewsForTesting() const {
                          std::back_inserter(icon_views),
                          &IconViews::value_type::second);
   return icon_views;
-}
-
-void PageActionIconController::OnDefaultZoomLevelChanged() {
-  ZoomChangedForActiveTab(false);
 }
 
 void PageActionIconController::UpdateWebContents(

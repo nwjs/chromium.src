@@ -9,17 +9,20 @@
 #include "chrome/browser/glic/experimental_opt_in/glic_experimental_opt_in_metrics.h"
 #include "chrome/browser/glic/experimental_opt_in/glic_experimental_opt_in_page_handler.h"
 #include "chrome/browser/glic/experimental_opt_in/glic_experimental_opt_in_util.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/resources/grit/glic_browser_resources.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/webui/theme_source.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/glic_experimental_opt_in_resources.h"
 #include "chrome/grit/glic_experimental_opt_in_resources_map.h"
+#include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
@@ -88,6 +91,8 @@ GlicExperimentalOptInUI::GlicExperimentalOptInUI(content::WebUI* web_ui)
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       profile, chrome::kChromeUIGlicExperimentalOptInHost);
 
+  content::URLDataSource::Add(profile, std::make_unique<ThemeSource>(profile));
+
   webui::SetupWebUIDataSource(
       source, kGlicExperimentalOptInResources,
       IDR_GLIC_EXPERIMENTAL_OPT_IN_EXPERIMENTAL_OPT_IN_HTML);
@@ -124,6 +129,12 @@ GlicExperimentalOptInUI::GlicExperimentalOptInUI(content::WebUI* web_ui)
   source->AddBoolean(
       "glicDevEnabled",
       base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kGlicDev));
+  source->AddBoolean(
+      "glicOptInDialogLinkA11yFixEnabled",
+      base::FeatureList::IsEnabled(features::kGlicOptInDialogLinkA11yFix));
+  source->AddBoolean(
+      "glicOptInDialogA11yFixEnabled",
+      base::FeatureList::IsEnabled(features::kGlicOptInDialogA11yFix));
 
   static constexpr webui::LocalizedString kStrings[] = {
       {"offlineNoticeHeader", IDS_GLIC_OFFLINE_NOTICE_HEADER},
@@ -133,8 +144,19 @@ GlicExperimentalOptInUI::GlicExperimentalOptInUI(content::WebUI* web_ui)
       {"errorNoticeHeader", IDS_GLIC_ERROR_NOTICE_HEADER},
       {"experimentalOptInErrorNoticeMessage", IDS_GLIC_ERROR_NOTICE},
       {"tryAgainButtonLabel", IDS_GLIC_ERROR_NOTICE_ACTION_BUTTON},
+      {"safelyLinkLabel",
+       IDS_SETTINGS_GLIC_PERMISSIONS_WEB_ACTUATION_TOGGLE_CONSIDER_SAFELY_ARIA_LABEL},
+      {"unexpectedResultsLinkLabel",
+       IDS_SETTINGS_GLIC_PERMISSIONS_WEB_ACTUATION_TOGGLE_CONSIDER_UNEXPECTED_RESULTS_ARIA_LABEL},
+      {"reviewRisksLinkLabel",
+       IDS_SETTINGS_GLIC_EXPERIMENTAL_TRIGGERING_CONSIDER_REVIEW_RISKS_LINK_LABEL_SPARK},
   };
   source->AddLocalizedStrings(kStrings);
+  source->AddLocalizedString(
+      "glicWindowTitle",
+      base::FeatureList::IsEnabled(features::kGlicOptInDialogA11yFix)
+          ? IDS_GLIC_EXPERIMENTAL_OPT_IN_TITLE
+          : IDS_GLIC_WINDOW_TITLE);
 }
 
 GlicExperimentalOptInUI::~GlicExperimentalOptInUI() = default;

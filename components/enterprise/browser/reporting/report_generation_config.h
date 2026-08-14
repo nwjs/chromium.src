@@ -6,8 +6,11 @@
 #define COMPONENTS_ENTERPRISE_BROWSER_REPORTING_REPORT_GENERATION_CONFIG_H_
 
 #include <cstdint>
+#include <optional>
 #include <string>
+#include <string_view>
 
+#include "base/values.h"
 #include "components/enterprise/browser/reporting/report_type.h"
 
 // Enum represnting how security signals will be included in the current report.
@@ -28,14 +31,17 @@ namespace enterprise_reporting {
 
 // The trigger leading to report generation. Values are bitmasks in the
 // |pending_triggers_| bitfield.
+// LINT.IfChange(ReportTrigger)
 enum ReportTrigger : uint32_t {
-  kTriggerNone = 0,              // No trigger.
-  kTriggerTimer = 1U << 0,       // The periodic timer expired.
-  kTriggerUpdate = 1U << 1,      // An update was detected.
-  kTriggerNewVersion = 1U << 2,  // A new version is running.
-  kTriggerManual = 1U << 3,      // Trigger manually.
-  kTriggerSecurity = 1U << 4,    // Triggered by a security trigger.
+  kTriggerNone = 0,                 // No trigger.
+  kTriggerTimer = 1U << 0,          // The periodic timer expired.
+  kTriggerUpdate = 1U << 1,         // An update was detected.
+  kTriggerNewVersion = 1U << 2,     // A new version is running.
+  kTriggerManual = 1U << 3,         // Trigger manually.
+  kTriggerSecurity = 1U << 4,       // Triggered by a security trigger.
+  kTriggerProfileOpened = 1U << 5,  // Triggered when a profile is opened.
 };
+// LINT.ThenChange(//tools/metrics/histograms/metadata/enterprise/enums.xml)
 
 inline std::string_view GetSecuritySignalsModeMetricSuffix(
     SecuritySignalsMode mode) {
@@ -49,15 +55,23 @@ inline std::string_view GetSecuritySignalsModeMetricSuffix(
   }
 }
 
+std::string_view ReportTriggerToString(ReportTrigger report_trigger);
+
 // Struct that includes various configuration of report generation and upload
 // process. Only used by profile-level reporting for now.
 struct ReportGenerationConfig {
   ReportGenerationConfig(ReportTrigger report_trigger,
                          ReportType report_type,
                          SecuritySignalsMode security_signals_mode,
-                         bool use_cookies);
+                         bool use_cookies,
+                         std::optional<std::string> challenge = std::nullopt,
+                         base::ListValue client_certificates_selectors = {});
   explicit ReportGenerationConfig(ReportTrigger report_trigger);
   ReportGenerationConfig();
+  ReportGenerationConfig(const ReportGenerationConfig&);
+  ReportGenerationConfig& operator=(const ReportGenerationConfig&);
+  ReportGenerationConfig(ReportGenerationConfig&&);
+  ReportGenerationConfig& operator=(ReportGenerationConfig&&);
   ~ReportGenerationConfig();
 
   bool operator==(const ReportGenerationConfig&) const;
@@ -66,10 +80,14 @@ struct ReportGenerationConfig {
   // logging and debugging purposes.
   std::string ToString() const;
 
+  void PrintDebugString(std::ostream* os) const;
+
   ReportTrigger report_trigger;
   ReportType report_type;
   SecuritySignalsMode security_signals_mode;
   bool use_cookies;
+  std::optional<std::string> challenge;
+  base::ListValue client_certificates_selectors;
 };
 
 }  // namespace enterprise_reporting

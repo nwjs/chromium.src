@@ -4,20 +4,16 @@
 
 #include <string>
 
+#include "base/feature_list.h"
 #include "base/test/bind.h"
 #include "chrome/browser/bookmarks/bookmark_merged_surface_service.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/bookmarks/bookmark_bar.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/toolbar/bookmark_sub_menu_model.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
-#include "chrome/browser/ui/views/bookmarks/bookmark_bar_view_test_helper.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/toolbar/browser_app_menu_button.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "chrome/test/user_education/interactive_feature_promo_test.h"
 #include "components/bookmarks/browser/bookmark_model.h"
@@ -26,11 +22,10 @@
 #include "components/bookmarks/test/bookmark_test_helpers.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/prefs/pref_service.h"
+#include "components/search/ntp_features.h"
 #include "content/public/test/browser_test.h"
-#include "content/public/test/browser_test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/ozone_buildflags.h"
-#include "ui/base/test/ui_controls.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/controls/menu/submenu_view.h"
 #include "ui/views/interaction/interaction_test_util_views.h"
@@ -50,8 +45,15 @@ class BookmarkBarDragAndDropInteractiveTest : public InteractiveBrowserTest {
 
   void SetUpOnMainThread() override {
     InteractiveBrowserTest::SetUpOnMainThread();
-    browser()->profile()->GetPrefs()->SetBoolean(
-        bookmarks::prefs::kShowBookmarkBar, true);
+    if (base::FeatureList::IsEnabled(
+            ntp_features::kNtpSimplificationBookmarkBar)) {
+      browser()->GetProfile()->GetPrefs()->SetInteger(
+          bookmarks::prefs::kBookmarkBarVisibilityState,
+          static_cast<int>(bookmarks::BookmarkBarVisibilityState::kAlwaysShow));
+    } else {
+      browser()->GetProfile()->GetPrefs()->SetBoolean(
+          bookmarks::prefs::kShowBookmarkBar, true);
+    }
   }
 
   auto NameBookmarkButton(std::string name,
@@ -129,7 +131,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkBarDragAndDropInteractiveTest,
     GTEST_SKIP() << "System DnD simulation is not supported on Wayland.";
   }
   bookmarks::BookmarkModel* const model =
-      BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+      BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
   bookmarks::test::WaitForBookmarkModelToLoad(model);
   const bookmarks::BookmarkNode* const bb_node = model->bookmark_bar_node();
   const bookmarks::BookmarkNode* const folder =
@@ -163,7 +165,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkBarDragAndDropInteractiveTest,
     GTEST_SKIP() << "System DnD simulation is not supported on Wayland.";
   }
   bookmarks::BookmarkModel* const model =
-      BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+      BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
   bookmarks::test::WaitForBookmarkModelToLoad(model);
   const bookmarks::BookmarkNode* const bb_node = model->bookmark_bar_node();
   const bookmarks::BookmarkNode* const folder =
@@ -196,7 +198,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkBarDragAndDropInteractiveTest,
     GTEST_SKIP() << "System DnD simulation is not supported on Wayland.";
   }
   bookmarks::BookmarkModel* const model =
-      BookmarkModelFactory::GetForBrowserContext(browser()->profile());
+      BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
   bookmarks::test::WaitForBookmarkModelToLoad(model);
   const bookmarks::BookmarkNode* const bb_node = model->bookmark_bar_node();
   const bookmarks::BookmarkNode* const folder =
@@ -245,7 +247,7 @@ class BookmarkBarSimplifiedIPHInteractiveTest
     InteractiveFeaturePromoTest::SetUpOnMainThread();
     // Simulate the state where the bookmark bar has been auto-hidden
     // due to inactivity.
-    browser()->profile()->GetPrefs()->SetInteger(
+    browser()->GetProfile()->GetPrefs()->SetInteger(
         bookmarks::prefs::kBookmarkBarVisibilityState,
         static_cast<int>(bookmarks::BookmarkBarVisibilityState::kAlwaysHide));
   }
@@ -260,7 +262,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkBarSimplifiedIPHInteractiveTest,
       PressNonDefaultPromoButton(),
       CheckResult(
           [this]() {
-            return browser()->profile()->GetPrefs()->GetInteger(
+            return browser()->GetProfile()->GetPrefs()->GetInteger(
                 bookmarks::prefs::kBookmarkBarVisibilityState);
           },
           static_cast<int>(

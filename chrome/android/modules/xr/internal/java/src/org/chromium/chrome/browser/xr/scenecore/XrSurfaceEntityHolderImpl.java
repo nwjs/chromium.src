@@ -19,6 +19,7 @@ import androidx.xr.scenecore.SurfaceEntity.StereoMode;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.ui.xr.scenecore.XrCurvedSurfaceEntityHolder;
+import org.chromium.ui.xr.scenecore.XrFloatSize3d;
 import org.chromium.ui.xr.scenecore.XrMeshData;
 import org.chromium.ui.xr.scenecore.XrSurfaceEntityHolder;
 import org.chromium.ui.xr.scenecore.XrSurfaceEntityHolder.Callback;
@@ -126,6 +127,7 @@ public class XrSurfaceEntityHolderImpl extends XrTransformableEntityHolderImpl<S
     @Override
     public void setSurfaceStereoMode(@XrSurfaceEntityStereoMode int stereoMode) {
         assertDisposed();
+        if (getSurfaceStereoMode() == stereoMode) return;
         StereoMode surfaceStereoMode = STEREO_MODE_MAP.get(stereoMode);
         if (surfaceStereoMode != null) {
             mEntity.setStereoMode(surfaceStereoMode);
@@ -150,9 +152,31 @@ public class XrSurfaceEntityHolderImpl extends XrTransformableEntityHolderImpl<S
         }
     }
 
+    private void notifySurfaceCreated(Surface surface) {
+        for (Callback callback : mCallbacks) {
+            callback.surfaceCreated(surface);
+        }
+    }
+
+    private void updateSurfaceCallbacks(@Nullable Surface oldSurface, @Nullable Surface newSurface) {
+        if (oldSurface != newSurface) {
+            if (oldSurface != null) {
+                notifySurfaceDestroyed();
+            }
+            if (newSurface != null && newSurface.isValid()) {
+                notifySurfaceCreated(newSurface);
+                notifySurfaceChanged();
+            }
+        } else {
+            notifySurfaceChanged();
+        }
+    }
+
     @Override
     public void setSurfaceShape(@XrSurfaceEntityShape int shape) {
         assertDisposed();
+        if (getSurfaceShape() == shape) return;
+        Surface oldSurface = getSurface();
         switch (shape) {
             case XrSurfaceEntityShape.QUAD:
                 mEntity.setShape(new Shape.Quad(new FloatSize2d(1f, 1f)));
@@ -166,13 +190,18 @@ public class XrSurfaceEntityHolderImpl extends XrTransformableEntityHolderImpl<S
             default:
                 throw new IllegalArgumentException("Invalid surface shape: " + shape);
         }
+        Surface newSurface = getSurface();
+        updateSurfaceCallbacks(oldSurface, newSurface);
     }
 
     @Override
     public void setSurfaceShape(XrMeshData[] meshDatas) {
         Shape.CustomMesh customMesh = XrSurfaceEntityUtils.createCustomMesh(meshDatas);
         if (customMesh != null) {
+            Surface oldSurface = getSurface();
             mEntity.setShape(customMesh);
+            Surface newSurface = getSurface();
+            updateSurfaceCallbacks(oldSurface, newSurface);
         }
     }
 
@@ -194,10 +223,18 @@ public class XrSurfaceEntityHolderImpl extends XrTransformableEntityHolderImpl<S
 
         if (mResizableComponent.shouldMaintainAspectRatio()) {
             float aspectRatio = width / height;
-            float[] minSize = mResizableComponent.getMinSize();
-            float[] maxSize = mResizableComponent.getMaxSize();
-            mResizableComponent.setMinSize(minSize[0], minSize[0] / aspectRatio, minSize[2]);
-            mResizableComponent.setMaxSize(maxSize[0], maxSize[0] / aspectRatio, maxSize[2]);
+            XrFloatSize3d minSize = mResizableComponent.getMinSize();
+            XrFloatSize3d maxSize = mResizableComponent.getMaxSize();
+            mResizableComponent.setMinSize(
+                    XrFloatSize3d.create(
+                            minSize.getWidth(),
+                            minSize.getWidth() / aspectRatio,
+                            minSize.getDepth()));
+            mResizableComponent.setMaxSize(
+                    XrFloatSize3d.create(
+                            maxSize.getWidth(),
+                            maxSize.getWidth() / aspectRatio,
+                            maxSize.getDepth()));
         }
     }
 

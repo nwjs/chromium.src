@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.tasks.tab_management;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.browser.tasks.tab_management.RecyclerViewScroller.smoothScrollToPosition;
-import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.CARD_TYPE;
 import static org.chromium.chrome.browser.tasks.tab_management.TabProperties.TAB_ID;
 
 import android.app.Activity;
@@ -62,10 +61,11 @@ import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabGridD
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListConfigDelegate;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListItemOnClickListenerProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListLayoutType;
-import org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.TabActionState;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcherMessageManager.MessageType;
+import org.chromium.chrome.browser.tasks.tab_management.vertical_tabs.VerticalTabHoverCardController.TabHoverCardListener;
+import org.chromium.chrome.browser.tasks.tab_management.vertical_tabs.VerticalTabListProperties.RailCollapseState;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.undo_tab_close_snackbar.UndoBarExplicitTrigger;
 import org.chromium.chrome.tab_ui.R;
@@ -340,6 +340,17 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
                     public boolean supportsMessageCards() {
                         return mMode == TabListMode.GRID;
                     }
+
+                    @Override
+                    public @Nullable NonNullObservableSupplier<@RailCollapseState Integer>
+                            getRailCollapseStateSupplier() {
+                        return null;
+                    }
+
+                    @Override
+                    public @Nullable TabHoverCardListener getTabHoverCardListener() {
+                        return null;
+                    }
                 };
 
         mMediator =
@@ -473,7 +484,8 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
                     }
 
                     @Override
-                    public boolean handleExternalDragEnd(float xPx, float yPx) {
+                    public boolean handleExternalDragEnd(
+                            float xPx, float yPx, boolean isOSNewWindowDrop) {
                         if (!mAllowDetachingTabsToCreateNewWindows) return false;
                         for (DragObserver observer : mDragObserverList) {
                             observer.onDragEnd();
@@ -586,7 +598,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
         // where the runnable will not be serviced downstream, dropping the runnable altogether is
         // safe.
         if (mAwaitingLayoutRunnable != null) {
-            Log.d(TAG, "Dropping AwaitingLayoutRunnable for " + mAwaitingTabId);
+            Log.d(TAG, "Dropping AwaitingLayoutRunnable for %d", mAwaitingTabId);
             mAwaitingLayoutRunnable = null;
             mAwaitingTabId = Tab.INVALID_TAB_ID;
         }
@@ -669,6 +681,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
                 mItemTouchHelper = new ItemTouchHelper2(callback, longPressHandler);
                 mOnAfterItemTouchHelperItemTouchListener =
                         TabListItemTouchHelperCallback.createAfterOnItemTouchListener(callback);
+                callback.setRecyclerView(mRecyclerView);
             }
             mRecyclerView.addOnItemTouchListener(mOnBeforeItemTouchHelperItemTouchListener);
             mItemTouchHelper.attachToRecyclerView(mRecyclerView);
@@ -714,8 +727,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
             // Other GTS items might intentionally have different dimensions. For example, the
             // pre-selected tab group divider and the large price tracking message span the width of
             // the recycler view.
-            if (tabPropertyModel.get(CARD_TYPE) == ModelType.TAB
-                    || tabPropertyModel.get(CARD_TYPE) == ModelType.TAB_GROUP) {
+            if (TabProperties.isTabOrTabGroup(tabPropertyModel)) {
                 tabPropertyModel.set(
                         TabProperties.GRID_CARD_SIZE, new Size(cardWidthPx, cardHeightPx));
             }
@@ -939,7 +951,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
         List<Integer> indexes = new ArrayList<>();
         for (int i = 0; i < mModelList.size(); i++) {
             PropertyModel model = mModelList.get(i).model;
-            if (TabListModel.isTabOrTabGroup(model) && tabIdSet.contains(model.get(TAB_ID))) {
+            if (TabProperties.isTabOrTabGroup(model) && tabIdSet.contains(model.get(TAB_ID))) {
                 indexes.add(i);
             }
         }
@@ -1128,9 +1140,11 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
                     if (isGroupTile && groupToken != null) {
                         res =
                                 mTabSwitcherDragHandler.startGroupDragAction(
-                                        view, groupToken, touchPoint);
+                                        view, groupToken, touchPoint, /* dragShadowView= */ null);
                     } else if (!isGroupTile) {
-                        res = mTabSwitcherDragHandler.startTabDragAction(view, tab, touchPoint);
+                        res =
+                                mTabSwitcherDragHandler.startTabDragAction(
+                                        view, tab, touchPoint, /* dragShadowView= */ null);
                     }
                 }
             }

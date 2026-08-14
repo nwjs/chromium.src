@@ -2,17 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/functional/callback_helpers.h"
 #include "base/time/time.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_bubble_controller.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_bubble_view.h"
@@ -20,8 +17,10 @@
 #include "chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "components/send_tab_to_self/features.h"
 #include "components/send_tab_to_self/metrics_util.h"
 #include "components/send_tab_to_self/target_device_info.h"
+#include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "content/public/test/browser_test.h"
 #include "ui/events/base_event_utils.h"
@@ -111,6 +110,9 @@ class SendTabToSelfBubbleTest : public DialogBrowserTest {
     } else if (name == "ShowSigninPromo") {
       controller_->SetEntryPointDisplayReason(
           send_tab_to_self::EntryPointDisplayReason::kOfferSignIn);
+    } else if (name == "ShowVerifyPromo") {
+      controller_->SetEntryPointDisplayReason(
+          send_tab_to_self::EntryPointDisplayReason::kOfferReauth);
     } else {
       CHECK_EQ(name, "ShowNoTargetDevicePromo");
       controller_->SetEntryPointDisplayReason(
@@ -123,37 +125,75 @@ class SendTabToSelfBubbleTest : public DialogBrowserTest {
   raw_ptr<StubSendTabToSelfBubbleController> controller_ = nullptr;
 };
 
-// TODO(crbug.com/40927205): Flakily fails on some Windows builders.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_InvokeUi_ShowDeviceList DISABLED_InvokeUi_ShowDeviceList
-#else
-#define MAYBE_InvokeUi_ShowDeviceList InvokeUi_ShowDeviceList
-#endif
-IN_PROC_BROWSER_TEST_F(SendTabToSelfBubbleTest, MAYBE_InvokeUi_ShowDeviceList) {
+// Test suite for pixel/dialog tests that assert the old bubble UI.
+// These tests must run with SendTabToSelfEnhancedDesktopUI disabled to match
+// the existing pixel baselines.
+class SendTabToSelfBubbleOldUITest : public SendTabToSelfBubbleTest {
+ public:
+  SendTabToSelfBubbleOldUITest() {
+    feature_list_.InitAndDisableFeature(kSendTabToSelfEnhancedDesktopUI);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(SendTabToSelfBubbleOldUITest, InvokeUi_ShowDeviceList) {
   ShowAndVerifyUi();
 }
 
-IN_PROC_BROWSER_TEST_F(SendTabToSelfBubbleTest, InvokeUi_ShowSigninPromo) {
+IN_PROC_BROWSER_TEST_F(SendTabToSelfBubbleOldUITest, InvokeUi_ShowSigninPromo) {
   // Last updated in crrev.com/c/3776623.
   set_baseline("3776623");
   ShowAndVerifyUi();
 }
 
-IN_PROC_BROWSER_TEST_F(SendTabToSelfBubbleTest,
+IN_PROC_BROWSER_TEST_F(SendTabToSelfBubbleOldUITest,
                        InvokeUi_ShowNoTargetDevicePromo) {
   // Last updated in crrev.com/c/3832669.
   set_baseline("3832669");
   ShowAndVerifyUi();
 }
 
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+class SendTabToSelfBubbleEnhancedUITest : public SendTabToSelfBubbleTest {
+ public:
+  SendTabToSelfBubbleEnhancedUITest() {
+    feature_list_.InitAndEnableFeature(kSendTabToSelfEnhancedDesktopUI);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(SendTabToSelfBubbleEnhancedUITest,
+                       InvokeUi_ShowSigninPromo) {
+  ShowAndVerifyUi();
+}
+
+IN_PROC_BROWSER_TEST_F(SendTabToSelfBubbleEnhancedUITest,
+                       InvokeUi_ShowVerifyPromo) {
+  ShowAndVerifyUi();
+}
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+
 class SendTabToSelfBubbleParameterizedTest
     : public SendTabToSelfBubbleTest,
       public testing::WithParamInterface<EntryPointDisplayReason> {
  public:
+  SendTabToSelfBubbleParameterizedTest() {
+    if (GetParam() == EntryPointDisplayReason::kOfferReauth) {
+      feature_list_.InitAndEnableFeature(kSendTabToSelfEnhancedDesktopUI);
+    }
+  }
+
   void SetUpOnMainThread() override {
     SendTabToSelfBubbleTest::SetUpOnMainThread();
     controller_->SetEntryPointDisplayReason(GetParam());
   }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
 };
 
 INSTANTIATE_TEST_SUITE_P(
@@ -161,6 +201,9 @@ INSTANTIATE_TEST_SUITE_P(
     SendTabToSelfBubbleParameterizedTest,
     testing::Values(EntryPointDisplayReason::kOfferFeature,
                     EntryPointDisplayReason::kOfferSignIn,
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+                    EntryPointDisplayReason::kOfferReauth,
+#endif
                     EntryPointDisplayReason::kInformNoTargetDevice));
 
 IN_PROC_BROWSER_TEST_P(SendTabToSelfBubbleParameterizedTest,

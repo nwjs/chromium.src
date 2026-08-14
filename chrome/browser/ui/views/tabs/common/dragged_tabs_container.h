@@ -41,10 +41,10 @@ class DraggedTabsContainer : public TabDragTarget,
                              public gfx::AnimationDelegate {
  public:
   // The axes that the dragged tabs can move on.
-  enum class DragAxes { kVerticalOnly, kBoth };
+  enum class DragAxes { kVerticalOnly, kHorizontalOnly, kBoth };
 
   // How the dragged tabs should be laid out.
-  enum class DragLayout { kVertical, kSquash };
+  enum class DragLayout { kVertical, kHorizontal, kSquash };
 
   DraggedTabsContainer(views::View& host_view,
                        TabCollectionNode* collection_node,
@@ -80,6 +80,9 @@ class DraggedTabsContainer : public TabDragTarget,
 
   // Whether this container is currently handling a drag.
   bool IsHandlingDrag() const;
+
+  DragAxes drag_axes() const { return drag_axes_; }
+  void set_drag_axes(DragAxes drag_axes) { drag_axes_ = drag_axes; }
 
   // Returns the bounds of the box containing all dragged views, adjusted to
   // the point `point_in_container`. The returned bounds are not clamped to the
@@ -159,6 +162,9 @@ class DraggedTabsContainer : public TabDragTarget,
   void AddViewToDragLayout(views::View* dragging_view,
                            const gfx::Rect& view_bounds,
                            bool is_source_dragged_view);
+  void AddViewToHorizontalDragLayout(views::View* dragging_view,
+                                     const gfx::Rect& view_bounds,
+                                     bool is_source_dragged_view);
   void AddViewToSquashedDragLayout(views::View* dragging_view,
                                    const gfx::Rect& view_bounds,
                                    bool is_source_dragged_view);
@@ -237,7 +243,7 @@ class DraggedTabsContainer : public TabDragTarget,
       animating_views_start_offsets_;
   gfx::SlideAnimation drag_start_animation_;
 
-  const DragAxes drag_axes_;
+  DragAxes drag_axes_;
   const DragLayout drag_layout_;
 
   base::ScopedObservation<views::View, views::ViewObserver>

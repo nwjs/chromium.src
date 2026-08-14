@@ -5,6 +5,7 @@
 #import "ios/chrome/app/startup/app_startup_utils.h"
 
 #import "base/apple/bundle_locations.h"
+#import "ios/chrome/browser/intelligence/features/features.h"
 
 namespace {
 
@@ -18,7 +19,8 @@ enum CallerApp {
   kYoutube = 6,
   kGoogleMaps = 7,
   kChrome = 8,
-  kOtherApp = 9,
+  kExperienceKitCatalog = 9,
+  kOtherApp = 10,
   kMaxValue = kOtherApp,
 };
 
@@ -46,6 +48,10 @@ CallerApp CallerAppFromAppID(NSString* caller_app_id) {
   if ([caller_app_id isEqualToString:@"com.google.Maps"]) {
     return kGoogleMaps;
   }
+  if ([caller_app_id isEqualToString:@"com.google.ChronosCatalog"] ||
+      [caller_app_id hasPrefix:@"com.google.ChronosCatalog."]) {
+    return kExperienceKitCatalog;
+  }
   if ([caller_app_id
           isEqualToString:[base::apple::FrameworkBundle() bundleIdentifier]]) {
     return kChrome;
@@ -71,15 +77,29 @@ bool IsCallerAppFirstParty(NSString* caller_app_id) {
     case CallerApp::kYoutube:
     case CallerApp::kGoogleMaps:
     case CallerApp::kChrome:
+    case CallerApp::kExperienceKitCatalog:
       return true;
     case CallerApp::kOtherApp:
       return false;
   }
 }
 
-bool IsCallerAppAllowListed(NSString* caller_app_id) {
+bool IsCallerAppAllowListedForAISummarization(NSString* caller_app_id) {
+  if (!IsAppSwitcherAISummarizationEnabled()) {
+    return false;
+  }
   CallerApp caller_app = CallerAppFromAppID(caller_app_id);
-  if (caller_app == CallerApp::kYoutube) {
+  if (caller_app == CallerApp::kGmail ||
+      caller_app == CallerApp::kExperienceKitCatalog) {
+    return true;
+  }
+  return false;
+}
+
+bool IsCallerAppAllowListedForApplicationMode(NSString* caller_app_id) {
+  CallerApp caller_app = CallerAppFromAppID(caller_app_id);
+  if (caller_app == CallerApp::kYoutube ||
+      caller_app == CallerApp::kExperienceKitCatalog) {
     return true;
   }
   return false;

@@ -85,21 +85,27 @@ MATCHER(FileAndBackupFileExist, "") {
 TEST(ModelLoaderTest, LoadEmptyModelFromInexistentFile) {
   base::HistogramTester histogram_tester;
   base::test::TaskEnvironment task_environment;
-  const base::FilePath test_file =
+  const base::FilePath test_file_clear =
       GetTestDataDir().AppendASCII("inexistent_bookmarks_file.json");
-  ASSERT_FALSE(base::PathExists(test_file));
+  const base::FilePath temp_dir = base::CreateUniqueTempDirectoryScopedToTest();
+  const base::FilePath test_file_encrypted = temp_dir.AppendASCII("encrypted");
+  ASSERT_FALSE(base::PathExists(test_file_clear));
+  ASSERT_FALSE(base::PathExists(test_file_encrypted));
+  scoped_refptr<const os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
 
   base::test::TestFuture<std::unique_ptr<BookmarkLoadDetails>> details_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      /*encryptor=*/nullptr,
-      /*local_or_syncable_file_path=*/test_file,
-      /*encrypted_local_or_syncable_file_path=*/base::FilePath(),
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(
+      /*encryptor=*/encryptor,
+      /*local_or_syncable_file_path=*/test_file_clear,
+      /*encrypted_local_or_syncable_file_path=*/test_file_encrypted,
       /*account_file_path=*/base::FilePath(),
       /*encrypted_account_file_path=*/base::FilePath(),
       LoadManagedNodeCallback(),
       /*save_local_or_syncable_secondary_file_callback=*/base::DoNothing(),
       /*save_account_secondary_file_callback=*/base::DoNothing(),
-      details_future.GetCallback());
+      /*files_to_delete=*/{}, details_future.GetCallback());
 
   const std::unique_ptr<BookmarkLoadDetails>& details = details_future.Get();
 
@@ -164,21 +170,27 @@ TEST(ModelLoaderTest, LoadEmptyModelFromInexistentFile) {
 TEST(ModelLoaderTest, LoadEmptyModelFromInvalidJson) {
   base::HistogramTester histogram_tester;
   base::test::TaskEnvironment task_environment;
-  const base::FilePath test_file =
+  const base::FilePath test_file_clear =
       GetTestDataDir().AppendASCII("bookmarks/model_invalid_json.json");
-  ASSERT_TRUE(base::PathExists(test_file));
+  const base::FilePath temp_dir = base::CreateUniqueTempDirectoryScopedToTest();
+  const base::FilePath test_file_encrypted = temp_dir.AppendASCII("encrypted");
+  ASSERT_TRUE(base::PathExists(test_file_clear));
+  ASSERT_FALSE(base::PathExists(test_file_encrypted));
+  scoped_refptr<const os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
 
   base::test::TestFuture<std::unique_ptr<BookmarkLoadDetails>> details_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      /*encryptor=*/nullptr,
-      /*local_or_syncable_file_path=*/test_file,
-      /*encrypted_local_or_syncable_file_path=*/base::FilePath(),
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(
+      /*encryptor=*/encryptor,
+      /*local_or_syncable_file_path=*/test_file_clear,
+      /*encrypted_local_or_syncable_file_path=*/test_file_encrypted,
       /*account_file_path=*/base::FilePath(),
       /*encrypted_account_file_path=*/base::FilePath(),
       LoadManagedNodeCallback(),
       /*save_local_or_syncable_secondary_file_callback=*/base::DoNothing(),
       /*save_account_secondary_file_callback=*/base::DoNothing(),
-      details_future.GetCallback());
+      /*files_to_delete=*/{}, details_future.GetCallback());
 
   const std::unique_ptr<BookmarkLoadDetails>& details = details_future.Get();
 
@@ -243,21 +255,27 @@ TEST(ModelLoaderTest, LoadEmptyModelFromInvalidJson) {
 TEST(ModelLoaderTest, LoadEmptyFromImproperlyEncodedJSON) {
   base::HistogramTester histogram_tester;
   base::test::TaskEnvironment task_environment;
-  const base::FilePath test_file =
+  const base::FilePath test_file_clear =
       GetTestDataDir().AppendASCII("bookmarks/model_without_version.json");
-  ASSERT_TRUE(base::PathExists(test_file));
+  const base::FilePath temp_dir = base::CreateUniqueTempDirectoryScopedToTest();
+  const base::FilePath test_file_encrypted = temp_dir.AppendASCII("encrypted");
+  ASSERT_TRUE(base::PathExists(test_file_clear));
+  ASSERT_FALSE(base::PathExists(test_file_encrypted));
+  scoped_refptr<const os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
 
   base::test::TestFuture<std::unique_ptr<BookmarkLoadDetails>> details_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      /*encryptor=*/nullptr,
-      /*local_or_syncable_file_path=*/test_file,
-      /*encrypted_local_or_syncable_file_path=*/base::FilePath(),
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(
+      /*encryptor=*/encryptor,
+      /*local_or_syncable_file_path=*/test_file_clear,
+      /*encrypted_local_or_syncable_file_path=*/test_file_encrypted,
       /*account_file_path=*/base::FilePath(),
       /*encrypted_account_file_path=*/base::FilePath(),
       LoadManagedNodeCallback(),
       /*save_local_or_syncable_secondary_file_callback=*/base::DoNothing(),
       /*save_account_secondary_file_callback=*/base::DoNothing(),
-      details_future.GetCallback());
+      /*files_to_delete=*/{}, details_future.GetCallback());
 
   const std::unique_ptr<BookmarkLoadDetails>& details = details_future.Get();
 
@@ -322,21 +340,27 @@ TEST(ModelLoaderTest, LoadEmptyFromImproperlyEncodedJSON) {
 TEST(ModelLoaderTest, LoadNonEmptyModel) {
   base::HistogramTester histogram_tester;
   base::test::TaskEnvironment task_environment;
-  const base::FilePath test_file =
+  const base::FilePath test_file_clear =
       GetTestDataDir().AppendASCII("bookmarks/model_with_sync_metadata_1.json");
-  ASSERT_TRUE(base::PathExists(test_file));
+  const base::FilePath temp_dir = base::CreateUniqueTempDirectoryScopedToTest();
+  const base::FilePath test_file_encrypted = temp_dir.AppendASCII("encrypted");
+  ASSERT_TRUE(base::PathExists(test_file_clear));
+  ASSERT_FALSE(base::PathExists(test_file_encrypted));
+  scoped_refptr<const os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
 
   base::test::TestFuture<std::unique_ptr<BookmarkLoadDetails>> details_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      /*encryptor=*/nullptr,
-      /*local_or_syncable_file_path=*/test_file,
-      /*encrypted_local_or_syncable_file_path=*/base::FilePath(),
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(
+      /*encryptor=*/encryptor,
+      /*local_or_syncable_file_path=*/test_file_clear,
+      /*encrypted_local_or_syncable_file_path=*/test_file_encrypted,
       /*account_file_path=*/base::FilePath(),
       /*encrypted_account_file_path=*/base::FilePath(),
       LoadManagedNodeCallback(),
       /*save_local_or_syncable_secondary_file_callback=*/base::DoNothing(),
       /*save_account_secondary_file_callback=*/base::DoNothing(),
-      details_future.GetCallback());
+      /*files_to_delete=*/{}, details_future.GetCallback());
 
   const std::unique_ptr<BookmarkLoadDetails> details = details_future.Take();
 
@@ -406,21 +430,27 @@ TEST(ModelLoaderTest, LoadNonEmptyModel) {
 TEST(ModelLoaderTest, LoadNonEmptyModelFromOneFileWithInternalIdCollisions) {
   base::HistogramTester histogram_tester;
   base::test::TaskEnvironment task_environment;
-  const base::FilePath test_file =
+  const base::FilePath test_file_clear =
       GetTestDataDir().AppendASCII("bookmarks/model_with_duplicate_ids.json");
-  ASSERT_TRUE(base::PathExists(test_file));
+  const base::FilePath temp_dir = base::CreateUniqueTempDirectoryScopedToTest();
+  const base::FilePath test_file_encrypted = temp_dir.AppendASCII("encrypted");
+  ASSERT_TRUE(base::PathExists(test_file_clear));
+  ASSERT_FALSE(base::PathExists(test_file_encrypted));
+  scoped_refptr<const os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
 
   base::test::TestFuture<std::unique_ptr<BookmarkLoadDetails>> details_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      /*encryptor=*/nullptr,
-      /*local_or_syncable_file_path=*/test_file,
-      /*encrypted_local_or_syncable_file_path=*/base::FilePath(),
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(
+      /*encryptor=*/encryptor,
+      /*local_or_syncable_file_path=*/test_file_clear,
+      /*encrypted_local_or_syncable_file_path=*/test_file_encrypted,
       /*account_file_path=*/base::FilePath(),
       /*encrypted_account_file_path=*/base::FilePath(),
       LoadManagedNodeCallback(),
       /*save_local_or_syncable_secondary_file_callback=*/base::DoNothing(),
       /*save_account_secondary_file_callback=*/base::DoNothing(),
-      details_future.GetCallback());
+      /*files_to_delete=*/{}, details_future.GetCallback());
 
   const std::unique_ptr<BookmarkLoadDetails> details = details_future.Take();
 
@@ -480,24 +510,34 @@ TEST(ModelLoaderTest, LoadNonEmptyModelFromOneFileWithInternalIdCollisions) {
 TEST(ModelLoaderTest, LoadTwoFilesWithNonCollidingIds) {
   base::HistogramTester histogram_tester;
   base::test::TaskEnvironment task_environment;
-  const base::FilePath test_file1 =
+  const base::FilePath test_file1_clear =
       GetTestDataDir().AppendASCII("bookmarks/model_with_sync_metadata_1.json");
-  const base::FilePath test_file2 =
+  const base::FilePath test_file2_clear =
       GetTestDataDir().AppendASCII("bookmarks/model_with_sync_metadata_2.json");
-  ASSERT_TRUE(base::PathExists(test_file1));
-  ASSERT_TRUE(base::PathExists(test_file2));
+  const base::FilePath temp_dir = base::CreateUniqueTempDirectoryScopedToTest();
+  const base::FilePath test_file1_encrypted =
+      temp_dir.AppendASCII("encrypted1");
+  const base::FilePath test_file2_encrypted =
+      temp_dir.AppendASCII("encrypted2");
+  ASSERT_TRUE(base::PathExists(test_file1_clear));
+  ASSERT_TRUE(base::PathExists(test_file2_clear));
+  ASSERT_FALSE(base::PathExists(test_file1_encrypted));
+  ASSERT_FALSE(base::PathExists(test_file2_encrypted));
+  scoped_refptr<const os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
 
   base::test::TestFuture<std::unique_ptr<BookmarkLoadDetails>> details_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      /*encryptor=*/nullptr,
-      /*local_or_syncable_file_path=*/test_file1,
-      /*encrypted_local_or_syncable_file_path=*/base::FilePath(),
-      /*account_file_path=*/test_file2,
-      /*encrypted_account_file_path=*/base::FilePath(),
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(
+      /*encryptor=*/encryptor,
+      /*local_or_syncable_file_path=*/test_file1_clear,
+      /*encrypted_local_or_syncable_file_path=*/test_file1_encrypted,
+      /*account_file_path=*/test_file2_clear,
+      /*encrypted_account_file_path=*/test_file2_encrypted,
       LoadManagedNodeCallback(),
       /*save_local_or_syncable_secondary_file_callback=*/base::DoNothing(),
       /*save_account_secondary_file_callback=*/base::DoNothing(),
-      details_future.GetCallback());
+      /*files_to_delete=*/{}, details_future.GetCallback());
 
   const std::unique_ptr<BookmarkLoadDetails> details = details_future.Take();
 
@@ -589,21 +629,27 @@ TEST(ModelLoaderTest, LoadTwoFilesWithNonCollidingIds) {
 TEST(ModelLoaderTest, LoadTwoFilesWithCollidingIdsAcross) {
   base::HistogramTester histogram_tester;
   base::test::TaskEnvironment task_environment;
-  const base::FilePath test_file =
+  const base::FilePath test_file_clear =
       GetTestDataDir().AppendASCII("bookmarks/model_with_sync_metadata_1.json");
-  ASSERT_TRUE(base::PathExists(test_file));
+  const base::FilePath temp_dir = base::CreateUniqueTempDirectoryScopedToTest();
+  const base::FilePath test_file_encrypted = temp_dir.AppendASCII("encrypted");
+  ASSERT_TRUE(base::PathExists(test_file_clear));
+  ASSERT_FALSE(base::PathExists(test_file_encrypted));
+  scoped_refptr<const os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
 
   base::test::TestFuture<std::unique_ptr<BookmarkLoadDetails>> details_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      /*encryptor=*/nullptr,
-      /*local_or_syncable_file_path=*/test_file,
-      /*encrypted_local_or_syncable_file_path=*/base::FilePath(),
-      /*account_file_path=*/test_file,
-      /*encrypted_account_file_path=*/base::FilePath(),
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(
+      /*encryptor=*/encryptor,
+      /*local_or_syncable_file_path=*/test_file_clear,
+      /*encrypted_local_or_syncable_file_path=*/test_file_encrypted,
+      /*account_file_path=*/test_file_clear,
+      /*encrypted_account_file_path=*/test_file_encrypted,
       LoadManagedNodeCallback(),
       /*save_local_or_syncable_secondary_file_callback=*/base::DoNothing(),
       /*save_account_secondary_file_callback=*/base::DoNothing(),
-      details_future.GetCallback());
+      /*files_to_delete=*/{}, details_future.GetCallback());
 
   const std::unique_ptr<BookmarkLoadDetails> details = details_future.Take();
 
@@ -663,24 +709,34 @@ TEST(ModelLoaderTest, LoadTwoFilesWithCollidingIdsAcross) {
 TEST(ModelLoaderTest, LoadTwoFilesWhereFirstHasInternalIdCollisions) {
   base::HistogramTester histogram_tester;
   base::test::TaskEnvironment task_environment;
-  const base::FilePath test_file1 =
+  const base::FilePath test_file1_clear =
       GetTestDataDir().AppendASCII("bookmarks/model_with_duplicate_ids.json");
-  const base::FilePath test_file2 =
+  const base::FilePath test_file2_clear =
       GetTestDataDir().AppendASCII("bookmarks/model_with_sync_metadata_2.json");
-  ASSERT_TRUE(base::PathExists(test_file1));
-  ASSERT_TRUE(base::PathExists(test_file2));
+  const base::FilePath temp_dir = base::CreateUniqueTempDirectoryScopedToTest();
+  const base::FilePath test_file1_encrypted =
+      temp_dir.AppendASCII("encrypted1");
+  const base::FilePath test_file2_encrypted =
+      temp_dir.AppendASCII("encrypted2");
+  ASSERT_TRUE(base::PathExists(test_file1_clear));
+  ASSERT_TRUE(base::PathExists(test_file2_clear));
+  ASSERT_FALSE(base::PathExists(test_file1_encrypted));
+  ASSERT_FALSE(base::PathExists(test_file2_encrypted));
+  scoped_refptr<const os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
 
   base::test::TestFuture<std::unique_ptr<BookmarkLoadDetails>> details_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      /*encryptor=*/nullptr,
-      /*local_or_syncable_file_path=*/test_file1,
-      /*encrypted_local_or_syncable_file_path=*/base::FilePath(),
-      /*account_file_path=*/test_file2,
-      /*encrypted_account_file_path=*/base::FilePath(),
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(
+      /*encryptor=*/encryptor,
+      /*local_or_syncable_file_path=*/test_file1_clear,
+      /*encrypted_local_or_syncable_file_path=*/test_file1_encrypted,
+      /*account_file_path=*/test_file2_clear,
+      /*encrypted_account_file_path=*/test_file2_encrypted,
       LoadManagedNodeCallback(),
       /*save_local_or_syncable_secondary_file_callback=*/base::DoNothing(),
       /*save_account_secondary_file_callback=*/base::DoNothing(),
-      details_future.GetCallback());
+      /*files_to_delete=*/{}, details_future.GetCallback());
 
   const std::unique_ptr<BookmarkLoadDetails> details = details_future.Take();
 
@@ -742,24 +798,34 @@ TEST(ModelLoaderTest, LoadTwoFilesWhereFirstHasInternalIdCollisions) {
 TEST(ModelLoaderTest, LoadTwoFilesWhereSecondHasInternalIdCollisions) {
   base::HistogramTester histogram_tester;
   base::test::TaskEnvironment task_environment;
-  const base::FilePath test_file1 =
+  const base::FilePath test_file1_clear =
       GetTestDataDir().AppendASCII("bookmarks/model_with_sync_metadata_2.json");
-  const base::FilePath test_file2 =
+  const base::FilePath test_file2_clear =
       GetTestDataDir().AppendASCII("bookmarks/model_with_duplicate_ids.json");
-  ASSERT_TRUE(base::PathExists(test_file1));
-  ASSERT_TRUE(base::PathExists(test_file2));
+  const base::FilePath temp_dir = base::CreateUniqueTempDirectoryScopedToTest();
+  const base::FilePath test_file1_encrypted =
+      temp_dir.AppendASCII("encrypted1");
+  const base::FilePath test_file2_encrypted =
+      temp_dir.AppendASCII("encrypted2");
+  ASSERT_TRUE(base::PathExists(test_file1_clear));
+  ASSERT_TRUE(base::PathExists(test_file2_clear));
+  ASSERT_FALSE(base::PathExists(test_file1_encrypted));
+  ASSERT_FALSE(base::PathExists(test_file2_encrypted));
+  scoped_refptr<const os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
 
   base::test::TestFuture<std::unique_ptr<BookmarkLoadDetails>> details_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      /*encryptor=*/nullptr,
-      /*local_or_syncable_file_path=*/test_file1,
-      /*encrypted_local_or_syncable_file_path=*/base::FilePath(),
-      /*account_file_path=*/test_file2,
-      /*encrypted_account_file_path=*/base::FilePath(),
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(
+      /*encryptor=*/encryptor,
+      /*local_or_syncable_file_path=*/test_file1_clear,
+      /*encrypted_local_or_syncable_file_path=*/test_file1_encrypted,
+      /*account_file_path=*/test_file2_clear,
+      /*encrypted_account_file_path=*/test_file2_encrypted,
       LoadManagedNodeCallback(),
       /*save_local_or_syncable_secondary_file_callback=*/base::DoNothing(),
       /*save_account_secondary_file_callback=*/base::DoNothing(),
-      details_future.GetCallback());
+      /*files_to_delete=*/{}, details_future.GetCallback());
 
   const std::unique_ptr<BookmarkLoadDetails> details = details_future.Take();
 
@@ -820,24 +886,34 @@ TEST(ModelLoaderTest, LoadTwoFilesWhereSecondHasInternalIdCollisions) {
 TEST(ModelLoaderTest, LoadTwoFilesWhereBothHaveInternalIdCollisions) {
   base::HistogramTester histogram_tester;
   base::test::TaskEnvironment task_environment;
-  const base::FilePath test_file1 =
+  const base::FilePath test_file1_clear =
       GetTestDataDir().AppendASCII("bookmarks/model_with_duplicate_ids.json");
-  const base::FilePath test_file2 =
+  const base::FilePath test_file2_clear =
       GetTestDataDir().AppendASCII("bookmarks/model_with_duplicate_ids.json");
-  ASSERT_TRUE(base::PathExists(test_file1));
-  ASSERT_TRUE(base::PathExists(test_file2));
+  const base::FilePath temp_dir = base::CreateUniqueTempDirectoryScopedToTest();
+  const base::FilePath test_file1_encrypted =
+      temp_dir.AppendASCII("encrypted1");
+  const base::FilePath test_file2_encrypted =
+      temp_dir.AppendASCII("encrypted2");
+  ASSERT_TRUE(base::PathExists(test_file1_clear));
+  ASSERT_TRUE(base::PathExists(test_file2_clear));
+  ASSERT_FALSE(base::PathExists(test_file1_encrypted));
+  ASSERT_FALSE(base::PathExists(test_file2_encrypted));
+  scoped_refptr<const os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
 
   base::test::TestFuture<std::unique_ptr<BookmarkLoadDetails>> details_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      /*encryptor=*/nullptr,
-      /*local_or_syncable_file_path=*/test_file1,
-      /*encrypted_local_or_syncable_file_path=*/base::FilePath(),
-      /*account_file_path=*/test_file2,
-      /*encrypted_account_file_path=*/base::FilePath(),
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(
+      /*encryptor=*/encryptor,
+      /*local_or_syncable_file_path=*/test_file1_clear,
+      /*encrypted_local_or_syncable_file_path=*/test_file1_encrypted,
+      /*account_file_path=*/test_file2_clear,
+      /*encrypted_account_file_path=*/test_file2_encrypted,
       LoadManagedNodeCallback(),
       /*save_local_or_syncable_secondary_file_callback=*/base::DoNothing(),
       /*save_account_secondary_file_callback=*/base::DoNothing(),
-      details_future.GetCallback());
+      /*files_to_delete=*/{}, details_future.GetCallback());
 
   const std::unique_ptr<BookmarkLoadDetails> details = details_future.Take();
 
@@ -898,24 +974,34 @@ TEST(ModelLoaderTest, LoadTwoFilesWhereBothHaveInternalIdCollisions) {
 TEST(ModelLoaderTest, LoadTwoFilesWhereTheLocalOrSyncableFileDoesNotExist) {
   base::HistogramTester histogram_tester;
   base::test::TaskEnvironment task_environment;
-  const base::FilePath test_file1 =
+  const base::FilePath test_file1_clear =
       GetTestDataDir().AppendASCII("bookmarks/inexistent_file.json");
-  const base::FilePath test_file2 =
+  const base::FilePath test_file2_clear =
       GetTestDataDir().AppendASCII("bookmarks/model_with_sync_metadata_1.json");
-  ASSERT_FALSE(base::PathExists(test_file1));
-  ASSERT_TRUE(base::PathExists(test_file2));
+  const base::FilePath temp_dir = base::CreateUniqueTempDirectoryScopedToTest();
+  const base::FilePath test_file1_encrypted =
+      temp_dir.AppendASCII("encrypted1");
+  const base::FilePath test_file2_encrypted =
+      temp_dir.AppendASCII("encrypted2");
+  ASSERT_FALSE(base::PathExists(test_file1_clear));
+  ASSERT_TRUE(base::PathExists(test_file2_clear));
+  ASSERT_FALSE(base::PathExists(test_file1_encrypted));
+  ASSERT_FALSE(base::PathExists(test_file2_encrypted));
+  scoped_refptr<const os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
 
   base::test::TestFuture<std::unique_ptr<BookmarkLoadDetails>> details_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      /*encryptor=*/nullptr,
-      /*local_or_syncable_file_path=*/test_file1,
-      /*encrypted_local_or_syncable_file_path=*/base::FilePath(),
-      /*account_file_path=*/test_file2,
-      /*encrypted_account_file_path=*/base::FilePath(),
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(
+      /*encryptor=*/encryptor,
+      /*local_or_syncable_file_path=*/test_file1_clear,
+      /*encrypted_local_or_syncable_file_path=*/test_file1_encrypted,
+      /*account_file_path=*/test_file2_clear,
+      /*encrypted_account_file_path=*/test_file2_encrypted,
       LoadManagedNodeCallback(),
       /*save_local_or_syncable_secondary_file_callback=*/base::DoNothing(),
       /*save_account_secondary_file_callback=*/base::DoNothing(),
-      details_future.GetCallback());
+      /*files_to_delete=*/{}, details_future.GetCallback());
 
   const std::unique_ptr<BookmarkLoadDetails> details = details_future.Take();
 
@@ -986,21 +1072,27 @@ TEST(ModelLoaderTest, LoadTwoFilesWhereTheLocalOrSyncableFileDoesNotExist) {
 TEST(ModelLoaderTest, LoadModelWithNestedUserFolders) {
   base::HistogramTester histogram_tester;
   base::test::TaskEnvironment task_environment;
-  const base::FilePath test_file =
+  const base::FilePath test_file_clear =
       GetTestDataDir().AppendASCII("bookmarks/model_nested_user_folders.json");
-  ASSERT_TRUE(base::PathExists(test_file));
+  const base::FilePath temp_dir = base::CreateUniqueTempDirectoryScopedToTest();
+  const base::FilePath test_file_encrypted = temp_dir.AppendASCII("encrypted");
+  ASSERT_TRUE(base::PathExists(test_file_clear));
+  ASSERT_FALSE(base::PathExists(test_file_encrypted));
+  scoped_refptr<const os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
 
   base::test::TestFuture<std::unique_ptr<BookmarkLoadDetails>> details_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      /*encryptor=*/nullptr,
-      /*local_or_syncable_file_path=*/test_file,
-      /*encrypted_local_or_syncable_file_path=*/base::FilePath(),
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(
+      /*encryptor=*/encryptor,
+      /*local_or_syncable_file_path=*/test_file_clear,
+      /*encrypted_local_or_syncable_file_path=*/test_file_encrypted,
       /*account_file_path=*/base::FilePath(),
       /*encrypted_account_file_path=*/base::FilePath(),
       LoadManagedNodeCallback(),
       /*save_local_or_syncable_secondary_file_callback=*/base::DoNothing(),
       /*save_account_secondary_file_callback=*/base::DoNothing(),
-      details_future.GetCallback());
+      /*files_to_delete=*/{}, details_future.GetCallback());
 
   const std::unique_ptr<BookmarkLoadDetails> details = details_future.Take();
   ASSERT_NE(nullptr, details);
@@ -1122,23 +1214,27 @@ class ModelLoaderWithSecondayFileTest
       ModelLoader::SaveSingleFileCallback
           save_local_or_syncable_single_file_callback,
       ModelLoader::SaveSingleFileCallback save_account_single_file_callback) {
+    scoped_refptr<ModelLoader> loader = ModelLoader::Create();
     if (IsEncryptedFilePrimary()) {
-      return ModelLoader::Create(
-          encryptor_, secondary_local_or_syncable_file_path,
-          primary_local_or_syncable_file_path, secondary_account_file_path,
-          primary_account_file_path, LoadManagedNodeCallback(),
-          std::move(save_local_or_syncable_single_file_callback),
-          std::move(save_account_single_file_callback),
-          /*callback=*/base::DoNothing());
+      loader->Load(encryptor_, secondary_local_or_syncable_file_path,
+                   primary_local_or_syncable_file_path,
+                   secondary_account_file_path, primary_account_file_path,
+                   LoadManagedNodeCallback(),
+                   std::move(save_local_or_syncable_single_file_callback),
+                   std::move(save_account_single_file_callback),
+                   /*files_to_delete=*/{},
+                   /*callback=*/base::DoNothing());
+    } else {
+      loader->Load(encryptor_, primary_local_or_syncable_file_path,
+                   secondary_local_or_syncable_file_path,
+                   primary_account_file_path, secondary_account_file_path,
+                   LoadManagedNodeCallback(),
+                   std::move(save_local_or_syncable_single_file_callback),
+                   std::move(save_account_single_file_callback),
+                   /*files_to_delete=*/{},
+                   /*callback=*/base::DoNothing());
     }
-
-    return ModelLoader::Create(
-        encryptor_, primary_local_or_syncable_file_path,
-        secondary_local_or_syncable_file_path, primary_account_file_path,
-        secondary_account_file_path, LoadManagedNodeCallback(),
-        std::move(save_local_or_syncable_single_file_callback),
-        std::move(save_account_single_file_callback),
-        /*callback=*/base::DoNothing());
+    return loader;
   }
 
   std::string GetPrimaryEncryptionHistogramSuffix() {
@@ -1564,12 +1660,13 @@ TEST(ModelLoaderTest, LoadBookmarks_ShouldReportDecryptionFailed) {
   base::test::TestFuture<StorageFileEncryptionType, std::string>
       save_account_bookmark_future;
   base::test::TestFuture<std::unique_ptr<BookmarkLoadDetails>> details_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      encryptor, local_or_syncable_file_path,
-      encrypted_local_or_syncable_file_path, account_file_path,
-      encrypted_account_file_path, LoadManagedNodeCallback(),
-      save_local_or_syncable_bookmark_future.GetCallback(),
-      save_account_bookmark_future.GetCallback(), details_future.GetCallback());
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(encryptor, local_or_syncable_file_path,
+               encrypted_local_or_syncable_file_path, account_file_path,
+               encrypted_account_file_path, LoadManagedNodeCallback(),
+               save_local_or_syncable_bookmark_future.GetCallback(),
+               save_account_bookmark_future.GetCallback(),
+               /*files_to_delete=*/{}, details_future.GetCallback());
 
   task_environment.FastForwardUntilNoTasksRemain();
 
@@ -1627,12 +1724,13 @@ TEST_P(ModelLoaderWithEncryptionFileAsPrimaryTest,
   base::test::TestFuture<StorageFileEncryptionType, std::string>
       save_account_bookmark_future;
   base::test::TestFuture<std::unique_ptr<BookmarkLoadDetails>> details_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      encryptor, local_or_syncable_file_path,
-      encrypted_local_or_syncable_file_path, account_file_path,
-      encrypted_account_file_path, LoadManagedNodeCallback(),
-      save_local_or_syncable_bookmark_future.GetCallback(),
-      save_account_bookmark_future.GetCallback(), details_future.GetCallback());
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(encryptor, local_or_syncable_file_path,
+               encrypted_local_or_syncable_file_path, account_file_path,
+               encrypted_account_file_path, LoadManagedNodeCallback(),
+               save_local_or_syncable_bookmark_future.GetCallback(),
+               save_account_bookmark_future.GetCallback(),
+               /*files_to_delete=*/{}, details_future.GetCallback());
 
   task_environment.FastForwardUntilNoTasksRemain();
 
@@ -1671,12 +1769,13 @@ TEST_P(ModelLoaderWithEncryptionFileAsPrimaryTest,
   base::test::TestFuture<StorageFileEncryptionType, std::string>
       save_account_bookmark_future;
   base::test::TestFuture<std::unique_ptr<BookmarkLoadDetails>> details_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      encryptor, local_or_syncable_file_path,
-      encrypted_local_or_syncable_file_path, account_file_path,
-      encrypted_account_file_path, LoadManagedNodeCallback(),
-      save_local_or_syncable_bookmark_future.GetCallback(),
-      save_account_bookmark_future.GetCallback(), details_future.GetCallback());
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(encryptor, local_or_syncable_file_path,
+               encrypted_local_or_syncable_file_path, account_file_path,
+               encrypted_account_file_path, LoadManagedNodeCallback(),
+               save_local_or_syncable_bookmark_future.GetCallback(),
+               save_account_bookmark_future.GetCallback(),
+               /*files_to_delete=*/{}, details_future.GetCallback());
 
   task_environment.FastForwardUntilNoTasksRemain();
 
@@ -1744,12 +1843,13 @@ TEST_P(ModelLoaderWithEncryptionFileAsPrimaryTest,
   base::test::TestFuture<StorageFileEncryptionType, std::string>
       save_account_bookmark_future;
   base::test::TestFuture<std::unique_ptr<BookmarkLoadDetails>> details_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      encryptor, local_or_syncable_file_path,
-      encrypted_local_or_syncable_file_path, account_file_path,
-      encrypted_account_file_path, LoadManagedNodeCallback(),
-      save_local_or_syncable_bookmark_future.GetCallback(),
-      save_account_bookmark_future.GetCallback(), details_future.GetCallback());
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(encryptor, local_or_syncable_file_path,
+               encrypted_local_or_syncable_file_path, account_file_path,
+               encrypted_account_file_path, LoadManagedNodeCallback(),
+               save_local_or_syncable_bookmark_future.GetCallback(),
+               save_account_bookmark_future.GetCallback(),
+               /*files_to_delete=*/{}, details_future.GetCallback());
 
   task_environment.FastForwardUntilNoTasksRemain();
 
@@ -1829,13 +1929,14 @@ TEST(ModelLoaderWithEncryptionWriteOnly,
   base::test::TestFuture<StorageFileEncryptionType, std::string>
       save_account_bookmark_future;
   base::test::TestFuture<std::unique_ptr<BookmarkLoadDetails>> details_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      encryptor, local_or_syncable_file_path,
-      encrypted_local_or_syncable_file_path, account_file_path,
-      encrypted_account_file_path, LoadManagedNodeCallback(),
-      save_local_or_syncable_bookmark_future.GetCallback(),
-      save_account_bookmark_future.GetCallback(),
-      /*callback=*/details_future.GetCallback());
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(encryptor, local_or_syncable_file_path,
+               encrypted_local_or_syncable_file_path, account_file_path,
+               encrypted_account_file_path, LoadManagedNodeCallback(),
+               save_local_or_syncable_bookmark_future.GetCallback(),
+               save_account_bookmark_future.GetCallback(),
+               /*files_to_delete=*/{},
+               /*callback=*/details_future.GetCallback());
 
   task_environment.FastForwardUntilNoTasksRemain();
 
@@ -1913,13 +2014,14 @@ TEST(ModelLoaderWithEncryptionWriteOnly,
       save_local_or_syncable_bookmark_future;
   base::test::TestFuture<StorageFileEncryptionType, std::string>
       save_account_bookmark_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      encryptor, local_or_syncable_file_path,
-      encrypted_local_or_syncable_file_path, account_file_path,
-      encrypted_account_file_path, LoadManagedNodeCallback(),
-      save_local_or_syncable_bookmark_future.GetCallback(),
-      save_account_bookmark_future.GetCallback(),
-      /*callback=*/base::DoNothing());
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(encryptor, local_or_syncable_file_path,
+               encrypted_local_or_syncable_file_path, account_file_path,
+               encrypted_account_file_path, LoadManagedNodeCallback(),
+               save_local_or_syncable_bookmark_future.GetCallback(),
+               save_account_bookmark_future.GetCallback(),
+               /*files_to_delete=*/{},
+               /*callback=*/base::DoNothing());
 
   task_environment.FastForwardUntilNoTasksRemain();
 
@@ -1971,13 +2073,14 @@ TEST(ModelLoaderWithEncryptionWriteOnly,
       save_local_or_syncable_bookmark_future;
   base::test::TestFuture<StorageFileEncryptionType, std::string>
       save_account_bookmark_future;
-  scoped_refptr<ModelLoader> loader = ModelLoader::Create(
-      encryptor, local_or_syncable_file_path,
-      encrypted_local_or_syncable_file_path, account_file_path,
-      encrypted_account_file_path, LoadManagedNodeCallback(),
-      save_local_or_syncable_bookmark_future.GetCallback(),
-      save_account_bookmark_future.GetCallback(),
-      /*callback=*/base::DoNothing());
+  scoped_refptr<ModelLoader> loader = ModelLoader::Create();
+  loader->Load(encryptor, local_or_syncable_file_path,
+               encrypted_local_or_syncable_file_path, account_file_path,
+               encrypted_account_file_path, LoadManagedNodeCallback(),
+               save_local_or_syncable_bookmark_future.GetCallback(),
+               save_account_bookmark_future.GetCallback(),
+               /*files_to_delete=*/{},
+               /*callback=*/base::DoNothing());
   task_environment.FastForwardUntilNoTasksRemain();
 
   // Clear text files are deleted.

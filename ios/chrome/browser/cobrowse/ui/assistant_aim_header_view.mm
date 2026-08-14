@@ -157,8 +157,8 @@ UIButtonConfiguration* CreateHeaderButtonConfiguration(UIImage* image) {
 }
 
 - (void)setUpCloseButton {
-  UIImage* image = DefaultSymbolTemplateWithPointSize(
-      kXMarkSymbol, kCloseButtonSymbolPointSize);
+  UIImage* image =
+      SymbolTemplateWithPointSize(SymbolXMark, kCloseButtonSymbolPointSize);
   UIButtonConfiguration* buttonConfiguration =
       CreateHeaderButtonConfiguration(image);
 
@@ -186,8 +186,8 @@ UIButtonConfiguration* CreateHeaderButtonConfiguration(UIImage* image) {
 }
 
 - (void)setUpBackButton {
-  UIImage* image = DefaultSymbolWithPointSize(kChevronBackwardSymbol,
-                                              kCloseButtonSymbolPointSize);
+  UIImage* image =
+      SymbolWithPointSize(SymbolChevronBackward, kCloseButtonSymbolPointSize);
   UIButtonConfiguration* buttonConfiguration =
       CreateHeaderButtonConfiguration(image);
 
@@ -227,8 +227,8 @@ UIButtonConfiguration* CreateHeaderButtonConfiguration(UIImage* image) {
 - (UIButton*)createStartThreadButton {
   UIButtonConfiguration* config =
       [UIButtonConfiguration plainButtonConfiguration];
-  config.image = DefaultSymbolTemplateWithPointSize(
-      kSquareAndPencilSymbol, kHeaderActionSymbolPointSize);
+  config.image = SymbolTemplateWithPointSize(SymbolSquareAndPencil,
+                                             kHeaderActionSymbolPointSize);
   config.baseForegroundColor = [UIColor colorNamed:kTextPrimaryColor];
 
   UIButton* button = [UIButton buttonWithConfiguration:config
@@ -250,8 +250,8 @@ UIButtonConfiguration* CreateHeaderButtonConfiguration(UIImage* image) {
 - (UIButton*)createContextMenuButton {
   UIButtonConfiguration* config =
       [UIButtonConfiguration plainButtonConfiguration];
-  config.image = DefaultSymbolTemplateWithPointSize(
-      kMenuSymbol, kHeaderActionSymbolPointSize);
+  config.image = SymbolTemplateWithPointSize(SymbolLineThreeSpark,
+                                             kHeaderActionSymbolPointSize);
   config.baseForegroundColor = [UIColor colorNamed:kTextPrimaryColor];
 
   // TODO(crbug.com/493128413): Implement missing actions.
@@ -263,21 +263,18 @@ UIButtonConfiguration* CreateHeaderButtonConfiguration(UIImage* image) {
 
   NSMutableArray* actions = [[NSMutableArray alloc] init];
 
-  if (IsCobrowseAimHistoryEnabled()) {
-    __weak __typeof(self) weakSelf = self;
-    UIAction* historyAction = [UIAction
-        actionWithTitle:l10n_util::GetNSString(IDS_IOS_AIM_HISTORY)
-                  image:CustomSymbolWithPointSize(kLineThreeSparkSymbol,
-                                                  kHeaderActionSymbolPointSize)
-             identifier:nil
-                handler:^(UIAction* action) {
-                  [weakSelf didTapHistoryButton];
-                }];
-    [actions addObject:historyAction];
-  }
+  __weak __typeof(self) weakSelf = self;
+  UIAction* historyAction = [UIAction
+      actionWithTitle:l10n_util::GetNSString(IDS_IOS_AIM_HISTORY)
+                image:SymbolWithPointSize(SymbolLineThreeSpark,
+                                          kHeaderActionSymbolPointSize)
+           identifier:nil
+              handler:^(UIAction* action) {
+                [weakSelf didTapHistoryButton];
+              }];
+  [actions addObject:historyAction];
 
   if (experimental_flags::IsOmniboxDebuggingEnabled()) {
-    __weak __typeof(self) weakSelf = self;
     UIAction* showLogsAction = [UIAction
         actionWithTitle:@"AIM SRP Logs"
                   image:DefaultSymbolWithPointSize(@"binoculars.circle", 16)
@@ -289,7 +286,7 @@ UIButtonConfiguration* CreateHeaderButtonConfiguration(UIImage* image) {
 
     UIAction* showURLAction =
         [UIAction actionWithTitle:@"AIM Loaded URL"
-                            image:DefaultSymbolWithPointSize(@"link", 16)
+                            image:SymbolWithPointSize(SymbolLinkAction, 16)
                        identifier:nil
                           handler:^(UIAction* action) {
                             [weakSelf didTapShowURLButton];
@@ -364,10 +361,10 @@ UIButtonConfiguration* CreateHeaderButtonConfiguration(UIImage* image) {
 - (UIImage*)iconImage {
 #if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
   return MakeSymbolMulticolor(
-      CustomSymbolWithPointSize(kGoogleIconSymbol, kSymbolsPointSize));
+      SymbolWithPointSize(SymbolGoogleIcon, kSymbolsPointSize));
 #else
   return MakeSymbolMulticolor(
-      DefaultSymbolWithPointSize(kGearshape2Symbol, kSymbolsPointSize));
+      SymbolWithPointSize(SymbolGearshape2, kSymbolsPointSize));
 #endif
 }
 

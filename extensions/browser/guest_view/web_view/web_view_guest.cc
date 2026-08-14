@@ -99,6 +99,7 @@
 #include "url/url_constants.h"
 
 using base::UserMetricsAction;
+using content::GlobalRenderFrameHostId;
 using content::GlobalRequestID;
 using content::RenderFrameHost;
 using content::RenderProcessHost;
@@ -2004,12 +2005,10 @@ WebContents* WebViewGuest::OpenURLFromTab(
   // We make an exception here for context menu items, since the Language
   // Settings item uses a browser-initiated navigation to a chrome:// URL.
   // These can be passed to the embedder's WebContentsDelegate so that the
-  // browser performs the action for the <webview>. Navigations to a new
-  // tab, etc., are also handled by the WebContentsDelegate.
+  // browser performs the action for the <webview>.
   if (!params.is_renderer_initiated &&
-      (!content::ChildProcessSecurityPolicy::GetInstance()->IsWebSafeScheme(
-           params.url.GetScheme()) ||
-       params.disposition != WindowOpenDisposition::CURRENT_TAB)) {
+      !content::ChildProcessSecurityPolicy::GetInstance()->IsWebSafeScheme(
+          params.url.GetScheme())) {
     if (!owner_web_contents()->GetDelegate()) {
       return nullptr;
     }
@@ -2068,7 +2067,9 @@ WebContents* WebViewGuest::OpenURLFromTab(
   }
 
   // This code path is taken if Ctrl+Click, middle click or any of the
-  // keyboard/mouse combinations are used to open a link in a new tab/window.
+  // keyboard/mouse combinations are used to open a link in a new tab/window,
+  // or for browser-initiated navigations to a new tab/window (e.g. context
+  // menu "Open link in new tab").
   // This code path is also taken on client-side redirects from about:blank.
   // TODO(https://crbug.com/40275094): Consider plumbing
   // `navigation_handle_callback`.
@@ -2077,8 +2078,7 @@ WebContents* WebViewGuest::OpenURLFromTab(
 }
 
 void WebViewGuest::WebContentsCreated(WebContents* source_contents,
-                                      int opener_render_process_id,
-                                      int opener_render_frame_id,
+                                      const GlobalRenderFrameHostId& opener_id,
                                       const std::string& frame_name,
                                       const GURL& target_url,
                                       WebContents* new_contents,

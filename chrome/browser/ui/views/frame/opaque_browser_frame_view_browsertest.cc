@@ -4,12 +4,10 @@
 
 #include "chrome/browser/ui/views/frame/opaque_browser_frame_view.h"
 
-#include <tuple>
 
 #include "base/memory/raw_ptr.h"
 #include "base/test/test_future.h"
 #include "build/build_config.h"
-#include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser.h"
@@ -23,14 +21,12 @@
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/ui/web_applications/web_app_browsertest_base.h"
-#include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
-#include "ui/base/hit_test.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/test/test_views.h"
@@ -94,9 +90,9 @@ class WebAppOpaqueBrowserFrameViewTest : public web_app::WebAppBrowserTestBase {
     web_app_info->theme_color = theme_color;
 
     webapps::AppId app_id = web_app::test::InstallWebApp(
-        browser()->profile(), std::move(web_app_info));
+        browser()->GetProfile(), std::move(web_app_info));
     Browser* app_browser =
-        web_app::LaunchWebAppBrowser(browser()->profile(), app_id);
+        web_app::LaunchWebAppBrowser(browser()->GetProfile(), app_id);
 
     browser_view_ = BrowserView::GetBrowserViewForBrowser(app_browser);
     views::FrameView* frame_view =
@@ -138,7 +134,7 @@ class WebAppOpaqueBrowserFrameViewTest : public web_app::WebAppBrowserTestBase {
     linux_ui_getter_ = std::make_unique<FakeLinuxUiGetter>(use_system_theme);
 #endif
     ThemeService* theme_service =
-        ThemeServiceFactory::GetForProfile(browser()->profile());
+        ThemeServiceFactory::GetForProfile(browser()->GetProfile());
     if (theme_mode == ThemeMode::kSystem) {
       theme_service->UseSystemTheme();
     } else {
@@ -320,10 +316,10 @@ class WebAppOpaqueBrowserFrameViewWindowControlsOverlayTest
         blink::mojom::DisplayMode::kWindowControlsOverlay)};
 
     webapps::AppId app_id = web_app::test::InstallWebApp(
-        browser()->profile(), std::move(web_app_info));
+        browser()->GetProfile(), std::move(web_app_info));
 
     Browser* app_browser =
-        web_app::LaunchWebAppBrowser(browser()->profile(), app_id);
+        web_app::LaunchWebAppBrowser(browser()->GetProfile(), app_id);
 
     web_app::NavigateViaLinkClickToURLAndWait(app_browser, start_url);
 

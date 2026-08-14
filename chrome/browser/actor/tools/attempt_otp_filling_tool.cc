@@ -7,91 +7,102 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
+#include "base/command_line.h"
 #include "base/functional/bind.h"
+#include "base/logging.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/notimplemented.h"
+#include "base/notreached.h"
+#include "base/strings/stringprintf.h"
+#include "base/task/sequenced_task_runner.h"
+#include "base/time/time.h"
 #include "chrome/browser/actor/actor_task.h"
+#include "chrome/browser/actor/tools/actor_login_flow_verifier.h"
+#include "chrome/browser/actor/tools/attempt_otp_filling_metrics.h"
 #include "chrome/browser/actor/tools/page_target_util.h"
 #include "chrome/browser/autofill/actor/one_time_tokens/actor_login_context.h"
 #include "chrome/browser/autofill/actor/one_time_tokens/actor_one_time_token_filling_service.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/actor/action_result.h"
+#include "components/actor/core/actor_switches.h"
 #include "components/actor/core/journal_details_builder.h"
 #include "components/actor/core/shared_types.h"
+#include "components/autofill/content/browser/renderer_forms_from_browser_form.h"
+#include "components/autofill/core/common/autofill_prefs.h"
+#include "components/one_time_tokens/core/browser/one_time_token_retrieval_error.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/browser/render_frame_host.h"
+#include "services/metrics/public/cpp/ukm_source_id.h"
 
 namespace actor {
 
 namespace {
 
-// We need to make sure that we don't skip user confirmation for OTPs that do
-// not belong to actor login flows. Actor login fills credentials in all iframes
-// that it considers trustworthy because it doesn't know which one contains the
-// correct login form. It also uses 2 different trust levels (based on user
-// permission type), both are based on iframe's and main frame's origins.
-// This method needs to match the same trust levels, hence the
-// `should_use_strong_matching` parameter. To avoid checking each filled
-// frame, we try to match the OTP form's origin with the origin of the main
-// frame where actor login flow started and rely on the fact that affiliations
-// are transitive.
-bool OtpFormOriginMatchesLoginMainFrameOrigin(
-    const url::Origin& login_main_frame_origin,
-    const url::Origin& otp_origin,
-    bool should_use_strong_matching) {
-  // TODO(crbug.com/504573041): Implement
-  NOTIMPLEMENTED();
-  return false;
+constexpr base::TimeDelta kGmailOtpOptInCoolOffPeriod = base::Days(90);
+
+const char* PredictedOtpTypeToString(AttemptOtpFillingToolRequest::OtpType type) {
+  switch (type) {
+    case AttemptOtpFillingToolRequest::OtpType::kUnknown:
+      return "Unknown";
+    case AttemptOtpFillingToolRequest::OtpType::kSms:
+      return "Sms";
+    case AttemptOtpFillingToolRequest::OtpType::kEmail:
+      return "Email";
+    case AttemptOtpFillingToolRequest::OtpType::kAuthenticatorApp:
+      return "AuthenticatorApp";
+  }
+  NOTREACHED();
 }
 
-// Returns the RenderFrameHost containing the OTP fields.
+// Returns the `RenderFrameHost` containing the OTP fields.
 content::RenderFrameHost* GetOtpFrame(
     tabs::TabHandle tab_handle,
-    base::span<const PageTarget> trigger_fields) {
-  // TODO(crbug.com/504573041): Implement
-  NOTIMPLEMENTED();
-  return nullptr;
+    base::span<const autofill::FieldGlobalId> trigger_field_ids) {
+  if (trigger_field_ids.empty()) {
+    return nullptr;
+  }
+  tabs::TabInterface* tab = tab_handle.Get();
+  content::WebContents* web_contents = tab ? tab->GetContents() : nullptr;
+  if (!web_contents) {
+    return nullptr;
+  }
+  return autofill::FindRenderFrameHostByToken(
+      *web_contents, trigger_field_ids.front().frame_token);
 }
 
-// Checks if the tool execution corresponds to an actor login's sign in flow.
-// This is used to determine if we can skip the confirmation UI. The
-// reasoning being that the user already consented to the login attempt
-// during actor login execution and this OTP filling is considered part of
-// the same flow.
-bool IsActorLoginFlow(tabs::TabHandle tab_handle,
-                      base::span<const PageTarget> trigger_fields,
-                      const autofill::ActorLoginContext& context) {
-  if (trigger_fields.empty()) {
-    return false;
+// Returns the `mojom::ActionResultPtr` for a given `FormFillingContextStatus`.
+mojom::ActionResultPtr GetResultFromFormFillingStatus(
+    autofill::FormFillingContextStatus status) {
+  switch (status) {
+    case autofill::FormFillingContextStatus::kSecure:
+      return MakeOkResult();
+    case autofill::FormFillingContextStatus::kInsecureContext:
+      return MakeResult(mojom::ActionResultCode::kOtpInsecureContext);
+    case autofill::FormFillingContextStatus::kFormNotFound:
+      return MakeResult(mojom::ActionResultCode::kFormFillingFieldNotFound);
+    case autofill::FormFillingContextStatus::kTabNotAvailable:
+      return MakeResult(mojom::ActionResultCode::kTabWentAway);
   }
+}
 
-  content::RenderFrameHost* otp_frame = GetOtpFrame(tab_handle, trigger_fields);
-  if (!otp_frame) {
-    return false;
+// Returns the metrics event for a given `FormFillingContextStatus`.
+AttemptOtpFillingToolEvent GetMetricsEventFromFormFillingStatus(
+    autofill::FormFillingContextStatus status) {
+  switch (status) {
+    case autofill::FormFillingContextStatus::kSecure:
+      NOTREACHED();
+    case autofill::FormFillingContextStatus::kInsecureContext:
+      return AttemptOtpFillingToolEvent::kFormFillingStatusInsecureContext;
+    case autofill::FormFillingContextStatus::kFormNotFound:
+      return AttemptOtpFillingToolEvent::kFormFillingStatusFormNotFound;
+    case autofill::FormFillingContextStatus::kTabNotAvailable:
+      return AttemptOtpFillingToolEvent::kFormFillingStatusTabNotAvailable;
   }
-
-  const url::Origin& otp_form_origin = otp_frame->GetLastCommittedOrigin();
-  content::FrameTreeNodeId otp_frame_id = otp_frame->GetFrameTreeNodeId();
-
-  if (context.navigations_per_frame.contains(otp_frame_id) &&
-      OtpFormOriginMatchesLoginMainFrameOrigin(
-          context.origin, otp_form_origin,
-          context.should_use_strong_matching)) {
-    // Actor Login filled credentials in all of these frames but we don't know
-    // which one was the actual login frame. While finding an OTP field in one
-    // of those frames is a signal that the frame was the login frame, it's not
-    // guaranteed. Therefore, require all frames to have <2 navigations to
-    // avoid accidentally skipping user confirmation for OTPs not meant for
-    // login flows.
-    return std::ranges::all_of(
-        context.navigations_per_frame,
-        [](const std::pair<const content::FrameTreeNodeId, int>& entry) {
-          return entry.second < 2;
-        });
-  }
-
-  return false;
 }
 
 }  // namespace
@@ -101,38 +112,149 @@ AttemptOtpFillingTool::AttemptOtpFillingTool(
     ToolDelegate& tool_delegate,
     tabs::TabHandle tab_handle,
     std::vector<PageTarget> trigger_fields,
-    bool for_signin)
+    bool for_signin,
+    AttemptOtpFillingToolRequest::OtpType predicted_otp_type,
+    std::unique_ptr<ActorLoginFlowVerifier> actor_login_flow_verifier)
     : Tool(task_id, tool_delegate),
       tab_handle_(tab_handle),
       trigger_fields_(std::move(trigger_fields)),
-      for_signin_(for_signin) {
-  // Guaranteed by validation in CreateAttemptOtpFillingRequest in
-  // actor_proto_conversion.cc.
+      for_signin_(for_signin),
+      predicted_otp_type_(predicted_otp_type),
+      actor_login_flow_verifier_(std::move(actor_login_flow_verifier)) {
+  // Guaranteed by validation in `CreateAttemptOtpFillingRequest` in
+  // `actor_proto_conversion.cc`.
   CHECK(!trigger_fields_.empty());
+  CHECK(actor_login_flow_verifier_);
 }
 
 AttemptOtpFillingTool::~AttemptOtpFillingTool() = default;
 
 void AttemptOtpFillingTool::Validate(ToolCallback callback) {
-  // This could be a place to check (once more) if the feature is enabled and
-  // that the user has not permanently opted out.
-  // Note: There's also the method TimeOfUseValidation for checks that happen
-  // synchronously just before Invoke().
+  RecordAttemptOtpFillingEvent(
+      AttemptOtpFillingToolEvent::kStartFillingAttempt);
 
+  PrefService* prefs = tool_delegate().GetProfile().GetPrefs();
+  bool gmail_otp_filling_enabled =
+      autofill::prefs::IsAutofillGmailOtpFillingEnabled(prefs);
+  base::Time dismissal_timestamp =
+      autofill::prefs::GetAutofillGmailOtpFillingActivationDismissalTimestamp(
+          prefs);
+  base::TimeDelta time_since_last_dismissal =
+      base::Time::Now() - dismissal_timestamp;
+  bool within_cool_off_period =
+      time_since_last_dismissal < kGmailOtpOptInCoolOffPeriod;
+
+  LogJournalEvent(
+      "AttemptOtpFillingTool::Validate",
+      JournalDetailsBuilder()
+          .Add("trigger_fields_count", trigger_fields_.size())
+          .Add("gmail_otp_filling_enabled", gmail_otp_filling_enabled)
+          .Add("dismissal_timestamp", dismissal_timestamp)
+          .Add("time_since_last_dismissal in days",
+               time_since_last_dismissal.InDays())
+          .Add("within_cool_off_period", within_cool_off_period)
+          .Build());
+
+  if (gmail_otp_filling_enabled) {
+    std::move(callback).Run(MakeOkResult());
+    return;
+  }
+
+  if (within_cool_off_period) {
+    RecordAttemptOtpFillingEvent(
+        AttemptOtpFillingToolEvent::kWithinOptInCoolOffPeriod);
+    std::move(callback).Run(
+        MakeResult(mojom::ActionResultCode::kOtpUnableToFill,
+                   /*requires_page_stabilization=*/false,
+                   "Gmail OTP disabled and within cool-off period for Gmail "
+                   "OTP opt-in dialog."));
+  } else {
+    RecordGmailOtpOptInCardInteraction(GmailOtpOptInCardInteraction::kShowCard);
+    tool_delegate().RequestToShowGmailOtpOptInDialog(
+        base::BindOnce(&AttemptOtpFillingTool::OnGmailOtpOptInResponse,
+                       weak_factory_.GetWeakPtr(), std::move(callback)));
+  }
+}
+
+void AttemptOtpFillingTool::OnGmailOtpOptInResponse(
+    ToolCallback callback,
+    webui::mojom::GmailOtpOptInResultPtr response) {
+  if (!response || response.is_null()) {
+    RecordAttemptOtpFillingEvent(
+        AttemptOtpFillingToolEvent::kOptInNullResponse);
+    RecordGmailOtpOptInCardInteraction(
+        GmailOtpOptInCardInteraction::kErrorResponse);
+    std::move(callback).Run(
+        MakeResult(mojom::ActionResultCode::kOtpUnableToFill,
+                   /*requires_page_stabilization=*/false,
+                   "Gmail OTP opt-in dialog response is null"));
+    return;
+  }
+
+  if (response->is_error_reason()) {
+    RecordAttemptOtpFillingEvent(
+        AttemptOtpFillingToolEvent::kOptInErrorResponse);
+    RecordGmailOtpOptInCardInteraction(
+        GmailOtpOptInCardInteraction::kErrorResponse);
+    LogJournalEvent("AttemptOtpFillingTool::OnGmailOtpOptInResponse",
+                    JournalDetailsBuilder()
+                        .Add("error_reason", response->get_error_reason())
+                        .Build());
+    std::move(callback).Run(
+        MakeResult(mojom::ActionResultCode::kOtpUnableToFill,
+                   /*requires_page_stabilization=*/false,
+                   "Error in Gmail OTP opt-in dialog response"));
+    return;
+  }
+
+  bool opt_in_permission_granted = response->get_response()->permission_granted;
+
+  PrefService* prefs = tool_delegate().GetProfile().GetPrefs();
+  if (!opt_in_permission_granted) {
+    RecordAttemptOtpFillingEvent(
+        AttemptOtpFillingToolEvent::kOptInPermissionDenied);
+    RecordGmailOtpOptInCardInteraction(
+        GmailOtpOptInCardInteraction::kPermissionDenied);
+    autofill::prefs::SetAutofillGmailOtpFillingActivationDismissalTimestamp(
+        prefs, base::Time::Now());
+    std::move(callback).Run(
+        MakeResult(mojom::ActionResultCode::kOtpUserDeclinedOptingIntoFilling,
+                   /*requires_page_stabilization=*/false,
+                   "User declined Gmail OTP opt-in."));
+    return;
+  }
+
+  RecordGmailOtpOptInCardInteraction(
+      GmailOtpOptInCardInteraction::kPermissionGranted);
+  autofill::prefs::SetAutofillGmailOtpFillingEnabled(prefs, true);
+  autofill::prefs::ClearAutofillGmailOtpFillingActivationDismissalTimestamp(
+      prefs);
   std::move(callback).Run(MakeOkResult());
 }
 
 mojom::ActionResultPtr AttemptOtpFillingTool::TimeOfUseValidation(
     const optimization_guide::proto::AnnotatedPageContent* last_observation) {
   tabs::TabInterface* tab = GetTargetTab().Get();
+
+  LogJournalEvent("AttemptOtpFillingTool::TimeOfUseValidation",
+                  JournalDetailsBuilder()
+                      .Add("tab", !!tab)
+                      .Add("last_observation", !!last_observation)
+                      .Add("trigger_fields_count", trigger_fields_.size())
+                      .Build());
+
   if (!tab) {
+    RecordAttemptOtpFillingEvent(
+        AttemptOtpFillingToolEvent::kTabWentAwayBeforeInvocation);
     return MakeResult(mojom::ActionResultCode::kTabWentAway,
                       /*requires_page_stabilization=*/false,
                       "Target tab was destroyed before invocation.");
   }
 
   if (!last_observation) {
-    return MakeResult(mojom::ActionResultCode::kFormFillingNoLastTabObservation,
+    RecordAttemptOtpFillingEvent(
+        AttemptOtpFillingToolEvent::kNoLastTabObservation);
+    return MakeResult(mojom::ActionResultCode::kOtpNoLastTabObservation,
                       /*requires_page_stabilization=*/false,
                       "Last tab observation is null.");
   }
@@ -143,26 +265,67 @@ mojom::ActionResultPtr AttemptOtpFillingTool::TimeOfUseValidation(
     autofill::FieldGlobalId field_id =
         GetFieldIdFromPageTarget(last_observation, tab, trigger_field);
     if (!field_id) {
-      return MakeResult(mojom::ActionResultCode::kFormFillingFieldNotFound,
+      RecordAttemptOtpFillingEvent(
+          AttemptOtpFillingToolEvent::kTriggerFieldNotFound);
+      return MakeResult(mojom::ActionResultCode::kOtpFieldNotFound,
                         /*requires_page_stabilization=*/false,
                         "Trigger field not found.");
     }
     trigger_field_ids_.push_back(field_id);
   }
 
-  return MakeOkResult();
+  autofill::FormFillingContextStatus status =
+      tool_delegate()
+          .GetActorOneTimeTokenFillingService()
+          .ValidateFormFillingContext(GetTargetTab(), trigger_field_ids_);
+  LogJournalEvent("AttemptOtpFillingTool::Validate",
+                  JournalDetailsBuilder()
+                      .Add("form filling context status", status)
+                      .Build());
+  mojom::ActionResultPtr action_result = GetResultFromFormFillingStatus(status);
+
+  if (!IsOk(*action_result)) {
+    RecordAttemptOtpFillingEvent(GetMetricsEventFromFormFillingStatus(status));
+  }
+  return action_result;
 }
 
 void AttemptOtpFillingTool::Invoke(ToolCallback callback) {
-  // TODO(b/484334125): Check for user consent before filling!
-  // The checks will be somewhat different, depending on the for_signin
-  // parameter.
-  // For now, we just log it ...
-  journal().Log(JournalURL(), task_id(), "AttemptOtpFillingTool::Invoke",
-                JournalDetailsBuilder()
-                    .Add("trigger_fields_count", trigger_field_ids_.size())
-                    .Add("for_signin", for_signin_)
-                    .Build());
+  journal().Log(
+      JournalURL(), task_id(), "AttemptOtpFillingTool::Invoke",
+      JournalDetailsBuilder()
+          .Add("trigger_fields_count", trigger_field_ids_.size())
+          .Add("for_signin", for_signin_)
+          .Add("predicted_otp_type",
+               PredictedOtpTypeToString(predicted_otp_type_))
+          .Build());
+
+  ukm::SourceId source_id = ukm::kInvalidSourceId;
+  if (tabs::TabInterface* tab = GetTargetTab().Get()) {
+    if (content::WebContents* web_contents = tab->GetContents()) {
+      source_id = web_contents->GetPrimaryMainFrame()->GetPageUkmSourceId();
+    }
+  }
+  RecordPredictedOtpTypeMetrics(predicted_otp_type_, source_id);
+
+  content::RenderFrameHost* otp_frame =
+      GetOtpFrame(GetTargetTab(), trigger_field_ids_);
+  if (!otp_frame) {
+    RecordAttemptOtpFillingEvent(
+        AttemptOtpFillingToolEvent::kNoTargetFrameWithOtpFound);
+    LogJournalEvent("AttemptOtpFillingTool::Invoke",
+                    JournalDetailsBuilder()
+                        .Add("error", "No frame containing an OTP")
+                        .Build());
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            std::move(callback),
+            MakeResult(mojom::ActionResultCode::kOtpTargetFrameNotFound,
+                       /*requires_page_stabilization=*/false,
+                       "Target frame containing OTP fields not found.")));
+    return;
+  }
 
   // Consume the context. The service clears its state and stops observing.
   std::optional<autofill::ActorLoginContext> context =
@@ -170,56 +333,146 @@ void AttemptOtpFillingTool::Invoke(ToolCallback callback) {
           .GetActorOneTimeTokenFillingService()
           .ConsumeLoginContext();
 
-  if (context.has_value() &&
-      IsActorLoginFlow(GetTargetTab(), trigger_fields_, *context)) {
-    // Verified sign-in journey: proceed with silent OTP filling.
-    // TODO(crbug.com/504573041): Implement
-  } else {
-    // No recent login, origin mismatch, untracked frame, or sequence broken
-    // by too many navigations: require confirmation UI (Post-MVP).
-    // TODO(crbug.com/504573041): Implement
-  }
-
-  tool_delegate().GetActorOneTimeTokenFillingService().RetrieveOtp(
-      GetTargetTab(), trigger_field_ids_,
-      base::BindOnce(&AttemptOtpFillingTool::OnOtpRetrieved,
+  actor_login_flow_verifier_->VerifyIsActorLoginFlow(
+      otp_frame->GetFrameTreeNodeId(), otp_frame->GetLastCommittedOrigin(),
+      context,
+      base::BindOnce(&AttemptOtpFillingTool::OnActorLoginFlowChecked,
                      weak_factory_.GetWeakPtr(), std::move(callback)));
 }
 
-void AttemptOtpFillingTool::OnOtpRetrieved(ToolCallback callback,
-                                           std::string otp) {
-  journal().Log(
-      JournalURL(), task_id(), "AttemptOtpFillingTool::OnOtpRetrieved",
-      JournalDetailsBuilder().Add("otp_received", !otp.empty()).Build());
+void AttemptOtpFillingTool::OnActorLoginFlowChecked(ToolCallback callback,
+                                                    bool is_actor_login) {
+  bool bypass_login_check =
+      base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kAttemptOtpFillingBypassLoginCheck);
+  LogJournalEvent(
+      "AttemptOtpFillingTool::OnActorLoginFlowChecked",
+      JournalDetailsBuilder()
+          .Add("is_actor_login", is_actor_login)
+          .Add("bypass_login_check", bypass_login_check)
+          .Build());
 
-  // TODO(b/502907994): There might be other errors happening, not just a
-  // timeout. If we want to treat them less generically, we need to change the
-  // API of the service to also return more detailed error codes.
-  if (otp.empty()) {
+  if (is_actor_login || bypass_login_check) {
+    // Verified sign-in journey: proceed with silent OTP filling.
+    tool_delegate().GetActorOneTimeTokenFillingService().RetrieveOtp(
+        GetTargetTab(),
+        GetOtpFrame(GetTargetTab(), trigger_field_ids_)
+            ->GetLastCommittedOrigin(),
+        trigger_field_ids_, is_actor_login,
+        base::BindOnce(&AttemptOtpFillingTool::OnOtpRetrieved,
+                       weak_factory_.GetWeakPtr(), std::move(callback)));
+  } else {
+    RecordAttemptOtpFillingEvent(AttemptOtpFillingToolEvent::kNoActorLogin);
+    LogJournalEvent("AttemptOtpFillingTool::OnActorLoginFlowChecked",
+                    JournalDetailsBuilder()
+                        .Add("error", "Not an Actor Login flow")
+                        .Build());
+    // No recent login, origin mismatch, untracked frame, or sequence broken
+    // by too many navigations: require confirmation UI (Post-MVP).
+    // TODO(crbug.com/504573041): Implement confirmation UI.
     std::move(callback).Run(
-        MakeResult(mojom::ActionResultCode::kToolTimeout,
+        MakeResult(mojom::ActionResultCode::kOtpSigninContextMismatch,
                    /*requires_page_stabilization=*/false,
-                   "Failed to retrieve OTP within timeout."));
+                   "Silent OTP filling is only allowed in the context of actor "
+                   "login flows."));
+  }
+}
+
+void AttemptOtpFillingTool::OnOtpRetrieved(
+    ToolCallback callback,
+    base::expected<std::string, one_time_tokens::OneTimeTokenRetrievalError>
+        result) {
+  LogJournalEvent(
+      "AttemptOtpFillingTool::OnOtpRetrieved",
+      JournalDetailsBuilder().Add("otp_received", result.has_value()).Build());
+
+  if (!result.has_value()) {
+    RecordAttemptOtpFillingEvent(
+        AttemptOtpFillingToolEvent::kOtpRetrievalError);
+    mojom::ActionResultCode code = mojom::ActionResultCode::kOtpRetrievalError;
+    std::string message =
+        base::StringPrintf("An error occurred during OTP retrieval: %d",
+                           std::to_underlying(result.error()));
+
+    LogJournalEvent("AttemptOtpFillingTool::OnOtpRetrieved",
+                    JournalDetailsBuilder()
+                        .Add("error", message)
+                        .Add("error_code", result.error())
+                        .Build());
+
+    using enum one_time_tokens::OneTimeTokenRetrievalError;
+    switch (result.error()) {
+      case kGmailOtpBackendSmartFeaturesInGmailConsentRequired:
+        code = mojom::ActionResultCode::kOtpGmailConsentRequired;
+        message = "Gmail Smart Features consent is required.";
+        break;
+      case kGmailOtpBackendSmartFeaturesInOtherGoogleProductsConsentRequired:
+        code = mojom::ActionResultCode::kOtpGoogleConsentRequired;
+        message = "Google Smart Features consent is required.";
+        break;
+      case kGmailOtpBackendDmaCrossProductSharingConsentRequired:
+        code = mojom::ActionResultCode::kOtpDmaConsentRequired;
+        message = "DMA cross-product sharing consent is required.";
+        break;
+      case kGmailOtpBackendOtpAttributeNotFound:
+        code = mojom::ActionResultCode::kOtpNoCodeFound;
+        message = "Failed to extract verification code from the OTP email.";
+        break;
+      case kGmailOtpBackendOneTimeTokenExpired:
+        code = mojom::ActionResultCode::kOtpExpired;
+        message = "The retrieved OTP has expired.";
+        break;
+      case kGmailOtpBackendApiNotAvailable:
+      case kGmailOtpBackendInitializationFailed:
+        code = mojom::ActionResultCode::kOtpServiceUnavailable;
+        message = "OTP filling service is not available.";
+        break;
+      default:
+        break;
+    }
+    std::move(callback).Run(
+        MakeResult(code, /*requires_page_stabilization=*/false, message));
+    return;
+  }
+
+  mojom::ActionResultPtr validation_result = GetResultFromFormFillingStatus(
+      tool_delegate()
+          .GetActorOneTimeTokenFillingService()
+          .ValidateFormFillingContext(GetTargetTab(), trigger_field_ids_));
+  if (!IsOk(*validation_result)) {
+    RecordAttemptOtpFillingEvent(
+        AttemptOtpFillingToolEvent::kFormFillingNotSecureBeforeFilling);
+    std::move(callback).Run(std::move(validation_result));
     return;
   }
 
   tool_delegate().GetActorOneTimeTokenFillingService().FillOtp(
-      GetTargetTab(), trigger_field_ids_, otp,
+      GetTargetTab(), trigger_field_ids_, result.value(),
       base::BindOnce(&AttemptOtpFillingTool::OnOtpFilled,
                      weak_factory_.GetWeakPtr(), std::move(callback)));
 }
 
 void AttemptOtpFillingTool::OnOtpFilled(ToolCallback callback, bool success) {
-  journal().Log(JournalURL(), task_id(), "AttemptOtpFillingTool::OnOtpFilled",
-                JournalDetailsBuilder().Add("success", success).Build());
+  LogJournalEvent("AttemptOtpFillingTool::OnOtpFilled",
+                  JournalDetailsBuilder().Add("success", success).Build());
 
   if (success) {
+    RecordAttemptOtpFillingEvent(
+        AttemptOtpFillingToolEvent::kFillingOtpSuccess);
     std::move(callback).Run(MakeOkResult());
   } else {
-    std::move(callback).Run(MakeResult(
-        mojom::ActionResultCode::kFormFillingUnknownAutofillError,
-        /*requires_page_stabilization=*/false, "Failed to fill OTP."));
+    RecordAttemptOtpFillingEvent(AttemptOtpFillingToolEvent::kFillingOtpError);
+    std::move(callback).Run(MakeResult(mojom::ActionResultCode::kOtpFillFailure,
+                                       /*requires_page_stabilization=*/false,
+                                       "Failed to fill OTP."));
   }
+}
+
+void AttemptOtpFillingTool::LogJournalEvent(
+    std::string_view event_name,
+    std::vector<mojom::JournalDetailsPtr> journal_details) {
+  journal().Log(JournalURL(), task_id(), event_name,
+                std::move(journal_details));
 }
 
 void AttemptOtpFillingTool::UpdateTaskBeforeInvoke(

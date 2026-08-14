@@ -36,6 +36,7 @@
 #include "components/autofill/core/browser/filling/test_form_filler.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/form_structure_test_api.h"
+#include "components/autofill/core/browser/foundations/autofill_manager_test_api.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager_test_api.h"
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
@@ -178,12 +179,14 @@ class FormFillerTest
 
   void FormsSeen(const std::vector<FormData>& forms) {
     autofill_manager().OnFormsSeen(/*updated_forms=*/forms,
-                                   /*removed_forms=*/{});
+                                   /*removed_forms=*/{},
+                                   AutofillManagerTestApi::pass_key());
   }
 
   void FormsRemoved(const std::vector<FormGlobalId>& forms) {
     autofill_manager().OnFormsSeen(/*updated_forms=*/{},
-                                   /*removed_forms=*/forms);
+                                   /*removed_forms=*/forms,
+                                   AutofillManagerTestApi::pass_key());
   }
 
   FormData FormSeen(test::FormDescription form_description) {
@@ -362,9 +365,6 @@ TEST_F(FormFillerTest, FillTriggeredSection) {
 }
 
 TEST_F(FormFillerTest, SkipPreFilledFields) {
-  base::test::ScopedFeatureList placeholders_features(
-      features::kAutofillSkipPreFilledFields);
-
   AutofillProfile profile = test::GetFullProfile();
   const std::u16string kToBeFilledState =
       profile.GetInfo(ADDRESS_HOME_STATE, kAppLocale);
@@ -1623,9 +1623,6 @@ TEST_F(FormFillerTest, FillFirstPhoneNumber_MultipleSectionFilledCorrectly) {
 
 // Tests that a prefilled country calling code does not prevent an Autofill.
 TEST_F(FormFillerTest, FillPhoneNumber_OverwriteCountryCallingCode) {
-  base::test::ScopedFeatureList feature_list(
-      features::kAutofillOverwriteCountryCallingCodes);
-
   FormData form = test::GetFormData(
       {.fields = {{.role = NAME_FULL, .autocomplete_attribute = "name"},
                   {.role = PHONE_HOME_WHOLE_NUMBER,
@@ -1646,9 +1643,6 @@ TEST_F(FormFillerTest, FillPhoneNumber_OverwriteCountryCallingCode) {
 // Tests that a overwriting of country calling codes is limited to *valid* ones.
 TEST_F(FormFillerTest,
        FillPhoneNumber_DoNotOverwriteInvalidCountryCallingCode) {
-  base::test::ScopedFeatureList feature_list(
-      features::kAutofillOverwriteCountryCallingCodes);
-
   FormData form = test::GetFormData(
       {.fields = {{.role = NAME_FULL, .autocomplete_attribute = "name"},
                   {.role = PHONE_HOME_WHOLE_NUMBER,
@@ -1894,7 +1888,8 @@ TEST_F(FormFillerTest, TrackFillingOriginOnEditedField) {
   // Simulate editing the first field.
   test_api(filled_form).field(0).set_value(u"");
   autofill_manager().OnTextFieldValueChanged(
-      filled_form, filled_form.fields()[0].global_id(), base::TimeTicks::Now());
+      filled_form, filled_form.fields()[0].global_id(), base::TimeTicks::Now(),
+      AutofillManagerTestApi::pass_key());
 
   FormStructure* form_structure = GetFormStructure(form);
   ASSERT_TRUE(form_structure);
@@ -2004,8 +1999,6 @@ TEST_F(FormFillerTest, Refill_UsesBlockedFields) {
 // Regression test that a field with an unrelated type doesn't cause a crash
 // (crbug.com/324811625).
 TEST_F(FormFillerTest, PreFilledCCFieldInAddressFormDoesNotCauseCrash) {
-  base::test::ScopedFeatureList feature_list(
-      features::kAutofillSkipPreFilledFields);
   FormData form = test::GetFormData(
       {.fields = {{.role = NAME_FULL,
                    .value = u"pre-filled",
@@ -2307,8 +2300,9 @@ TEST_F(RefillTest, SelectOptionsChanged_IrrelevantSelectField) {
   FormsSeen({form});
   AutofillForm(form, form.fields().front(), &profile);
   EXPECT_CALL(mock_form_filler(), ScheduleRefill).Times(0);
-  autofill_manager().OnSelectFieldOptionsDidChangeImpl(
-      form, form.fields().back().global_id());
+  autofill_manager().OnSelectFieldOptionsDidChange(
+      form, form.fields().back().global_id(),
+      AutofillManagerTestApi::pass_key());
 }
 
 // Test fixture for FormFiller::SuppressAutomaticRefills().
@@ -2435,7 +2429,8 @@ TEST_P(ExpirationDateRefillTest, RefillJavascriptModifiedExpirationDates) {
       .set_value(test_case.exp_date_from_js);
   autofill_manager().OnJavaScriptChangedAutofilledValue(
       form_after_js_modification,
-      form_after_js_modification.fields()[2].global_id(), u"04/2999");
+      form_after_js_modification.fields()[2].global_id(), u"04/2999",
+      AutofillManagerTestApi::pass_key());
 
   testing::Mock::VerifyAndClearExpectations(&autofill_driver());
 

@@ -141,7 +141,7 @@ const char* GetDefaultExtensionPagesCSP(const Extension& extension) {
 
 // Returns the minimum CSP to apply for the given MV3 extension.
 const std::string* GetMinimumMV3CSPForExtension(const Extension& extension) {
-  DCHECK_GE(extension.manifest_version(), 3);
+  CHECK_GE(extension.manifest_version(), 3);
 
   if (csp_validator::IsExtensionAllowedToUseChromeResources(extension.id()) &&
       extension.location() == mojom::ManifestLocation::kComponent) {
@@ -164,6 +164,9 @@ const std::string* GetMinimumMV3CSPForExtension(const Extension& extension) {
 
 }  // namespace
 
+// static
+const char* CSPInfo::kManifestDataKey = keys::kContentSecurityPolicy;
+
 CSPInfo::CSPInfo(std::string extension_pages_csp, std::string sandbox_csp)
     : extension_pages_csp(std::move(extension_pages_csp)),
       sandbox_csp(std::move(sandbox_csp)) {}
@@ -172,8 +175,7 @@ CSPInfo::~CSPInfo() = default;
 
 // static
 const std::string& CSPInfo::GetExtensionPagesCSP(const Extension* extension) {
-  const CSPInfo* csp_info = static_cast<const CSPInfo*>(
-      extension->GetManifestData(keys::kContentSecurityPolicy));
+  const CSPInfo* csp_info = extension->GetManifestData<CSPInfo>();
   return csp_info ? csp_info->extension_pages_csp : base::EmptyString();
 }
 
@@ -244,8 +246,7 @@ std::optional<std::string> CSPInfo::GetIsolatedWorldCSP(
 // static
 const std::string& CSPInfo::GetSandboxContentSecurityPolicy(
     const Extension* extension) {
-  const CSPInfo* csp_info = static_cast<const CSPInfo*>(
-      extension->GetManifestData(keys::kContentSecurityPolicy));
+  const CSPInfo* csp_info = extension->GetManifestData<CSPInfo>();
   return csp_info ? csp_info->sandbox_csp : base::EmptyString();
 }
 
@@ -273,7 +274,7 @@ const char* CSPHandler::GetMinimumUnpackedMV3CSPForTesting() {
 }
 
 bool CSPHandler::Parse(Extension* extension, std::u16string* error) {
-  DCHECK(error->empty());
+  CHECK(error->empty());
 
   const char* key = extension->GetType() == Manifest::Type::kPlatformApp
                         ? keys::kPlatformAppContentSecurityPolicy
@@ -314,7 +315,6 @@ bool CSPHandler::Parse(Extension* extension, std::u16string* error) {
   }
 
   extension->SetManifestData(
-      keys::kContentSecurityPolicy,
       std::make_unique<CSPInfo>(std::move(extension_pages_csp),
                                 std::move(sandbox_csp)));
   return true;
@@ -352,7 +352,6 @@ bool CSPHandler::ParseCSPDictionary(Extension* extension,
   }
 
   extension->SetManifestData(
-      keys::kContentSecurityPolicy,
       std::make_unique<CSPInfo>(std::move(extension_pages_csp),
                                 std::move(sandbox_csp)));
   return true;
@@ -364,7 +363,7 @@ bool CSPHandler::ParseExtensionPagesCSP(
     std::u16string* error,
     std::string_view manifest_key,
     const base::Value* content_security_policy) {
-  DCHECK(error->empty());
+  CHECK(error->empty());
 
   if (extension->manifest()->type() == Manifest::Type::kNwjsApp) {
     *out_extension_pages_csp = kDefaultNWAppContentSecurityPolicy;
@@ -421,7 +420,7 @@ bool CSPHandler::ParseSandboxCSP(Extension* extension,
                                  std::string_view manifest_key,
                                  const base::Value* sandbox_csp,
                                  bool allow_remote_sources) {
-  DCHECK(error->empty());
+  CHECK(error->empty());
   if (!sandbox_csp) {
     *out_sandbox_csp = kDefaultSandboxedPageContentSecurityPolicy;
     return true;
@@ -460,14 +459,14 @@ void CSPHandler::ValidateExtensionPagesCSP(
     return;
   if (extension.manifest_version() >= 3) {
     std::u16string error;
-    DCHECK(csp_validator::DoesCSPDisallowRemoteCode(
+    CHECK(csp_validator::DoesCSPDisallowRemoteCode(
         extension.id(), extension.location(), content_security_policy,
         manifest_key, &error));
   } else {
-    DCHECK_EQ(content_security_policy,
-              SanitizeContentSecurityPolicy(
-                  content_security_policy, std::string(manifest_key),
-                  GetValidatorOptions(extension), nullptr));
+    CHECK_EQ(content_security_policy,
+             SanitizeContentSecurityPolicy(
+                 content_security_policy, std::string(manifest_key),
+                 GetValidatorOptions(extension), nullptr));
   }
 }
 

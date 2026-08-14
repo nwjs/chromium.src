@@ -26,7 +26,8 @@
 #include "components/account_manager_core/account.h"
 #include "components/account_manager_core/account_upsertion_result.h"
 #include "components/account_manager_core/chromeos/account_manager.h"
-#include "components/user_manager/user_manager.h"
+#include "components/session_manager/core/session.h"
+#include "components/session_manager/core/session_manager.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/test/browser_test.h"
 #include "google_apis/gaia/gaia_id.h"
@@ -133,7 +134,7 @@ class SigninHelperTest : public InProcessBrowserTest,
                 &test_url_loader_factory_)) {}
 
   void SetUpOnMainThread() override {
-    auto* profile = browser()->profile();
+    auto* profile = browser()->GetProfile();
     account_manager_ = AccountManagerFactory::Get()->GetAccountManager(
         profile->GetPath().value());
     account_manager_->SetUrlLoaderFactoryForTests(shared_url_loader_factory());
@@ -544,9 +545,9 @@ IN_PROC_BROWSER_TEST_F(SigninHelperTestSecondaryGoogleAccountUsage,
                      close_dialog_closure.GetCallback(),
                      /*show_signin_error=*/
                      base::BindRepeating(&NotReached),
-                     user_manager::UserManager::Get()
-                         ->GetPrimaryUser()
-                         ->GetAccountId()
+                     session_manager::SessionManager::Get()
+                         ->GetPrimarySession()
+                         ->account_id()
                          .GetGaiaId(),
                      kFakePrimaryEmail);
 

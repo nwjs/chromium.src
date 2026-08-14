@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Dawn Chromium Presubmit",
-              "project": "chromium-m151"
+              "project": "chromium-m152"
             },
             "builder_spec": {
               "builder_group": "chromium.dawn",
@@ -38,7 +38,7 @@
         {
           "bucket": "ci",
           "builder": "Dawn Chromium Presubmit",
-          "project": "chromium-m151"
+          "project": "chromium-m152"
         }
       ],
       "mirroring_builder_group_and_names": [
@@ -69,7 +69,7 @@
     ]
   },
   "builder_group": "chromium.dawn",
-  "dawn_ref": "refs/heads/chromium/7922",
+  "dawn_ref": "refs/heads/chromium/7977",
   "gardener_rotations": [
     "chrome_browser_release"
   ],

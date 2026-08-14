@@ -11,85 +11,22 @@
  * #css_wrapper_metadata_end */
 
 :host {
-  --cr-searchbox-dropdown-header-padding-inline-start: 16px;
-  --cr-searchbox-results-search-icon-size: 16px;
-  --cr-searchbox-icon-container-size: 28px;
-  --cr-searchbox-match-padding: 6px;
-  --cr-searchbox-match-padding-inline-start: 16px;
-  --cr-searchbox-match-text-padding-inline-end: 8px;
   --cr-searchbox-min-width: 75%;
-  --cr-searchbox-results-action-chip-height: 26px;
   --cr-searchbox-results-margin-bottom: 0;
   --cr-searchbox-results-padding-bottom: 0;
   --cr-searchbox-width: 100%;
-  --cr-searchbox-match-font-weight: 700;
 
   --text-input-inline-start-spacing: 16px;
-  --color-composebox-context-entrypoint-background: var(--color-omnibox-action-icon-hover);
-  --color-composebox-context-entrypoint-hover-background: var(--color-omnibox-action-icon-hover);
-  --color-composebox-context-entrypoint-text: var(--color-omnibox-context-entrypoint-text);
-  --composebox-context-menu-entrypoint-button-color: var(--color-omnibox-context-entrypoint-text);
   --contextual-entrypoint-and-carousel-context-menu-container-padding-inline-start: 0;
   --contextual-entrypoint-and-carousel-carousel-divider-margin-top: 8px;
   --contextual-entrypoint-and-carousel-carousel-divider-margin-bottom: 8px;
 
   font-size: var(--omnibox-font-size);
-
-
 }
 
 :host([has-visible-matches_]) .dropdownContainer,
 :host([show-context-entrypoint_]) .dropdownContainer {
   padding-bottom: 10px;
-}
-
-#context {
-  color: var(--color-searchbox-results-foreground);
-}
-
-#context[is-oblong-shape] {
-  --contextual-entrypoint-oblong-margin-inline-start: 2px;
-}
-
-/* Keeps the hover state color for entrypoint button when the menu is open. */
-#context.menu-open:not([apply-context-button-background])::part(entrypoint-button) {
-  background-color: var(
-    --color-composebox-context-entrypoint-hover-background);
-}
-
-#context[apply-context-button-background]::part(context-menu-entrypoint-icon) {
-  --cr-composebox-entrypoint-background-color: var(
-    --color-omnibox-composebox-context-entrypoint-background);
-  --cr-icon-button-hover-background-color: var(
-      --cr-active-neutral-on-subtle-background-color);
-}
-
-
-.context-menu-container {
-  --omnibox-context-menu-container-margin-top: 0px;
-  margin-top: var(--omnibox-context-menu-container-margin-top);
-}
-
-:host([searchbox-layout-mode_='TallBottomContext']) .context-menu-container:has(*),
-:host([searchbox-layout-mode_='Compact']) .context-menu-container:has(*) {
-  height: 40px;
-}
-
-:host([searchbox-layout-mode_='Compact']),
-:host([searchbox-layout-mode_^='Tall']) .context-menu-container:not(:has(#context)) {
-  --contextual-entrypoint-and-carousel-context-menu-container-padding-inline-start: 12px;
-}
-
-:host([searchbox-layout-mode_^='Tall']) #context {
-  padding-inline: 8px;
-}
-
-/**
- * Show the secondary side if it can be shown and is currently available to be
- * shown.
- */
-:host([can-show-secondary-side][has-secondary-side]) {
-  --cr-searchbox-secondary-side-display: block;
 }
 
 /**

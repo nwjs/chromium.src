@@ -8,6 +8,7 @@
 #include "content/public/browser/page.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
@@ -256,7 +257,7 @@ void TabHelper::UpdateDraggableRegions(
           : nullptr;
   if (!browser)
     return;
-  browser->window()->UpdateDraggableRegions(regions);
+  browser->GetBrowserView().UpdateDraggableRegions(regions);
 }
 
 void TabHelper::DidCloneToNewWebContents(WebContents* old_web_contents,

@@ -19,15 +19,14 @@
 #include "base/uuid.h"
 #include "components/multistep_filter/core/annotation_index/annotation_index_client.h"
 #include "components/multistep_filter/core/annotation_index/mock_annotation_index_client.h"
+#include "components/multistep_filter/core/data_models/filter_annotation.h"
 #include "components/multistep_filter/core/data_models/url_filter_suggestion.h"
-#include "components/multistep_filter/core/extraction/filter_extractor.h"
 #include "components/multistep_filter/core/features.h"
-#include "components/multistep_filter/core/multistep_filter_service_test_api.h"
 #include "components/multistep_filter/core/prefs/multistep_filter_retention_prefs.h"
 #include "components/multistep_filter/core/storage/filter_store.h"
-#include "components/multistep_filter/core/suggestion/filter_suggestion_generator.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/testing_pref_service.h"
+#include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/sync/test/test_sync_service.h"
 #include "components/unified_consent/pref_names.h"
@@ -38,53 +37,9 @@
 
 namespace multistep_filter {
 
-using ::testing::_;
 
-constexpr int64_t kTestNavigationId = 12345;
 
-class MockFilterExtractor : public FilterExtractor {
- public:
-  MockFilterExtractor(AnnotationIndexClient& annotation_index_client,
-                      FilterStore& filter_store)
-      : FilterExtractor(annotation_index_client,
-                        filter_store,
-                        /*log_router=*/nullptr) {}
-  MOCK_METHOD(void,
-              ExtractAnnotationFromUrl,
-              (const GURL& url,
-               base::OnceCallback<void(std::optional<base::Uuid>)> callback,
-               int64_t navigation_id),
-              (override));
-};
 
-class MockFilterSuggestionGenerator : public FilterSuggestionGenerator {
- public:
-  MockFilterSuggestionGenerator(AnnotationIndexClient& annotation_index_client,
-                                FilterStore& filter_store)
-      : FilterSuggestionGenerator(annotation_index_client,
-                                  filter_store,
-                                  /*log_router=*/nullptr) {}
-  MOCK_METHOD(
-      void,
-      GenerateSuggestion,
-      (const GURL& url,
-       std::vector<std::string> supported_task_types,
-       base::OnceCallback<void(std::optional<UrlFilterSuggestion>)> callback,
-       int64_t navigation_id),
-      (override));
-};
-
-class MockObserver : public MultistepFilterService::ObserverForTest {
- public:
-  MOCK_METHOD(void,
-              OnExtractionFinished,
-              (std::optional<base::Uuid>),
-              (override));
-  MOCK_METHOD(void,
-              OnSuggestionGenerated,
-              (std::optional<UrlFilterSuggestion>),
-              (override));
-};
 
 class MultistepFilterServiceTest : public testing::Test {
  public:
@@ -102,14 +57,6 @@ class MultistepFilterServiceTest : public testing::Test {
         std::make_unique<MockAnnotationIndexClient>();
     mock_client_ = annotation_index_client.get();
     auto filter_store = std::make_unique<FilterStore>();
-    auto filter_extractor = std::make_unique<MockFilterExtractor>(
-        *annotation_index_client, *filter_store);
-    auto filter_suggestion_generator =
-        std::make_unique<MockFilterSuggestionGenerator>(
-            *annotation_index_client, *filter_store);
-
-    mock_extractor_ = filter_extractor.get();
-    mock_generator_ = filter_suggestion_generator.get();
     auto consent_helper = unified_consent::UrlKeyedDataCollectionConsentHelper::
         NewAnonymizedDataCollectionConsentHelper(&pref_service_);
 
@@ -123,15 +70,6 @@ class MultistepFilterServiceTest : public testing::Test {
     params.sync_service = &sync_service_;
 
     service_ = std::make_unique<MultistepFilterService>(std::move(params));
-
-    MultistepFilterServiceTestApi(*service_).set_filter_extractor(
-        std::move(filter_extractor));
-    MultistepFilterServiceTestApi(*service_).set_filter_suggestion_generator(
-        std::move(filter_suggestion_generator));
-
-    mock_observer_ = std::make_unique<MockObserver>();
-    MultistepFilterServiceTestApi(*service_).SetObserverForTest(
-        mock_observer_.get());
   }
 
   void CreateService() { CreateService(identity_test_env_.identity_manager()); }
@@ -142,13 +80,10 @@ class MultistepFilterServiceTest : public testing::Test {
   TestingPrefServiceSimple pref_service_;
   syncer::TestSyncService sync_service_;
 
-  std::unique_ptr<MockObserver> mock_observer_;
   std::unique_ptr<MultistepFilterService> service_;
 
   // Raw pointers to the mocks, valid as long as the service is alive.
   raw_ptr<MockAnnotationIndexClient> mock_client_ = nullptr;
-  raw_ptr<MockFilterExtractor> mock_extractor_ = nullptr;
-  raw_ptr<MockFilterSuggestionGenerator> mock_generator_ = nullptr;
 };
 
 TEST_F(MultistepFilterServiceTest, CreateAndDestroy) {
@@ -156,285 +91,7 @@ TEST_F(MultistepFilterServiceTest, CreateAndDestroy) {
   CreateService();
 }
 
-TEST_F(MultistepFilterServiceTest, ExtractAnnotation_HistorySyncDisabled) {
-  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
-                                                 signin::ConsentLevel::kSignin);
-  sync_service_.GetUserSettings()->SetSelectedType(
-      syncer::UserSelectableType::kHistory, false);
 
-  CreateService();
-  const GURL kUrl("http://example.com");
-
-  EXPECT_CALL(*mock_extractor_, ExtractAnnotationFromUrl).Times(0);
-  EXPECT_CALL(*mock_observer_, OnExtractionFinished(testing::Eq(std::nullopt)))
-      .Times(1);
-
-  service_->ExtractAnnotation(0, kUrl);
-}
-
-TEST_F(MultistepFilterServiceTest,
-       GenerateFilterSuggestions_HistorySyncDisabled) {
-  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
-                                                 signin::ConsentLevel::kSignin);
-  sync_service_.GetUserSettings()->SetSelectedType(
-      syncer::UserSelectableType::kHistory, false);
-
-  CreateService();
-  const GURL kUrl("http://example.com");
-
-  EXPECT_CALL(*mock_generator_, GenerateSuggestion).Times(0);
-  EXPECT_CALL(*mock_observer_, OnSuggestionGenerated(testing::Eq(std::nullopt)))
-      .Times(1);
-
-  base::test::TestFuture<std::optional<UrlFilterSuggestion>> future;
-  service_->GenerateFilterSuggestions(0, kUrl, future.GetCallback());
-  EXPECT_EQ(future.Get(), std::nullopt);
-}
-
-TEST_F(MultistepFilterServiceTest, ExtractAnnotation) {
-  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
-                                                 signin::ConsentLevel::kSignin);
-
-  CreateService();
-  const GURL kUrl("http://example.com");
-  base::Uuid mock_uuid = base::Uuid::GenerateRandomV4();
-
-  EXPECT_CALL(*mock_client_, GetSupportedTasks(kUrl, _, kTestNavigationId))
-      .WillOnce(
-          base::test::RunOnceCallback<1>(std::vector<std::string>{"task1"}));
-
-  EXPECT_CALL(*mock_extractor_, ExtractAnnotationFromUrl(
-                                    kUrl, _, kTestNavigationId))
-      .WillOnce(base::test::RunOnceCallback<1>(mock_uuid));
-
-  EXPECT_CALL(*mock_observer_,
-              OnExtractionFinished(testing::Optional(mock_uuid)));
-
-  service_->ExtractAnnotation(kTestNavigationId, kUrl);
-}
-
-TEST_F(MultistepFilterServiceTest, ExtractAnnotation_NotSignedIn) {
-  CreateService();
-  const GURL kUrl("http://example.com");
-
-  EXPECT_CALL(*mock_extractor_, ExtractAnnotationFromUrl).Times(0);
-  EXPECT_CALL(*mock_observer_, OnExtractionFinished(testing::Eq(std::nullopt)));
-
-  service_->ExtractAnnotation(kTestNavigationId, kUrl);
-}
-
-TEST_F(MultistepFilterServiceTest, ExtractAnnotation_NullIdentityManager) {
-  CreateService(nullptr);
-  const GURL kUrl("http://example.com");
-
-  EXPECT_CALL(*mock_extractor_, ExtractAnnotationFromUrl).Times(0);
-  EXPECT_CALL(*mock_observer_, OnExtractionFinished(testing::Eq(std::nullopt)));
-
-  service_->ExtractAnnotation(kTestNavigationId, kUrl);
-}
-
-TEST_F(MultistepFilterServiceTest, ExtractAnnotation_NotAllowedDomain) {
-  scoped_feature_list_.Reset();
-  scoped_feature_list_.InitAndEnableFeatureWithParameters(
-      kMultistepFilter, {{"allowed_domains", "example.com"}});
-
-  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
-                                                 signin::ConsentLevel::kSignin);
-
-  CreateService();
-  const GURL kUrl("http://notexample.com");
-
-  EXPECT_CALL(*mock_client_, GetSupportedTasks(kUrl, _, kTestNavigationId))
-      .WillOnce(base::test::RunOnceCallback<1>(std::vector<std::string>()));
-
-  EXPECT_CALL(*mock_extractor_, ExtractAnnotationFromUrl).Times(0);
-  EXPECT_CALL(*mock_observer_, OnExtractionFinished(testing::Eq(std::nullopt)));
-
-  service_->ExtractAnnotation(kTestNavigationId, kUrl);
-}
-
-TEST_F(MultistepFilterServiceTest, GenerateFilterSuggestions) {
-  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
-                                                 signin::ConsentLevel::kSignin);
-
-  CreateService();
-  const GURL kUrl("http://example.com");
-  base::MockCallback<
-      base::OnceCallback<void(std::optional<UrlFilterSuggestion>)>>
-      mock_callback;
-  UrlFilterSuggestion mock_suggestion(UrlFilterSuggestion::Params{
-      .navigation_url = kUrl,
-      .source_host = u"example.com",
-      .extraction_timestamp = base::Time::Now(),
-      .attribute_ui_labels = {},
-      .triggering_navigation_id = kTestNavigationId,
-      .triggering_host = "example.com",
-      .task_type = "task1"});
-
-  EXPECT_CALL(*mock_client_, GetSupportedTasks(kUrl, _, kTestNavigationId))
-      .WillOnce(
-          base::test::RunOnceCallback<1>(std::vector<std::string>{"task1"}));
-
-  EXPECT_CALL(*mock_generator_,
-              GenerateSuggestion(kUrl, std::vector<std::string>{"task1"}, _,
-                                 kTestNavigationId))
-      .WillOnce(base::test::RunOnceCallback<2>(mock_suggestion));
-
-  EXPECT_CALL(*mock_observer_,
-              OnSuggestionGenerated(testing::Optional(mock_suggestion)));
-  EXPECT_CALL(mock_callback, Run(testing::Optional(mock_suggestion)));
-
-  service_->GenerateFilterSuggestions(kTestNavigationId, kUrl,
-                                      mock_callback.Get());
-}
-
-TEST_F(MultistepFilterServiceTest, GenerateFilterSuggestions_NotSignedIn) {
-  CreateService();
-  const GURL kUrl("http://example.com");
-  base::MockCallback<
-      base::OnceCallback<void(std::optional<UrlFilterSuggestion>)>>
-      mock_callback;
-
-  EXPECT_CALL(*mock_generator_, GenerateSuggestion).Times(0);
-  EXPECT_CALL(*mock_observer_,
-              OnSuggestionGenerated(testing::Eq(std::nullopt)));
-  EXPECT_CALL(mock_callback, Run(testing::Eq(std::nullopt)));
-
-  service_->GenerateFilterSuggestions(kTestNavigationId, kUrl,
-                                      mock_callback.Get());
-}
-
-TEST_F(MultistepFilterServiceTest,
-       GenerateFilterSuggestions_NullIdentityManager) {
-  CreateService(nullptr);
-  const GURL kUrl("http://example.com");
-  base::MockCallback<
-      base::OnceCallback<void(std::optional<UrlFilterSuggestion>)>>
-      mock_callback;
-
-  EXPECT_CALL(*mock_generator_, GenerateSuggestion).Times(0);
-  EXPECT_CALL(*mock_observer_,
-              OnSuggestionGenerated(testing::Eq(std::nullopt)));
-  EXPECT_CALL(mock_callback, Run(testing::Eq(std::nullopt)));
-
-  service_->GenerateFilterSuggestions(kTestNavigationId, kUrl,
-                                      mock_callback.Get());
-}
-
-TEST_F(MultistepFilterServiceTest, GenerateFilterSuggestions_NotAllowedDomain) {
-  scoped_feature_list_.Reset();
-  scoped_feature_list_.InitAndEnableFeatureWithParameters(
-      kMultistepFilter, {{"allowed_domains", "example.com"}});
-
-  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
-                                                 signin::ConsentLevel::kSignin);
-
-  CreateService();
-  const GURL kUrl("http://notexample.com");
-  base::MockCallback<
-      base::OnceCallback<void(std::optional<UrlFilterSuggestion>)>>
-      mock_callback;
-
-  EXPECT_CALL(*mock_client_, GetSupportedTasks(kUrl, _, kTestNavigationId))
-      .WillOnce(base::test::RunOnceCallback<1>(std::vector<std::string>()));
-
-  EXPECT_CALL(*mock_generator_, GenerateSuggestion).Times(0);
-  EXPECT_CALL(*mock_observer_,
-              OnSuggestionGenerated(testing::Eq(std::nullopt)));
-  EXPECT_CALL(mock_callback, Run(testing::Eq(std::nullopt)));
-
-  service_->GenerateFilterSuggestions(kTestNavigationId, kUrl,
-                                      mock_callback.Get());
-}
-
-TEST_F(MultistepFilterServiceTest, GenerateFilterSuggestions_NullCallback) {
-  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
-                                                 signin::ConsentLevel::kSignin);
-
-  CreateService();
-  const GURL kUrl("http://example.com");
-
-  EXPECT_CALL(*mock_generator_, GenerateSuggestion).Times(0);
-
-  service_->GenerateFilterSuggestions(kTestNavigationId, kUrl,
-                                      base::NullCallback());
-}
-
-TEST_F(MultistepFilterServiceTest, ExtractAnnotation_MsbbDisabled) {
-  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
-                                                 signin::ConsentLevel::kSignin);
-  CreateService();
-  pref_service_.SetUserPref(
-      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled,
-      base::Value(false));
-
-  const GURL kUrl("http://example.com");
-  EXPECT_CALL(*mock_extractor_, ExtractAnnotationFromUrl).Times(0);
-  EXPECT_CALL(*mock_observer_, OnExtractionFinished(testing::Eq(std::nullopt)));
-
-  service_->ExtractAnnotation(kTestNavigationId, kUrl);
-}
-
-TEST_F(MultistepFilterServiceTest, GenerateFilterSuggestions_MsbbDisabled) {
-  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
-                                                 signin::ConsentLevel::kSignin);
-  CreateService();
-  pref_service_.SetUserPref(
-      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled,
-      base::Value(false));
-
-  const GURL kUrl("http://example.com");
-  base::MockCallback<
-      base::OnceCallback<void(std::optional<UrlFilterSuggestion>)>>
-      mock_callback;
-
-  EXPECT_CALL(*mock_generator_, GenerateSuggestion).Times(0);
-  EXPECT_CALL(*mock_observer_,
-              OnSuggestionGenerated(testing::Eq(std::nullopt)));
-  EXPECT_CALL(mock_callback, Run(testing::Eq(std::nullopt)));
-
-  service_->GenerateFilterSuggestions(kTestNavigationId, kUrl,
-                                      mock_callback.Get());
-}
-
-TEST_F(MultistepFilterServiceTest, ExtractAnnotation_EmptySupportedTasks) {
-  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
-                                                 signin::ConsentLevel::kSignin);
-
-  CreateService();
-  const GURL kUrl("http://example.com");
-
-  EXPECT_CALL(*mock_client_, GetSupportedTasks(kUrl, _, kTestNavigationId))
-      .WillOnce(base::test::RunOnceCallback<1>(std::vector<std::string>()));
-
-  EXPECT_CALL(*mock_extractor_, ExtractAnnotationFromUrl).Times(0);
-  EXPECT_CALL(*mock_observer_, OnExtractionFinished(testing::Eq(std::nullopt)));
-
-  service_->ExtractAnnotation(kTestNavigationId, kUrl);
-}
-
-TEST_F(MultistepFilterServiceTest,
-       GenerateFilterSuggestions_EmptySupportedTasks) {
-  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
-                                                 signin::ConsentLevel::kSignin);
-
-  CreateService();
-  const GURL kUrl("http://example.com");
-  base::MockCallback<
-      base::OnceCallback<void(std::optional<UrlFilterSuggestion>)>>
-      mock_callback;
-
-  EXPECT_CALL(*mock_client_, GetSupportedTasks(kUrl, _, kTestNavigationId))
-      .WillOnce(base::test::RunOnceCallback<1>(std::vector<std::string>()));
-
-  EXPECT_CALL(*mock_generator_, GenerateSuggestion).Times(0);
-  EXPECT_CALL(*mock_observer_,
-              OnSuggestionGenerated(testing::Eq(std::nullopt)));
-  EXPECT_CALL(mock_callback, Run(testing::Eq(std::nullopt)));
-
-  service_->GenerateFilterSuggestions(kTestNavigationId, kUrl,
-                                      mock_callback.Get());
-}
 
 TEST_F(MultistepFilterServiceTest,
        OnHistoryDeletions_InvalidTimeRangeDoesNotCrash) {
@@ -467,6 +124,128 @@ TEST_F(MultistepFilterServiceTest, RecordSuggestionOutcomesUpdatesPrefs) {
   EXPECT_EQ(acceptance_state.suggestion_impressions, 1);
   EXPECT_EQ(acceptance_state.suggestion_acceptances, 1);
   EXPECT_TRUE(acceptance_state.is_last_suggestion_accepted);
+}
+
+TEST_F(MultistepFilterServiceTest, GetRetentionStateReturnsCorrectSnapshot) {
+  CreateService();
+
+  // Verify initial state.
+  RetentionStateSnapshot initial_state = service_->GetRetentionState();
+  EXPECT_EQ(initial_state.suggestion_impressions, 0);
+  EXPECT_EQ(initial_state.suggestion_acceptances, 0);
+  EXPECT_FALSE(initial_state.is_last_suggestion_accepted);
+
+  // Modify state.
+  service_->RecordSuggestionImpression();
+  service_->RecordUserInteractionWithSuggestion(
+      SuggestionUserDecision::kAccepted);
+
+  // Verify updated state is returned by GetRetentionState.
+  RetentionStateSnapshot updated_state = service_->GetRetentionState();
+  EXPECT_EQ(updated_state.suggestion_impressions, 1);
+  EXPECT_EQ(updated_state.suggestion_acceptances, 1);
+  EXPECT_TRUE(updated_state.is_last_suggestion_accepted);
+}
+
+// Tests that when URL-keyed anonymized data collection (MSBB) is explicitly
+// disabled in preferences, consent evaluates to false.
+TEST_F(MultistepFilterServiceTest, HasUserProvidedConsent_MsbbDisabled) {
+  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
+                                                 signin::ConsentLevel::kSignin);
+  sync_service_.GetUserSettings()->SetSelectedTypes(
+      /*sync_everything=*/false, {syncer::UserSelectableType::kHistory});
+  pref_service_.SetBoolean(
+      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled, false);
+
+  CreateService();
+  EXPECT_FALSE(service_->HasUserProvidedConsent(1, "example.com"));
+}
+
+// Tests that when Chrome History Sync is explicitly disabled by the user,
+// consent evaluates to false.
+TEST_F(MultistepFilterServiceTest, HasUserProvidedConsent_HistorySyncDisabled) {
+  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
+                                                 signin::ConsentLevel::kSignin);
+  pref_service_.SetBoolean(
+      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled, true);
+  sync_service_.GetUserSettings()->SetSelectedTypes(
+      /*sync_everything=*/false, {});
+
+  CreateService();
+  EXPECT_FALSE(service_->HasUserProvidedConsent(2, "example.com"));
+}
+
+// Tests that when the user is not signed in to a Chrome account, consent
+// evaluates to false.
+TEST_F(MultistepFilterServiceTest, HasUserProvidedConsent_NotSignedIn) {
+  pref_service_.SetBoolean(
+      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled, true);
+  sync_service_.GetUserSettings()->SetSelectedTypes(
+      /*sync_everything=*/false, {syncer::UserSelectableType::kHistory});
+
+  CreateService();
+  EXPECT_FALSE(service_->HasUserProvidedConsent(3, "example.com"));
+}
+
+// Tests that when the user is signed in, has MSBB enabled, and has History Sync
+// enabled, consent evaluates to true.
+TEST_F(MultistepFilterServiceTest, HasUserProvidedConsent_FullyConsented) {
+  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
+                                                 signin::ConsentLevel::kSignin);
+  pref_service_.SetBoolean(
+      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled, true);
+  sync_service_.GetUserSettings()->SetSelectedTypes(
+      /*sync_everything=*/false, {syncer::UserSelectableType::kHistory});
+
+  CreateService();
+  EXPECT_TRUE(service_->HasUserProvidedConsent(4, "example.com"));
+}
+
+// Tests that CanUseModelExecutionFeatures returns false when not signed in.
+TEST_F(MultistepFilterServiceTest, CanUseModelExecutionFeatures_NotSignedIn) {
+  CreateService();
+  EXPECT_FALSE(service_->CanUseModelExecutionFeatures());
+}
+
+// Tests that CanUseModelExecutionFeatures returns false when signed in but the
+// capability is false.
+TEST_F(MultistepFilterServiceTest,
+       CanUseModelExecutionFeatures_CapabilityFalse) {
+  AccountInfo account_info = identity_test_env_.MakePrimaryAccountAvailable(
+      "test@gmail.com", signin::ConsentLevel::kSignin);
+  AccountCapabilitiesTestMutator mutator(&account_info);
+  mutator.set_can_use_model_execution_features(false);
+  signin::UpdateAccountInfoForAccount(identity_test_env_.identity_manager(),
+                                      account_info);
+
+  CreateService();
+  EXPECT_FALSE(service_->CanUseModelExecutionFeatures());
+}
+
+// Tests that CanUseModelExecutionFeatures returns true when signed in and the
+// capability is true.
+TEST_F(MultistepFilterServiceTest,
+       CanUseModelExecutionFeatures_CapabilityTrue) {
+  AccountInfo account_info = identity_test_env_.MakePrimaryAccountAvailable(
+      "test@gmail.com", signin::ConsentLevel::kSignin);
+  AccountCapabilitiesTestMutator mutator(&account_info);
+  mutator.set_can_use_model_execution_features(true);
+  signin::UpdateAccountInfoForAccount(identity_test_env_.identity_manager(),
+                                      account_info);
+
+  CreateService();
+  EXPECT_TRUE(service_->CanUseModelExecutionFeatures());
+}
+
+// Tests that CanUseModelExecutionFeatures returns false when signed in and the
+// capability is not explicitly set (defaults to kUnknown).
+TEST_F(MultistepFilterServiceTest,
+       CanUseModelExecutionFeatures_CapabilityNotSet) {
+  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
+                                                 signin::ConsentLevel::kSignin);
+
+  CreateService();
+  EXPECT_FALSE(service_->CanUseModelExecutionFeatures());
 }
 
 }  // namespace multistep_filter

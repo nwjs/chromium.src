@@ -17,10 +17,13 @@
 #include "base/containers/fixed_flat_set.h"
 #include "base/containers/span.h"
 #include "base/i18n/file_util_icu.h"
+#include "base/i18n/language_tag.h"
+#include "base/i18n/language_tag_matcher.h"
 #include "base/i18n/message_formatter.h"
 #include "base/i18n/number_formatting.h"
 #include "base/i18n/rtl.h"
 #include "base/i18n/string_compare.h"
+#include "base/i18n/tag_converters.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
@@ -35,6 +38,7 @@
 #include "third_party/icu/source/common/unicode/rbbi.h"
 #include "third_party/icu/source/common/unicode/uloc.h"
 #include "ui/base/buildflags.h"
+#include "ui/base/l10n/chromium_language_matcher.h"
 #include "ui/base/l10n/l10n_util_collator.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_paths.h"
@@ -57,227 +61,22 @@
 #include "ui/base/l10n/l10n_util_win.h"
 #endif  // BUILDFLAG(IS_WIN)
 
+namespace l10n_util {
 namespace {
 
-constexpr auto kAcceptLanguageList = base::MakeFixedFlatSet<std::string_view>({
-    "af",  // Afrikaans
-    "ak",  // Twi
-    "am",  // Amharic
-    "an",  // Aragonese
-    "ar",  // Arabic
-#if BUILDFLAG(ENABLE_PSEUDOLOCALES)
-    "ar-XB",           // RTL Pseudolocale
-#endif                 // BUILDFLAG(ENABLE_PSEUDOLOCALES)
-    "as",              // Assamese
-    "ast",             // Asturian
-    "ay",              // Aymara
-    "az",              // Azerbaijani
-    "be",              // Belarusian
-    "bg",              // Bulgarian
-    "bho",             // Bhojpuri
-    "bm",              // Bambara
-    "bn",              // Bengali
-    "br",              // Breton
-    "bs",              // Bosnian
-    "ca",              // Catalan
-    "ceb",             // Cebuano
-    "chr",             // Cherokee
-    "ckb",             // Kurdish (Arabic),  Sorani
-    "co",              // Corsican
-    "cs",              // Czech
-    "cy",              // Welsh
-    "da",              // Danish
-    "de",              // German
-    "de-AT",           // German (Austria)
-    "de-CH",           // German (Switzerland)
-    "de-DE",           // German (Germany)
-    "de-LI",           // German (Liechtenstein)
-    "doi",             // Dogri
-    "dv",              // Dhivehi
-    "ee",              // Ewe
-    "el",              // Greek
-    "en",              // English
-    "en-AU",           // English (Australia)
-    "en-CA",           // English (Canada)
-    "en-GB",           // English (UK)
-    "en-GB-oxendict",  // English (UK, OED spelling)
-    "en-IE",           // English (Ireland)
-    "en-IN",           // English (India)
-    "en-NZ",           // English (New Zealand)
-    "en-US",           // English (US)
-#if BUILDFLAG(ENABLE_PSEUDOLOCALES)
-    "en-XA",  // Long strings Pseudolocale
-#endif        // BUILDFLAG(ENABLE_PSEUDOLOCALES)
-    "en-ZA",  // English (South Africa)
-    "eo",     // Esperanto
-    "es",     // Spanish
-    "es-419",    // Spanish (Latin America)
-    "es-AR",     // Spanish (Argentina)
-    "es-CL",     // Spanish (Chile)
-    "es-CO",     // Spanish (Colombia)
-    "es-CR",     // Spanish (Costa Rica)
-    "es-ES",     // Spanish (Spain)
-    "es-HN",     // Spanish (Honduras)
-    "es-MX",     // Spanish (Mexico)
-    "es-PE",     // Spanish (Peru)
-    "es-US",     // Spanish (US)
-    "es-UY",     // Spanish (Uruguay)
-    "es-VE",     // Spanish (Venezuela)
-    "et",        // Estonian
-    "eu",        // Basque
-    "fa",        // Persian
-    "fi",        // Finnish
-    "fil",       // Filipino
-    "fo",        // Faroese
-    "fr",        // French
-    "fr-CA",     // French (Canada)
-    "fr-CH",     // French (Switzerland)
-    "fr-FR",     // French (France)
-    "fy",        // Frisian
-    "ga",        // Irish
-    "gd",        // Scots Gaelic
-    "gl",        // Galician
-    "gn",        // Guarani
-    "gu",        // Gujarati
-    "ha",        // Hausa
-    "haw",       // Hawaiian
-    "he",        // Hebrew
-    "hi",        // Hindi
-    "hmn",       // Hmong
-    "hr",        // Croatian
-    "ht",        // Haitian Creole
-    "hu",        // Hungarian
-    "hy",        // Armenian
-    "ia",        // Interlingua
-    "id",        // Indonesian
-    "ig",        // Igbo
-    "ilo",       // Ilocano
-    "is",        // Icelandic
-    "it",        // Italian
-    "it-CH",     // Italian (Switzerland)
-    "it-IT",     // Italian (Italy)
-    "ja",        // Japanese
-    "jv",        // Javanese
-    "ka",        // Georgian
-    "kk",        // Kazakh
-    "km",        // Cambodian
-    "kn",        // Kannada
-    "ko",        // Korean
-    "kok",       // Konkani
-    "kri",       // Krio
-    "ku",        // Kurdish
-    "ky",        // Kyrgyz
-    "la",        // Latin
-    "lb",        // Luxembourgish
-    "lg",        // Luganda
-    "ln",        // Lingala
-    "lo",        // Laothian
-    "lt",        // Lithuanian
-    "lus",       // Mizo
-    "lv",        // Latvian
-    "mai",       // Maithili
-    "mg",        // Malagasy
-    "mi",        // Maori
-    "mk",        // Macedonian
-    "ml",        // Malayalam
-    "mn",        // Mongolian
-    "mni-Mtei",  // Manipuri (Meitei Mayek)
-    "mo",        // Moldavian
-    "mr",        // Marathi
-    "ms",        // Malay
-    "mt",        // Maltese
-    "my",        // Burmese
-    "nb",        // Norwegian (Bokmal)
-    "ne",        // Nepali
-    "nl",        // Dutch
-    "nn",        // Norwegian (Nynorsk)
-    "no",        // Norwegian
-    "nso",       // Sepedi
-    "ny",        // Nyanja
-    "oc",        // Occitan
-    "om",        // Oromo
-    "or",        // Odia (Oriya)
-    "pa",        // Punjabi
-    "pl",        // Polish
-    "ps",        // Pashto
-    "pt",        // Portuguese
-    "pt-BR",     // Portuguese (Brazil)
-    "pt-PT",     // Portuguese (Portugal)
-    "qu",        // Quechua
-    "rm",        // Romansh
-    "ro",        // Romanian
-    "ru",        // Russian
-    "rw",        // Kinyarwanda
-    "sa",        // Sanskrit
-    "sd",        // Sindhi
-    "sh",        // Serbo-Croatian
-    "si",        // Sinhalese
-    "sk",        // Slovak
-    "sl",        // Slovenian
-    "sm",        // Samoan
-    "sn",        // Shona
-    "so",        // Somali
-    "sq",        // Albanian
-    "sr",        // Serbian
-    "st",        // Sesotho
-    "su",        // Sundanese
-    "sv",        // Swedish
-    "sw",        // Swahili
-    "ta",        // Tamil
-    "te",        // Telugu
-    "tg",        // Tajik
-    "th",        // Thai
-    "ti",        // Tigrinya
-    "tk",        // Turkmen
-    "tn",        // Tswana
-    "to",        // Tonga
-    "tr",        // Turkish
-    "ts",        // Tsonga
-    "tt",        // Tatar
-    "tw",        // Twi
-    "ug",        // Uyghur
-    "uk",        // Ukrainian
-    "ur",        // Urdu
-    "uz",        // Uzbek
-    "vi",        // Vietnamese
-    "wa",        // Walloon
-    "wo",        // Wolof
-    "xh",        // Xhosa
-    "yi",        // Yiddish
-    "yo",        // Yoruba
-    "zh",        // Chinese
-    "zh-CN",     // Chinese (China)
-    "zh-HK",     // Chinese (Hong Kong)
-    "zh-TW",     // Chinese (Taiwan)
-    "zu",        // Zulu
-});
+using ::base::i18n::GetKnownLanguageTag;
+using ::base::i18n::LanguageTag;
+using ::base::i18n::LanguageTagConverter;
+using ::base::i18n::LanguageTagMatcher;
+using ::ui_l10n::GetAcceptLanguageMatcher;
+using ::ui_l10n::GetAcceptLanguageTags;
 
-// The list of locales that expected on the current platform, generated from the
-// `locales` variable in GN (defined in build/config/locales.gni). This is
-// equivalently the list of locales that we expect to have translation strings
-// for on the current platform. Guaranteed to be in sorted order and guaranteed
-// to have no duplicates.
-//
-// Note that this could have false positives at runtime on Android and iOS:
-// - On Android, locale files are dynamically shipped in app bundles which are
-//   only downloaded when needed - so the |locales| variable does not accurately
-//   reflect the UI strings that are currently available on disk.
-//   See the comment at the top of `LoadLocaleResources` in
-//   ui/base/resource/resource_bundle_android.cc for more information.
-// - On iOS, some locales aren't shipped (`ios_unsupported_locales`) as they are
-//   not supported by the operating system. These locales are included in this
-//   variable.
-//
-// To avoid false positives on these platforms, use
-// ui::ResourceBundle::LocaleDataPakExists() to check whether the locales exist
-// on disk instead (requires I/O).
-constexpr auto kPlatformLocales = base::MakeFixedFlatSet<std::string_view>({
-#define PLATFORM_LOCALE(locale) #locale,
-// The below is generated by tools/l10n/generate_locales_list.py, which is
-// run in the //ui/base:locales_list_gen build rule.
-#include "ui/base/l10n/l10n_util_locales_list.inc"
-#undef PLATFORM_LOCALE
-});
+std::string NormalizeLocaleWithLanguageTag(std::string_view locale) {
+  return LanguageTagConverter::GetInstance()
+      .FromString(locale)
+      .value_or(GetKnownLanguageTag("und"))
+      .ToLegacyICUFormat();
+}
 
 // Returns true if `locale_name` has an alias in the ICU data file.
 bool IsDuplicateName(std::string_view locale_name) {
@@ -319,15 +118,12 @@ bool IsLocalePartiallyPopulated(const std::string& locale_name) {
 // If `perform_io` is false, this will not perform any I/O but may return false
 // positives on Android and iOS. See the `kPlatformLocales` documentation for
 // more information.
-bool HasStringsForLocale(std::string_view locale,
+bool HasStringsForLocale(const LanguageTag& language_tag,
                          l10n_util::CheckLocaleMode mode) {
   if (mode == l10n_util::CheckLocaleMode::kUseKnownLocalesList) {
-    return kPlatformLocales.contains(locale);
+    // Only accept exact matches.
+    return ui_l10n::GetPlatformLanguageMatcher().HasExactMatch(language_tag);
   }
-  // If locale has any illegal characters in it, we don't want to try to
-  // load it because it may be pointing outside the locale data file directory.
-  if (!base::i18n::IsFilenameLegal(base::ASCIIToUTF16(locale)))
-    return false;
 
   // IsLocalePartiallyPopulated() can be called here for an early return w/o
   // checking the resource availability below. It'd help when Chrome is run
@@ -335,7 +131,7 @@ bool HasStringsForLocale(std::string_view locale,
   // but it'd slow down the start up time a little bit for locales Chrome is
   // localized to. So, we don't call it here.
   return ui::ResourceBundle::LocaleDataPakExists(
-      locale, ui::ResourceBundle::Gender::kDefault);
+      language_tag, ui::ResourceBundle::Gender::kDefault);
 }
 
 // On Linux, the text layout engine Pango determines paragraph directionality
@@ -391,8 +187,6 @@ base::LazyInstance<std::vector<std::string>, AvailableLocalesTraits>
 
 }  // namespace
 
-namespace l10n_util {
-
 std::string_view GetLanguage(std::string_view locale) {
   return locale.substr(0, locale.find('-'));
 }
@@ -407,8 +201,13 @@ std::string_view GetCountry(std::string_view locale) {
 // and generic locale fallback based on ICU/CLDR.
 std::optional<std::string> CheckAndResolveLocale(std::string_view locale,
                                                  CheckLocaleMode mode) {
-  if (HasStringsForLocale(locale, mode)) {
-    return std::optional<std::string>(locale);
+  std::optional<LanguageTag> locale_tag =
+      LanguageTagConverter::GetInstance().FromString(locale);
+  if (!locale_tag) {
+    return std::nullopt;
+  }
+  if (HasStringsForLocale(*locale_tag, mode)) {
+    return std::string(locale_tag->tag_string());
   }
 
   // If there's a variant, skip over it so we can try without the region
@@ -463,7 +262,10 @@ std::optional<std::string> CheckAndResolveLocale(std::string_view locale,
         tmp_locale.append("-GB");
       }
     }
-    if (HasStringsForLocale(tmp_locale, mode)) {
+    if (HasStringsForLocale(LanguageTagConverter::GetInstance()
+                                .FromString(tmp_locale)
+                                .value_or(GetKnownLanguageTag("und")),
+                            mode)) {
       return tmp_locale;
     }
   }
@@ -479,7 +281,10 @@ std::optional<std::string> CheckAndResolveLocale(std::string_view locale,
   };
   for (const auto& alias : kAliasMap) {
     if (base::EqualsCaseInsensitiveASCII(lang, alias.source)) {
-      if (HasStringsForLocale(alias.dest, mode)) {
+      if (HasStringsForLocale(LanguageTagConverter::GetInstance()
+                                  .FromString(alias.dest)
+                                  .value_or(GetKnownLanguageTag("und")),
+                              mode)) {
         return std::optional<std::string>(alias.dest);
       }
     }
@@ -567,7 +372,7 @@ std::string GetApplicationLocaleInternalNonMac(std::string_view pref_locale) {
 
   // Fallback on en-US.
   const std::string fallback_locale("en-US");
-  if (HasStringsForLocale(fallback_locale,
+  if (HasStringsForLocale(GetKnownLanguageTag("en-US"),
                           CheckLocaleMode::kVerifyLocalizationDataExists)) {
     return fallback_locale;
   }
@@ -702,14 +507,8 @@ std::u16string GetDisplayNameForCountry(std::string_view country_code,
                                  display_locale, false);
 }
 
-std::string NormalizeLocale(std::string_view locale) {
-  std::string normalized_locale(locale);
-  std::ranges::replace(normalized_locale, '-', '_');
-  return normalized_locale;
-}
-
 std::vector<std::string> GetParentLocales(std::string_view current_locale) {
-  std::string locale = NormalizeLocale(current_locale);
+  std::string locale = NormalizeLocaleWithLanguageTag(current_locale);
 
   const int kNameCapacity = 256;
   char parent[kNameCapacity];
@@ -724,73 +523,7 @@ std::vector<std::string> GetParentLocales(std::string_view current_locale) {
   return parent_locales;
 }
 
-bool IsValidLocaleSyntax(std::string_view locale) {
-  // Check that the length is plausible.
-  if (locale.size() < 2 || locale.size() >= ULOC_FULLNAME_CAPACITY)
-    return false;
 
-  // Strip off the part after an '@' sign, which might contain keywords,
-  // as in en_IE@currency=IEP or fr@collation=phonebook;calendar=islamic-civil.
-  // We don't validate that part much, just check that there's at least one
-  // equals sign in a plausible place. Normalize the prefix so that hyphens
-  // are changed to underscores.
-  std::string prefix = NormalizeLocale(locale);
-  const size_t split_point = locale.find("@");
-  if (split_point != std::string::npos) {
-    const std::string_view keywords = locale.substr(split_point + 1);
-    prefix = locale.substr(0, split_point);
-
-    size_t equals_loc = keywords.find("=");
-    if (equals_loc == 0 || equals_loc == std::string::npos ||
-        equals_loc > keywords.size() - 2) {
-      return false;
-    }
-  }
-
-  // Check that all characters before the at-sign are alphanumeric or
-  // underscore.
-  for (char ch : prefix) {
-    if (!base::IsAsciiAlpha(ch) && !base::IsAsciiDigit(ch) && ch != '_')
-      return false;
-  }
-
-  // Check that the initial token (before the first hyphen/underscore)
-  // is 1 - 3 alphabetical characters (a language tag).
-  for (size_t i = 0; i < prefix.size(); i++) {
-    char ch = prefix[i];
-    if (ch == '_') {
-      if (i < 1 || i > 3)
-        return false;
-      break;
-    }
-    if (!base::IsAsciiAlpha(ch))
-      return false;
-  }
-
-  // Check that the all tokens after the initial token are 1 - 8 characters.
-  // (Tokenize/StringTokenizer don't work here, they collapse multiple
-  // delimiters into one.)
-  int token_len = 0;
-  int token_index = 0;
-  for (char ch : prefix) {
-    if (ch != '_') {
-      token_len++;
-      continue;
-    }
-
-    if (token_index > 0 && (token_len < 1 || token_len > 8)) {
-      return false;
-    }
-    token_index++;
-    token_len = 0;
-  }
-  if (token_index == 0 && (token_len < 1 || token_len > 3))
-    return false;
-  if (token_len < 1 || token_len > 8)
-    return false;
-
-  return true;
-}
 
 std::string GetStringUTF8(int message_id) {
   return base::UTF16ToUTF8(GetStringUTF16(message_id));
@@ -1000,9 +733,9 @@ bool IsUserFacingUILocale(std::string_view locale) {
 const std::vector<std::string>& GetUserFacingUILocaleList() {
   static base::NoDestructor<std::vector<std::string>> available_locales([] {
     std::vector<std::string> locales;
-    for (std::string_view accept_language : kAcceptLanguageList) {
-      if (IsUserFacingUILocale(accept_language)) {
-        locales.emplace_back(accept_language);
+    for (const LanguageTag& tag : GetAcceptLanguageTags()) {
+      if (IsUserFacingUILocale(tag.tag_string())) {
+        locales.emplace_back(tag.tag_string());
       }
     }
     return locales;
@@ -1014,25 +747,31 @@ const std::vector<std::string>& GetUserFacingUILocaleList() {
 std::vector<std::string> GetAcceptLanguagesForLocale(
     std::string_view display_locale) {
   std::vector<std::string> result;
-  for (std::string_view accept_language : kAcceptLanguageList) {
-    if (!l10n_util::IsLocaleNameTranslated(accept_language, display_locale)) {
+  for (const LanguageTag& tag : GetAcceptLanguageTags()) {
+    if (!l10n_util::IsLocaleNameTranslated(tag.tag_string(), display_locale)) {
       // TODO(jungshik) : Put them at the end of the list with language codes
       // enclosed by brackets instead of skipping.
       continue;
     }
-    result.emplace_back(accept_language);
+    result.emplace_back(tag.tag_string());
   }
   return result;
 }
 
 void GetAcceptLanguages(std::vector<std::string>* locale_codes) {
-  for (std::string_view accept_language : kAcceptLanguageList) {
-    locale_codes->emplace_back(accept_language);
+  for (const LanguageTag& tag : GetAcceptLanguageTags()) {
+    locale_codes->emplace_back(tag.tag_string());
   }
 }
 
 bool IsPossibleAcceptLanguage(std::string_view locale) {
-  return kAcceptLanguageList.contains(locale);
+  std::optional<LanguageTag> tag =
+      LanguageTagConverter::GetInstance().FromString(locale);
+  if (!tag) {
+    return false;
+  }
+
+  return GetAcceptLanguageMatcher().Match(*tag).has_value();
 }
 
 bool IsAcceptLanguageDisplayable(std::string_view display_locale,
@@ -1057,12 +796,15 @@ int GetLocalizedContentsWidthInPixels(int pixel_resource_id) {
 }
 
 std::vector<std::string_view> GetAcceptLanguageListForTesting() {
-  return std::vector<std::string_view>(kAcceptLanguageList.begin(),
-                                       kAcceptLanguageList.end());
+  std::vector<std::string_view> result;
+  for (const LanguageTag& tag : GetAcceptLanguageTags()) {
+    result.push_back(tag.tag_string());
+  }
+  return result;
 }
 
-base::span<const std::string_view> GetPlatformLocalesForTesting() {
-  return kPlatformLocales;
+base::span<const LanguageTag> GetPlatformLocalesForTesting() {
+  return ui_l10n::GetPlatformLanguageTags();
 }
 
 }  // namespace l10n_util

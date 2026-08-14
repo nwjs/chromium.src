@@ -9,8 +9,6 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/enterprise/connectors/analysis/clipboard_analysis_request.h"
-#include "chrome/browser/enterprise/connectors/analysis/clipboard_request_handler.h"
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_dialog_controller.h"
 #include "chrome/browser/enterprise/connectors/analysis/files_request_handler.h"
 #include "chrome/browser/enterprise/connectors/connectors_service.h"
@@ -19,6 +17,8 @@
 #include "chrome/browser/policy/dm_token_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/test/base/testing_browser_process.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/clipboard_analysis_request.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/clipboard_request_handler.h"
 #include "components/enterprise/connectors/core/cloud_content_scanning/common.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
@@ -109,14 +109,15 @@ class UnresponsiveContentAnalysisDelegate : public FakeContentAnalysisDelegate {
       std::string dm_token,
       content::WebContents* web_contents,
       Data data,
-      CompletionCallback callback) {
+      CompletionCallback callback,
+      DeepScanAccessPoint access_point) {
     FilesRequestHandler::SetFactoryForTesting(
         base::BindRepeating(&UnresponsiveFilesRequestHandler::Create));
     enterprise_connectors::ClipboardRequestHandler::SetFactoryForTesting(
         base::BindRepeating(&UnresponsiveClipboardRequestHandler::Create));
     return std::make_unique<UnresponsiveContentAnalysisDelegate>(
         delete_closure, status_callback, std::move(dm_token), web_contents,
-        std::move(data), std::move(callback));
+        std::move(data), std::move(callback), access_point);
   }
 };
 
@@ -137,11 +138,11 @@ void DeepScanningBrowserTestBase::TearDownOnMainThread() {
   ContentAnalysisDelegate::ResetFactoryForTesting();
   FilesRequestHandler::ResetFactoryForTesting();
 
-  ClearAnalysisConnector(browser()->profile()->GetPrefs(), FILE_ATTACHED);
-  ClearAnalysisConnector(browser()->profile()->GetPrefs(), FILE_DOWNLOADED);
-  ClearAnalysisConnector(browser()->profile()->GetPrefs(), BULK_DATA_ENTRY);
-  ClearAnalysisConnector(browser()->profile()->GetPrefs(), PRINT);
-  SetOnSecurityEventReporting(browser()->profile()->GetPrefs(), false);
+  ClearAnalysisConnector(browser()->GetProfile()->GetPrefs(), FILE_ATTACHED);
+  ClearAnalysisConnector(browser()->GetProfile()->GetPrefs(), FILE_DOWNLOADED);
+  ClearAnalysisConnector(browser()->GetProfile()->GetPrefs(), BULK_DATA_ENTRY);
+  ClearAnalysisConnector(browser()->GetProfile()->GetPrefs(), PRINT);
+  SetOnSecurityEventReporting(browser()->GetProfile()->GetPrefs(), false);
 }
 
 void DeepScanningBrowserTestBase::SetUpDelegate() {

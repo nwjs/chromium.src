@@ -45,6 +45,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
+#include "ui/compositor/layer.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/events/ash/keyboard_capability.h"
@@ -631,8 +632,9 @@ void HomeButton::OnThemeChanged() {
         cros_tokens::kCrosSysRippleNeutralOnSubtle));
   }
   if (expandable_container_) {
-    expandable_container_->layer()->SetColor(
-        GetColorProvider()->GetColor(cros_tokens::kCrosSysSystemOnBase));
+    expandable_container_->layer()->AsSolidColor()->SetColor(
+        SkColor4f::FromColor(
+            GetColorProvider()->GetColor(cros_tokens::kCrosSysSystemOnBase)));
   }
 }
 
@@ -749,7 +751,7 @@ void HomeButton::QuickAppButtonPressed() {
 
 void HomeButton::AnimateNudgeRipple(views::AnimationBuilder& builder) {
   // Create the ripple layer and its delegate for the nudge animation.
-  nudge_ripple_layer_.Reset(std::make_unique<ui::Layer>());
+  nudge_ripple_layer_.Reset(std::make_unique<ui::LayerTextured>());
   ui::Layer* ripple_layer = nudge_ripple_layer_.layer();
 
   float ripple_diameter =

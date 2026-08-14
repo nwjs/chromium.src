@@ -162,11 +162,11 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
 }  // namespace
 
 @interface BookmarksHomeViewController () <
-    BookmarksEditorCoordinatorDelegate,
-    BookmarksFolderEditorCoordinatorDelegate,
-    BookmarksFolderChooserCoordinatorDelegate,
-    BookmarksHomeConsumer,
     BookmarkModelBridgeObserver,
+    BookmarksEditorCoordinatorDelegate,
+    BookmarksFolderChooserCoordinatorDelegate,
+    BookmarksFolderEditorCoordinatorDelegate,
+    BookmarksHomeConsumer,
     BookmarkTableCellTitleEditDelegate,
     TableViewURLDragDataSource,
     TableViewURLDropDelegate,
@@ -288,7 +288,14 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
   return self;
 }
 
+- (void)dealloc {
+  [self shutdown];
+}
+
 - (void)shutdown {
+  if (_isShutDown) {
+    return;
+  }
   _isShutDown = YES;
   [self stopSigninCoordinator];
   [self.editingFolderCell stopEdit];
@@ -414,6 +421,10 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
 - (void)viewDidLoad {
   [super viewDidLoad];
 
+  if (!_bookmarkModel) {
+    return;
+  }
+
   // Set Navigation Bar, Toolbar and TableView appearance.
   self.navigationController.navigationBarHidden = NO;
 
@@ -468,7 +479,7 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
 - (void)viewWillAppear:(BOOL)animated {
   [super viewWillAppear:animated];
 
-  if (_isShutDown) {
+  if (_isShutDown || !_bookmarkModel) {
     // After `shutdown` is called, `_profile` is null.
     return;
   }
@@ -1789,8 +1800,7 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
 
 // Returns a button to add a new folder to the bookmarks.
 - (UIBarButtonItem*)createNewFolderButton {
-  UIImage* newFolderIcon =
-      DefaultSymbolWithConfiguration(kFolderBadgePlusSymbol, nil);
+  UIImage* newFolderIcon = SymbolWithConfiguration(SymbolFolderBadgePlus, nil);
 
   UIBarButtonItem* newFolderButton =
       [[UIBarButtonItem alloc] initWithImage:newFolderIcon
@@ -3088,8 +3098,11 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
           sectionIdentifierForSectionIndex:indexPath.section]);
   if (IsABookmarkNodeSectionForIdentifier(sectionIdentifier)) {
     const BookmarkNode* node = [self nodeAtIndexPath:indexPath];
-    CHECK(node, base::NotFatalUntil::M152);
     if (!node) {
+      // If the user tapped on an entry and the list changed before the current
+      // method is called, that cause a wrong entry to be opened. In particular
+      // if the last entry was tapped and an entry is removed, the node don’t
+      // exists. Let’s just do nothing in this last case.
       [tableView deselectRowAtIndexPath:indexPath animated:YES];
       return;
     }

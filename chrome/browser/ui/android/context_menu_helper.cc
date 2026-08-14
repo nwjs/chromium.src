@@ -16,7 +16,6 @@
 #include "components/embedder_support/android/contextmenu/context_menu_builder.h"
 #include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/render_frame_host.h"
-#include "content/public/browser/render_process_host.h"
 #include "extensions/buildflags/buildflags.h"
 #include "third_party/blink/public/mojom/context_menu/context_menu.mojom.h"
 #include "ui/android/view_android.h"
@@ -72,10 +71,8 @@ void ContextMenuHelper::ShowContextMenu(
 
   Java_ContextMenuHelper_showContextMenu(
       env, GetJavaObject(env),
-      context_menu::BuildJavaContextMenuParams(
-          context_menu_params_, model_ptr,
-          render_frame_host.GetProcess()->GetDeprecatedID(),
-          render_frame_host.GetFrameToken().value()),
+      context_menu::BuildJavaContextMenuParams(context_menu_params_, model_ptr,
+                                               render_frame_host),
       render_frame_host.GetJavaRenderFrameHost(), view->GetContainerView(),
       view->content_offset() * view->GetDipScale());
 }
@@ -86,8 +83,7 @@ void ContextMenuHelper::DismissContextMenu() {
 }
 
 void ContextMenuHelper::OnContextMenuClosed(JNIEnv* env) {
-  GetWebContents().NotifyContextMenuClosed(context_menu_params_.link_followed,
-                                           context_menu_params_.impression);
+  GetWebContents().NotifyContextMenuClosed(context_menu_params_.link_followed);
 }
 
 void ContextMenuHelper::SetPopulatorFactory(

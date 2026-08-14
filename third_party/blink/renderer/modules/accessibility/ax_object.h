@@ -34,6 +34,7 @@
 #include <ostream>
 #include <utility>
 
+#include "base/containers/span.h"
 #include "base/dcheck_is_on.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ref.h"
@@ -658,6 +659,8 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   virtual RGBA32 ColorValue() const { return Color::kTransparent.Rgb(); }
   virtual bool CanvasHasFallbackContent() const { return false; }
   virtual String CanvasAnnotation() const { return String(); }
+  virtual bool HasRequestedOCR() const { return false; }
+  virtual void ClearHasRequestedOCR() {}
   // Returns the font family that was cascaded onto ComputedStyle. This may
   // contain non-user-friendly internal names.
   virtual const AtomicString& ComputedFontFamily() const { return g_null_atom; }
@@ -1774,6 +1777,8 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   bool RequestExpandAction();
   bool RequestCollapseAction();
   bool RequestReplaceRangesAction(const ui::AXActionData&);
+  bool RequestShowTooltipAction();
+  bool RequestHideTooltipAction();
 
   // Returns an updated layout object to be used in a native scroll action. Note
   // that this updates style for `GetNode()` as well as layout for any layout

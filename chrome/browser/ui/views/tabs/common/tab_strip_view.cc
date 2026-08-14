@@ -6,7 +6,9 @@
 
 #include "base/callback_list.h"
 #include "base/functional/bind.h"
+#include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/scoped_multi_source_observation.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
@@ -19,6 +21,7 @@
 #include "chrome/browser/ui/views/tabs/common/tab_group_view.h"
 #include "chrome/browser/ui/views/tabs/common/tab_strip_collection_controller.h"
 #include "chrome/browser/ui/views/tabs/common/tab_strip_utils.h"
+#include "chrome/browser/ui/views/tabs/common/tab_strip_view_layout.h"
 #include "chrome/browser/ui/views/tabs/common/unpinned_tab_container_view.h"
 #include "chrome/browser/ui/views/tabs/hovercard/tab_hover_card_controller.h"
 #include "chrome/browser/ui/views/tabs/vertical/vertical_tab_strip_scroll_bar.h"
@@ -28,77 +31,141 @@
 #include "ui/views/background.h"
 #include "ui/views/controls/scroll_view.h"
 #include "ui/views/controls/separator.h"
-#include "ui/views/layout/delegating_layout_manager.h"
 #include "ui/views/layout/layout_types.h"
 #include "ui/views/layout/proposed_layout.h"
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
 
-class TabStripView::ActivatedViewTracker : public views::ViewObserver {
+namespace {
+
+bool IsVerticalOrientation(const TabCollectionNode* collection_node) {
+  return collection_node &&
+         collection_node->orientation() == TabStripOrientation::kVertical;
+}
+
+}  // namespace
+
+class TabStripView::TargetViewsTracker : public views::ViewObserver {
  public:
-  ActivatedViewTracker() = default;
-  ActivatedViewTracker(const ActivatedViewTracker&) = delete;
-  ActivatedViewTracker& operator=(const ActivatedViewTracker&) = delete;
-  ~ActivatedViewTracker() override = default;
+  explicit TargetViewsTracker(TabStripOrientation orientation)
+      : orientation_(orientation) {}
+  TargetViewsTracker(const TargetViewsTracker&) = delete;
+  TargetViewsTracker& operator=(const TargetViewsTracker&) = delete;
+  ~TargetViewsTracker() override = default;
 
   // ViewObserver:
   void OnViewIsDeleting(views::View* observed_view) override {
-    SetView(nullptr);
+    RemoveView(observed_view);
   }
   void OnViewRemovedFromWidget(views::View* observed_view) override {
-    SetView(nullptr);
+    RemoveView(observed_view);
   }
   void OnViewBoundsChanged(views::View* observed_view) override {
-    CheckTrackedViewHeight();
+    CheckTrackedViewsSize();
   }
   void OnViewPreferredSizeChanged(views::View* observed_view) override {
-    CheckTrackedViewHeight();
+    CheckTrackedViewsSize();
   }
 
-  void SetView(views::View* view) {
-    if (view == view_) {
+  void SetViews(views::View* primary_view,
+                views::View* secondary_view = nullptr) {
+    Clear();
+    if (primary_view) {
+      primary_view_ = primary_view;
+      observations_.AddObservation(primary_view);
+    }
+    if (secondary_view && secondary_view != primary_view) {
+      secondary_view_ = secondary_view;
+      observations_.AddObservation(secondary_view);
+    }
+  }
+
+  void RemoveView(views::View* view) {
+    if (!view || !observations_.IsObservingSource(view)) {
       return;
     }
-    observation_.Reset();
-    on_reached_preferred_height_cb_.Reset();
-    view_ = view;
-
-    if (view_) {
-      observation_.Observe(view_.get());
+    if (view == primary_view_) {
+      primary_view_ = nullptr;
+    }
+    if (view == secondary_view_) {
+      secondary_view_ = nullptr;
+    }
+    observations_.RemoveObservation(view);
+    if (!observations_.IsObservingAnySource()) {
+      on_reached_target_size_cb_.Reset();
     }
   }
-  views::View* view() { return view_; }
 
-  // Returns true if the tracked view height matches its preferred height.
-  bool IsViewAtPreferredHeight() {
-    return view_->size().height() == view_->GetPreferredSize().height();
+  void RemoveViewsInContainer(const views::View* container) {
+    if (!container) {
+      return;
+    }
+    if (primary_view_ && container->Contains(primary_view_)) {
+      RemoveView(primary_view_);
+    }
+    if (secondary_view_ && container->Contains(secondary_view_)) {
+      RemoveView(secondary_view_);
+    }
   }
 
-  // Sets a callback that is run when the tracked view's height reaches its
-  // preferred height.
-  void SetOnReachedPreferredHeightCallback(
-      base::OnceClosure on_reached_preferred_height_cb) {
-    on_reached_preferred_height_cb_ = std::move(on_reached_preferred_height_cb);
-    CheckTrackedViewHeight();
+  void Clear() {
+    primary_view_ = nullptr;
+    secondary_view_ = nullptr;
+    observations_.RemoveAllObservations();
+    on_reached_target_size_cb_.Reset();
+  }
+
+  views::View* primary_view() const { return primary_view_; }
+  views::View* secondary_view() const { return secondary_view_; }
+  bool empty() const { return !observations_.IsObservingAnySource(); }
+
+  // Returns true if all tracked views are at their target size based on
+  // orientation.
+  bool AreViewsAtTargetSize() const {
+    for (views::View* view : {primary_view_.get(), secondary_view_.get()}) {
+      if (!view) {
+        continue;
+      }
+      if (orientation_ == TabStripOrientation::kVertical) {
+        if (view->height() != view->GetPreferredSize().height()) {
+          return false;
+        }
+      } else {
+        if (view->width() != GetTabStripViewTargetBounds(view).width()) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  void SetOnReachedTargetSizeCallback(
+      base::OnceClosure on_reached_target_size_cb) {
+    on_reached_target_size_cb_ = std::move(on_reached_target_size_cb);
+    CheckTrackedViewsSize();
   }
 
  private:
-  void CheckTrackedViewHeight() {
-    CHECK(view_);
-    if (IsViewAtPreferredHeight() && on_reached_preferred_height_cb_) {
-      std::move(on_reached_preferred_height_cb_).Run();
+  void CheckTrackedViewsSize() {
+    if (observations_.IsObservingAnySource() && AreViewsAtTargetSize() &&
+        on_reached_target_size_cb_) {
+      std::move(on_reached_target_size_cb_).Run();
     }
   }
 
-  raw_ptr<views::View> view_ = nullptr;
-  base::OnceClosure on_reached_preferred_height_cb_;
-  base::ScopedObservation<View, ViewObserver> observation_{this};
+  const TabStripOrientation orientation_;
+  raw_ptr<views::View> primary_view_ = nullptr;
+  raw_ptr<views::View> secondary_view_ = nullptr;
+  base::OnceClosure on_reached_target_size_cb_;
+  base::ScopedMultiSourceObservation<views::View, views::ViewObserver>
+      observations_{this};
 };
 
 TabStripView::TabStripView(TabCollectionNode* collection_node)
     : collection_node_(collection_node),
-      activated_view_tracker_(std::make_unique<ActivatedViewTracker>()) {
+      target_views_tracker_(std::make_unique<TargetViewsTracker>(
+          collection_node->orientation())) {
   // Paint to a layer and mask to bounds to prevent tabs from overflowing and
   // drawing outside the window boundaries on Linux when the window is small.
   // This is configured here rather than a higher-level container so that drop
@@ -107,7 +174,8 @@ TabStripView::TabStripView(TabCollectionNode* collection_node)
   layer()->SetFillsBoundsOpaquely(false);
   layer()->SetMasksToBounds(true);
 
-  SetLayoutManager(std::make_unique<views::DelegatingLayoutManager>(this));
+  SetLayoutManager(
+      std::make_unique<TabStripViewLayout>(collection_node->orientation()));
   SetProperty(views::kElementIdentifierKey, kTabStripElementId);
 
   pinned_tabs_scroll_view_ = AddChildView(std::make_unique<views::ScrollView>(
@@ -136,117 +204,6 @@ TabStripView::TabStripView(TabCollectionNode* collection_node)
 }
 
 TabStripView::~TabStripView() = default;
-
-views::ProposedLayout TabStripView::CalculateProposedLayout(
-    const views::SizeBounds& size_bounds) const {
-  views::ProposedLayout layouts;
-  if (!size_bounds.width().is_bounded()) {
-    return layouts;
-  }
-
-  const int region_horizontal_padding =
-      GetLayoutConstant(LayoutConstant::kVerticalTabStripHorizontalPadding);
-
-  const int region_vertical_padding = GetLayoutConstant(
-      LayoutConstant::kVerticalTabStripCollapsedVerticalPadding);
-
-  int y = 0;
-
-  // Determine container preferred heights.
-  views::SizeBounds pinned_tab_container_size_bounds =
-      size_bounds.Inset(gfx::Insets::TLBR(0, region_horizontal_padding, 0, 0));
-  const int pinned_preferred_height =
-      pinned_tabs_scroll_view_
-          ->GetPreferredSize(pinned_tab_container_size_bounds)
-          .height();
-  const int unpinned_preferred_height =
-      unpinned_tabs_scroll_view_->GetPreferredSize(size_bounds).height();
-
-  const bool should_show_separator = pinned_preferred_height != 0 &&
-                                     unpinned_preferred_height != 0 &&
-                                     is_collapsed_;
-
-  // If the height is bounded, calculate the available space for laying out the
-  // pinned and unpinned containers.
-  int remaining_height = 0;
-  if (size_bounds.height().is_bounded()) {
-    remaining_height = size_bounds.height().value();
-    if (pinned_preferred_height != 0 && unpinned_preferred_height != 0) {
-      remaining_height -= region_vertical_padding;
-    }
-    if (should_show_separator) {
-      remaining_height -= tabs_separator_->GetPreferredSize().height() +
-                          region_vertical_padding;
-    }
-    // Clamp the remaining height to 0 if we have less space.
-    remaining_height = std::max(remaining_height, 0);
-  }
-
-  // Place the pinned container.
-  int pinned_container_height = pinned_preferred_height;
-  if (size_bounds.height().is_bounded()) {
-    // The pinned container height should not be larger than half the available
-    // space unless the unpinned container will not fill that space. Also make
-    // sure the height is at least the minimum.
-    pinned_container_height = std::max(
-        std::min(pinned_preferred_height,
-                 std::max(remaining_height / 2,
-                          remaining_height - unpinned_preferred_height)),
-        pinned_tabs_container_view_->GetMinimumSize().height());
-    remaining_height -= pinned_container_height;
-  }
-  gfx::Rect pinned_container_bounds(
-      region_horizontal_padding, y,
-      pinned_tab_container_size_bounds.width().value(),
-      pinned_container_height);
-  layouts.child_layouts.emplace_back(pinned_tabs_scroll_view_.get(),
-                                     pinned_tabs_scroll_view_->GetVisible(),
-                                     pinned_container_bounds);
-
-  if (pinned_container_bounds.height()) {
-    y += pinned_container_bounds.height();
-    // Add padding only if there are pinned and unpinned tabs.
-    if (unpinned_preferred_height != 0) {
-      y += region_vertical_padding;
-    }
-  }
-
-  // Place the tabs separator if visible.
-  if (should_show_separator) {
-    int separator_width =
-        size_bounds.width().value() - 2 * region_horizontal_padding;
-    int separator_x = region_horizontal_padding;
-    gfx::Rect tabs_separator_bounds(
-        separator_x, y, separator_width,
-        tabs_separator_->GetPreferredSize().height());
-    layouts.child_layouts.emplace_back(tabs_separator_.get(), true,
-                                       tabs_separator_bounds);
-
-    y += tabs_separator_bounds.height() + region_vertical_padding;
-  } else {
-    layouts.child_layouts.emplace_back(tabs_separator_.get(), false,
-                                       gfx::Rect());
-  }
-
-  // Place the unpinned container using the entire available width, we do not
-  // inset the x value by |region_horizontal_padding| here because, when the tab
-  // strip is collapsed, tab groups need to draw the group colored line in this
-  // space.
-  gfx::Rect unpinned_container_bounds(0, y, size_bounds.width().value(),
-                                      unpinned_preferred_height);
-  if (size_bounds.height().is_bounded()) {
-    unpinned_container_bounds.set_height(
-        std::max(std::min(unpinned_container_bounds.height(), remaining_height),
-                 unpinned_tabs_container_view_->GetMinimumSize().height()));
-  }
-  layouts.child_layouts.emplace_back(unpinned_tabs_scroll_view_.get(),
-                                     unpinned_tabs_scroll_view_->GetVisible(),
-                                     unpinned_container_bounds);
-
-  layouts.host_size = gfx::Size(size_bounds.width().value(),
-                                unpinned_container_bounds.bottom());
-  return layouts;
-}
 
 void TabStripView::AddedToWidget() {
   views::Widget* const widget = GetWidget();
@@ -324,7 +281,7 @@ void TabStripView::OnChildMoved(TabCollectionNode* moved_node) {
       }
       case TabCollectionNode::Type::SPLIT:
       case TabCollectionNode::Type::GROUP:
-        ScrollToView(view);
+        ScrollToFitViews(view, nullptr);
         break;
       case TabCollectionNode::Type::TABSTRIP:
       case TabCollectionNode::Type::PINNED:
@@ -364,29 +321,81 @@ void TabStripView::OnTabChanged(const tabs::TabInterface* active_tab) {
   TabCollectionNode* activated_node =
       collection_node_->GetNodeForHandle(active_tab->GetHandle());
   CHECK(activated_node);
-  ScrollToView(activated_node->view());
+  ScrollToFitViews(activated_node->view(), nullptr);
 }
 
-void TabStripView::ScrollToView(views::View* view) {
-  if (!view || !Contains(view)) {
+void TabStripView::ScrollToFitTabs(const tabs::TabInterface* active_tab,
+                                   const tabs::TabInterface* new_tab) {
+  if (!collection_node_ || !active_tab || !new_tab) {
     return;
   }
 
-  activated_view_tracker_->SetView(view);
+  if (collection_node_->GetController()->GetDragHandler().IsDragging()) {
+    return;
+  }
 
-  // Views must either be in the pinned or unpinned view trees.
-  DCHECK_NE(pinned_tabs_container_view_->Contains(view),
-            unpinned_tabs_container_view_->Contains(view));
+  TabCollectionNode* active_node =
+      collection_node_->GetNodeForHandle(active_tab->GetHandle());
+  TabCollectionNode* new_node =
+      collection_node_->GetNodeForHandle(new_tab->GetHandle());
 
-  views::ScrollView* const target_scroll_view =
-      pinned_tabs_container_view_->Contains(view) ? pinned_tabs_scroll_view_
-                                                  : unpinned_tabs_scroll_view_;
+  if (!active_node || !new_node) {
+    return;
+  }
 
-  // Wait for the next successful layout before attempting to handle moving
-  // the activated view into the scroll view viewport.
-  target_scroll_view->RegisterPostLayoutCallback(base::BindRepeating(
-      &TabStripView::EnsureVisibleInViewportPostActivationAndLayout,
-      base::Unretained(this)));
+  views::View* active_view = active_node->view();
+  views::View* new_view = new_node->view();
+
+  if (!active_view || !new_view) {
+    return;
+  }
+
+  ScrollToFitViews(active_view, new_view);
+}
+
+void TabStripView::ScrollToFitViews(views::View* view1, views::View* view2) {
+  views::View* primary_view = (view1 && Contains(view1)) ? view1 : nullptr;
+  views::View* secondary_view = (view2 && Contains(view2)) ? view2 : nullptr;
+  if (!primary_view && !secondary_view) {
+    return;
+  }
+
+  // If a scroll request is active, restore normal overflow visuals and clear
+  // pending callbacks before servicing the new target views.
+  if (!target_views_tracker_->empty()) {
+    EnableOverflowVisuals(pinned_tabs_scroll_view_);
+    EnableOverflowVisuals(unpinned_tabs_scroll_view_);
+  }
+
+  target_views_tracker_->SetViews(primary_view, secondary_view);
+
+  bool has_pinned = false;
+  bool has_unpinned = false;
+  if (primary_view) {
+    if (pinned_tabs_container_view_->Contains(primary_view)) {
+      has_pinned = true;
+    } else {
+      has_unpinned = true;
+    }
+  }
+  if (secondary_view) {
+    if (pinned_tabs_container_view_->Contains(secondary_view)) {
+      has_pinned = true;
+    } else {
+      has_unpinned = true;
+    }
+  }
+
+  if (has_pinned) {
+    pinned_tabs_scroll_view_->RegisterPostLayoutCallback(base::BindRepeating(
+        &TabStripView::EnsureViewsVisibleInViewportPostLayout,
+        base::Unretained(this)));
+  }
+  if (has_unpinned) {
+    unpinned_tabs_scroll_view_->RegisterPostLayoutCallback(base::BindRepeating(
+        &TabStripView::EnsureViewsVisibleInViewportPostLayout,
+        base::Unretained(this)));
+  }
 }
 
 void TabStripView::RecordMousePressedInTab() {
@@ -403,11 +412,21 @@ bool TabStripView::IsFocusInTabStrip() {
   return GetFocusManager() && Contains(GetFocusManager()->GetFocusedView());
 }
 
-PinnedTabContainerView* TabStripView::GetPinnedTabsContainer() {
+views::View* TabStripView::GetPrimaryScrollTargetForTesting() const {
+  return target_views_tracker_ ? target_views_tracker_->primary_view()
+                               : nullptr;
+}
+
+views::View* TabStripView::GetSecondaryScrollTargetForTesting() const {
+  return target_views_tracker_ ? target_views_tracker_->secondary_view()
+                               : nullptr;
+}
+
+PinnedTabContainerView* TabStripView::GetPinnedTabsContainer() const {
   return pinned_tabs_container_view_;
 }
 
-UnpinnedTabContainerView* TabStripView::GetUnpinnedTabsContainer() {
+UnpinnedTabContainerView* TabStripView::GetUnpinnedTabsContainer() const {
   return unpinned_tabs_container_view_;
 }
 
@@ -421,10 +440,13 @@ void TabStripView::SetCollapsedState(bool is_collapsed) {
 void TabStripView::SetIsAnimatingSize(bool is_animating) {
   for (views::ScrollView* scroll_view :
        {pinned_tabs_scroll_view_, unpinned_tabs_scroll_view_}) {
-    if (scroll_view) {
-      static_cast<VerticalTabStripScrollBar*>(
-          scroll_view->vertical_scroll_bar())
-          ->SetIsAnimatingSize(is_animating);
+    // Scrollbars are not visible in the horizontal orientation so only update
+    // for the vertical orientation.
+    if (scroll_view && IsVerticalOrientation(collection_node_)) {
+      if (auto* scroll_bar = views::AsViewClass<VerticalTabStripScrollBar>(
+              scroll_view->vertical_scroll_bar())) {
+        scroll_bar->SetIsAnimatingSize(is_animating);
+      }
     }
   }
 }
@@ -503,13 +525,22 @@ void TabStripView::RemoveScrollViewContents(views::View* view) {
 void TabStripView::SetScrollViewProperties(views::ScrollView* scroll_view) {
   scroll_view->SetUseContentsPreferredSize(true);
   scroll_view->SetBackgroundColor(std::nullopt);
-  scroll_view->SetHorizontalScrollBarMode(
-      views::ScrollView::ScrollBarMode::kDisabled);
-  scroll_view->SetOverflowGradientMask(
-      views::ScrollView::GradientDirection::kVertical);
   CHECK(collection_node_);
-  scroll_view->SetVerticalScrollBar(std::make_unique<VerticalTabStripScrollBar>(
-      collection_node_->GetController()->GetStateController()));
+  if (IsVerticalOrientation(collection_node_)) {
+    scroll_view->SetHorizontalScrollBarMode(
+        views::ScrollView::ScrollBarMode::kDisabled);
+    scroll_view->SetOverflowGradientMask(
+        views::ScrollView::GradientDirection::kVertical);
+    scroll_view->SetVerticalScrollBar(
+        std::make_unique<VerticalTabStripScrollBar>(
+            collection_node_->GetController()->GetStateController()));
+  } else {
+    scroll_view->SetHorizontalScrollBarMode(
+        views::ScrollView::ScrollBarMode::kHiddenButEnabled);
+    scroll_view->SetVerticalScrollBarMode(
+        views::ScrollView::ScrollBarMode::kDisabled);
+    scroll_view->SetTreatAllScrollEventsAsHorizontal(true);
+  }
   callback_subscriptions_.emplace_back(
       scroll_view->AddContentsScrolledCallback(base::BindRepeating(
           &TabStripView::HideHoverCardOnScroll, base::Unretained(this))));
@@ -519,35 +550,59 @@ void TabStripView::ResetCollectionNode() {
   collection_node_ = nullptr;
 }
 
-void TabStripView::EnsureVisibleInViewportPostActivationAndLayout(
+void TabStripView::EnsureViewsVisibleInViewportPostLayout(
     views::ScrollView* scroll_view) {
   // Explicitly re-register only as needed.
   scroll_view->RegisterPostLayoutCallback(base::DoNothing());
 
   // Guard against views being removed from the tree between frames. Dragging a
   // view out of the visible bounds will also trigger a scroll naturally.
-  views::View* const activated_view = activated_view_tracker_->view();
-  if (!activated_view || !Contains(activated_view) ||
+  if (!target_views_tracker_ || target_views_tracker_->empty() ||
       (collection_node_ &&
        collection_node_->GetController()->GetDragHandler().IsDragging())) {
     EnableOverflowVisuals(scroll_view);
     return;
   }
 
+  gfx::Rect combined_bounds;
+  bool has_valid_views = false;
+
+  for (views::View* view : {target_views_tracker_->primary_view(),
+                            target_views_tracker_->secondary_view()}) {
+    if (view && Contains(view) && scroll_view->contents()->Contains(view)) {
+      gfx::Rect view_bounds = GetBoundsInScrollViewContents(view, scroll_view);
+      if (!has_valid_views) {
+        combined_bounds = view_bounds;
+        has_valid_views = true;
+      } else {
+        combined_bounds.Union(view_bounds);
+      }
+    }
+  }
+
+  if (!has_valid_views) {
+    EnableOverflowVisuals(scroll_view);
+    return;
+  }
+
+  const bool is_vertical = IsVerticalOrientation(collection_node_);
+
   // Handle the case where the scroll view is currently not in an overflow
-  // state. In such a case the activated view will be visible in the scroll
+  // state. In such a case the tracked views will be visible in the scroll
   // view's viewport without scrolling.
-  if (!scroll_view->IsVerticalContentOverflowing()) {
-    // It may be the case that the activated view is not at its target height
+  const bool is_overflowing =
+      is_vertical ? scroll_view->IsVerticalContentOverflowing()
+                  : scroll_view->IsHorizontalContentOverflowing();
+  if (!is_overflowing) {
+    // It may be the case that a tracked view is not at its target height
     // (i.e. it was activated as it is being animated in). In such a case
     // disable overflow visuals to prevent jank that can occur if content view
     // bounds are changed in quick succession.
-    if (!activated_view_tracker_->IsViewAtPreferredHeight()) {
+    if (!target_views_tracker_->AreViewsAtTargetSize()) {
       DisableOverflowVisuals(scroll_view);
-      activated_view_tracker_->SetOnReachedPreferredHeightCallback(
-          base::BindOnce(
-              &TabStripView::EnsureVisibleInViewportPostActivationAndLayout,
-              base::Unretained(this), scroll_view));
+      target_views_tracker_->SetOnReachedTargetSizeCallback(
+          base::BindOnce(&TabStripView::EnsureViewsVisibleInViewportPostLayout,
+                         base::Unretained(this), scroll_view));
     } else {
       // Always exit with overflow visuals enabled.
       EnableOverflowVisuals(scroll_view);
@@ -555,51 +610,59 @@ void TabStripView::EnsureVisibleInViewportPostActivationAndLayout(
     return;
   }
 
-  // Get view bounds in its contents coordinates.
-  gfx::Rect activated_view_bounds = GetTabStripViewTargetBounds(activated_view);
-
-  // Proceed up the hierarchy until the content view is reached, iteratively
-  // adjusting target view bounds.
-  for (views::View* v = activated_view->parent();
-       v && v != scroll_view->contents(); v = v->parent()) {
-    activated_view_bounds =
-        views::View::ConvertRectToTarget(v, v->parent(), activated_view_bounds);
+  // If the combined bounds don't fit in the viewport, fall back to prioritizing
+  // the active (primary) tab. If the primary tab belongs to a different scroll
+  // view (e.g. pinned tab while checking the unpinned scroll view),
+  // `Contains(primary_view)` is false, safely skipping this fallback check for
+  // this scroll view.
+  const int combined_size =
+      is_vertical ? combined_bounds.height() : combined_bounds.width();
+  const int viewport_size = is_vertical ? scroll_view->GetVisibleRect().height()
+                                        : scroll_view->GetVisibleRect().width();
+  if (combined_size > viewport_size && !target_views_tracker_->empty()) {
+    views::View* primary_view = target_views_tracker_->primary_view();
+    if (primary_view && scroll_view->contents()->Contains(primary_view)) {
+      combined_bounds =
+          GetBoundsInScrollViewContents(primary_view, scroll_view);
+    }
   }
 
-  // Determine the adjustment required to fit the activated view into the
-  // visible content view bounds.
-  gfx::Rect adjusted_activated_view_bounds = activated_view_bounds;
-  adjusted_activated_view_bounds.AdjustToFit(scroll_view->GetVisibleRect());
+  // Determine the adjustment required to fit the combined target views bounds
+  // into the visible content view bounds.
+  gfx::Rect adjusted_bounds = combined_bounds;
+  adjusted_bounds.AdjustToFit(scroll_view->GetVisibleRect());
 
   // Calculate the required scroll offset for the visible content bounds (the
-  // reverse of the activated view adjustment).
-  const int diff =
-      activated_view_bounds.y() - adjusted_activated_view_bounds.y();
+  // reverse of the target bounds adjustment).
+  const int diff = is_vertical ? combined_bounds.y() - adjusted_bounds.y()
+                               : combined_bounds.x() - adjusted_bounds.x();
 
-  // Calculate the required scroll offset for the visible content bounds taking
-  // into account configured overflow gradients. This is deliberately more than
-  // is needed and may or may not apply depending on view position.
-  gfx::Rect overflow_adjusted_activated_view_bounds = activated_view_bounds;
-  overflow_adjusted_activated_view_bounds.AdjustToFit(
-      scroll_view->GetOpaqueVisibleRect());
+  // Calculate the required scroll offset taking into account configured
+  // overflow gradients. This is deliberately more than is needed and may or
+  // may not apply depending on view position.
+  gfx::Rect overflow_adjusted_bounds = combined_bounds;
+  overflow_adjusted_bounds.AdjustToFit(scroll_view->GetOpaqueVisibleRect());
   const int diff_avoid_overflow_gradient =
-      activated_view_bounds.y() - overflow_adjusted_activated_view_bounds.y();
+      is_vertical ? combined_bounds.y() - overflow_adjusted_bounds.y()
+                  : combined_bounds.x() - overflow_adjusted_bounds.x();
+
+  const gfx::PointF scroll_offset =
+      is_vertical
+          ? gfx::PointF(0, static_cast<float>(diff_avoid_overflow_gradient))
+          : gfx::PointF(static_cast<float>(diff_avoid_overflow_gradient), 0);
 
   if (diff != 0) {
-    // Disable overflow visuals to avoid visual artifacts while scrolling,
-    // particularly for views towards the bottom of the scroll view.
+    // Disable overflow visuals to avoid visual artifacts while scrolling.
     DisableOverflowVisuals(scroll_view);
-    scroll_view->ScrollByOffset(
-        {0, static_cast<float>(diff_avoid_overflow_gradient)});
+    scroll_view->ScrollByOffset(scroll_offset);
     scroll_view->RegisterPostLayoutCallback(base::BindRepeating(
-        &TabStripView::EnsureVisibleInViewportPostActivationAndLayout,
+        &TabStripView::EnsureViewsVisibleInViewportPostLayout,
         base::Unretained(this)));
     scroll_view->InvalidateLayout();
   } else {
-    // Request a final scroll to ensure the activated view is moved beyond the
+    // Request a final scroll to ensure the tracked views are moved beyond the
     // overflow gradient if necessary.
-    scroll_view->ScrollByOffset(
-        {0, static_cast<float>(diff_avoid_overflow_gradient)});
+    scroll_view->ScrollByOffset(scroll_offset);
     EnableOverflowVisuals(scroll_view);
   }
 }
@@ -609,37 +672,60 @@ void TabStripView::EnableOverflowVisuals(views::ScrollView* scroll_view) {
   // from running.
   scroll_view->RegisterPostLayoutCallback(base::DoNothing());
   scroll_view->SetDrawOverflowIndicator(true);
-  scroll_view->SetVerticalScrollBarMode(
-      views::ScrollView::ScrollBarMode::kEnabled);
+  if (IsVerticalOrientation(collection_node_)) {
+    scroll_view->SetVerticalScrollBarMode(
+        views::ScrollView::ScrollBarMode::kEnabled);
 
-  // Restore normal VerticalTabStripScrollBar scrollbar behavior.
-  if (auto* scroll_bar = views::AsViewClass<VerticalTabStripScrollBar>(
-          scroll_view->vertical_scroll_bar())) {
-    scroll_bar->SetIsAnimatingSize(false);
+    // Restore normal VerticalTabStripScrollBar scrollbar behavior.
+    if (auto* scroll_bar = views::AsViewClass<VerticalTabStripScrollBar>(
+            scroll_view->vertical_scroll_bar())) {
+      scroll_bar->SetIsAnimatingSize(false);
+    }
   }
 
   // Reset the active view as it is no longer needed after post-activation
   // adjustment for viewport visibility is complete.
-  activated_view_tracker_->SetView(nullptr);
+  if (target_views_tracker_) {
+    target_views_tracker_->RemoveViewsInContainer(scroll_view->contents());
+  }
   scroll_view->InvalidateLayout();
 }
 
 void TabStripView::DisableOverflowVisuals(views::ScrollView* scroll_view) {
   scroll_view->SetDrawOverflowIndicator(false);
-  scroll_view->SetVerticalScrollBarMode(
-      views::ScrollView::ScrollBarMode::kHiddenButEnabled);
 
-  // Suppress scrollbar visuals to avoid artifacts as views are resized to
-  // target bounds whilst simultaneously scrolling to target.
-  if (auto* scroll_bar = views::AsViewClass<VerticalTabStripScrollBar>(
-          scroll_view->vertical_scroll_bar())) {
-    scroll_bar->SetIsAnimatingSize(true);
+  // If in the vertical orientation also hide scrollbar visuals. This is not
+  // needed for horizontal since the scrollbar is not shown.
+  if (IsVerticalOrientation(collection_node_)) {
+    scroll_view->SetVerticalScrollBarMode(
+        views::ScrollView::ScrollBarMode::kHiddenButEnabled);
+
+    // Suppress scrollbar visuals to avoid artifacts as views are resized to
+    // target bounds whilst simultaneously scrolling to target.
+    if (auto* scroll_bar = views::AsViewClass<VerticalTabStripScrollBar>(
+            scroll_view->vertical_scroll_bar())) {
+      scroll_bar->SetIsAnimatingSize(true);
+    }
   }
 }
 
+gfx::Rect TabStripView::GetBoundsInScrollViewContents(
+    views::View* view,
+    views::ScrollView* scroll_view) {
+  gfx::Rect bounds = GetTabStripViewTargetBounds(view);
+  for (views::View* v = view->parent(); v && v != scroll_view->contents();
+       v = v->parent()) {
+    bounds = views::View::ConvertRectToTarget(v, v->parent(), bounds);
+  }
+  return bounds;
+}
+
 void TabStripView::UpdateColors() {
-  tabs_separator_->SetColorId(IsFrameActive() ? kColorTabDividerFrameActive
-                                              : kColorTabDividerFrameInactive);
+  if (tabs_separator_) {
+    tabs_separator_->SetColorId(IsFrameActive()
+                                    ? kColorTabDividerFrameActive
+                                    : kColorTabDividerFrameInactive);
+  }
 }
 
 bool TabStripView::IsFrameActive() const {

@@ -5,6 +5,7 @@
 #import "components/password_manager/ios/shared_password_controller.h"
 
 #import "base/base64.h"
+#import "base/functional/callback_helpers.h"
 #import "base/memory/raw_ptr.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
@@ -15,6 +16,7 @@
 #import "base/types/expected.h"
 #import "components/autofill/core/browser/form_structure.h"
 #import "components/autofill/core/browser/foundations/autofill_driver_router.h"
+#import "components/autofill/core/browser/foundations/autofill_manager_test_api.h"
 #import "components/autofill/core/browser/foundations/test_autofill_client.h"
 #import "components/autofill/core/browser/foundations/test_browser_autofill_manager.h"
 #import "components/autofill/core/browser/suggestions/suggestion_type.h"
@@ -64,10 +66,15 @@
 #import "components/webauthn/ios/ios_webauthn_credentials_delegate.h"
 #import "components/webauthn/ios/ios_webauthn_credentials_delegate_factory.h"
 #import "components/webauthn/ios/passkey_tab_helper.h"
+#import "ios/web/public/test/fakes/fake_browser_state.h"
 #import "ios/web/public/test/fakes/fake_navigation_context.h"
+#import "ios/web/public/test/fakes/fake_web_client.h"
 #import "ios/web/public/test/fakes/fake_web_frame.h"
 #import "ios/web/public/test/fakes/fake_web_frames_manager.h"
 #import "ios/web/public/test/fakes/fake_web_state.h"
+#import "ios/web/public/test/js_test_util.h"
+#import "ios/web/public/test/scoped_testing_web_client.h"
+#import "ios/web/public/test/web_task_environment.h"
 #import "testing/gmock/include/gmock/gmock.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
@@ -214,7 +221,8 @@ class MockPasswordGenerationFrameHelper : public PasswordGenerationFrameHelper {
 
 class SharedPasswordControllerTest : public PlatformTest {
  public:
-  SharedPasswordControllerTest() : PlatformTest() {
+  SharedPasswordControllerTest()
+      : PlatformTest(), web_client_(std::make_unique<web::FakeWebClient>()) {
     delegate_ = OCMProtocolMock(@protocol(SharedPasswordControllerDelegate));
     password_manager::PasswordManagerClient* client_ptr =
         &password_manager_client_;
@@ -261,6 +269,10 @@ class SharedPasswordControllerTest : public PlatformTest {
     controller_.delegate = delegate_;
 
     web_state_.SetCurrentURL(GURL(kTestURL));
+    web_state_.SetBrowserState(&browser_state_);
+    web::test::OverrideJavaScriptFeatures(
+        &browser_state_,
+        {password_manager::PasswordManagerJavaScriptFeature::GetInstance()});
   }
 
   ~SharedPasswordControllerTest() override {
@@ -334,13 +346,15 @@ class SharedPasswordControllerTest : public PlatformTest {
     delegate->OnCredentialsReceived(CreateCredential(), "request-id");
   }
 
-  base::test::TaskEnvironment task_environment_;
+  web::ScopedTestingWebClient web_client_;
+  web::WebTaskEnvironment task_environment_;
   autofill::test::AutofillUnitTestEnvironment autofill_test_environment_;
   std::unique_ptr<autofill::TestAutofillClientIOS> autofill_client_;
   std::unique_ptr<TestAutofillManagerInjector<TestBrowserAutofillManager>>
       autofill_manager_injector_;
   std::unique_ptr<webauthn::TestPasskeyModel> passkey_model_;
   web::FakeWebState web_state_;
+  web::FakeBrowserState browser_state_;
   raw_ptr<web::FakeWebFramesManager> web_frames_manager_;
   testing::StrictMock<MockPasswordManager> password_manager_;
   testing::StrictMock<MockPasswordGenerationFrameHelper>
@@ -375,7 +389,8 @@ TEST_F(SharedPasswordControllerTest,
           ->GetFrameToken());
   // `OnFormsSeen` emits a `OnFieldTypesDetermined` event, but with source
   // heuristics - this should be ignored by the `SharedPasswordController`.
-  manager->OnFormsSeen(/*updated_forms=*/{test_form}, /*removed_forms=*/{});
+  manager->OnFormsSeen(/*updated_forms=*/{test_form}, /*removed_forms=*/{},
+                       autofill::AutofillManagerTestApi::pass_key());
 }
 
 // Tests that the password manager of each frame is notified about server
@@ -1480,7 +1495,7 @@ class SharedPasswordControllerTestWithRealSuggestionHelper
   }
 
  protected:
-  base::test::TaskEnvironment task_environment_;
+  web::WebTaskEnvironment task_environment_;
   std::unique_ptr<autofill::TestAutofillClientIOS> autofill_client_;
   web::FakeWebState web_state_;
   raw_ptr<web::FakeWebFramesManager> web_frames_manager_;
@@ -2132,6 +2147,50 @@ TEST_F(SharedPasswordControllerTestWithRealSuggestionHelper,
 
   // Verify completion called.
   EXPECT_TRUE(completion_called);
+}
+
+// Tests that `scrollAndCheckViewAreaVisible:forFrameId:completionHandler:`
+// executes the correct JavaScript and returns the correct result.
+TEST_F(SharedPasswordControllerTest, ScrollAndCheckViewAreaVisible) {
+  GURL url("https://example.com");
+  auto frame = web::FakeWebFrame::Create(base::SysNSStringToUTF8(kTestFrameID),
+                                         /*is_main_frame=*/true, url);
+  web::FakeWebFrame* fake_frame = frame.get();
+  fake_frame->set_browser_state(web_state_.GetBrowserState());
+  AddWebFrame(std::move(frame));
+
+  base::Value visible_val(true);
+  fake_frame->AddJsResultForFunctionCall(
+      &visible_val, "passwords.scrollAndCheckViewAreaVisible");
+
+  base::test::TestFuture<BOOL> future;
+  [controller_
+      scrollAndCheckViewAreaVisible:autofill::FieldRendererId(1)
+                         forFrameId:base::SysNSStringToUTF8(kTestFrameID)
+                  completionHandler:base::CallbackToBlock(
+                                        future.GetCallback())];
+  EXPECT_TRUE(future.Get());
+}
+
+// Tests that `fillField:withValue:forFrameId:completionHandler:` executes the
+// correct JavaScript and returns the correct result.
+TEST_F(SharedPasswordControllerTest, FillField) {
+  GURL url("https://example.com");
+  auto frame = web::FakeWebFrame::Create(base::SysNSStringToUTF8(kTestFrameID),
+                                         /*is_main_frame=*/true, url);
+  web::FakeWebFrame* fake_frame = frame.get();
+  fake_frame->set_browser_state(web_state_.GetBrowserState());
+  AddWebFrame(std::move(frame));
+
+  base::Value success_val(true);
+  fake_frame->AddJsResultForFunctionCall(&success_val, "passwords.fillField");
+
+  base::test::TestFuture<BOOL> future;
+  [controller_ fillField:autofill::FieldRendererId(1)
+               withValue:u"secret"
+              forFrameId:base::SysNSStringToUTF8(kTestFrameID)
+       completionHandler:base::CallbackToBlock(future.GetCallback())];
+  EXPECT_TRUE(future.Get());
 }
 
 // TODO(crbug.com/40701292): Finish unit testing the rest of the public API.

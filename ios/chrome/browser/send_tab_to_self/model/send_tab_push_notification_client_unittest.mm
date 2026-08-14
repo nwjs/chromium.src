@@ -5,8 +5,10 @@
 #import "ios/chrome/browser/send_tab_to_self/model/send_tab_push_notification_client.h"
 
 #import "base/strings/sys_string_conversions.h"
+#import "base/test/metrics/histogram_tester.h"
 #import "components/prefs/scoped_user_pref_update.h"
 #import "components/send_tab_to_self/fake_send_tab_to_self_model.h"
+#import "components/send_tab_to_self/metrics_util.h"
 #import "components/send_tab_to_self/stub_send_tab_to_self_sync_service.h"
 #import "ios/chrome/browser/push_notification/model/constants.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
@@ -51,10 +53,9 @@ class SendTabPushNotificationClientTest : public PlatformTest {
     ProfileIOS* profile =
         profile_manager_.AddProfileWithBuilder(std::move(builder));
     BrowserList* list = BrowserListFactory::GetForProfile(profile);
-    mock_scene_state_ = OCMClassMock([SceneState class]);
-    OCMStub([mock_scene_state_ activationLevel])
-        .andReturn(SceneActivationLevelForegroundActive);
-    browser_ = std::make_unique<TestBrowser>(profile, mock_scene_state_);
+    scene_state_ = [[SceneState alloc] init];
+    scene_state_.activationLevel = SceneActivationLevelForegroundActive;
+    browser_ = std::make_unique<TestBrowser>(profile, scene_state_);
     list->AddBrowser(browser_.get());
     client_ = IsMultiProfilePushNotificationHandlingEnabled()
                   ? std::make_unique<SendTabPushNotificationClient>(profile)
@@ -74,7 +75,6 @@ class SendTabPushNotificationClientTest : public PlatformTest {
   void TearDown() override {
     EXPECT_OCMOCK_VERIFY(mock_response_);
     EXPECT_OCMOCK_VERIFY(mock_notification_);
-    EXPECT_OCMOCK_VERIFY(mock_scene_state_);
     EXPECT_OCMOCK_VERIFY((id)application_handler_);
     PlatformTest::TearDown();
   }
@@ -125,7 +125,7 @@ class SendTabPushNotificationClientTest : public PlatformTest {
   web::WebTaskEnvironment web_task_environment_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   TestProfileManagerIOS profile_manager_;
-  id mock_scene_state_;
+  SceneState* scene_state_;
   std::unique_ptr<TestBrowser> browser_;
   std::unique_ptr<SendTabPushNotificationClient> client_;
   raw_ptr<send_tab_to_self::FakeSendTabToSelfModel> model_;
@@ -137,6 +137,7 @@ class SendTabPushNotificationClientTest : public PlatformTest {
 };
 
 TEST_F(SendTabPushNotificationClientTest, TestNotificationInteraction) {
+  base::HistogramTester histogram_tester;
   // Add an entry to the fake model.
   const send_tab_to_self::SendTabToSelfEntry* entry = model_->AddEntryRemotely(
       GURL("https://www.example.com"), "title", "device",
@@ -162,14 +163,56 @@ TEST_F(SendTabPushNotificationClientTest, TestNotificationInteraction) {
   EXPECT_EQ(guid, model_->last_activated_guid());
   EXPECT_EQ(model_->last_activated_entry_point(),
             send_tab_to_self::ShareActivatedEntryPoint::kMobileNotification);
+
+  histogram_tester.ExpectUniqueSample(
+      "Sharing.SendTabToSelf.AutoOpenOutcome2",
+      send_tab_to_self::AutoOpenOutcome::kTabOpenedViaNotification, 1);
+}
+
+TEST_F(SendTabPushNotificationClientTest,
+       TestNotificationInteraction_EntryNotInModelYet) {
+  base::HistogramTester histogram_tester;
+  std::string guid = "guid_not_in_model_yet";
+
+  // Do NOT add the entry to `model_` prior to interaction to simulate the race
+  // condition where notification arrives/is tapped before sync completes.
+
+  // Set up expectation BEFORE the action.
+  OCMExpect([application_handler_
+      openURLInNewTab:[OCMArg checkWithBlock:^(OpenNewTabCommand* command) {
+        EXPECT_EQ(GURL("https://www.example.com/"), command.URL);
+        EXPECT_NSEQ(base::SysUTF8ToNSString(guid),
+                    command.sendTabToSelfEntryGUID);
+        return YES;
+      }]]);
+
+  // Trigger the interaction.
+  bool handle_interaction = client_->HandleNotificationInteraction(
+      MockRequestResponse(/*is_send_tab_notification=*/true, guid));
+  EXPECT_TRUE(handle_interaction);
+
+  // Assert that the entry was marked opened and activated on the model despite
+  // not being in the model yet.
+  EXPECT_EQ(guid, model_->last_opened_guid());
+  EXPECT_EQ(guid, model_->last_activated_guid());
+  EXPECT_EQ(model_->last_activated_entry_point(),
+            send_tab_to_self::ShareActivatedEntryPoint::kMobileNotification);
+
+  histogram_tester.ExpectUniqueSample(
+      "Sharing.SendTabToSelf.AutoOpenOutcome2",
+      send_tab_to_self::AutoOpenOutcome::kTabOpenedViaNotification, 1);
 }
 
 TEST_F(SendTabPushNotificationClientTest,
        TestNotificationInteraction_NotSendTabNotification) {
+  base::HistogramTester histogram_tester;
   bool handle_interaction = client_->HandleNotificationInteraction(
       MockRequestResponse(/*is_send_tab_notification=*/false));
 
   // Check destination URL is not loaded.
   OCMReject([application_handler_ openURLInNewTab:[OCMArg any]]);
   EXPECT_FALSE(handle_interaction);
+
+  histogram_tester.ExpectTotalCount("Sharing.SendTabToSelf.AutoOpenOutcome2",
+                                    0);
 }

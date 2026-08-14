@@ -143,26 +143,19 @@ void LensSearchboxHandler::OnFocusChanged(bool focused) {
   lens_searchbox_client_->OnFocusChanged(focused);
 }
 
-void LensSearchboxHandler::QueryAutocomplete(int32_t query_id,
-                                             const std::u16string& input,
-                                             bool prevent_inline_autocomplete,
-                                             uint32_t cursor_position) {
-  QueryAutocompleteWithSuggestInventory(
-      query_id, input, prevent_inline_autocomplete, cursor_position,
-      omnibox::SuggestInventory::SUGGEST_INVENTORY_DEFAULT);
-}
-
-void LensSearchboxHandler::QueryAutocompleteWithSuggestInventory(
+void LensSearchboxHandler::QueryAutocomplete(
     int32_t query_id,
     const std::u16string& input,
     bool prevent_inline_autocomplete,
     uint32_t cursor_position,
-    omnibox::SuggestInventory suggest_inventory) {
+    omnibox::SuggestInventory suggest_inventory,
+    bool is_on_focus,
+    const std::string& keyword) {
   lens_searchbox_client_->OnTextModified();
 
-  SearchboxHandler::QueryAutocompleteWithSuggestInventory(
+  SearchboxHandler::QueryAutocomplete(
       query_id, input, prevent_inline_autocomplete, cursor_position,
-      suggest_inventory);
+      suggest_inventory, is_on_focus, keyword);
 }
 
 void LensSearchboxHandler::SetInputText(const std::string& input_text) {

@@ -27,7 +27,6 @@
 #include "components/page_load_metrics/browser/features.h"
 #include "components/page_load_metrics/browser/observers/core/largest_contentful_paint_handler.h"
 #include "components/page_load_metrics/browser/page_load_metrics_util.h"
-#include "components/startup_metric_utils/browser/startup_metric_utils.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/preloading_data.h"
 #include "content/public/browser/tracing_support.h"
@@ -625,14 +624,6 @@ void UmaPageLoadMetricsObserver::OnFirstContentfulPaintInPage(
     PAGE_LOAD_HISTOGRAM(internal::kHistogramFirstContentfulPaint,
                         timing.paint_timing->first_contentful_paint.value());
 
-#if !BUILDFLAG(IS_ANDROID)
-    startup_metric_utils::GetBrowser()
-        .RecordFirstWebContentsFirstContentfulPaint(
-            GetDelegate().GetNavigationStart(),
-            GetDelegate().GetNavigationStart() +
-                timing.paint_timing->first_contentful_paint.value());
-#endif
-
     PAGE_LOAD_HISTOGRAM(internal::kHistogramParseStartToFirstContentfulPaint,
                         timing.paint_timing->first_contentful_paint.value() -
                             timing.parse_timing->parse_start.value());
@@ -1156,13 +1147,6 @@ void UmaPageLoadMetricsObserver::RecordTimingHistograms(
             all_frames_largest_contentful_paint.Time(), GetDelegate())) {
       PAGE_LOAD_HISTOGRAM(internal::kHistogramLargestContentfulPaint, lcp_time);
 
-#if !BUILDFLAG(IS_ANDROID)
-      startup_metric_utils::GetBrowser()
-          .RecordFirstWebContentsLargestContentfulPaint(
-              GetDelegate().GetNavigationStart(),
-              GetDelegate().GetNavigationStart() + lcp_time);
-#endif
-
       if (std::optional<base::TimeDelta> actual_navigation_offset =
               CalculateActualNavigationOffset(GetDelegate(),
                                               navigation_handle_timing_)) {
@@ -1299,8 +1283,6 @@ void UmaPageLoadMetricsObserver::OnCpuTimingUpdate(
 
 void UmaPageLoadMetricsObserver::RecordByteAndResourceHistograms(
     const page_load_metrics::mojom::PageLoadTiming& timing) {
-  DCHECK(!network_bytes_.is_negative());
-  DCHECK(!cache_bytes_.is_negative());
   click_tracker_.RecordClickBurst(GetDelegate().GetPageUkmSourceId());
 }
 

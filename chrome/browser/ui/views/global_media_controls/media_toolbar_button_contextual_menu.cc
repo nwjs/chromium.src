@@ -6,7 +6,6 @@
 
 #include <memory>
 
-#include "base/strings/strcat.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/feedback/show_feedback_page.h"
 #include "chrome/browser/profiles/profile.h"
@@ -14,8 +13,7 @@
 #include "chrome/browser/ui/global_media_controls/media_notification_service.h"
 #include "chrome/browser/ui/global_media_controls/media_notification_service_factory.h"
 #include "chrome/browser/ui/singleton_tabs.h"
-#include "chrome/common/pref_names.h"
-#include "chrome/common/url_constants.h"
+#include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/global_media_controls/public/media_item_manager.h"
 #include "components/media_router/common/pref_names.h"
@@ -24,7 +22,7 @@
 namespace {
 global_media_controls::MediaItemManager* GetItemManagerFromBrowser(
     Browser* browser) {
-  return MediaNotificationServiceFactory::GetForProfile(browser->profile())
+  return MediaNotificationServiceFactory::GetForProfile(browser->GetProfile())
       ->media_item_manager();
 }
 }  // namespace
@@ -43,7 +41,7 @@ MediaToolbarButtonContextualMenu::CreateMenuModel() {
       IDS_MEDIA_TOOLBAR_CONTEXT_SHOW_OTHER_SESSIONS);
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  if (chrome::CanShowFeedback(browser_->profile())) {
+  if (chrome::CanShowFeedback(browser_->GetProfile())) {
     menu_model->AddItemWithStringId(
         IDC_MEDIA_TOOLBAR_CONTEXT_REPORT_CAST_ISSUE,
         IDS_MEDIA_TOOLBAR_CONTEXT_REPORT_CAST_ISSUE);
@@ -54,7 +52,7 @@ MediaToolbarButtonContextualMenu::CreateMenuModel() {
 
 bool MediaToolbarButtonContextualMenu::IsCommandIdChecked(
     int command_id) const {
-  PrefService* pref_service = browser_->profile()->GetPrefs();
+  PrefService* pref_service = browser_->GetProfile()->GetPrefs();
   switch (command_id) {
     case IDC_MEDIA_TOOLBAR_CONTEXT_SHOW_OTHER_SESSIONS:
       return pref_service->GetBoolean(
@@ -67,7 +65,7 @@ bool MediaToolbarButtonContextualMenu::IsCommandIdChecked(
 
 bool MediaToolbarButtonContextualMenu::IsCommandIdEnabled(
     int command_id) const {
-  PrefService* pref_service = browser_->profile()->GetPrefs();
+  PrefService* pref_service = browser_->GetProfile()->GetPrefs();
   switch (command_id) {
     case IDC_MEDIA_TOOLBAR_CONTEXT_SHOW_OTHER_SESSIONS:
       // The pref may be managed by an enterprise policy and not modifiable by
@@ -107,7 +105,7 @@ void MediaToolbarButtonContextualMenu::MenuClosed(ui::SimpleMenuModel* source) {
 }
 
 void MediaToolbarButtonContextualMenu::ToggleShowOtherSessions() {
-  PrefService* pref_service = browser_->profile()->GetPrefs();
+  PrefService* pref_service = browser_->GetProfile()->GetPrefs();
   pref_service->SetBoolean(
       media_router::prefs::kMediaRouterShowCastSessionsStartedByOtherDevices,
       !pref_service->GetBoolean(

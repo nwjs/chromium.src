@@ -6,6 +6,7 @@
 
 #import <vector>
 
+#import "base/apple/foundation_util.h"
 #import "base/ios/block_types.h"
 #import "ios/chrome/browser/assistant/coordinator/assistant_container_commands.h"
 #import "ios/chrome/browser/assistant/ui/assistant_container_delegate.h"
@@ -39,6 +40,7 @@
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message_action.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/tabs/model/tab_helper_filter.h"
 #import "ios/chrome/browser/tabs/model/tab_helper_util.h"
@@ -51,8 +53,7 @@
 @interface AssistantAIMCoordinator () <AIMSRPDebuggerURLViewControllerDelegate,
                                        AssistantAIMMediatorDelegate,
                                        AssistantAIMViewControllerDelegate,
-                                       AssistantContainerDelegate,
-                                       TabGridStateObserving>
+                                       AssistantContainerDelegate>
 
 // Block to execute when the 'Undo' snackbar dismisses.
 @property(nonatomic, strong) ProceduralBlock undoSnackbarDismissCompletion;
@@ -87,6 +88,9 @@ class AssistantAIMUIStateProvider
   AssistantContainerDetent _currentDetent;
   BOOL _isHiding;
 
+  // Whether the coordinator is currently in the middle of stopping.
+  BOOL _isStopping;
+
   // Handler for container related interactions.
   __weak id<AssistantContainerCommands> _containerHandler;
   ActivityReporter* _activityReporter;
@@ -104,17 +108,14 @@ class AssistantAIMUIStateProvider
 }
 
 - (void)start {
-  if (base::FeatureList::IsEnabled(kAssistantAimMinimizedState)) {
-    _currentDetent = AssistantContainerDetent::kMinimized;
-  } else {
-    _currentDetent = AssistantContainerDetent::kMedium;
-  }
+  [self startInMinimizedState:NO];
+}
+
+- (void)startInMinimizedState:(BOOL)shouldStartInMinimized {
   if (self.browser->GetProfile()->IsOffTheRecord()) {
     return;
   }
   [_activityReporter reportActive];
-
-  [self.browser->GetSceneState().tabGridState addObserver:self];
 
   CobrowseBrowserAgent* agent = CobrowseBrowserAgent::FromBrowser(self.browser);
   if (agent) {
@@ -128,11 +129,9 @@ class AssistantAIMUIStateProvider
   _containerHandler = HandlerForProtocol(self.browser->GetCommandDispatcher(),
                                          AssistantContainerCommands);
 
-  contextual_tasks::ContextualTasksService* contextualTasksService = nullptr;
-  if (IsCobrowseAimHistoryEnabled()) {
-    contextualTasksService = IOSContextualTasksServiceFactory::GetForProfile(
-        self.browser->GetProfile());
-  }
+  contextual_tasks::ContextualTasksService* contextualTasksService =
+      IOSContextualTasksServiceFactory::GetForProfile(
+          self.browser->GetProfile());
 
   web::WebState::CreateParams params(self.browser->GetProfile());
   std::unique_ptr<web::WebState> webState = web::WebState::Create(params);
@@ -174,6 +173,14 @@ class AssistantAIMUIStateProvider
 
   [self dismissSnackbars];
 
+  BOOL showInMinimizedState =
+      shouldStartInMinimized ||
+      base::FeatureList::IsEnabled(kAssistantAimMinimizedState);
+  AssistantContainerDetent targetDetent =
+      showInMinimizedState ? AssistantContainerDetent::kMinimized
+                           : AssistantContainerDetent::kMedium;
+  _currentDetent = targetDetent;
+
   // This must be called AFTER the view controller and its children (like the
   // input plate) are fully set up. This is because the initial layout and
   // percentage updates need to be applied to the fully constructed content.
@@ -182,10 +189,6 @@ class AssistantAIMUIStateProvider
   [_containerHandler showAssistantContainerWithContent:_viewController
                                               delegate:self];
 
-  AssistantContainerDetent targetDetent =
-      base::FeatureList::IsEnabled(kAssistantAimMinimizedState)
-          ? AssistantContainerDetent::kMinimized
-          : AssistantContainerDetent::kMedium;
   [_containerHandler
       animateAssistantContainerToDetent:targetDetent
                                duration:0
@@ -193,8 +196,10 @@ class AssistantAIMUIStateProvider
 }
 
 - (void)stop {
-  [self.browser->GetSceneState().tabGridState removeObserver:self];
-
+  if (_isStopping) {
+    return;
+  }
+  _isStopping = YES;
   CobrowseBrowserAgent* agent = CobrowseBrowserAgent::FromBrowser(self.browser);
   if (agent) {
     agent->SetUIStateProvider(nullptr);
@@ -210,15 +215,26 @@ class AssistantAIMUIStateProvider
 
   if (_viewController) {
     _viewController = nil;
-    [self dismissAssistantContainerAnimated:NO];
+    [self dismissAssistantContainerAnimated:NO completion:nil];
   }
   [_activityReporter reportInactive];
+  _activityReporter = nil;
+  _isStopping = NO;
 }
 
 - (void)setVisible:(BOOL)visible {
+  [self setVisible:visible inMinimizedState:NO];
+}
+
+- (void)setVisible:(BOOL)visible inMinimizedState:(BOOL)minimized {
   if (visible) {
     [self dismissSnackbars];
     if (_viewController) {
+      [_mediator updateContext];
+      if (minimized) {
+        _currentDetent = AssistantContainerDetent::kMinimized;
+      }
+
       AssistantContainerDetent targetDetent = _currentDetent;
       [_containerHandler showAssistantContainerWithContent:_viewController
                                                   delegate:self];
@@ -235,7 +251,7 @@ class AssistantAIMUIStateProvider
     }
   } else {
     _isHiding = YES;
-    [self dismissAssistantContainerAnimated:YES];
+    [self dismissAssistantContainerAnimated:YES completion:nil];
     [_activityReporter reportInactive];
   }
 }
@@ -246,16 +262,6 @@ class AssistantAIMUIStateProvider
   return self.browser->GetSceneState().tabGridState.tabGridVisible;
 }
 
-#pragma mark - TabGridStateObserving
-
-- (void)willEnterTabGrid {
-  [self setVisible:NO];
-}
-
-- (void)willExitTabGrid {
-  [self setVisible:YES];
-}
-
 #pragma mark - AssistantAIMViewControllerDelegate
 
 - (void)assistantAIMViewControllerDidTapClose:
@@ -264,17 +270,37 @@ class AssistantAIMUIStateProvider
   // Initially the assistant is only hidden, the actual closing happens after
   // the snackbar dismisses and the undo window elapses.
   _isHiding = YES;
-  [self dismissAssistantContainerAnimated:YES];
-  [self showUndoSnackbar];
+  __weak __typeof(self) weakSelf = self;
+  [self dismissAssistantContainerAnimated:YES
+                               completion:^{
+                                 [weakSelf showUndoSnackbar];
+                               }];
 }
 
 - (void)assistantAIMViewController:(AssistantAIMViewController*)viewController
        didShowKeyboardWithDuration:(NSTimeInterval)duration
                              curve:(UIViewAnimationCurve)curve {
-  [_containerHandler
-      animateAssistantContainerToDetent:AssistantContainerDetent::kLarge
-                               duration:duration
-                                  curve:curve];
+  // Only expand the assistant sheet if the focused field (main responder) is
+  // inside the main view.
+  UIView* responder = base::apple::ObjCCast<UIView>(GetFirstResponder());
+  if (!responder.window) {
+    return;
+  }
+
+  UIView* containerView = _viewController.view;
+  UIView* relevantView = responder;
+
+  while (relevantView) {
+    if ([relevantView isDescendantOfView:containerView]) {
+      [_containerHandler
+          animateAssistantContainerToDetent:AssistantContainerDetent::kLarge
+                                   duration:duration
+                                      curve:curve];
+      return;
+    }
+
+    relevantView = relevantView.superview;
+  }
 }
 
 - (void)assistantAIMViewControllerDidHideKeyboard:
@@ -311,22 +337,28 @@ class AssistantAIMUIStateProvider
 }
 
 // Dismisses the assistant container safely.
-- (void)dismissAssistantContainerAnimated:(BOOL)animated {
-  if (self.browser) {
-    CommandDispatcher* dispatcher = self.browser->GetCommandDispatcher();
-    if ([dispatcher
-            dispatchingForProtocol:@protocol(AssistantContainerCommands)]) {
-      id<AssistantContainerCommands> containerHandler =
-          HandlerForProtocol(dispatcher, AssistantContainerCommands);
-      [containerHandler dismissAssistantContainerAnimated:animated
-                                               completion:nil];
+- (void)dismissAssistantContainerAnimated:(BOOL)animated
+                               completion:(ProceduralBlock)completion {
+  if (!self.browser) {
+    if (completion) {
+      completion();
     }
+    return;
+  }
+
+  CommandDispatcher* dispatcher = self.browser->GetCommandDispatcher();
+  if ([dispatcher
+          dispatchingForProtocol:@protocol(AssistantContainerCommands)]) {
+    id<AssistantContainerCommands> containerHandler =
+        HandlerForProtocol(dispatcher, AssistantContainerCommands);
+    [containerHandler dismissAssistantContainerAnimated:animated
+                                             completion:completion];
   }
 }
 
 // Closes the assistant.
 - (void)closeAssistant {
-  if (!self.browser) {
+  if (!self.browser || _isStopping) {
     return;
   }
   id<SceneCommands> sceneHandler =
@@ -397,7 +429,7 @@ class AssistantAIMUIStateProvider
 
 - (void)assistantContainer:(AssistantContainerViewController*)container
       didDisappearAnimated:(BOOL)animated {
-  if (_isHiding) {
+  if (_isHiding || _isStopping) {
     _isHiding = NO;
     return;
   }
@@ -431,7 +463,7 @@ class AssistantAIMUIStateProvider
 - (void)assistantContainerDidRequestDismissal:
     (AssistantContainerViewController*)container {
   [_mediator endSession];
-  [self dismissAssistantContainerAnimated:YES];
+  [self dismissAssistantContainerAnimated:YES completion:nil];
 }
 
 #pragma mark - AssistantAIMMediatorDelegate
@@ -465,6 +497,11 @@ class AssistantAIMUIStateProvider
   return [_viewController shouldPauseScrollView:scrollView
                                      forGesture:otherGesture
                               isInLargestDetent:isInLargestDetent];
+}
+
+- (BOOL)assistantContainer:(AssistantContainerViewController*)container
+    shouldInterceptPanGesture:(UIPanGestureRecognizer*)gesture {
+  return [_viewController shouldInterceptPanGesture:gesture];
 }
 
 #pragma mark - AssistantAIMViewControllerDelegate

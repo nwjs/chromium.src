@@ -66,6 +66,12 @@ IN_PROC_BROWSER_TEST_F(InputOnVizBrowserTest, TransfersStateOnTouchDown) {
     render_frame_submission_observer.WaitForAnyFrameSubmission();
   }
 
+  // Ensure the EventForwarder Java peer is instantiated. In C++ browser tests,
+  // the EventForwarder Java object is uninitialized unless explicitly
+  // requested, which is required for GetCurrentTouchSequenceOffset JNI calls
+  // during touch transfer.
+  shell()->web_contents()->GetNativeView()->GetEventForwarder();
+
   auto* view = static_cast<RenderWidgetHostViewAndroid*>(
       shell()->web_contents()->GetRenderWidgetHostView());
   ASSERT_NE(view, nullptr);

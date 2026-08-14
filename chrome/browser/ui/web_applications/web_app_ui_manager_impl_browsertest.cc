@@ -45,7 +45,7 @@ class WebAppUiManagerImplBrowserTest : public InProcessBrowserTest {
         WebAppProvider::GetForTest(profile()));
   }
 
-  Profile* profile() { return browser()->profile(); }
+  Profile* profile() { return browser()->GetProfile(); }
 
   webapps::AppId InstallWebApp(const GURL& start_url) {
     auto web_app_info =
@@ -185,7 +185,7 @@ IN_PROC_BROWSER_TEST_F(
 IN_PROC_BROWSER_TEST_F(WebAppUiManagerImplBrowserTest, MigrateAppAttribute) {
   app_list::AppListSyncableService* app_list_service =
       app_list::AppListSyncableServiceFactory::GetForProfile(
-          browser()->profile());
+          browser()->GetProfile());
 
   // Install an old app to be replaced.
   webapps::AppId old_app_id = test::InstallDummyWebApp(

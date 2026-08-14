@@ -9,8 +9,8 @@
 
 #include "base/check_op.h"
 #include "base/functional/bind.h"
-#include "base/functional/function_ref.h"
-#include "base/logging.h"
+#include "base/metrics/user_metrics.h"
+#include "base/metrics/user_metrics_action.h"
 #include "base/time/time.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/glic/browser_ui/glic_vector_icon_manager.h"
@@ -20,7 +20,6 @@
 #include "components/vector_icons/vector_icons.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
@@ -92,7 +91,7 @@ constexpr int kMenuItemHorizontalMargin = 6;
 // Timing specifications.
 
 // Radius constants.
-constexpr int kToolbarCornerRadius = 12;
+constexpr int kToolbarCornerRadius = 10;
 constexpr int kExpandButtonHoverRadius = 8;
 constexpr int kCloseButtonHoverRadius = kCloseButtonSize / 2;
 constexpr int kMenuItemHoverCornerRadius = 4;
@@ -157,11 +156,9 @@ class IndigoOverlayLayoutManager : public views::LayoutManagerBase {
     gfx::Insets insets = child->GetInsets();
 
     if (tracked_rect && !tracked_rect->IsEmpty() && corner_offset) {
-      gfx::Point top_right = tracked_rect->top_right();
-      gfx::Point toolbar_top_right = top_right + *corner_offset;
-      return gfx::Point(
-          toolbar_top_right.x() - preferred_size.width() + insets.right(),
-          toolbar_top_right.y() - insets.top());
+      gfx::Point origin = tracked_rect->top_right() + *corner_offset;
+      origin.Offset(insets.right() - preferred_size.width(), -insets.top());
+      return origin;
     }
     return gfx::Point(kToolbarInitialOffset, kToolbarInitialOffset);
   }
@@ -745,6 +742,7 @@ void IndigoToolbar::OnExpandButtonInteractionChanged(bool interacting) {
 }
 
 void IndigoToolbar::OnCloseButtonClicked() {
+  base::RecordAction(base::UserMetricsAction("Indigo.Toolbar.Close"));
   Hide();
   if (delegate_) {
     delegate_->OnClose(this);
@@ -752,6 +750,7 @@ void IndigoToolbar::OnCloseButtonClicked() {
 }
 
 void IndigoToolbar::OnExpandButtonClicked() {
+  base::RecordAction(base::UserMetricsAction("Indigo.Toolbar.Expand"));
   views::View* view = view_tracker_.view();
   if (!view) {
     return;
@@ -765,14 +764,17 @@ void IndigoToolbar::OnExpandButtonClicked() {
 }
 
 void IndigoToolbar::OnRegenerateButtonClicked() {
+  SetPresentationState(PresentationState::kCollapsed, kInitialAutoCompactDelay);
   delegate_->OnRegenerate(this);
 }
 
 void IndigoToolbar::OnReplacePhotoClicked() {
+  SetPresentationState(PresentationState::kCollapsed, kInitialAutoCompactDelay);
   delegate_->OnReplaceOriginalPhoto(this);
 }
 
 void IndigoToolbar::OnDeletePhotoClicked() {
+  SetPresentationState(PresentationState::kCollapsed, kInitialAutoCompactDelay);
   delegate_->OnDeleteOriginalPhoto(this);
 }
 

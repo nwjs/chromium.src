@@ -138,14 +138,14 @@ class PDFExtensionDownloadTest : public base::test::WithFeatureOverride,
   void SetUpOnMainThread() override {
     PDFExtensionTestBase::SetUpOnMainThread();
 
-    browser()->profile()->GetPrefs()->SetBoolean(prefs::kPromptForDownload,
-                                                 false);
+    browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kPromptForDownload,
+                                                    false);
     DownloadPrefs::FromDownloadManager(GetDownloadManager())
         ->ResetAutoOpenByUser();
 
     file_activity_observer_ =
         std::make_unique<DownloadTestFileActivityObserver>(
-            browser()->profile());
+            browser()->GetProfile());
     file_activity_observer_->EnableFileChooser(true);
   }
 
@@ -184,7 +184,7 @@ class PDFExtensionDownloadTest : public base::test::WithFeatureOverride,
 
  private:
   content::DownloadManager* GetDownloadManager() {
-    return browser()->profile()->GetDownloadManager();
+    return browser()->GetProfile()->GetDownloadManager();
   }
 
   std::unique_ptr<content::DownloadTestObserver> CreateDownloadWaiter() {

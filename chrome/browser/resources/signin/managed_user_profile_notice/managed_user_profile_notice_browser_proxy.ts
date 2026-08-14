@@ -22,6 +22,7 @@ export enum State {
   ERROR = 4,
   VALUE_PROPOSITION = 5,
   USER_DATA_HANDLING = 6,
+  SIGNALS_DISCLAIMER = 7,
 }
 
 // LINT.IfChange(ScreenType)
@@ -72,6 +73,12 @@ export interface ManagedUserProfileNoticeBrowserProxy {
    */
   cancel(): void;
 
+  /**
+   * Called when the user clicks `Learn more` link on the signals disclaimer
+   * screen.
+   */
+  learnMoreClicked(): void;
+
   matchMedia(query: string): MediaQueryList;
 }
 
@@ -104,6 +111,10 @@ export class ManagedUserProfileNoticeBrowserProxyImpl implements
 
   matchMedia(query: string): MediaQueryList {
     return window.matchMedia(query);
+  }
+
+  learnMoreClicked() {
+    chrome.send('learnMoreClicked');
   }
 }
 

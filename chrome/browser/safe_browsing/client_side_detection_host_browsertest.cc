@@ -31,8 +31,8 @@
 #include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/content/browser/client_side_detection_feature_cache.h"
 #include "components/safe_browsing/content/browser/client_side_detection_service.h"
-#include "components/safe_browsing/content/browser/credit_card_form_event.h"
 #include "components/safe_browsing/content/browser/ui_manager.h"
+#include "components/safe_browsing/core/browser/credit_card_form_event.h"
 #include "components/safe_browsing/core/browser/csd_model_type.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/safe_browsing/core/common/proto/client_model.pb.h"
@@ -65,10 +65,6 @@ using ::testing::StrictMock;
 
 class FakeDelegate : public ClientSideDetectionService::Delegate {
   PrefService* GetPrefs() override { return nullptr; }
-  scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory()
-      override {
-    return nullptr;
-  }
   scoped_refptr<network::SharedURLLoaderFactory>
   GetSafeBrowsingURLLoaderFactory() override {
     return nullptr;
@@ -113,21 +109,23 @@ class FakeClientSideDetectionService : public ClientSideDetectionService {
     client_side_model_ = client_side_model;
   }
 
-  CSDModelType GetModelType() override { return CSDModelType::kFlatbuffer; }
+  CSDModelType GetModelType() const override {
+    return CSDModelType::kFlatbuffer;
+  }
 
-  bool IsModelAvailable() override { return true; }
+  bool IsModelAvailable() const override { return true; }
 
   // This is a fake CSD service which will have no TfLite models.
-  const base::File& GetVisualTfLiteModel() override {
+  const base::File& GetVisualTfLiteModel() const override {
     return visual_tflite_model_;
   }
 
-  int GetClassificationInputHeight() override { return 0; }
-  int GetClassificationInputWidth() override { return 0; }
-  int GetImageEmbeddingInputHeight() override { return 0; }
-  int GetImageEmbeddingInputWidth() override { return 0; }
+  int GetClassificationInputHeight() const override { return 0; }
+  int GetClassificationInputWidth() const override { return 0; }
+  int GetImageEmbeddingInputHeight() const override { return 0; }
+  int GetImageEmbeddingInputWidth() const override { return 0; }
 
-  base::ReadOnlySharedMemoryRegion GetModelSharedMemoryRegion() override {
+  base::ReadOnlySharedMemoryRegion GetModelSharedMemoryRegion() const override {
     base::MappedReadOnlyRegion mapped_region =
         base::ReadOnlySharedMemoryRegion::Create(client_side_model_.length());
     mapped_region.mapping.GetMemoryAsSpan<uint8_t>().copy_from(
@@ -138,7 +136,7 @@ class FakeClientSideDetectionService : public ClientSideDetectionService {
   // This is a fake CSD service which will have no thresholds due to no TfLite
   // models.
   const std::vector<TfLiteModelMetadata::Threshold>&
-  GetVisualTfLiteModelThresholds() override {
+  GetVisualTfLiteModelThresholds() const override {
     return thresholds_;
   }
 
@@ -195,7 +193,8 @@ class PaintObserverWaiter : public content::WebContentsObserver {
     }
   }
 
-  void OnFirstContentfulPaintInPrimaryMainFrame() override {
+  void OnFirstContentfulPaintInPrimaryMainFrame(
+      base::TimeTicks presentation_time) override {
     did_fcp_ = true;
     if (did_paint_) {
       run_loop_.Quit();
@@ -372,7 +371,7 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostPrerenderBrowserTest,
   }
 
   if (base::FeatureList::IsEnabled(kClientSideDetectionOnlyESBClassification)) {
-    SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+    SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                          SafeBrowsingState::ENHANCED_PROTECTION);
   }
 
@@ -385,7 +384,8 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostPrerenderBrowserTest,
   std::unique_ptr<ClientSideDetectionHost> csd_host =
       ChromeClientSideDetectionHostDelegate::CreateHost(
           browser()->tab_strip_model()->GetActiveWebContents());
-  csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+  csd_host->set_client_side_detection_service_for_testing(
+      fake_csd_service.GetWeakPtr());
   csd_host->set_ui_manager(mock_ui_manager.get());
 
   fake_csd_service.SendModelToRenderers();
@@ -444,7 +444,7 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostPrerenderBrowserTest,
   }
 
   if (base::FeatureList::IsEnabled(kClientSideDetectionOnlyESBClassification)) {
-    SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+    SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                          SafeBrowsingState::ENHANCED_PROTECTION);
   }
 
@@ -454,7 +454,8 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostPrerenderBrowserTest,
   auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
   std::unique_ptr<ClientSideDetectionHost> csd_host =
       ChromeClientSideDetectionHostDelegate::CreateHost(web_contents);
-  csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+  csd_host->set_client_side_detection_service_for_testing(
+      fake_csd_service.GetWeakPtr());
 
   fake_csd_service.SendModelToRenderers();
 
@@ -515,7 +516,7 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostPrerenderBrowserTest,
   }
 
   if (base::FeatureList::IsEnabled(kClientSideDetectionOnlyESBClassification)) {
-    SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+    SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                          SafeBrowsingState::ENHANCED_PROTECTION);
   }
 
@@ -528,7 +529,8 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostPrerenderBrowserTest,
   std::unique_ptr<ClientSideDetectionHost> csd_host =
       ChromeClientSideDetectionHostDelegate::CreateHost(
           browser()->tab_strip_model()->GetActiveWebContents());
-  csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+  csd_host->set_client_side_detection_service_for_testing(
+      fake_csd_service.GetWeakPtr());
   csd_host->set_ui_manager(mock_ui_manager.get());
 
   fake_csd_service.SendModelToRenderers();
@@ -588,7 +590,8 @@ class ClientSideDetectionHostPrerenderBrowserTest_Screenshot
     std::unique_ptr<ClientSideDetectionHost> csd_host =
         ChromeClientSideDetectionHostDelegate::CreateHost(
             browser()->tab_strip_model()->GetActiveWebContents());
-    csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+    csd_host->set_client_side_detection_service_for_testing(
+        fake_csd_service.GetWeakPtr());
 
     fake_csd_service.SendModelToRenderers();
 
@@ -727,7 +730,7 @@ IN_PROC_BROWSER_TEST_F(
     GTEST_SKIP();
   }
 
-  SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+  SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                        SafeBrowsingState::ENHANCED_PROTECTION);
 
   FakeClientSideDetectionService fake_csd_service;
@@ -739,7 +742,8 @@ IN_PROC_BROWSER_TEST_F(
   std::unique_ptr<ClientSideDetectionHost> csd_host =
       ChromeClientSideDetectionHostDelegate::CreateHost(
           browser()->tab_strip_model()->GetActiveWebContents());
-  csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+  csd_host->set_client_side_detection_service_for_testing(
+      fake_csd_service.GetWeakPtr());
   csd_host->set_ui_manager(mock_ui_manager.get());
 
   fake_csd_service.SendModelToRenderers();
@@ -808,7 +812,7 @@ IN_PROC_BROWSER_TEST_F(
     GTEST_SKIP();
   }
 
-  SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+  SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                        SafeBrowsingState::ENHANCED_PROTECTION);
 
   ClientSideDetectionFeatureCache* feature_cache_map =
@@ -823,7 +827,8 @@ IN_PROC_BROWSER_TEST_F(
   std::unique_ptr<ClientSideDetectionHost> csd_host =
       ChromeClientSideDetectionHostDelegate::CreateHost(
           browser()->tab_strip_model()->GetActiveWebContents());
-  csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+  csd_host->set_client_side_detection_service_for_testing(
+      fake_csd_service.GetWeakPtr());
   csd_host->set_ui_manager(mock_ui_manager.get());
 
   fake_csd_service.SendModelToRenderers();
@@ -893,7 +898,7 @@ IN_PROC_BROWSER_TEST_F(
     GTEST_SKIP();
   }
 
-  SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+  SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                        SafeBrowsingState::ENHANCED_PROTECTION);
 
   base::HistogramTester histogram_tester;
@@ -907,7 +912,8 @@ IN_PROC_BROWSER_TEST_F(
   std::unique_ptr<ClientSideDetectionHost> csd_host =
       ChromeClientSideDetectionHostDelegate::CreateHost(
           browser()->tab_strip_model()->GetActiveWebContents());
-  csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+  csd_host->set_client_side_detection_service_for_testing(
+      fake_csd_service.GetWeakPtr());
   csd_host->set_ui_manager(mock_ui_manager.get());
   fake_csd_service.SendModelToRenderers();
 
@@ -942,7 +948,7 @@ IN_PROC_BROWSER_TEST_F(
     GTEST_SKIP();
   }
 
-  SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+  SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                        SafeBrowsingState::ENHANCED_PROTECTION);
 
   base::HistogramTester histogram_tester;
@@ -956,7 +962,8 @@ IN_PROC_BROWSER_TEST_F(
   std::unique_ptr<ClientSideDetectionHost> csd_host =
       ChromeClientSideDetectionHostDelegate::CreateHost(
           browser()->tab_strip_model()->GetActiveWebContents());
-  csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+  csd_host->set_client_side_detection_service_for_testing(
+      fake_csd_service.GetWeakPtr());
   csd_host->set_ui_manager(mock_ui_manager.get());
   fake_csd_service.SendModelToRenderers();
 
@@ -1090,7 +1097,7 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostVibrateTest,
   if (base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)) {
     GTEST_SKIP();
   }
-  SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+  SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                        SafeBrowsingState::ENHANCED_PROTECTION);
 
   base::HistogramTester histogram_tester;
@@ -1104,7 +1111,8 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostVibrateTest,
   std::unique_ptr<ClientSideDetectionHost> csd_host =
       ChromeClientSideDetectionHostDelegate::CreateHost(
           browser()->tab_strip_model()->GetActiveWebContents());
-  csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+  csd_host->set_client_side_detection_service_for_testing(
+      fake_csd_service.GetWeakPtr());
   csd_host->set_ui_manager(mock_ui_manager.get());
   fake_csd_service.SendModelToRenderers();
 
@@ -1152,7 +1160,7 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostVibrateTest,
   if (base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)) {
     GTEST_SKIP();
   }
-  SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+  SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                        SafeBrowsingState::ENHANCED_PROTECTION);
 
   base::HistogramTester histogram_tester;
@@ -1166,7 +1174,8 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostVibrateTest,
   std::unique_ptr<ClientSideDetectionHost> csd_host =
       ChromeClientSideDetectionHostDelegate::CreateHost(
           browser()->tab_strip_model()->GetActiveWebContents());
-  csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+  csd_host->set_client_side_detection_service_for_testing(
+      fake_csd_service.GetWeakPtr());
   csd_host->set_ui_manager(mock_ui_manager.get());
   fake_csd_service.SendModelToRenderers();
 
@@ -1209,7 +1218,7 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostVibrateTest,
 
 class ClientSideDetectionHostClipboardTest
     : public InProcessBrowserTest,
-      public testing::WithParamInterface<std::tuple<std::string_view, bool>> {
+      public testing::WithParamInterface<std::string_view> {
  public:
   ClientSideDetectionHostClipboardTest() {
     scoped_feature_list_.InitAndEnableFeatureWithParameters(
@@ -1218,8 +1227,7 @@ class ClientSideDetectionHostClipboardTest
          {kCsdClipboardCopyApiSampleRate.name, "1.0"},
          {kCsdClipboardCopyApiMinLength.name, "30"},
          {kCsdClipboardCopyApiMaxLength.name, "50"},
-         {kCSDClipboardCopyApiProcessPayload.name,
-          ShouldProcessClipboardPayload() ? "true" : "false"}});
+         {kCSDClipboardCopyApiProcessPayload.name, "true"}});
   }
 
   ClientSideDetectionHostClipboardTest(
@@ -1234,7 +1242,7 @@ class ClientSideDetectionHostClipboardTest
     ASSERT_TRUE(embedded_test_server()->Start());
 
     content::PermissionController* permission_controller =
-        browser()->profile()->GetPermissionController();
+        browser()->GetProfile()->GetPermissionController();
     url::Origin origin =
         url::Origin::Create(embedded_test_server()->GetURL("/title1.html"));
     content::SetPermissionControllerOverride(
@@ -1277,14 +1285,10 @@ class ClientSideDetectionHostClipboardTest
     std::move(clipboard_copy_done).Run();
   }
 
-  bool ShouldProcessClipboardPayload() { return testing::get<1>(GetParam()); }
-
   base::test::ScopedFeatureList scoped_feature_list_;
 
  private:
-  std::string_view GetClipboardCopyScript() {
-    return testing::get<0>(GetParam());
-  }
+  std::string_view GetClipboardCopyScript() { return GetParam(); }
 
   std::string flatbuffer_model_str_;
 };
@@ -1292,11 +1296,9 @@ class ClientSideDetectionHostClipboardTest
 INSTANTIATE_TEST_SUITE_P(
     All,
     ClientSideDetectionHostClipboardTest,
-    ::testing::Combine(
-        ::testing::Values(
-            ClientSideDetectionHostClipboardTest::kClipboardApiScriptTemplate,
-            ClientSideDetectionHostClipboardTest::kDocumentExecScriptTemplate),
-        testing::Bool()));
+    ::testing::Values(
+        ClientSideDetectionHostClipboardTest::kClipboardApiScriptTemplate,
+        ClientSideDetectionHostClipboardTest::kDocumentExecScriptTemplate));
 
 class ClipboardObserverWaiter : public content::WebContentsObserver {
  public:
@@ -1327,7 +1329,7 @@ IN_PROC_BROWSER_TEST_P(ClientSideDetectionHostClipboardTest,
   if (base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)) {
     GTEST_SKIP();
   }
-  SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+  SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                        SafeBrowsingState::ENHANCED_PROTECTION);
 
   base::HistogramTester histogram_tester;
@@ -1341,7 +1343,8 @@ IN_PROC_BROWSER_TEST_P(ClientSideDetectionHostClipboardTest,
   std::unique_ptr<ClientSideDetectionHost> csd_host =
       ChromeClientSideDetectionHostDelegate::CreateHost(
           browser()->tab_strip_model()->GetActiveWebContents());
-  csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+  csd_host->set_client_side_detection_service_for_testing(
+      fake_csd_service.GetWeakPtr());
   csd_host->set_ui_manager(mock_ui_manager.get());
   fake_csd_service.SendModelToRenderers();
 
@@ -1372,7 +1375,7 @@ IN_PROC_BROWSER_TEST_P(ClientSideDetectionHostClipboardTest,
   histogram_tester.ExpectUniqueSample(
       "SBClientPhishing.ClipboardCopyApi.PayloadLength", 36, 2);
   histogram_tester.ExpectTotalCount(
-      "SBClientPhishing.PreClassificationCheckResult.ClipboardCopyApi", 2);
+      "SBClientPhishing.PreClassificationCheckResult.ClipboardCopyApi", 0);
 }
 
 IN_PROC_BROWSER_TEST_P(ClientSideDetectionHostClipboardTest,
@@ -1380,7 +1383,7 @@ IN_PROC_BROWSER_TEST_P(ClientSideDetectionHostClipboardTest,
   if (base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)) {
     GTEST_SKIP();
   }
-  SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+  SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                        SafeBrowsingState::ENHANCED_PROTECTION);
 
   base::HistogramTester histogram_tester;
@@ -1394,7 +1397,8 @@ IN_PROC_BROWSER_TEST_P(ClientSideDetectionHostClipboardTest,
   std::unique_ptr<ClientSideDetectionHost> csd_host =
       ChromeClientSideDetectionHostDelegate::CreateHost(
           browser()->tab_strip_model()->GetActiveWebContents());
-  csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+  csd_host->set_client_side_detection_service_for_testing(
+      fake_csd_service.GetWeakPtr());
   csd_host->set_ui_manager(mock_ui_manager.get());
   fake_csd_service.SendModelToRenderers();
 
@@ -1456,7 +1460,6 @@ IN_PROC_BROWSER_TEST_P(ClientSideDetectionHostClipboardTest,
 
   EXPECT_EQ(fake_csd_service.saved_request().http_response_code(), 200);
 
-  if (ShouldProcessClipboardPayload()) {
     EXPECT_TRUE(
         fake_csd_service.saved_request().has_clipboard_extracted_data());
     const ClipboardExtractedData& clipboardExtractedData =
@@ -1466,43 +1469,33 @@ IN_PROC_BROWSER_TEST_P(ClientSideDetectionHostClipboardTest,
     EXPECT_TRUE(clipboardExtractedData.is_first_token_suspicious());
     EXPECT_TRUE(clipboardExtractedData.is_last_token_suspicious());
     histogram_tester.ExpectTotalCount(
-        "SBClientPhishing.ClipboardCopyApi.PayloadExtraction.TokenCount", 1);
+        "SBClientPhishing.ClipboardCopyApi.PayloadExtraction.TokenCount", 2);
     histogram_tester.ExpectUniqueSample(
-        "SBClientPhishing.ClipboardCopyApi.PayloadExtraction.TokenCount", 3, 1);
+        "SBClientPhishing.ClipboardCopyApi.PayloadExtraction.TokenCount", 3, 2);
     histogram_tester.ExpectUniqueSample(
         "SBClientPhishing.ClipboardCopyApi.PayloadExtraction."
         "SuspiciousTokenCount",
-        2, 1);
+        2, 2);
     histogram_tester.ExpectTotalCount(
         "SBClientPhishing.ClipboardCopyApi.PayloadExtraction."
         "SuspiciousTokenCount",
-        1);
-  } else {
-    EXPECT_FALSE(
-        fake_csd_service.saved_request().has_clipboard_extracted_data());
+        2);
+
+    // Expect an interstitial to be shown.
+    EXPECT_CALL(*mock_ui_manager, DisplayBlockingPage(_));
+
+    ASSERT_FALSE(fake_csd_service.saved_callback_is_null());
+    std::move(fake_csd_service.saved_callback())
+        .Run(initial_url, true, net::HTTP_OK, std::nullopt);
+
     histogram_tester.ExpectTotalCount(
-        "SBClientPhishing.ClipboardCopyApi.PayloadExtraction.TokenCount", 0);
+        "SBClientPhishing.PhishingDetectorResult.ClipboardCopyApi", 1);
     histogram_tester.ExpectTotalCount(
-        "SBClientPhishing.ClipboardCopyApi.PayloadExtraction."
-        "SuspiciousTokenCount",
-        0);
-  }
-
-  // Expect an interstitial to be shown.
-  EXPECT_CALL(*mock_ui_manager, DisplayBlockingPage(_));
-
-  ASSERT_FALSE(fake_csd_service.saved_callback_is_null());
-  std::move(fake_csd_service.saved_callback())
-      .Run(initial_url, true, net::HTTP_OK, std::nullopt);
-
-  histogram_tester.ExpectTotalCount(
-      "SBClientPhishing.PhishingDetectorResult.ClipboardCopyApi", 1);
-  histogram_tester.ExpectTotalCount(
-      "SBClientPhishing.ClientSideDetectionTypeRequest", 1);
-  histogram_tester.ExpectTotalCount(
-      "SBClientPhishing.ServerModelDetectsPhishing.ClipboardCopyApi", 1);
-  histogram_tester.ExpectTotalCount(
-      "SBClientPhishing.ClipboardCopyApi.PayloadLength", 2);
+        "SBClientPhishing.ClientSideDetectionTypeRequest", 1);
+    histogram_tester.ExpectTotalCount(
+        "SBClientPhishing.ServerModelDetectsPhishing.ClipboardCopyApi", 1);
+    histogram_tester.ExpectTotalCount(
+        "SBClientPhishing.ClipboardCopyApi.PayloadLength", 2);
 }
 
 IN_PROC_BROWSER_TEST_P(
@@ -1511,7 +1504,7 @@ IN_PROC_BROWSER_TEST_P(
   if (base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)) {
     GTEST_SKIP();
   }
-  SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+  SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                        SafeBrowsingState::ENHANCED_PROTECTION);
 
   base::HistogramTester histogram_tester;
@@ -1551,7 +1544,7 @@ IN_PROC_BROWSER_TEST_P(
   if (base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)) {
     GTEST_SKIP();
   }
-  SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+  SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                        SafeBrowsingState::ENHANCED_PROTECTION);
 
   base::HistogramTester histogram_tester;
@@ -1719,7 +1712,7 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostCreditCardFormTest,
   if (base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)) {
     GTEST_SKIP();
   }
-  SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+  SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                        SafeBrowsingState::ENHANCED_PROTECTION);
 
   base::HistogramTester histogram_tester;
@@ -1733,7 +1726,8 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostCreditCardFormTest,
   std::unique_ptr<ClientSideDetectionHost> csd_host =
       ChromeClientSideDetectionHostDelegate::CreateHost(
           browser()->tab_strip_model()->GetActiveWebContents());
-  csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+  csd_host->set_client_side_detection_service_for_testing(
+      fake_csd_service.GetWeakPtr());
   csd_host->set_ui_manager(mock_ui_manager.get());
   fake_csd_service.SendModelToRenderers();
 
@@ -1761,7 +1755,7 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostCreditCardFormTriggerDisabledTest,
   if (base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)) {
     GTEST_SKIP();
   }
-  SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+  SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                        SafeBrowsingState::ENHANCED_PROTECTION);
 
   base::HistogramTester histogram_tester;
@@ -1775,7 +1769,8 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostCreditCardFormTriggerDisabledTest,
   std::unique_ptr<ClientSideDetectionHost> csd_host =
       ChromeClientSideDetectionHostDelegate::CreateHost(
           browser()->tab_strip_model()->GetActiveWebContents());
-  csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+  csd_host->set_client_side_detection_service_for_testing(
+      fake_csd_service.GetWeakPtr());
   csd_host->set_ui_manager(mock_ui_manager.get());
   fake_csd_service.SendModelToRenderers();
 
@@ -1813,7 +1808,7 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostCreditCardFormDetectionOnlyTest,
   if (base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)) {
     GTEST_SKIP();
   }
-  SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+  SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                        SafeBrowsingState::ENHANCED_PROTECTION);
 
   base::HistogramTester histogram_tester;
@@ -1827,7 +1822,8 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostCreditCardFormDetectionOnlyTest,
   std::unique_ptr<ClientSideDetectionHost> csd_host =
       ChromeClientSideDetectionHostDelegate::CreateHost(
           browser()->tab_strip_model()->GetActiveWebContents());
-  csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+  csd_host->set_client_side_detection_service_for_testing(
+      fake_csd_service.GetWeakPtr());
   csd_host->set_ui_manager(mock_ui_manager.get());
   fake_csd_service.SendModelToRenderers();
 
@@ -1852,7 +1848,7 @@ IN_PROC_BROWSER_TEST_F(
   if (base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)) {
     GTEST_SKIP();
   }
-  SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+  SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                        SafeBrowsingState::ENHANCED_PROTECTION);
 
   base::HistogramTester histogram_tester;
@@ -1866,7 +1862,8 @@ IN_PROC_BROWSER_TEST_F(
   std::unique_ptr<ClientSideDetectionHost> csd_host =
       ChromeClientSideDetectionHostDelegate::CreateHost(
           browser()->tab_strip_model()->GetActiveWebContents());
-  csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+  csd_host->set_client_side_detection_service_for_testing(
+      fake_csd_service.GetWeakPtr());
   csd_host->set_ui_manager(mock_ui_manager.get());
   fake_csd_service.SendModelToRenderers();
 
@@ -1913,7 +1910,7 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostCreditCardFormTest,
   if (base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)) {
     GTEST_SKIP();
   }
-  SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+  SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                        SafeBrowsingState::ENHANCED_PROTECTION);
 
   base::HistogramTester histogram_tester;
@@ -1927,7 +1924,8 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostCreditCardFormTest,
   std::unique_ptr<ClientSideDetectionHost> csd_host =
       ChromeClientSideDetectionHostDelegate::CreateHost(
           browser()->tab_strip_model()->GetActiveWebContents());
-  csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+  csd_host->set_client_side_detection_service_for_testing(
+      fake_csd_service.GetWeakPtr());
   csd_host->set_ui_manager(mock_ui_manager.get());
   fake_csd_service.SendModelToRenderers();
 
@@ -1991,7 +1989,7 @@ IN_PROC_BROWSER_TEST_F(
   if (base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)) {
     GTEST_SKIP();
   }
-  SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+  SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                        SafeBrowsingState::ENHANCED_PROTECTION);
 
   base::HistogramTester histogram_tester;
@@ -2005,7 +2003,8 @@ IN_PROC_BROWSER_TEST_F(
   std::unique_ptr<ClientSideDetectionHost> csd_host =
       ChromeClientSideDetectionHostDelegate::CreateHost(
           browser()->tab_strip_model()->GetActiveWebContents());
-  csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+  csd_host->set_client_side_detection_service_for_testing(
+      fake_csd_service.GetWeakPtr());
   csd_host->set_ui_manager(mock_ui_manager.get());
   fake_csd_service.SendModelToRenderers();
 
@@ -2088,7 +2087,7 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostGeminiAntiscamProtectionTest,
     GTEST_SKIP();
   }
   base::HistogramTester histogram_tester;
-  SetSafeBrowsingState(browser()->profile()->GetPrefs(),
+  SetSafeBrowsingState(browser()->GetProfile()->GetPrefs(),
                        SafeBrowsingState::ENHANCED_PROTECTION);
   FakeClientSideDetectionService fake_csd_service;
   fake_csd_service.SetModel(client_side_model());
@@ -2096,7 +2095,8 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostGeminiAntiscamProtectionTest,
   std::unique_ptr<ClientSideDetectionHost> csd_host =
       ChromeClientSideDetectionHostDelegate::CreateHost(
           browser()->tab_strip_model()->GetActiveWebContents());
-  csd_host->set_client_side_detection_service(fake_csd_service.GetWeakPtr());
+  csd_host->set_client_side_detection_service_for_testing(
+      fake_csd_service.GetWeakPtr());
 
   fake_csd_service.SendModelToRenderers();
 

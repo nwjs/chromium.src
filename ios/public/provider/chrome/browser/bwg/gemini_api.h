@@ -23,8 +23,6 @@ class AuthenticationService;
 typedef NS_ENUM(NSInteger, GeminiSettingsContext);
 
 using GeminiEligibilityCallback = void (^)(BOOL eligible);
-// TODO(crbug.com/478259873): Get rid of BWG after internal changes land.
-using BWGEligibilityCallback = GeminiEligibilityCallback;
 
 namespace gemini {
 enum class EntryPoint;
@@ -172,9 +170,6 @@ void ConfigureWithStartupConfiguration(
     GeminiStartupConfiguration* startup_configuration);
 
 // Starts the overlay experience with the given configuration.
-// TODO(crbug.com/478259873): Get rid of BWG after internal changes land. Use
-// `StartGeminiOverlay` is preferable in the meantime.
-void StartBwgOverlay(GeminiConfiguration* gemini_configuration);
 void StartGeminiOverlay(GeminiConfiguration* gemini_configuration);
 
 // Gets the portion of the PageContext script that checks whether PageContext
@@ -182,9 +177,6 @@ void StartGeminiOverlay(GeminiConfiguration* gemini_configuration);
 const std::u16string GetPageContextShouldDetachScript();
 
 // Creates a Gemini gateway object for relaying internal protocols.
-// TODO(crbug.com/478259873): Get rid of BWG after internal changes land. Use
-// `CreateGeminiGateway` is preferable in the meantime
-id<BWGGatewayProtocol> CreateBWGGateway();
 id<BWGGatewayProtocol> CreateGeminiGateway();
 
 // Checks if the feature is disabled through a Gemini Enterprise policy, and
@@ -226,6 +218,11 @@ GeminiSettingsAction* ActionForSettingsContext(GeminiSettingsContext context);
 // viewport.
 void UpdateOverlayOffsetWithOpacity(CGFloat offset, CGFloat opacity);
 
+// Updates Gemini detent heights. `collapsed_height` corresponds to the
+// minimized detent height, and `extended_height` corresponds to the medium
+// detent height.
+void UpdateDetentHeights(CGFloat collapsed_height, CGFloat extended_height);
+
 // TODO(crbug.com/475205334): Remove this method after function below is
 // implemented.
 // Updates Gemini floaty view state.
@@ -262,6 +259,12 @@ bool IsLiveStopButtonHidden();
 // Sets and gets the number of caption lines in Gemini Live mode.
 void SetLiveCaptionsNumberOfLines(int number_of_lines);
 int GetLiveCaptionsNumberOfLines();
+
+// Sets whether the suggestion chips should be shown on the floaty.
+void SetShouldShowSuggestionChips(bool should_show);
+
+// Shows the account snackbar on the Gemini floaty.
+void ShowAccountSnackbar();
 
 // Returns the view controller for the Gemini floaty.
 UIViewController* GetFloatyViewControllerWithConfiguration(

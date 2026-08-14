@@ -35,11 +35,13 @@ import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_C
 import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_CUSTOMIZATION_THEME_COLOR_ID;
 import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_CUSTOMIZATION_THEME_IS_SNACKBAR_SHOWN;
 import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_CUSTOMIZATION_THEME_TIP_BOTTOM_SHEET_SHOWN_TIMESTAMP_MS;
+import static org.chromium.chrome.browser.url_constants.UrlOverrideUtils.isWebUiNtpOverrideEnabled;
 import static org.chromium.components.browser_ui.styles.SemanticColorUtils.getDefaultIconColor;
 
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.AssetFileDescriptor;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.content.res.Resources;
@@ -69,12 +71,15 @@ import androidx.core.widget.ImageViewCompat;
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.color.DynamicColorsOptions;
 
+import org.jni_zero.JNINamespace;
+import org.jni_zero.JniType;
+import org.jni_zero.NativeMethods;
+
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
-import org.chromium.base.TimeUtils;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.BackgroundOnlyAsyncTask;
@@ -91,7 +96,6 @@ import org.chromium.chrome.browser.ntp_customization.theme.theme_collections.Cus
 import org.chromium.chrome.browser.ntp_customization.theme.upload_image.BackgroundImageInfo;
 import org.chromium.chrome.browser.ntp_customization.theme.upload_image.CropImageUtils;
 import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataBase;
-import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataUploadImage;
 import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataUtils;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
@@ -110,15 +114,18 @@ import org.chromium.ui.edge_to_edge.EdgeToEdgeStateProvider;
 import org.chromium.ui.util.ColorUtils;
 import org.chromium.url.GURL;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.nio.file.Paths;
 import java.util.concurrent.Executor;
 
 /** Utility class of the NTP customization. */
 @NullMarked
+@JNINamespace("ntp_customization")
 public class NtpCustomizationUtils {
 
     // LINT.IfChange(NtpBackgroundType)
@@ -161,27 +168,32 @@ public class NtpCustomizationUtils {
     }
 
     private static class ImageLoadResult {
-        public final @Nullable Bitmap bitmap;
+        public final byte @Nullable [] data;
         public final String fileIdHash;
 
-        ImageLoadResult(@Nullable Bitmap bitmap, String fileIdHash) {
-            this.bitmap = bitmap;
+        ImageLoadResult(byte @Nullable [] data, String fileIdHash) {
+            this.data = data;
             this.fileIdHash = fileIdHash;
         }
     }
 
-    /** The time duration limit to refresh NTP's background. */
-    @VisibleForTesting
-    static final long DEFAULT_DAILY_REFRESH_HOURS_MS = TimeUtils.MILLISECONDS_PER_DAY;
+    // Maximum allowed byte size for user-uploaded custom background images (25 MiB) to prevent
+    // memory exhaustion.
+    private static final int MAX_IMAGE_BYTES = 25 * 1024 * 1024;
+    // Initial in-memory buffer capacity when reading background image stream (1 MiB).
+    private static final int INITIAL_BUFFER_CAPACITY_BYTES = 1024 * 1024;
+    // Chunk size used to read the background image stream (8 KiB).
+    private static final int READ_BUFFER_SIZE_BYTES = 8192;
+
+    public static final String NTP_UPLOAD_IMAGES_DIR = "upload_images";
+    public static final String NTP_THEME_COLLECTION_IMAGES_DIR = "theme_collection_images";
 
     @VisibleForTesting static final String NTP_BACKGROUND_IMAGE_FILE = "ntp_background_image";
-    @VisibleForTesting static final String NTP_UPLOAD_IMAGES_DIR = "upload_images";
 
     @VisibleForTesting
     static final String NTP_BACKGROUND_IMAGE_FILE_FOR_DAILY_REFRESH =
             "ntp_background_image_for_daily_refresh";
 
-    private static final int MAX_IMAGE_SIZE = 2556;
     private static final int IMAGE_SIZE_FOR_EXTRACTING_COLOR = 100;
     private static final String TAG = "NtpCustomization";
     private static final String DELIMITER = "|";
@@ -327,6 +339,10 @@ public class NtpCustomizationUtils {
     public static boolean isNtpThemeCustomizationEnabled(
             WindowAndroid windowAndroid, boolean isLff) {
         if (!isNtpThemeCustomizationEnabled()) {
+            return false;
+        }
+
+        if (isWebUiNtpOverrideEnabled()) {
             return false;
         }
 
@@ -500,18 +516,10 @@ public class NtpCustomizationUtils {
     /**
      * Saves the background image.
      *
-     * @param backgroundImageBitmap The bitmap of the background image.
-     * @param ntpBackgroundDataBase The instance of {@link NtpBackgroundDataBase}.
+     * @param backgroundImageBitmap The bitmap of the theme collection or uploaded image.
      */
-    @VisibleForTesting
-    static void saveBackgroundImageFile(
-            @Nullable Bitmap backgroundImageBitmap,
-            @Nullable NtpBackgroundDataBase ntpBackgroundDataBase) {
-        String filePath = null;
-        if (ntpBackgroundDataBase != null
-                && ntpBackgroundDataBase instanceof NtpBackgroundDataUploadImage uploadImageData) {
-            filePath = uploadImageData.getLastUploadImageFilePath();
-        }
+    public static void saveBackgroundImageFile(
+            @Nullable String filePath, @Nullable Bitmap backgroundImageBitmap) {
         File file = getBackgroundImageFileFromPath(filePath);
         saveBitmapImageToFile(backgroundImageBitmap, file);
     }
@@ -632,20 +640,34 @@ public class NtpCustomizationUtils {
     }
 
     /**
-     * Creates a file for the upload image with provided file name. The file will be in the sub
-     * directory NTP_UPLOAD_IMAGES_DIR.
+     * Creates a file for the background theme image with provided file name. The file will be in
+     * the sub directory of dirName.
      *
      * @param fileName The file name of the upload image file to create.
      */
-    public static File createUploadImageFileInDir(String fileName) {
-        File uploadImageDir =
-                new File(ContextUtils.getApplicationContext().getFilesDir(), NTP_UPLOAD_IMAGES_DIR);
+    public static File createThemeImageFileInDir(String fileName, String dirName) {
+        File themeImageDir = new File(ContextUtils.getApplicationContext().getFilesDir(), dirName);
         // Check if the directory already exists; if not, create it.
-        if (!uploadImageDir.exists()) {
-            uploadImageDir.mkdirs();
+        if (!themeImageDir.exists()) {
+            themeImageDir.mkdirs();
         }
 
-        return new File(uploadImageDir, fileName);
+        return new File(themeImageDir, fileName);
+    }
+
+    /**
+     * Gets the original file ID hash from the path of the image file.
+     *
+     * @param filePath The absolute file path of the image file.
+     */
+    public static @Nullable String getFileIdHashFromFilePath(@Nullable String filePath) {
+        if (filePath == null
+                || filePath.isEmpty()
+                || filePath.endsWith(NTP_BACKGROUND_IMAGE_FILE)) {
+            return null;
+        }
+
+        return Paths.get(filePath).getFileName().toString();
     }
 
     /** Returns the file to save the NTP's daily refresh background image. */
@@ -679,12 +701,11 @@ public class NtpCustomizationUtils {
         }
     }
 
-    /** Deletes the entire directory of NTP_UPLOAD_IMAGES_DIR. */
-    public static void deleteUploadImageFileDir() {
-        File uploadImageDir =
-                new File(ContextUtils.getApplicationContext().getFilesDir(), NTP_UPLOAD_IMAGES_DIR);
-        if (uploadImageDir.exists()) {
-            deleteDirectory(uploadImageDir);
+    /** Deletes the entire image file directory. */
+    public static void deleteThemeImageFileDir(String dirName) {
+        File themeImageDir = new File(ContextUtils.getApplicationContext().getFilesDir(), dirName);
+        if (themeImageDir.exists()) {
+            deleteDirectory(themeImageDir);
         }
     }
 
@@ -881,7 +902,7 @@ public class NtpCustomizationUtils {
      *
      * @param bitmap The bitmap from which to extract and save the primary color.
      */
-    static @Nullable @ColorInt Integer pickAndSavePrimaryColor(Bitmap bitmap) {
+    public static @Nullable @ColorInt Integer pickAndSavePrimaryColor(Bitmap bitmap) {
         @ColorInt Integer primaryColor = getContentBasedSeedColor(bitmap);
         if (primaryColor != null) {
             setCustomizedPrimaryColorToSharedPreference(primaryColor.intValue());
@@ -1053,9 +1074,9 @@ public class NtpCustomizationUtils {
     }
 
     /** Gets the background image file path from SharedPreference. */
-    public static String getBackgroundImageFilePathFromSharedPreference() {
+    public static @Nullable String getBackgroundImageFilePathFromSharedPreference() {
         SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
-        return prefsManager.readString(NTP_CUSTOMIZATION_BACKGROUND_IMAGE_FILE_PATH, "");
+        return prefsManager.readString(NTP_CUSTOMIZATION_BACKGROUND_IMAGE_FILE_PATH, null);
     }
 
     /** Sets whether the customized NTP theme snackbar has been shown to the SharedPreference. */
@@ -1116,7 +1137,8 @@ public class NtpCustomizationUtils {
         if (deleteImageFile) {
             deleteBackgroundImageFile(createBackgroundImageFile());
             deleteBackgroundImageFile(createDailyRefreshBackgroundImageFile());
-            deleteUploadImageFileDir();
+            deleteThemeImageFileDir(NTP_UPLOAD_IMAGES_DIR);
+            deleteThemeImageFileDir(NTP_THEME_COLLECTION_IMAGES_DIR);
         }
     }
 
@@ -1481,15 +1503,19 @@ public class NtpCustomizationUtils {
      *     landscape transformation matrices of the image.
      * @param skipSavingPrimaryColor True if color selection and saving are deferred until the
      *     bottom sheet is dismissed.
-     * @param ntpBackgroundData The instance of the {@link NtpBackgroundDataBase}.
+     * @param primaryColor The previously picked primary color if not null.
+     * @param filePath The instance of the {@link NtpBackgroundDataBase}.
      */
     public static @Nullable @ColorInt Integer saveBackgroundInfo(
             @Nullable CustomBackgroundInfo customBackgroundInfo,
-            Bitmap bitmap,
+            @Nullable Bitmap bitmap,
             BackgroundImageInfo backgroundImageInfo,
             boolean skipSavingPrimaryColor,
-            @Nullable NtpBackgroundDataBase ntpBackgroundData) {
-        saveBackgroundImageFile(bitmap, ntpBackgroundData);
+            @Nullable @ColorInt Integer primaryColor,
+            @Nullable String filePath) {
+        if (bitmap != null) {
+            saveBackgroundImageFile(filePath, bitmap);
+        }
 
         if (customBackgroundInfo != null) {
             setCustomBackgroundInfoToSharedPreference(customBackgroundInfo);
@@ -1497,13 +1523,15 @@ public class NtpCustomizationUtils {
             removeCustomBackgroundInfoFromSharedPreference();
         }
 
-        @ColorInt Integer primaryColor = null;
-        if (!skipSavingPrimaryColor) {
-            primaryColor = pickAndSavePrimaryColor(bitmap);
+        @ColorInt Integer primaryColorPicked = null;
+        if (!skipSavingPrimaryColor && bitmap != null) {
+            primaryColorPicked = pickAndSavePrimaryColor(bitmap);
+        } else if (primaryColor != null) {
+            setCustomizedPrimaryColorToSharedPreference(primaryColor);
         }
 
         updateBackgroundImageInfo(backgroundImageInfo);
-        return primaryColor;
+        return primaryColorPicked;
     }
 
     /**
@@ -1660,18 +1688,15 @@ public class NtpCustomizationUtils {
     }
 
     /**
-     * Calculates the adjusted bottom margin for the Logo view in pixels.
-     *
-     * <p>If a shadow is applied to the search box, this method subtracts the shadow's padding from
-     * the margin. This ensures the perceived visual gap between the logo and the search box remains
-     * consistent, regardless of whether the shadow is present.
+     * Calculates the adjusted bottom margin for the Logo view in pixels. Offsets the standard logo
+     * margin against the vertical shadow padding to prevent visual layout shifts regardless of
+     * whether the shadow is visible or not.
      *
      * @param resources Android resources.
      * @return The final adjusted bottom margin in pixels.
      */
     public static int getLogoViewBottomMarginPx(Resources resources) {
-        int bottomMargin = resources.getDimensionPixelSize(R.dimen.ntp_logo_margin_bottom);
-        return bottomMargin;
+        return resources.getDimensionPixelSize(R.dimen.ntp_logo_margin_bottom);
     }
 
     /**
@@ -1712,8 +1737,9 @@ public class NtpCustomizationUtils {
         ntpCustomizationButton.setLayoutParams(layoutParams);
 
         ntpCustomizationButton.setOnClickListener(onClickListener);
-        ntpCustomizationButton.setContentDescription(
-                context.getString(R.string.ntp_customization_title));
+        String contentDescription = context.getString(R.string.ntp_customization_title);
+        ntpCustomizationButton.setContentDescription(contentDescription);
+        ntpCustomizationButton.setTooltipText(contentDescription);
 
         return ntpCustomizationButton;
     }
@@ -1757,25 +1783,41 @@ public class NtpCustomizationUtils {
             @Override
             protected ImageLoadResult doInBackground() {
                 String fileIdHash = NtpBackgroundDataUtils.getMetadataFingerprint(context, uri);
-                try {
-                    // 1. Decode with inJustDecodeBounds=true to check dimensions
-                    BitmapFactory.Options options = new BitmapFactory.Options();
-                    options.inJustDecodeBounds = true;
-                    try (var inputStream = context.getContentResolver().openInputStream(uri)) {
-                        BitmapFactory.decodeStream(inputStream, null, options);
-                    }
-
-                    // 2. Calculate inSampleSize
-                    options.inSampleSize =
-                            calculateInSampleSize(options, MAX_IMAGE_SIZE, MAX_IMAGE_SIZE);
-
-                    // 3. Decode bitmap with inSampleSize set
-                    options.inJustDecodeBounds = false;
-                    try (var inputStream = context.getContentResolver().openInputStream(uri)) {
-                        return new ImageLoadResult(
-                                BitmapFactory.decodeStream(inputStream, null, options), fileIdHash);
+                try (AssetFileDescriptor afd =
+                        context.getContentResolver().openAssetFileDescriptor(uri, "r")) {
+                    if (afd != null) {
+                        long fileLength = afd.getLength();
+                        if (fileLength != AssetFileDescriptor.UNKNOWN_LENGTH
+                                && fileLength > MAX_IMAGE_BYTES) {
+                            Log.w(TAG, "Image exceeds maximum allowed size cap of 25 MiB.");
+                            return new ImageLoadResult(null, fileIdHash);
+                        }
                     }
                 } catch (Exception e) {
+                    // Ignore and proceed to stream read, as some content providers might not
+                    // support openAssetFileDescriptor.
+                }
+
+                try (var inputStream = context.getContentResolver().openInputStream(uri)) {
+                    if (inputStream == null) {
+                        return new ImageLoadResult(null, fileIdHash);
+                    }
+
+                    ByteArrayOutputStream buffer =
+                            new ByteArrayOutputStream(INITIAL_BUFFER_CAPACITY_BYTES);
+                    byte[] data = new byte[READ_BUFFER_SIZE_BYTES];
+                    int nRead;
+                    int totalRead = 0;
+                    while ((nRead = inputStream.read(data, 0, data.length)) != -1) {
+                        totalRead += nRead;
+                        if (totalRead > MAX_IMAGE_BYTES) {
+                            Log.w(TAG, "Image exceeds maximum allowed size cap of 25 MiB.");
+                            return new ImageLoadResult(null, fileIdHash);
+                        }
+                        buffer.write(data, 0, nRead);
+                    }
+                    return new ImageLoadResult(buffer.toByteArray(), fileIdHash);
+                } catch (Exception | OutOfMemoryError e) {
                     Log.e(TAG, "Error reading bitmap from URI", e);
                     return new ImageLoadResult(null, fileIdHash);
                 }
@@ -1783,30 +1825,17 @@ public class NtpCustomizationUtils {
 
             @Override
             protected void onPostExecute(ImageLoadResult result) {
-                callback.onImageLoaded(result.bitmap, result.fileIdHash);
+                byte @Nullable [] data = result.data;
+                if (data == null) {
+                    callback.onImageLoaded(null, result.fileIdHash);
+                    return;
+                }
+
+                NtpCustomizationUtilsJni.get()
+                        .decodeImage(
+                                data, bitmap -> callback.onImageLoaded(bitmap, result.fileIdHash));
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-    }
-
-    @VisibleForTesting
-    static int calculateInSampleSize(BitmapFactory.Options options, int reqWidth, int reqHeight) {
-        // Raw height and width of image
-        final int height = options.outHeight;
-        final int width = options.outWidth;
-        int inSampleSize = 1;
-
-        if (height > reqHeight || width > reqWidth) {
-            final int halfHeight = height / 2;
-            final int halfWidth = width / 2;
-
-            // Calculate the largest inSampleSize value that is a power of 2 and keeps height or
-            // width larger than the requested height and width.
-            while ((halfHeight / inSampleSize) >= reqHeight
-                    || (halfWidth / inSampleSize) >= reqWidth) {
-                inSampleSize *= 2;
-            }
-        }
-        return inSampleSize;
     }
 
     /** Returns whether the theme tip bottom sheet has been shown before. */
@@ -1819,5 +1848,30 @@ public class NtpCustomizationUtils {
     public static boolean isNTPCustomizationSyncEnabled() {
         return ChromeFeatureList.sNewTabPageCustomizationV2.isEnabled()
                 && ChromeFeatureList.sNewTabPageCustomizationThemeSync.isEnabled();
+    }
+
+    /**
+     * Creates a file for the upload image with provided file name. The file will be in the sub
+     * directory NTP_UPLOAD_IMAGES_DIR.
+     *
+     * @param fileName The file name of the upload image file to create.
+     */
+    public static File createUploadImageFileInDirForTesting(String fileName) {
+        return createThemeImageFileInDir(fileName, NTP_UPLOAD_IMAGES_DIR);
+    }
+
+    /**
+     * Creates a file for the theme collection image with provided file name. The file will be in
+     * the sub directory NTP_THEME_COLLECTION_IMAGES_DIR.
+     *
+     * @param fileName The file name of the upload image file to create.
+     */
+    public static File createThemeCollectionImageFileInDirForTesting(String fileName) {
+        return createThemeImageFileInDir(fileName, NTP_THEME_COLLECTION_IMAGES_DIR);
+    }
+
+    @NativeMethods
+    public interface Natives {
+        void decodeImage(@JniType("std::vector<uint8_t>") byte[] data, Callback<Bitmap> callback);
     }
 }

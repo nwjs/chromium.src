@@ -42,6 +42,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
+import static org.chromium.chrome.R.plurals.bottom_tab_grid_title_placeholder;
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.DATA_SHARING;
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.DATA_SHARING_JOIN_ONLY;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.addBlankTabs;
@@ -127,6 +128,7 @@ import org.chromium.base.test.util.TestAnimations.EnableAnimations;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.app.bookmarks.BookmarkEditActivity;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.homepage.HomepagePolicyManager;
 import org.chromium.chrome.browser.hub.HubContainerView;
@@ -142,6 +144,7 @@ import org.chromium.chrome.browser.tab_ui.ActionConfirmationManager;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tasks.tab_management.color_picker.TabGroupColorPickerContainer;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
@@ -175,7 +178,10 @@ import java.util.concurrent.TimeoutException;
 @ParameterAnnotations.UseRunnerDelegate(ChromeJUnit4RunnerDelegate.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @EnableFeatures({DATA_SHARING, DATA_SHARING_JOIN_ONLY})
-@DisableFeatures({TabGroupsFeatureMap.UPDATE_TAB_GROUP_COLORS})
+@DisableFeatures({
+    TabGroupsFeatureMap.UPDATE_TAB_GROUP_COLORS,
+    ChromeFeatureList.ANDROID_BOTTOM_BAR
+})
 @Batch(Batch.PER_CLASS)
 @DisableIf.Device(DeviceFormFactor.DESKTOP) // crbug.com/394671175
 public class TabGridDialogTest {
@@ -1988,14 +1994,11 @@ public class TabGridDialogTest {
 
                             Assert.assertTrue(v instanceof EditText);
                             EditText titleText = (EditText) v;
+                            Resources res = cta.getResources();
+                            int resId = bottom_tab_grid_title_placeholder;
                             String title =
                                     customizedTitle == null
-                                            ? cta.getResources()
-                                                    .getQuantityString(
-                                                            R.plurals
-                                                                    .bottom_tab_grid_title_placeholder,
-                                                            tabCount,
-                                                            tabCount)
+                                            ? res.getQuantityString(resId, tabCount, tabCount)
                                             : customizedTitle;
                             Assert.assertEquals(title, titleText.getText().toString());
                             assertFalse(v.isFocused());

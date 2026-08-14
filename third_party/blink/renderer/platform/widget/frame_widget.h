@@ -17,6 +17,7 @@
 #include "mojo/public/mojom/base/text_direction.mojom-blink.h"
 #include "services/viz/public/mojom/compositing/frame_sink_id.mojom-blink.h"
 #include "third_party/blink/public/mojom/input/input_handler.mojom-blink.h"
+#include "third_party/blink/public/mojom/manifest/application_context.mojom-blink.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom-blink.h"
 #include "third_party/blink/public/platform/web_text_input_info.h"
 #include "third_party/blink/public/platform/web_text_input_type.h"
@@ -134,6 +135,10 @@ class PLATFORM_EXPORT FrameWidget {
   // Returns the DisplayMode in use for the widget.
   virtual mojom::blink::DisplayMode DisplayMode() const = 0;
 
+  // Returns how the top-level browsing context is presented to the user (a
+  // standalone web application window vs ordinary browser UI).
+  virtual mojom::blink::ApplicationContext ApplicationContext() const = 0;
+
   // Returns the WindowShowState in use for the widget.
   virtual ui::mojom::blink::WindowShowState WindowShowState() const = 0;
 
@@ -218,6 +223,10 @@ class PLATFORM_EXPORT FrameWidget {
                           int relative_cursor_pos,
                           DOMNodeIdType target_dom_node_id) = 0;
 
+  // This message pastes the text into the target node.
+  virtual void PasteIntoNode(const String& text,
+                             DOMNodeIdType target_dom_node_id) = 0;
+
   // This message inserts the ongoing composition.
   virtual void FinishComposingText(bool keep_selection) = 0;
 
@@ -270,6 +279,9 @@ class PLATFORM_EXPORT FrameWidget {
 
   // Mouse capture has been lost.
   virtual void MouseCaptureLost() = 0;
+
+  // Pointer lock has been acquired or released.
+  virtual void SetPointerLocked(bool is_locked) = 0;
 
   // Determines whether composition can happen inline.
   virtual bool CanComposeInline() = 0;
@@ -343,8 +355,17 @@ class PLATFORM_EXPORT FrameWidget {
   // other parameters are recorded earlier).
   virtual AnimationFrameTimingInfo* RecordRenderingUpdateEndTime(
       base::TimeTicks) = 0;
+  // https://github.com/MicrosoftEdge/MSEdgeExplainers/blob/main/ConditionalTracing/explainer-for-loaf.md
+  virtual void MarkConditional(const AtomicString& name,
+                               base::TimeTicks start_time) = 0;
 
   virtual void OnFirstContentfulPaint() = 0;
+
+  // Whether or not the widget is in the process of handling input events.
+  virtual bool HandlingInputEvent() = 0;
+
+  // Set state that the widget is in the process of handling input events.
+  virtual void SetHandlingInputEvent(bool handling) = 0;
 };
 
 }  // namespace blink

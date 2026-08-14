@@ -11,10 +11,7 @@
 
 #include "base/functional/bind.h"
 #include "base/metrics/user_metrics.h"
-#include "base/task/sequenced_task_runner.h"
-#include "base/types/to_address.h"
 #include "base/uuid.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils_desktop.h"
@@ -24,44 +21,28 @@
 #include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
-#include "chrome/browser/ui/tabs/projects/projects_panel_state_controller.h"
+#include "chrome/browser/ui/tabs/organizer/organizer_panel_state_controller.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_metrics.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/bookmarks/saved_tab_groups/saved_tab_group_button.h"
 #include "chrome/browser/ui/views/bookmarks/saved_tab_groups/saved_tab_group_drag_data.h"
 #include "chrome/browser/ui/views/bookmarks/saved_tab_groups/saved_tab_group_overflow_button.h"
-#include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/user_education/user_education_service.h"
-#include "chrome/browser/user_education/user_education_service_factory.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/feature_engagement/public/feature_constants.h"
-#include "components/feature_engagement/public/feature_list.h"
 #include "components/saved_tab_groups/public/features.h"
-#include "components/saved_tab_groups/public/saved_tab_group_tab.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/saved_tab_groups/public/types.h"
-#include "components/user_education/common/user_education_data.h"
-#include "components/user_education/common/user_education_features.h"
-#include "components/user_education/common/user_education_storage_service.h"
 #include "ui/accessibility/ax_enums.mojom.h"
-#include "ui/accessibility/ax_node_data.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/dragdrop/drop_target_event.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom-shared.h"
-#include "ui/base/interaction/element_tracker.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/models/dialog_model.h"
-#include "ui/base/mojom/dialog_button.mojom.h"
-#include "ui/base/ui_base_features.h"
-#include "ui/base/window_open_disposition.h"
 #include "ui/compositor/layer_tree_owner.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/insets.h"
-#include "ui/gfx/geometry/insets_outsets_base.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -70,7 +51,6 @@
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/layout/box_layout.h"
-#include "ui/views/layout/layout_types.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
 
@@ -279,22 +259,6 @@ void SavedTabGroupBar::OnPaint(gfx::Canvas* canvas) {
   MaybePaintDropIndicatorInBar(canvas);
 }
 
-void SavedTabGroupBar::UpdateResumptionRailIPHDismissedState() {
-  if (!tab_groups::IsProjectsPanelFeatureEnabled() ||
-      !base::FeatureList::IsEnabled(
-          feature_engagement::kIPHResumptionRailFeature)) {
-    return;
-  }
-
-  auto* interface = BrowserUserEducationInterface::From(browser_);
-  if (!interface) {
-    return;
-  }
-
-  resumption_iph_dismissed_ = interface->HasFeaturePromoBeenDismissed(
-      feature_engagement::kIPHResumptionRailFeature);
-}
-
 void SavedTabGroupBar::OnInitialized() {
   if (!browser_ || browser_->capabilities()->IsAttemptingToCloseBrowser()) {
     return;
@@ -303,8 +267,6 @@ void SavedTabGroupBar::OnInitialized() {
   everything_menu_button_ = nullptr;
   RemoveAllChildViews();
   everything_menu_button_ = AddChildView(CreateOverflowButton());
-
-  UpdateResumptionRailIPHDismissedState();
 
   LoadAllButtonsFromModel();
   InvalidateLayout();
@@ -409,10 +371,6 @@ bool SavedTabGroupBar::IsOverflowButtonVisible() const {
 
 void SavedTabGroupBar::AddTabGroupButton(const SavedTabGroup& group,
                                          int index) {
-  if (tab_groups::IsProjectsPanelFeatureEnabled()) {
-    return;
-  }
-
   // Do not add unpinned tab group for v2.
   if (!group.is_pinned()) {
     return;
@@ -441,46 +399,6 @@ void SavedTabGroupBar::ShowEverythingMenu() {
   chrome::UpdateBookmarkBarVisibilityPrefOnUserAction(browser_->GetProfile());
   base::RecordAction(base::UserMetricsAction(
       "TabGroups_SavedTabGroups_EverythingButtonPressed"));
-
-  // Try to show the IPH promo (or queue it) unconditionally when the
-  // legacy everything button is clicked.
-  if (tab_groups::IsProjectsPanelFeatureEnabled()) {
-    if (auto* interface = BrowserUserEducationInterface::From(browser_)) {
-      user_education::FeaturePromoParams params(
-          feature_engagement::kIPHResumptionRailFeature);
-
-      // Determine the appropriate promo text based on the eligibility of AIM
-      // and Gemini threads. We default to a generic message if neither are
-      // available or if the controller itself isn't present.
-      int string_id = IDS_RESUMPTION_RAIL_IPH_BODY_NO_THREADS;
-      auto* projects_panel_state_controller =
-          ProjectsPanelStateController::From(browser_);
-      CHECK(projects_panel_state_controller);
-      const bool can_show_aim =
-          projects_panel_state_controller->CanShowAimThreads();
-      const bool can_show_gemini =
-          projects_panel_state_controller->CanShowGeminiThreads();
-
-      if (can_show_aim && can_show_gemini) {
-        string_id = IDS_RESUMPTION_RAIL_IPH_BODY;
-      } else if (can_show_aim) {
-        string_id = IDS_RESUMPTION_RAIL_IPH_BODY_ONLY_AI_MODE;
-      } else if (can_show_gemini) {
-        string_id = IDS_RESUMPTION_RAIL_IPH_BODY_ONLY_GEMINI;
-      }
-      params.body_params = l10n_util::GetStringUTF16(string_id);
-
-      params.close_callback =
-          base::BindOnce(&SavedTabGroupBar::OnResumptionRailPromoClosed,
-                         weak_ptr_factory_.GetWeakPtr());
-      // If the IPH isn't able to be shown (e.g., because the profile creation
-      // time is within the new user grace period), the button should fallback
-      // to showing the everything menu.
-      if (interface->MaybeShowFeaturePromo(std::move(params))) {
-        return;
-      }
-    }
-  }
 
   ShowEverythingMenuInternal();
 }
@@ -519,9 +437,8 @@ void SavedTabGroupBar::UpsertSavedTabGroupButton(const base::Uuid& guid) {
   SavedTabGroupButton* button =
       views::AsViewClass<SavedTabGroupButton>(GetButton(group->saved_guid()));
 
-  const bool should_show_button = group->is_pinned() &&
-                                  !group->saved_tabs().empty() &&
-                                  !tab_groups::IsProjectsPanelFeatureEnabled();
+  const bool should_show_button =
+      group->is_pinned() && !group->saved_tabs().empty();
 
   if (should_show_button) {
     if (button) {
@@ -567,17 +484,6 @@ void SavedTabGroupBar::SavedTabGroupReordered() {
   InvalidateLayout();
 }
 
-void SavedTabGroupBar::OnResumptionRailPromoClosed() {
-  if (auto* interface = BrowserUserEducationInterface::From(browser_)) {
-    if (interface->HasFeaturePromoBeenDismissed(
-            feature_engagement::kIPHResumptionRailFeature)) {
-      resumption_iph_dismissed_ = true;
-      if (everything_menu_button_) {
-        everything_menu_button_->SetVisible(!IsOverflowButtonHidden());
-      }
-    }
-  }
-}
 
 void SavedTabGroupBar::LoadAllButtonsFromModel() {
   const std::vector<const SavedTabGroup*> groups =
@@ -675,11 +581,7 @@ void SavedTabGroupBar::UpdateButtonVisibilities(bool show_overflow,
 }
 
 bool SavedTabGroupBar::IsOverflowButtonHidden() const {
-  return tab_groups::IsProjectsPanelFeatureEnabled() &&
-         (tab_group_service_->GetAllGroups().empty() ||
-          (base::FeatureList::IsEnabled(
-               feature_engagement::kIPHResumptionRailFeature) &&
-           resumption_iph_dismissed_));
+  return false;
 }
 
 bool SavedTabGroupBar::ShouldShowOverflowButtonForWidth(int max_width) const {

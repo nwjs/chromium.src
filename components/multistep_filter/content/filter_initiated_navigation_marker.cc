@@ -8,6 +8,13 @@
 
 namespace multistep_filter {
 
+FilterInitiatedNavigationMarker::FilterInitiatedNavigationMarker(
+    content::NavigationHandle& navigation_handle,
+    std::optional<UrlFilterSuggestion> suggestion)
+    : suggestion_(std::move(suggestion)) {}
+
+FilterInitiatedNavigationMarker::~FilterInitiatedNavigationMarker() = default;
+
 NAVIGATION_HANDLE_USER_DATA_KEY_IMPL(FilterInitiatedNavigationMarker);
 
 }  // namespace multistep_filter

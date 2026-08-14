@@ -20,7 +20,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/lens/lens_media_link_handler.h"
-#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/contextual_tasks/public/contextual_tasks_service.h"
@@ -63,7 +63,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUiServiceBrowserTest,
 
   // Create a task and associate the tab with the new task.
   ContextualTasksService* contextual_tasks_service =
-      ContextualTasksServiceFactory::GetForProfile(browser()->profile());
+      ContextualTasksServiceFactory::GetForProfile(browser()->GetProfile());
   ContextualTask task = contextual_tasks_service->CreateTask();
   contextual_tasks_service->AssociateTabWithTask(
       task.GetTaskId(),
@@ -71,7 +71,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUiServiceBrowserTest,
 
   ContextualTasksUiService* ui_service =
       ContextualTasksUiServiceFactory::GetForBrowserContext(
-          browser()->profile());
+          browser()->GetProfile());
 
   // Add a text fragment to the URL to mimic citation behavior.
   GURL citation_url = GURL(url.spec() + "#:~:text=highlight");
@@ -114,7 +114,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUiServiceBrowserTest,
 
   // Create a task and associate the tab with the new task.
   ContextualTasksService* contextual_tasks_service =
-      ContextualTasksServiceFactory::GetForProfile(browser()->profile());
+      ContextualTasksServiceFactory::GetForProfile(browser()->GetProfile());
   ContextualTask task = contextual_tasks_service->CreateTask();
   contextual_tasks_service->AssociateTabWithTask(
       task.GetTaskId(),
@@ -122,7 +122,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUiServiceBrowserTest,
 
   ContextualTasksUiService* ui_service =
       ContextualTasksUiServiceFactory::GetForBrowserContext(
-          browser()->profile());
+          browser()->GetProfile());
 
   // Add a text fragment to the URL that does not contain text found in the
   // page.
@@ -232,7 +232,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksVideoCitationsBrowserTest,
   EXPECT_EQ(active_tab->GetContents()->GetVisibleURL(), url);
 
   ContextualTasksService* contextual_tasks_service =
-      ContextualTasksServiceFactory::GetForProfile(browser()->profile());
+      ContextualTasksServiceFactory::GetForProfile(browser()->GetProfile());
   ContextualTask task = contextual_tasks_service->CreateTask();
   contextual_tasks_service->AssociateTabWithTask(
       task.GetTaskId(),
@@ -240,7 +240,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksVideoCitationsBrowserTest,
 
   ContextualTasksUiService* ui_service =
       ContextualTasksUiServiceFactory::GetForBrowserContext(
-          browser()->profile());
+          browser()->GetProfile());
 
   TestContextualTasksUiService* test_ui_service =
       static_cast<TestContextualTasksUiService*>(ui_service);
@@ -299,7 +299,7 @@ class ContextualTasksUiServiceZeroStateTestBase : public InProcessBrowserTest {
   content::WebContents* OpenPanelAndGetContents(tabs::TabInterface* tab) {
     ContextualTasksUiService* ui_service =
         ContextualTasksUiServiceFactory::GetForBrowserContext(
-            browser()->profile());
+            browser()->GetProfile());
     GURL initial_url("https://example.com");
     ui_service->StartTaskUiInSidePanel(browser(), tab, initial_url, nullptr);
 
@@ -360,7 +360,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUiServiceZeroStateEnabledTest,
 
   ContextualTasksUiService* ui_service =
       ContextualTasksUiServiceFactory::GetForBrowserContext(
-          browser()->profile());
+          browser()->GetProfile());
   GURL zero_state_url = ui_service->GetDefaultAiPageUrl();
 
   content::TestNavigationObserver navigation_observer(panel_contents);
@@ -398,7 +398,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUiServiceZeroStateDisabledTest,
 
   ContextualTasksUiService* ui_service =
       ContextualTasksUiServiceFactory::GetForBrowserContext(
-          browser()->profile());
+          browser()->GetProfile());
   GURL zero_state_url = ui_service->GetDefaultAiPageUrl();
 
   content::TestNavigationObserver navigation_observer(panel_contents);
@@ -433,15 +433,16 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUiServiceTaskReuseTest,
 
   ContextualTasksUiService* ui_service =
       ContextualTasksUiServiceFactory::GetForBrowserContext(
-          browser()->profile());
+          browser()->GetProfile());
 
   // 2. Start task on Tab 1 with mstk
   GURL launch_url1("https://google.com/aim?mstk=abc");
-  ui_service->StartTaskUiInSidePanel(
-      browser(), tab1, launch_url1, /*session_handle=*/nullptr,
-      /*associate_web_contents=*/false,
-      omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT,
-      /*use_mstk_for_task_association=*/true);
+  ui_service->StartTaskUiInSidePanel(browser(), tab1, launch_url1,
+                                     /*session_handle=*/nullptr,
+                                     StartTaskUiOptions{
+                                         .associate_web_contents = false,
+                                         .use_mstk_for_task_association = true,
+                                     });
 
   auto* controller = ContextualTasksPanelController::From(browser());
   ASSERT_TRUE(base::test::RunUntil([&]() {
@@ -462,11 +463,12 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUiServiceTaskReuseTest,
 
   // 4. Start task on Tab 2 with same mstk
   GURL launch_url2("https://google.com/aim?mstk=abc");
-  ui_service->StartTaskUiInSidePanel(
-      browser(), tab2, launch_url2, /*session_handle=*/nullptr,
-      /*associate_web_contents=*/false,
-      omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT,
-      /*use_mstk_for_task_association=*/true);
+  ui_service->StartTaskUiInSidePanel(browser(), tab2, launch_url2,
+                                     /*session_handle=*/nullptr,
+                                     StartTaskUiOptions{
+                                         .associate_web_contents = false,
+                                         .use_mstk_for_task_association = true,
+                                     });
 
   ASSERT_TRUE(base::test::RunUntil([&]() {
     return controller && controller->IsPanelOpenForContextualTask();
@@ -488,15 +490,16 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUiServiceTaskReuseTest,
 
   ContextualTasksUiService* ui_service =
       ContextualTasksUiServiceFactory::GetForBrowserContext(
-          browser()->profile());
+          browser()->GetProfile());
 
   // 2. Start task on Tab 1 with mstk, flag=true (so it registers in map)
   GURL launch_url1("https://google.com/aim?mstk=abc");
-  ui_service->StartTaskUiInSidePanel(
-      browser(), tab1, launch_url1, /*session_handle=*/nullptr,
-      /*associate_web_contents=*/false,
-      omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT,
-      /*use_mstk_for_task_association=*/true);
+  ui_service->StartTaskUiInSidePanel(browser(), tab1, launch_url1,
+                                     /*session_handle=*/nullptr,
+                                     StartTaskUiOptions{
+                                         .associate_web_contents = false,
+                                         .use_mstk_for_task_association = true,
+                                     });
 
   auto* controller = ContextualTasksPanelController::From(browser());
   ASSERT_TRUE(base::test::RunUntil([&]() {
@@ -516,11 +519,12 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUiServiceTaskReuseTest,
 
   // 4. Start task on Tab 2 with same mstk, flag=false
   GURL launch_url2("https://google.com/aim?mstk=abc");
-  ui_service->StartTaskUiInSidePanel(
-      browser(), tab2, launch_url2, /*session_handle=*/nullptr,
-      /*associate_web_contents=*/false,
-      omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT,
-      /*use_mstk_for_task_association=*/false);
+  ui_service->StartTaskUiInSidePanel(browser(), tab2, launch_url2,
+                                     /*session_handle=*/nullptr,
+                                     StartTaskUiOptions{
+                                         .associate_web_contents = false,
+                                         .use_mstk_for_task_association = false,
+                                     });
 
   ASSERT_TRUE(base::test::RunUntil([&]() {
     return controller && controller->IsPanelOpenForContextualTask();
@@ -531,6 +535,74 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUiServiceTaskReuseTest,
 
   std::string task_id2 = GetTaskIdFromPanel(panel_contents2);
   EXPECT_NE(task_id1, task_id2);
+}
+
+class ContextualTasksUiServiceRearchitectureEnabledTest
+    : public ContextualTasksUiServiceZeroStateTestBase {
+ public:
+  ContextualTasksUiServiceRearchitectureEnabledTest() {
+    feature_list_.InitWithFeaturesAndParameters(
+        {{contextual_tasks::kContextualTasks, {}},
+         {contextual_tasks::kContextualTasksRearchitecture, {}},
+         {contextual_tasks::kContextualTasksSidePanelRearchitecture, {}},
+         {omnibox::kWebUIOmniboxAskGAboutThisPage,
+          {{"Omnibox_AskGCoBrowse", "true"}}}},
+        {});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksUiServiceRearchitectureEnabledTest,
+                       StartTaskUiInSidePanel_LoadsUrlDirectly) {
+  ContextualTasksUiService* ui_service =
+      ContextualTasksUiServiceFactory::GetForBrowserContext(
+          browser()->GetProfile());
+  GURL initial_url("https://example.com/ai-page");
+  tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+
+  ui_service->StartTaskUiInSidePanel(browser(), tab, initial_url, nullptr);
+
+  auto* controller = ContextualTasksPanelController::From(browser());
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return controller && controller->IsPanelOpenForContextualTask();
+  }));
+
+  content::WebContents* panel_contents = controller->GetActiveWebContents();
+  ASSERT_TRUE(panel_contents);
+  content::WaitForLoadStop(panel_contents);
+
+  GURL expected_url =
+      net::AppendOrReplaceQueryParameter(initial_url, "sourceid", "chrome");
+  expected_url = net::AppendOrReplaceQueryParameter(expected_url, "ccb", "1");
+  EXPECT_EQ(panel_contents->GetLastCommittedURL(), expected_url);
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksUiServiceRearchitectureEnabledTest,
+                       StartTaskUiInSidePanel_LoadsUrlWhenPanelAlreadyOpen) {
+  ContextualTasksUiService* ui_service =
+      ContextualTasksUiServiceFactory::GetForBrowserContext(
+          browser()->GetProfile());
+  GURL initial_url("https://example.com/ai-page-1");
+  tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+
+  ui_service->StartTaskUiInSidePanel(browser(), tab, initial_url, nullptr);
+
+  auto* controller = ContextualTasksPanelController::From(browser());
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return controller && controller->IsPanelOpenForContextualTask();
+  }));
+
+  content::WebContents* panel_contents = controller->GetActiveWebContents();
+  ASSERT_TRUE(panel_contents);
+  content::WaitForLoadStop(panel_contents);
+
+  GURL second_url("https://example.com/ai-page-2");
+  ui_service->StartTaskUiInSidePanel(browser(), tab, second_url, nullptr);
+  content::WaitForLoadStop(panel_contents);
+
+  EXPECT_EQ(panel_contents->GetLastCommittedURL(), second_url);
 }
 
 }  // namespace contextual_tasks

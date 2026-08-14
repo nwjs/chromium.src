@@ -31,8 +31,21 @@ class PasswordProtectionService;
 class ChromePasswordProtectionService;
 }  // namespace safe_browsing
 
+#if !BUILDFLAG(IS_ANDROID)
+namespace infobars {
+class BrowserInfoBarManager;
+}
+#endif
+
 class ChromePageInfoDelegate : public PageInfoDelegate {
  public:
+#if !BUILDFLAG(IS_ANDROID)
+  // Registers the Page Info InfoBar specification in the centralized
+  // infobar framework.
+  static void RegisterPageInfoInfoBar(
+      infobars::BrowserInfoBarManager* infobar_manager);
+#endif
+
   explicit ChromePageInfoDelegate(content::WebContents* web_contents);
   ~ChromePageInfoDelegate() override = default;
 
@@ -73,12 +86,13 @@ class ChromePageInfoDelegate : public PageInfoDelegate {
   void OpenCertificateDialog(net::X509Certificate* certificate) override;
   void OpenConnectionHelpCenterPage(const ui::Event& event) override;
   void OpenSafetyTipHelpCenterPage() override;
-  void OpenSafeBrowsingHelpCenterPage(const ui::Event& event) override;
   void OpenContentSettingsExceptions(
       ContentSettingsType content_settings_type) override;
   void OnPageInfoActionOccurred(page_info::PageInfoAction action) override;
   void OnUIClosing() override;
 #endif
+
+  void OpenSafeBrowsingHelpCenterPage(const ui::Event* event) override;
 
   std::u16string GetSubjectName(const GURL& url) override;
   permissions::PermissionDecisionAutoBlocker* GetPermissionDecisionAutoblocker()
@@ -99,12 +113,15 @@ class ChromePageInfoDelegate : public PageInfoDelegate {
   const std::u16string GetClientApplicationName() override;
 #endif
 
-  bool IsHttpsFirstModeEnabled() override;
+  bool IsHttpsFirstModeEnabledForUrl(const GURL& url) override;
   bool IsIncognitoProfile() override;
 
 #if BUILDFLAG(IS_CHROMEOS)
   bool ShouldSyncCookiesForUrl(const GURL& url) override;
 #endif
+
+  void OnSuspiciousSiteBackToSafety() override;
+  void OnSuspiciousSiteMarkAsSafe() override;
 
  private:
   Profile* GetProfile() const;

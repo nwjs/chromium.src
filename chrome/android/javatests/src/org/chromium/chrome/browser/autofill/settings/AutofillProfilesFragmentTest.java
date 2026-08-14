@@ -72,6 +72,7 @@ import org.mockito.junit.MockitoRule;
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
@@ -92,7 +93,7 @@ import org.chromium.chrome.browser.autofill.autofill_ai.EntityDataManager.Entity
 import org.chromium.chrome.browser.autofill.autofill_ai.EntityDataManagerFactory;
 import org.chromium.chrome.browser.autofill.editors.address.AddressEditorMediator;
 import org.chromium.chrome.browser.autofill.editors.address.EditorDialogView;
-import org.chromium.chrome.browser.autofill.options.AutofillOptionsFragment;
+import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsFragment;
 import org.chromium.chrome.browser.device_reauth.ReauthenticatorBridge;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncher;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherFactory;
@@ -136,6 +137,7 @@ import java.util.concurrent.TimeoutException;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @EnableFeatures({ChromeFeatureList.AUTOFILL_AI_SHOW_DIALOG_IN_SETTINGS_WHEN_UPSTREAMING_FAILS})
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+@Batch(Batch.PER_CLASS)
 public class AutofillProfilesFragmentTest {
     private static final AutofillProfile sLocalOrSyncProfile =
             AutofillProfile.builder()
@@ -2154,6 +2156,9 @@ public class AutofillProfilesFragmentTest {
             final boolean keyboardVisible, final SettingsActivity activity) {
         CriteriaHelper.pollUiThread(
                 () -> {
+                    // TODO(crbug.com/521895796): Figure out if this should be android.R.id.content
+                    // (i.e. the whole activity's content area) or R.id.settings_content (i.e. the
+                    // settings activity/page's content).
                     Criteria.checkThat(
                             KeyboardVisibilityDelegate.getInstance()
                                     .isKeyboardShowing(activity.findViewById(android.R.id.content)),

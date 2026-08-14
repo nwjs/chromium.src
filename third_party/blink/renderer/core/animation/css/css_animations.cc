@@ -423,7 +423,11 @@ StringKeyframeVector ProcessKeyframesRule(
     keyframe->SetEasing(default_timing_function);
     const CSSPropertyValueSet& properties = style_keyframe->Properties();
     for (const CSSPropertyValue& property_reference : properties.Properties()) {
-      CSSPropertyRef ref(property_reference.Name(), document);
+      CSSPropertyName property_name =
+          property_reference
+              .Name();  // Keep property_name.custom_property_ alive for at
+                        // least as long as ref below.
+      CSSPropertyRef ref(&property_name, document);
       const CSSProperty& property = ref.GetProperty();
       if (property.PropertyID() == CSSPropertyID::kAnimationComposition) {
         if (const auto* value_list =
@@ -591,14 +595,11 @@ StringKeyframeEffectModel* CreateKeyframeEffectModel(
       current_offset_properties = &fixed_offset_properties;
     } else {
       String key = timeline_offset->ToString();
-      auto it = timeline_offset_properties_map.find(key);
-      if (it == timeline_offset_properties_map.end()) {
-        auto add_result =
-            timeline_offset_properties_map.insert(key, PropertySet());
-        current_offset_properties = &add_result.stored_value->value;
-      } else {
-        current_offset_properties = &it.Get()->value;
-      }
+      // insert() returns the existing entry when the key is present (without
+      // overwriting) and creates it otherwise, so a single lookup suffices.
+      current_offset_properties =
+          &timeline_offset_properties_map.insert(key, PropertySet())
+               .stored_value->value;
     }
 
     // 6.2 Let keyframe timing function be the value of the last valid
@@ -2439,9 +2440,11 @@ void CSSAnimations::MaybeApplyPendingUpdate(Element* element) {
   }
 
   for (const PropertyHandle& property : pending_update_.FinishedTransitions()) {
-    // This transition can also be cancelled and finished at the same time
-    if (transitions_.Contains(property)) {
-      Animation* animation = transitions_.Take(property)->animation;
+    // This transition can also be cancelled and finished at the same time.
+    // Take() returns a null Member when the key is absent, so it doubles as
+    // the presence check.
+    if (RunningTransition* running = transitions_.Take(property)) {
+      Animation* animation = running->animation;
       // Transition must be downgraded
       if (auto* effect = DynamicTo<KeyframeEffect>(animation->effect()))
         effect->DowngradeToNormal();
@@ -2493,6 +2496,11 @@ void CSSAnimations::MaybeApplyPendingUpdate(Element* element) {
             new_transition->reversing_adjusted_start_value,
             new_transition->reversing_shortening_factor);
     transitions_.Set(property, running_transition);
+
+    if (RuntimeEnabledFeatures::EventTimingMatchingHTMLEnabled()) {
+      event_delegate->OnEventCondition(*transition_effect,
+                                       transition_effect->GetPhase());
+    }
   }
 
   if (pending_update_.NeedsNamedTriggerUpdate()) {
@@ -2657,6 +2665,18 @@ void CSSAnimations::CalculateTransitionUpdateForPropertyHandle(
   }
 
   bool is_attr_tainted = false;
+  if (property.IsCSSCustomProperty()) {
+    const Document& document = state.animating_element.GetDocument();
+    CSSPropertyName property_name = property.GetCSSPropertyName();
+    CSSPropertyRef custom_ref(&property_name, document);
+    CSSVariableData* old_data = state.old_style.GetVariableData(
+        property.CustomPropertyName(), custom_ref.GetProperty().IsInherited());
+    CSSVariableData* new_data = after_change_style.GetVariableData(
+        property.CustomPropertyName(), custom_ref.GetProperty().IsInherited());
+    is_attr_tainted = (old_data && old_data->IsAttrTainted()) ||
+                      (new_data && new_data->IsAttrTainted());
+  }
+
   if (!start || !end) {
     const Document& document = state.animating_element.GetDocument();
     const CSSValue* start_css_value =
@@ -2687,17 +2707,6 @@ void CSSAnimations::CalculateTransitionUpdateForPropertyHandle(
       // TODO(crbug.com/1425925): Handle newly registered custom properties
       // correctly. If that bug is fixed, then this should never happen.
       return;
-    }
-    if (property.IsCSSCustomProperty()) {
-      CSSPropertyRef custom_ref(property.GetCSSPropertyName(), document);
-      CSSVariableData* old_data = state.old_style.GetVariableData(
-          property.CustomPropertyName(),
-          custom_ref.GetProperty().IsInherited());
-      CSSVariableData* new_data = after_change_style.GetVariableData(
-          property.CustomPropertyName(),
-          custom_ref.GetProperty().IsInherited());
-      is_attr_tainted = (old_data && old_data->IsAttrTainted()) ||
-                        (new_data && new_data->IsAttrTainted());
     }
     start = InterpolationValue(
         MakeGarbageCollected<InterpolableList>(0),
@@ -2772,6 +2781,7 @@ void CSSAnimations::CalculateTransitionUpdateForPropertyHandle(
       transition_type, start.interpolable_value->Clone(),
       start.non_interpolable_value));
   start_keyframe->SetOffset(0);
+  start_keyframe->SetIsAttrTainted(is_attr_tainted);
   keyframes.push_back(start_keyframe);
 
   TransitionKeyframe* end_keyframe =
@@ -2780,6 +2790,7 @@ void CSSAnimations::CalculateTransitionUpdateForPropertyHandle(
       transition_type, end.interpolable_value->Clone(),
       end.non_interpolable_value));
   end_keyframe->SetOffset(1);
+  end_keyframe->SetIsAttrTainted(is_attr_tainted);
   keyframes.push_back(end_keyframe);
 
   if (property.GetCSSProperty().IsCompositableProperty() &&
@@ -2987,11 +2998,14 @@ void CSSAnimations::CalculateTransitionUpdate(
   bool is_starting_style = old_style && old_style->IsStartingStyle();
 
   bool force_starting_style = false;
-  Element* originating_element =
-      animating_element.IsPseudoElement()
-          ? &To<PseudoElement>(animating_element).UltimateOriginatingElement()
-          : &animating_element;
-  probe::ForceStartingStyle(originating_element, &force_starting_style);
+  probe::ForceStartingStyle(&animating_element, &force_starting_style);
+  // Check all pseudo element parents and originating element for pseudo
+  // elements.
+  Element* parent_element = &animating_element;
+  while (!force_starting_style && parent_element->IsPseudoElement()) {
+    parent_element = parent_element->parentElement();
+    probe::ForceStartingStyle(parent_element, &force_starting_style);
+  }
 
   DCHECK(old_style == scope_old_style ||
          !scope_old_style && is_starting_style || force_starting_style)

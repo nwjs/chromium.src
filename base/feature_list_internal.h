@@ -33,15 +33,8 @@ enum : Feature::FeatureStateCache {
   kCachedLogEarlyMask = 1 << 17,
 
   // The feature has been declared as runtime mutable. The feature's state may
-  // be subject to change at runtime, depending on the state of
-  // `kRuntimeMutabilityEnabledMask` and `kRuntimeMutabilityDisabledMask`.
+  // be subject to change at runtime.
   kRuntimeMutabilityMask = 1 << 18,
-
-  // Set when EnableRuntimeMutability() is successfully called on a runtime
-  // mutable feature, this flag indicates that the feature is known to the
-  // objects that manage runtime mutability and is properly configured. The
-  // feature's state may change at runtime.
-  kRuntimeMutabilityEnabledMask = 1 << 19,
 };
 
 // Result of a runtime-mutable feature operation. These values are logged to
@@ -90,10 +83,9 @@ struct BASE_EXPORT RuntimeMutableFeatureState {
   // feature is not runtime overridden.
   FeatureList::OverrideState override_state = FeatureList::OVERRIDE_USE_DEFAULT;
 
-  // The name and group of the field trial that has, at runtime, superseded
-  // the feature's startup-initialized state.
+  // The name of the runtime field trial override that has, at runtime,
+  // superseded the feature's startup-initialized state.
   std::string field_trial_name;
-  std::string group_name;
 };
 
 }  // namespace base::internal

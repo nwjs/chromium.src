@@ -2,13 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/393091624): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
+#include <array>
 #include <string>
 
+#include "base/sanitizer_buildflags.h"
 #include "build/build_config.h"
 #include "ipcz/ipcz.h"
 #include "ipcz/node_messages.h"
@@ -18,10 +15,6 @@
 #include "test/test_transport_listener.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/synchronization/notification.h"
-
-#if !defined(IPCZ_STANDALONE)
-#include "base/sanitizer_buildflags.h"  // nogncheck
-#endif
 
 namespace ipcz {
 namespace {
@@ -55,8 +48,8 @@ static_assert(kNumBrokerPortals < kNumNonBrokerPortals,
               "Test requires fewer broker portals than non-broker portals");
 
 MULTINODE_TEST_NODE(ConnectTestNode, SurplusPortalsClient) {
-  IpczHandle portals[kNumNonBrokerPortals];
-  ConnectToBroker(portals);
+  std::array<IpczHandle, kNumNonBrokerPortals> portals;
+  ConnectToBroker(absl::Span<IpczHandle>(portals));
 
   // All of the surplus portals should observe peer closure.
   for (size_t i = kNumBrokerPortals; i < kNumNonBrokerPortals; ++i) {
@@ -67,8 +60,8 @@ MULTINODE_TEST_NODE(ConnectTestNode, SurplusPortalsClient) {
 }
 
 MULTINODE_TEST(ConnectTest, SurplusPortals) {
-  IpczHandle portals[kNumBrokerPortals];
-  SpawnTestNode<SurplusPortalsClient>(portals);
+  std::array<IpczHandle, kNumBrokerPortals> portals;
+  SpawnTestNode<SurplusPortalsClient>(absl::Span<IpczHandle>(portals));
   CloseAll(portals);
 }
 
@@ -78,10 +71,7 @@ MULTINODE_TEST_NODE(ConnectTestNode, ExpectDisconnectFromBroker) {
   Close(b);
 }
 
-#if defined(IPCZ_STANDALONE)
-#define MAYBE_DisconnectWithoutBrokerHandshake \
-  DISABLED_DisconnectWithoutBrokerHandshake
-#elif BUILDFLAG(USING_SANITIZER)
+#if BUILDFLAG(USING_SANITIZER)
 // TODO(crbug.com/1400965): Fix the failing MojoIpczInProcess on linux tsan.
 #define MAYBE_DisconnectWithoutBrokerHandshake \
   DISABLED_DisconnectWithoutBrokerHandshake
@@ -192,8 +182,8 @@ MULTINODE_TEST(ConnectTest, NonBrokerToNonBroker) {
   // Client nodes launching other client nodes doesn't work for Chromium's
   // custom test driver on Android. Limit this test to the reference test
   // drivers there.
-  if (&GetDriver() != &reference_drivers::kSyncReferenceDriver &&
-      &GetDriver() != &reference_drivers::kAsyncReferenceDriver) {
+  if (&GetDriver() != &reference_drivers::GetSyncReferenceDriver() &&
+      &GetDriver() != &reference_drivers::GetAsyncReferenceDriver()) {
     return;
   }
 #endif
@@ -286,8 +276,8 @@ MULTINODE_TEST(ConnectTest, FailedNonBrokerReferral) {
   // Client nodes launching other client nodes doesn't work for Chromium's
   // custom test driver on Android. Limit this test to the reference test
   // drivers there.
-  if (&GetDriver() != &reference_drivers::kSyncReferenceDriver &&
-      &GetDriver() != &reference_drivers::kAsyncReferenceDriver) {
+  if (&GetDriver() != &reference_drivers::GetSyncReferenceDriver() &&
+      &GetDriver() != &reference_drivers::GetAsyncReferenceDriver()) {
     return;
   }
 #endif
@@ -351,8 +341,8 @@ MULTINODE_TEST(ConnectTest, MultiBrokerIntroductions) {
   // Client nodes launching other client nodes doesn't work reliably for
   // Chromium's multiprocess test driver on Android. Limit this test to a few
   // reference drivers there.
-  if (&GetDriver() != &reference_drivers::kSyncReferenceDriver &&
-      &GetDriver() != &reference_drivers::kAsyncReferenceDriver) {
+  if (&GetDriver() != &reference_drivers::GetSyncReferenceDriver() &&
+      &GetDriver() != &reference_drivers::GetAsyncReferenceDriver()) {
     return;
   }
 #endif

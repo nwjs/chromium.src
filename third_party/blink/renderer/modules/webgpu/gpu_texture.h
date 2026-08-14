@@ -86,7 +86,7 @@ class GPUTexture : public DawnObject<wgpu::Texture> {
   wgpu::TextureUsage Usage() { return usage_; }
   bool IsDestroyed() { return destroyed_; }
 
-  void DissociateMailbox();
+  gpu::SyncToken DissociateMailbox();
 
   // Returns a shared pointer to the mailbox texture. The mailbox texture
   // remains associated to the GPUTexture.
@@ -98,9 +98,8 @@ class GPUTexture : public DawnObject<wgpu::Texture> {
   void ClearBeforeDestroyCallback();
 
  private:
-  void SetLabelImpl(const String& value) override {
-    std::string utf8_label = value.Utf8();
-    GetHandle().SetLabel(utf8_label.c_str());
+  void SetLabelImpl(std::string_view value) override {
+    GetHandle().SetLabel(value);
   }
 
   wgpu::TextureDimension dimension_;

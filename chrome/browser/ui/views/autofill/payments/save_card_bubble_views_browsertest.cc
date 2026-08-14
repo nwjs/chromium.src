@@ -7,10 +7,7 @@
 #include <memory>
 #include <string>
 
-#include "base/callback_list.h"
-#include "base/command_line.h"
 #include "base/functional/bind.h"
-#include "base/memory/raw_ptr.h"
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -27,7 +24,6 @@
 #include "chrome/browser/ui/autofill/payments/save_card_bubble_controller_impl.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/page_action/page_action_observer.h"
@@ -36,10 +32,8 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/autofill/payments/dialog_view_ids.h"
 #include "chrome/browser/ui/views/autofill/payments/save_card_manage_cards_bubble_views.h"
-#include "chrome/browser/ui/views/autofill/payments/save_payment_icon_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
-#include "chrome/browser/ui/views/page_action/page_action_icon_container.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_controller.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_loading_indicator_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_view_observer.h"
@@ -60,25 +54,15 @@
 #include "components/autofill/core/browser/metrics/payments/manage_cards_prompt_metrics.h"
 #include "components/autofill/core/browser/payments/credit_card_save_manager.h"
 #include "components/autofill/core/browser/payments/payments_network_interface.h"
-#include "components/autofill/core/browser/strike_databases/payments/credit_card_save_strike_database.h"
-#include "components/autofill/core/browser/studies/autofill_experiments.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 #include "components/autofill/core/browser/test_utils/test_autofill_clock.h"
 #include "components/autofill/core/browser/test_utils/test_event_waiter.h"
-#include "components/autofill/core/common/autofill_constants.h"
-#include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
-#include "components/keyed_service/content/browser_context_dependency_manager.h"
-#include "components/network_session_configurator/common/network_switches.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_buildflags.h"
-#include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
-#include "components/sync/base/features.h"
 #include "components/sync/service/sync_service_impl.h"
-#include "components/sync/test/fake_server.h"
-#include "components/sync/test/fake_server_network_resources.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/test/browser_test.h"
@@ -97,11 +81,8 @@
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/combobox/combobox.h"
-#include "ui/views/controls/styled_label.h"
 #include "ui/views/controls/textfield/textfield.h"
-#include "ui/views/controls/throbber.h"
 #include "ui/views/interaction/element_tracker_views.h"
-#include "ui/views/layout/animating_layout_manager.h"
 #include "ui/views/layout/animating_layout_manager_test_util.h"
 #include "ui/views/test/ax_event_counter.h"
 #include "ui/views/test/button_test_api.h"
@@ -109,8 +90,6 @@
 #include "ui/views/test/widget_test.h"
 #include "ui/views/widget/any_widget_observer.h"
 #include "ui/views/widget/widget.h"
-#include "ui/views/window/frame_view.h"
-#include "url/url_constants.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
@@ -155,7 +134,6 @@ const double kFakeGeolocationLongitude = 4.56;
 // Params of the test indicate whether the experiment to migrate page action to
 // the new page action framework, and whether Wallet branding V2 is enabled.
 struct SaveCardBubbleViewsBrowserTestParams {
-  bool is_page_action_migration_enabled = false;
   bool is_wallet_branding_v2_enabled = false;
 };
 
@@ -176,18 +154,9 @@ class SaveCardBubbleViewsFullFormBrowserTest
   SaveCardBubbleViewsFullFormBrowserTest()
       : SyncTest(SINGLE_CLIENT),
         page_actions::PageActionObserver(kActionShowPaymentsBubbleOrPage) {
-    const bool is_page_action_migration_enabled =
-        GetParam().is_page_action_migration_enabled;
     std::vector<base::test::FeatureRefAndParams> enabled_features = {};
     std::vector<base::test::FeatureRef> disabled_features = {};
 
-    enabled_features.push_back({
-        ::features::kPageActionsMigration,
-        {{
-            ::features::kPageActionsMigrationSavePayments.name,
-            is_page_action_migration_enabled ? "true" : "false",
-        }},
-    });
     enabled_features.push_back(
         {features::kAutofillUpstreamEnforceStrikeDelay, {}});
     if (IsWalletBrandingV2Enabled()) {
@@ -199,7 +168,6 @@ class SaveCardBubbleViewsFullFormBrowserTest
 
     feature_list_.InitWithFeaturesAndParameters(enabled_features,
                                                 disabled_features);
-    CHECK_EQ(IsPageActionMigrationEnabled(), is_page_action_migration_enabled);
   }
 
   class TestAutofillManager : public BrowserAutofillManager {
@@ -266,11 +234,7 @@ class SaveCardBubbleViewsFullFormBrowserTest
     // Set up this class as the ObserverForTest implementation.
     credit_card_save_manager()->SetEventObserverForTesting(this);
 
-    if (IsPageActionMigrationEnabled()) {
-      RegisterPageActionObserver();
-    } else {
-      GetSaveCardIconView()->AddPageIconViewObserver(this);
-    }
+    RegisterPageActionObserver();
     any_widget_observer_ = std::make_unique<views::AnyWidgetObserver>(
         views::test::AnyWidgetTestPasskey{});
     any_widget_observer_->set_shown_callback(base::BindRepeating(
@@ -285,9 +249,6 @@ class SaveCardBubbleViewsFullFormBrowserTest
 
   void TearDownOnMainThread() override {
     if (!closed_all_tabs_) {
-      if (!IsPageActionMigrationEnabled()) {
-        GetSaveCardIconView()->RemovePageIconViewObserver(this);
-      }
       // credit_card_save_manager() will be null if the active web contents
       // have changed since the test began.
       if (credit_card_save_manager()) {
@@ -848,29 +809,13 @@ class SaveCardBubbleViewsFullFormBrowserTest
     return static_cast<SaveCardBubbleViews*>(save_card_bubble_view);
   }
 
-  SavePaymentIconView* GetSaveCardIconView() {
-    BrowserView* browser_view =
-        BrowserView::GetBrowserViewForBrowser(GetBrowser(0));
-    PageActionIconView* icon =
-        browser_view->toolbar_button_provider()->GetPageActionIconView(
-            PageActionIconType::kSaveCard);
-    CHECK(browser_view->GetLocationBarView()->Contains(icon));
-    return static_cast<SavePaymentIconView*>(icon);
-  }
-
   IconLabelBubbleView* GetSaveCardPageActionView() {
     BrowserView* browser_view =
         BrowserView::GetBrowserViewForBrowser(GetBrowser(0));
-    IconLabelBubbleView* icon;
-    if (IsPageActionMigrationEnabled()) {
-      auto* provider = browser_view->toolbar_button_provider();
-      icon = page_actions::GetIconLabelBubbleViewForTesting(
-          provider->GetPageActionViewInterface(kActionShowPaymentsBubbleOrPage),
-          kActionShowPaymentsBubbleOrPage);
-    } else {
-      icon = browser_view->toolbar_button_provider()->GetPageActionIconView(
-          PageActionIconType::kSaveCard);
-    }
+    auto* provider = browser_view->toolbar_button_provider();
+    IconLabelBubbleView* icon = page_actions::GetIconLabelBubbleViewForTesting(
+        provider->GetPageActionViewInterface(kActionShowPaymentsBubbleOrPage),
+        kActionShowPaymentsBubbleOrPage);
     CHECK(browser_view->GetLocationBarView()->Contains(icon));
     return icon;
   }
@@ -1039,12 +984,12 @@ IN_PROC_BROWSER_TEST_P(SaveCardBubbleViewsFullFormBrowserTest,
     // clicking. Due to how the bounds are set asynchronously, the icon can be
     // visible but un-clickable due to its unset bounds.
     ui_test_utils::ViewBoundsWaiter save_card_icon_view_waiter(
-        GetSaveCardIconView());
+        GetSaveCardPageActionView());
     save_card_icon_view_waiter.WaitForNonEmptyBounds();
 
     // Click on the save card icon to reshow the bubble view.
     ResetEventWaiterForSequence({DialogEvent::BUBBLE_SHOWN});
-    ClickSavePaymentIconView(GetSaveCardIconView());
+    ClickSavePaymentIconView(GetSaveCardPageActionView());
     ASSERT_TRUE(WaitForObservedEvent());
   }
 
@@ -1108,7 +1053,7 @@ class SaveCardBubbleViewsFullFormBrowserTestSettings
 
     // Open up Manage Cards prompt.
     ResetEventWaiterForSequence({DialogEvent::BUBBLE_SHOWN});
-    ClickSavePaymentIconView(GetSaveCardIconView());
+    ClickSavePaymentIconView(GetSaveCardPageActionView());
     ASSERT_TRUE(WaitForObservedEvent());
 
     // Click on the redirect button.
@@ -2105,34 +2050,13 @@ IN_PROC_BROWSER_TEST_P(SaveCardBubbleViewsFullFormBrowserTest,
   // Submit the form again. Since the card has not passed the required delay,
   // the icon should be shown but the bubble should not.
   std::list<DialogEvent> events = {DialogEvent::OFFERED_LOCAL_SAVE};
-  if (!IsPageActionMigrationEnabled()) {
-    events.emplace_back(DialogEvent::ICON_SHOWN);
-  }
   ResetEventWaiterForSequence(events);
   FillForm();
   SubmitForm();
   ASSERT_TRUE(WaitForObservedEvent());
 
-  // Post migration, the page action will not show after max strikes.
-  if (IsPageActionMigrationEnabled()) {
-    EXPECT_FALSE(GetSaveCardPageActionView()->GetVisible());
-  } else {
-    EXPECT_TRUE(GetSaveCardIconView()->GetVisible());
-  }
+  EXPECT_FALSE(GetSaveCardPageActionView()->GetVisible());
   EXPECT_FALSE(GetSaveCardBubbleViews());
-
-  // Post migration, since the icon will not show, there is no entrypoint to
-  // the Save Card bubble.
-  if (!IsPageActionMigrationEnabled()) {
-    // Click the icon to show the bubble.
-    ResetEventWaiterForSequence({DialogEvent::BUBBLE_SHOWN});
-    ClickSavePaymentIconView(GetSaveCardIconView());
-    ASSERT_TRUE(WaitForObservedEvent());
-    EXPECT_TRUE(FindViewInBubbleById(DialogViewId::MAIN_CONTENT_VIEW_LOCAL)
-                    ->GetVisible());
-
-    ClickOnCancelButton();
-  }
 
   // Verify that the correct histogram entry was logged.
   histogram_tester.ExpectBucketCount(
@@ -2197,7 +2121,7 @@ IN_PROC_BROWSER_TEST_P(
   if (IsPageActionMigrationEnabled()) {
     EXPECT_FALSE(GetSaveCardPageActionView()->GetVisible());
   } else {
-    EXPECT_TRUE(GetSaveCardIconView()->GetVisible());
+    EXPECT_TRUE(GetSaveCardPageActionView()->GetVisible());
   }
   EXPECT_FALSE(GetSaveCardBubbleViews());
 
@@ -2206,7 +2130,7 @@ IN_PROC_BROWSER_TEST_P(
   if (!IsPageActionMigrationEnabled()) {
     // Click the icon to show the bubble.
     ResetEventWaiterForSequence({DialogEvent::BUBBLE_SHOWN});
-    ClickSavePaymentIconView(GetSaveCardIconView());
+    ClickSavePaymentIconView(GetSaveCardPageActionView());
     ASSERT_TRUE(WaitForObservedEvent());
     EXPECT_TRUE(FindViewInBubbleById(DialogViewId::MAIN_CONTENT_VIEW_UPLOAD)
                     ->GetVisible());
@@ -2399,11 +2323,7 @@ IN_PROC_BROWSER_TEST_P(SaveCardBubbleViewsFullFormBrowserTest,
   EXPECT_EQ(nullptr, GetSaveCardBubbleViews());
 
   // Entrypoint for manage card bubble will not show post migration.
-  if (IsPageActionMigrationEnabled()) {
-    EXPECT_FALSE(GetSaveCardPageActionView()->GetVisible());
-  } else {
-    EXPECT_TRUE(GetSaveCardIconView()->GetVisible());
-  }
+  EXPECT_FALSE(GetSaveCardPageActionView()->GetVisible());
 }
 
 // Tests the local save bubble. Ensures that the bubble always surfaces the
@@ -2437,7 +2357,7 @@ IN_PROC_BROWSER_TEST_P(SaveCardBubbleViewsFullFormBrowserTest,
   if (!IsPageActionMigrationEnabled()) {
     // Open up Manage Cards prompt.
     ResetEventWaiterForSequence({DialogEvent::BUBBLE_SHOWN});
-    ClickSavePaymentIconView(GetSaveCardIconView());
+    ClickSavePaymentIconView(GetSaveCardPageActionView());
     ASSERT_TRUE(WaitForObservedEvent());
 
     // Bubble should be showing.
@@ -2471,7 +2391,7 @@ IN_PROC_BROWSER_TEST_P(SaveCardBubbleViewsFullFormBrowserTest,
   if (!IsPageActionMigrationEnabled()) {
     // Open up Manage Cards prompt.
     ResetEventWaiterForSequence({DialogEvent::BUBBLE_SHOWN});
-    ClickSavePaymentIconView(GetSaveCardIconView());
+    ClickSavePaymentIconView(GetSaveCardPageActionView());
     ASSERT_TRUE(WaitForObservedEvent());
 
     // Click on the [Done] button.
@@ -2490,18 +2410,11 @@ IN_PROC_BROWSER_TEST_P(SaveCardBubbleViewsFullFormBrowserTest,
 
 IN_PROC_BROWSER_TEST_P(SaveCardBubbleViewsFullFormBrowserTest,
                        IconViewAccessibleName) {
-  if (IsPageActionMigrationEnabled()) {
-    FillForm();
-    SubmitFormAndWaitForCardLocalSaveBubble();
+  FillForm();
+  SubmitFormAndWaitForCardLocalSaveBubble();
 
-    EXPECT_EQ(GetCurrentPageActionState().tooltip,
-              l10n_util::GetStringUTF16(IDS_TOOLTIP_SAVE_CREDIT_CARD));
-  } else {
-    EXPECT_EQ(GetSaveCardIconView()->GetViewAccessibility().GetCachedName(),
-              l10n_util::GetStringUTF16(IDS_TOOLTIP_SAVE_CREDIT_CARD));
-    EXPECT_EQ(GetSaveCardIconView()->GetTextForTooltipAndAccessibleName(),
-              l10n_util::GetStringUTF16(IDS_TOOLTIP_SAVE_CREDIT_CARD));
-  }
+  EXPECT_EQ(GetCurrentPageActionState().tooltip,
+            l10n_util::GetStringUTF16(IDS_TOOLTIP_SAVE_CREDIT_CARD));
 }
 
 // Test to verify the account chip footer is displayed correctly on the upload
@@ -2522,20 +2435,15 @@ IN_PROC_BROWSER_TEST_P(
 INSTANTIATE_TEST_SUITE_P(
     ,
     SaveCardBubbleViewsFullFormBrowserTest,
-    ::testing::ConvertGenerator(
-        ::testing::Combine(::testing::Bool(), ::testing::Bool()),
-        [](const std::tuple<bool, bool>& params) {
-          return SaveCardBubbleViewsBrowserTestParams{
-              .is_page_action_migration_enabled = std::get<0>(params),
-              .is_wallet_branding_v2_enabled = std::get<1>(params)};
-        }),
+    ::testing::ConvertGenerator(::testing::Bool(),
+                                [](bool is_wallet_branding_v2_enabled) {
+                                  return SaveCardBubbleViewsBrowserTestParams{
+                                      .is_wallet_branding_v2_enabled =
+                                          is_wallet_branding_v2_enabled};
+                                }),
     [](const ::testing::TestParamInfo<
         SaveCardBubbleViewsFullFormBrowserTest::ParamType>& info) {
-      return base::StrCat({info.param.is_page_action_migration_enabled
-                               ? "NewPageAction"
-                               : "OldPageAction",
-                           "_",
-                           info.param.is_wallet_branding_v2_enabled
+      return base::StrCat({info.param.is_wallet_branding_v2_enabled
                                ? "WalletBrandingV2Enabled"
                                : "WalletBrandingV2Disabled"});
     });
@@ -2543,38 +2451,18 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(
     ,
     SaveCardBubbleViewsFullFormBrowserTestSettings,
-    ::testing::ConvertGenerator(::testing::Bool(),
-                                [](bool migration_enabled) {
-                                  return SaveCardBubbleViewsBrowserTestParams{
-                                      .is_page_action_migration_enabled =
-                                          migration_enabled,
-                                  };
-                                }),
+    ::testing::Values(SaveCardBubbleViewsBrowserTestParams{}),
     [](const ::testing::TestParamInfo<
         SaveCardBubbleViewsFullFormBrowserTestSettings::ParamType>& info) {
-      return base::StrCat({
-          info.param.is_page_action_migration_enabled ? "NewPageAction"
-                                                      : "OldPageAction",
-      });
+      return "Default";
     });
 
 INSTANTIATE_TEST_SUITE_P(
     ,
     SaveCardBubbleViewsFullFormBrowserTestWithAutofillUpstream,
-    ::testing::ConvertGenerator(::testing::Bool(),
-                                [](bool migration_enabled) {
-                                  return SaveCardBubbleViewsBrowserTestParams{
-                                      .is_page_action_migration_enabled =
-                                          migration_enabled,
-                                  };
-                                }),
+    ::testing::Values(SaveCardBubbleViewsBrowserTestParams{}),
     [](const ::testing::TestParamInfo<
         SaveCardBubbleViewsFullFormBrowserTestWithAutofillUpstream::ParamType>&
-           info) {
-      return base::StrCat({
-          info.param.is_page_action_migration_enabled ? "NewPageAction"
-                                                      : "OldPageAction",
-      });
-    });
+           info) { return "Default"; });
 
 }  // namespace autofill

@@ -28,6 +28,7 @@ enum WrappablePointerTag : uint16_t {
   kAPIBindingBridge,                 // extensions::APIBindingBridge
   kAPIBindingJSUtil,                 // extensions::APIBindingJSUtil
   kAutomationPosition,               // ui::AutomationPosition
+  kBenchmarkingBindings,             // BenchmarkingBindings
   kChromePluginPlaceholder,          // ChromePluginPlaceholder
   kChromeSetting,                    // extensions::ChromeSetting
   kContentSetting,                   // extensions::ContentSetting
@@ -47,6 +48,7 @@ enum WrappablePointerTag : uint16_t {
   kJsMessageEvent,                   // android_webview::JsMessageEvent
   kJsSandboxMessagePort,             // android_webview::JsSandboxMessagePort
   kLastErrorObject,                  // extensions::LastErrorObject
+  kLoadTimesBindings,                // LoadTimesBindings
   kLocalStorageArea,                 // extensions::LocalStorageArea
   kManagedStorageArea,               // extensions::ManagedStorageArea
   kMojo,                             // ax::Mojo
@@ -64,7 +66,6 @@ enum WrappablePointerTag : uint16_t {
   kSearchBoxBindings,            // SearchBoxBindings
   kSecurityInterstitialPageController,  // SecurityInterstitialPageController
   kSessionStorageArea,                  // extensions::SessionStorageArea
-  kSharedStorageMethod,                 // auction_worklet::SharedStorageMethod
   kSkiaBenchmarking,                    // content::SkiaBenchmarking
   kStatsCollectionController,           // content::StatsCollectionController
   kSupervisedUserErrorPageController,   // SupervisedUserErrorPageController
@@ -79,6 +80,7 @@ enum WrappablePointerTag : uint16_t {
   kTextInputControllerBindings,  // content::TextInputControllerBindings
   kWebAXObjectProxy,             // content::WebAXObjectProxy
   kWrappedExceptionHandler,      // extensions::WrappedExceptionHandler
+  kWrappedHandlerFunction,       // extensions::WrappedHandlerFunction
   // keep-sorted end
   kLastPointerTag,
 };

@@ -16,11 +16,11 @@
 #include "content/public/test/scoped_web_ui_controller_factory_registration.h"
 #include "content/public/test/test_renderer_host.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/controls/webview/webview.h"
-#include "ui/views/layout/layout_provider.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
@@ -150,9 +150,7 @@ TEST_F(DrivePickerHostViewTest, SetsCornerRadiusOnAddedToWidget) {
 
   // Verify that the corner radii were set to 0 (rectangular) on the WebView
   // holder.
-  gfx::RoundedCornersF holder_radii =
-      web_view->holder()->GetUILayer()->rounded_corner_radii();
-  EXPECT_TRUE(holder_radii.IsEmpty());
+  EXPECT_TRUE(web_view->holder()->GetNativeViewCornerRadii().IsEmpty());
 
   // Verify that the corner radii were set to 0 on the view's layer.
   gfx::RoundedCornersF view_radii = view_ptr->layer()->rounded_corner_radii();
@@ -197,4 +195,49 @@ TEST_F(DrivePickerHostViewTest, OpenURLFromTab_ForwardsToBrowserWindow) {
                       testing::_));
 
   view->OpenURLFromTab(view->GetWebContents(), params, base::NullCallback());
+}
+
+TEST_F(DrivePickerHostViewTest, OpenURLFromTab_RejectsPrivilegedSchemes) {
+  auto view = std::make_unique<DrivePickerHostView>(
+      profile(), browser_window_interface(),
+      drive_picker_host::DrivePickerHostRequest::RequestType::kConsentDialog);
+
+  // Privileged schemes like chrome:// and file:// should be blocked.
+  for (const std::string& url_str :
+       {"chrome://settings", "file:///etc/passwd"}) {
+    const GURL privileged_url(url_str);
+    content::OpenURLParams params(privileged_url, content::Referrer(),
+                                  WindowOpenDisposition::CURRENT_TAB,
+                                  ui::PAGE_TRANSITION_LINK, false);
+
+    EXPECT_CALL(*browser_window_interface(), OpenURL(testing::_, testing::_))
+        .Times(0);
+
+    content::WebContents* result = view->OpenURLFromTab(
+        view->GetWebContents(), params, base::NullCallback());
+    EXPECT_EQ(result, nullptr);
+
+    // Clear expectations for the next iteration of the loop.
+    testing::Mock::VerifyAndClearExpectations(browser_window_interface());
+  }
+}
+
+TEST_F(DrivePickerHostViewTest, AddNewContents_RejectsPrivilegedSchemes) {
+  auto view = std::make_unique<DrivePickerHostView>(
+      profile(), browser_window_interface(),
+      drive_picker_host::DrivePickerHostRequest::RequestType::kConsentDialog);
+
+  // Privileged schemes like chrome:// and file:// should be blocked.
+  for (const std::string& url_str :
+       {"chrome://settings", "file:///etc/passwd"}) {
+    const GURL privileged_url(url_str);
+    bool was_blocked = false;
+    content::WebContents* result = view->AddNewContents(
+        view->GetWebContents(), nullptr, privileged_url,
+        WindowOpenDisposition::NEW_FOREGROUND_TAB,
+        blink::mojom::WindowFeatures(), /*user_gesture=*/true, &was_blocked);
+
+    EXPECT_EQ(result, nullptr);
+    EXPECT_TRUE(was_blocked);
+  }
 }

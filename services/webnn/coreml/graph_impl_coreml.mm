@@ -313,20 +313,17 @@ struct GraphImplCoreml::Params {
 
 // static
 void GraphImplCoreml::CreateAndBuild(
-    mojo::PendingReceiver<mojom::WebNNGraph> receiver,
     ContextImplCoreml& context,
     mojom::GraphInfoPtr graph_info,
     ComputeResourceInfo compute_resource_info,
     base::flat_map<OperandId, std::unique_ptr<WebNNConstantOperand>>
         constant_operands,
-    base::flat_map<OperandId, scoped_refptr<WebNNTensorImpl>>
-        constant_tensor_operands,
     mojom::CreateContextOptionsPtr context_options,
     ContextProperties context_properties,
     WebNNContextImpl::CreateGraphImplCallback callback) {
   auto wrapped_callback = base::BindPostTaskToCurrentDefault(
-      base::BindOnce(&GraphImplCoreml::DidCreateAndBuild, std::move(receiver),
-                     context.AsWeakPtr(), std::move(callback)));
+      base::BindOnce(&GraphImplCoreml::DidCreateAndBuild, context.AsWeakPtr(),
+                     std::move(callback)));
 
   base::ThreadPool::PostTask(
       FROM_HERE,
@@ -563,7 +560,6 @@ void GraphImplCoreml::ReadComputePlan(
 
 // static
 void GraphImplCoreml::DidCreateAndBuild(
-    mojo::PendingReceiver<mojom::WebNNGraph> receiver,
     base::WeakPtr<WebNNContextImpl> context,
     WebNNContextImpl::CreateGraphImplCallback callback,
     base::expected<std::unique_ptr<Params>, mojom::ErrorPtr> result) {
@@ -579,8 +575,8 @@ void GraphImplCoreml::DidCreateAndBuild(
     return;
   }
 
-  std::move(callback).Run(base::MakeRefCounted<GraphImplCoreml>(
-      std::move(receiver), *context, *std::move(result)));
+  std::move(callback).Run(
+      base::MakeRefCounted<GraphImplCoreml>(*context, *std::move(result)));
 }
 
 GraphImplCoreml::ScopedModelPath::ScopedModelPath(base::ScopedTempDir file_dir)
@@ -613,12 +609,9 @@ GraphImplCoreml::ScopedModelPath::~ScopedModelPath() {
   CHECK(file_dir.Delete());
 }
 
-GraphImplCoreml::GraphImplCoreml(
-    mojo::PendingReceiver<mojom::WebNNGraph> receiver,
-    WebNNContextImpl& context,
-    std::unique_ptr<Params> params)
-    : WebNNGraphImpl(std::move(receiver),
-                     context,
+GraphImplCoreml::GraphImplCoreml(WebNNContextImpl& context,
+                                 std::unique_ptr<Params> params)
+    : WebNNGraphImpl(context,
                      std::move(params->compute_resource_info),
                      std::move(params->devices)),
       compute_resources_(base::MakeRefCounted<ComputeResources>(

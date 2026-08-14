@@ -20,6 +20,7 @@ found in the LICENSE file.
     <color name="black_alpha_12" tools:ignore="UnusedResources">#1F000000</color>
     <color name="black_alpha_20" tools:ignore="UnusedResources">#33000000</color>
     <color name="black_alpha_30" tools:ignore="UnusedResources">#4D000000</color>
+    <color name="black_alpha_40" tools:ignore="UnusedResources">#66000000</color>
     <color name="black_alpha_50">#80000000</color>
 
     <color name="green_50">#E6F4EA</color>
@@ -226,4 +227,8 @@ found in the LICENSE file.
 
     <!-- Colors used for the tab bottom sheet. -->
     <color name="glic_dark_theme_background">#141414</color>
+
+    <!-- Colors used for the Glic/Actor take over button glow. -->
+    <color name="actor_button_glow_soft">#4D0B57D0</color>
+    <color name="actor_button_glow_strong">#800B57D0</color>
 </resources>

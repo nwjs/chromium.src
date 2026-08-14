@@ -214,6 +214,10 @@ class CORE_EXPORT HTMLImageElement
   void ResetImageReplacement(Document* document = nullptr);
   void StartImageReplacement();
 
+  bool replacedByUserAgent() const;
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(uareplacestart, kUareplacestart)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(uareplaceend, kUareplaceend)
+
  protected:
   // Controls how an image element appears in the layout. See:
   // https://html.spec.whatwg.org/C/#image-request
@@ -274,7 +278,7 @@ class CORE_EXPORT HTMLImageElement
   void ResetFormOwner();
   ImageCandidate FindBestFitImageFromPictureParent();
   void SetBestFitURLAndDPRFromImageCandidate(const ImageCandidate&);
-  PhysicalSize DensityCorrectedIntrinsicDimensions() const;
+  gfx::Size DensityCorrectedIntrinsicDimensions() const;
   HTMLImageLoader& GetImageLoader() const override { return *image_loader_; }
   void NotifyViewportChanged();
   void CreateMediaQueryListIfDoesNotExist();
@@ -302,6 +306,7 @@ class CORE_EXPORT HTMLImageElement
   bool is_lcp_element_ : 1;
   bool is_auto_sized_ : 1;
   bool is_predicted_lcp_element_ : 1;
+  bool is_lazy_load_issue_reported_ : 1;
 
   HashSet<String> creator_scripts_;
 };

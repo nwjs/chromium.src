@@ -1951,8 +1951,9 @@ void SplitViewController::UpdateBlackScrim(
 
   if (!black_scrim_layer_) {
     // Create an invisible black scrim layer.
-    black_scrim_layer_ = std::make_unique<ui::Layer>(ui::LAYER_SOLID_COLOR);
-    black_scrim_layer_->SetColor(AshColorProvider::Get()->GetBackgroundColor());
+    black_scrim_layer_ = std::make_unique<ui::LayerSolidColor>();
+    black_scrim_layer_->SetColor(
+        SkColor4f::FromColor(AshColorProvider::Get()->GetBackgroundColor()));
     // Set the black scrim layer underneath split view divider.
     auto* divider_layer = split_view_divider_.GetDividerWindow()->layer();
     auto* divider_parent_layer = divider_layer->parent();
@@ -1996,8 +1997,7 @@ void SplitViewController::UpdateBlackScrim(
 void SplitViewController::UpdateResizeBackdrop() {
   // Creates a backdrop layer. It is stacked below the snapped window.
   auto create_backdrop = [](aura::Window* window) {
-    auto resize_backdrop_layer =
-        std::make_unique<ui::Layer>(ui::LAYER_SOLID_COLOR);
+    auto resize_backdrop_layer = std::make_unique<ui::LayerSolidColor>();
 
     ui::Layer* parent = window->layer()->parent();
     ui::Layer* stacking_target = window->layer();
@@ -2009,12 +2009,12 @@ void SplitViewController::UpdateResizeBackdrop() {
 
   // Updates the bounds and color of a backdrop.
   auto update_backdrop = [this](SnapPosition position, aura::Window* window,
-                                ui::Layer* backdrop) {
+                                ui::LayerSolidColor* backdrop) {
     backdrop->SetBounds(GetSnappedWindowBoundsInParent(
         position, nullptr, chromeos::kDefaultSnapRatio));
-    backdrop->SetColor(window->GetProperty(
+    backdrop->SetColor(SkColor4f::FromColor(window->GetProperty(
         wm::IsActiveWindow(window) ? chromeos::kFrameActiveColorKey
-                                   : chromeos::kFrameInactiveColorKey));
+                                   : chromeos::kFrameInactiveColorKey)));
   };
 
   if (state_ == State::kPrimarySnapped || state_ == State::kBothSnapped) {

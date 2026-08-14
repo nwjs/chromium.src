@@ -141,6 +141,10 @@ public final class ChromePreferenceKeys {
     public static final String BOOKMARKS_SORT_ORDER = "Chrome.Bookmarks.BookmarkRowSortOrder";
     public static final String BOOKMARKS_VISUALS_PREF = "Chrome.Bookmarks.BookmarkRowDisplay";
 
+    /** Whether the GLIC button is enabled by the user in the bottom bar. */
+    public static final String BOTTOM_BAR_GLIC_BUTTON_ENABLED =
+            "Chrome.BottomBar.GlicButtonEnabled";
+
     /** Whether Chrome is set as the default browser. Default value is false. */
     public static final String CHROME_DEFAULT_BROWSER = "applink.chrome_default_browser";
 
@@ -192,6 +196,9 @@ public final class ChromePreferenceKeys {
     /** Note: The string value intentionally omits "Image" for backward compatibility. */
     public static final String CONTEXT_MENU_SEARCH_IMAGE_WITH_GOOGLE_LENS_CLICKED =
             "Chrome.ContextMenu.SearchWithGoogleLensClicked";
+
+    public static final String CONTEXT_MENU_SEARCH_TAB_WITH_GOOGLE_LENS_CLICKED =
+            "Chrome.ContextMenu.SearchTabWithGoogleLensClicked";
 
     public static final String CONTEXT_MENU_SHOP_IMAGE_WITH_GOOGLE_LENS_CLICKED =
             "Chrome.ContextMenu.ShopImageWithGoogleLensClicked";
@@ -684,6 +691,10 @@ public final class ChromePreferenceKeys {
     public static final String TAB_PERSISTENCE_STORE_MANAGER_VERSION =
             "Chrome.TabPersistence.StoreManagerVersion";
 
+    /** KeyPrefix for tab store metrics stored in SharedPreferences. */
+    public static final KeyPrefix TAB_STORE_METRICS =
+            new KeyPrefix("Chrome.TabModel.TabStoreMetrics.*");
+
     /**
      * Indicates whether or not there is any persistent (i.e. non-transient) content in chrome that
      * can be viewed offline.
@@ -721,7 +732,7 @@ public final class ChromePreferenceKeys {
 
     /**
      * The number at the end should be consistent with {@link
-     * org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataBase.PlatformType}
+     * org.chromium.chrome.browser.ntp_customization.theme_sync.data. PlatformType}
      */
     public static final KeyPrefix NTP_CUSTOMIZATION_SYNC_HISTORY_DATA =
             new KeyPrefix("Chrome.NtpCustomizationSync.HistoryData.*");
@@ -793,26 +804,13 @@ public final class ChromePreferenceKeys {
     public static final String PRIVACY_IN_SAMPLE_FOR_CRASHES =
             "Chrome.Privacy.InSampleForCrashReporting";
 
-    // TODO(b/483043192): Remove this preference once metrics reporting migration is complete.
     public static final String PRIVACY_METRICS_REPORTING_PERMITTED_BY_USER =
             "Chrome.Privacy.UsageAndCrashReportingPermittedByUser";
 
-    // TODO(b/483043192): Remove this preference once metrics reporting migration is complete.
     public static final String PRIVACY_METRICS_REPORTING_PERMITTED_BY_POLICY =
             "Chrome.Privacy.UsageAndCrashReportingPermittedByPolicy";
 
-    /**
-     * The metrics reporting level as set by the user. Value is from {@link
-     * org.chromium.components.metrics.MetricsReportingLevel}.
-     */
-    public static final String PRIVACY_METRICS_REPORTING_LEVEL =
-            "Chrome.Privacy.MetricsReportingLevel";
-
-    /** Whether metrics reporting is disabled by policy. */
-    public static final String PRIVACY_METRICS_REPORTING_DISABLED_BY_POLICY =
-            "Chrome.Privacy.MetricsReportingDisabledByPolicy";
-
-    /** Whether to use metrics consent restructure. */
+    /** Whether to use metrics choice restructure. */
     public static final String PRIVACY_SHOULD_USE_METRICS_CHOICE_RESTRUCTURE =
             "Chrome.Privacy.ShouldUseMetricsChoiceRestructure";
 
@@ -1112,8 +1110,15 @@ public final class ChromePreferenceKeys {
 
     public static final String VERIFIED_DIGITAL_ASSET_LINKS = "verified_digital_asset_links";
 
+    /** Stores whether the vertical tabs rail is collapsed. */
+    public static final String VERTICAL_TABS_COLLAPSED = "Chrome.VerticalTabs.Collapsed";
+
     /** Stores the user preference for displaying vertical tabs. */
     public static final String VERTICAL_TABS_ENABLED = "Chrome.VerticalTabs.Enabled";
+
+    /** Stores the timestamp when vertical tabs were enabled. */
+    public static final String VERTICAL_TABS_ENABLED_TIMESTAMP =
+            "Chrome.VerticalTabs.EnabledTimestamp";
 
     /** Key for deferred recording of list of uninstalled WebAPK packages. */
     public static final String WEBAPK_UNINSTALLED_PACKAGES = "webapk_uninstalled_packages";
@@ -1194,6 +1199,7 @@ public final class ChromePreferenceKeys {
                 BLUETOOTH_NOTIFICATION_IDS,
                 BOOKMARKS_SORT_ORDER,
                 BOOKMARKS_VISUALS_PREF,
+                BOTTOM_BAR_GLIC_BUTTON_ENABLED,
                 CLIPBOARD_SHARED_URI,
                 CLIPBOARD_SHARED_URI_TIMESTAMP,
                 CLOUD_MANAGEMENT_CLIENT_ID,
@@ -1202,6 +1208,7 @@ public final class ChromePreferenceKeys {
                 CONTEXT_MENU_OPEN_IMAGE_IN_EPHEMERAL_TAB_CLICKED,
                 CONTEXT_MENU_OPEN_IN_EPHEMERAL_TAB_CLICKED,
                 CONTEXT_MENU_SEARCH_IMAGE_WITH_GOOGLE_LENS_CLICKED,
+                CONTEXT_MENU_SEARCH_TAB_WITH_GOOGLE_LENS_CLICKED,
                 CONTEXT_MENU_SHOP_IMAGE_WITH_GOOGLE_LENS_CLICKED,
                 CROSS_DEVICE_IMPORTED_BOTTOM_OMNIBOX,
                 CROSS_DEVICE_IMPORTED_ALL_SETTINGS,
@@ -1316,8 +1323,6 @@ public final class ChromePreferenceKeys {
                 PRIVACY_IN_SAMPLE_FOR_CRASHES,
                 PRIVACY_METRICS_REPORTING_PERMITTED_BY_USER,
                 PRIVACY_METRICS_REPORTING_PERMITTED_BY_POLICY,
-                PRIVACY_METRICS_REPORTING_LEVEL,
-                PRIVACY_METRICS_REPORTING_DISABLED_BY_POLICY,
                 PRIVACY_SHOULD_USE_METRICS_CHOICE_RESTRUCTURE,
                 PROMO_IS_DISMISSED.pattern(),
                 PROMO_TIMES_SEEN.pattern(),
@@ -1368,6 +1373,7 @@ public final class ChromePreferenceKeys {
                 TAB_PERSISTENCE_CURRENT_AUTHORITATIVE_STORE.pattern(),
                 TAB_PERSISTENCE_SHADOW_WRITTEN_STORE.pattern(),
                 TAB_PERSISTENCE_STORE_MANAGER_VERSION,
+                TAB_STORE_METRICS.pattern(),
                 TIPS_NOTIFICATIONS_OPT_IN_PROMO_ACCEPTED,
                 TIPS_NOTIFICATIONS_OPT_IN_PROMO_SHOW_COUNT,
                 TIPS_NOTIFICATIONS_OPT_IN_PROMO_LAST_SHOWN_TIMESTAMP,
@@ -1377,7 +1383,9 @@ public final class ChromePreferenceKeys {
                 UMA_ON_RESUME_COUNTER,
                 USB_NOTIFICATION_IDS,
                 USER_ENABLED_DESKTOP_SITE_GLOBAL_SETTING_PREFERENCE_KEY,
+                VERTICAL_TABS_COLLAPSED,
                 VERTICAL_TABS_ENABLED,
+                VERTICAL_TABS_ENABLED_TIMESTAMP,
                 WEB_SIGNIN_ACCOUNT_PICKER_ACTIVE_DISMISSAL_COUNT,
                 WINDOW_CONTROLS_OVERLAY_ENABLED_PACKAGES);
     }

@@ -70,10 +70,12 @@ BASE_DECLARE_FEATURE(kWebUIOmniboxPopupSelectionControl);
 BASE_DECLARE_FEATURE(kOmniboxAnimatedCaret);
 // Enables energy effect in the omnibox.
 BASE_DECLARE_FEATURE(kEnergyEffectInOmnibox);
-BASE_DECLARE_FEATURE(kWebUIOmniboxAskGAboutThisPage);
 BASE_DECLARE_FEATURE(kWebUIOmniboxDynamicAiModeButton);
+// Prevents closing popup while file chooser is open.
+BASE_DECLARE_FEATURE(kOmniboxKeepOpenOnFileSelection);
 
 extern const base::FeatureParam<bool> kWebUIOmniboxPopupDebugSxSParam;
+extern const base::FeatureParam<bool> kOmniboxEverywhereProfilePickerParam;
 
 // The serialized base64 encoded `omnibox::NTPComposeboxConfig`.
 extern const base::FeatureParam<std::string> kConfigParam;
@@ -115,10 +117,6 @@ extern const base::FeatureParam<bool> kContextButtonShowSuggestionLabel;
 // BrowserView.
 extern const base::FeatureParam<bool> kWebUIOmniboxFullPopupUseBrowserView;
 extern const base::FeatureParam<bool> kWebUIOmniboxFullPopupMultiline;
-// Whether to open the next panel with cobrowse.
-extern const base::FeatureParam<bool> kAskGCoBrowse;
-// Whether to open the next panel with cobrowse and visual selection.
-extern const base::FeatureParam<bool> kAskGCoBrowseWithVisualSelection;
 // Whether to enable dynamic animation for the WebUI Omnibox.
 extern const base::FeatureParam<bool> kWebUIOmniboxDynamicAnimation;
 // Whether to enable dynamic color scheme for the WebUI Omnibox.
@@ -129,6 +127,9 @@ bool IsWebUIOmniboxPopupEnabled();
 
 // Returns true if `kWebUIOmniboxFullPopup` is enabled.
 bool IsWebUIOmniboxFullPopupEnabled();
+
+// Returns true if the webui omnibox should use the WebuiOmniboxFullHandler
+bool ShouldUseWebUIOmniboxFullHandler();
 
 // Returns true if `kWebUIOmniboxInBrowserView` is enabled.
 bool IsWebUIOmniboxInBrowserViewEnabled();
@@ -144,6 +145,11 @@ bool IsAimPopupFeatureEnabled();
 // eligibility.
 bool IsAimPopupEnabled(Profile* profile);
 bool ShouldShowAimContextMenuOption(Profile* profile);
+
+// Returns true if the Omnibox Everywhere feature is fully enabled for the given
+// `profile`. This checks both the base::Feature flag and that Google is the
+// default search provider.
+bool IsOmniboxEverywhereEnabled(Profile* profile);
 
 // Returns true if search content sharing is permitted by enterprise policy.
 bool IsContentSharingEnabled(

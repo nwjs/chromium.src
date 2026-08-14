@@ -48,6 +48,7 @@
 #include "build/build_config.h"
 #include "cc/test/pixel_test_utils.h"
 #include "components/input/render_widget_host_input_event_router.h"
+#include "components/viz/client/frame_eviction_manager.h"
 #include "components/viz/client/frame_evictor.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
 #include "content/browser/file_system/file_system_manager_impl.h"
@@ -1800,7 +1801,9 @@ std::string AnnotateAndAdjustJsStackTraces(std::string_view js_error,
         std::string source_line(source_lines[line_number - 1]);
 
         int max_column_number = 60 - indent.length();
-        if (column_number > max_column_number) {
+        if (column_number > max_column_number &&
+            static_cast<size_t>(column_number - max_column_number) <
+                source_line.size()) {
           source_line = source_line.substr(column_number - max_column_number);
           column_number = max_column_number;
           source_line.replace(0, elision_mark.length(), elision_mark.data(),
@@ -4364,7 +4367,7 @@ void VerifyStaleContentOnFrameEviction(
 
   // Initially there should be no stale content set.
   EXPECT_FALSE(
-      delegated_frame_host->stale_content_layer()->has_external_content());
+      delegated_frame_host->stale_content_layer()->HasExternalContent());
   EXPECT_EQ(delegated_frame_host->frame_eviction_state(),
             DelegatedFrameHost::FrameEvictionState::kNotStarted);
 
@@ -4383,10 +4386,19 @@ void VerifyStaleContentOnFrameEviction(
   waiter.WaitForEvictionState(
       DelegatedFrameHost::FrameEvictionState::kNotStarted);
   EXPECT_TRUE(
-      delegated_frame_host->stale_content_layer()->has_external_content());
+      delegated_frame_host->stale_content_layer()->HasExternalContent());
 }
 
 #endif  // defined(USE_AURA)
+
+size_t GetUnlockedCompositorFrameCount() {
+  return viz::FrameEvictionManager::GetInstance()
+      ->GetUnlockedFramesCountForTesting();
+}
+
+void PurgeUnlockedCompositorFrames() {
+  viz::FrameEvictionManager::GetInstance()->PurgeAllUnlockedFrames();
+}
 
 // static
 void BlobURLStoreInterceptor::Intercept(GURL target_url,
@@ -4775,6 +4787,7 @@ WebContents* CreateAndLoadWebContentsObserver::Wait() {
         << "Unexpected WebContents creation";
     // If the expected number of `WebContents` were created; finish waiting.
     if (filtered_web_contents.size() >= num_expected_contents_) {
+      creation_subscription_ = base::CallbackListSubscription();
       return filtered_web_contents[0];
     }
     // If insufficient `WebContents` were created, wait for another to be

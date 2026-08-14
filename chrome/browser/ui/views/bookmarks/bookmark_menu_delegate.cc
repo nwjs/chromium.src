@@ -11,13 +11,11 @@
 #include "base/containers/fixed_flat_set.h"
 #include "base/containers/to_vector.h"
 #include "base/debug/dump_without_crashing.h"
-#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/user_metrics.h"
 #include "base/notreached.h"
-#include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/bookmarks/bookmark_merged_surface_service.h"
@@ -27,7 +25,6 @@
 #include "chrome/browser/bookmarks/managed_bookmark_service_factory.h"
 #include "chrome/browser/favicon/favicon_utils.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/bookmarks/bookmark_context_menu_controller.h"
 #include "chrome/browser/ui/bookmarks/bookmark_drag_drop.h"
 #include "chrome/browser/ui/bookmarks/bookmark_stats.h"
@@ -36,8 +33,9 @@
 #include "chrome/browser/ui/bookmarks/bookmark_utils_desktop.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
+#include "chrome/browser/ui/side_panel/side_panel_action_callback.h"
+#include "chrome/browser/ui/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/event_utils.h"
 #include "chrome/grit/generated_resources.h"
@@ -50,6 +48,7 @@
 #include "components/profile_metrics/browser_profile_type.h"
 #include "components/url_formatter/url_formatter.h"
 #include "content/public/browser/page_navigator.h"
+#include "ui/actions/actions.h"
 #include "ui/base/accelerators/menu_label_accelerator_util.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom.h"
@@ -58,7 +57,6 @@
 #include "ui/base/models/image_model.h"
 #include "ui/base/models/menu_separator_types.h"
 #include "ui/base/mojom/menu_source_type.mojom-forward.h"
-#include "ui/base/resource/resource_bundle.h"
 #include "ui/base/theme_provider.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/window_open_disposition.h"
@@ -66,12 +64,9 @@
 #include "ui/color/color_id.h"
 #include "ui/gfx/image/image_skia_operations.h"
 #include "ui/menus/simple_menu_model.h"
-#include "ui/resources/grit/ui_resources.h"
 #include "ui/views/accessibility/view_accessibility.h"
-#include "ui/views/controls/button/menu_button.h"
 #include "ui/views/controls/menu/menu_controller.h"
 #include "ui/views/controls/menu/menu_item_view.h"
-#include "ui/views/controls/menu/menu_separator.h"
 #include "ui/views/controls/menu/submenu_view.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/widget/tooltip_manager.h"
@@ -142,7 +137,7 @@ class BookmarkModelDropObserver : public BookmarkMergedSurfaceServiceObserver {
         drop_parent_(drop_parent),
         index_to_drop_at_(index_to_drop_at),
         bookmark_service_(BookmarkMergedSurfaceServiceFactory::GetForProfile(
-            browser->profile())) {
+            browser->GetProfile())) {
     DCHECK(drop_data_.is_valid());
     CHECK(bookmark_service_);
     bookmark_merged_service_observation_.Observe(bookmark_service_);
@@ -163,8 +158,8 @@ class BookmarkModelDropObserver : public BookmarkMergedSurfaceServiceObserver {
     output_drag_op =
         BookmarkUIOperationsHelperMergedSurfaces(bookmark_service_,
                                                  &drop_parent_)
-            .DropBookmarks(browser_->profile(), drop_data_, index_to_drop_at_,
-                           copy,
+            .DropBookmarks(browser_->GetProfile(), drop_data_,
+                           index_to_drop_at_, copy,
                            chrome::BookmarkReorderDropTarget::kBookmarkMenu,
                            browser_.get());
   }
@@ -295,7 +290,7 @@ BookmarkMenuDelegate::BookmarkMenuDelegate(Browser* browser,
                                            views::MenuDelegate* real_delegate,
                                            BookmarkLaunchLocation location)
     : browser_(browser),
-      profile_(browser->profile()),
+      profile_(browser->GetProfile()),
       parent_(parent),
       menu_(nullptr),
       parent_menu_item_(nullptr),
@@ -441,7 +436,20 @@ bool BookmarkMenuDelegate::IsTriggerableEvent(views::MenuItemView* menu,
 
 void BookmarkMenuDelegate::ExecuteCommand(int id, int mouse_event_flags) {
   if (id == IDC_SHOW_BOOKMARK_SIDE_PANEL) {
-    browser_->command_controller()->ExecuteCommand(id);
+    SidePanelOpenTrigger trigger =
+        (location_ == BookmarkLaunchLocation::kAppMenu ||
+         location_ == BookmarkLaunchLocation::kTopMenu)
+            ? SidePanelOpenTrigger::kAppMenu
+            : SidePanelOpenTrigger::kBookmarkBar;
+    actions::ActionInvocationContext context =
+        actions::ActionInvocationContext::Builder()
+            .SetProperty(
+                kSidePanelOpenTriggerKey,
+                static_cast<std::underlying_type_t<SidePanelOpenTrigger>>(
+                    trigger))
+            .Build();
+    browser_->command_controller()->ExecuteCommandWithContext(
+        id, std::move(context));
     return;
   }
 

@@ -41,10 +41,10 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.appearance.settings.AppearanceSettingsFragment;
-import org.chromium.chrome.browser.autofill.options.AutofillOptionsFragment;
-import org.chromium.chrome.browser.autofill.options.AutofillOptionsFragment.AutofillOptionsReferrer;
-import org.chromium.chrome.browser.autofill.options.AutofillOptionsMediator;
 import org.chromium.chrome.browser.autofill.settings.SettingsNavigationHelper;
+import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsFragment;
+import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsMediator;
+import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsReferrer;
 import org.chromium.chrome.browser.device_lock.DeviceLockActivityLauncherImpl;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -176,6 +176,9 @@ public class MainSettings extends ChromeBaseSettingsFragment
 
     // Saved state of the ListView to restore the scroll offset.
     private @Nullable Parcelable mSavedListState;
+
+    // Avoids using large numbers of dependencies to simplify testing / mocking.
+    private boolean mSkipUpdatePreferencesForTesting;
 
     public MainSettings() {
         setHasOptionsMenu(true);
@@ -457,7 +460,7 @@ public class MainSettings extends ChromeBaseSettingsFragment
         intent.setAction(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
         intent.putExtra(
                 Settings.EXTRA_APP_PACKAGE, ContextUtils.getApplicationContext().getPackageName());
-        PackageManager pm = ((Activity) context).getPackageManager();
+        PackageManager pm = context.getPackageManager();
         return intent.resolveActivity(pm) != null;
     }
 
@@ -541,6 +544,11 @@ public class MainSettings extends ChromeBaseSettingsFragment
     }
 
     private void updatePreferences() {
+        // Avoids using large numbers of dependencies to simplify testing / mocking.
+        if (mSkipUpdatePreferencesForTesting) {
+            return;
+        }
+
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.DEFAULT_BROWSER_PROMO_ANDROID2)) {
             SettingsPromoCardPreference promoCardPreference =
                     (SettingsPromoCardPreference) addPreferenceIfAbsent(PREF_SETTINGS_PROMO_CARD);
@@ -570,11 +578,6 @@ public class MainSettings extends ChromeBaseSettingsFragment
             addPreferenceIfAbsent(PREF_DEVELOPER);
         } else {
             removePreferenceIfPresent(PREF_DEVELOPER);
-        }
-        if (ChromeFeatureList.sAndroidSettingsContainment.isEnabled()) {
-            // TODO(crbug.com/439911511): Remove old resources once the feature is launched.
-            findPreference(PREF_GOOGLE_SERVICES)
-                    .setIcon(R.drawable.ic_google_services_48dp_with_bg_containment);
         }
 
         if (shouldShowDefaultBrowserSetting()) {
@@ -756,7 +759,9 @@ public class MainSettings extends ChromeBaseSettingsFragment
             if (shouldShowNotificationPref(context, intent)) context.startActivity(intent);
             return false;
         } else if (key.equals(PREF_DEFAULT_BROWSER)) {
-            showDefaultBrowserSettings((Activity) context);
+            Activity activity = ActivityUtil.getActivityFromContext(context);
+            assumeNonNull(activity);
+            showDefaultBrowserSettings(activity);
             return false;
         }
         // TODO(crbug.com/469676538): Handle the rest of preferences.
@@ -980,6 +985,10 @@ public class MainSettings extends ChromeBaseSettingsFragment
     @Override
     public @AnimationType int getAnimationType() {
         return AnimationType.PROPERTY;
+    }
+
+    public void setSkipUpdatePreferencesForTesting(boolean skip) {
+        mSkipUpdatePreferencesForTesting = skip;
     }
 
     public static final ChromeBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =

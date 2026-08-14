@@ -6,17 +6,21 @@
 
 #include <memory>
 #include <optional>
+#include <utility>
 
 #include "base/check_deref.h"
+#include "base/system/sys_info.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
-#include "build/branding_buildflags.h"
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
 #include "components/autofill/core/common/autofill_debug_features.h"
 #include "components/autofill/core/common/autofill_features.h"
-#include "components/personal_context/core/mock_personal_context_enablement_service.h"
+#include "components/optimization_guide/core/feature_registry/feature_registration.h"
+#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
+#include "components/personal_context/core/mock_personal_context_eligibility_service.h"
 #include "components/personal_context/core/personal_context_prefs.h"
 #include "components/personal_context/core/personal_context_types.h"
+#include "components/prefs/pref_notifier_impl.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/testing_pref_service.h"
 #include "components/subscription_eligibility/subscription_eligibility_prefs.h"
@@ -37,50 +41,99 @@ namespace {
 
 using ::testing::Return;
 
+// A helper PrefStore that allows us to count how many times a specific
+// preference (the personal context toggle) is read. This is used to verify
+// the evaluation order of checks in MayPerformAtMemoryAction.
+class CountingPrefStore : public TestingPrefStore {
+ public:
+  explicit CountingPrefStore(std::string_view observed_key)
+      : observed_key_(observed_key) {}
+
+  bool GetValue(std::string_view key,
+                const base::Value** result) const override {
+    if (key == observed_key_) {
+      ++call_count_;
+    }
+    return TestingPrefStore::GetValue(key, result);
+  }
+
+  int call_count() const { return call_count_; }
+
+ private:
+  ~CountingPrefStore() override = default;
+  const std::string observed_key_;
+  mutable int call_count_ = 0;
+};
+
+// A helper PrefService that allows us to inject our custom CountingPrefStore
+// for user preferences. We must inherit from TestingPrefServiceBase because
+// TestingPrefServiceSimple does not allow injecting a custom PrefStore.
+class TestPrefService
+    : public TestingPrefServiceBase<PrefService, PrefRegistry> {
+ public:
+  TestPrefService(scoped_refptr<TestingPrefStore> user_prefs,
+                  scoped_refptr<PrefRegistry> pref_registry)
+      : TestingPrefServiceBase<PrefService, PrefRegistry>(
+            base::MakeRefCounted<TestingPrefStore>(),
+            base::MakeRefCounted<TestingPrefStore>(),
+            base::MakeRefCounted<TestingPrefStore>(),
+            user_prefs,
+            base::MakeRefCounted<TestingPrefStore>(),
+            pref_registry,
+            new PrefNotifierImpl()) {}
+};
+
 class AtMemoryEnablementUtilsTest : public testing::Test {
  protected:
   AtMemoryEnablementUtilsTest() {
     feature_list_.InitAndEnableFeatureWithParameters(
         features::kAutofillAtMemory, {{"at_memory_eligible_tiers", ""}});
-    personal_context::prefs::RegisterProfilePrefs(
-        autofill_client().GetPrefs()->registry());
+    autofill_client().GetPrefs()->registry()->RegisterIntegerPref(
+        optimization_guide::prefs::kFindAndFillWithGeminiSettings,
+        std::to_underlying(optimization_guide::model_execution::prefs::
+                               ModelExecutionEnterprisePolicyValue::kAllow));
     // Enable the toggle by default in tests since it represents the default
     // active state.
     autofill_client().GetPrefs()->SetUserPref(
         personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
         base::Value(true));
     // Set PersonalContextService to return not eligible by default.
-    ON_CALL(personal_context_service_, GetEnablementState)
-        .WillByDefault(Return(personal_context::PersonalContextEnablementState::
-                                  kDisabledNotEligible));
-    autofill_client().set_personal_context_enablement_service(
+    ON_CALL(personal_context_service_, GetEligibilityState)
+        .WillByDefault(
+            Return(personal_context::PersonalContextEligibilityState::
+                       kDisabledNotEligible));
+    autofill_client().set_personal_context_eligibility_service(
         &personal_context_service_);
+    autofill_client().set_last_committed_primary_main_frame_url(
+        GURL("https://example.com"));
   }
 
   TestAutofillClient& autofill_client() { return autofill_client_; }
+  const GURL& form_url() const { return form_url_; }
 
   base::test::TaskEnvironment task_environment_;
   base::test::ScopedFeatureList feature_list_;
-  testing::NiceMock<personal_context::MockPersonalContextEnablementService>
+  testing::NiceMock<personal_context::MockPersonalContextEligibilityService>
       personal_context_service_;
 
  private:
   TestAutofillClient autofill_client_;
+  const GURL form_url_{"https://example.com/form"};
 };
 
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 // Tests that `MayPerformAtMemoryAction` returns false when AtMemory is
 // disabled.
 TEST_F(AtMemoryEnablementUtilsTest, MayPerformAtMemoryAction_AtMemoryDisabled) {
   base::test::ScopedFeatureList disabled_features;
   disabled_features.InitAndDisableFeature(features::kAutofillAtMemory);
-  EXPECT_CALL(personal_context_service_, GetEnablementState)
+  EXPECT_CALL(personal_context_service_, GetEligibilityState)
       .WillRepeatedly(
-          Return(personal_context::PersonalContextEnablementState::kEnabled));
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
 
-  EXPECT_FALSE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
-                                        autofill_client()));
+  EXPECT_FALSE(MayPerformAtMemoryAction(
+      AtMemoryAction::kTriggerSearchUI, autofill_client(),
+      autofill_client().GetLastCommittedPrimaryMainFrameURL()));
   EXPECT_FALSE(MayPerformAtMemoryAction(AtMemoryAction::kShowAtMemoryInSettings,
                                         autofill_client()));
   EXPECT_FALSE(MayPerformAtMemoryAction(
@@ -91,54 +144,60 @@ TEST_F(AtMemoryEnablementUtilsTest, MayPerformAtMemoryAction_AtMemoryDisabled) {
 // `personal_context_service` is null.
 TEST_F(AtMemoryEnablementUtilsTest,
        MayPerformAtMemoryAction_NullPersonalContextService) {
-  EXPECT_FALSE(MayPerformAtMemoryAction(
+  EXPECT_FALSE(MayPerformAtMemoryActionBase(
       AtMemoryAction::kTriggerSearchUI, nullptr,
       autofill_client().GetSubscriptionEligibilityService(),
-      autofill_client().GetPrefs(), nullptr));
-  EXPECT_FALSE(MayPerformAtMemoryAction(
+      autofill_client().GetPrefs(), nullptr, nullptr,
+      /*url=*/GURL("https://example.com")));
+  EXPECT_FALSE(MayPerformAtMemoryActionBase(
       AtMemoryAction::kShowAtMemoryInSettings, nullptr,
       autofill_client().GetSubscriptionEligibilityService(),
-      autofill_client().GetPrefs(), nullptr));
-  EXPECT_FALSE(MayPerformAtMemoryAction(
+      autofill_client().GetPrefs(), nullptr, nullptr, /*url=*/std::nullopt));
+  EXPECT_FALSE(MayPerformAtMemoryActionBase(
       AtMemoryAction::kAllowCustomizeAtMemoryShortcut, nullptr,
       autofill_client().GetSubscriptionEligibilityService(),
-      autofill_client().GetPrefs(), nullptr));
+      autofill_client().GetPrefs(), nullptr, nullptr, /*url=*/std::nullopt));
 }
 
 // Tests that `MayPerformAtMemoryAction` returns false when
 // `subscription_eligibility_service` is null.
 TEST_F(AtMemoryEnablementUtilsTest,
        MayPerformAtMemoryAction_NullSubscriptionTierEligibilityService) {
-  EXPECT_CALL(personal_context_service_, GetEnablementState)
+  EXPECT_CALL(personal_context_service_, GetEligibilityState)
       .WillRepeatedly(
-          Return(personal_context::PersonalContextEnablementState::kEnabled));
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
 
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
       features::kAutofillAtMemory, {{"at_memory_eligible_tiers", "1"}});
 
-  EXPECT_FALSE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
-                                        &personal_context_service_, nullptr,
-                                        autofill_client().GetPrefs(), nullptr));
+  EXPECT_FALSE(MayPerformAtMemoryActionBase(
+      AtMemoryAction::kTriggerSearchUI, &personal_context_service_, nullptr,
+      autofill_client().GetPrefs(), nullptr, nullptr,
+      /*url=*/GURL("https://example.com")));
 }
 
 // Tests `MayPerformAtMemoryAction` when `pref_service` is null.
 TEST_F(AtMemoryEnablementUtilsTest, MayPerformAtMemoryAction_NullPrefService) {
-  EXPECT_CALL(personal_context_service_, GetEnablementState)
+  EXPECT_CALL(personal_context_service_, GetEligibilityState)
       .WillRepeatedly(
-          Return(personal_context::PersonalContextEnablementState::kEnabled));
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
+
+  EXPECT_TRUE(MayPerformAtMemoryActionBase(
+      AtMemoryAction::kShowAtMemoryInSettings, &personal_context_service_,
+      autofill_client().GetSubscriptionEligibilityService(), nullptr, nullptr,
+      nullptr, /*url=*/std::nullopt));
 
   // IsPersonalContextToggleOn returns false if pref_service is null.
-  EXPECT_FALSE(MayPerformAtMemoryAction(
+  EXPECT_FALSE(MayPerformAtMemoryActionBase(
       AtMemoryAction::kTriggerSearchUI, &personal_context_service_,
-      autofill_client().GetSubscriptionEligibilityService(), nullptr, nullptr));
-  EXPECT_TRUE(MayPerformAtMemoryAction(
-      AtMemoryAction::kShowAtMemoryInSettings, &personal_context_service_,
-      autofill_client().GetSubscriptionEligibilityService(), nullptr, nullptr));
-  EXPECT_FALSE(MayPerformAtMemoryAction(
+      autofill_client().GetSubscriptionEligibilityService(), nullptr, nullptr,
+      nullptr, /*url=*/GURL("https://example.com")));
+  EXPECT_FALSE(MayPerformAtMemoryActionBase(
       AtMemoryAction::kAllowCustomizeAtMemoryShortcut,
       &personal_context_service_,
-      autofill_client().GetSubscriptionEligibilityService(), nullptr, nullptr));
+      autofill_client().GetSubscriptionEligibilityService(), nullptr, nullptr,
+      nullptr, /*url=*/std::nullopt));
 }
 
 // Tests `MayPerformAtMemoryAction` under various Personal Context states.
@@ -148,61 +207,33 @@ TEST_F(AtMemoryEnablementUtilsTest, MayPerformAtMemoryAction_States) {
       base::Value(true));
 
   // State: kEnabled
-  EXPECT_CALL(personal_context_service_, GetEnablementState)
+  EXPECT_CALL(personal_context_service_, GetEligibilityState)
       .WillOnce(
-          Return(personal_context::PersonalContextEnablementState::kEnabled));
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
   EXPECT_TRUE(MayPerformAtMemoryAction(
       AtMemoryAction::kAllowCustomizeAtMemoryShortcut, autofill_client()));
-
-  // State: kEnabledShouldShowNotice
-  EXPECT_CALL(personal_context_service_, GetEnablementState)
-      .WillOnce(Return(personal_context::PersonalContextEnablementState::
-                           kEnabledShouldShowNotice));
-  autofill_client().GetPrefs()->SetUserPref(
-      personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
-      base::Value(true));
-  EXPECT_TRUE(MayPerformAtMemoryAction(
-      AtMemoryAction::kAllowCustomizeAtMemoryShortcut, autofill_client()));
-
-  // State: kDisabledViaPersonalIntelligenceInAutofillToggle
-  EXPECT_CALL(personal_context_service_, GetEnablementState)
-      .WillOnce(Return(personal_context::PersonalContextEnablementState::
-                           kDisabledViaPersonalIntelligenceInAutofillToggle));
-  autofill_client().GetPrefs()->SetUserPref(
-      personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
-      base::Value(false));
-  EXPECT_TRUE(MayPerformAtMemoryAction(AtMemoryAction::kShowAtMemoryInSettings,
-                                       autofill_client()));
-
-  // State: kDisabledNeedsOptIn
-  EXPECT_CALL(personal_context_service_, GetEnablementState)
-      .WillOnce(Return(personal_context::PersonalContextEnablementState::
-                           kDisabledNeedsOptIn));
-  autofill_client().GetPrefs()->SetUserPref(
-      personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
-      base::Value(false));
-  EXPECT_FALSE(MayPerformAtMemoryAction(AtMemoryAction::kShowAtMemoryInSettings,
-                                        autofill_client()));
 
   // State: kDisabledNotEligible
-  EXPECT_CALL(personal_context_service_, GetEnablementState)
-      .WillOnce(Return(personal_context::PersonalContextEnablementState::
+  EXPECT_CALL(personal_context_service_, GetEligibilityState)
+      .WillOnce(Return(personal_context::PersonalContextEligibilityState::
                            kDisabledNotEligible));
-  EXPECT_FALSE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
-                                        autofill_client()));
+  EXPECT_FALSE(MayPerformAtMemoryAction(
+      AtMemoryAction::kTriggerSearchUI, autofill_client(),
+      autofill_client().GetLastCommittedPrimaryMainFrameURL()));
 }
 
 // Tests `MayPerformAtMemoryAction` when the toggle pref is off.
 TEST_F(AtMemoryEnablementUtilsTest, MayPerformAtMemoryAction_ToggleOff) {
-  EXPECT_CALL(personal_context_service_, GetEnablementState)
+  EXPECT_CALL(personal_context_service_, GetEligibilityState)
       .WillRepeatedly(
-          Return(personal_context::PersonalContextEnablementState::kEnabled));
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
   autofill_client().GetPrefs()->SetUserPref(
       personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
       base::Value(false));
 
-  EXPECT_FALSE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
-                                        autofill_client()));
+  EXPECT_FALSE(MayPerformAtMemoryAction(
+      AtMemoryAction::kTriggerSearchUI, autofill_client(),
+      autofill_client().GetLastCommittedPrimaryMainFrameURL()));
   EXPECT_TRUE(MayPerformAtMemoryAction(AtMemoryAction::kShowAtMemoryInSettings,
                                        autofill_client()));
   EXPECT_FALSE(MayPerformAtMemoryAction(
@@ -212,50 +243,53 @@ TEST_F(AtMemoryEnablementUtilsTest, MayPerformAtMemoryAction_ToggleOff) {
 // Tests that `MayPerformAtMemoryAction` returns false when
 // `personal_context_service` returns `kDisabledNotEligible`.
 TEST_F(AtMemoryEnablementUtilsTest, MayPerformAtMemoryAction_NotSupported) {
-  EXPECT_CALL(personal_context_service_, GetEnablementState)
-      .WillRepeatedly(Return(personal_context::PersonalContextEnablementState::
+  EXPECT_CALL(personal_context_service_, GetEligibilityState)
+      .WillRepeatedly(Return(personal_context::PersonalContextEligibilityState::
                                  kDisabledNotEligible));
-  EXPECT_FALSE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
-                                        autofill_client()));
+  EXPECT_FALSE(MayPerformAtMemoryAction(
+      AtMemoryAction::kTriggerSearchUI, autofill_client(),
+      autofill_client().GetLastCommittedPrimaryMainFrameURL()));
 }
 
 // Tests that `MayPerformAtMemoryAction` returns true when the client supports
 // AtMemory and the settings toggle is enabled.
 TEST_F(AtMemoryEnablementUtilsTest,
        MayPerformAtMemoryAction_SupportedAndToggleOn) {
-  EXPECT_CALL(personal_context_service_, GetEnablementState)
+  EXPECT_CALL(personal_context_service_, GetEligibilityState)
       .WillRepeatedly(
-          Return(personal_context::PersonalContextEnablementState::kEnabled));
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
   autofill_client().GetPrefs()->SetUserPref(
       personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
       base::Value(true));
-  EXPECT_TRUE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
-                                       autofill_client()));
+  EXPECT_TRUE(MayPerformAtMemoryAction(
+      AtMemoryAction::kTriggerSearchUI, autofill_client(),
+      autofill_client().GetLastCommittedPrimaryMainFrameURL()));
 }
 
-// Tests that when `kAtMemorySkipEligibilityChecks` is enabled,
+// Tests that when `kAtMemorySkipEnablementChecks` is enabled,
 // `MayPerformAtMemoryAction` returns true even if the user is not eligible,
 // provided that the base `kAutofillAtMemory` feature is enabled.
 TEST_F(AtMemoryEnablementUtilsTest,
-       MayPerformAtMemoryAction_SkipEligibilityChecks) {
+       MayPerformAtMemoryAction_SkipEnablementChecks) {
   base::test::ScopedFeatureList debug_features(
-      features::debug::kAtMemorySkipEligibilityChecks);
+      features::debug::kAtMemorySkipEnablementChecks);
 
-  EXPECT_CALL(personal_context_service_, GetEnablementState)
-      .WillRepeatedly(Return(personal_context::PersonalContextEnablementState::
+  EXPECT_CALL(personal_context_service_, GetEligibilityState)
+      .WillRepeatedly(Return(personal_context::PersonalContextEligibilityState::
                                  kDisabledNotEligible));
 
-  EXPECT_TRUE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
-                                       autofill_client()));
+  EXPECT_TRUE(MayPerformAtMemoryAction(
+      AtMemoryAction::kTriggerSearchUI, autofill_client(),
+      autofill_client().GetLastCommittedPrimaryMainFrameURL()));
 }
 
 // Tests that a user is eligible for AtMemory if their subscription tier is in
 // the list of eligible tiers configured by the feature parameters.
 TEST_F(AtMemoryEnablementUtilsTest,
        MayPerformAtMemoryAction_SubscriptionTierEligibility) {
-  EXPECT_CALL(personal_context_service_, GetEnablementState)
+  EXPECT_CALL(personal_context_service_, GetEligibilityState)
       .WillRepeatedly(
-          Return(personal_context::PersonalContextEnablementState::kEnabled));
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
 
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
@@ -263,87 +297,252 @@ TEST_F(AtMemoryEnablementUtilsTest,
 
   autofill_client().GetPrefs()->SetInteger(
       subscription_eligibility::prefs::kAiSubscriptionTier, 1);
-  EXPECT_TRUE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
-                                       autofill_client()));
+  EXPECT_TRUE(MayPerformAtMemoryAction(
+      AtMemoryAction::kTriggerSearchUI, autofill_client(),
+      autofill_client().GetLastCommittedPrimaryMainFrameURL()));
 
   autofill_client().GetPrefs()->SetInteger(
       subscription_eligibility::prefs::kAiSubscriptionTier, 2);
-  EXPECT_TRUE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
-                                       autofill_client()));
+  EXPECT_TRUE(MayPerformAtMemoryAction(
+      AtMemoryAction::kTriggerSearchUI, autofill_client(),
+      autofill_client().GetLastCommittedPrimaryMainFrameURL()));
 
   autofill_client().GetPrefs()->SetInteger(
       subscription_eligibility::prefs::kAiSubscriptionTier, 3);
-  EXPECT_FALSE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
-                                        autofill_client()));
+  EXPECT_FALSE(MayPerformAtMemoryAction(
+      AtMemoryAction::kTriggerSearchUI, autofill_client(),
+      autofill_client().GetLastCommittedPrimaryMainFrameURL()));
 }
 
 // Tests that if `at_memory_eligible_tiers` is empty, then the user is eligible
 // regardless of their tier, and even if SubscriptionEligibilityService is null.
 TEST_F(AtMemoryEnablementUtilsTest,
        MayPerformAtMemoryAction_SubscriptionTierEligibility_EmptyList) {
-  EXPECT_CALL(personal_context_service_, GetEnablementState)
+  EXPECT_CALL(personal_context_service_, GetEligibilityState)
       .WillRepeatedly(
-          Return(personal_context::PersonalContextEnablementState::kEnabled));
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
 
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
       features::kAutofillAtMemory, {{"at_memory_eligible_tiers", ""}});
 
   // The user is eligible even if SubscriptionEligibilityService is null.
-  EXPECT_TRUE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
-                                       &personal_context_service_, nullptr,
-                                       autofill_client().GetPrefs(), nullptr));
+  EXPECT_TRUE(MayPerformAtMemoryActionBase(
+      AtMemoryAction::kTriggerSearchUI, &personal_context_service_, nullptr,
+      autofill_client().GetPrefs(), nullptr,
+      autofill_client().GetAutofillOptimizationGuideDecider(),
+      /*url=*/GURL("https://example.com")));
 
   // The user is eligible for any tier value.
   autofill_client().GetPrefs()->SetInteger(
       subscription_eligibility::prefs::kAiSubscriptionTier, 999);
-  EXPECT_TRUE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
-                                       autofill_client()));
+  EXPECT_TRUE(MayPerformAtMemoryAction(
+      AtMemoryAction::kTriggerSearchUI, autofill_client(),
+      autofill_client().GetLastCommittedPrimaryMainFrameURL()));
 }
 
 // Tests that if `at_memory_eligible_tiers` is not defined, then the user is
 // eligible.
 TEST_F(AtMemoryEnablementUtilsTest,
        MayPerformAtMemoryAction_SubscriptionTierEligibility_NotDefined) {
-  EXPECT_CALL(personal_context_service_, GetEnablementState)
+  EXPECT_CALL(personal_context_service_, GetEligibilityState)
       .WillRepeatedly(
-          Return(personal_context::PersonalContextEnablementState::kEnabled));
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
 
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(features::kAutofillAtMemory);
 
-  // The user is eligible even if SubscriptionEligibilityService is null.
-  EXPECT_TRUE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
-                                       &personal_context_service_, nullptr,
-                                       autofill_client().GetPrefs(), nullptr));
+  // The user is eligible even if `SubscriptionEligibilityService` is null.
+  EXPECT_TRUE(MayPerformAtMemoryActionBase(
+      AtMemoryAction::kTriggerSearchUI, &personal_context_service_, nullptr,
+      autofill_client().GetPrefs(), nullptr,
+      autofill_client().GetAutofillOptimizationGuideDecider(),
+      /*url=*/GURL("https://example.com")));
 
   // The user is eligible for any tier value.
   autofill_client().GetPrefs()->SetInteger(
       subscription_eligibility::prefs::kAiSubscriptionTier, 999);
-  EXPECT_TRUE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
-                                       autofill_client()));
+  EXPECT_TRUE(MayPerformAtMemoryAction(
+      AtMemoryAction::kTriggerSearchUI, autofill_client(),
+      autofill_client().GetLastCommittedPrimaryMainFrameURL()));
 }
 
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
-
-// Tests for non-branded Chromium builds.
-#if !BUILDFLAG(GOOGLE_CHROME_BRANDING)
-// Tests that `MayPerformAtMemoryAction` returns false for non-branded Chromium
-// build even when all conditions are met.
-TEST_F(AtMemoryEnablementUtilsTest,
-       MayPerformAtMemoryAction_SupportedAndToggleOn) {
-  EXPECT_CALL(personal_context_service_, GetEnablementState)
+#if BUILDFLAG(IS_ANDROID)
+// Tests that a user is eligible for AtMemory if their device is a premium
+// Android device, even if their subscription tier is not eligible.
+TEST_F(AtMemoryEnablementUtilsTest, MayPerformAtMemoryAction_DeviceEligible) {
+  EXPECT_CALL(personal_context_service_, GetEligibilityState)
       .WillRepeatedly(
-          Return(personal_context::PersonalContextEnablementState::kEnabled));
-  autofill_client().GetPrefs()->SetUserPref(
-      personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
-      base::Value(true));
-  EXPECT_FALSE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
-                                        autofill_client()));
-}
-#endif  // !BUILDFLAG(GOOGLE_CHROME_BRANDING)
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
 
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_FUCHSIA)
+  const std::string actual_model_name = base::SysInfo::HardwareModelName();
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kAutofillAtMemory,
+      {{"at_memory_eligible_tiers", "2"},
+       {"at_memory_enabled_devices",
+        "some-other-device," + actual_model_name}});
+
+  // User is not in the correct subscription tier, but the device is eligible.
+  autofill_client().GetPrefs()->SetInteger(
+      subscription_eligibility::prefs::kAiSubscriptionTier, 1);
+
+  EXPECT_TRUE(MayPerformAtMemoryAction(
+      AtMemoryAction::kTriggerSearchUI, autofill_client(),
+      autofill_client().GetLastCommittedPrimaryMainFrameURL()));
+}
+
+// Tests that a user is NOT eligible for AtMemory if their device is not listed
+// in the enabled devices list and their subscription tier is also not eligible.
+TEST_F(AtMemoryEnablementUtilsTest,
+       MayPerformAtMemoryAction_DeviceNotEligible) {
+  EXPECT_CALL(personal_context_service_, GetEligibilityState)
+      .WillRepeatedly(
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kAutofillAtMemory,
+      {{"at_memory_eligible_tiers", "2"},
+       {"at_memory_enabled_devices", "some-other-device,another-device"}});
+
+  // Neither user subscription tier nor device is eligible.
+  autofill_client().GetPrefs()->SetInteger(
+      subscription_eligibility::prefs::kAiSubscriptionTier, 1);
+
+  EXPECT_FALSE(MayPerformAtMemoryAction(
+      AtMemoryAction::kTriggerSearchUI, autofill_client(),
+      autofill_client().GetLastCommittedPrimaryMainFrameURL()));
+}
+#endif  // BUILDFLAG(IS_ANDROID)
+
+// Tests that `MayPerformAtMemoryAction` returns false when the domain is
+// blocklisted by the optimization guide.
+TEST_F(AtMemoryEnablementUtilsTest,
+       MayPerformAtMemoryAction_BlocklistedByOptimizationGuide) {
+  ON_CALL(personal_context_service_, GetEligibilityState)
+      .WillByDefault(
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
+
+  // Define URLs
+  GURL allowed_main("https://allowed.com");
+  GURL allowed_form("https://allowed.com/form");
+  GURL blocked_main("https://blocked-main.com");
+  GURL blocked_form("https://blocked-form.com/form");
+
+  // Mock Decider
+  auto* decider = autofill_client().GetAutofillOptimizationGuideDecider();
+  ON_CALL(*decider, ShouldBlockAtMemory(allowed_main))
+      .WillByDefault(Return(false));
+  ON_CALL(*decider, ShouldBlockAtMemory(allowed_form))
+      .WillByDefault(Return(false));
+  ON_CALL(*decider, ShouldBlockAtMemory(blocked_main))
+      .WillByDefault(Return(true));
+  ON_CALL(*decider, ShouldBlockAtMemory(blocked_form))
+      .WillByDefault(Return(true));
+
+  // 1. Allowed -> Should return true
+  EXPECT_TRUE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
+                                       autofill_client(), allowed_main));
+
+  // 2. Blocked -> Should return false
+  EXPECT_FALSE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
+                                        autofill_client(), blocked_main));
+}
+
+class AtMemoryEnablementUtilsFeatureCheckedLastTest : public testing::Test {
+ protected:
+  AtMemoryEnablementUtilsFeatureCheckedLastTest() {
+    feature_list_.InitAndDisableFeature(features::kAutofillAtMemory);
+    registry_->RegisterBooleanPref(
+        personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
+        true);
+    registry_->RegisterIntegerPref(
+        optimization_guide::prefs::kFindAndFillWithGeminiSettings,
+        std::to_underlying(optimization_guide::model_execution::prefs::
+                               ModelExecutionEnterprisePolicyValue::kAllow));
+    pref_service_ = std::make_unique<TestPrefService>(pref_store_, registry_);
+
+    autofill_client_.set_last_committed_primary_main_frame_url(
+        GURL("https://example.com"));
+  }
+
+  TestAutofillClient& autofill_client() { return autofill_client_; }
+
+  base::test::TaskEnvironment task_environment_;
+  base::test::ScopedFeatureList feature_list_;
+  scoped_refptr<CountingPrefStore> pref_store_ = base::MakeRefCounted<
+      CountingPrefStore>(
+      personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus);
+  scoped_refptr<PrefRegistrySimple> registry_ =
+      base::MakeRefCounted<PrefRegistrySimple>();
+  std::unique_ptr<TestPrefService> pref_service_;
+  testing::NiceMock<personal_context::MockPersonalContextEligibilityService>
+      personal_context_service_;
+  TestAutofillClient autofill_client_;
+};
+
+// Tests that when the feature is disabled, the toggle pref is still checked
+// if the user is eligible but the toggle is OFF. This verifies that the
+// toggle check occurs before the feature flag check.
+TEST_F(AtMemoryEnablementUtilsFeatureCheckedLastTest, ToggleOff) {
+  ON_CALL(personal_context_service_, GetEligibilityState)
+      .WillByDefault(
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
+  pref_store_->SetBoolean(
+      personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
+      false);
+
+  EXPECT_FALSE(MayPerformAtMemoryActionBase(
+      AtMemoryAction::kTriggerSearchUI, &personal_context_service_,
+      /*subscription_eligibility_service=*/nullptr, pref_service_.get(),
+      /*google_groups_manager=*/nullptr,
+      autofill_client().GetAutofillOptimizationGuideDecider(),
+      /*url=*/autofill_client().GetLastCommittedPrimaryMainFrameURL()));
+  EXPECT_EQ(pref_store_->call_count(), 1);
+}
+
+// Tests that when the feature is disabled, the toggle pref is checked
+// if the user is eligible and the toggle is ON.
+TEST_F(AtMemoryEnablementUtilsFeatureCheckedLastTest, ToggleOn) {
+  ON_CALL(personal_context_service_, GetEligibilityState)
+      .WillByDefault(
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
+  pref_store_->SetBoolean(
+      personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
+      true);
+
+  EXPECT_FALSE(MayPerformAtMemoryActionBase(
+      AtMemoryAction::kTriggerSearchUI, &personal_context_service_,
+      /*subscription_eligibility_service=*/nullptr, pref_service_.get(),
+      /*google_groups_manager=*/nullptr,
+      autofill_client().GetAutofillOptimizationGuideDecider(),
+      /*url=*/autofill_client().GetLastCommittedPrimaryMainFrameURL()));
+  EXPECT_EQ(pref_store_->call_count(), 1);
+}
+
+// Tests that if the user is NOT eligible, the function returns early
+// without checking the toggle pref, verifying that eligibility is checked
+// before the toggle.
+TEST_F(AtMemoryEnablementUtilsFeatureCheckedLastTest, NotEligible) {
+  ON_CALL(personal_context_service_, GetEligibilityState)
+      .WillByDefault(Return(personal_context::PersonalContextEligibilityState::
+                                kDisabledNotEligible));
+  pref_store_->SetBoolean(
+      personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
+      true);
+
+  EXPECT_FALSE(MayPerformAtMemoryActionBase(
+      AtMemoryAction::kTriggerSearchUI, &personal_context_service_,
+      /*subscription_eligibility_service=*/nullptr, pref_service_.get(),
+      /*google_groups_manager=*/nullptr,
+      autofill_client().GetAutofillOptimizationGuideDecider(),
+      /*url=*/autofill_client().GetLastCommittedPrimaryMainFrameURL()));
+  EXPECT_EQ(pref_store_->call_count(), 0);
+}
+
+#if !BUILDFLAG(IS_FUCHSIA)
 class AtMemoryEnablementUtilsWithGroupsTest
     : public AtMemoryEnablementUtilsTest {
  protected:
@@ -356,6 +555,12 @@ class AtMemoryEnablementUtilsWithGroupsTest
     autofill_client().set_google_groups_manager(
         std::make_unique<GoogleGroupsManager>(local_state_, "DefaultKey",
                                               *autofill_client().GetPrefs()));
+  }
+
+  ~AtMemoryEnablementUtilsWithGroupsTest() override {
+    // Prevent the pointer that `GoogleGroupsManager` keeps from becoming
+    // dangling.
+    autofill_client().set_google_groups_manager(nullptr);
   }
 
   static constexpr std::string GetDogfoodGroupsPrefName() {
@@ -392,12 +597,13 @@ TEST_F(AtMemoryEnablementUtilsWithGroupsTest,
       {{variations::internal::kGoogleGroupFeatureParamName, kRequiredGroup}});
 
   SetUserGroups({"some-other-group", "another-group"});
-  ON_CALL(personal_context_service_, GetEnablementState)
+  ON_CALL(personal_context_service_, GetEligibilityState)
       .WillByDefault(
-          Return(personal_context::PersonalContextEnablementState::kEnabled));
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
 
-  EXPECT_FALSE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
-                                        autofill_client()));
+  EXPECT_FALSE(MayPerformAtMemoryAction(
+      AtMemoryAction::kTriggerSearchUI, autofill_client(),
+      autofill_client().GetLastCommittedPrimaryMainFrameURL()));
 }
 
 // Tests that the action is allowed if a Google Group is required and the user
@@ -411,14 +617,15 @@ TEST_F(AtMemoryEnablementUtilsWithGroupsTest,
       {{variations::internal::kGoogleGroupFeatureParamName, kRequiredGroup}});
 
   SetUserGroups({"some-other-group", kRequiredGroup});
-  ON_CALL(personal_context_service_, GetEnablementState)
+  ON_CALL(personal_context_service_, GetEligibilityState)
       .WillByDefault(
-          Return(personal_context::PersonalContextEnablementState::kEnabled));
+          Return(personal_context::PersonalContextEligibilityState::kEligible));
 
-  EXPECT_TRUE(MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI,
-                                       autofill_client()));
+  EXPECT_TRUE(MayPerformAtMemoryAction(
+      AtMemoryAction::kTriggerSearchUI, autofill_client(),
+      autofill_client().GetLastCommittedPrimaryMainFrameURL()));
 }
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_FUCHSIA)
+#endif  // !BUILDFLAG(IS_FUCHSIA)
 
 }  // namespace
 }  // namespace autofill

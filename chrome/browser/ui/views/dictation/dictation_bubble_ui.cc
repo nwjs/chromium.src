@@ -8,7 +8,6 @@
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/dictation/waveform_view.h"
-#include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/strings/grit/components_strings.h"
@@ -17,18 +16,14 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/ui_base_features.h"
-#include "ui/compositor/layer.h"
 #include "ui/views/accessibility/view_accessibility.h"
-#include "ui/views/animation/animation_builder.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/image_button_factory.h"
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/highlight_path_generator.h"
-#include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
-#include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/flex_layout.h"
 #include "ui/views/layout/flex_layout_types.h"
 #include "ui/views/view.h"
@@ -59,7 +54,8 @@ class DictationToastView : public views::View {
   ~DictationToastView() override;
 
   void Init();
-  void UpdateForState(DictationBubbleUi::State state);
+  void UpdateForState(UiState state);
+  void UpdateAudioLevel(float audio_level);
 
  private:
   base::RepeatingClosure close_callback_;
@@ -102,7 +98,8 @@ void DictationToastView::Init() {
       vector_icons::kMicIcon, ui::kColorSysOnSurface,
       lp->GetDistanceMetric(DISTANCE_TOAST_BUBBLE_ICON_SIZE)));
 
-  WaveformView* waveform_view = AddChildView(std::make_unique<WaveformView>());
+  WaveformView* waveform_view =
+      AddChildView(std::make_unique<WaveformView>(/*full_size=*/true));
   waveform_view_ = waveform_view;
   waveform_view->SetProperty(views::kElementIdentifierKey,
                              DictationBubbleUi::kWaveformElementIdForTesting);
@@ -159,29 +156,35 @@ void DictationToastView::Init() {
                             DictationBubbleUi::kCloseButtonElementIdForTesting);
 }
 
-void DictationToastView::UpdateForState(DictationBubbleUi::State state) {
+void DictationToastView::UpdateForState(UiState state) {
   if (waveform_view_) {
     waveform_view_->SetState(state);
   }
 
   if (toggle_button_) {
     switch (state) {
-      case DictationBubbleUi::State::kInactive:
+      case UiState::kInactive:
         // TODO(b/510738735): Finalize placeholder strings.
         toggle_button_->SetText(
             l10n_util::GetStringUTF16(IDS_DICTATION_BUTTON_START));
         toggle_button_->SetEnabled(true);
         break;
-      case DictationBubbleUi::State::kInitializing:
-      case DictationBubbleUi::State::kTranscribing:
+      case UiState::kInitializing:
+      case UiState::kTranscribing:
         toggle_button_->SetText(l10n_util::GetStringUTF16(IDS_DONE));
         toggle_button_->SetEnabled(true);
         break;
-      case DictationBubbleUi::State::kFinalizing:
+      case UiState::kFinalizing:
         toggle_button_->SetText(l10n_util::GetStringUTF16(IDS_DONE));
         toggle_button_->SetEnabled(false);
         break;
     }
+  }
+}
+
+void DictationToastView::UpdateAudioLevel(float audio_level) {
+  if (waveform_view_) {
+    waveform_view_->SetAudioLevel(audio_level);
   }
 }
 
@@ -221,7 +224,7 @@ void DictationBubbleUi::Show() {
   widget_->ShowInactive();
 }
 
-void DictationBubbleUi::SetState(State state) {
+void DictationBubbleUi::SetState(UiState state) {
   if (state_ == state) {
     return;
   }
@@ -232,6 +235,13 @@ void DictationBubbleUi::SetState(State state) {
   }
   if (GetWidget()) {
     SizeToContents();
+  }
+}
+
+void DictationBubbleUi::UpdateAudioLevel(float audio_level) {
+  if (GetContentsView()) {
+    views::AsViewClass<DictationToastView>(GetContentsView())
+        ->UpdateAudioLevel(audio_level);
   }
 }
 

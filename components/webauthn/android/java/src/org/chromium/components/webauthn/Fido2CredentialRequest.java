@@ -57,7 +57,6 @@ import org.chromium.content_public.browser.ClientDataJson;
 import org.chromium.content_public.browser.ClientDataRequestType;
 import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.WebContents;
-import org.chromium.device.DeviceFeatureList;
 import org.chromium.net.GURLUtils;
 import org.chromium.ui.util.RunnableTimer;
 import org.chromium.url.Origin;
@@ -846,7 +845,7 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
                 mBarrier.resetAndSetWaitStatus(Barrier.Mode.ONLY_FIDO_2_API);
             }
             mCancellableUiState = CancellableUiState.WAITING_FOR_CREDENTIAL_LIST;
-            GmsCoreGetCredentialsHelper.Reason reason;
+            @GmsCoreGetCredentialsHelper.Reason int reason;
             if (payment != null) {
                 reason = GmsCoreGetCredentialsHelper.Reason.PAYMENT;
             } else if (publicKeyOptions.relyingPartyId.equals("google.com")) {
@@ -1873,9 +1872,7 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
     }
 
     private void startImmediateTimer() {
-        mImmediateTimer.startTimer(
-                DeviceFeatureList.sWebAuthnImmmediateTimeoutMs.getValue(),
-                this::onImmediateTimeout);
+        mImmediateTimer.startTimer(500, this::onImmediateTimeout);
     }
 
     private void stopImmediateTimer() {
@@ -1916,6 +1913,7 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
 
     protected void destroyBridge() {
         if (mBrowserBridge == null) return;
+        cleanupRequest();
         mBrowserBridge.destroy();
         mBrowserBridge = null;
     }

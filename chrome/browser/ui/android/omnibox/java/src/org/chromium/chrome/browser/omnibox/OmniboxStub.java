@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.omnibox;
 
+import org.chromium.base.Callback;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.lens.LensEntryPoint;
@@ -58,6 +59,20 @@ public interface OmniboxStub {
      */
     default void removeUrlFocusChangeListener(UrlFocusChangeListener listener) {}
 
+    /**
+     * Adds a URL text change listener that will be notified when the URL bar text changes.
+     *
+     * @param listener The listener to be registered.
+     */
+    default void addUrlTextChangeListener(Callback<String> listener) {}
+
+    /**
+     * Removes a URL text change listener that was previously added.
+     *
+     * @param listener The listener to be removed.
+     */
+    default void removeUrlTextChangeListener(Callback<String> listener) {}
+
     /** Returns whether the Lens is currently enabled. */
     boolean isLensEnabled(@LensEntryPoint int lensEntryPoint);
 
@@ -79,4 +94,9 @@ public interface OmniboxStub {
     // TODO(b/519232041): Expand loadUrl() to take the "ActivationType" param to differentiate
     // various ways of resolving user input and migrate this call to loadUrl().
     void loadUrlFromVoice(String query);
+
+    /** Returns the active AutocompleteInput, if any. */
+    default @Nullable AutocompleteInput getAutocompleteInputForTesting() {
+        return null;
+    }
 }

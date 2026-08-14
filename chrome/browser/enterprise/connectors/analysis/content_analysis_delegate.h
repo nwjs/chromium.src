@@ -13,6 +13,7 @@
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/read_only_shared_memory_region.h"
+#include "base/gtest_prod_util.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_info.h"
@@ -114,6 +115,11 @@ class ContentAnalysisDelegate : public ContentAnalysisDelegateBase,
     // can be printed, and a value of false means it shouldn't be allowed to
     // print.
     bool page_result;
+
+    // Whether the content is kept in managed Chrome for the copy access point.
+    // This is only used for the copy access point and it means the content is
+    // not allowed to be copied outside of managed Chrome.
+    bool is_kept_in_managed_chrome = false;
   };
 
   // Callback used with CreateForWebContents() that informs caller of verdict
@@ -136,13 +142,21 @@ class ContentAnalysisDelegate : public ContentAnalysisDelegateBase,
       base::RepeatingCallback<std::unique_ptr<ContentAnalysisDelegate>(
           content::WebContents*,
           Data,
-          CompletionCallback)>;
+          CompletionCallback,
+          DeepScanAccessPoint)>;
 
   ContentAnalysisDelegate(const ContentAnalysisDelegate&) = delete;
   ContentAnalysisDelegate& operator=(const ContentAnalysisDelegate&) = delete;
   ~ContentAnalysisDelegate() override;
 
   // ContentAnalysisDelegateBase:
+
+  // Deletes the content analysis delegate.
+  // This is used for the copy access point since it has a different flow than
+  // the other access points. It utilises a combination of Toast and Dialog for
+  // warning case. This should only be called for warning bypass and cancel
+  // cases of the copy trigger.
+  void Delete();
 
   // Called when the user decides to bypass the verdict they obtained from DLP.
   // This will allow the upload of files marked as DLP warnings.
@@ -171,6 +185,8 @@ class ContentAnalysisDelegate : public ContentAnalysisDelegateBase,
 
   std::optional<std::u16string> GetFilename() const override;
 
+  base::WeakPtr<ContentAnalysisDelegate> GetWeakPtr();
+
   // Returns true if the deep scanning feature is enabled in the upload
   // direction via enterprise policies.  If the appropriate enterprise policies
   // are not set this feature is not enabled.
@@ -186,7 +202,7 @@ class ContentAnalysisDelegate : public ContentAnalysisDelegateBase,
   // Entry point for starting a deep scan, with the callback being called once
   // all results are available.  When the UI is enabled, a tab-modal dialog
   // is shown while the scans proceed in the background.  When the UI is
-  // disabled, the callback will immedaitely inform the callers that all data
+  // disabled, the callback will immediately inform the callers that all data
   // has successfully passed the checks, even though the checks will proceed
   // in the background.
   //
@@ -264,19 +280,26 @@ class ContentAnalysisDelegate : public ContentAnalysisDelegateBase,
   FilesRequestHandlerBase* GetFilesRequestHandlerForTesting();
 
   const Data& GetDataForTesting() { return data_; }
+  Result& GetResultForTesting() { return result_; }
+  void RunCallbackForTesting() { RunCallback(); }
 
   const std::map<std::string, ContentAnalysisAcknowledgement::FinalAction>&
   GetFinalActionsForTesting() {
     return final_actions_;
   }
 
-  // Methods to either show the final result in the analysis dialog and to
-  // cancel the dialog.  These methods are protected and virtual for testing.
-  // Returns false if the UI was not enabled to indicate no action was taken.
+  // Methods to either show the final result in the analysis dialog (or via
+  // non-blocking system toast notification for COPY access point) and to
+  // cancel the UI (in case of a dialog only). These methods are protected and
+  // virtual for testing. Returns false if the UI was not shown to indicate no
+  // action was taken.
+  // TODO(b/325455508) refactor to separate code paths between dialog and
+  // toast notification.
   virtual bool ShowFinalResultInDialog();
   virtual bool CancelDialog();
 
  private:
+  FRIEND_TEST_ALL_PREFIXES(ContentAnalysisDelegateUpdateFinalResultTest, Precedence);
   // Enum representing the data uploading status.
   enum class UploadDataStatus {
     kNoLocalClientFound = 0,

@@ -49,6 +49,22 @@ TEST(LinkHeaderParserTest, UndefinedAttribute) {
   ASSERT_EQ(parsed_headers.size(), 0UL);
 }
 
+TEST(LinkHeaderParserTest, Integrity) {
+  auto headers =
+      base::MakeRefCounted<net::HttpResponseHeaders>("HTTP/1.1 200 OK\n");
+  // The `integrity` attribute must be recognized so the Link header is not
+  // discarded. Its value is ignored here and enforced later in the renderer.
+  headers->AddHeader("link",
+                     "</script.js>; rel=preload; as=script; "
+                     "integrity=\"sha384-abc123\"");
+
+  std::vector<mojom::LinkHeaderPtr> parsed_headers =
+      ParseLinkHeaders(*headers, kBaseUrl);
+  ASSERT_EQ(parsed_headers.size(), 1UL);
+  EXPECT_EQ(parsed_headers[0]->rel, mojom::LinkRelAttribute::kPreload);
+  EXPECT_EQ(parsed_headers[0]->as, mojom::LinkAsAttribute::kScript);
+}
+
 TEST(LinkHeaderParserTest, UndefinedAttributeValue) {
   auto headers =
       base::MakeRefCounted<net::HttpResponseHeaders>("HTTP/1.1 200 OK\n");
@@ -182,10 +198,18 @@ TEST(LinkHeaderParserTest, FetchPriorityAttribute) {
   headers->AddHeader("link", "</high>; rel=preload; fetchpriority=high");
   headers->AddHeader("link", "</low>; rel=preload; fetchpriority=low");
   headers->AddHeader("link", "</invalid>; rel=preload; fetchpriority=invalid");
+  headers->AddHeader("link",
+                     "</module-auto>; rel=modulepreload; fetchpriority=auto");
+  headers->AddHeader("link",
+                     "</module-high>; rel=modulepreload; fetchpriority=high");
+  headers->AddHeader("link",
+                     "</module-low>; rel=modulepreload; fetchpriority=low");
+  headers->AddHeader(
+      "link", "</module-invalid>; rel=modulepreload; fetchpriority=invalid");
 
   std::vector<mojom::LinkHeaderPtr> parsed_headers =
       ParseLinkHeaders(*headers, kBaseUrl);
-  ASSERT_EQ(parsed_headers.size(), 5UL);
+  ASSERT_EQ(parsed_headers.size(), 9UL);
   EXPECT_EQ(parsed_headers[0]->fetch_priority,
             mojom::FetchPriorityAttribute::kAuto);
   EXPECT_EQ(parsed_headers[1]->fetch_priority,
@@ -195,6 +219,18 @@ TEST(LinkHeaderParserTest, FetchPriorityAttribute) {
   EXPECT_EQ(parsed_headers[3]->fetch_priority,
             mojom::FetchPriorityAttribute::kLow);
   EXPECT_EQ(parsed_headers[4]->fetch_priority,
+            mojom::FetchPriorityAttribute::kAuto);
+  EXPECT_EQ(parsed_headers[5]->rel, mojom::LinkRelAttribute::kModulePreload);
+  EXPECT_EQ(parsed_headers[5]->fetch_priority,
+            mojom::FetchPriorityAttribute::kAuto);
+  EXPECT_EQ(parsed_headers[6]->rel, mojom::LinkRelAttribute::kModulePreload);
+  EXPECT_EQ(parsed_headers[6]->fetch_priority,
+            mojom::FetchPriorityAttribute::kHigh);
+  EXPECT_EQ(parsed_headers[7]->rel, mojom::LinkRelAttribute::kModulePreload);
+  EXPECT_EQ(parsed_headers[7]->fetch_priority,
+            mojom::FetchPriorityAttribute::kLow);
+  EXPECT_EQ(parsed_headers[8]->rel, mojom::LinkRelAttribute::kModulePreload);
+  EXPECT_EQ(parsed_headers[8]->fetch_priority,
             mojom::FetchPriorityAttribute::kAuto);
 }
 

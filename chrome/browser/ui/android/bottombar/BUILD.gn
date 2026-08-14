@@ -35,9 +35,12 @@ android_library("config_java") {
     "//base:build_info_java",
     "//build/android:build_java",
     "//chrome/browser/flags:java",
+    "//chrome/browser/preferences:java",
     "//chrome/browser/tab:java",
     "//chrome/browser/ui/android/native_page:java",
+    "//components/embedder_support/android:util_java",
     "//ui/android:ui_no_recycler_view_java",
+    "//url:url_java",
   ]
 }
 
@@ -81,6 +84,7 @@ android_library("java") {
     "//chrome/browser/flags:java",
     "//chrome/browser/glic:public_java",
     "//chrome/browser/glic/android:common_java",
+    "//chrome/browser/preferences:java",
     "//chrome/browser/profiles/android:java",
     "//chrome/browser/search_engines/android:java",
     "//chrome/browser/signin/services/android:java",
@@ -131,6 +135,7 @@ robolectric_library("junit") {
     "java/src/org/chromium/chrome/browser/ui/bottombar/BottomBarViewBinderUnitTest.java",
   ]
   deps = [
+    ":config_java",
     ":java",
     "//base:base_java",
     "//base:base_java_test_support",
@@ -140,6 +145,7 @@ robolectric_library("junit") {
     "//chrome/browser/flags:java",
     "//chrome/browser/glic:public_java",
     "//chrome/browser/glic/android:jni_headers_java",
+    "//chrome/browser/preferences:java",
     "//chrome/browser/profiles/android:java",
     "//chrome/browser/search_engines/android:java",
     "//chrome/browser/signin/services/android:java",
@@ -152,6 +158,7 @@ robolectric_library("junit") {
     "//chrome/browser/ui/android/theme:java",
     "//chrome/browser/user_education:java",
     "//chrome/test/android:chrome_java_unit_test_support",
+    "//components/browser_ui/util/android:java",
     "//components/browser_ui/widget/android:java",
     "//components/embedder_support/android:util_java",
     "//components/feature_engagement:feature_engagement_java",

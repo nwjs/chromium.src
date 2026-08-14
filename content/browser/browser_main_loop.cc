@@ -36,6 +36,7 @@
 #include "base/scoped_observation.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
+#include "base/synchronization/lock_metrics_recorder.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/system/system_monitor.h"
 #include "base/task/current_thread.h"
@@ -188,6 +189,7 @@
 #include "media/base/android/media_drm_bridge_client.h"
 #include "ui/android/screen_android.h"
 #include "ui/display/screen.h"
+#include "ui/events/devices/input_device_observer_android.h"
 #include "ui/gl/gl_surface.h"
 #endif
 
@@ -569,7 +571,7 @@ int BrowserMainLoop::EarlyInitialization() {
   // SetCurrentThreadType relies on CurrentUIThread on some platforms. The
   // MessagePumpForUI needs to be bound to the main thread by this point.
   DCHECK(base::CurrentUIThread::IsSet());
-  base::PlatformThread::SetCurrentThreadType(base::ThreadType::kPresentation);
+  base::PlatformThread::SetDefaultThreadType(base::ThreadType::kPresentation);
 
 #if BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
     BUILDFLAG(IS_ANDROID)
@@ -649,12 +651,15 @@ void BrowserMainLoop::CreateMainMessageLoop() {
 void BrowserMainLoop::PostCreateMainMessageLoop() {
   TRACE_EVENT0("startup", "BrowserMainLoop::PostCreateMainMessageLoop");
   mojo::InterfaceEndpointClient::SetThreadNameSuffixForMetrics("BrowserMain");
+  base::LockMetricsRecorder::EnableRecordingOnCurrentThread("CrBrowserMain");
+
   base::MessagePumpWakeupCounter::InitializeForCurrentThread("BrowserMain");
   GetIOThreadTaskRunner({})->PostTask(
       FROM_HERE, base::BindOnce([]() {
         mojo::InterfaceEndpointClient::SetThreadNameSuffixForMetrics(
             "BrowserIO");
         base::MessagePumpWakeupCounter::InitializeForCurrentThread("BrowserIO");
+        base::LockMetricsRecorder::EnableRecordingOnCurrentThread("BrowserIO");
       }));
   {
     TRACE_EVENT0("startup", "BrowserMainLoop::Subsystem:SystemMonitor");
@@ -1294,6 +1299,14 @@ void BrowserMainLoop::ShutdownThreadsAndCleanUp() {
     TRACE_EVENT0("shutdown", "BrowserMainLoop::Subsystem:GamepadService");
     device::GamepadService::GetInstance()->Terminate();
   }
+
+#if BUILDFLAG(IS_ANDROID)
+  {
+    TRACE_EVENT0("shutdown",
+                 "BrowserMainLoop::Subsystem:InputDeviceObserverAndroid");
+    ui::InputDeviceObserverAndroid::GetInstance()->Shutdown();
+  }
+#endif
   {
     TRACE_EVENT0("shutdown", "BrowserMainLoop::Subsystem:DeleteDataSources");
     URLDataManager::DeleteDataSources();
@@ -1547,6 +1560,10 @@ bool BrowserMainLoop::InitializeToolkit() {
   if (!env_)
     return false;
 #endif  // defined(USE_AURA)
+
+#if BUILDFLAG(IS_ANDROID)
+  ui::InputDeviceObserverAndroid::GetInstance()->Initialize();
+#endif
 
   if (parts_)
     parts_->ToolkitInitialized();

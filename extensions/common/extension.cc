@@ -37,10 +37,7 @@
 #include "extensions/common/manifest.h"
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/manifest_handler.h"
-// TODO(crbug.com/324534603): Remove this.
-#include "extensions/common/manifest_handlers/description_info.h"
 #include "extensions/common/manifest_handlers/permissions_parser.h"
-// TODO(crbug.com/324534603): Remove this.
 #include "extensions/common/manifest_handlers/version_name_info.h"
 #include "extensions/common/permissions/permission_set.h"
 #include "extensions/common/permissions/permissions_data.h"
@@ -326,7 +323,26 @@ GURL Extension::GetResourceURL(const GURL& extension_url,
 
 bool Extension::ResourceMatches(const URLPatternSet& pattern_set,
                                 std::string_view resource) const {
-  return pattern_set.MatchesURL(extension_url_.Resolve(resource));
+  // First, resolve `resource` relative to the extension's base URL.
+  GURL resolved = extension_url_.Resolve(resource);
+
+  // Convert the URL to a relative file path inside the extension package, which
+  // unescapes percent-encoded path components (e.g. "%2E" -> "."). This aligns
+  // pattern matching with the URL loader's file resolution logic.
+  base::FilePath relative_path =
+      file_util::ExtensionURLToRelativeFilePath(resolved);
+
+  // If the path cannot be resolved to a valid relative path within the
+  // extension (e.g. due to encoded path separators or malformed URLs), it is
+  // not a valid extension resource and cannot match any resource pattern.
+  if (relative_path.empty()) {
+    return false;
+  }
+
+  // Re-resolve the URL using the unescaped relative path so URLPattern matches
+  // against the canonical resource path served from disk.
+  return pattern_set.MatchesURL(
+      extension_url_.Resolve(relative_path.AsUTF8Unsafe()));
 }
 
 ExtensionResource Extension::GetResource(std::string_view relative_path) const {
@@ -534,11 +550,6 @@ std::string Extension::DifferentialFingerprint() const {
     return *fingerprint;
   }
   return "2." + VersionString();
-}
-
-// TODO(crbug.com/324534603): Remove this.
-const std::string& Extension::version_name() const {
-  return VersionNameInfo::GetVersionName(*this);
 }
 
 std::string Extension::GetVersionForDisplay() const {
@@ -783,26 +794,5 @@ bool Extension::LoadShortName(std::u16string* error) {
   }
   return true;
 }
-
-// TODO(crbug.com/324534603): Remove this.
-const std::string& Extension::description() const {
-  return DescriptionInfo::GetDescription(*this);
-}
-
-ExtensionInfo::ExtensionInfo(const base::DictValue* manifest,
-                             const ExtensionId& id,
-                             const base::FilePath& path,
-                             ManifestLocation location)
-    : extension_id(id), extension_path(path), extension_location(location) {
-  if (manifest) {
-    extension_manifest = std::make_unique<base::DictValue>(manifest->Clone());
-  }
-}
-
-ExtensionInfo::ExtensionInfo(ExtensionInfo&&) noexcept = default;
-
-ExtensionInfo& ExtensionInfo::operator=(ExtensionInfo&&) = default;
-
-ExtensionInfo::~ExtensionInfo() = default;
 
 }   // namespace extensions

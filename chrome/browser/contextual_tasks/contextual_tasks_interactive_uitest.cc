@@ -28,6 +28,7 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_web_view.h"
 #include "chrome/browser/contextual_tasks/mock_contextual_tasks_ui_service_delegate.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -57,6 +58,7 @@
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_mock_cert_verifier.h"
@@ -301,7 +303,7 @@ class ContextualTasksInteractiveUiTest : public InteractiveBrowserTest {
           return false;
         }));
 
-    auto* mock_aim = GetMockAimEligibilityService(browser()->profile());
+    auto* mock_aim = GetMockAimEligibilityService(browser()->GetProfile());
     auto* config = &mock_aim->config();
     // Configure AimEligibility to recognize Browser Tabs as valid inputs to
     // populate context selection.
@@ -335,7 +337,7 @@ class ContextualTasksInteractiveUiTest : public InteractiveBrowserTest {
 
     // Explicitly enable user-level content sharing settings to satisfy native
     // FeatureEligibility.
-    browser()->profile()->GetPrefs()->SetInteger(
+    browser()->GetProfile()->GetPrefs()->SetInteger(
         contextual_search::kSearchContentSharingSettings,
         static_cast<int>(
             contextual_search::SearchContentSharingSettingsValue::kEnabled));
@@ -564,7 +566,9 @@ class ContextualTasksInteractiveUiTest : public InteractiveBrowserTest {
   auto VerifySubmitQueryMessage(
       lens::LensOverlayRequestId::MediaType expected_media_type,
       std::optional<std::string> expected_added_input_name = std::nullopt,
-      int expected_message_index = 0) {
+      int expected_message_index = 0,
+      std::optional<lens::LensOverlayContextualInputUploadType>
+          expected_upload_type = std::nullopt) {
     return Steps(
         // Wait until the inner WebContents receives the message at the expected
         // index.
@@ -575,7 +579,8 @@ class ContextualTasksInteractiveUiTest : public InteractiveBrowserTest {
                             expected_message_index)),
         WithElement(kInnerWebContentsId, [expected_media_type,
                                           expected_added_input_name,
-                                          expected_message_index](
+                                          expected_message_index,
+                                          expected_upload_type](
                                              ui::TrackedElement* el) {
           auto* web_contents = AsInstrumentedWebContents(el)->web_contents();
           // Extract the binary protobuf message from JavaScript by converting
@@ -639,6 +644,21 @@ class ContextualTasksInteractiveUiTest : public InteractiveBrowserTest {
             }
           } else {
             EXPECT_FALSE(message.submit_query().payload().has_added_inputs());
+          }
+
+          if (expected_upload_type.has_value()) {
+            bool found_type = false;
+            const auto& data_list =
+                message.submit_query().payload().lens_image_query_data();
+            for (const auto& payload : data_list) {
+              if (payload.contextual_input_upload_type() ==
+                  *expected_upload_type) {
+                found_type = true;
+                break;
+              }
+            }
+            EXPECT_TRUE(found_type)
+                << "Expected upload type not found in lens_image_query_data.";
           }
         }));
   }
@@ -772,12 +792,16 @@ class ContextualTasksInteractiveUiTest : public InteractiveBrowserTest {
         // The click detaches this tab's WebContents into the side panel, so the
         // element disappears mid-stop; fire-and-forget to avoid kElementHidden.
         ExecuteJsAt(kInnerWebContentsId, kThreadLink, "el => el.click()",
-                         ExecuteJsMode::kFireAndForget),
+                    ExecuteJsMode::kFireAndForget),
         WaitForShow(kContextualTasksSidePanelWebViewElementId),
         UninstrumentWebContents(kInnerWebContentsId,
                                 /*fail_if_not_instrumented=*/false),
-        InstrumentNonTabWebView(side_panel_id,
-                                kContextualTasksSidePanelWebViewElementId,
+        NameViewRelative(kContextualTasksSidePanelWebViewElementId,
+                         "SidePanelContentWebViewName",
+                         [](ContextualTasksWebView* web_view) -> views::View* {
+                           return web_view->content_web_view();
+                         }),
+        InstrumentNonTabWebView(side_panel_id, "SidePanelContentWebViewName",
                                 /*wait_for_ready=*/true),
         WaitForElementExists(side_panel_id, {"contextual-tasks-app"}),
         InstrumentInnerWebContents(kInnerWebContentsId, side_panel_id, 0));
@@ -990,8 +1014,9 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTest,
                   WaitForComposeboxFilesCount(0));
 }
 
-// TODO(crbug.com/524797987): Re-enable this test.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+// TODO(crbug.com/524797987, crbug.com/529701663): Re-enable this test.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
+    (BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER))
 #define MAYBE_AddAndRemoveTabFromComposebox \
   DISABLED_AddAndRemoveTabFromComposebox
 #else
@@ -1048,7 +1073,10 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTest,
       WaitForFaviconGroupWithTitle(kPrimaryTab, "title1.html"),
       WaitForComposeboxFilesCount(1), ClickButton(kPrimaryTab, kSubmitButton),
       VerifySubmitQueryMessage(
-          lens::LensOverlayRequestId::MEDIA_TYPE_WEBPAGE_AND_IMAGE));
+          lens::LensOverlayRequestId::MEDIA_TYPE_WEBPAGE_AND_IMAGE,
+          std::nullopt, 0,
+          lens::LensOverlayContextualInputUploadType::
+              CONTEXTUAL_INPUT_UPLOAD_TYPE_EXPLICIT));
 }
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTest,
@@ -1363,8 +1391,13 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTest,
             omnibox::DESKTOP_CHROME_LENS_CONTEXTUAL_SEARCHBOX_ENTRY_POINT);
       }),
       WaitForShow(kContextualTasksSidePanelWebViewElementId),
+      NameViewRelative(kContextualTasksSidePanelWebViewElementId,
+                       "SidePanelContentWebViewName",
+                       [](ContextualTasksWebView* web_view) -> views::View* {
+                         return web_view->content_web_view();
+                       }),
       InstrumentNonTabWebView(kSidePanelWebContentsId,
-                              kContextualTasksSidePanelWebViewElementId),
+                              "SidePanelContentWebViewName"),
       InstrumentInnerWebContents(kInnerWebContentsId, kSidePanelWebContentsId,
                                  0),
 
@@ -1383,7 +1416,10 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTest,
 
       // Verify the sent query includes the auto-suggested tab context.
       VerifySubmitQueryMessage(
-          lens::LensOverlayRequestId::MEDIA_TYPE_WEBPAGE_AND_IMAGE));
+          lens::LensOverlayRequestId::MEDIA_TYPE_WEBPAGE_AND_IMAGE,
+          std::nullopt, 0,
+          lens::LensOverlayContextualInputUploadType::
+              CONTEXTUAL_INPUT_UPLOAD_TYPE_AUTO_TAB_CHIP));
 }
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTest,
@@ -1428,8 +1464,13 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTest,
             omnibox::DESKTOP_CHROME_LENS_CONTEXTUAL_SEARCHBOX_ENTRY_POINT);
       }),
       WaitForShow(kContextualTasksSidePanelWebViewElementId),
+      NameViewRelative(kContextualTasksSidePanelWebViewElementId,
+                       "SidePanelContentWebViewName",
+                       [](ContextualTasksWebView* web_view) -> views::View* {
+                         return web_view->content_web_view();
+                       }),
       InstrumentNonTabWebView(kSidePanelWebContentsId,
-                              kContextualTasksSidePanelWebViewElementId),
+                              "SidePanelContentWebViewName"),
       InstrumentInnerWebContents(kInnerWebContentsId, kSidePanelWebContentsId,
                                  0),
 
@@ -1544,8 +1585,13 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTestWithChips,
             omnibox::DESKTOP_CHROME_LENS_CONTEXTUAL_SEARCHBOX_ENTRY_POINT);
       }),
       WaitForShow(kContextualTasksSidePanelWebViewElementId),
+      NameViewRelative(kContextualTasksSidePanelWebViewElementId,
+                       "SidePanelContentWebViewName",
+                       [](ContextualTasksWebView* web_view) -> views::View* {
+                         return web_view->content_web_view();
+                       }),
       InstrumentNonTabWebView(kSidePanelWebContentsId,
-                              kContextualTasksSidePanelWebViewElementId),
+                              "SidePanelContentWebViewName"),
       InstrumentInnerWebContents(kInnerWebContentsId, kSidePanelWebContentsId,
                                  0),
 
@@ -1568,7 +1614,10 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTestWithChips,
 
       // Verify the sent query includes the auto-suggested tab context.
       VerifySubmitQueryMessage(
-          lens::LensOverlayRequestId::MEDIA_TYPE_WEBPAGE_AND_IMAGE));
+          lens::LensOverlayRequestId::MEDIA_TYPE_WEBPAGE_AND_IMAGE,
+          std::nullopt, 0,
+          lens::LensOverlayContextualInputUploadType::
+              CONTEXTUAL_INPUT_UPLOAD_TYPE_AUTO_TAB_CHIP));
 }
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTestWithChips,
@@ -1626,8 +1675,13 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTestWithChips,
             omnibox::DESKTOP_CHROME_LENS_CONTEXTUAL_SEARCHBOX_ENTRY_POINT);
       }),
       WaitForShow(kContextualTasksSidePanelWebViewElementId),
+      NameViewRelative(kContextualTasksSidePanelWebViewElementId,
+                       "SidePanelContentWebViewName",
+                       [](ContextualTasksWebView* web_view) -> views::View* {
+                         return web_view->content_web_view();
+                       }),
       InstrumentNonTabWebView(kSidePanelWebContentsId,
-                              kContextualTasksSidePanelWebViewElementId),
+                              "SidePanelContentWebViewName"),
       InstrumentInnerWebContents(kInnerWebContentsId, kSidePanelWebContentsId,
                                  0),
 
@@ -2034,8 +2088,12 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksInteractiveUiTestParameterized,
     sequence = Steps(
         std::move(sequence),
         WaitForShow(kContextualTasksSidePanelWebViewElementId),
-        InstrumentNonTabWebView(kPrimaryTab2,
-                                kContextualTasksSidePanelWebViewElementId),
+        NameViewRelative(kContextualTasksSidePanelWebViewElementId,
+                         "SidePanelContentWebViewName",
+                         [](ContextualTasksWebView* web_view) -> views::View* {
+                           return web_view->content_web_view();
+                         }),
+        InstrumentNonTabWebView(kPrimaryTab2, "SidePanelContentWebViewName"),
         InstrumentInnerWebContents(kInnerWebContentsId2, kPrimaryTab2, 0),
         WaitForShow(kInnerWebContentsId2),
         WithElement(kInnerWebContentsId2,
@@ -2184,8 +2242,12 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksInteractiveUiTestParameterized,
     sequence = Steps(
         std::move(sequence),
         WaitForShow(kContextualTasksSidePanelWebViewElementId),
-        InstrumentNonTabWebView(kPrimaryTab2,
-                                kContextualTasksSidePanelWebViewElementId),
+        NameViewRelative(kContextualTasksSidePanelWebViewElementId,
+                         "SidePanelContentWebViewName",
+                         [](ContextualTasksWebView* web_view) -> views::View* {
+                           return web_view->content_web_view();
+                         }),
+        InstrumentNonTabWebView(kPrimaryTab2, "SidePanelContentWebViewName"),
         InstrumentInnerWebContents(kInnerWebContentsId2, kPrimaryTab2, 0),
         WaitForShow(kInnerWebContentsId2),
         WithElement(kInnerWebContentsId2,
@@ -2306,8 +2368,13 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTest,
             omnibox::DESKTOP_CHROME_LENS_CONTEXTUAL_SEARCHBOX_ENTRY_POINT);
       }),
       WaitForShow(kContextualTasksSidePanelWebViewElementId),
+      NameViewRelative(kContextualTasksSidePanelWebViewElementId,
+                       "SidePanelContentWebViewName",
+                       [](ContextualTasksWebView* web_view) -> views::View* {
+                         return web_view->content_web_view();
+                       }),
       InstrumentNonTabWebView(kSidePanelWebContentsId,
-                              kContextualTasksSidePanelWebViewElementId),
+                              "SidePanelContentWebViewName"),
       InstrumentInnerWebContents(kInnerWebContentsId, kSidePanelWebContentsId,
                                  0),
 

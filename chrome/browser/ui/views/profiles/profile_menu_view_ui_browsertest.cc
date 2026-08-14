@@ -9,6 +9,7 @@
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
 #include "chrome/browser/profiles/batch_upload/batch_upload_service_test_helper.h"
 #include "chrome/browser/signin/signin_util.h"
+#include "chrome/browser/sync/device_info_sync_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
@@ -18,7 +19,6 @@
 #include "chrome/browser/ui/test/test_browser_ui.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/profiles/profile_menu_coordinator.h"
 #include "chrome/browser/ui/views/profiles/profile_menu_view.h"
@@ -34,7 +34,6 @@
 #include "components/subscription_eligibility/subscription_eligibility_prefs.h"
 #include "components/supervised_user/test_support/supervised_user_signin_test_utils.h"
 #include "components/sync/base/features.h"
-#include "components/sync/service/sync_user_settings.h"
 #include "components/sync/test/test_sync_service.h"
 #include "components/sync_device_info/device_info.h"
 #include "components/sync_device_info/fake_device_info_sync_service.h"
@@ -44,9 +43,6 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "ui/events/event_utils.h"
-#include "ui/gfx/image/image_skia.h"
-#include "ui/gfx/image/image_unittest_util.h"
-#include "ui/views/bubble/bubble_dialog_model_host.h"
 #include "ui/views/test/widget_activation_waiter.h"
 #include "ui/views/test/widget_test.h"
 #include "ui/views/widget/any_widget_observer.h"
@@ -393,7 +389,11 @@ class ProfileMenuViewPixelTest
 
     if (GetParam().with_ai_avatar_ring) {
       enabled_features_and_params.push_back(
-          {features::kEnableAiSubscriptionAvatarRing, {}});
+          {switches::kEnableAiSubscriptionAvatarRing, {}});
+    }
+    if (GetParam().with_cross_device_signin_promo) {
+      enabled_features_and_params.push_back(
+          {switches::kCrossDeviceSigninFromDesktop, {}});
     }
 
     // 4. Get default-enabled features without params-disabled.
@@ -450,6 +450,32 @@ class ProfileMenuViewPixelTest
           return std::make_unique<syncer::TestSyncService>();
         }));
 
+    DeviceInfoSyncServiceFactory::GetInstance()->SetTestingFactory(
+        context, base::BindRepeating([](content::BrowserContext* context)
+                                         -> std::unique_ptr<KeyedService> {
+          auto service = std::make_unique<syncer::FakeDeviceInfoSyncService>();
+          // Adds a signed in Device to ensure that the Cross-Device sign-in
+          // promo is not shown by default. Use `ClearAllSignedInDevices()` to
+          // clear this state.
+          service->GetDeviceInfoTracker()->Add(
+              syncer::TestDeviceInfoBuilder(
+                  syncer::DeviceInfo::OsType::kAndroid)
+                  .WithGuid("remote_guid")
+                  .WithFormFactor(syncer::DeviceInfo::FormFactor::kPhone)
+                  .WithLastUpdatedTimestamp(base::Time::Now())
+                  .Build());
+          return service;
+        }));
+  }
+
+  void ClearAllSignedInDevices() {
+    auto* device_info_service = static_cast<syncer::FakeDeviceInfoSyncService*>(
+        DeviceInfoSyncServiceFactory::GetForProfile(browser()->GetProfile()));
+    auto* device_info_tracker = device_info_service->GetDeviceInfoTracker();
+
+    for (const auto& device : device_info_tracker->GetAllDeviceInfo()) {
+      device_info_tracker->Remove(device);
+    }
   }
 
   void TearDownOnMainThread() override {
@@ -533,13 +559,13 @@ class ProfileMenuViewPixelTest
         CreateIncognitoBrowser();
         new_browser = browser_created_observer->Wait();
         ASSERT_TRUE(new_browser);
-        ASSERT_TRUE(new_browser->profile()->IsIncognitoProfile());
+        ASSERT_TRUE(new_browser->GetProfile()->IsIncognitoProfile());
         break;
       case ProfileTypePixelTestParam::kGuest:
         CreateGuestBrowser();
         new_browser = browser_created_observer->Wait();
         ASSERT_TRUE(new_browser);
-        ASSERT_TRUE(new_browser->profile()->IsGuestSession());
+        ASSERT_TRUE(new_browser->GetProfile()->IsGuestSession());
         break;
     }
     browser_created_observer.reset();
@@ -677,7 +703,7 @@ class ProfileMenuViewPixelTest
       if (GetParam().with_ai_avatar_ring) {
         ProfileAttributesStorage& storage =
             profile_manager->GetProfileAttributesStorage();
-        // Enable the AI ring for a subset of the profiles.
+        // Enable the AI subscription for a subset of the profiles.
         for (const auto& path : {default_profile.GetPath(), dark_profile_path,
                                  theme_profile_path}) {
           storage.GetProfileAttributesWithPath(path)->SetAiSubscriptionTier(1);
@@ -721,14 +747,19 @@ class ProfileMenuViewPixelTest
     }
 
     if (GetParam().with_local_data == WithLocalData::kWithBookmarksLocalData) {
-      browser()->profile()->GetPrefs()->SetString(
+      browser()->GetProfile()->GetPrefs()->SetString(
           prefs::kGoogleServicesLastSyncingGaiaId,
           account_info.gaia.ToString());
     }
 
     if (GetParam().with_ai_avatar_ring) {
-      browser()->profile()->GetPrefs()->SetInteger(
+      browser()->GetProfile()->GetPrefs()->SetInteger(
           subscription_eligibility::prefs::kAiSubscriptionTier, 1);
+    }
+
+    if (GetParam().with_cross_device_signin_promo) {
+      // Remove all the signed in devices - so that the promo can be shown.
+      ClearAllSignedInDevices();
     }
   }
 

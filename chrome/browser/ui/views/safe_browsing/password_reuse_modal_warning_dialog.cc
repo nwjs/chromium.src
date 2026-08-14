@@ -6,14 +6,11 @@
 
 #include "base/functional/callback_helpers.h"
 #include "base/i18n/rtl.h"
-#include "base/strings/utf_string_conversions.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/ui/views/accessibility/non_accessible_image_view.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
-#include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/constrained_window/constrained_window_views.h"
-#include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/core/browser/password_protection/metrics_util.h"
 #include "components/strings/grit/components_strings.h"
@@ -23,12 +20,9 @@
 #include "ui/base/models/image_model.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
-#include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_features.h"
-#include "ui/gfx/color_palette.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_skia.h"
-#include "ui/gfx/paint_vector_icon.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/styled_label.h"
 #include "ui/views/layout/box_layout.h"
@@ -153,13 +147,13 @@ PasswordReuseModalWarningDialog::PasswordReuseModalWarningDialog(
 
   // The set_*_callback() methods below need a OnceCallback each and we only
   // have one (done_callback_), so create a proxy callback that references
-  // done_callback_ and use it for each of the set_*_callback() callbacks. Note
-  // that since only one of the three callbacks can ever be invoked,
-  // done_callback_ is still run at most once.
+  // done_callback_ and use it for each of the set_*_callback() callbacks.
   auto make_done_callback = [this](safe_browsing::WarningAction value) {
     return base::BindOnce(
         [](OnWarningDone* callback, safe_browsing::WarningAction value) {
-          std::move(*callback).Run(value);
+          if (*callback) {
+            std::move(*callback).Run(value);
+          }
         },
         base::Unretained(&done_callback_), value);
   };

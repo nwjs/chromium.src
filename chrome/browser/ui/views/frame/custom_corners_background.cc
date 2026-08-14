@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/frame/custom_corners_background.h"
 
+#include <memory>
 #include <variant>
 
 #include "base/i18n/rtl.h"
@@ -18,6 +19,7 @@
 #include "chrome/browser/ui/views/frame/themed_background.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "third_party/skia/include/core/SkPathBuilder.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_variant.h"
 #include "ui/compositor/layer.h"
@@ -138,6 +140,28 @@ CustomCornersBackground::Corner CustomCornersBackground::GetWindowCorner(
   return corner;
 }
 
+void CustomCornersBackground::SetUseBackgroundBlur(bool use_background_blur) {
+  static const bool background_blur_enabled =
+      features::kGlassExpandOnHoverOpacity.Get() < 1.0f;
+  static const float background_blur_radius =
+      static_cast<float>(features::kGlassExpandOnHoverBlurRadius.Get());
+  use_background_blur &=
+      background_blur_enabled && background_blur_radius > 0.0f;
+  if (!view_->layer()) {
+    CHECK(!use_background_blur);
+    return;
+  }
+  auto* const layer = view_->layer();
+  CHECK(!layer->fills_bounds_opaquely());
+  if (!use_background_blur) {
+    layer->SetBackgroundBlur(0.0f);
+    return;
+  }
+  layer->SetBackgroundBlur(background_blur_radius);
+  layer->SetBackdropFilterBounds(GetBackgroundPath(view_->GetLocalBounds()));
+  SchedulePaintHost();
+}
+
 SkPath CustomCornersBackground::GetBackgroundPath(const gfx::Rect& in_bounds,
                                                   CornerRadii* radii) const {
   const VisualCorners corners = GetMirroredCorners();
@@ -201,11 +225,15 @@ std::vector<SkPath> CustomCornersBackground::GetCornerPaths(
 }
 
 void CustomCornersBackground::SetCutoutFrom(const Cutouts& cutouts) {
-  cutout_paths_.clear();
+  std::vector<SkPath> new_cutout_paths;
+
   for (const auto& cutout : cutouts) {
     if (const views::View* const* view_ptr =
             std::get_if<const views::View*>(&cutout)) {
       const views::View* const view = *view_ptr;
+      if (!view->GetVisible()) {
+        continue;
+      }
       const gfx::Rect bounds = views::View::ConvertRectFromScreen(
           &*view_, view->GetBoundsInScreen());
       SkPath cutout_path;
@@ -219,17 +247,24 @@ void CustomCornersBackground::SetCutoutFrom(const Cutouts& cutouts) {
       } else {
         cutout_path = SkPath::Rect(gfx::RectToSkRect(bounds));
       }
-      cutout_paths_.push_back(cutout_path);
+      new_cutout_paths.push_back(cutout_path);
     } else {
       const auto* const background =
           std::get<InverseOf>(cutout).background.get();
       const gfx::Rect bounds = views::View::ConvertRectFromScreen(
           &*view_, background->view_->GetBoundsInScreen());
       for (SkPath& path : background->GetCornerPaths(bounds)) {
-        cutout_paths_.push_back(path);
+        new_cutout_paths.push_back(path);
       }
     }
   }
+
+  if (cutout_paths_ == new_cutout_paths) {
+    return;
+  }
+
+  cutout_paths_ = std::move(new_cutout_paths);
+  view_->SchedulePaint();
 }
 
 void CustomCornersBackground::Paint(gfx::Canvas* canvas,
@@ -253,38 +288,61 @@ void CustomCornersBackground::Paint(gfx::Canvas* canvas,
   const VisualCorners corners = GetMirroredCorners();
   const Outline outline = GetMirroredOutline();
 
+  // Function for maybe clipping a non-opaque corner with background's
+  // background.
+  const auto maybe_clip = [this](gfx::Canvas* canvas, VisualCorner corner,
+                                 const gfx::Rect& bounds) {
+    static constexpr gfx::Insets kCurveCutoutInsets(1);
+    std::unique_ptr<gfx::ScopedCanvas> scoped;
+    if (!primary_color_.is_opaque()) {
+      scoped = std::make_unique<gfx::ScopedCanvas>(canvas);
+      gfx::Rect cutout_bounds = bounds;
+      cutout_bounds.Inset(-kCurveCutoutInsets);
+      canvas->ClipPath(GetCornerPath(corner, cutout_bounds, kCurveCutoutInsets),
+                       true);
+    }
+    return scoped;
+  };
+
   // Draw corners behind where necessary using the background color.
   if (corners[VisualCorner::kTopLeft].type ==
       CornerType::kRoundedWithBackground) {
     const int corner_radius =
         corners[VisualCorner::kTopLeft].radius.value_or(default_radius_);
-    const SkPath corner_path =
-        SkPath::Rect(SkRect::MakeXYWH(0, 0, corner_radius, corner_radius));
+    const gfx::Rect bounds(0, 0, corner_radius, corner_radius);
+    const SkPath corner_path = SkPath::Rect(gfx::RectToSkRect(bounds));
+    const auto scope = maybe_clip(canvas, VisualCorner::kTopLeft, bounds);
     PaintPath(canvas, corner_path, corner_color_, /*anti_alias=*/false);
   }
   if (corners[VisualCorner::kTopRight].type ==
       CornerType::kRoundedWithBackground) {
     const int corner_radius =
         corners[VisualCorner::kTopRight].radius.value_or(default_radius_);
-    const SkPath corner_path = SkPath::Rect(SkRect::MakeXYWH(
-        rect.width() - corner_radius, 0, corner_radius, corner_radius));
+    const gfx::Rect bounds(rect.width() - corner_radius, 0, corner_radius,
+                           corner_radius);
+    const SkPath corner_path = SkPath::Rect(gfx::RectToSkRect(bounds));
+    const auto scope = maybe_clip(canvas, VisualCorner::kTopRight, bounds);
     PaintPath(canvas, corner_path, corner_color_, /*anti_alias=*/false);
   }
   if (corners[VisualCorner::kBottomRight].type ==
       CornerType::kRoundedWithBackground) {
     const int corner_radius =
         corners[VisualCorner::kBottomRight].radius.value_or(default_radius_);
-    const SkPath corner_path = SkPath::Rect(SkRect::MakeXYWH(
-        rect.width() - corner_radius, rect.height() - corner_radius,
-        corner_radius, corner_radius));
+    const gfx::Rect bounds(rect.width() - corner_radius,
+                           rect.height() - corner_radius, corner_radius,
+                           corner_radius);
+    const SkPath corner_path = SkPath::Rect(gfx::RectToSkRect(bounds));
+    const auto scope = maybe_clip(canvas, VisualCorner::kBottomRight, bounds);
     PaintPath(canvas, corner_path, corner_color_, /*anti_alias=*/false);
   }
   if (corners[VisualCorner::kBottomLeft].type ==
       CornerType::kRoundedWithBackground) {
     const int corner_radius =
         corners[VisualCorner::kBottomLeft].radius.value_or(default_radius_);
-    const SkPath corner_path = SkPath::Rect(SkRect::MakeXYWH(
-        0, rect.height() - corner_radius, corner_radius, corner_radius));
+    const gfx::Rect bounds(0, rect.height() - corner_radius, corner_radius,
+                           corner_radius);
+    const SkPath corner_path = SkPath::Rect(gfx::RectToSkRect(bounds));
+    const auto scope = maybe_clip(canvas, VisualCorner::kBottomLeft, bounds);
     PaintPath(canvas, corner_path, corner_color_, /*anti_alias=*/false);
   }
 

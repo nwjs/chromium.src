@@ -6,6 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_WEBAUDIO_AUDIO_CONTEXT_H_
 
 #include <atomic>
+#include <optional>
 
 #include "base/gtest_prod_util.h"
 #include "base/sequence_checker.h"
@@ -43,7 +44,6 @@ namespace blink {
 class AudioContextOptions;
 class AudioTimestamp;
 class AudioPlaybackStats;
-class AudioPlayoutStats;
 class ExceptionState;
 class ExecutionContext;
 class HTMLMediaElement;
@@ -69,6 +69,18 @@ class MODULES_EXPORT AudioContext final
   DEFINE_WRAPPERTYPEINFO();
 
  public:
+  // Errors that can occur when attempting to resume the AudioContext.
+  enum class ResumeError {
+    // The context is closed; resume is not possible.
+    kClosed,
+    // The frame visibility is unknown; the resume decision is deferred.
+    kUnknownFrameVisibility,
+    // The context is interrupted; resume is rejected.
+    kInterrupted,
+    // The context is already running; no action needed.
+    kAlreadyRunning,
+  };
+
   // SetSinkIdResolver is a helper class that manages the asynchronous operation
   // of AudioContext.setSinkId(). It encapsulates a ScriptPromise that is
   // resolved or rejected based on the success or failure of changing the audio
@@ -162,8 +174,8 @@ class MODULES_EXPORT AudioContext final
                         const Vector<WebMediaDeviceInfo>&) override;
 
   // FrameVisibilityObserver
-  void FrameVisibilityChanged(
-      mojom::blink::FrameVisibility frame_visibility) override;
+  void OnFrameHidden() override;
+  void OnFrameShown() override;
 
   // PageVisibilityObserver
   void PageVisibilityChanged() override;
@@ -188,6 +200,7 @@ class MODULES_EXPORT AudioContext final
   void RecordAutoPictureInPictureInfo(
       const media::PictureInPictureEventsInfo::AutoPipInfo&
           auto_picture_in_picture_info) override {}
+  void RequestSaveVideoFrame() override {}
 
   // BaseAudioContext override to enable UseCounter.
   // https://webaudio.github.io/web-audio-api/#BaseAudioContext
@@ -224,8 +237,6 @@ class MODULES_EXPORT AudioContext final
   // https://webaudio.github.io/web-audio-api/#AudioPlaybackStats
   AudioPlaybackStats* playbackStats();
 
-  //  To be removed at M147.
-  AudioPlayoutStats* playoutStats();
 
   // Cannot be called from the audio thread.
   RealtimeAudioDestinationNode* GetRealtimeAudioDestinationNode() const;
@@ -259,9 +270,9 @@ class MODULES_EXPORT AudioContext final
 
   void OnRenderError();
 
-  // A helper function for AudioPlayoutStats. Passes `audio_frame_stats_` to be
+  // A helper function for AudioPlaybackStats. Passes `audio_frame_stats_` to be
   // absorbed by `receiver`. See:
-  // https://wicg.github.io/web_audio_playout
+  // https://webaudio.github.io/web-audio-api/#AudioPlaybackStats
   void TransferAudioFrameStatsTo(AudioFrameStatsAccumulator& receiver);
 
   // Get the number of pending device list updates, to allow waiting until the
@@ -330,6 +341,10 @@ class MODULES_EXPORT AudioContext final
   // Returns whether the autoplay requirements are fulfilled.
   bool AreAutoplayRequirementsFulfilled() const;
 
+  // Re-evaluates autoplay policy and updates autoplay_status_ and
+  // user_gesture_required_ accordingly.
+  void UpdateAutoplayRequirement();
+
   // If possible, allows autoplay for the AudioContext and mark it as allowed by
   // the given type.
   void MaybeAllowAutoplayWithUnlockType(AutoplayUnlockType);
@@ -366,9 +381,11 @@ class MODULES_EXPORT AudioContext final
 
   // Send notification to browser that an AudioContext has started or stopped
   // playing audible audio.
-  void NotifyAudibleAudioStarted()
+  void NotifyAudibleAudioStarted(unsigned sequence_id)
       VALID_CONTEXT_REQUIRED(main_thread_sequence_checker_);
-  void NotifyAudibleAudioStopped()
+  void NotifyAudibleAudioStopped(unsigned sequence_id, double silence_time)
+      VALID_CONTEXT_REQUIRED(main_thread_sequence_checker_);
+  void ClearAudibilityState()
       VALID_CONTEXT_REQUIRED(main_thread_sequence_checker_);
 
   void EnsureAudioContextManagerService();
@@ -396,6 +413,15 @@ class MODULES_EXPORT AudioContext final
   // Called on prerendering activation time if this AudioContext is blocked by
   // prerendering.
   void ResumeOnPrerenderActivation();
+
+  // Performs the state-checking logic for resuming the AudioContext. Returns
+  // std::nullopt on success, or a ResumeError indicating the failure reason.
+  std::optional<ResumeError> ResumeInternal();
+
+  // Processes deferred resume() calls that were made while frame visibility was
+  // unknown. Calls ResumeInternal() to check if the context can be resumed and
+  // rejects or resolves the deferred promises accordingly.
+  void ProcessDeferredResume();
 
   void HandleRenderError()
       VALID_CONTEXT_REQUIRED(main_thread_sequence_checker_);
@@ -427,6 +453,10 @@ class MODULES_EXPORT AudioContext final
   // asynchronously to the audio thread making rendering progress.
   void PerformCleanupPendingResumePromises();
 
+  void AddPendingResumeResolver(ScriptPromiseResolver<IDLUndefined>*);
+  void ResolvePendingResumeResolvers();
+  void RejectPendingResumeResolversWithException(const String& message);
+
   // https://webaudio.github.io/web-audio-api/#dom-audiocontext-suspended-by-user-slot
   bool suspended_by_user_ = false;
 
@@ -445,7 +475,6 @@ class MODULES_EXPORT AudioContext final
   AudioFrameStatsAccumulator audio_frame_stats_;
 
   Member<AudioPlaybackStats> audio_playback_stats_;
-  Member<AudioPlayoutStats> audio_playout_stats_;
 
   // Whether a user gesture is required to start this AudioContext.
   bool user_gesture_required_ = false;
@@ -475,7 +504,19 @@ class MODULES_EXPORT AudioContext final
 
   // Keeps track if the output of this destination was audible, before the
   // current rendering quantum.  Used for recording "playback" time.
-  bool was_audible_ = false;
+  std::atomic<bool> was_audible_{false};
+
+  // Keeps track of the accumulated silent rendering time (in seconds) to
+  // implement hysteresis for audibility notifications.
+  std::atomic<double> accumulated_silence_time_{0.0};
+
+  // Monotonically increasing ID to invalidate stale asynchronous audibility
+  // tasks. When the context's audibility state is cleared synchronously on the
+  // main thread (e.g. during suspend or close), this sequence ID is
+  // incremented. Pending asynchronous NotifyAudibleAudioStarted/Stopped tasks
+  // posted from the audio thread before the reset will carry an older sequence
+  // ID and be safely ignored, avoiding out-of-sync audibility state changes.
+  std::atomic<unsigned> audibility_sequence_id_{0};
 
   // Counts the number of render quanta where audible sound was played.  We
   // determine audibility on render quantum boundaries, so counting quanta is
@@ -544,10 +585,17 @@ class MODULES_EXPORT AudioContext final
   // True if the context should be interrupted when the frame is hidden.
   const bool should_interrupt_when_frame_is_hidden_;
 
-  // True if the host frame's:
-  // - 'display' property is set to 'none';
-  // - 'visibility' property is set to 'hidden';
-  bool is_frame_hidden_ = false;
+  // Whether the host frame is hidden for media playback purposes. True if the
+  // frame's 'display' is 'none', 'visibility' is 'hidden', or it has zero
+  // size. Nullopt before the first visibility notification from the frame,
+  // which can happen for cross-origin iframes where the IPC is asynchronous.
+  std::optional<bool> is_frame_hidden_;
+
+  // Resolvers for resume() calls made while is_frame_hidden_ was unknown
+  // (nullopt) and should_interrupt_when_frame_is_hidden_ is active. The resume
+  // decision is deferred until OnFrameHidden() or OnFrameShown() resolves it.
+  HeapVector<Member<ScriptPromiseResolver<IDLUndefined>>>
+      deferred_resume_resolvers_;
 
   // The number of pending device list updates, to allow waiting until the
   // device list is refrehsed before using it.  A value of 0 means no updates
@@ -575,6 +623,8 @@ class MODULES_EXPORT AudioContext final
   // Total accumulated time this audio context has been audible.
   base::TimeDelta total_audible_duration_;
 
+  const bool use_audibility_hysteresis_;
+
   // Set to true when the DidClose() method is called. Used to detect if the
   // context is destroyed without being properly closed.
   bool is_closed_ = false;
@@ -596,11 +646,6 @@ class MODULES_EXPORT AudioContext final
   // https://webaudio.github.io/web-audio-api/#dom-audiocontext-pending-resume-promises-slot
   HeapVector<Member<ScriptPromiseResolver<IDLUndefined>>>
       pending_resume_resolvers_;
-
-  // True if we're in the process of resolving promises for resume().  Resolving
-  // can take some time and the audio context process loop is very fast, so we
-  // don't want to call resolve an excessive number of times.
-  bool is_resolving_resume_promises_ = false;
 
   // Set to `true` by the audio thread when it posts a main-thread task to
   // perform delayed resume state sync'ing updates that needs to be done on

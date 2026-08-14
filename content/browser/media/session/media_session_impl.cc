@@ -21,13 +21,13 @@
 #include "content/browser/media/session/audio_focus_delegate.h"
 #include "content/browser/media/session/media_players_callback_aggregator.h"
 #include "content/browser/media/session/media_session_controller.h"
-#include "content/browser/media/session/media_session_player_observer.h"
 #include "content/browser/media/session/media_session_service_impl.h"
 #include "content/browser/picture_in_picture/video_picture_in_picture_window_controller_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/media_session.h"
 #include "content/public/browser/media_session_client.h"
+#include "content/public/browser/media_session_player_observer.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
@@ -1358,6 +1358,15 @@ void MediaSessionImpl::EnterAutoPictureInPicture() {
   ReportAutoPictureInPictureInfoChanged();
 }
 
+void MediaSessionImpl::SaveVideoFrame() {
+  if (!IsVideoFrameAvailable()) {
+    return;
+  }
+
+  auto& first = normal_players_.begin()->first;
+  first.observer->OnSaveVideoFrame(first.player_id);
+}
+
 void MediaSessionImpl::SetAudioSinkId(const std::optional<std::string>& id) {
   audio_device_id_for_origin_ = id;
 
@@ -1827,6 +1836,10 @@ void MediaSessionImpl::OnVideoVisibilityChanged() {
   RebuildAndNotifyMediaSessionInfoChanged();
 }
 
+void MediaSessionImpl::OnVideoFrameAvailabilityChanged() {
+  RebuildAndNotifyActionsChanged();
+}
+
 void MediaSessionImpl::SetRemotePlaybackMetadata(
     media_session::mojom::RemotePlaybackMetadataPtr metadata) {
   remote_playback_metadata_ = std::move(metadata);
@@ -1926,6 +1939,11 @@ void MediaSessionImpl::RebuildAndNotifyActionsChanged() {
       IsAudioOutputDeviceSwitchingSupported()) {
     actions.insert(
         media_session::mojom::MediaSessionAction::kSwitchAudioDevice);
+  }
+
+  if (base::FeatureList::IsEnabled(media::kGlobalMediaControlsSaveVideoFrame) &&
+      IsVideoFrameAvailable()) {
+    actions.insert(media_session::mojom::MediaSessionAction::kSaveVideoFrame);
   }
 
   if (actions_ == actions)
@@ -2093,6 +2111,15 @@ bool MediaSessionImpl::IsPictureInPictureAvailable() const {
 
   auto& first = normal_players_.begin()->first;
   return first.observer->IsPictureInPictureAvailable(first.player_id);
+}
+
+bool MediaSessionImpl::IsVideoFrameAvailable() const {
+  if (normal_players_.size() != 1) {
+    return false;
+  }
+
+  auto& first = normal_players_.begin()->first;
+  return first.observer->IsVideoFrameAvailable(first.player_id);
 }
 
 bool MediaSessionImpl::HasSufficientlyVisibleVideo() const {

@@ -234,13 +234,14 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kFileDialogsTuckPictureInPicture);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kForceSoftwareForRtcLowResolutions);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kGetDisplayMediaConfersActivation);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kGlobalMediaControlsAutoDismiss);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kGlobalMediaControlsSaveVideoFrame);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kGlobalMediaControlsSeamlessTransfer);
 #if BUILDFLAG(IS_ANDROID)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaCodecColorSpaceCleanup);
 #endif  // BUILDFLAG(IS_ANDROID)
 #if !BUILDFLAG(IS_ANDROID)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaRemotingWithoutFullscreen);
 #endif
-MEDIA_EXPORT BASE_DECLARE_FEATURE(kGlobalMediaControlsSeamlessTransfer);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kHardwareMediaKeyHandling);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kHardwareSecureDecryption);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kHardwareSecureDecryptionFallback);
@@ -254,10 +255,7 @@ MEDIA_EXPORT extern const base::FeatureParam<bool>
     kHardwareSecureDecryptionFallbackOnHardwareContextReset;
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kHardwareSecureDecryptionAv1);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kHardwareSecureDecryptionVp9);
-#if BUILDFLAG(ENABLE_PLATFORM_ENCRYPTED_DOLBY_VISION)
-MEDIA_EXPORT BASE_DECLARE_FEATURE(
-    kHardwareSecureDecryptionDolbyVisionWithHdrCheck);
-#endif  // ENABLE_PLATFORM_ENCRYPTED_DOLBY_VISION
+
 #if BUILDFLAG(IS_WIN)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kProtectedMediaIdentifierIndicator);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kHardwareSecureDecryptionRequireServerCert);
@@ -267,6 +265,10 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kInternalMediaSession);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kOnDeviceWebSpeech);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kOnDeviceWebSpeechGeminiNano);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kOnDeviceWebSpeechSmallExpertModel);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(
+    kOnDeviceWebSpeechSmallExpertModelMultiLanguage);
+MEDIA_EXPORT extern const base::FeatureParam<std::string>
+    kOnDeviceWebSpeechSmallExpertModelLanguages;
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kLiveCaption);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kPreemptiveSodaDownload);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kLiveCaptionAutomaticLanguageDownload);
@@ -349,6 +351,9 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kSymphoniaMp3Decoding);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kSymphoniaPcmDecoding);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kSymphoniaVorbisDecoding);
 #endif
+#if BUILDFLAG(ENABLE_IAMF_TOOLS)
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kIamfAudioDecoding);
+#endif
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kSpeakerChangeDetection);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kSpecCompliantCanPlayThrough);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kSuspendMediaForFrozenFrames);
@@ -361,7 +366,14 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kAcceleratedVideoDecodeLinux);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAcceleratedVideoDecodeLinuxGL);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAcceleratedVideoEncodeLinux);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kVaapiIgnoreDriverChecks);
+#if BUILDFLAG(USE_VAAPI) && BUILDFLAG(USE_V4L2_CODEC)
+// When both VA-API and V4L2 are compiled in, selects the active backend:
+// disabled (default) => VA-API, enabled => V4L2. Toggle via
+// --enable-features=PreferV4L2VideoAcceleration.
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kPreferV4L2VideoAcceleration);
+#endif
 #endif  // BUILDFLAG(IS_LINUX)
+
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kVaapiOnNvidiaGPUs);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kVaapiLowPowerEncoderGen9x);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kVaapiVideoMinResolutionForPerformance);
@@ -383,6 +395,7 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kWebCodecsDecoderFlushOptimizations);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kWebCodecsVideoEncoderFrameDrop);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kWebRTCHardwareVideoEncoderFrameDrop);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kWebRTCColorAccuracy);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kWebRTCLogColorSpace);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kWebrtcMediaCapabilitiesParameters);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kWidevinePersistentLicenseSupport);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kResolutionBasedDecoderPriority);
@@ -402,7 +415,6 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kFullscreenVideoPictureInPicture);
 
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaCodecBlockModel);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaCodecLowDelayMode);
-MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaControlsExpandGesture);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaDrmPersistentLicense);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaDrmPreprovisioning);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaDrmPreprovisioningAtStartup);
@@ -647,6 +659,9 @@ MEDIA_EXPORT uint32_t GetPassthroughAudioFormats();
 #if BUILDFLAG(IS_ANDROID)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseMediaFormatCodedSize);
 #endif
+
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kRustMpegAudioDataParser);
+
 }  // namespace media
 
 #endif  // MEDIA_BASE_MEDIA_SWITCHES_H_

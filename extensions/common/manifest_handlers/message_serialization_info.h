@@ -15,11 +15,13 @@ namespace extensions {
 
 // A structure to hold the parsed message serialization info.
 struct MessageSerializationInfo : public Extension::ManifestData {
+  static const char* kManifestDataKey;
+
   explicit MessageSerializationInfo(bool opts_in_structured_clone);
   ~MessageSerializationInfo() override;
 
   // Returns true if the extension should use structured clone message
-  // serialization (the extension has opted in and the feature is enabled).
+  // serialization (the extension has opted in).
   static bool UsesStructuredClone(const Extension* extension);
 
   // Whether the extension has indicated in its manifest that it would like to

@@ -41,12 +41,13 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/passwords/ui_utils.h"
+#include "chrome/browser/ui/views/autofill/popup/popup_at_memory_ai_disclosure_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_base_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_bnpl_footnote_view.h"
+#include "chrome/browser/ui/views/autofill/popup/popup_interactive_row_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_loading_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_no_suggestions_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_personal_context_notice_view.h"
-#include "chrome/browser/ui/views/autofill/popup/popup_row_content_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_factory_utils.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_search_bar_view.h"
@@ -68,7 +69,6 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/favicon/core/large_icon_service.h"
-#include "components/feature_engagement/public/feature_constants.h"
 #include "components/image_fetcher/core/image_fetcher_service.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "components/password_manager/core/browser/password_sync_util.h"
@@ -105,6 +105,7 @@
 #include "ui/views/metadata/view_factory.h"
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
+#include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
 
 using views::BubbleBorder;
@@ -131,7 +132,7 @@ int GetContentsVerticalPadding() {
       DISTANCE_CONTENT_LIST_VERTICAL_SINGLE);
 }
 
-bool CanShowRootPopup(AutofillSuggestionController& controller) {
+bool CanShowRootPopup(AutofillPopupController& controller) {
 #if BUILDFLAG(IS_MAC)
   // It's possible for the container_view to not be in a window. In that case,
   // cancel the popup since we can't fully set it up.
@@ -220,13 +221,15 @@ void DefaultA11yAnnouncer(const std::u16string& message, bool polite) {
 PopupViewViews::PopupViewViews(
     base::WeakPtr<AutofillPopupController> controller,
     base::WeakPtr<ExpandablePopupParentView> parent,
-    views::Widget* parent_widget)
+    views::Widget* parent_widget,
+    std::optional<const AutofillPopupView::SubPopupConfig> sub_popup_config)
     : PopupBaseView(controller,
                     parent_widget,
                     views::Widget::InitParams::Activatable::kDefault,
                     /*show_arrow_pointer=*/false),
       controller_(controller),
-      parent_(parent) {
+      parent_(parent),
+      sub_popup_config_(std::move(sub_popup_config)) {
   InitViews();
 
   GetViewAccessibility().SetRole(ax::mojom::Role::kListBox);
@@ -237,7 +240,8 @@ PopupViewViews::PopupViewViews(
 PopupViewViews::PopupViewViews(
     base::WeakPtr<AutofillPopupController> controller,
     std::optional<const AutofillPopupView::SearchBarConfig> search_bar_config,
-    std::optional<const AutofillPopupView::TabbedPaneConfig> tabbed_pane_config)
+    std::optional<const AutofillPopupView::TabbedPaneConfig> tabbed_pane_config,
+    std::optional<const AutofillPopupView::SubPopupConfig> sub_popup_config)
     : PopupBaseView(controller,
                     views::Widget::GetTopLevelWidgetForNativeView(
                         controller->container_view()),
@@ -246,7 +250,8 @@ PopupViewViews::PopupViewViews(
                         : views::Widget::InitParams::Activatable::kDefault),
       controller_(controller),
       search_bar_config_(std::move(search_bar_config)),
-      tabbed_pane_config_(std::move(tabbed_pane_config)) {
+      tabbed_pane_config_(std::move(tabbed_pane_config)),
+      sub_popup_config_(std::move(sub_popup_config)) {
   InitViews();
 
   GetViewAccessibility().SetRole(ax::mojom::Role::kListBox);
@@ -372,12 +377,13 @@ std::optional<PopupViewViews::CellIndex> PopupViewViews::GetSelectedCell()
   // current selection. Therefore some validity checks need to be performed
   // here.
   if (!row_with_selected_cell_ ||
-      !HasSelectablePopupRowViewAt(*row_with_selected_cell_)) {
+      !HasSelectablePopupInteractiveRowViewAt(*row_with_selected_cell_)) {
     return std::nullopt;
   }
 
   if (std::optional<PopupRowView::CellType> cell_type =
-          GetPopupRowViewAt(*row_with_selected_cell_).GetSelectedCell()) {
+          GetPopupInteractiveRowViewAt(*row_with_selected_cell_)
+              .GetSelectedCell()) {
     return CellIndex{*row_with_selected_cell_, *cell_type};
   }
   return std::nullopt;
@@ -410,7 +416,8 @@ bool PopupViewViews::HandleKeyPressEvent(
   // If the row can handle the event itself (e.g. switching between cells in the
   // same row), we let it.
   if (std::optional<CellIndex> selected_cell = GetSelectedCell()) {
-    if (GetPopupRowViewAt(selected_cell->first).HandleKeyPressEvent(event)) {
+    if (GetPopupInteractiveRowViewAt(selected_cell->first)
+            .HandleKeyPressEvent(event)) {
       return true;
     }
   }
@@ -620,7 +627,7 @@ bool PopupViewViews::HandleKeyPressEventForAtMemory(
         SelectNextRow(PopupCellSelectionSource::kKeyboard);
         return true;
       }
-      if (HasSelectablePopupRowViewAt(0)) {
+      if (HasSelectablePopupInteractiveRowViewAt(0)) {
         SetSelectedCell(CellIndex(0, PopupRowView::CellType::kContent),
                         PopupCellSelectionSource::kKeyboard);
         return true;
@@ -668,7 +675,8 @@ void PopupViewViews::SelectPreviousRow() {
   std::optional<CellIndex> old_index = GetSelectedCell();
   // Temporarily use an int to avoid underflows.
   int new_row = old_index ? static_cast<int>(old_index->first) - 1 : -1;
-  for (size_t i = 0; i < rows_.size() && !HasSelectablePopupRowViewAt(new_row);
+  for (size_t i = 0;
+       i < rows_.size() && !HasSelectablePopupInteractiveRowViewAt(new_row);
        i++) {
     --new_row;
     if (new_row < 0) {
@@ -679,9 +687,10 @@ void PopupViewViews::SelectPreviousRow() {
   // `kControl` is used to show a sub-popup with child suggestions. It can
   // only be selected on a new row if the corresponding suggestion has
   // children.
+  PopupRowView* row_view = MaybeGetPopupRowViewAt(new_row);
   const PopupRowView::CellType new_cell_type =
       (old_index && old_index->second == PopupRowView::CellType::kControl &&
-       GetPopupRowViewAt(new_row).GetExpandChildSuggestionsView())
+       row_view && row_view->GetExpandChildSuggestionsView())
           ? PopupRowView::CellType::kControl
           : PopupRowView::CellType::kContent;
   SetSelectedCell(CellIndex{new_row, new_cell_type},
@@ -693,7 +702,8 @@ void PopupViewViews::SelectNextRow(PopupCellSelectionSource source) {
   std::optional<CellIndex> old_index = GetSelectedCell();
 
   size_t new_row = old_index ? old_index->first + 1u : 0u;
-  for (size_t i = 0; i < rows_.size() && !HasSelectablePopupRowViewAt(new_row);
+  for (size_t i = 0;
+       i < rows_.size() && !HasSelectablePopupInteractiveRowViewAt(new_row);
        i++) {
     ++new_row;
     if (new_row >= rows_.size()) {
@@ -704,9 +714,10 @@ void PopupViewViews::SelectNextRow(PopupCellSelectionSource source) {
   // `kControl` is used to show a sub-popup with child suggestions. It can
   // only be selected on a new row if the corresponding suggestion has
   // children.
+  PopupRowView* row_view = MaybeGetPopupRowViewAt(new_row);
   const PopupRowView::CellType new_cell_type =
       (old_index && old_index->second == PopupRowView::CellType::kControl &&
-       GetPopupRowViewAt(new_row).GetExpandChildSuggestionsView())
+       row_view && row_view->GetExpandChildSuggestionsView())
           ? PopupRowView::CellType::kControl
           : PopupRowView::CellType::kContent;
   SetSelectedCell(CellIndex{new_row, new_cell_type}, source);
@@ -714,10 +725,11 @@ void PopupViewViews::SelectNextRow(PopupCellSelectionSource source) {
 
 bool PopupViewViews::SelectNextHorizontalCell() {
   std::optional<CellIndex> selected_cell = GetSelectedCell();
-  if (selected_cell && HasSelectablePopupRowViewAt(selected_cell->first)) {
-    PopupRowView& row = GetPopupRowViewAt(selected_cell->first);
-    if (selected_cell->second == PopupRowView::CellType::kContent &&
-        row.GetExpandChildSuggestionsView()) {
+  if (selected_cell &&
+      HasSelectablePopupInteractiveRowViewAt(selected_cell->first)) {
+    PopupRowView* row = MaybeGetPopupRowViewAt(selected_cell->first);
+    if (selected_cell->second == PopupRowView::CellType::kContent && row &&
+        row->GetExpandChildSuggestionsView()) {
       SetSelectedCell(
           CellIndex{selected_cell->first, PopupRowView::CellType::kControl},
           PopupCellSelectionSource::kKeyboard, AutoselectFirstSuggestion(true));
@@ -740,7 +752,7 @@ bool PopupViewViews::SelectPreviousHorizontalCell() {
   std::optional<CellIndex> selected_cell = GetSelectedCell();
   if (selected_cell &&
       selected_cell->second == PopupRowView::CellType::kControl &&
-      HasSelectablePopupRowViewAt(selected_cell->first)) {
+      HasSelectablePopupInteractiveRowViewAt(selected_cell->first)) {
     SetSelectedCell(
         CellIndex{selected_cell->first, PopupRowView::CellType::kContent},
         PopupCellSelectionSource::kKeyboard);
@@ -774,7 +786,8 @@ bool PopupViewViews::AcceptSelectedContentOrCreditCardCell(
     return false;
   }
 
-  return GetPopupRowViewAt(index->first).Accept(accept_method);
+  PopupRowView* row = MaybeGetPopupRowViewAt(index->first);
+  return row && row->Accept(accept_method);
 }
 
 bool PopupViewViews::RemoveSelectedCell() {
@@ -834,14 +847,18 @@ void PopupViewViews::AxAnnounce(const std::u16string& text) {
 }
 
 base::WeakPtr<AutofillPopupView> PopupViewViews::CreateSubPopupView(
-    base::WeakPtr<AutofillSuggestionController> controller) {
+    base::WeakPtr<AutofillPopupController> controller) {
   if (GetWidget() && controller) {
-    return (new PopupViewViews(
-                static_cast<AutofillPopupController&>(*controller).GetWeakPtr(),
-                weak_ptr_factory_.GetWeakPtr(), GetWidget()))
+    return (new PopupViewViews(controller, weak_ptr_factory_.GetWeakPtr(),
+                               GetWidget(), sub_popup_config_))
         ->GetWeakPtr();
   }
   return nullptr;
+}
+
+std::optional<size_t> PopupViewViews::GetIndexOfSubPopupAnchorSuggestion()
+    const {
+  return row_with_open_sub_popup_;
 }
 
 bool PopupViewViews::HasFocus() const {
@@ -931,7 +948,8 @@ void PopupViewViews::SetSelectedCell(
 
   if (old_index) {
     if (!TrackAndRun(this, [this, old_index]() {
-          GetPopupRowViewAt(old_index->first).SetSelectedCell(std::nullopt);
+          GetPopupInteractiveRowViewAt(old_index->first)
+              .SetSelectedCell(std::nullopt);
         })) {
       return;
     }
@@ -940,7 +958,7 @@ void PopupViewViews::SetSelectedCell(
   // New selected cell invalidates this scheduling (if it's running), cancel it.
   open_sub_popup_timer_.Stop();
 
-  if (cell_index && HasSelectablePopupRowViewAt(cell_index->first)) {
+  if (cell_index && HasSelectablePopupInteractiveRowViewAt(cell_index->first)) {
     if (auto* footnote = GetBnplFootnoteView()) {
       // Since cell selection is based on virtual focus and not real focus,
       // we need to manually unfocus the settings link when updating virtual
@@ -956,7 +974,8 @@ void PopupViewViews::SetSelectedCell(
     no_selection_sub_popup_close_timer_.Stop();
 
     row_with_selected_cell_ = cell_index->first;
-    PopupRowView& new_selected_row = GetPopupRowViewAt(cell_index->first);
+    PopupInteractiveRowView& new_selected_row =
+        GetPopupInteractiveRowViewAt(cell_index->first);
     if (!TrackAndRun(&new_selected_row, [&new_selected_row, cell_index]() {
           new_selected_row.SetSelectedCell(cell_index->second);
         })) {
@@ -1093,10 +1112,12 @@ void PopupViewViews::UpdateAccessibleStates() const {
   }
 }
 
-bool PopupViewViews::HasSelectablePopupRowViewAt(size_t index) const {
+bool PopupViewViews::HasSelectablePopupInteractiveRowViewAt(
+    size_t index) const {
   return index < rows_.size() &&
-         std::holds_alternative<PopupRowView*>(rows_[index]) &&
-         GetPopupRowViewAt(index).IsSelectable();
+         (std::holds_alternative<PopupRowView*>(rows_[index]) ||
+          std::holds_alternative<PopupInteractiveRowView*>(rows_[index])) &&
+         GetPopupInteractiveRowViewAt(index).IsSelectable();
 }
 
 PopupBnplFootnoteView* PopupViewViews::GetBnplFootnoteView() const {
@@ -1224,10 +1245,8 @@ void PopupViewViews::CreateSuggestionViews() {
         case SuggestionType::kPersonalContextNotice: {
           rows_.push_back(body_container->AddChildView(
               std::make_unique<PopupPersonalContextNoticeView>(
-                  /*a11y_selection_delegate=*/*this,
-                  /*selection_delegate=*/*this, controller(),
-                  current_line_number,
-                  std::make_unique<PopupRowContentView>())));
+                  /*a11y_selection_delegate=*/*this, a11y_announcer_,
+                  controller(), current_line_number)));
           break;
         }
         // The default section contains all selectable rows and includes
@@ -1244,64 +1263,13 @@ void PopupViewViews::CreateSuggestionViews() {
                   std::move(filter_match), password_favicon_loader_.get()));
           rows_.push_back(row_view);
 
-          const base::Feature* const feature =
-              suggestions[current_line_number].iph_metadata.feature;
           // Set appropriate element ids for IPH targets, it is important to
           // set them earlier to make sure the elements are discoverable later
           // during popup's visibility change and the promo bubble showing.
-          if (feature == &feature_engagement::
-                             kIPHAutofillVirtualCardSuggestionFeature ||
-              feature == &feature_engagement::
-                             kIPHAutofillDisabledVirtualCardSuggestionFeature ||
-              feature == &feature_engagement::
-                             kIPHAutofillCardInfoRetrievalSuggestionFeature ||
-              feature == &feature_engagement::
-                             kIPHAutofillDownstreamCardAwarenessFeature) {
-            row_view->SetProperty(views::kElementIdentifierKey,
-                                  kAutofillCreditCardSuggestionEntryElementId);
-          } else if (feature ==
-                     &feature_engagement::
-                         kIPHAutofillVirtualCardCVCSuggestionFeature) {
-            row_view->SetProperty(views::kElementIdentifierKey,
-                                  kAutofillStandaloneCvcSuggestionElementId);
-          } else if (feature ==
-                     &feature_engagement::
-                         kIPHAutofillExternalAccountProfileSuggestionFeature) {
-            row_view->SetProperty(views::kElementIdentifierKey,
-                                  kAutofillSuggestionElementId);
-          } else if (feature == &feature_engagement::
-                                    kIPHAutofillCreditCardBenefitFeature) {
-            row_view->SetProperty(views::kElementIdentifierKey,
-                                  kAutofillCreditCardBenefitElementId);
-          } else if (feature ==
-                     &feature_engagement::
-                         kIPHAutofillBnplAffirmOrZipSuggestionFeature) {
-            row_view->SetProperty(views::kElementIdentifierKey,
-                                  kAutofillBnplAffirmOrZipSuggestionElementId);
-          } else if (feature ==
-                     &feature_engagement::
-                         kIPHAutofillBnplAffirmZipOrKlarnaSuggestionFeature) {
-            row_view->SetProperty(
-                views::kElementIdentifierKey,
-                kAutofillBnplAffirmZipOrKlarnaSuggestionElementId);
-          } else if (feature ==
-                     &feature_engagement::
-                         kIPHAutofillHomeWorkProfileSuggestionFeature) {
-            row_view->SetProperty(views::kElementIdentifierKey,
-                                  kAutofillHomeWorkSuggestionElementId);
-          } else if (feature == &feature_engagement::
-                                    kIPHAutofillEnableLoyaltyCardsFeature) {
-            row_view->SetProperty(views::kElementIdentifierKey,
-                                  kAutofillEnableLoyaltyCardsElementId);
-          } else if (feature ==
-                     &feature_engagement::
-                         kIPHAutofillAccountNameEmailSuggestionFeature) {
-            row_view->SetProperty(views::kElementIdentifierKey,
-                                  kAutofillAccountNameEmailSuggestionElementId);
-          } else if (feature ==
-                     &feature_engagement::kIPHAutofillAiValuablesFeature) {
-            row_view->SetProperty(views::kElementIdentifierKey,
-                                  kAutofillAiValuablesElementId);
+          if (ui::ElementIdentifier element_id =
+                  GetAutofillPopupCellElementIdentifier(
+                      suggestions[current_line_number].iph_metadata.feature)) {
+            row_view->SetProperty(views::kElementIdentifierKey, element_id);
           }
       }
     }
@@ -1312,8 +1280,8 @@ void PopupViewViews::CreateSuggestionViews() {
             .SetHorizontalScrollBarMode(
                 views::ScrollView::ScrollBarMode::kDisabled)
             .SetDrawOverflowIndicator(false)
-            .ClipHeightTo(
-                0, body_container->GetHeightForWidth(kAutofillPopupMaxWidth))
+            .ClipHeightTo(0,
+                          body_container->GetHeightForWidth(GetPopupMaxWidth()))
             .Build();
     body_container_ = scroll_view->SetContents(std::move(body_container));
     scroll_view_ = suggestions_container_->AddChildView(std::move(scroll_view));
@@ -1381,6 +1349,12 @@ void PopupViewViews::CreateSuggestionViews() {
           std::make_unique<PopupBnplFootnoteView>(
               controller(), /*a11y_selection_delegate=*/*this,
               base::BindRepeating(&DefaultA11yAnnouncer))));
+    } else if (suggestions[current_line_number].type ==
+               SuggestionType::kAtMemoryAiDisclosure) {
+      rows_.push_back(
+          static_cast<PopupInteractiveRowView*>(footer_container_->AddChildView(
+              std::make_unique<PopupAtMemoryAiDisclosureView>(
+                  controller(), /*a11y_selection_delegate=*/*this))));
     } else {
       rows_.push_back(footer_container_->AddChildView(CreatePopupRowView(
           controller(), /*a11y_selection_delegate=*/*this,
@@ -1392,7 +1366,7 @@ void PopupViewViews::CreateSuggestionViews() {
   // after changes that can affect `body_container_`'s size.
   if (scroll_view_ && body_container_ && IsFooterScrollable()) {
     scroll_view_->ClipHeightTo(
-        0, body_container_->GetHeightForWidth(kAutofillPopupMaxWidth));
+        0, body_container_->GetHeightForWidth(GetPopupMaxWidth()));
   }
 }
 
@@ -1407,22 +1381,18 @@ gfx::Size PopupViewViews::CalculatePreferredSize(
     size.set_width(tabbed_pane_initial_width_.value());
   } else {
     size = views::View::CalculatePreferredSize(available_size);
-    if (size.width() > kAutofillPopupMaxWidth) {
+    const int max_width = GetPopupMaxWidth();
+    if (size.width() > max_width) {
       // TODO(crbug.com/40232718): When we set the vertical axis to stretch,
       // BoxLayout will occupy the entire vertical axis size. Two calculations
       // are needed to correct this.
       //
       // Following crrev.com/c/5828724, the dialog box will fit the text more
       // closely. But this will break the pixel test, so make it a fixed size.
-      size = views::View::CalculatePreferredSize(
-          views::SizeBounds(kAutofillPopupMaxWidth, {}));
-      size.set_width(kAutofillPopupMaxWidth);
+      size =
+          views::View::CalculatePreferredSize(views::SizeBounds(max_width, {}));
+      size.set_width(max_width);
     }
-  }
-
-  if (controller_ &&
-      controller_->GetMainFillingProduct() == FillingProduct::kAtMemory) {
-    size.set_width(kAtMemoryPopupWidth);
   }
 
   // This popup height limiting for popups with a search bar addresses a minor
@@ -1496,8 +1466,8 @@ bool PopupViewViews::DoUpdateBoundsAndRedrawPopup(bool prefer_prev_arrow_side) {
 
   // Intersect with the current monitor's work area to avoid showing popups
   // outside the screen.
-  gfx::Rect visible_content_area_bounds =
-      IntersectWithDisplayBounds(max_bounds_for_popup);
+  gfx::Rect visible_content_area_bounds = IntersectWithDisplayBounds(
+      controller_->GetWebContents(), max_bounds_for_popup);
 
   gfx::Rect element_bounds =
       gfx::ToEnclosingRect(controller_->element_bounds());
@@ -1549,9 +1519,19 @@ bool PopupViewViews::DoUpdateBoundsAndRedrawPopup(bool prefer_prev_arrow_side) {
     // compensate.
     scroll_width = scroll_view_->GetScrollBarLayoutWidth();
   }
+
+  // Width clamping happens here because:
+  // 1. The exact width isn't known earlier since a scrollbar might still be
+  //    added, which impacts the width.
+  // 2. If the width is under `min_width`, the content fits without any
+  //    wrapping. Expanding it early in `CalculatePreferredSize()`
+  //    is not necessary since it doesn't impact the preferred height
+  //    calculation.
+  // 3. Clamping early in `CalculatePreferredSize()` would cause non-overlay
+  //    scrollbars (like on Windows) to be added on top of `min_width`, making
+  //    the popup wider than necessary.
   preferred_size.set_width(std::clamp(preferred_size.width() + scroll_width,
-                                      kAutofillPopupMinWidth,
-                                      kAutofillPopupMaxWidth));
+                                      GetPopupMinWidth(), GetPopupMaxWidth()));
 
   views::BubbleBorder* border = static_cast<views::BubbleBorder*>(
       GetWidget()->GetRootView()->GetBorder());
@@ -1607,8 +1587,12 @@ void PopupViewViews::OnMouseExitedInChildren() {
   }
 
   // Schedule sub-popup closing.
+  const base::TimeDelta hide_delay =
+      sub_popup_config_ ? sub_popup_config_->no_selection_hide_delay
+                        : kNoSelectionHideSubPopupDelay;
+
   no_selection_sub_popup_close_timer_.Start(
-      FROM_HERE, kNoSelectionHideSubPopupDelay,
+      FROM_HERE, hide_delay,
       base::BindRepeating(&PopupViewViews::SetRowWithOpenSubPopup,
                           weak_ptr_factory_.GetWeakPtr(), std::nullopt,
                           AutoselectFirstSuggestion(false)));
@@ -1620,6 +1604,22 @@ bool PopupViewViews::IsFooterScrollable() const {
   // `body_container_` is the container of regular suggestions, it must exist
   // to place the footer there and thus make it scrollable too.
   return parent_ && body_container_;
+}
+
+int PopupViewViews::GetPopupMinWidth() const {
+  if (controller_ &&
+      controller_->GetMainFillingProduct() == FillingProduct::kAtMemory) {
+    return kAtMemoryPopupWidth;
+  }
+  return kAutofillPopupMinWidth;
+}
+
+int PopupViewViews::GetPopupMaxWidth() const {
+  if (controller_ &&
+      controller_->GetMainFillingProduct() == FillingProduct::kAtMemory) {
+    return kAtMemoryPopupWidth;
+  }
+  return kAutofillPopupMaxWidth;
 }
 
 bool PopupViewViews::CanShowDropdownInBounds(
@@ -1647,6 +1647,16 @@ bool PopupViewViews::CanShowDropdownInBounds(
                              element_bounds);
 }
 
+PopupRowView* PopupViewViews::MaybeGetPopupRowViewAt(size_t index) {
+  if (index >= rows_.size()) {
+    return nullptr;
+  }
+  if (auto* row = std::get_if<PopupRowView*>(&rows_[index])) {
+    return *row;
+  }
+  return nullptr;
+}
+
 void PopupViewViews::SetRowWithOpenSubPopup(
     std::optional<size_t> row_index,
     AutoselectFirstSuggestion autoselect_first_suggestion) {
@@ -1659,28 +1669,30 @@ void PopupViewViews::SetRowWithOpenSubPopup(
   }
 
   // Close previously open sub-popup if any.
-  if (row_with_open_sub_popup_ &&
-      HasSelectablePopupRowViewAt(*row_with_open_sub_popup_)) {
-    controller_->HideSubPopup();
-    GetPopupRowViewAt(*row_with_open_sub_popup_)
-        .SetChildSuggestionsDisplayed(false);
-    row_with_open_sub_popup_ = std::nullopt;
+  if (row_with_open_sub_popup_) {
+    if (PopupRowView* row = MaybeGetPopupRowViewAt(*row_with_open_sub_popup_)) {
+      controller_->HideSubPopup();
+      row->SetChildSuggestionsDisplayed(false);
+      row_with_open_sub_popup_ = std::nullopt;
+    }
   }
 
   // Open a sub-popup on the new cell if provided.
-  if (row_index && HasSelectablePopupRowViewAt(*row_index)) {
-    const Suggestion& suggestion = controller_->GetSuggestionAt(*row_index);
+  if (row_index) {
+    PopupRowView* row = MaybeGetPopupRowViewAt(*row_index);
+    if (row && row->IsSelectable()) {
+      const Suggestion& suggestion = controller_->GetSuggestionAt(*row_index);
 
-    CHECK(!suggestion.children.empty());
+      CHECK(!suggestion.children.empty());
 
-    PopupRowView& row = GetPopupRowViewAt(*row_index);
-    if (controller_->OpenSubPopup(row.GetControlCellBounds(),
-                                  suggestion.children,
-                                  autoselect_first_suggestion)) {
-      row.SetChildSuggestionsDisplayed(true);
-      row_with_open_sub_popup_ = row_index;
-      if (autoselect_first_suggestion) {
-        row.SetSelectedCell(std::nullopt);
+      if (controller_->OpenSubPopup(row->GetControlCellBounds(),
+                                    suggestion.children,
+                                    autoselect_first_suggestion)) {
+        row->SetChildSuggestionsDisplayed(true);
+        row_with_open_sub_popup_ = row_index;
+        if (autoselect_first_suggestion) {
+          row->SetSelectedCell(std::nullopt);
+        }
       }
     }
   }
@@ -1758,18 +1770,17 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(
 
 // static
 base::WeakPtr<AutofillPopupView> AutofillPopupView::Create(
-    base::WeakPtr<AutofillSuggestionController> controller,
+    base::WeakPtr<AutofillPopupController> controller,
     std::optional<const AutofillPopupView::SearchBarConfig> search_bar_config,
-    std::optional<const AutofillPopupView::TabbedPaneConfig>
-        tabbed_pane_config) {
+    std::optional<const AutofillPopupView::TabbedPaneConfig> tabbed_pane_config,
+    std::optional<const AutofillPopupView::SubPopupConfig> sub_popup_config) {
   if (!controller || !CanShowRootPopup(*controller)) {
     return nullptr;
   }
 
-  // On Desktop, all controllers are `AutofillPopupController`s.
-  return (new PopupViewViews(
-              static_cast<AutofillPopupController&>(*controller).GetWeakPtr(),
-              std::move(search_bar_config), std::move(tabbed_pane_config)))
+  return (new PopupViewViews(controller, std::move(search_bar_config),
+                             std::move(tabbed_pane_config),
+                             std::move(sub_popup_config)))
       ->GetWeakPtr();
 }
 

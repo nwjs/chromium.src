@@ -10,9 +10,14 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import static org.chromium.base.ThreadUtils.runOnUiThreadBlocking;
+import static org.chromium.chrome.browser.app.tabmodel.PersistentStoreMigrationManagerImpl.MANAGER_VERSION;
+import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.TAB_PERSISTENCE_CURRENT_AUTHORITATIVE_STORE;
+import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.TAB_PERSISTENCE_SHADOW_WRITTEN_STORE;
+import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.TAB_PERSISTENCE_STORE_MANAGER_VERSION;
 
 import androidx.test.filters.MediumTest;
 
+import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -22,18 +27,23 @@ import org.junit.runner.RunWith;
 import org.chromium.base.Holder;
 import org.chromium.base.Token;
 import org.chromium.base.test.util.CallbackHelper;
+import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.StorageLoadedData;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabGroupCollectionData;
 import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabSelectionType;
+import org.chromium.chrome.browser.tab.TabStateStorageFlagHelper;
 import org.chromium.chrome.browser.tab.TabStateStorageService;
 import org.chromium.chrome.browser.tab.TabStateStorageServiceFactory;
+import org.chromium.chrome.browser.tabmodel.PersistentStoreMigrationManager.StoreType;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
@@ -93,15 +103,6 @@ public class TabbedModeTabModelStoreTest {
         }
     }
 
-    private void destroyData(StorageLoadedData data) {
-        for (StorageLoadedData.LoadedTabState lts : data.getLoadedTabStates()) {
-            if (lts.tabState != null && lts.tabState.contentsState != null) {
-                lts.tabState.contentsState.destroy();
-            }
-        }
-        data.destroy();
-    }
-
     @Test
     @MediumTest
     public void tabAddition() throws Exception {
@@ -146,6 +147,77 @@ public class TabbedModeTabModelStoreTest {
         }
         assertTrue("Updated tab should be found in storage", found);
         assertEquals("Tab does not match expected timestamp", newTimestamp, actualTimestamp);
+    }
+
+    @Test
+    @MediumTest
+    public void testUntidyDoesNotSave_DirtySaves() throws Exception {
+        @TabId int tabId = getActiveTabId();
+
+        // Get initial state from DB to know the baseline timestamp.
+        StorageLoadedData data1 = loadAllDataSync(WINDOW_TAG, false);
+        Long initialTimestamp = null;
+        for (StorageLoadedData.LoadedTabState lts : data1.getLoadedTabStates()) {
+            if (lts.tabId == tabId) {
+                initialTimestamp = lts.tabState.timestampMillis;
+                break;
+            }
+        }
+        assertNotNull("Initial tab should have a timestamp in DB", initialTimestamp);
+
+        // Change timestamp locally on the tab, and trigger UNTIDY.
+        Long newTimestamp = initialTimestamp + 10000L; // 10s later
+        runOnUiThreadBlocking(
+                () -> {
+                    Tab tab = mActivityTestRule.getActivity().getActivityTab();
+                    tab.setTimestampMillis(newTimestamp);
+
+                    // Trigger UNTIDY state.
+                    tab.setTabHasSensitiveContent(!tab.getTabHasSensitiveContent());
+                });
+
+        // Verify DB STILL has the initial timestamp (UNTIDY did not trigger save).
+        StorageLoadedData data2 = loadAllDataSync(WINDOW_TAG, false);
+        Long timestampAfterUntidy = null;
+        for (StorageLoadedData.LoadedTabState lts : data2.getLoadedTabStates()) {
+            if (lts.tabId == tabId) {
+                timestampAfterUntidy = lts.tabState.timestampMillis;
+                break;
+            }
+        }
+        assertEquals(
+                "UNTIDY update should not trigger save to DB",
+                initialTimestamp,
+                timestampAfterUntidy);
+
+        // Trigger DIRTY state (e.g. via pin change).
+        runOnUiThreadBlocking(
+                () -> {
+                    Tab tab = mActivityTestRule.getActivity().getActivityTab();
+                    // Trigger DIRTY state.
+                    tab.setIsPinned(!tab.getIsPinned());
+                });
+
+        // Verify DB NOW has the new timestamp (DIRTY triggered save).
+        CriteriaHelper.pollInstrumentationThread(
+                () -> {
+                    try {
+                        StorageLoadedData data3 = loadAllDataSync(WINDOW_TAG, false);
+                        Long timestampAfterDirty = null;
+                        for (StorageLoadedData.LoadedTabState lts : data3.getLoadedTabStates()) {
+                            if (lts.tabId == tabId) {
+                                timestampAfterDirty = lts.tabState.timestampMillis;
+                                break;
+                            }
+                        }
+                        Criteria.checkThat(
+                                "DIRTY update should trigger save to DB",
+                                timestampAfterDirty,
+                                Matchers.is(newTimestamp));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
     }
 
     @Test
@@ -551,6 +623,116 @@ public class TabbedModeTabModelStoreTest {
         assertTrue("Single tab group should be persisted", found);
     }
 
+    @Test
+    @MediumTest
+    @EnableFeatures(
+            ChromeFeatureList.TAB_STORAGE_SQLITE_PROTOTYPE
+                    + ":phase/"
+                    + TabStateStorageFlagHelper.PHASE_AUTHORITATIVE_READ_SOURCE)
+    public void testAuthoritativeStoreAppLoadAndRestart() throws Exception {
+        setupActivityStore(StoreType.TAB_STATE_STORE);
+
+        TabModelOrchestrator orchestrator =
+                mActivityTestRule.getActivity().getTabModelOrchestratorSupplier().get();
+        assertEquals(
+                Integer.valueOf(StoreType.TAB_STATE_STORE),
+                runOnUiThreadBlocking(orchestrator::getAuthoritativeStoreType));
+        assertTrue(orchestrator.getTabPersistentStore() instanceof TabStateStore);
+
+        // Load a new tab to change state.
+        mActivityTestRule.loadUrlInNewTab(
+                mActivityTestRule.getTestServer().getURL(TEST_PATH), /* incognito= */ false);
+        @TabId int newTabId = getActiveTabId();
+
+        // Save state and recreate activity.
+        runOnUiThreadBlocking(() -> orchestrator.saveState());
+
+        mActivityTestRule.recreateActivity();
+
+        ChromeTabbedActivity newActivity = mActivityTestRule.getActivity();
+        TabModelSelector newSelector = newActivity.getTabModelSelector();
+
+        CriteriaHelper.pollUiThread(
+                newSelector::isTabStateInitialized,
+                "Recreated activity tab state never initialized");
+
+        TabModel newModel = runOnUiThreadBlocking(() -> newSelector.getModel(false));
+        CriteriaHelper.pollUiThread(
+                () -> runOnUiThreadBlocking(() -> newModel.getCount() >= 2),
+                "Tabs were not properly restored on app load");
+
+        // Verify restored tab state.
+        assertNotNull(
+                "Newly added tab should be restored after activity restart",
+                runOnUiThreadBlocking(() -> newModel.getTabById(newTabId)));
+
+        // Verify data in TabStateStorageService DB matches.
+        StorageLoadedData data = loadAllDataSync(WINDOW_TAG, false);
+        boolean foundInDb = false;
+        for (StorageLoadedData.LoadedTabState lts : data.getLoadedTabStates()) {
+            if (lts.tabId == newTabId) {
+                foundInDb = true;
+                break;
+            }
+        }
+        assertTrue("Newly added tab should exist in TabStateStorageService DB", foundInDb);
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures(
+            ChromeFeatureList.TAB_STORAGE_SQLITE_PROTOTYPE
+                    + ":phase/"
+                    + TabStateStorageFlagHelper.PHASE_ONLY_SHADOW)
+    public void testNonAuthoritativeStoreAppLoadAndRestart() throws Exception {
+        setupActivityStore(StoreType.LEGACY);
+
+        TabModelOrchestrator orchestrator =
+                mActivityTestRule.getActivity().getTabModelOrchestratorSupplier().get();
+        assertEquals(
+                Integer.valueOf(StoreType.LEGACY),
+                runOnUiThreadBlocking(orchestrator::getAuthoritativeStoreType));
+        assertEquals(
+                Integer.valueOf(StoreType.TAB_STATE_STORE),
+                runOnUiThreadBlocking(orchestrator::getShadowStoreType));
+
+        // Load a new tab to change state.
+        mActivityTestRule.loadUrlInNewTab(
+                mActivityTestRule.getTestServer().getURL(TEST_PATH), /* incognito= */ false);
+        @TabId int newTabId = getActiveTabId();
+
+        // Save state and recreate activity.
+        runOnUiThreadBlocking(() -> orchestrator.saveState());
+
+        mActivityTestRule.recreateActivity();
+
+        ChromeTabbedActivity newActivity = mActivityTestRule.getActivity();
+        TabModelSelector newSelector = newActivity.getTabModelSelector();
+
+        CriteriaHelper.pollUiThread(
+                newSelector::isTabStateInitialized,
+                "Recreated activity tab state never initialized");
+
+        TabModel newModel = runOnUiThreadBlocking(() -> newSelector.getModel(false));
+        CriteriaHelper.pollUiThread(
+                () -> runOnUiThreadBlocking(() -> newModel.getCount() >= 2),
+                "Tabs were not properly restored on shadow app load");
+
+        // Verify restored tab state.
+        assertNotNull(
+                "Newly added tab should be restored after shadow activity restart",
+                runOnUiThreadBlocking(() -> newModel.getTabById(newTabId)));
+    }
+
+    private void destroyData(StorageLoadedData data) {
+        for (StorageLoadedData.LoadedTabState lts : data.getLoadedTabStates()) {
+            if (lts.tabState != null && lts.tabState.contentsState != null) {
+                lts.tabState.contentsState.destroy();
+            }
+        }
+        data.destroy();
+    }
+
     private StorageLoadedData loadAllDataSync(String windowTag, boolean incognito)
             throws Exception {
         if (mLoadedData != null) {
@@ -577,5 +759,37 @@ public class TabbedModeTabModelStoreTest {
     private @TabId int getActiveTabId() {
         return runOnUiThreadBlocking(
                 () -> mActivityTestRule.getActivity().getActivityTabProvider().get().getId());
+    }
+
+    private void setupActivityStore(@StoreType int authoritativeStoreType) {
+        ChromeSharedPreferences.getInstance()
+                .writeIntSync(TAB_PERSISTENCE_STORE_MANAGER_VERSION, MANAGER_VERSION);
+        ChromeSharedPreferences.getInstance()
+                .writeIntSync(
+                        TAB_PERSISTENCE_CURRENT_AUTHORITATIVE_STORE.createKey(WINDOW_TAG),
+                        authoritativeStoreType);
+        ChromeSharedPreferences.getInstance()
+                .writeIntSync(
+                        TAB_PERSISTENCE_SHADOW_WRITTEN_STORE.createKey(WINDOW_TAG),
+                        StoreType.UNKNOWN);
+
+        mActivityTestRule.recreateActivity();
+
+        runOnUiThreadBlocking(
+                () -> {
+                    mProfile =
+                            mActivityTestRule
+                                    .getActivity()
+                                    .getProfileProviderSupplier()
+                                    .get()
+                                    .getOriginalProfile();
+                    mService = TabStateStorageServiceFactory.getForProfile(mProfile);
+                    mTabModel =
+                            mActivityTestRule.getActivity().getTabModelSelector().getModel(false);
+                });
+
+        CriteriaHelper.pollUiThread(
+                () -> mActivityTestRule.getActivity().getTabModelSelector().isTabStateInitialized(),
+                "Tab state never initialized");
     }
 }

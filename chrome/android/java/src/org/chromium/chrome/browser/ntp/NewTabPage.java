@@ -25,6 +25,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import org.chromium.base.CallbackController;
 import org.chromium.base.CallbackUtils;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.Log;
 import org.chromium.base.TimeUtils;
 import org.chromium.base.TraceEvent;
@@ -99,6 +100,7 @@ import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager.SnackbarManageable;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.ui.native_page.NativePageHost;
+import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
 import org.chromium.chrome.browser.ui.theme.ChromeSemanticColorUtils;
 import org.chromium.chrome.browser.url_constants.UrlConstantResolver;
 import org.chromium.chrome.browser.url_constants.UrlConstantResolverFactory;
@@ -114,6 +116,7 @@ import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.OmniboxFocusReason;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.search_engines.TemplateUrlService.TemplateUrlServiceObserver;
+import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationController;
 import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.DeviceFormFactor;
@@ -345,6 +348,12 @@ public class NewTabPage
             // If not visible when loading completes, wait until onShown is received.
             if (!mTab.isHidden()) recordNtpShown();
         }
+
+        @Override
+        public void loadUrl(LoadUrlParams urlParams, boolean incognito) {
+            if (mIsDestroyed) return;
+            getNativePageHost().loadUrl(urlParams, incognito);
+        }
     }
 
     /**
@@ -403,6 +412,7 @@ public class NewTabPage
      * @param moduleRegistrySupplier Supplier for the {@link ModuleRegistry}.
      * @param edgeToEdgeControllerSupplier Supplier for the {@link EdgeToEdgeController}.
      * @param topInsetProvider Provider for top insets.
+     * @param sideUiStateProviderSupplier Supplies the {@link SideUiStateProvider}.
      * @param startupMetricsTracker Used to record NTP startup metric.
      * @param backPressManager Manages back press dispatching.
      */
@@ -430,6 +440,7 @@ public class NewTabPage
             OneshotSupplier<ModuleRegistry> moduleRegistrySupplier,
             MonotonicObservableSupplier<EdgeToEdgeController> edgeToEdgeControllerSupplier,
             TopInsetProvider topInsetProvider,
+            OneshotSupplier<SideUiStateProvider> sideUiStateProviderSupplier,
             StartupMetricsTracker startupMetricsTracker,
             BackPressManager backPressManager) {
         mConstructedTimeNs = System.nanoTime();
@@ -530,8 +541,9 @@ public class NewTabPage
                         bottomSheetController,
                         modalDialogManager,
                         snackbarManager,
-                        mIsLff,
+                        isLff,
                         mTabStripHeightSupplier,
+                        sideUiStateProviderSupplier,
                         homeSurfaceTracker,
                         backPressManager);
 
@@ -612,9 +624,21 @@ public class NewTabPage
                     if (mRecordedFcp) return;
                     mRecordedFcp = true;
                     long durationMs = SystemClock.uptimeMillis() - mNavigationStartMs;
-                    RecordHistogram.recordMediumTimesHistogram(
-                            "NewTabPage.LoadTime.FirstContentfulPaint",
-                            durationMs);
+                    if (DeviceInfo.isDesktop()) {
+                        // Keep collecting this histogram for Android desktop to avoid losing data.
+                        // TODO(crbug.com/531793117): Remove this histogram once we have finished
+                        // the study for Android desktop.
+                        RecordHistogram.recordMediumTimesHistogram(
+                                "NewTabPage.LoadTime.FirstContentfulPaint", durationMs);
+                    }
+                    // LINT.IfChange(page_load_histogram)
+                    RecordHistogram.recordCustomTimesHistogram(
+                            "NewTabPage.LoadTime.FirstContentfulPaint2",
+                            durationMs,
+                            10,
+                            10 * TimeUtils.MILLISECONDS_PER_MINUTE,
+                            100);
+                    // LINT.ThenChange(/components/page_load_metrics/browser/page_load_metrics_util.h:page_load_histogram)
                 });
     }
 
@@ -738,7 +762,7 @@ public class NewTabPage
         if (!mIsLff) {
             mUseLightIconTint = applyWhiteBackgroundOnSearchBox;
         }
-        mNewTabPageCoordinator.onCustomizedBackgroundChanged(applyWhiteBackgroundOnSearchBox);
+        mNewTabPageCoordinator.onCustomizedBackgroundChanged();
     }
 
     /** Initializes whether to use a light tint color on icons of toolbar and status bar. */

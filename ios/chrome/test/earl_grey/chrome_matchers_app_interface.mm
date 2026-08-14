@@ -1196,10 +1196,6 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
   return grey_accessibilityID(kQuickDeleteBrowsingDataButtonIdentifier);
 }
 
-+ (id<GREYMatcher>)browsingDataConfirmButtonMatcher {
-  return grey_accessibilityID(kQuickDeleteBrowsingDataConfirmButtonIdentifier);
-}
-
 + (id<GREYMatcher>)browsingDataDoneButtonMatcher {
   return grey_accessibilityID(kQuickDeleteBrowsingDataDoneButtonIdentifier);
 }
@@ -1229,14 +1225,6 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
   // cell used by the tableview and a invisible recycled cell.
   return grey_allOf(
       grey_accessibilityID(kQuickDeleteBrowsingDataCacheIdentifier),
-      grey_sufficientlyVisible(), nil);
-}
-
-+ (id<GREYMatcher>)clearSavedPasswordsButton {
-  // Needs to use grey_sufficientlyVisible() to make the difference between a
-  // cell used by the tableview and a invisible recycled cell.
-  return grey_allOf(
-      grey_accessibilityID(kQuickDeleteBrowsingDataPasswordsIdentifier),
       grey_sufficientlyVisible(), nil);
 }
 
@@ -1517,15 +1505,15 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
                                    UIUserInterfaceSizeClassRegular;
 
       if (isRegularXRegular) {
-        id<GREYMatcher> tabGridDoneMatcher =
-            grey_allOf(grey_accessibilityID(kTabGridDoneButtonIdentifier),
-                       grey_sufficientlyVisible(), nil);
+        id<GREYMatcher> tabGridDoneMatcher = grey_allOf(
+            grey_accessibilityID(kTabGridExitTabGridButtonIdentifier),
+            grey_sufficientlyVisible(), nil);
         return [tabGridDoneMatcher matches:element];
       }
       return [[ChromeMatchersAppInterface showTabsButton] matches:element];
     } else {
       id<GREYMatcher> doneButtonMatcher =
-          grey_allOf(grey_accessibilityID(kTabGridDoneButtonIdentifier),
+          grey_allOf(grey_accessibilityID(kTabGridExitTabGridButtonIdentifier),
                      grey_sufficientlyVisible(), nil);
       return [doneButtonMatcher matches:element];
     }
@@ -1537,16 +1525,6 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
 
   return [[GREYElementMatcherBlock alloc] initWithMatchesBlock:matches
                                               descriptionBlock:describe];
-}
-
-+ (id<GREYMatcher>)tabGridOverflowMenuButton {
-  return grey_allOf(grey_accessibilityID(kTabGridOverflowMenuButtonIdentifier),
-                    grey_sufficientlyVisible(), nil);
-}
-
-+ (id<GREYMatcher>)tabGridUndoCloseAllButton {
-  return grey_allOf(grey_accessibilityID(kTabGridUndoCloseAllButtonIdentifier),
-                    grey_sufficientlyVisible(), nil);
 }
 
 + (id<GREYMatcher>)tabGridSelectShowHistoryCell {
@@ -1901,20 +1879,21 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
       grey_interactable(), nullptr);
 }
 
-#pragma mark - Tab Grid Selection Mode
+#pragma mark - Tab Grid Overflow Menu
 
-+ (id<GREYMatcher>)tabGridEditButton {
-  return grey_allOf(grey_accessibilityID(kTabGridEditButtonIdentifier), nil);
++ (id<GREYMatcher>)tabGridOverflowMenuButton {
+  return grey_allOf(grey_accessibilityID(kTabGridOverflowMenuButtonIdentifier),
+                    grey_sufficientlyVisible(), nil);
 }
 
-+ (id<GREYMatcher>)tabGridEditMenuCloseAllButton {
++ (id<GREYMatcher>)tabGridOverflowMenuCloseAllButton {
   int ID = IDS_IOS_CONTENT_CONTEXT_CLOSEALLTABSANDGROUPS;
   return grey_allOf(
       [ChromeMatchersAppInterface contextMenuItemWithAccessibilityLabelID:ID],
       grey_sufficientlyVisible(), nil);
 }
 
-+ (id<GREYMatcher>)tabGridSelectTabsMenuButton {
++ (id<GREYMatcher>)tabGridOverflowMenuSelectTabsButton {
   return grey_allOf(
       [ChromeMatchersAppInterface contextMenuItemWithAccessibilityLabelID:
                                       (IDS_IOS_CONTENT_CONTEXT_SELECTTABS)],

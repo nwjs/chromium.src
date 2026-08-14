@@ -160,7 +160,7 @@ TEST_F(ContentSuggestionsCollectionUtilsTest, searchFieldFrameIPad) {
   CGFloat topMargin = SearchFieldTopMargin(SearchEngineLogoState::kLogo);
 
   // Test.
-  EXPECT_EQ(22, topMargin);
+  EXPECT_EQ(29, topMargin);
   EXPECT_EQ(432, resultWidth);
   EXPECT_EQ(432, resultWidthLargeIPad);
 }
@@ -179,7 +179,7 @@ TEST_F(ContentSuggestionsCollectionUtilsTest, searchFieldFrameIPhonePortrait) {
 
   // Test.
   EXPECT_EQ(IsAimEnabledInNtp() ? 29 : 22, topMargin);
-  EXPECT_EQ(IsAimEnabledInNtp() ? 452 : 343, resultWidth);
+  EXPECT_EQ(IsAimEnabledInNtp() ? 432 : 343, resultWidth);
 }
 
 TEST_F(ContentSuggestionsCollectionUtilsTest, searchFieldFrameIPhoneLandscape) {
@@ -205,9 +205,9 @@ TEST_F(ContentSuggestionsCollectionUtilsTest, heightForLogoHeaderIPad) {
   }
 
   // Action, tests.
-  EXPECT_EQ(331, HeightForLogoHeader(SearchEngineLogoState::kDoodle,
+  EXPECT_EQ(328, HeightForLogoHeader(SearchEngineLogoState::kDoodle,
                                      IPadTraitCollection()));
-  EXPECT_EQ(331, HeightForLogoHeader(SearchEngineLogoState::kLogo,
+  EXPECT_EQ(328, HeightForLogoHeader(SearchEngineLogoState::kLogo,
                                      IPadTraitCollection()));
   EXPECT_EQ(
       64 + kDoodleHeightNoLogo,
@@ -267,6 +267,9 @@ TEST_F(ContentSuggestionsCollectionUtilsTest, fakeToolbarHeighta) {
 // Tests that the header height is the same for Logo and Doodle, when the
 // kConsistentLogoDoodleHeight feature is enabled.
 TEST_F(ContentSuggestionsCollectionUtilsTest, SameLogoAndDoodleHeight) {
+  if (IsIPad()) {
+    GTEST_SKIP() << "Test unsupported on iPad";
+  }
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(kConsistentLogoDoodleHeight);
 

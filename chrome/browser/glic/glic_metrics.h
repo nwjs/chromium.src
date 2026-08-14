@@ -93,7 +93,10 @@ enum class ShareImageResult {
   kFailedInvalidConfiguration = 23,
   kFailedNoClientFrame = 24,
   kFailedNoClipboardMetadata = 25,
-  kMaxValue = kFailedNoClipboardMetadata,
+  kFailedCancelled = 26,
+  kFailedProfileNotEnabled = 27,
+  kFailedSuperseded = 28,
+  kMaxValue = kFailedSuperseded,
 };
 
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:ShareImageResult)
@@ -183,7 +186,7 @@ class GlicMetrics : public GlicInstanceMetricsBackwardsCompatibility {
     virtual bool IsWindowAttached() const = 0;
     virtual content::WebContents* GetFocusedWebContents() = 0;
     virtual int32_t GetNumPinnedTabs() const = 0;
-    virtual std::vector<content::WebContents*>
+    virtual std::vector<raw_ptr<content::WebContents>>
     GetPinnedAndSharedWebContents() = 0;
   };
 

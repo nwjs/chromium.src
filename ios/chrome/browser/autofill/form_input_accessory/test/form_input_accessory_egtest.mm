@@ -25,6 +25,7 @@
 #import "components/sync/service/sync_prefs.h"
 #import "components/webauthn/ios/features.h"
 #import "ios/chrome/browser/authentication/test/signin_earl_grey.h"
+#import "ios/chrome/browser/autofill/atmemory/public/at_memory_constants.h"
 #import "ios/chrome/browser/autofill/manual_fill/public/manual_fill_constants.h"
 #import "ios/chrome/browser/autofill/manual_fill/test/manual_fill_matchers.h"
 #import "ios/chrome/browser/autofill/model/form_suggestion_constants.h"
@@ -150,7 +151,7 @@ id<GREYMatcher> KeyboardAccessoryPasswordSuggestion(NSString* realm) {
   return grey_allOf(grey_text(chip_text),
                     grey_ancestor(grey_accessibilityID(
                         kFormInputAccessoryViewAccessibilityID)),
-                    nil);
+                    grey_interactable(), nil);
 }
 
 // Matcher for the autofill backup password suggestion chip in the keyboard
@@ -228,7 +229,7 @@ void CheckAddressAutofillSuggestionAcceptedIndexMetricsCount(
           expectUniqueSampleWithCount:1
                             forBucket:suggestion_index
                          forHistogram:
-                             @"Autofill.SuggestionAcceptedIndex.Profile"],
+                             @"Autofill.SuggestionAcceptedIndex.Address"],
       @"Unexpected histogram count for accepted address suggestion index.");
 
   GREYAssertNil(
@@ -340,8 +341,6 @@ void SlowlyTypeText(NSString* text) {
                         overrideParam:(std::string_view)overrideParam {
   config.features_enabled.push_back(
       autofill::features::kAutofillAiWithDataSchema);
-  config.features_enabled.push_back(
-      autofill::features::kAutofillAiCreateEntityDataManager);
   config.features_enabled.push_back(
       autofill::features::debug::kAutofillAiForceOptIn);
 
@@ -759,8 +758,8 @@ id<GREYMatcher> PaymentsBottomSheetUseKeyboardButton() {
   [self testFillCreditCardFieldsOnForm];
 
   // Focus on the cvc field to fill it.
-  [ChromeEarlGrey evaluateJavaScriptForSideEffect:
-                      @"document.getElementById('cvc').focus();"];
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:chrome_test_util::TapWebElementWithId("cvc")];
   // Wait some time so the keyboard has time to show up then slowly type the CVC
   // number.
   base::test::ios::SpinRunLoopWithMinDelay(base::Milliseconds(200));
@@ -1384,5 +1383,13 @@ id<GREYMatcher> PaymentsBottomSheetUseKeyboardButton() {
   [self verifyFieldsHaveBeenFilledWithUsername:username password:password];
 }
 
-@end
+// Tests that closing a tab after focusing a form field does not crash
+// during FormInputAccessoryCoordinator teardown when AtMemory was not shown.
+- (void)testAtMemoryUnopenedTeardown {
+  [self loadLoginPage];
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:chrome_test_util::TapWebElementWithId(kFormUsername)];
+  [ChromeEarlGrey closeCurrentTab];
+}
 
+@end

@@ -10,6 +10,7 @@
 #include <string>
 #include <utility>
 
+#include "base/check_deref.h"
 #include "base/command_line.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -46,6 +47,7 @@
 #include "chrome/browser/download/insecure_download_blocking.h"
 #include "chrome/browser/download/save_package_file_picker.h"
 #include "chrome/browser/enterprise/connectors/common.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/policy/chrome_policy_blocklist_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -129,10 +131,10 @@
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/execution_engine.h"
 #include "chrome/browser/download/download_item_web_app_data.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
+#include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
 #include "chrome/common/actor.mojom-shared.h"
 #endif
 
@@ -644,6 +646,11 @@ ChromeDownloadManagerDelegate::~ChromeDownloadManagerDelegate() {
   DCHECK(!download_manager_);
 }
 
+bool ChromeDownloadManagerDelegate::SupportsHistoryLoading() {
+  return HistoryServiceFactory::GetForProfile(
+             profile_, ServiceAccessType::EXPLICIT_ACCESS) != nullptr;
+}
+
 void ChromeDownloadManagerDelegate::SetDownloadManager(DownloadManager* dm) {
   if (download_manager_) {
     download_manager_->RemoveObserver(this);
@@ -919,19 +926,17 @@ bool ChromeDownloadManagerDelegate::IsDownloadReadyForCompletion(
                 enterprise_obfuscation::DownloadObfuscationData::kUserDataKey));
 
     if (obfuscation_data && obfuscation_data->is_obfuscated) {
+      // Ensure that deobfuscation is run only once.
+      obfuscation_data->is_obfuscated = false;
       base::ThreadPool::PostTaskAndReplyWithResult(
           FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
           base::BindOnce(&enterprise_obfuscation::DeobfuscateFileInPlace,
                          item->GetFullPath()),
           base::BindOnce(
               &ChromeDownloadManagerDelegate::OnDeobfuscationComplete,
-              weak_ptr_factory_.GetWeakPtr(),
+              weak_ptr_factory_.GetWeakPtr(), item->GetId(),
               std::move(internal_complete_callback)));
 
-      // Ensure that deobfuscation is ran only once.
-      // TODO(crbug.com/367259664): Move to `OnDeobfuscationComplete` after
-      // adding better error handling.
-      obfuscation_data->is_obfuscated = false;
       return false;
     }
   }
@@ -1028,11 +1033,19 @@ bool ChromeDownloadManagerDelegate::IsDownloadReadyForCompletion(
 
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 void ChromeDownloadManagerDelegate::OnDeobfuscationComplete(
+    uint32_t download_id,
     base::OnceClosure callback,
     base::expected<void, enterprise_obfuscation::Error> deobfuscation_result) {
+  download::DownloadItem* item =
+      download_manager_ ? download_manager_->GetDownload(download_id) : nullptr;
+  if (!item) {
+    return;
+  }
+
   if (!deobfuscation_result.has_value()) {
-    // TODO(crbug.com/367259664): Add better error handling for deobfuscation.
     DVLOG(1) << "Failed to deobfuscate download file.";
+    item->Cancel(/*user_cancel=*/false);
+    return;
   }
 
   if (callback) {
@@ -1088,12 +1101,7 @@ bool ChromeDownloadManagerDelegate::ShouldOpenDownload(
         &ChromeDownloadManagerDelegate::OnInstallerDone,
         weak_ptr_factory_.GetWeakPtr(), token, std::move(callback)));
 
-    if (extensions::UserScript::IsURLUserScript(item->GetURL(),
-                                                item->GetMimeType())) {
-      installer->InstallUserScript(item->GetFullPath(), item->GetURL());
-    } else {
-      installer->InstallCrx(item->GetFullPath());
-    }
+    installer->InstallCrx(item->GetFullPath());
 
     // The status text and percent complete indicator will change now
     // that we are installing a CRX.  Update observers so that they pick
@@ -1258,7 +1266,8 @@ void ChromeDownloadManagerDelegate::ChooseSavePath(
                      weak_ptr_factory_.GetWeakPtr(), web_contents->GetURL(),
                      suggested_path, std::move(callback));
   if (profile_->IsOffTheRecord()) {
-    RequestIncognitoWarningConfirmation(std::move(confirm_callback));
+    RequestIncognitoWarningConfirmation(web_contents,
+                                        std::move(confirm_callback));
   } else {
     std::move(confirm_callback).Run(/*accepted=*/true);
   }
@@ -1334,9 +1343,11 @@ void ChromeDownloadManagerDelegate::OpenDownload(DownloadItem* download) {
     return;
   }
 
-  Browser* browser = chrome::ScopedTabbedBrowserDisplayer(profile_).browser();
-  CHECK(browser && browser->CanSupportWindowFeature(
-                       Browser::WindowFeature::kFeatureTabStrip));
+  BrowserWindowInterface* browser =
+      chrome::ScopedTabbedBrowserDisplayer(profile_).browser_window_interface();
+  CHECK(browser &&
+        WindowFeatureController::From(browser)->CanSupportWindowFeature(
+            WindowFeatureController::WindowFeature::kFeatureTabStrip));
   content::OpenURLParams params(
       net::FilePathToFileURL(download->GetTargetFilePath()),
       content::Referrer(), WindowOpenDisposition::NEW_FOREGROUND_TAB,
@@ -1479,8 +1490,16 @@ void ChromeDownloadManagerDelegate::ReserveVirtualPath(
 
 #if BUILDFLAG(IS_ANDROID)
 void ChromeDownloadManagerDelegate::RequestIncognitoWarningConfirmation(
+    content::WebContents* web_contents,
     IncognitoWarningConfirmationCallback callback) {
-  download_message_bridge_->ShowIncognitoDownloadMessage(std::move(callback));
+  ui::WindowAndroid* window_android =
+      web_contents ? web_contents->GetTopLevelNativeWindow() : nullptr;
+  if (!window_android) {
+    std::move(callback).Run(/*accepted=*/false);
+    return;
+  }
+  download_message_bridge_->ShowIncognitoDownloadMessage(window_android,
+                                                         std::move(callback));
 }
 #endif
 
@@ -1497,7 +1516,10 @@ void ChromeDownloadManagerDelegate::RequestConfirmation(
 #if BUILDFLAG(IS_ANDROID)
   content::WebContents* web_contents =
       content::DownloadItemUtils::GetWebContents(download);
-  if (reason == DownloadConfirmationReason::SAVE_AS) {
+
+  bool is_save_as_enabled = base::FeatureList::IsEnabled(
+      download::features::kEnableDownloadSaveAsContextMenu);
+  if (reason == DownloadConfirmationReason::SAVE_AS && !is_save_as_enabled) {
     // If this is a 'Save As' download, just run without confirmation.
     std::move(callback).Run(
         DownloadConfirmationResult::CONTINUE_WITHOUT_CONFIRMATION,
@@ -1548,7 +1570,12 @@ void ChromeDownloadManagerDelegate::RequestConfirmation(
       download::RecordDuplicatePdfDownloadTriggered(/*open_inline=*/false);
     }
 
-    if (!download_prefs_->PromptForDownload()) {
+    bool is_save_as_prompt =
+        (download->GetTargetDisposition() ==
+         download::DownloadItem::TARGET_DISPOSITION_PROMPT) &&
+        base::FeatureList::IsEnabled(
+            download::features::kEnableDownloadSaveAsContextMenu);
+    if (!download_prefs_->PromptForDownload() && !is_save_as_prompt) {
       DuplicateDownloadDialogBridgeDelegate::GetInstance()->CreateDialog(
           download, suggested_path, web_contents, std::move(callback));
       return;
@@ -1569,6 +1596,10 @@ void ChromeDownloadManagerDelegate::RequestConfirmation(
   DownloadLocationDialogType dialog_type = DownloadLocationDialogType::DEFAULT;
 
   switch (reason) {
+    case DownloadConfirmationReason::SAVE_AS:
+      dialog_type = DownloadLocationDialogType::FORCE_PROMPT;
+      break;
+
     case DownloadConfirmationReason::TARGET_NO_SPACE:
       dialog_type = DownloadLocationDialogType::LOCATION_FULL;
       break;
@@ -1691,9 +1722,15 @@ void ChromeDownloadManagerDelegate::GenerateUniqueFileNameDone(
   // with the filename automatically set to be the unique filename.
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (download::IsPathValidationSuccessful(result)) {
-    if (download_prefs_->PromptForDownload()) {
-      download::DownloadItem* download =
-          download_manager_->GetDownloadByGuid(download_guid);
+    download::DownloadItem* download =
+        download_manager_->GetDownloadByGuid(download_guid);
+    bool is_save_as_enabled =
+        download &&
+        (download->GetTargetDisposition() ==
+         download::DownloadItem::TARGET_DISPOSITION_PROMPT) &&
+        base::FeatureList::IsEnabled(
+            download::features::kEnableDownloadSaveAsContextMenu);
+    if (download_prefs_->PromptForDownload() || is_save_as_enabled) {
       content::WebContents* web_contents =
           download ? content::DownloadItemUtils::GetWebContents(download)
                    : nullptr;
@@ -2321,7 +2358,8 @@ std::unique_ptr<download::DownloadItemRenameHandler>
 ChromeDownloadManagerDelegate::GetRenameHandlerForDownload(
     download::DownloadItem* download_item) {
 #if BUILDFLAG(IS_CHROMEOS)
-  return policy::SkyvaultRenameHandler::CreateIfNeeded(download_item);
+  return policy::SkyvaultRenameHandler::CreateIfNeeded(
+      CHECK_DEREF(g_browser_process->local_state()), download_item);
 #else
   return nullptr;
 #endif  // BUILDFLAG(IS_CHROMEOS)

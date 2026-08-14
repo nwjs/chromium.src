@@ -11,8 +11,6 @@ import static org.junit.Assert.assertTrue;
 
 import static org.chromium.chrome.browser.multiwindow.MultiInstanceManager.INVALID_WINDOW_ID;
 
-import android.graphics.Rect;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -385,23 +383,6 @@ public class ChromeMultiInstancePersistentStoreUnitTest {
         assertEquals(1, recoveryData.size());
         assertEquals(INSTANCE_ID_0, recoveryData.get(0).windowId);
         assertTrue(recoveryData.get(0).isVisible);
-        assertNull(recoveryData.get(0).bounds);
-    }
-
-    @Test
-    public void testCrashRecoveryBounds() {
-        Rect bounds = new Rect(10, 20, 100, 200);
-        // Create instance first.
-        ChromeMultiInstancePersistentStore.writeLastAccessedTime(INSTANCE_ID_0);
-
-        ChromeMultiInstancePersistentStore.writeIsRecoverable(INSTANCE_ID_0, true);
-        ChromeMultiInstancePersistentStore.writeBounds(INSTANCE_ID_0, bounds);
-        ChromeMultiInstancePersistentStore.writeTabCount(
-                INSTANCE_ID_0, /* normalTabCount= */ 1, /* incognitoTabCount= */ 0);
-
-        var recoveryData = ChromeMultiInstancePersistentStore.readCrashRecoveryData();
-        assertEquals(1, recoveryData.size());
-        assertEquals(bounds, recoveryData.get(0).bounds);
     }
 
     @Test
@@ -476,22 +457,25 @@ public class ChromeMultiInstancePersistentStoreUnitTest {
     }
 
     @Test
-    public void testReadCrashRecoveryData_excludesWindowsWithOnlyIncognitoTabs() {
+    public void testReadCrashRecoveryData_includesWindowsWithOnlyIncognitoOrEmptyTabs() {
         // Instance 0: recoverable with 1 normal tab. Should be included.
         ChromeMultiInstancePersistentStore.writeLastAccessedTime(INSTANCE_ID_0);
         ChromeMultiInstancePersistentStore.writeIsRecoverable(INSTANCE_ID_0, true);
         ChromeMultiInstancePersistentStore.writeTabCount(
                 INSTANCE_ID_0, /* normalTabCount= */ 1, /* incognitoTabCount= */ 0);
 
-        // Instance 1: recoverable with 0 normal tabs and 2 incognito tabs. Should be filtered out.
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(1));
+
+        // Instance 1: recoverable with 0 normal tabs and 2 incognito tabs. Should also be included.
         ChromeMultiInstancePersistentStore.writeLastAccessedTime(INSTANCE_ID_1);
         ChromeMultiInstancePersistentStore.writeIsRecoverable(INSTANCE_ID_1, true);
         ChromeMultiInstancePersistentStore.writeTabCount(
                 INSTANCE_ID_1, /* normalTabCount= */ 0, /* incognitoTabCount= */ 2);
 
         var recoveryData = ChromeMultiInstancePersistentStore.readCrashRecoveryData();
-        assertEquals(1, recoveryData.size());
+        assertEquals(2, recoveryData.size());
         assertEquals(INSTANCE_ID_0, recoveryData.get(0).windowId);
+        assertEquals(INSTANCE_ID_1, recoveryData.get(1).windowId);
     }
 
     @Test

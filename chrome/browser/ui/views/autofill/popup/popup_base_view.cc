@@ -4,7 +4,6 @@
 
 #include "chrome/browser/ui/views/autofill/popup/popup_base_view.h"
 
-#include <algorithm>
 #include <memory>
 #include <string_view>
 #include <utility>
@@ -15,9 +14,7 @@
 
 #include "base/dcheck_is_on.h"
 #include "base/feature_list.h"
-#include "base/functional/bind.h"
 #include "base/i18n/rtl.h"
-#include "base/location.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -26,31 +23,23 @@
 #include "chrome/browser/ui/views/autofill/popup/popup_view_utils.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/contents_web_view.h"
 #include "components/autofill/core/common/autofill_features.h"
-#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "third_party/skia/include/core/SkRRect.h"
 #include "ui/accessibility/ax_enums.mojom.h"
-#include "ui/accessibility/platform/ax_platform_node.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_id.h"
-#include "ui/color/color_provider.h"
-#include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/events/base_event_utils.h"
-#include "ui/gfx/color_palette.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/scrollbar_size.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/border.h"
 #include "ui/views/bubble/bubble_border.h"
-#include "ui/views/controls/menu/menu_config.h"
 #include "ui/views/focus/focus_manager.h"
-#include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/layout_provider.h"
 #include "ui/views/view_tracker.h"
 #include "ui/views/widget/widget.h"
@@ -133,10 +122,7 @@ class PopupBaseView::Widget : public views::Widget {
     // setups is not consistent). This is not required for regular autofill
     // popup use, but it makes certain attacks (those based on the popup being
     // obscured) less practical.
-    if (base::FeatureList::IsEnabled(
-            features::kAutofillPopupZOrderSecuritySurface)) {
-      params.z_order = ui::ZOrderLevel::kSecuritySurface;
-    }
+    params.z_order = ui::ZOrderLevel::kSecuritySurface;
 
     Init(std::move(params));
     AddObserver(popup_base_view());
@@ -412,7 +398,8 @@ void PopupBaseView::NotifyAXSelection(views::View& selected_view) {
        "PopupSeparatorView", "PopupWarningView", "PopupBaseView",
        "PasswordGenerationPopupViewViews::GeneratedPasswordBox", "PopupRowView",
        "PopupRowWithButtonView", "PopupRowContentView", "MdTextButton",
-       "PopupBnplFootnoteView"});
+       "PopupBnplFootnoteView", "PopupAtMemoryAiDisclosureView",
+       "PopupPersonalContextNoticeView"});
   DCHECK(kDerivedClasses.contains(selected_view.GetClassName()))
       << "If you add a new derived class from AutofillPopupRowView, add it "
          "here and to onSelection(evt) in "
@@ -554,7 +541,7 @@ bool PopupBaseView::DoUpdateBoundsAndRedrawPopup() {
   // Intersect with the current monitor's work area to avoid showing popups
   // outside the screen.
   gfx::Rect visible_content_area_bounds =
-      IntersectWithDisplayBounds(max_bounds_for_popup);
+      IntersectWithDisplayBounds(GetWebContents(), max_bounds_for_popup);
 
   gfx::Rect element_bounds = gfx::ToEnclosingRect(delegate_->element_bounds());
 

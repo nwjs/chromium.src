@@ -130,7 +130,8 @@ DesktopWindowTreeHostWin::DesktopWindowTreeHostWin(
       drag_drop_client_(nullptr),
       should_animate_window_close_(false),
       pending_close_(false),
-      has_non_client_view_(false) {}
+      has_non_client_view_(false),
+      is_modal_(native_widget_delegate_->IsModal()) {}
 
 DesktopWindowTreeHostWin::~DesktopWindowTreeHostWin() {
   ClearBackgroundPaintBrush();
@@ -954,7 +955,7 @@ bool DesktopWindowTreeHostWin::WidgetSizeIsClientSize() const {
 }
 
 bool DesktopWindowTreeHostWin::IsModal() const {
-  return native_widget_delegate_ ? native_widget_delegate_->IsModal() : false;
+  return is_modal_;
 }
 
 int DesktopWindowTreeHostWin::GetInitialShowState() const {
@@ -1430,22 +1431,6 @@ bool DesktopWindowTreeHostWin::HandleScrollEvent(ui::ScrollEvent* event) {
 bool DesktopWindowTreeHostWin::HandleGestureEvent(ui::GestureEvent* event) {
   SendEventToSink(event);
   return event->handled();
-}
-
-void DesktopWindowTreeHostWin::HandleWindowSizeChanging() {
-  if (compositor()) {
-    compositor()->DisableSwapUntilResize();
-  }
-}
-
-void DesktopWindowTreeHostWin::HandleWindowSizeUnchanged() {
-  // A resize may not have occurred if the window size happened not to have
-  // changed (can occur on Windows 10 when snapping a window to the side of
-  // the screen). In that case do a resize to the current size to reenable
-  // swaps.
-  if (compositor()) {
-    compositor()->ReenableSwap();
-  }
 }
 
 void DesktopWindowTreeHostWin::HandleWindowScaleFactorChanged(

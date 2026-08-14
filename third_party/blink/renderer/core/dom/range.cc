@@ -66,6 +66,7 @@
 #include "third_party/blink/renderer/core/trustedtypes/trusted_types_util.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "ui/gfx/geometry/quad_f.h"
@@ -1243,6 +1244,18 @@ void Range::selectNode(Node* ref_node, ExceptionState& exception_state) {
   }
 
   RangeUpdateScope scope(this);
+  if (RuntimeEnabledFeatures::RangeBoundaryFastPathEnabled()) {
+    // Set both boundaries lazily relative to `ref_node`, avoiding the O(n)
+    // `NodeIndex()`/`ChildAt()` walks. start-before/end-after `ref_node` are
+    // always ordered and share a container, so no collapse check is needed.
+    if (ref_node->GetDocument() != owner_document_) {
+      SetDocument(ref_node->GetDocument());
+    }
+    start_.SetToBeforeChild(*ref_node);
+    end_.SetToAfterChild(*ref_node);
+    update_selection_behavior_ = UpdateSelectionBehavior::kAll;
+    return;
+  }
   setStartBefore(ref_node);
   setEndAfter(ref_node);
 }
@@ -1516,8 +1529,20 @@ void Range::NodeWillBeRemoved(Node& node) {
 }
 
 void Range::FixupRemovedNodeAcrossShadowBoundary(Node& node) {
-  BoundaryShadowNodeWillBeRemoved(start_, node);
-  BoundaryShadowNodeWillBeRemoved(end_, node);
+  // If the node being removed is the child immediately before the boundary
+  // point, we need to handle it here to avoid a crash in
+  // BoundaryShadowNodeWillBeRemoved (which expects ChildBefore != node).
+  // This mirrors the behavior in BoundaryNodeWillBeRemoved.
+  if (start_.ChildBefore() == &node) {
+    start_.ChildBeforeWillBeRemoved();
+  } else {
+    BoundaryShadowNodeWillBeRemoved(start_, node);
+  }
+  if (end_.ChildBefore() == &node) {
+    end_.ChildBeforeWillBeRemoved();
+  } else {
+    BoundaryShadowNodeWillBeRemoved(end_, node);
+  }
 }
 
 static inline void BoundaryTextInserted(RangeBoundaryPoint& boundary,

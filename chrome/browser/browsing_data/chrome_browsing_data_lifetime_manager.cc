@@ -34,6 +34,7 @@
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -65,7 +66,7 @@ using ScheduledRemovalSettings =
     ChromeBrowsingDataLifetimeManager::ScheduledRemovalSettings;
 
 // An observer of all the browsing data removal tasks that are started by the
-// ChromeBrowsingDataLifetimeManager that records the the tasks starts and
+// ChromeBrowsingDataLifetimeManager that records the tasks starts and
 // completed states as well as their durations.
 class BrowsingDataRemoverObserver
     : public content::BrowsingDataRemover::Observer {
@@ -235,8 +236,8 @@ std::set<GURL> GetOpenedUrlsAndOngoingDownloads(Profile* profile) {
           return true;
         }
         TabStripModel* const tab_strip_model = browser->GetTabStripModel();
-        for (int i = 0; i < tab_strip_model->count(); ++i) {
-          result.insert(tab_strip_model->GetWebContentsAt(i)->GetURL());
+        for (tabs::TabInterface* tab: *tab_strip_model) {
+          result.insert(tab->GetContents()->GetURL());
         }
         return true;
       });

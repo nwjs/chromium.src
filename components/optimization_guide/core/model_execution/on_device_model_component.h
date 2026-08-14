@@ -9,7 +9,7 @@
 #include <optional>
 #include <string>
 
-#include "base/byte_count.h"
+#include "base/byte_size.h"
 #include "base/containers/enum_set.h"
 #include "base/containers/flat_set.h"
 #include "base/files/file_path.h"
@@ -76,12 +76,14 @@ enum class OnDeviceModelStatus {
   // Criteria to install are met, but model is not downloaded because there was
   // no on-device feature usage.
   kNoOnDeviceFeatureUsed = 7,
+  // The device doesn't have enough disk space to build model caches.
+  kInsufficientDiskSpaceForCaches = 8,
 
   // This must be kept in sync with
   // OptimizationGuideOnDeviceModelStatus in optimization/enums.xml.
 
   // Insert new values before this line.
-  kMaxValue = kNoOnDeviceFeatureUsed,
+  kMaxValue = kInsufficientDiskSpaceForCaches,
 };
 
 std::ostream& operator<<(std::ostream& out, OnDeviceModelStatus status);
@@ -126,6 +128,9 @@ class OnDeviceModelComponentState {
   }
   const OnDeviceBaseModelSpec& GetBaseModelSpec() const { return model_spec_; }
 
+  bool has_caches() const { return has_caches_; }
+  void set_has_caches(bool has_caches) { has_caches_ = has_caches; }
+
  private:
   friend class OnDeviceModelAdaptationLoaderTest;
 
@@ -134,6 +139,7 @@ class OnDeviceModelComponentState {
   base::FilePath install_dir_;
   base::Version component_version_;
   OnDeviceBaseModelSpec model_spec_;
+  bool has_caches_ = false;
 };
 
 enum class ModelInstallMode {
@@ -184,7 +190,7 @@ class OnDeviceModelComponentStateManager final : public UsageTracker::Observer {
     // and calls `callback`.
     virtual void GetFreeDiskSpace(
         const base::FilePath& path,
-        base::OnceCallback<void(std::optional<base::ByteCount>)> callback) = 0;
+        base::OnceCallback<void(std::optional<base::ByteSize>)> callback) = 0;
 
     // Registers the component installer. Calls
     // `OnDeviceModelComponentStateManager::SetReady` when the component is
@@ -259,16 +265,40 @@ class OnDeviceModelComponentStateManager final : public UsageTracker::Observer {
     bool background_download_requested = false;
 
     // Most recently queried disk space available for model install.
-    base::ByteCount disk_space_free;
+    std::optional<base::ByteSize> disk_space_free;
 
     bool is_disk_space_available() const {
+      if (!disk_space_free) {
+        // TODO(https://crbug.com/438265416): Handle failure to get free disk
+        // space.
+        return false;
+      }
       return features::IsFreeDiskSpaceSufficientForOnDeviceModelInstall(
-          disk_space_free);
+          *disk_space_free);
+    }
+
+    bool is_disk_space_too_low_for_caches() const {
+      if (!base::FeatureList::IsEnabled(
+              features::kOnDeviceModelCachesDiskSpaceCheck)) {
+        return false;
+      }
+      if (!disk_space_free) {
+        // TODO(https://crbug.com/438265416): Handle failure to get free disk
+        // space.
+        return true;
+      }
+      return features::IsFreeDiskSpaceTooLowForOnDeviceModelCachesBuild(
+          *disk_space_free);
     }
 
     bool is_running_out_of_disk_space() const {
+      if (!disk_space_free) {
+        // TODO(https://crbug.com/438265416): Handle failure to get free disk
+        // space.
+        return true;
+      }
       return features::IsFreeDiskSpaceTooLowForOnDeviceModelInstall(
-          disk_space_free);
+          *disk_space_free);
     }
 
     bool is_model_allowed() const {
@@ -287,10 +317,10 @@ class OnDeviceModelComponentStateManager final : public UsageTracker::Observer {
       if (background_download_requested &&
           base::FeatureList::IsEnabled(
               features::kOnDeviceModelBackgroundDownload)) {
-        if (is_on_external_power &&
+        if (is_on_external_power && disk_space_free &&
             features::
                 IsFreeDiskSpaceSufficientForBackgroundOnDeviceModelInstall(
-                    disk_space_free)) {
+                    *disk_space_free)) {
           return ModelInstallMode::kRegisterOnly;
         }
       }
@@ -339,8 +369,7 @@ class OnDeviceModelComponentStateManager final : public UsageTracker::Observer {
       PrefService* local_state,
       base::SafeRef<PerformanceClassifier> performance_classifier,
       UsageTracker& usage_tracker,
-      std::unique_ptr<Delegate> delegate,
-      OnDeviceModelType model_type);
+      std::unique_ptr<Delegate> delegate);
   ~OnDeviceModelComponentStateManager() override;
 
   // Returns whether the component installation is valid.
@@ -355,7 +384,7 @@ class OnDeviceModelComponentStateManager final : public UsageTracker::Observer {
 
   // Exposed internal state for chrome://on-device-internals
   struct DebugState {
-    base::ByteCount disk_space_available_;
+    std::optional<base::ByteSize> disk_space_available_;
     raw_ptr<const RegistrationCriteria> criteria_;
     OnDeviceModelStatus status_;
     bool has_override_;
@@ -370,7 +399,7 @@ class OnDeviceModelComponentStateManager final : public UsageTracker::Observer {
   // Get free disk space available for on device model for logging in global
   // state.
   void GetFreeDiskSpaceForLogging(
-      base::OnceCallback<void(std::optional<base::ByteCount>)> callback);
+      base::OnceCallback<void(std::optional<base::ByteSize>)> callback);
 
   // Functions called by the component installer:
 
@@ -402,6 +431,8 @@ class OnDeviceModelComponentStateManager final : public UsageTracker::Observer {
   std::vector<mojom::BrokerPropertyInfoPtr> GetBrokerProperties() const;
   std::vector<mojom::BrokerAssetInfoPtr> GetBrokerAssets() const;
 
+  base::SafeRef<PerformanceClassifier> performance_classifier() const;
+
  private:
   // Should be called whenever the device performance class changes.
   void OnPerformanceClassAvailable();
@@ -417,13 +448,13 @@ class OnDeviceModelComponentStateManager final : public UsageTracker::Observer {
   // Installs the component installer if it needs installed.
   void BeginUpdateRegistration();
   RegistrationCriteria ComputeRegistrationCriteria(
-      base::ByteCount disk_space_free_bytes);
+      std::optional<base::ByteSize> disk_space_free);
   // Continuation of `UpdateRegistration()` after async work.
   void CompleteUpdateRegistration(
-      std::optional<base::ByteCount> disk_space_free);
+      std::optional<base::ByteSize> disk_space_free);
 
   void UpdateRegistrationCriteria(
-      std::optional<base::ByteCount> disk_space_free);
+      std::optional<base::ByteSize> disk_space_free);
   void UpdateRegistration();
 
   // Uninstalls the component.
@@ -435,6 +466,9 @@ class OnDeviceModelComponentStateManager final : public UsageTracker::Observer {
 
   // Returns the current OnDeviceModelStatus.
   OnDeviceModelStatus GetOnDeviceModelStatus();
+
+  static bool CheckCachesExist(const base::FilePath& install_dir);
+  void OnCachesExistChecked(bool caches_exist);
 
   raw_ptr<PrefService> local_state_ GUARDED_BY_CONTEXT(sequence_checker_);
   base::SafeRef<PerformanceClassifier> performance_classifier_
@@ -460,9 +494,6 @@ class OnDeviceModelComponentStateManager final : public UsageTracker::Observer {
       usage_tracker_observation_{this};
 
   SEQUENCE_CHECKER(sequence_checker_);
-
-  // The model type managed by this state manager.
-  const OnDeviceModelType model_type_;
 
   base::WeakPtrFactory<OnDeviceModelComponentStateManager> weak_ptr_factory_{
       this};

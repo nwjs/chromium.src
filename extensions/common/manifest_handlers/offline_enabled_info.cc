@@ -18,6 +18,9 @@ namespace extensions {
 
 namespace keys = manifest_keys;
 
+// static
+const char* OfflineEnabledInfo::kManifestDataKey = keys::kOfflineEnabled;
+
 OfflineEnabledInfo::OfflineEnabledInfo(bool is_offline_enabled)
     : offline_enabled(is_offline_enabled) {
 }
@@ -26,8 +29,7 @@ OfflineEnabledInfo::~OfflineEnabledInfo() = default;
 
 // static
 bool OfflineEnabledInfo::IsOfflineEnabled(const Extension* extension) {
-  const OfflineEnabledInfo* info = static_cast<const OfflineEnabledInfo*>(
-      extension->GetManifestData(keys::kOfflineEnabled));
+  const auto* info = extension->GetManifestData<OfflineEnabledInfo>();
   return info && info->offline_enabled;
 }
 
@@ -42,12 +44,11 @@ bool OfflineEnabledHandler::Parse(Extension* extension, std::u16string* error) {
     // A platform app is offline enabled unless it requests the webview
     // permission. That is, offline_enabled is true when there is NO webview
     // permission requested and false when webview permission is present.
-    DCHECK(extension->is_platform_app());
+    CHECK(extension->is_platform_app());
 
     const bool has_webview_permission = PermissionsParser::HasAPIPermission(
         extension, mojom::APIPermissionID::kWebView);
     extension->SetManifestData(
-        keys::kOfflineEnabled,
         std::make_unique<OfflineEnabledInfo>(!has_webview_permission));
     return true;
   }
@@ -59,7 +60,6 @@ bool OfflineEnabledHandler::Parse(Extension* extension, std::u16string* error) {
   bool offline_enabled = offline_enabled_value->GetBool();
 
   extension->SetManifestData(
-      keys::kOfflineEnabled,
       std::make_unique<OfflineEnabledInfo>(offline_enabled));
   return true;
 }

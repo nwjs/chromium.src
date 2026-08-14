@@ -22,6 +22,7 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "components/feed/feed_feature_list.h"
+#include "components/metrics/metrics_features.h"
 #include "components/metrics/metrics_pref_names.h"
 #include "components/metrics/persistent_histograms.h"
 #include "components/site_isolation/features.h"
@@ -34,16 +35,20 @@
 #include "base/android/bundle_utils.h"
 #include "base/task/thread_pool/environment_config.h"
 #include "build/android_buildflags.h"
+#include "cc/base/features.h"
 #include "chrome/browser/android/flags/chrome_cached_flags.h"  // nogncheck crbug.com/40147906
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/media/webrtc/desktop_media_picker.h"
 #include "chrome/common/chrome_features.h"
 #include "components/autofill/core/common/autofill_features.h"
+#include "components/download/public/common/download_features.h"
+#include "content/common/features.h"
 #include "content/public/common/content_features.h"
 #include "gpu/config/gpu_finch_features.h"
 #include "media/audio/audio_features.h"
 #include "media/base/media_switches.h"
 #include "sandbox/policy/features.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gl/gl_features.h"
 #include "ui/gl/gl_switches.h"
 #endif
@@ -57,12 +62,6 @@
 #include "base/nix/xdg_util.h"
 #include "ui/base/ui_base_features.h"
 #endif  // BUILDFLAG(IS_LINUX)
-
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-#include "base/check_deref.h"
-#include "chrome/browser/first_run/first_run.h"
-#include "chrome/browser/signin/before_fre_refresh_hats_field_trial.h"
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 ChromeBrowserFieldTrials::ChromeBrowserFieldTrials(PrefService* local_state)
     : local_state_(local_state) {
@@ -93,16 +92,6 @@ void ChromeBrowserFieldTrials::SetUpClientSideFieldTrials(
     ash::multidevice_setup::CreateFirstRunFieldTrial(feature_list);
   }
 #endif
-
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-  // This trial is client controlled on Mac and Linux because the survey is
-  // triggered on the very first run of Chrome. These platforms do not support
-  // variations seed on the first run.
-  if (first_run::IsChromeFirstRun()) {
-    signin::CreateBeforeFreRefreshHatsFieldTrial(
-        CHECK_DEREF(feature_list), entropy_providers.default_entropy());
-  }
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 }
 
 void ChromeBrowserFieldTrials::RegisterSyntheticTrials() {
@@ -153,6 +142,15 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   // TODO(crbug.com/352187279): Remove when tablet rollout is complete.
   feature_overrides.EnableFeature(kAndroidMediaPicker);
   feature_overrides.EnableFeature(features::kUserMediaScreenCapturing);
+
+  // Enable open download in new tab.
+  // TODO(crbug.com/531944280): Remove when rollout is complete to all form
+  // factors.
+  feature_overrides.EnableFeature(download::features::kOpenDownloadInNewTab);
+
+  // Enable`save as`context menu.
+  feature_overrides.EnableFeature(
+      download::features::kEnableDownloadSaveAsContextMenu);
 
   // Enable background media capturing on desktop devices.
   // TODO(crbug.com/426461170): Remove once we enable this feature for all form
@@ -223,6 +221,13 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   // SitePerProcess is enabled for all necessary or eligible Android devices.
   feature_overrides.EnableFeature(::features::kSitePerProcess);
 
+  // Enable sandboxed process service limit for desktop platforms.
+  // This should be on for all devices where SitePerProcess is on by default.
+  // TODO(crbug.com/534420192): Remove when this is enabled by default for all
+  // relevant Android devices.
+  feature_overrides.EnableFeature(
+      features::kSandboxedProcessServiceLimitOnAndroid);
+
   // By setting the kSiteIsolationEnableMemoryThresholdAndroid feature, we make
   // sure that site isolation (enabled by kSitePerProcess above) is not disabled
   // due to memory thresholds.
@@ -238,6 +243,11 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   feature_overrides.EnableFeature(features::kWebContentsDiscard);
   feature_overrides.EnableFeature(features::kLazyBrowserInterfaceBroker);
   feature_overrides.EnableFeature(chrome::android::kLoadAllTabsAtStartup);
+
+  // Enable the ability for extensions to override chrome pages.
+  // TODO(crbug.com/404069963): Remove flag when the feature is verified to be
+  // stable on desktop Android.
+  feature_overrides.EnableFeature(chrome::android::kChromeNativeUrlOverriding);
 
   // Enable desktop full screen to a screen feature flag by default for desktop
   // platforms.
@@ -255,8 +265,29 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   // TODO(crbug.com/504722790): Remove when experiment is complete.
   feature_overrides.EnableFeature(features::kTextClassifierTimeout);
 
+  // Enable graceful tab shutdown.
+  // TODO(crbug.com/532514154): Remove when experiment is complete.
+  feature_overrides.EnableFeature(chrome::android::kTabAndroidGracefulShutdown);
+
+  // Enable desktop fling curve.
+  feature_overrides.EnableFeature(features::kDesktopFlingCurveOnAndroid);
+
+  // Disable modern overscroll animations and gestures on Desktop Android.
+  feature_overrides.DisableFeature(features::kElasticOverscroll);
+  feature_overrides.DisableFeature(features::kOverscrollHistoryNavigation);
+  feature_overrides.DisableFeature(
+      features::kOverscrollEffectOnNonRootScrollers);
+
+  // Suppress fallback to the legacy Android edge glow shade on Desktop Android.
+  feature_overrides.EnableFeature(features::kSuppressOverscrollGlow);
+
 #endif  // BUILDFLAG(IS_DESKTOP_ANDROID)
   // Desktop-first features which are past incubation should either end up here,
   // or to a finch trial that enables it for all form factors.
 #endif  // BUILDFLAG(IS_ANDROID)
+}
+
+void ChromeBrowserFieldTrials::EnableRuntimeMutableFeatures(
+    base::FeatureList* feature_list) {
+  // Add calls to enable runtime-mutable features here.
 }

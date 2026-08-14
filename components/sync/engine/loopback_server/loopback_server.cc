@@ -162,6 +162,12 @@ class UpdateSieve {
     return !datatypes_to_migrate->empty();
   }
 
+  // Configures the set of data types for which a full update (all non-deleted
+  // entities plus a GC directive) should be returned in this request cycle.
+  void SetForceFullUpdateTypes(DataTypeSet types) {
+    force_full_update_types_ = types;
+  }
+
   // Sets the progress markers in `get_updates_response` based on the highest
   // version between request progress markers and response entities.
   void SetProgressMarkers(
@@ -171,6 +177,9 @@ class UpdateSieve {
           get_updates_response->add_new_progress_marker();
       new_marker->set_data_type_id(GetSpecificsFieldNumberFromDataType(type));
       new_marker->set_token(response_version.ToString());
+      if (force_full_update_types_.Has(type)) {
+        new_marker->mutable_gc_directive()->set_version_watermark(0);
+      }
     }
   }
 
@@ -183,6 +192,9 @@ class UpdateSieve {
       return false;
     }
     DCHECK_NE(0U, response_version_map_.count(type));
+    if (force_full_update_types_.Has(type)) {
+      return !entity.IsDeleted();
+    }
     // If this is the initial download for the data type (i.e. there was no
     // progress token), then don't return tombstones.
     if (it->second.is_empty() && entity.IsDeleted()) {
@@ -194,13 +206,17 @@ class UpdateSieve {
   // Updates internal tracking of max versions to later be used to set response
   // progress markers.
   void UpdateProgressMarker(const LoopbackServerEntity& entity) {
-    DCHECK(ClientWantsItem(entity));
     DataType type = entity.GetDataType();
     response_version_map_[type].UpdateWithEntity(entity.GetVersion());
   }
 
  private:
   using DataTypeToVersionMap = std::map<DataType, ProgressMarkerToken>;
+
+  // Data types for which a full update response (all non-deleted entities and a
+  // GC directive) is forced for the current request because at least one entity
+  // has a newer version on the server than the client's progress marker.
+  DataTypeSet force_full_update_types_;
 
   static UpdateSieve::DataTypeToVersionMap MessageToVersionMap(
       const sync_pb::GetUpdatesMessage& get_updates_message,
@@ -512,10 +528,34 @@ bool LoopbackServer::HandleGetUpdatesRequest(
     return false;
   }
 
+  // For data types configured as full update types, check if there is at least
+  // one entity with a newer version on the server.
+  syncer::DataTypeSet full_update_types_with_new_updates;
+  for (const auto& [id, entity] : entities_) {
+    DataType type = entity->GetDataType();
+    if (full_update_types_.Has(type) && sieve->ClientWantsItem(*entity)) {
+      full_update_types_with_new_updates.Put(type);
+    }
+  }
+  sieve->SetForceFullUpdateTypes(full_update_types_with_new_updates);
+
+  // Note that for data types configured as full update types and having new
+  // updates, ClientWantsItem() behavior will be changed after
+  // SetForceFullUpdateTypes() is called.
   std::vector<const LoopbackServerEntity*> wanted_entities;
   for (const auto& [id, entity] : entities_) {
     if (sieve->ClientWantsItem(*entity)) {
       wanted_entities.push_back(entity.get());
+    }
+
+    if (full_update_types_with_new_updates.Has(entity->GetDataType())) {
+      // For full update types, track the highest entity version (including
+      // tombstones) in the progress marker. Even if tombstones are filtered out
+      // from the response entries payload by GC directives, the progress marker
+      // version should advance.
+      // Note that below UpdateProgressMarker() is called for only
+      // `wanted_entities` while here it is called for every stored entity.
+      sieve->UpdateProgressMarker(*entity);
     }
   }
 
@@ -1071,6 +1111,15 @@ void LoopbackServer::PopulateGcDirectiveMigrationResponse(
     }
   }
   response->set_changes_remaining(1);
+}
+
+void LoopbackServer::SetUpdateMode(DataType data_type, UpdateMode update_mode) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (update_mode == UpdateMode::kFull) {
+    full_update_types_.Put(data_type);
+  } else {
+    full_update_types_.Remove(data_type);
+  }
 }
 
 }  // namespace syncer

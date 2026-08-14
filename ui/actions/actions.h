@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -64,6 +65,9 @@ class COMPONENT_EXPORT(ACTIONS) BaseAction
       public ui::PropertyHandler {
  public:
   METADATA_HEADER_BASE(BaseAction);
+
+  using PopulateChildActions = base::RepeatingCallback<void(BaseAction*)>;
+
   BaseAction();
   BaseAction(const BaseAction&) = delete;
   BaseAction& operator=(const BaseAction&) = delete;
@@ -76,6 +80,9 @@ class COMPONENT_EXPORT(ACTIONS) BaseAction
 
   const ActionList& GetChildren() const { return children_; }
   void ResetActionList();
+  void SetPopulateChildrenCallback(PopulateChildActions callback);
+  bool HasPopulateChildActionsCallback() const;
+  void PopulateChildItems();
 
  protected:
   void ActionListChanged() override;
@@ -83,6 +90,7 @@ class COMPONENT_EXPORT(ACTIONS) BaseAction
  private:
   raw_ptr<BaseAction> parent_ = nullptr;
   ActionList children_{this};
+  PopulateChildActions populate_child_callback_;
 };
 
 // Class returned from ActionItem::BeginUpdate() in order to allow a "batch"
@@ -125,6 +133,14 @@ class COMPONENT_EXPORT(ACTIONS) ActionInvocationContext
       return std::move(*this);
     }
 
+    template <typename T, typename U>
+      requires std::is_enum_v<U> && std::is_same_v<T, std::underlying_type_t<U>>
+    ContextBuilder&& SetProperty(const ui::ClassProperty<T>* property,
+                                 U value) && {
+      context_->SetProperty(property, static_cast<T>(value));
+      return std::move(*this);
+    }
+
     [[nodiscard]] ActionInvocationContext Build() &&;
 
    private:
@@ -144,6 +160,9 @@ class BaseActionItemBuilderT {
   using ActionChangedCallback = ui::metadata::PropertyChangedCallback;
   using InvokeActionCallback =
       base::RepeatingCallback<void(ActionItem*, ActionInvocationContext)>;
+
+  using PopulateChildActions = base::RepeatingCallback<void(BaseAction*)>;
+
   BaseActionItemBuilderT() {
     action_item_ = std::make_unique<ActionItemClass>();
   }
@@ -313,6 +332,15 @@ class BaseActionItemBuilderT {
     return std::move(this->SetInvokeActionCallback(std::move(callback)));
   }
 
+  BuilderT& SetPopulateChildrenCallback(PopulateChildActions callback) & {
+    action_item_->SetPopulateChildrenCallback(std::move(callback));
+    return static_cast<BuilderT&>(*this);
+  }
+
+  BuilderT&& SetPopulateChildrenCallback(PopulateChildActions callback) && {
+    return std::move(this->SetPopulateChildrenCallback(std::move(callback)));
+  }
+
   BuilderT& SetIsShowingBubble(bool showing_bubble) & {
     action_item_->SetIsShowingBubble(showing_bubble);
     return static_cast<BuilderT&>(*this);
@@ -358,7 +386,6 @@ class COMPONENT_EXPORT(ACTIONS) ActionItem : public BaseAction {
   using ActionChangedCallback = ui::metadata::PropertyChangedCallback;
   using InvokeActionCallback =
       base::RepeatingCallback<void(ActionItem*, ActionInvocationContext)>;
-
   class COMPONENT_EXPORT(ACTIONS) ActionItemBuilder
       : public BaseActionItemBuilderT<ActionItemBuilder, ActionItem> {
     // TODO: possibly construct a Core class of

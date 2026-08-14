@@ -167,8 +167,6 @@ bool StructTraits<
       !data.ReadNetLogCreateInfo(&out->net_log_create_info) ||
       !data.ReadNetLogReferenceInfo(&out->net_log_reference_info) ||
       !data.ReadNavigationRedirectChain(&out->navigation_redirect_chain) ||
-      !data.ReadAttributionReportingSrcToken(
-          &out->attribution_reporting_src_token) ||
       !data.ReadKeepaliveToken(&out->keepalive_token) ||
       !data.ReadStorageAccessApiStatus(&out->storage_access_api_status) ||
       !data.ReadSocketTag(&out->socket_tag) ||
@@ -196,7 +194,6 @@ bool StructTraits<
   out->destination = data.destination();
   out->keepalive = data.keepalive();
   out->browsing_topics = data.browsing_topics();
-  out->ad_auction_headers = data.ad_auction_headers();
   out->shared_storage_writable_eligible =
       data.shared_storage_writable_eligible();
   out->has_user_gesture = data.has_user_gesture();
@@ -213,9 +210,6 @@ bool StructTraits<
   out->is_fetch_later_api = data.is_fetch_later_api();
   out->is_favicon = data.is_favicon();
   out->original_destination = data.original_destination();
-  out->attribution_reporting_support = data.attribution_reporting_support();
-  out->attribution_reporting_eligibility =
-      data.attribution_reporting_eligibility();
   out->is_ad_tagged = data.is_ad_tagged();
   out->shared_dictionary_writer_enabled =
       data.shared_dictionary_writer_enabled();

@@ -499,6 +499,8 @@ class CloudPolicyClientTest : public testing::Test {
 #if BUILDFLAG(IS_CHROMEOS)
     fake_statistics_provider_.SetMachineStatistic(ash::system::kSerialNumberKey,
                                                   "fake_serial_number");
+    fake_statistics_provider_.SetLoadingState(
+        ash::system::StatisticsProvider::LoadingState::kFinished);
 #endif
 
     CreateClient();
@@ -2749,31 +2751,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
-
-TEST_F(CloudPolicyClientTest,
-       UploadSecurityEventReportDeprecatedNotRegistered) {
-  // Proto-based reporting is not applicable to tests for deprecated reporting.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      kUploadRealtimeReportingEventsUsingProto);
-
-  ASSERT_FALSE(client_->is_registered());
-
-  base::test::TestFuture<CloudPolicyClient::Result> result_future;
-
-  client_->UploadSecurityEventReport(/*include_device_info=*/false,
-                                     MakeDefaultRealtimeReport(),
-                                     result_future.GetCallback());
-
-  const CloudPolicyClient::Result result = result_future.Get();
-  EXPECT_EQ(result,
-            CloudPolicyClient::Result(CloudPolicyClient::NotRegistered()));
-}
-
 TEST_F(CloudPolicyClientTest, UploadSecurityEventNotRegistered) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      kUploadRealtimeReportingEventsUsingProto);
   ASSERT_FALSE(client_->is_registered());
 
   base::test::TestFuture<CloudPolicyClient::Result> result_future;
@@ -2785,158 +2763,7 @@ TEST_F(CloudPolicyClientTest, UploadSecurityEventNotRegistered) {
   const CloudPolicyClient::Result result = result_future.Get();
   EXPECT_EQ(result,
             CloudPolicyClient::Result(CloudPolicyClient::NotRegistered()));
-}
-
-class CloudPolicyClientUploadSecurityEventReportDeprecatedTest
-    : public CloudPolicyClientTest,
-      public testing::WithParamInterface<bool> {
- public:
-  CloudPolicyClientUploadSecurityEventReportDeprecatedTest() {
-    scoped_feature_list_
-        .InitWithFeatures(/*enabled_features=*/
-                          {policy::features::kEnhancedSecurityEventFields},
-                          /*disabled_features=*/{
-                              kUploadRealtimeReportingEventsUsingProto});
   }
-  bool include_device_info() const { return GetParam(); }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-INSTANTIATE_TEST_SUITE_P(
-    ,
-    CloudPolicyClientUploadSecurityEventReportDeprecatedTest,
-    testing::Bool());
-
-TEST_P(CloudPolicyClientUploadSecurityEventReportDeprecatedTest,
-       TestWithDeprecatedDictFormat) {
-  RegisterClient();
-
-  ExpectAndCaptureJSONJob(/*response=*/"{}");
-
-  base::test::TestFuture<CloudPolicyClient::Result> result_future;
-  client_->UploadSecurityEventReport(include_device_info(),
-                                     MakeDefaultRealtimeReport(),
-                                     result_future.GetCallback());
-
-  const CloudPolicyClient::Result result = result_future.Get();
-  EXPECT_TRUE(result.IsSuccess());
-  EXPECT_EQ(
-      DeviceManagementService::JobConfiguration::TYPE_UPLOAD_REAL_TIME_REPORT,
-      job_type_);
-  EXPECT_EQ(auth_data_, DMAuth::FromDMToken(kDMToken));
-  EXPECT_EQ(DM_STATUS_SUCCESS, client_->last_dm_status());
-
-  std::optional<base::Value> payload = base::JSONReader::Read(
-      job_payload_, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
-  ASSERT_TRUE(payload);
-  const base::DictValue& payload_dict = payload->GetDict();
-
-  ASSERT_FALSE(policy::GetDeviceName().empty());
-  EXPECT_EQ(version_info::GetVersionNumber(),
-            *payload_dict.FindStringByDottedPath(
-                ReportingJobConfigurationBase::BrowserDictionaryBuilder::
-                    GetChromeVersionPath()));
-
-  if (include_device_info()) {
-    EXPECT_EQ(kDMToken, *payload_dict.FindStringByDottedPath(
-                            ReportingJobConfigurationBase::
-                                DeviceDictionaryBuilder::GetDMTokenPath()));
-    EXPECT_EQ(client_id_, *payload_dict.FindStringByDottedPath(
-                              ReportingJobConfigurationBase::
-                                  DeviceDictionaryBuilder::GetClientIdPath()));
-    EXPECT_EQ(policy::GetOSUsername(),
-              *payload_dict.FindStringByDottedPath(
-                  ReportingJobConfigurationBase::BrowserDictionaryBuilder::
-                      GetMachineUserPath()));
-    EXPECT_EQ(GetOSPlatform(),
-              *payload_dict.FindStringByDottedPath(
-                  ReportingJobConfigurationBase::DeviceDictionaryBuilder::
-                      GetOSPlatformPath()));
-    EXPECT_EQ(GetOSVersion(),
-              *payload_dict.FindStringByDottedPath(
-                  ReportingJobConfigurationBase::DeviceDictionaryBuilder::
-                      GetOSVersionPath()));
-    EXPECT_EQ(policy::GetDeviceName(),
-              *payload_dict.FindStringByDottedPath(
-                  ReportingJobConfigurationBase::DeviceDictionaryBuilder::
-                      GetNamePath()));
-    EXPECT_EQ(policy::GetDeviceFqdn(),
-              *payload_dict.FindStringByDottedPath(
-                  ReportingJobConfigurationBase::DeviceDictionaryBuilder::
-                      GetDeviceFqdnPath()));
-    EXPECT_EQ(policy::GetNetworkName(),
-              *payload_dict.FindStringByDottedPath(
-                  ReportingJobConfigurationBase::DeviceDictionaryBuilder::
-                      GetNetworkNamePath()));
-  } else {
-    EXPECT_FALSE(payload_dict.FindStringByDottedPath(
-        ReportingJobConfigurationBase::DeviceDictionaryBuilder::
-            GetDMTokenPath()));
-    EXPECT_FALSE(payload_dict.FindStringByDottedPath(
-        ReportingJobConfigurationBase::DeviceDictionaryBuilder::
-            GetClientIdPath()));
-    EXPECT_FALSE(payload_dict.FindStringByDottedPath(
-        ReportingJobConfigurationBase::BrowserDictionaryBuilder::
-            GetMachineUserPath()));
-    EXPECT_FALSE(payload_dict.FindStringByDottedPath(
-        ReportingJobConfigurationBase::DeviceDictionaryBuilder::
-            GetOSPlatformPath()));
-    EXPECT_FALSE(payload_dict.FindStringByDottedPath(
-        ReportingJobConfigurationBase::DeviceDictionaryBuilder::
-            GetOSVersionPath()));
-    EXPECT_FALSE(payload_dict.FindStringByDottedPath(
-        ReportingJobConfigurationBase::DeviceDictionaryBuilder::GetNamePath()));
-    EXPECT_FALSE(payload_dict.FindStringByDottedPath(
-        ReportingJobConfigurationBase::DeviceDictionaryBuilder::
-            GetDeviceFqdnPath()));
-    EXPECT_FALSE(payload_dict.FindStringByDottedPath(
-        ReportingJobConfigurationBase::DeviceDictionaryBuilder::
-            GetNetworkNamePath()));
-  }
-
-  const base::Value* events =
-      payload_dict.Find(RealtimeReportingJobConfiguration::kEventListKey);
-  EXPECT_EQ(base::Value::Type::LIST, events->type());
-  EXPECT_EQ(1u, events->GetList().size());
-}
-
-TEST_F(CloudPolicyClientTest, UploadSecurityEventReportNoResponse) {
-  // Proto-based reporting is not applicable to tests for deprecated reporting.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      kUploadRealtimeReportingEventsUsingProto);
-
-  RegisterClient();
-
-  ExpectAndCaptureJSONJob(/*response=*/"");
-
-  base::test::TestFuture<CloudPolicyClient::Result> result_future;
-
-  client_->UploadSecurityEventReport(/*include_device_info=*/false,
-                                     MakeDefaultRealtimeReport(),
-                                     result_future.GetCallback());
-
-  const CloudPolicyClient::Result result = result_future.Get();
-  EXPECT_TRUE(result.IsSuccess());
-  EXPECT_EQ(
-      DeviceManagementService::JobConfiguration::TYPE_UPLOAD_REAL_TIME_REPORT,
-      job_type_);
-  EXPECT_EQ(auth_data_, DMAuth::FromDMToken(kDMToken));
-  EXPECT_EQ(DM_STATUS_SUCCESS, client_->last_dm_status());
-
-  std::optional<base::Value> payload = base::JSONReader::Read(
-      job_payload_, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
-  ASSERT_TRUE(payload);
-  const base::DictValue& payload_dict = payload->GetDict();
-
-  ASSERT_FALSE(policy::GetDeviceName().empty());
-  EXPECT_EQ(version_info::GetVersionNumber(),
-            *payload_dict.FindStringByDottedPath(
-                ReportingJobConfigurationBase::BrowserDictionaryBuilder::
-                    GetChromeVersionPath()));
-}
 
 class CloudPolicyClientUploadSecurityEventTest
     : public CloudPolicyClientTest,
@@ -2944,8 +2771,7 @@ class CloudPolicyClientUploadSecurityEventTest
  public:
   CloudPolicyClientUploadSecurityEventTest() {
     scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{kUploadRealtimeReportingEventsUsingProto,
-                              policy::features::kEnhancedSecurityEventFields},
+        /*enabled_features=*/{policy::features::kEnhancedSecurityEventFields},
         /*disabled_features=*/{});
   }
   bool include_device_info() const { return GetParam(); }
@@ -3008,9 +2834,6 @@ TEST_P(CloudPolicyClientUploadSecurityEventTest, TestWithProtoFormat) {
 }
 
 TEST_F(CloudPolicyClientTest, RealtimeReportMerge) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      kUploadRealtimeReportingEventsUsingProto);
 
   auto config = std::make_unique<RealtimeReportingJobConfiguration>(
       client_.get(), service_.configuration()->GetRealtimeReportingServerUrl(),
@@ -3066,203 +2889,8 @@ TEST_F(CloudPolicyClientTest, RealtimeReportMerge) {
   ASSERT_EQ("1.0.0.0", merged_request.browser().chrome_version());
   ASSERT_EQ(2, merged_request.events_size());
 }
-
-TEST_F(CloudPolicyClientTest, RealtimeReportMergeDeprecated) {
-  // Proto-based reporting is not applicable to tests for deprecated reporting.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      kUploadRealtimeReportingEventsUsingProto);
-
-  auto config = std::make_unique<RealtimeReportingJobConfiguration>(
-      client_.get(), service_.configuration()->GetRealtimeReportingServerUrl(),
-      /*include_device_info*/ true,
-      RealtimeReportingJobConfiguration::UploadCompleteCallback());
-
-  // Add one report to the config.
-  {
-    base::DictValue context;
-    context.SetByDottedPath("profile.gaiaEmail", "name@gmail.com");
-    context.SetByDottedPath("browser.userAgent", "User-Agent");
-    context.SetByDottedPath("profile.profileName", "Profile 1");
-    context.SetByDottedPath("profile.profilePath", "C:\\User Data\\Profile 1");
-
-    base::DictValue event;
-    event.Set("time", "2019-09-10T20:01:45Z");
-    event.SetByDottedPath("foo.prop1", "value1");
-    event.SetByDottedPath("foo.prop2", "value2");
-    event.SetByDottedPath("foo.prop3", "value3");
-
-    base::ListValue events;
-    events.Append(std::move(event));
-
-    base::DictValue report;
-    report.Set(RealtimeReportingJobConfiguration::kEventListKey,
-               std::move(events));
-    report.Set(RealtimeReportingJobConfiguration::kContextKey,
-               std::move(context));
-
-    ASSERT_TRUE(config->AddReportDeprecated(std::move(report)));
-  }
-
-  // Add a second report to the config with a different context.
-  {
-    base::DictValue context;
-    context.SetByDottedPath("profile.gaiaEmail", "name2@gmail.com");
-    context.SetByDottedPath("browser.userAgent", "User-Agent2");
-    context.SetByDottedPath("browser.version", "1.0.0.0");
-
-    base::DictValue event;
-    event.Set("time", "2019-09-10T20:02:45Z");
-    event.SetByDottedPath("foo.prop1", "value1");
-    event.SetByDottedPath("foo.prop2", "value2");
-    event.SetByDottedPath("foo.prop3", "value3");
-
-    base::ListValue events;
-    events.Append(std::move(event));
-
-    base::DictValue report;
-    report.Set(RealtimeReportingJobConfiguration::kEventListKey,
-               std::move(events));
-    report.Set(RealtimeReportingJobConfiguration::kContextKey,
-               std::move(context));
-
-    ASSERT_TRUE(config->AddReportDeprecated(std::move(report)));
-  }
-
-  // The second config should trump the first.
-  DeviceManagementService::JobConfiguration* job_config = config.get();
-  std::optional<base::Value> payload = base::JSONReader::Read(
-      job_config->GetPayload(), base::JSON_PARSE_CHROMIUM_EXTENSIONS);
-  ASSERT_TRUE(payload);
-  const base::DictValue& payload_dict = payload->GetDict();
-
-  ASSERT_EQ("name2@gmail.com",
-            *payload_dict.FindStringByDottedPath("profile.gaiaEmail"));
-  ASSERT_EQ("User-Agent2",
-            *payload_dict.FindStringByDottedPath("browser.userAgent"));
-  ASSERT_EQ("Profile 1",
-            *payload_dict.FindStringByDottedPath("profile.profileName"));
-  ASSERT_EQ("C:\\User Data\\Profile 1",
-            *payload_dict.FindStringByDottedPath("profile.profilePath"));
-  ASSERT_EQ("1.0.0.0", *payload_dict.FindStringByDottedPath("browser.version"));
-  ASSERT_EQ(2u, payload_dict
-                    .FindList(RealtimeReportingJobConfiguration::kEventListKey)
-                    ->size());
-}
-
-TEST_F(CloudPolicyClientTest, UploadAppInstallReportNotRegistered) {
-  // Proto-based reporting is not applicable to tests for deprecated reporting.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      kUploadRealtimeReportingEventsUsingProto);
-
-  ASSERT_FALSE(client_->is_registered());
-
-  base::test::TestFuture<CloudPolicyClient::Result> result_future;
-
-  client_->UploadAppInstallReport(MakeDefaultRealtimeReport(),
-                                  result_future.GetCallback());
-
-  const CloudPolicyClient::Result result = result_future.Get();
-  EXPECT_EQ(result,
-            CloudPolicyClient::Result(CloudPolicyClient::NotRegistered()));
-}
-
-TEST_F(CloudPolicyClientTest, UploadAppInstallReport) {
-  // Proto-based reporting is not applicable to tests for deprecated reporting.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      kUploadRealtimeReportingEventsUsingProto);
-
-  RegisterClient();
-
-  ExpectAndCaptureJSONJob(/*response=*/"{}");
-
-  base::test::TestFuture<CloudPolicyClient::Result> result_future;
-  client_->UploadAppInstallReport(MakeDefaultRealtimeReport(),
-                                  result_future.GetCallback());
-
-  const CloudPolicyClient::Result result = result_future.Get();
-  EXPECT_TRUE(result.IsSuccess());
-  EXPECT_EQ(
-      DeviceManagementService::JobConfiguration::TYPE_UPLOAD_REAL_TIME_REPORT,
-      job_type_);
-  EXPECT_EQ(auth_data_, DMAuth::FromDMToken(kDMToken));
-  EXPECT_EQ(DM_STATUS_SUCCESS, client_->last_dm_status());
-}
-
-TEST_F(CloudPolicyClientTest, CancelUploadAppInstallReport) {
-  // Proto-based reporting is not applicable to tests for deprecated reporting.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      kUploadRealtimeReportingEventsUsingProto);
-
-  RegisterClient();
-
-  ExpectAndCaptureJSONJob(/*response=*/"{}");
-
-  em::AppInstallReportRequest app_install_report;
-  base::test::TestFuture<CloudPolicyClient::Result> result_future;
-  client_->UploadAppInstallReport(MakeDefaultRealtimeReport(),
-                                  result_future.GetCallback());
-  EXPECT_EQ(1, client_->GetActiveRequestCountForTest());
-
-  // The job expected by the call to ExpectRealTimeReport() completes
-  // when result_future.Get() is called. To simulate a cancel
-  // before the response for the request is processed, make sure to cancel it
-  // before running a loop.
-  client_->CancelAppInstallReportUpload();
-
-  EXPECT_FALSE(result_future.IsReady());
-  EXPECT_EQ(0, client_->GetActiveRequestCountForTest());
-  EXPECT_EQ(
-      DeviceManagementService::JobConfiguration::TYPE_UPLOAD_REAL_TIME_REPORT,
-      job_type_);
-  EXPECT_EQ(auth_data_, DMAuth::FromDMToken(kDMToken));
-}
-
-TEST_F(CloudPolicyClientTest, UploadAppInstallReportSupersedesPending) {
-  // Proto-based reporting is not applicable to tests for deprecated reporting.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      kUploadRealtimeReportingEventsUsingProto);
-
-  RegisterClient();
-
-  ExpectAndCaptureJSONJob(/*response=*/"{}");
-  bool first_callback_called = false;
-  auto first_callback = base::BindLambdaForTesting(
-      [&first_callback_called](CloudPolicyClient::Result result) {
-        first_callback_called = true;
-      });
-
-  client_->UploadAppInstallReport(MakeDefaultRealtimeReport(),
-                                  std::move(first_callback));
-
-  EXPECT_EQ(1, client_->GetActiveRequestCountForTest());
-  Mock::VerifyAndClearExpectations(&service_);
-
-  // Starting another app push-install report upload should cancel the pending
-  // one.
-  ExpectAndCaptureJSONJob(/*response=*/"{}");
-
-  base::test::TestFuture<CloudPolicyClient::Result> result_future;
-  client_->UploadAppInstallReport(MakeDefaultRealtimeReport(),
-                                  result_future.GetCallback());
-  EXPECT_EQ(1, client_->GetActiveRequestCountForTest());
-
-  const CloudPolicyClient::Result result = result_future.Get();
-  EXPECT_TRUE(result.IsSuccess());
-  EXPECT_FALSE(first_callback_called);
-  EXPECT_EQ(
-      DeviceManagementService::JobConfiguration::TYPE_UPLOAD_REAL_TIME_REPORT,
-      job_type_);
-  EXPECT_EQ(auth_data_, DMAuth::FromDMToken(kDMToken));
-  EXPECT_EQ(DM_STATUS_SUCCESS, client_->last_dm_status());
-  EXPECT_EQ(0, client_->GetActiveRequestCountForTest());
-}
-
-#endif
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
 
 TEST_F(CloudPolicyClientTest, MultipleActiveRequests) {
   RegisterClient();
@@ -3839,6 +3467,74 @@ TEST_F(CloudPolicyClientTest, DeterminePromotionEligibilityRequest) {
   EXPECT_EQ(DM_STATUS_SUCCESS, client_->last_dm_status());
 }
 
+TEST_F(CloudPolicyClientTest, GenerateChromeProfileChallengeRequest) {
+  base::HistogramTester histogram_tester;
+  RegisterClient();
+
+  em::DeviceManagementRequest expected_request;
+  expected_request.mutable_generate_chrome_profile_challenge_request();
+
+  em::DeviceManagementResponse outer_response;
+  em::GenerateChromeProfileChallengeResponse* fake_response =
+      outer_response.mutable_generate_chrome_profile_challenge_response();
+  fake_response->set_challenge("fake_challenge_bytes");
+
+  ExpectAndCaptureJob(outer_response);
+
+  base::test::TestFuture<DeviceManagementStatus,
+                         const em::GenerateChromeProfileChallengeResponse&>
+      result_future;
+
+  client_->GenerateChromeProfileChallenge(result_future.GetCallback());
+
+  EXPECT_TRUE(result_future.Wait());
+  EXPECT_EQ(DeviceManagementService::JobConfiguration::
+                TYPE_GENERATE_CHROME_PROFILE_CHALLENGE,
+            job_type_);
+  EXPECT_EQ(job_request_.SerializePartialAsString(),
+            expected_request.SerializePartialAsString());
+  EXPECT_EQ(DM_STATUS_SUCCESS, client_->last_dm_status());
+
+  const auto [status, response] = result_future.Get();
+  EXPECT_EQ(status, DM_STATUS_SUCCESS);
+  EXPECT_EQ(response.challenge(), "fake_challenge_bytes");
+  histogram_tester.ExpectUniqueSample(
+      "Enterprise.GenerateChromeProfileChallenge.Status", DM_STATUS_SUCCESS, 1);
+}
+
+TEST_F(CloudPolicyClientTest,
+       GenerateChromeProfileChallengeRequestDecodingError) {
+  base::HistogramTester histogram_tester;
+  RegisterClient();
+
+  em::DeviceManagementResponse outer_response;
+  // Do not set generate_chrome_profile_challenge_response.
+
+  ExpectAndCaptureJob(outer_response);
+
+  StrictMock<MockCloudPolicyClientObserverWithObservation> client_observer(
+      client_.get());
+  EXPECT_CALL(client_observer, OnClientError);
+
+  base::test::TestFuture<DeviceManagementStatus,
+                         const em::GenerateChromeProfileChallengeResponse&>
+      result_future;
+
+  client_->GenerateChromeProfileChallenge(result_future.GetCallback());
+
+  EXPECT_TRUE(result_future.Wait());
+  EXPECT_EQ(DeviceManagementService::JobConfiguration::
+                TYPE_GENERATE_CHROME_PROFILE_CHALLENGE,
+            job_type_);
+  EXPECT_EQ(DM_STATUS_RESPONSE_DECODING_ERROR, client_->last_dm_status());
+
+  const auto [status, response] = result_future.Get();
+  EXPECT_EQ(status, DM_STATUS_RESPONSE_DECODING_ERROR);
+  histogram_tester.ExpectUniqueSample(
+      "Enterprise.GenerateChromeProfileChallenge.Status",
+      DM_STATUS_RESPONSE_DECODING_ERROR, 1);
+}
+
 struct MockClientCertProvisioningRequestCallbackObserver {
   MOCK_METHOD(
       void,
@@ -3971,9 +3667,7 @@ INSTANTIATE_TEST_SUITE_P(,
                          ::testing::Values(std::string(), kDeviceDMToken));
 
 #if BUILDFLAG(IS_ANDROID)
-// Constantly failing on android-automotive-12l-x64-rel-tests.
-// crbug.com/528019503
-TEST_F(CloudPolicyClientTest, DISABLED_PolicyFetchDesktopAndroid) {
+TEST_F(CloudPolicyClientTest, PolicyFetchDesktopAndroid) {
   base::android::device_info::set_is_desktop_for_testing(true);
   policy_type_ = dm_protocol::GetChromeUserPolicyType();
   CreateClient();
@@ -4003,9 +3697,7 @@ TEST_F(CloudPolicyClientTest, DISABLED_PolicyFetchDesktopAndroid) {
   base::android::device_info::reset_is_desktop_for_testing();
 }
 
-// Constantly failing on android-automotive-12l-x64-rel-tests.
-// crbug.com/528019503
-TEST_F(CloudPolicyClientTest, DISABLED_RegistrationDesktopAndroid) {
+TEST_F(CloudPolicyClientTest, RegistrationDesktopAndroid) {
   base::android::device_info::set_is_desktop_for_testing(true);
   policy_type_ = dm_protocol::GetChromeUserPolicyType();
   CreateClient();

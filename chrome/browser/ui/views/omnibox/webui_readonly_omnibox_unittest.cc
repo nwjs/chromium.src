@@ -17,7 +17,6 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_web_contents_factory.h"
-#include "testing/gmock/include/gmock/gmock-matchers.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
@@ -27,14 +26,14 @@ namespace {
 using testing::ElementsAre;
 
 MATCHER_P2(IsSpan, expect_text, expect_color, "") {
-  EXPECT_EQ(arg->text, expect_text);
+  EXPECT_EQ(arg->text, base::UTF8ToUTF16(expect_text));
   EXPECT_EQ(arg->color, expect_color);
   EXPECT_FALSE(arg->strikethrough);
   return true;
 }
 
 MATCHER_P2(IsStrikethrough, expect_text, expect_color, "") {
-  EXPECT_EQ(arg->text, expect_text);
+  EXPECT_EQ(arg->text, base::UTF8ToUTF16(expect_text));
   EXPECT_EQ(arg->color, expect_color);
   EXPECT_TRUE(arg->strikethrough);
   return true;
@@ -52,6 +51,11 @@ class TestUpdatePropagator : public WebUIReadOnlyOmnibox::UpdatePropagator {
 
   void PropagateFocusRequest(
       toolbar_ui_api::mojom::FocusRequestTarget target) override {}
+
+  std::optional<GURL> ConsumeDroppedUrl(
+      const gfx::PointF& drop_position) override {
+    return std::nullopt;
+  }
 
   toolbar_ui_api::mojom::OmniboxViewStatePtr TakeState() {
     return std::move(state_);
@@ -95,6 +99,7 @@ void WebUIReadOnlyOmniboxTest::SetUp() {
       .WillRepeatedly(testing::Return(profile_->GetPrefs()));
 
   omnibox_view_ = std::make_unique<WebUIReadOnlyOmnibox>(
+      /*location_bar=*/nullptr, /*toolbar_delegate=*/nullptr,
       omnibox_controller_.get(), update_propagator_);
 
   wc1_ = web_contents_factory_.CreateWebContents(profile_.get());
@@ -293,8 +298,8 @@ TEST_F(WebUIReadOnlyOmniboxTest, InputVersion) {
   EXPECT_THAT(mojo_state->text_pieces,
               ElementsAre(IsSpan("https://en.wikiped",
                                  OmniboxTextColor::kOmniboxText)));
-  EXPECT_EQ(1, mojo_state->browser_version);
-  EXPECT_EQ(10, mojo_state->ui_version);
+  EXPECT_EQ(1u, mojo_state->browser_version);
+  EXPECT_EQ(10u, mojo_state->ui_version);
 
   // Resetting the URL should bump the browser version and send the new URL.
   omnibox_view_->RevertAll();
@@ -305,8 +310,8 @@ TEST_F(WebUIReadOnlyOmniboxTest, InputVersion) {
       ElementsAre(IsSpan("https://", OmniboxTextColor::kOmniboxTextDimmed),
                   IsSpan("www.example.org", OmniboxTextColor::kOmniboxText),
                   IsSpan("/", OmniboxTextColor::kOmniboxTextDimmed)));
-  EXPECT_EQ(2, mojo_state->browser_version);
-  EXPECT_EQ(0, mojo_state->ui_version);
+  EXPECT_EQ(2u, mojo_state->browser_version);
+  EXPECT_EQ(0u, mojo_state->ui_version);
 
   // Racing input gets ignored.
   EXPECT_TRUE(
@@ -327,8 +332,8 @@ TEST_F(WebUIReadOnlyOmniboxTest, InputVersion) {
       ElementsAre(IsSpan("https://", OmniboxTextColor::kOmniboxTextDimmed),
                   IsSpan("www.example.org", OmniboxTextColor::kOmniboxText),
                   IsSpan("/", OmniboxTextColor::kOmniboxTextDimmed)));
-  EXPECT_EQ(2, mojo_state->browser_version);
-  EXPECT_EQ(0, mojo_state->ui_version);
+  EXPECT_EQ(2u, mojo_state->browser_version);
+  EXPECT_EQ(0u, mojo_state->ui_version);
 
   // Now an update with appropriate browser version will work.
   EXPECT_TRUE(
@@ -346,8 +351,8 @@ TEST_F(WebUIReadOnlyOmniboxTest, InputVersion) {
   EXPECT_THAT(mojo_state->text_pieces,
               ElementsAre(IsSpan("https://www.example.org/a",
                                  OmniboxTextColor::kOmniboxText)));
-  EXPECT_EQ(2, mojo_state->browser_version);
-  EXPECT_EQ(1, mojo_state->ui_version);
+  EXPECT_EQ(2u, mojo_state->browser_version);
+  EXPECT_EQ(1u, mojo_state->ui_version);
 }
 
 }  // namespace

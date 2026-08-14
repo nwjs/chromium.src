@@ -4,6 +4,7 @@
 
 sync_protocol_sources = [
   "account_setting_specifics.proto",
+  "agile_encryption_keys.proto",
   "ai_thread_specifics.proto",
   "app_list_specifics.proto",
   "app_setting_specifics.proto",
@@ -30,6 +31,8 @@ sync_protocol_sources = [
   "deletion_origin.proto",
   "device_info_specifics.proto",
   "dictionary_specifics.proto",
+  "encrypted_tab_context_container_specifics.proto",
+  "encrypted_tab_context_item_specifics.proto",
   "encryption.proto",
   "entity_metadata.proto",
   "entity_specifics.proto",
@@ -46,6 +49,7 @@ sync_protocol_sources = [
   "nigori_local_data.proto",
   "nigori_specifics.proto",
   "note_entity.proto",
+  "notebook_specifics.proto",
   "os_preference_specifics.proto",
   "os_priority_preference_specifics.proto",
   "password_sharing_invitation_specifics.proto",

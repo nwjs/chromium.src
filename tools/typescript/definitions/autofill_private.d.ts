@@ -15,8 +15,6 @@ declare global {
         email: string;
         isSyncEnabledForAutofillProfiles: boolean;
         isEligibleForAddressAccountStorage: boolean;
-        isAutofillSyncToggleEnabled: boolean;
-        isAutofillSyncToggleAvailable: boolean;
       }
 
       /**
@@ -152,6 +150,8 @@ declare global {
         FLIGHT_RESERVATION_TICKET_NUMBER,
         FLIGHT_RESERVATION_CONFIRMATION_CODE,
         FLIGHT_RESERVATION_PASSENGER_NAME,
+        FLIGHT_RESERVATION_DEPARTURE_AIRPORT,
+        FLIGHT_RESERVATION_ARRIVAL_AIRPORT,
         FLIGHT_RESERVATION_DEPARTURE_DATE,
         ADDRESS_HOME_ZIP_AND_CITY,
         ORDER_ID,
@@ -330,7 +330,6 @@ declare global {
       export function getLocalCard(guid: string): Promise<CreditCardEntry|null>;
       export function checkIfDeviceAuthAvailable(): Promise<boolean>;
       export function bulkDeleteAllCvcs(): void;
-      export function setAutofillSyncToggleEnabled(enabled: boolean): void;
       export function addOrUpdateEntityInstance(entityInstance: EntityInstance):
           Promise<void>;
       export function removeEntityInstance(guid: string): void;

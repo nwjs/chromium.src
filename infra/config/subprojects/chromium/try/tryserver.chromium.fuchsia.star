@@ -63,6 +63,9 @@ try_.builder(
             "build/fuchsia/sdk_override.txt",
         ],
     ),
+    experiments = {
+        "luci.buildbucket.run_in_turboci": 100,
+    },
     main_list_view = "try",
 )
 
@@ -122,6 +125,9 @@ try_.builder(
             cq.location_filter(exclude = True, path_regexp = ".*\\.md"),
         ],
     ),
+    experiments = {
+        "luci.buildbucket.run_in_turboci": 100,
+    },
 )
 
 try_.builder(
@@ -170,6 +176,7 @@ try_.builder(
             "debug_try_builder",
         ],
     ),
+    free_space = builders.free_space.high,
     contact_team_email = "chrome-fuchsia-engprod@google.com",
     # This is the only bot that builds //chromecast code for Fuchsia on x64
     # so trigger it when changes are made.
@@ -179,6 +186,9 @@ try_.builder(
         ],
     ),
     execution_timeout = 10 * time.hour,
+    experiments = {
+        "luci.buildbucket.run_in_turboci": 100,
+    },
     main_list_view = "try",
 )
 
@@ -214,6 +224,10 @@ try_.orchestrator_builder(
         "chromium.add_one_test_shard": 10,
         # crbug.com/940930
         "chromium.enable_cleandead": 100,
+        # go/rts-project-proposal
+        "chromium_rts.filter_file_analysis": 100,
+        # TODO(https://crbug.com/521401232): Increase to 100
+        "luci.buildbucket.run_in_turboci": 100,
     },
     main_list_view = "try",
     use_clang_coverage = True,

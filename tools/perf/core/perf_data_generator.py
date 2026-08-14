@@ -154,6 +154,7 @@ UPLOAD_SKIA_JSON_BUILDERS = frozenset([
     'android-pixel9-pro-xl-perf',
     'android-pixel10-perf',
     'android-pixel10_webview-perf',
+    'android-pixel10_webview-perf-pgo',
     'android-brya-kano-i5-8gb-perf',
     'android-corsola-steelix-8gb-perf',
     'android-nissa-uldren-8gb-perf',
@@ -202,6 +203,7 @@ PUBLIC_PERF_BUILDERS = [
     'android-pixel9-pro-xl-perf',
     'android-pixel10-perf',
     'android-pixel10_webview-perf',
+    'android-pixel10_webview-perf-pgo',
     'linux-builder-perf',
     'linux-falcon-rak-5070-perf',
     'linux-perf',
@@ -857,6 +859,19 @@ BUILDERS = {
             'device_os_flavor': 'google',
         },
     },
+    'android-pixel10_webview-perf-pgo': {
+        'tests': [{
+            'isolate': 'performance_webview_test_suite',
+        }],
+        'platform': 'android-webview-standalone-google',
+        'dimension': {
+            'pool': 'chrome.tests.perf-webview-pgo',
+            'os': 'Android',
+            'device_type': 'frankel',
+            'device_os': 'BP4A.260105.004.E1',
+            'device_os_flavor': 'google',
+        },
+    },
     'android-go-processor-perf': {
         'platform': 'linux',
         'perf_processor': True,
@@ -1378,7 +1393,7 @@ BUILDERS = {
             # that we can be informed if this
             # version ever changes or becomes inconsistent. It is important
             # that bots are homogeneous. See crbug.com/988045 for history.
-            'os': 'Windows-11-22631.2428',
+            'os': 'Windows-11-26200',
             'gpu': '102b:0536-4.5.0.5',
             'synthetic_product_name': 'PowerEdge R350 (Dell Inc.)'
         },
@@ -1402,7 +1417,7 @@ BUILDERS = {
             # that we can be informed if this
             # version ever changes or becomes inconsistent. It is important
             # that bots are homogeneous. See crbug.com/988045 for history.
-            'os': 'Windows-11-22631.2428',
+            'os': 'Windows-11-26200',
             'gpu': '102b:0536-4.5.0.5',
             'synthetic_product_name': 'PowerEdge R350 (Dell Inc.)'
         },

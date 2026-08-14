@@ -243,7 +243,7 @@ void WebAppNavigationBrowserTest::SetUpOnMainThread() {
   host_resolver()->AddRule("*", "127.0.0.1");
   // By default, all SSL cert checks are valid. Can be overridden in tests.
   cert_verifier_.mock_cert_verifier()->set_default_result(net::OK);
-  profile_ = browser()->profile();
+  profile_ = browser()->GetProfile();
 }
 
 void WebAppNavigationBrowserTest::TearDownOnMainThread() {
@@ -327,15 +327,15 @@ bool WebAppNavigationBrowserTest::ExpectLinkClickNotCapturedIntoAppBrowser(
       browser->tab_strip_model()->GetActiveWebContents();
   int num_tabs = browser->tab_strip_model()->count();
   size_t num_browsers =
-      ProfileBrowserCollection::GetForProfile(browser->profile())->GetSize();
+      ProfileBrowserCollection::GetForProfile(browser->GetProfile())->GetSize();
 
   ClickLinkAndWait(browser->tab_strip_model()->GetActiveWebContents(),
                    target_url, LinkTarget::SELF, rel);
 
   EXPECT_EQ(num_tabs, browser->tab_strip_model()->count());
-  EXPECT_EQ(
-      num_browsers,
-      ProfileBrowserCollection::GetForProfile(browser->profile())->GetSize());
+  EXPECT_EQ(num_browsers,
+            ProfileBrowserCollection::GetForProfile(browser->GetProfile())
+                ->GetSize());
   EXPECT_EQ(browser,
             GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser());
   EXPECT_EQ(initial_tab, browser->tab_strip_model()->GetActiveWebContents());

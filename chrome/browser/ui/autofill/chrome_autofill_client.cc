@@ -25,22 +25,21 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "chrome/browser/accessibility_annotator/at_memory_query_service_factory.h"
 #include "chrome/browser/account_settings/account_setting_service_factory.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
-#include "chrome/browser/autofill/actor/actor_key_metrics_recorder.h"
 #include "chrome/browser/autofill/address_normalizer_factory.h"
 #include "chrome/browser/autofill/android/save_update_address_profile_prompt_mode.h"
-#include "chrome/browser/autofill/at_memory_promo_tracker_factory.h"
+#include "chrome/browser/autofill/at_memory/at_memory_query_service_factory.h"
+#include "chrome/browser/autofill/at_memory_cross_tab_copy_paste_tracker_factory.h"
 #include "chrome/browser/autofill/autocomplete_history_manager_factory.h"
 #include "chrome/browser/autofill/autofill_ai_model_cache_factory.h"
 #include "chrome/browser/autofill/autofill_ai_model_executor_factory.h"
-#include "chrome/browser/autofill/autofill_enterprise_policy_service_factory.h"
+#include "chrome/browser/autofill/autofill_ai_personal_context_access_manager_factory.h"
 #include "chrome/browser/autofill/autofill_entity_data_manager_factory.h"
 #include "chrome/browser/autofill/autofill_field_classification_model_service_factory.h"
 #include "chrome/browser/autofill/autofill_optimization_guide_decider_factory.h"
+#include "chrome/browser/autofill/autofill_policy_service_factory.h"
 #include "chrome/browser/autofill/one_time_token_service_factory.h"
-#include "chrome/browser/autofill/personal_context_access_manager_factory.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/autofill/ui/ui_util.h"
 #include "chrome/browser/autofill/valuables_data_manager_factory.h"
@@ -62,7 +61,7 @@
 #include "chrome/browser/password_manager/factories/password_manager_settings_service_factory.h"
 #include "chrome/browser/password_manager/password_field_classification_model_handler_factory.h"
 #include "chrome/browser/personal_context/first_run/personal_context_first_run_service_factory.h"
-#include "chrome/browser/personal_context/personal_context_enablement_service_factory.h"
+#include "chrome/browser/personal_context/personal_context_eligibility_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -73,6 +72,7 @@
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/autofill/address_bubbles_controller.h"
 #include "chrome/browser/ui/autofill/autofill_bubble_controller_base.h"
+#include "chrome/browser/ui/autofill/autofill_dialog_controller_impl.h"
 #include "chrome/browser/ui/autofill/autofill_suggestion_controller.h"
 #include "chrome/browser/ui/autofill/chrome_otp_phish_guard_delegate.h"
 #include "chrome/browser/ui/autofill/edit_address_profile_dialog_controller_impl.h"
@@ -100,8 +100,9 @@
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
 #include "components/autofill/content/browser/content_identity_credential_delegate.h"
 #include "components/autofill/content/browser/integrators/email_verifier/email_verifier_delegate.h"
+#include "components/autofill/core/browser/actor/actor_key_metrics_recorder.h"
 #include "components/autofill/core/browser/at_memory/at_memory_enablement_utils.h"
-#include "components/autofill/core/browser/at_memory_promo_tracker.h"
+#include "components/autofill/core/browser/at_memory_cross_tab_copy_paste_tracker.h"
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
@@ -123,7 +124,7 @@
 #include "components/autofill/core/browser/metrics/autofill_settings_metrics.h"
 #include "components/autofill/core/browser/ml_model/field_classification_model_handler.h"
 #include "components/autofill/core/browser/payments/payments_network_interface.h"
-#include "components/autofill/core/browser/permissions/enterprise_policy/autofill_enterprise_policy_service.h"
+#include "components/autofill/core/browser/permissions/autofill_policy_service.h"
 #include "components/autofill/core/browser/single_field_fillers/single_field_fill_router.h"
 #include "components/autofill/core/browser/studies/autofill_experiments.h"
 #include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
@@ -186,6 +187,8 @@
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/keyboard_accessory/android/manual_filling_controller.h"
 #include "chrome/browser/signin/android/signin_bridge.h"
+#include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_autofill_controller.h"
+#include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_autofill_view_impl.h"
 #include "chrome/browser/ui/android/autofill/at_memory_bottom_sheet_bridge.h"
 #include "chrome/browser/ui/android/autofill/at_memory_bottom_sheet_delegate_android.h"
 #include "chrome/browser/ui/android/autofill/autofill_ai_save_update_entity_flow_manager.h"
@@ -236,6 +239,18 @@ AutoselectFirstSuggestion ShouldAutofillPopupAutoselectFirstSuggestion(
       source == AutofillSuggestionTriggerSource::kTextFieldDidReceiveKeyDown);
 }
 
+// Returns a string representation of `saved_entities` (comma separated). Used
+// to include in product data to hats surveys.
+std::string GetStringRepresentatioOfSavedEntitiesTypes(
+    const base::flat_set<EntityTypeName>& saved_entities) {
+  return base::JoinString(
+      base::ToVector(saved_entities,
+                     [](EntityTypeName name) {
+                       return std::string(EntityType(name).name_as_string());
+                     }),
+      ",");
+}
+
 #if !BUILDFLAG(IS_ANDROID)
 const base::Feature& GetFeature(AutofillClient::IphFeature iph_feature) {
   switch (iph_feature) {
@@ -253,51 +268,6 @@ ui::ElementIdentifier GetElementId(AutofillClient::IphFeature iph_feature) {
   NOTREACHED();
 }
 
-// Returns a string representation of `saved_entities` (comma separated). Used
-// to include in product data to hats surveys.
-std::string GetStringRepresentatioOfSavedEntitiesTypes(
-    const base::flat_set<EntityTypeName>& saved_entities) {
-  return base::JoinString(
-      base::ToVector(saved_entities,
-                     [](EntityTypeName name) {
-                       return std::string(EntityType(name).name_as_string());
-                     }),
-      ",");
-}
-
-bool CanTriggerAutofillAiFillingSurveyForEntityType(EntityType type) {
-  switch (type.name()) {
-    case EntityTypeName::kVehicle:
-    case EntityTypeName::kFlightReservation:
-      return true;
-    case EntityTypeName::kKnownTravelerNumber:
-    case EntityTypeName::kRedressNumber:
-    case EntityTypeName::kPassport:
-    case EntityTypeName::kNationalIdCard:
-    case EntityTypeName::kDriversLicense:
-    case EntityTypeName::kOrder:
-    case EntityTypeName::kShipment:
-      return false;
-  }
-  NOTREACHED();
-}
-
-bool CanTriggerAutofillAiSavePromptSurveyForEntityType(EntityType type) {
-  switch (type.name()) {
-    case EntityTypeName::kVehicle:
-      return true;
-    case EntityTypeName::kFlightReservation:
-    case EntityTypeName::kKnownTravelerNumber:
-    case EntityTypeName::kRedressNumber:
-    case EntityTypeName::kPassport:
-    case EntityTypeName::kNationalIdCard:
-    case EntityTypeName::kDriversLicense:
-    case EntityTypeName::kOrder:
-    case EntityTypeName::kShipment:
-      return false;
-  }
-  NOTREACHED();
-}
 
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -326,34 +296,50 @@ ChromeAutofillClient::~ChromeAutofillClient() {
   }
 }
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS)
-ChromeAutofillClient::AtMemoryPromoObserver::AtMemoryPromoObserver(
+ChromeAutofillClient::AtMemoryCopyPasteObserver::AtMemoryCopyPasteObserver(
     ChromeAutofillClient* client)
     : content::WebContentsObserver(client->web_contents()), client_(*client) {}
 
-void ChromeAutofillClient::AtMemoryPromoObserver::OnTextCopiedToClipboard(
+void ChromeAutofillClient::AtMemoryCopyPasteObserver::OnTextCopiedToClipboard(
     content::RenderFrameHost* render_frame_host,
     const std::u16string& copied_text) {
-  auto* tracker = AtMemoryPromoTrackerFactory::GetForBrowserContext(
-      client_->web_contents()->GetBrowserContext());
-  if (tracker) {
-    tracker->OnCopy(
-        sessions::SessionTabHelper::IdForTab(client_->web_contents()));
+  AtMemoryCrossTabCopyPasteTracker* tracker =
+      AtMemoryCrossTabCopyPasteTrackerFactory::GetForBrowserContext(
+          client_->web_contents()->GetBrowserContext());
+  if (!tracker) {
+    return;
   }
+  tracker->OnCopy(sessions::SessionTabHelper::IdForTab(client_->web_contents()),
+                  base::FastHash(base::as_byte_span(copied_text)),
+                  render_frame_host->GetPageUkmSourceId());
 }
 
-void ChromeAutofillClient::AtMemoryPromoObserver::OnPaste() {
-  auto* tracker = AtMemoryPromoTrackerFactory::GetForBrowserContext(
-      client_->web_contents()->GetBrowserContext());
-  if (tracker && tracker->OnPaste(sessions::SessionTabHelper::IdForTab(
-                     client_->web_contents()))) {
+void ChromeAutofillClient::AtMemoryCopyPasteObserver::OnPaste() {
+  AtMemoryCrossTabCopyPasteTracker* tracker =
+      AtMemoryCrossTabCopyPasteTrackerFactory::GetForBrowserContext(
+          client_->web_contents()->GetBrowserContext());
+  if (!tracker) {
+    return;
+  }
+  const SessionID current_tab_id =
+      sessions::SessionTabHelper::IdForTab(client_->web_contents());
+  if (tracker->OnPaste(current_tab_id, client_->web_contents()
+                                           ->GetPrimaryMainFrame()
+                                           ->GetPageUkmSourceId())) {
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
     client_->ShowAutofillAtMemoryPromo();
+#endif
   }
 }
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
 void ChromeAutofillClient::ShowAutofillAtMemoryPromo() {
-  if (!MayPerformAtMemoryAction(AtMemoryAction::kShowIph, *this)) {
+  // TODO(crbug.com/519061643) Double check if we also need to check a field
+  // url here.
+  if (!MayPerformAtMemoryAction(AtMemoryAction::kShowIph, *this,
+                                GetLastCommittedPrimaryMainFrameURL())) {
     return;
   }
   auto* user_education_interface =
@@ -364,12 +350,12 @@ void ChromeAutofillClient::ShowAutofillAtMemoryPromo() {
         feature_engagement::kIPHAutofillAtMemoryFeature);
   }
 }
-
-ChromeAutofillClient::AtMemoryPromoObserver&
-ChromeAutofillClient::at_memory_promo_observer() {
-  return at_memory_promo_observer_;
-}
 #endif
+
+ChromeAutofillClient::AtMemoryCopyPasteObserver&
+ChromeAutofillClient::at_memory_copy_paste_observer() {
+  return at_memory_copy_paste_observer_;
+}
 
 base::WeakPtr<AutofillClient> ChromeAutofillClient::GetWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
@@ -464,19 +450,37 @@ WalletPassAccessManager* ChromeAutofillClient::GetWalletPassAccessManager() {
   return WalletPassAccessManagerFactory::GetForProfile(profile);
 }
 
-bool ChromeAutofillClient::ShouldShowPersonalContextAutofillNotice() const {
+bool ChromeAutofillClient::ShouldShowPersonalContextAmbientAutofillNotice()
+    const {
   Profile* profile = GetProfile();
   personal_context::PersonalContextFirstRunService* service =
       PersonalContextFirstRunServiceFactory::GetForProfile(profile);
-  return service && service->ShouldShowPersonalContextAutofillNotice();
+  return service && service->ShouldShowPersonalContextAmbientAutofillNotice();
 }
 
-void ChromeAutofillClient::MarkPersonalContextInAutofillNoticeAsAcknowledged() {
+void ChromeAutofillClient::
+    MarkPersonalContextAmbientAutofillNoticeAsAcknowledged() {
   Profile* profile = GetProfile();
   personal_context::PersonalContextFirstRunService* service =
       PersonalContextFirstRunServiceFactory::GetForProfile(profile);
   if (service) {
-    service->MarkPersonalContextInAutofillNoticeAsAcknowledged();
+    service->MarkPersonalContextAmbientAutofillNoticeAsAcknowledged();
+  }
+}
+
+bool ChromeAutofillClient::ShouldShowPersonalContextAtMemoryNotice() const {
+  Profile* profile = GetProfile();
+  personal_context::PersonalContextFirstRunService* service =
+      PersonalContextFirstRunServiceFactory::GetForProfile(profile);
+  return service && service->ShouldShowPersonalContextAtMemoryNotice();
+}
+
+void ChromeAutofillClient::MarkPersonalContextAtMemoryNoticeAsAcknowledged() {
+  Profile* profile = GetProfile();
+  personal_context::PersonalContextFirstRunService* service =
+      PersonalContextFirstRunServiceFactory::GetForProfile(profile);
+  if (service) {
+    service->MarkPersonalContextInAtMemoryNoticeAsAcknowledged();
   }
 }
 
@@ -500,27 +504,26 @@ AutofillComposeDelegate* ChromeAutofillClient::GetComposeDelegate() {
 #endif
 }
 
-accessibility_annotator::AtMemoryQueryService*
-ChromeAutofillClient::GetAtMemoryQueryService() {
+AtMemoryQueryService* ChromeAutofillClient::GetAtMemoryQueryService() {
   Profile* profile =
       Profile::FromBrowserContext(web_contents()->GetBrowserContext());
   return AtMemoryQueryServiceFactory::GetForProfile(profile);
 }
 
-personal_context::PersonalContextEnablementState
-ChromeAutofillClient::GetPersonalContextEnablementState() const {
+personal_context::PersonalContextEligibilityState
+ChromeAutofillClient::GetPersonalContextEligibilityState() const {
   Profile* profile = GetProfile();
-  personal_context::PersonalContextEnablementService* service =
-      PersonalContextEnablementServiceFactory::GetForProfile(profile);
-  return service ? service->GetEnablementState()
-                 : personal_context::PersonalContextEnablementState::
+  personal_context::PersonalContextEligibilityService* service =
+      PersonalContextEligibilityServiceFactory::GetForProfile(profile);
+  return service ? service->GetEligibilityState()
+                 : personal_context::PersonalContextEligibilityState::
                        kDisabledNotEligible;
 }
 
-personal_context::PersonalContextEnablementService*
-ChromeAutofillClient::GetPersonalContextEnablementService() const {
+personal_context::PersonalContextEligibilityService*
+ChromeAutofillClient::GetPersonalContextEligibilityService() const {
   Profile* profile = GetProfile();
-  return PersonalContextEnablementServiceFactory::GetForProfile(profile);
+  return PersonalContextEligibilityServiceFactory::GetForProfile(profile);
 }
 
 PasswordManagerDelegate* ChromeAutofillClient::GetPasswordManagerDelegate(
@@ -551,12 +554,13 @@ AutofillAiManager* ChromeAutofillClient::GetAutofillAiManager() {
   return autofill_ai_manager_.get();
 }
 
-PersonalContextAccessManager*
-ChromeAutofillClient::GetPersonalContextAccessManager() {
+AutofillAiPersonalContextAccessManager*
+ChromeAutofillClient::GetAutofillAiPersonalContextAccessManager() {
   if (!base::FeatureList::IsEnabled(features::kAutofillAmbientAutofill)) {
     return nullptr;
   }
-  return PersonalContextAccessManagerFactory::GetForProfile(GetProfile());
+  return AutofillAiPersonalContextAccessManagerFactory::GetForProfile(
+      GetProfile());
 }
 
 AutofillAiModelCache* ChromeAutofillClient::GetAutofillAiModelCache() {
@@ -750,13 +754,24 @@ void ChromeAutofillClient::ShowAutofillSettings(
       ShowAutofillProfileSettings(web_contents());
       return;
     case SuggestionType::kManageCreditCard:
+    case SuggestionType::kManageIban:
       base::UmaHistogramEnumeration(
           "Autofill.PaymentMethodsSettingsPage.VisitReferrer",
           autofill_metrics::AutofillSettingsReferrer::kFillingFlowDropdown);
       ShowAutofillCreditCardSettings(web_contents());
       return;
+    case SuggestionType::kManageAutofillAi:
+    case SuggestionType::kManageEnhancedAutofill:
+      if (base::FeatureList::IsEnabled(features::kYourSavedInfoSettingsPage)) {
+        ShowAutofillPersonalContextSettings(
+            web_contents(),
+            AutofillOptionsReferrer::kPersonalContextAtmemoryNotice);
+      } else {
+        autofill::ShowAutofillSettings(web_contents());
+      }
+      return;
     default:
-      NOTREACHED();
+      break;
   }
 #else
   BrowserWindowInterface* browser =
@@ -793,6 +808,12 @@ void ChromeAutofillClient::ShowAutofillSettings(
             autofill_metrics::AutofillSettingsReferrer::kFillingFlowDropdown);
         chrome::ShowSettingsSubPage(browser, chrome::kTravelSubPage);
         return;
+      case SuggestionType::kManageAutofillAiShopping:
+        base::UmaHistogramEnumeration(
+            "Autofill.YourSavedInfoSettingsPage.VisitReferrer",
+            autofill_metrics::AutofillSettingsReferrer::kFillingFlowDropdown);
+        chrome::ShowSettingsSubPage(browser, chrome::kShoppingSubPage);
+        return;
       case SuggestionType::kManageCreditCard:
       case SuggestionType::kManageIban:
         base::UmaHistogramEnumeration(
@@ -806,6 +827,10 @@ void ChromeAutofillClient::ShowAutofillSettings(
             "wallet?p=loyalty&utm_source=chrome&utm_medium=redirect&utm_"
             "campaign=loyalty";
         ShowSingletonTab(browser, GURL(kValuableManagementUrl));
+        return;
+      case SuggestionType::kManageEnhancedAutofill:
+        chrome::ShowSettingsSubPage(browser,
+                                    chrome::kSuggestionsFromGeminiSubPage);
         return;
       default:
         NOTREACHED();
@@ -962,10 +987,6 @@ void ChromeAutofillClient::TriggerAutofillAiFillingJourneySurvey(
     EntityType entity_type,
     const base::flat_set<EntityTypeName>& saved_entities,
     const FieldTypeSet& triggering_field_types) {
-#if !BUILDFLAG(IS_ANDROID)
-  if (!CanTriggerAutofillAiFillingSurveyForEntityType(entity_type)) {
-    return;
-  }
   Profile* profile =
       Profile::FromBrowserContext(web_contents()->GetBrowserContext());
   auto* hats_service =
@@ -979,40 +1000,8 @@ void ChromeAutofillClient::TriggerAutofillAiFillingJourneySurvey(
        {"Triggering field types", FieldTypeSetToString(triggering_field_types)},
        {"Saved entities",
         GetStringRepresentatioOfSavedEntitiesTypes(saved_entities)}});
-#endif
 }
 
-void ChromeAutofillClient::TriggerAutofillAiSavePromptSurvey(
-    bool prompt_accepted,
-    EntityType entity_type,
-    const base::flat_set<EntityTypeName>& saved_entities) {
-#if !BUILDFLAG(IS_ANDROID)
-  if (!CanTriggerAutofillAiSavePromptSurveyForEntityType(entity_type)) {
-    return;
-  }
-  Profile* profile =
-      Profile::FromBrowserContext(web_contents()->GetBrowserContext());
-  auto* hats_service =
-      HatsServiceFactory::GetForProfile(profile, /*create_if_necessary=*/true);
-  CHECK(hats_service);
-
-  const std::string trigger_id =
-      prompt_accepted
-          ? features::kAutofillAiSavePromptSurveyAcceptedTriggerId.Get()
-          : features::kAutofillAiSavePromptSurveyDeclinedTriggerId.Get();
-  if (!trigger_id.empty()) {
-    hats_service->LaunchDelayedSurveyForWebContents(
-        kHatsSurveyTriggerAutofillAiSavePrompt, web_contents(),
-        /*timeout_ms=*/10000,
-        /*product_specific_bits_data=*/{},
-        {{"Entity type", std::string(entity_type.name_as_string())},
-         {"Saved entities",
-          GetStringRepresentatioOfSavedEntitiesTypes(saved_entities)}},
-        HatsService::NavigationBehavior::ALLOW_ANY, base::DoNothing(),
-        base::DoNothing(), trigger_id);
-  }
-#endif
-}
 
 bool ChromeAutofillClient::IsTabInActorMode() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -1027,9 +1016,23 @@ ActorKeyMetricsRecorder* ChromeAutofillClient::GetActorKeyMetricsRecorder() {
 }
 
 bool ChromeAutofillClient::IsAutofillEnabled() const {
-  return IsAutofillProfileEnabled() ||
-         AutofillClient::GetPaymentsAutofillClient()
-             ->IsAutofillPaymentMethodsEnabled();
+  if (IsAutofillProfileEnabled() || AutofillClient::GetPaymentsAutofillClient()
+                                        ->IsAutofillPaymentMethodsEnabled()) {
+    return true;
+  }
+
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillEnableAutofillSettingsEnterprisePolicy)) {
+    const GURL& url = GetLastCommittedPrimaryMainFrameURL();
+    return !IsAutofillTypeBlockedByPolicy(
+               url, AutofillPolicyDataCategory::kIdentityDocs) ||
+           !IsAutofillTypeBlockedByPolicy(
+               url, AutofillPolicyDataCategory::kTravel) ||
+           !IsAutofillTypeBlockedByPolicy(
+               url, AutofillPolicyDataCategory::kShopping);
+  }
+
+  return false;
 }
 
 bool ChromeAutofillClient::IsAutofillProfileEnabled() const {
@@ -1049,8 +1052,8 @@ bool ChromeAutofillClient::IsAutofillProfileEnabled() const {
 bool ChromeAutofillClient::IsAutofillTypeBlockedByPolicy(
     const GURL& url,
     AutofillPolicyDataCategory category) const {
-  AutofillEnterprisePolicyService* service =
-      AutofillEnterprisePolicyServiceFactory::GetForProfile(GetProfile());
+  AutofillPolicyService* service =
+      AutofillPolicyServiceFactory::GetForProfile(GetProfile());
   return service && service->IsAutofillTypeBlockedByPolicy(url, category);
 }
 
@@ -1073,6 +1076,10 @@ bool ChromeAutofillClient::IsPasswordManagerEnabled() const {
   return settings_service &&
          settings_service->IsSettingEnabled(
              password_manager::PasswordManagerSetting::kOfferToSavePasswords);
+}
+
+bool ChromeAutofillClient::UsesPlatformAutofill() const {
+  return false;
 }
 
 bool ChromeAutofillClient::IsContextSecure() const {
@@ -1173,6 +1180,15 @@ ChromeAutofillClient::GetAutofillSnackbarController() {
   return autofill_snackbar_controller_impl_.get();
 }
 
+AutofillDialogController* ChromeAutofillClient::GetAutofillDialogController() {
+  if (!autofill_dialog_controller_impl_) {
+    autofill_dialog_controller_impl_ =
+        std::make_unique<AutofillDialogControllerImpl>(web_contents());
+  }
+
+  return autofill_dialog_controller_impl_.get();
+}
+
 AutofillMessageController*
 ChromeAutofillClient::GetAutofillMessageController() {
   if (!autofill_message_controller_) {
@@ -1181,6 +1197,29 @@ ChromeAutofillClient::GetAutofillMessageController() {
   }
 
   return autofill_message_controller_.get();
+}
+
+void ChromeAutofillClient::SetTouchToFillAutofillControllerForTesting(
+    std::unique_ptr<TouchToFillAutofillController>
+        touch_to_fill_autofill_controller) {
+  touch_to_fill_autofill_controller_ =
+      std::move(touch_to_fill_autofill_controller);
+}
+
+bool ChromeAutofillClient::ShowAmbientAutoFillNotice(
+    base::WeakPtr<TouchToFillAutofillDelegate> delegate) {
+  if (!touch_to_fill_autofill_controller_) {
+    return false;
+  }
+  return touch_to_fill_autofill_controller_->ShowPersonalContextNotice(
+      std::make_unique<TouchToFillAutofillViewImpl>(web_contents()),
+      std::move(delegate));
+}
+
+void ChromeAutofillClient::HideAmbientAutoFillNotice() {
+  if (touch_to_fill_autofill_controller_) {
+    touch_to_fill_autofill_controller_->Hide();
+  }
 }
 #endif
 
@@ -1272,11 +1311,14 @@ ChromeAutofillClient::ChromeAutofillClient(content::WebContents* web_contents)
   if (base::FeatureList::IsEnabled(features::kAutofillAiWithDataSchema)) {
     autofill_ai_save_update_entity_flow_manager_ =
         std::make_unique<AutofillAiSaveUpdateEntityFlowManager>(
-            web_contents, GetAutofillMessageController(), GetAppLocale());
+            web_contents, GetAutofillMessageController(),
+            GetAutofillDialogController(), GetAppLocale());
   }
   save_update_address_profile_flow_manager_ =
       std::make_unique<SaveUpdateAddressProfileFlowManager>(
           this, GetAutofillMessageController());
+  touch_to_fill_autofill_controller_ =
+      TouchToFillAutofillController::Create(this);
 #endif
 
   if (actor::ActorKeyedService* actor_service =
@@ -1370,8 +1412,9 @@ void ChromeAutofillClient::ShowAutofillSuggestionsImpl(
   suggestion_controller_ = AutofillSuggestionController::GetOrCreate(
       suggestion_controller_, delegate, web_contents(),
       PopupControllerCommon(
-          element_bounds_in_screen_space, open_args.text_direction,
-          open_args.anchor_type, open_args.show_tabbed_popup,
+          open_args.frame_token, element_bounds_in_screen_space,
+          open_args.text_direction, open_args.anchor_type,
+          open_args.show_tabbed_popup,
           open_args.prefer_prev_arrow_side_on_suggestions_update),
       open_args.form_control_ax_id, open_args.trigger_source);
 
@@ -1524,14 +1567,13 @@ void ChromeAutofillClient::ShowAutofillAiSaveToWalletFailureNotification() {
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 
-void ChromeAutofillClient::ShowAutofillAiFetchFromWalletFailureNotification() {
+void ChromeAutofillClient::ShowAutofillAiFetchEntityFailureNotification() {
 #if BUILDFLAG(IS_ANDROID)
   GetAutofillSnackbarController()->Show(
-      AutofillSnackbarType::kAutofillAiFetchFromWalletFailure,
-      base::DoNothing());
+      AutofillSnackbarType::kAutofillAiFetchEntityFailure, base::DoNothing());
 #else
   if (ToastController* toast_controller = GetToastController()) {
-    ToastParams params(ToastId::kAutofillAiFetchFromWalletErrorMessage);
+    ToastParams params(ToastId::kAutofillAiFetchEntityErrorMessage);
     toast_controller->MaybeShowToast(std::move(params));
   }
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -1546,6 +1588,26 @@ void ChromeAutofillClient::ShowAutofillAiPreFetchFailureNotification() {
     ToastParams params(ToastId::kAutofillAiPreFetchErrorMessage);
     toast_controller->MaybeShowToast(std::move(params));
   }
+#endif  // BUILDFLAG(IS_ANDROID)
+}
+
+void ChromeAutofillClient::ShowAutofillAiPrivateInferenceNotice() {
+#if BUILDFLAG(IS_ANDROID)
+  // TODO(crbug.com/530174611): Record the timestamp when the notice was shown.
+  base::OnceClosure action_callback = base::BindOnce(
+      [](base::WeakPtr<AutofillClient> client) {
+        if (client && client->GetPrefs()) {
+          client->GetPrefs()->SetTime(
+              prefs::kAutofillAiPrivateInferenceNoticeAcknowledgedTimestamp,
+              base::Time::Now());
+        }
+      },
+      GetWeakPtr());
+  GetAutofillMessageController()->Show(
+      AutofillMessageModel::CreateForPrivateInferenceNotice(
+          web_contents(), std::move(action_callback)));
+#else
+  NOTREACHED();
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 

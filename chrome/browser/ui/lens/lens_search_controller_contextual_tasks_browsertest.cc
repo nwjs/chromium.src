@@ -99,13 +99,13 @@ class TestingContextualTasksUiService
     cookie_jar_contains_primary_account_ = contains;
   }
 
-  void StartTaskUiInSidePanel(
+  void StartTaskUiInSidePanelImpl(
       BrowserWindowInterface* browser_window_interface,
       tabs::TabInterface* tab_interface,
       const GURL& url,
       std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
           session_handle,
-      omnibox::ChromeAimEntryPoint entry_point) override {
+      contextual_tasks::StartTaskUiOptions options) override {
     is_panel_open_ = true;
     if (!stub_web_contents_) {
       content::WebContents::CreateParams params(profile_);
@@ -447,13 +447,13 @@ class ContextualTasksLensInteractionBrowserTestBase
     embedded_test_server()->StartAcceptingConnections();
 
     // Permits sharing the page screenshot by default.
-    PrefService* prefs = browser()->profile()->GetPrefs();
+    PrefService* prefs = browser()->GetProfile()->GetPrefs();
     prefs->SetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled, true);
     prefs->SetBoolean(lens::prefs::kLensSharingPageContentEnabled, true);
 
     // Ensure the DSE is Google.
     TemplateURLService* service =
-        TemplateURLServiceFactory::GetForProfile(browser()->profile());
+        TemplateURLServiceFactory::GetForProfile(browser()->GetProfile());
     TemplateURLData data;
     data.SetShortName(u"Google");
     data.SetKeyword(u"google.com");
@@ -524,7 +524,7 @@ class ContextualTasksLensInteractionBrowserTestBase
   bool IsContextualTasksErrorPageOpen() {
     auto* ui_service = static_cast<TestingContextualTasksUiService*>(
         contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
-            browser()->profile()));
+            browser()->GetProfile()));
     if (ui_service && ui_service->HasPendingErrorPage()) {
       return true;
     }

@@ -26,12 +26,6 @@ chromium-metrics-reviews@google.com.
 
 <enums>
 
-<enum name="AutomaticBeaconOutcome">
-  <int value="0" label="Success"/>
-  <int value="1" label="No transient user activation"/>
-  <int value="2" label="Cross origin frame to mapped URL not opted in"/>
-</enum>
-
 <!-- LINT.IfChange(BackForwardCacheEntryMatchResult) -->
 
 <enum name="BackForwardCacheEntryMatchResult">
@@ -300,12 +294,6 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//content/browser/loader/navigation_fast_fetch_manager.h:NavigationOutcome) -->
 
-<enum name="FencedFrameAutomaticBeaconEventType">
-  <int value="0" label="reserved.top_navigation"/>
-  <int value="1" label="reserved.top_navigation_start"/>
-  <int value="2" label="reserved.top_navigation_commit"/>
-</enum>
-
 <!-- LINT.IfChange(HistoryNavigationDirection) -->
 
 <enum name="HistoryNavigationDirection">
@@ -336,6 +324,19 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Browser mapped urn::uuid is rendered in fenced frame"/>
   <int value="1" label="Browser mapped urn::uuid is rendered in iframe"/>
 </enum>
+
+<!-- LINT.IfChange(NavigationInitiatorType) -->
+
+<enum name="NavigationInitiatorType">
+  <int value="0" label="Other"/>
+  <int value="1" label="Bookmark Bar"/>
+  <int value="2" label="New Tab Page"/>
+  <int value="3" label="Omnibox Direct URL Input"/>
+  <int value="4" label="Omnibox Default Search Engine"/>
+  <int value="5" label="Link Click"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/page_load_metrics/chrome_initiator_location.h:NavigationInitiatorType) -->
 
 <enum name="NavigationIsGuest">
   <int value="0" label="Not a guest navigation"/>
@@ -1686,7 +1687,7 @@ chromium-metrics-reviews@google.com.
   <int value="10" label="kTrustTokenParams"/>
   <int value="11" label="kWebBundleToken"/>
   <int value="12" label="kRequestContextType"/>
-  <int value="13" label="kImpressionHasValue"/>
+  <int value="13" label="kImpressionHasValue (Obsolete)"/>
   <int value="14" label="kInitiatorOrigin"/>
   <int value="15" label="kTransition"/>
   <int value="16" label="kNavigationType"/>
@@ -1758,7 +1759,7 @@ chromium-metrics-reviews@google.com.
       label="extensions.mojom.EventRouter (Obsolete in M122)"/>
   <int value="-71187962" label="supervised_user.mojom.SupervisedUserCommands"/>
   <int value="-10666109" label="chrome.mojom.PluginInfoHost"/>
-  <int value="-4973921" label="blink.mojom.AttributionHost"/>
+  <int value="-4973921" label="blink.mojom.AttributionHost (Obsolete in M152)"/>
   <int value="191605727" label="content.mojom.PepperHost"/>
   <int value="828689080" label="blink.mojom.BlobURLStore (Obsolete)"/>
   <int value="1054828948" label="extensions.mojom.GuestView"/>
@@ -1875,6 +1876,7 @@ chromium-metrics-reviews@google.com.
   <int value="11" label="Running in Kiosk Session"/>
   <int value="12" label="Low memory device"/>
   <int value="13" label="Disabled by blackout"/>
+  <int value="14" label="Disabled on startup"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/preloading/prerender/prerender_manager.h:PrewarmDecision) -->

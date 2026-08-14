@@ -137,8 +137,6 @@ class ManagedUserProfileNoticeStepControllerForTest
                        std::move(step_shown_callback)));
   }
 
-  void OnNavigateBackRequested() override { NOTREACHED(); }
-
   void OnManagedUserProfileNoticeLoaded(
       StepSwitchFinishedCallback step_shown_callback) {
     ManagedUserProfileNoticeUI* managed_user_notice_ui =
@@ -202,7 +200,7 @@ class ManagedUserProfileNoticeUIWindowPixelTest
         GetParam().screen_version == ScreenVersion::kRefreshed ||
         GetParam().screen_version == ScreenVersion::kRevamped;
     profile_picker_view_ = new ProfileManagementStepTestView(
-        ProfilePicker::Params::ForFirstRun(browser()->profile()->GetPath(),
+        ProfilePicker::Params::ForFirstRun(browser()->GetProfile()->GetPath(),
                                            base::DoNothing()),
         ProfileManagementFlowController::Step::kPostSignInFlow,
         /*step_controller_factory=*/

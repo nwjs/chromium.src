@@ -40,7 +40,7 @@ class BackgroundTabLoadingPolicy
     : public GraphOwnedAndRegistered<BackgroundTabLoadingPolicy>,
       public NodeDataDescriberDefaultImpl,
       public PageNodeObserver,
-      public base::MemoryConsumer {
+      public base::PassiveMemoryConsumer {
  public:
   // `all_restored_tabs_loaded_callback` is invoked when all tabs passed to
   // ScheduleLoadForRestoredTabs() are loaded.
@@ -127,9 +127,8 @@ class BackgroundTabLoadingPolicy
   base::DictValue DescribePageNodeData(const PageNode* node) const override;
   base::DictValue DescribeSystemNodeData(const SystemNode* node) const override;
 
-  // base::MemoryConsumer implementation:
+  // base::PassiveMemoryConsumer implementation:
   void OnUpdateMemoryLimit() override;
-  void OnReleaseMemory() override;
 
   // Returns the SiteDataReader instance for |page_node|, if any. Virtual for
   // testing.
@@ -281,6 +280,7 @@ class BackgroundTabLoadingPolicy
   // after the policy object is destroyed.
   base::WeakPtrFactory<BackgroundTabLoadingPolicy> weak_factory_{this};
 
+  FRIEND_TEST_ALL_PREFIXES(BackgroundTabLoadingPolicyTest, MaxTabsToRestore);
   FRIEND_TEST_ALL_PREFIXES(BackgroundTabLoadingPolicyTest,
                            ShouldLoad_MaxTabsToRestore);
   FRIEND_TEST_ALL_PREFIXES(BackgroundTabLoadingPolicyTest,

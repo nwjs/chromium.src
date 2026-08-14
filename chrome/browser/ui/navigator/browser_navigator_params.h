@@ -27,7 +27,6 @@
 #include "content/public/common/referrer.h"
 #include "services/network/public/cpp/resource_request_body.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
-#include "third_party/blink/public/common/navigation/impression.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/navigation/was_activated_option.mojom.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
@@ -262,11 +261,6 @@ struct NavigateParams {
   captive_portal::CaptivePortalWindowType captive_portal_window_type =
       captive_portal::CaptivePortalWindowType::kNone;
 
-  // Whether the browser popup is being created as a tab modal. If true,
-  // `disposition` should be NEW_POPUP. Additionally, it prevents card saving
-  // and other prompts for payments autofill enrollment.
-  bool is_tab_modal_popup_deprecated = false;
-
   // If false then the navigation was not initiated by a user gesture. This
   // variable will be set to true for popups to get windows focus even if
   // the navigation was not triggered by user gesture.
@@ -368,11 +362,6 @@ struct NavigateParams {
 
   // Indicates the reload type of this navigation.
   content::ReloadType reload_type = content::ReloadType::NONE;
-
-  // Optional impression associated with this navigation. Only set on
-  // navigations that originate from links with impression attributes. Used for
-  // conversion measurement.
-  std::optional<blink::Impression> impression;
 
   // True if the navigation was initiated by typing in the omnibox but the typed
   // text didn't have a scheme such as http or https (e.g. google.com), and

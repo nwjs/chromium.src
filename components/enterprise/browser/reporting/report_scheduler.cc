@@ -15,6 +15,7 @@
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/syslog_logging.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/enterprise/browser/controller/browser_dm_token_storage.h"
@@ -24,6 +25,7 @@
 #include "components/enterprise/browser/reporting/report_generation_config.h"
 #include "components/enterprise/browser/reporting/report_generator.h"
 #include "components/enterprise/browser/reporting/reporting_delegate_factory.h"
+#include "components/enterprise/browser/reporting/reporting_features.h"
 #include "components/policy/core/common/cloud/cloud_policy_client.h"
 #include "components/policy/core/common/cloud/device_management_service.h"
 #include "components/policy/core/common/cloud/dm_token.h"
@@ -45,6 +47,7 @@ bool IsBrowserVersionUploaded(ReportTrigger trigger) {
     case ReportTrigger::kTriggerUpdate:
     case ReportTrigger::kTriggerNewVersion:
     case ReportTrigger::kTriggerSecurity:
+    case ReportTrigger::kTriggerProfileOpened:
       return true;
     case ReportTrigger::kTriggerNone:
       return false;
@@ -125,9 +128,22 @@ ReportScheduler::ReportScheduler(CreateParams params)
   delegate_->SetReportTriggerCallback(
       base::BindRepeating(&ReportScheduler::GenerateAndUploadReport,
                           weak_ptr_factory_.GetWeakPtr()));
+
   RegisterPrefObservers();
 
   delegate_->OnInitializationCompleted();
+
+  if (base::FeatureList::IsEnabled(kUploadReportOnProfileOpen) &&
+      profile_request_generator_) {
+    if (IsReportingEnabled() || AreSecurityReportsEnabled()) {
+      // Post this task to avoid running the callback synchronously during the
+      // construction of `ReportScheduler`.
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE, base::BindOnce(&ReportScheduler::GenerateAndUploadReport,
+                                    weak_ptr_factory_.GetWeakPtr(),
+                                    ReportTrigger::kTriggerProfileOpened));
+    }
+  }
 }
 
 ReportScheduler::~ReportScheduler() = default;
@@ -220,12 +236,10 @@ void ReportScheduler::OnReportEnabledPrefChanged() {
   // For Chrome OS, it needn't register the cloud policy client here. The
   // |dm_token| and |client_id| should have already existed after the client is
   // initialized, and will keep valid during whole life-cycle.
-#if !BUILDFLAG(IS_CHROMEOS)
   if (!SetupBrowserPolicyClientRegistration()) {
     Stop();
     return;
   }
-#endif
 
   // Start the periodic report timer.
   RestartReportTimer();
@@ -256,6 +270,8 @@ void ReportScheduler::Stop() {
   if (pref_change_registrar_.IsObserved(kCloudReportingUploadFrequency)) {
     pref_change_registrar_.Remove(kCloudReportingUploadFrequency);
   }
+  active_report_generation_config_ =
+      ReportGenerationConfig(ReportTrigger::kTriggerNone);
 }
 
 void ReportScheduler::RestartReportTimer() {
@@ -267,6 +283,14 @@ bool ReportScheduler::SetupBrowserPolicyClientRegistration() {
   if (cloud_policy_client_->is_registered()) {
     return true;
   }
+
+#if BUILDFLAG(IS_CHROMEOS)
+  if (!profile_request_generator_) {
+    // Browser reporting uses the device-level CloudPolicyClient which is
+    // initialized and registered outside of this class on ChromeOS.
+    return true;
+  }
+#endif
 
   auto dm_token = GetDMToken();
   std::string client_id;
@@ -310,16 +334,54 @@ void ReportScheduler::Start(base::Time last_upload_time) {
                                       base::Unretained(this), kTriggerTimer));
 }
 
-void ReportScheduler::GenerateAndUploadReport(ReportTrigger trigger) {
+SecuritySignalsMode ReportScheduler::GetSecurityMode(
+    ReportType report_type,
+    ReportTrigger trigger) const {
+  if (!delegate_->AreSecurityReportsEnabled() ||
+      report_type != ReportType::kProfileReport) {
+    return SecuritySignalsMode::kNoSignals;
+  }
+
   if (trigger == ReportTrigger::kTriggerSecurity) {
-    CHECK(delegate_->AreSecurityReportsEnabled(), base::NotFatalUntil::M153);
-  } else {
-    CHECK(IsReportingEnabled(), base::NotFatalUntil::M153);
+    return SecuritySignalsMode::kSignalsOnly;
+  }
+
+  if (trigger == ReportTrigger::kTriggerProfileOpened) {
+    return IsReportingEnabled() ? SecuritySignalsMode::kSignalsAttached
+                                : SecuritySignalsMode::kSignalsOnly;
+  }
+
+  return SecuritySignalsMode::kSignalsAttached;
+}
+
+bool ReportScheduler::IsTriggerEnabled(ReportTrigger trigger) const {
+  switch (trigger) {
+    case ReportTrigger::kTriggerSecurity:
+      return AreSecurityReportsEnabled();
+    case ReportTrigger::kTriggerProfileOpened:
+      return IsReportingEnabled() || AreSecurityReportsEnabled();
+    case ReportTrigger::kTriggerTimer:
+    case ReportTrigger::kTriggerManual:
+    case ReportTrigger::kTriggerUpdate:
+    case ReportTrigger::kTriggerNewVersion:
+      return IsReportingEnabled();
+    case ReportTrigger::kTriggerNone:
+      return false;
+  }
+}
+
+void ReportScheduler::GenerateAndUploadReport(ReportTrigger trigger) {
+  if (!IsTriggerEnabled(trigger)) {
+    VLOG(1) << "Discarding report trigger: " << ReportTriggerToString(trigger)
+            << " (reporting is disabled)";
+    return;
   }
 
   if (delegate_->AreSecurityReportsEnabled()) {
     // Does nothing if client is already registered.
-    SetupBrowserPolicyClientRegistration();
+    if (!SetupBrowserPolicyClientRegistration()) {
+      return;
+    }
   }
 
   if (active_report_generation_config_.report_trigger != kTriggerNone) {
@@ -347,17 +409,74 @@ void ReportScheduler::GenerateAndUploadReport(ReportTrigger trigger) {
   report_generation_start_time_ = base::TimeTicks::Now();
 
   ReportType report_type = TriggerToReportType(trigger);
-  SecuritySignalsMode signals_mode = SecuritySignalsMode::kNoSignals;
-  if (report_type == ReportType::kProfileReport) {
-    signals_mode = delegate_->AreSecurityReportsEnabled()
-                       ? (trigger == ReportTrigger::kTriggerSecurity
-                              ? SecuritySignalsMode::kSignalsOnly
-                              : SecuritySignalsMode::kSignalsAttached)
-                       : SecuritySignalsMode::kNoSignals;
+  SecuritySignalsMode signals_mode = GetSecurityMode(report_type, trigger);
+
+  // Set active config trigger so we know we are generating.
+  active_report_generation_config_.report_trigger = trigger;
+
+  if (NeedChallenge(trigger, signals_mode)) {
+    cloud_policy_client_->GenerateChromeProfileChallenge(
+        base::BindOnce(&ReportScheduler::OnChallengeGenerated,
+                       weak_ptr_factory_.GetWeakPtr(), trigger, signals_mode));
+  } else {
+    ContinueGenerateAndUploadReport(trigger, signals_mode, std::nullopt);
+  }
+}
+
+bool ReportScheduler::NeedChallenge(ReportTrigger trigger,
+                                    SecuritySignalsMode signals_mode) const {
+  if (signals_mode == SecuritySignalsMode::kNoSignals) {
+    return false;
   }
 
+  if (!delegate_ || !delegate_->GetPrefService()) {
+    return false;
+  }
+
+  return !delegate_->GetPrefService()
+              ->GetList(kSecuritySignalsClientCertificatesSelectors)
+              .empty();
+}
+
+void ReportScheduler::OnChallengeGenerated(
+    ReportTrigger trigger,
+    SecuritySignalsMode signals_mode,
+    policy::DeviceManagementStatus status,
+    const em::GenerateChromeProfileChallengeResponse& response) {
+  std::optional<std::string> challenge;
+  if (status == policy::DM_STATUS_SUCCESS) {
+    VLOG_POLICY(1, REPORTING)
+        << "Successfully generated Chrome profile challenge.";
+    challenge = response.challenge();
+  } else {
+    LOG_POLICY(ERROR, REPORTING)
+        << "Failed to fetch Chrome profile challenge: " << status;
+  }
+  ContinueGenerateAndUploadReport(trigger, signals_mode, challenge);
+}
+
+void ReportScheduler::ContinueGenerateAndUploadReport(
+    ReportTrigger trigger,
+    SecuritySignalsMode signals_mode,
+    const std::optional<std::string>& challenge) {
+  // If we were stopped while waiting for the challenge, abort.
+  if (active_report_generation_config_.report_trigger ==
+      ReportTrigger::kTriggerNone) {
+    return;
+  }
+
+  ReportType report_type = TriggerToReportType(trigger);
+  base::ListValue cert_selectors;
+  if (delegate_ && delegate_->GetPrefService()) {
+    const auto* pref = delegate_->GetPrefService()->FindPreference(
+        kSecuritySignalsClientCertificatesSelectors);
+    if (pref) {
+      cert_selectors = pref->GetValue()->GetList().Clone();
+    }
+  }
   active_report_generation_config_ = ReportGenerationConfig(
-      trigger, report_type, signals_mode, delegate_->UseCookiesInUploads());
+      trigger, report_type, signals_mode, delegate_->UseCookiesInUploads(),
+      challenge, std::move(cert_selectors));
 
   VLOG_POLICY(1, REPORTING)
       << "Starting report generation with the following configuration: "
@@ -461,7 +580,9 @@ void ReportScheduler::OnReportUploaded(ReportUploader::ReportStatus status) {
       if (active_report_generation_config_.report_trigger ==
               ReportTrigger::kTriggerTimer ||
           active_report_generation_config_.report_trigger ==
-              ReportTrigger::kTriggerManual) {
+              ReportTrigger::kTriggerManual ||
+          active_report_generation_config_.report_trigger ==
+              ReportTrigger::kTriggerProfileOpened) {
         const base::Time now = base::Time::Now();
         delegate_->GetPrefService()->SetTime(kLastUploadTimestamp, now);
         if (IsReportingEnabled()) {
@@ -475,18 +596,25 @@ void ReportScheduler::OnReportUploaded(ReportUploader::ReportStatus status) {
       break;
   }
 
-  if ((active_report_generation_config_.report_trigger ==
-           ReportTrigger::kTriggerManual ||
-       active_report_generation_config_.report_trigger ==
-           ReportTrigger::kTriggerTimer)) {
-    // Timer and Manual report are exactly same. If we just uploaded one, skip
-    // the other.
-    if (pending_triggers_ & ReportTrigger::kTriggerTimer) {
-      pending_triggers_ -= ReportTrigger::kTriggerTimer;
-    }
-    if (pending_triggers_ & ReportTrigger::kTriggerManual) {
-      pending_triggers_ -= ReportTrigger::kTriggerManual;
-    }
+  if (active_report_generation_config_.report_trigger ==
+          ReportTrigger::kTriggerManual ||
+      active_report_generation_config_.report_trigger ==
+          ReportTrigger::kTriggerTimer ||
+      active_report_generation_config_.report_trigger ==
+          ReportTrigger::kTriggerProfileOpened) {
+    // For profile-level reporting, Timer, Manual and ProfileOpened reports
+    // are exactly the same. If we just uploaded one, skip the others.
+    pending_triggers_ &= ~ReportTrigger::kTriggerTimer;
+    pending_triggers_ &= ~ReportTrigger::kTriggerManual;
+    pending_triggers_ &= ~ReportTrigger::kTriggerProfileOpened;
+  }
+
+  if (active_report_generation_config_.security_signals_mode !=
+      SecuritySignalsMode::kNoSignals) {
+    delegate_->OnSecuritySignalsUploaded();
+    // A report with signals includes security signals already, we don't need
+    // another security signals only report until the timer runs out again.
+    pending_triggers_ &= ~ReportTrigger::kTriggerSecurity;
   }
 
   if (active_report_generation_config_.report_trigger ==
@@ -494,21 +622,11 @@ void ReportScheduler::OnReportUploaded(ReportUploader::ReportStatus status) {
       active_report_generation_config_.report_trigger ==
           ReportTrigger::kTriggerTimer ||
       active_report_generation_config_.report_trigger ==
-          ReportTrigger::kTriggerSecurity) {
+          ReportTrigger::kTriggerSecurity ||
+      active_report_generation_config_.report_trigger ==
+          ReportTrigger::kTriggerProfileOpened) {
     if (on_manual_report_uploaded_) {
       std::move(on_manual_report_uploaded_).Run();
-    }
-
-    if (active_report_generation_config_.security_signals_mode !=
-        SecuritySignalsMode::kNoSignals) {
-      delegate_->OnSecuritySignalsUploaded();
-
-      // A report with signals attached includes security signals already, we
-      // don't need another security signals only report until the timer runs
-      // out again.
-      if (pending_triggers_ & ReportTrigger::kTriggerSecurity) {
-        pending_triggers_ -= ReportTrigger::kTriggerSecurity;
-      }
     }
   }
 
@@ -524,6 +642,7 @@ void ReportScheduler::OnReportUploaded(ReportUploader::ReportStatus status) {
 
   active_report_generation_config_ =
       ReportGenerationConfig(ReportTrigger::kTriggerNone);
+
   RunPendingTriggers();
 }
 
@@ -546,20 +665,23 @@ void ReportScheduler::RunPendingTriggers() {
     // Manual-triggered reports also contains all data.
     trigger = kTriggerManual;
     pending_triggers_ = 0;
+  } else if ((pending_triggers_ & ReportTrigger::kTriggerProfileOpened) != 0) {
+    trigger = kTriggerProfileOpened;
+    pending_triggers_ = 0;
   } else if ((pending_triggers_ & ReportTrigger::kTriggerSecurity) != 0) {
     trigger = kTriggerSecurity;
-    pending_triggers_ -= ReportTrigger::kTriggerSecurity;
+    pending_triggers_ &= ~ReportTrigger::kTriggerSecurity;
   } else {
     // Update and NewVersion triggers lead to the same report content being
     // uploaded.
     if ((pending_triggers_ & ReportTrigger::kTriggerUpdate) != 0) {
       trigger = ReportTrigger::kTriggerUpdate;
-      pending_triggers_ -= ReportTrigger::kTriggerUpdate;
+      pending_triggers_ &= ~ReportTrigger::kTriggerUpdate;
     }
 
     if ((pending_triggers_ & ReportTrigger::kTriggerNewVersion) != 0) {
       trigger = ReportTrigger::kTriggerNewVersion;
-      pending_triggers_ -= ReportTrigger::kTriggerNewVersion;
+      pending_triggers_ &= ~ReportTrigger::kTriggerNewVersion;
     }
   }
 
@@ -578,7 +700,8 @@ void ReportScheduler::RecordUploadTrigger() {
     kExtensionRequestRealTime = 5,  // Deprecated.
     kManual = 6,
     kSecurity = 7,
-    kMaxValue = kSecurity
+    kProfileOpened = 8,
+    kMaxValue = kProfileOpened
   } sample = Sample::kNone;
   switch (active_report_generation_config_.report_trigger) {
     case ReportTrigger::kTriggerNone:
@@ -597,6 +720,9 @@ void ReportScheduler::RecordUploadTrigger() {
       break;
     case ReportTrigger::kTriggerSecurity:
       sample = Sample::kSecurity;
+      break;
+    case ReportTrigger::kTriggerProfileOpened:
+      sample = Sample::kProfileOpened;
       break;
   }
   base::UmaHistogramEnumeration("Enterprise.CloudReportingUploadTrigger",
@@ -617,6 +743,8 @@ ReportType ReportScheduler::TriggerToReportType(ReportTrigger trigger) {
     case ReportTrigger::kTriggerTimer:
     case ReportTrigger::kTriggerManual:
       return status_report_type_;
+    case ReportTrigger::kTriggerProfileOpened:
+      return ReportType::kProfileReport;
     case ReportTrigger::kTriggerUpdate:
       return ReportType::kBrowserVersion;
     case ReportTrigger::kTriggerNewVersion:
@@ -628,14 +756,13 @@ ReportType ReportScheduler::TriggerToReportType(ReportTrigger trigger) {
 }
 
 policy::DMToken ReportScheduler::GetDMToken() {
+  if (profile_request_generator_) {
+    return delegate_->GetProfileDMToken();
+  }
 #if BUILDFLAG(IS_CHROMEOS)
   return policy::DMToken::CreateValidToken(cloud_policy_client_->dm_token());
 #else
-  if (profile_request_generator_) {
-    return delegate_->GetProfileDMToken();
-  } else {
-    return policy::BrowserDMTokenStorage::Get()->RetrieveDMToken();
-  }
+  return policy::BrowserDMTokenStorage::Get()->RetrieveDMToken();
 #endif
 }
 

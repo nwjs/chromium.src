@@ -18,6 +18,7 @@
 
 #include "base/bits.h"
 #include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/strings/utf_ostream_operators.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
@@ -562,6 +563,55 @@ TEST(StringUtilTest, IsStringASCII) {
 #endif  // WCHAR_T_IS_32_BIT
 }
 
+TEST(StringUtilTest, FindFirstNonASCII) {
+  // Branch 1: Empty string
+  EXPECT_EQ(0u, FindFirstNonASCII(""));
+  EXPECT_EQ(0u, FindFirstNonASCII(u""));
+
+  // Branch 2: All ASCII strings (returns view.length())
+  EXPECT_EQ(5u, FindFirstNonASCII("Hello"));
+  EXPECT_EQ(12u, FindFirstNonASCII("Hello World!"));
+  EXPECT_EQ(11u, FindFirstNonASCII(u"Hello World"));
+
+  std::string long_ascii(200, 'a');
+  EXPECT_EQ(200u, FindFirstNonASCII(long_ascii));
+
+  // Branch 3: Non-ASCII in remainder / trailing bytes (< 1 batch length)
+  EXPECT_EQ(0u, FindFirstNonASCII("\x80World"));
+  EXPECT_EQ(5u, FindFirstNonASCII("Hello\x80World"));
+  EXPECT_EQ(5u, FindFirstNonASCII(u"Hello\u0080World"));
+
+  // Branch 4: Non-ASCII in alignment prologue
+  // Align offset so pointer is not aligned to MachineWord boundary.
+  std::string prologue_str = "   \x80Hello";
+  EXPECT_EQ(0u, FindFirstNonASCII(prologue_str.substr(3)));
+
+  // Branch 5: Non-ASCII inside 16-word batch (length >= 128 bytes for char)
+  std::string batch_str(200, 'a');
+  batch_str[50] = '\x80';
+  EXPECT_EQ(50u, FindFirstNonASCII(batch_str));
+
+  batch_str[50] = 'a';
+  batch_str[127] = '\x80';
+  EXPECT_EQ(127u, FindFirstNonASCII(batch_str));
+
+  // Non-ASCII in second batch
+  batch_str[127] = 'a';
+  batch_str[150] = '\x80';
+  EXPECT_EQ(150u, FindFirstNonASCII(batch_str));
+
+  // Branch 6: Non-ASCII in remainder bytes after full batch execution
+  std::string remainder_str(135, 'a');
+  remainder_str[129] = '\x80';
+  EXPECT_EQ(129u, FindFirstNonASCII(remainder_str));
+
+#if defined(WCHAR_T_IS_32_BIT)
+  EXPECT_EQ(0u, FindFirstNonASCII(L""));
+  EXPECT_EQ(11u, FindFirstNonASCII(L"Hello World"));
+  EXPECT_EQ(5u, FindFirstNonASCII(L"Hello\x80World"));
+#endif
+}
+
 TEST(StringUtilTest, ConvertASCII) {
   static const auto char_cases = std::to_array<const char*>(
       {"Google Video", "Hello, world\n", "0123ABCDwxyz \a\b\t\r\n!+,.~"});
@@ -906,6 +956,48 @@ TEST(StringUtilTest, JoinStringInitializerList16) {
   const std::u16string_view kPieceA = kA;
   const std::u16string_view kPieceB = kB;
   EXPECT_EQ(u"a, b", JoinString({kPieceA, kPieceB}, separator));
+}
+
+TEST(StringUtilTest, JoinStringConstexpr) {
+  static_assert([] {
+    const std::string_view parts[] = {"apple", "banana", "cherry"};
+    return JoinString(parts, ", ") == "apple, banana, cherry";
+  }());
+
+  static_assert([] {
+    const std::string_view parts[] = {"apple", "banana", "", "cherry"};
+    return JoinString(parts, ", ") == "apple, banana, , cherry";
+  }());
+  static_assert([] { return JoinString({}, ", ") == ""; }());
+
+  static_assert([] {
+    const std::u16string_view parts[] = {u"apple", u"banana", u"cherry"};
+    return JoinString(parts, u", ") == u"apple, banana, cherry";
+  }());
+
+  static_assert([] { return JoinString({"a", "b", "c"}, "|") == "a|b|c"; }());
+
+  static_assert(
+      [] { return JoinString({u"a", u"b", u"c"}, u"|") == u"a|b|c"; }());
+
+  static_assert([] {
+    const std::string_view parts[] = {"apple"};
+    return JoinString(parts, ", ") == "apple";
+  }());
+
+  static_assert([] {
+    const std::string parts[] = {"apple", "banana"};
+    return JoinString(parts, ", ") == "apple, banana";
+  }());
+
+  static_assert([] {
+    const std::u16string parts[] = {u"apple", u"banana"};
+    return JoinString(parts, u", ") == u"apple, banana";
+  }());
+
+  static_assert([] {
+    return JoinString(base::span<const std::string_view>(), ", ") == "";
+  }());
 }
 
 TEST(StringUtilTest, StartsWith) {

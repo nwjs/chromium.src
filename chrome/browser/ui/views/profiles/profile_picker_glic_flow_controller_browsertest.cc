@@ -7,7 +7,6 @@
 #include "base/files/file_path.h"
 #include "base/functional/callback_helpers.h"
 #include "base/test/mock_callback.h"
-#include "base/test/test_future.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/profile.h"
@@ -105,14 +104,14 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerGlicFlowControllerBrowserTest,
   base::MockCallback<base::OnceCallback<void(Profile*)>>
       picked_profile_callback;
   // Return the currently active profile right away if it is already loaded.
-  EXPECT_CALL(picked_profile_callback, Run(browser()->profile()));
+  EXPECT_CALL(picked_profile_callback, Run(browser()->GetProfile()));
 
   ProfilePickerGlicFlowController controller(
       host(), ClearHostClosure(clear_host_callback.Get()),
       picked_profile_callback.Get());
   base::MockCallback<base::OnceCallback<void(bool)>> mock_callback;
   EXPECT_CALL(mock_callback, Run(true));
-  controller.PickProfile(browser()->profile()->GetPath(),
+  controller.PickProfile(browser()->GetProfile()->GetPath(),
                          ProfilePicker::ProfilePickingArgs(),
                          mock_callback.Get());
 }

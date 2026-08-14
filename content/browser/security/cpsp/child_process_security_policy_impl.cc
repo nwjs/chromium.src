@@ -35,6 +35,7 @@
 #include "content/browser/process_lock.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/security/cpsp/child_process_security_policy_impl.rs.h"
+#include "content/browser/security/cpsp/process_state.rs.h"
 #include "content/browser/site_info.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/url_info.h"
@@ -385,7 +386,7 @@ void LogCanAccessDataForOriginCrashKeys(
   base::debug::SetCrashKeyString(GetAccessTypeKey(), access_type);
 }
 
-void LogCanCommitUrlFailureReason(const std::string& failure_reason) {
+void LogCanCommitUrlFailureReason(std::string_view failure_reason) {
   static auto* const failure_reason_key = base::debug::AllocateCrashKeyString(
       "cpspi_can_commit_url_failure_reason", base::debug::CrashKeySize::Size64);
   base::debug::SetCrashKeyString(failure_reason_key, failure_reason);
@@ -1220,8 +1221,7 @@ ChildProcessSecurityPolicyImpl* ChildProcessSecurityPolicyImpl::GetInstance() {
 void ChildProcessSecurityPolicyImpl::Add(ChildProcessId child_id,
                                          BrowserContext* browser_context) {
   if (IsRustEnabled(GetRustPolicy(CpspRustFeature::kProcessState))) {
-    // TODO(crbug.com/522844976): Pass ChildProcessId directly to Rust.
-    rust::child_process_security_policy::add_process(child_id.GetUnsafeValue());
+    rust::child_process_security_policy::add_process(child_id);
   }
   // Note: We explicitly continue to create process_state_ even when in
   // Rust-only mode, since the values tracked by ProcessState have only
@@ -1595,7 +1595,8 @@ void ChildProcessSecurityPolicyImpl::GrantDeleteFromFileSystem(
 
 void ChildProcessSecurityPolicyImpl::GrantSendMidiMessage(int child_id) {
   RUST_CPP_PROCESS_STATE_VOID_FUNCTION(
-      rust::child_process_security_policy::grant_send_midi_message(child_id),
+      rust::child_process_security_policy::grant_send_midi_message(
+          ChildProcessId::FromUnsafeValue(child_id)),
       GrantSendMidiMessage_Cpp(child_id));
 }
 
@@ -1614,7 +1615,7 @@ void ChildProcessSecurityPolicyImpl::GrantSendMidiMessage_Cpp(int child_id) {
 void ChildProcessSecurityPolicyImpl::GrantSendMidiSysExMessage(int child_id) {
   RUST_CPP_PROCESS_STATE_VOID_FUNCTION(
       rust::child_process_security_policy::grant_send_midi_sysex_message(
-          child_id),
+          ChildProcessId::FromUnsafeValue(child_id)),
       GrantSendMidiSysExMessage_Cpp(child_id));
 }
 
@@ -2347,10 +2348,6 @@ bool ChildProcessSecurityPolicyImpl::HostsOrigin(int child_id,
 bool ChildProcessSecurityPolicyImpl::CanAccessOrigin(int child_id,
                                                      const url::Origin& origin,
                                                      AccessType access_type) {
-  // Ensure this is only called on the UI thread, which is the only thread
-  // with sufficient information to do the full set of checks.
-  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
   GURL url_to_check;
   if (origin.opaque()) {
     auto precursor_tuple = origin.GetTupleOrPrecursorTupleIfOpaque();
@@ -2437,9 +2434,10 @@ bool ChildProcessSecurityPolicyImpl::PerformJailAndCitadelChecks(
     const ProcessState& process_state,
     const GURL& url,
     bool url_is_precursor_of_opaque_origin,
-    AccessType access_type,
     ProcessLock& out_expected_process_lock,
     std::string& out_failure_reason) {
+  // Ensure this is only called on the UI thread, which is the only thread
+  // with sufficient information to do the full set of checks.
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   ProcessLock actual_process_lock = process_state.process_lock();
@@ -2733,14 +2731,6 @@ bool ChildProcessSecurityPolicyImpl::CanAccessMaybeOpaqueOrigin(
     const GURL& url,
     bool url_is_precursor_of_opaque_origin,
     AccessType access_type) {
-  // Ensure this is only called on the UI thread, which is the only thread with
-  // sufficient information to do the full set of checks.
-  //
-  // TODO(alexmos): Previously, this code could run on both UI and IO threads.
-  // Go through and clean up code paths that are no longer reachable on the IO
-  // thread.
-  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
   base::AutoLock lock(lock_);
 
   const ProcessState* process_state =
@@ -2767,38 +2757,40 @@ bool ChildProcessSecurityPolicyImpl::CanAccessMaybeOpaqueOrigin(
                !IsAccessAllowedForPdfProcess(access_type)) {
       failure_reason = "pdf_restrictions";
     } else {
-      // For checking kHostsOrigin or kCanAccessDataForOrigin access types, we
-      // can use a simpler check based on tracking the list of committed
-      // origins.
-      //
-      // Note that it's important to perform this check *after* the PDF and
-      // sandboxing restrictions above, since those checks may deny access even
-      // for origins that have previously committed in a process. In other
-      // words, PDF and sandboxed processes should never be allowed to access
-      // data, even to their own committed origins.
-      bool can_use_committed_origin_checks =
-          access_type == AccessType::kHostsOrigin ||
-          access_type == AccessType::kCanAccessDataForCommittedOrigin;
-      if (can_use_committed_origin_checks) {
-        if (process_state->MatchesCommittedOrigin(
-                url, url_is_precursor_of_opaque_origin)) {
-          return true;
-        }
-        failure_reason = "no_matching_committed_origin";
-      } else {
-        // If we couldn't use committed origin enforcements (i.e., for
-        // kCanCommitNewOrigin checks), Jail and Citadel checks are the source
-        // of truth. If they don't pass, collect crash keys below before
-        // returning false. Unlike committed origin enforcements, these checks
-        // require BrowserContext to still exist in the ProcessState.
-        if (!process_state->browser_context()) {
-          failure_reason = "no_browser_context";
-        } else if (PerformJailAndCitadelChecks(
-                       child_id, *process_state, url,
-                       url_is_precursor_of_opaque_origin, access_type,
-                       expected_process_lock, failure_reason)) {
-          return true;
-        }
+      switch (access_type) {
+        case AccessType::kHostsOrigin:
+        case AccessType::kCanAccessDataForCommittedOrigin:
+          // For checking kHostsOrigin or kCanAccessDataForOrigin access types,
+          // we can use a simpler check based on tracking the list of committed
+          // origins.
+          //
+          // Note that it's important to perform this check *after* the PDF and
+          // sandboxing restrictions above, since those checks may deny access
+          // even for origins that have previously committed in a process. In
+          // other words, PDF and sandboxed processes should never be allowed to
+          // access data, even to their own committed origins.
+          if (process_state->MatchesCommittedOrigin(
+                  url, url_is_precursor_of_opaque_origin)) {
+            return true;
+          }
+          failure_reason = "no_matching_committed_origin";
+          break;
+        case AccessType::kCanCommitNewOrigin:
+          // If we couldn't use committed origin enforcements (i.e., for
+          // kCanCommitNewOrigin checks), Jail and Citadel checks are the source
+          // of truth. If they don't pass, collect crash keys below before
+          // returning false. Unlike committed origin enforcements, these checks
+          // require BrowserContext to still exist in the ProcessState, and can
+          // only run on the UI thread.
+          if (!process_state->browser_context()) {
+            failure_reason = "no_browser_context";
+          } else if (PerformJailAndCitadelChecks(
+                         child_id, *process_state, url,
+                         url_is_precursor_of_opaque_origin,
+                         expected_process_lock, failure_reason)) {
+            return true;
+          }
+          break;
       }
     }
   }
@@ -2933,9 +2925,7 @@ void ChildProcessSecurityPolicyImpl::RegisterFileSystemPermissionPolicy_Cpp(
 bool ChildProcessSecurityPolicyImpl::CanSendMidiMessage(
     ChildProcessId child_id) {
   RUST_CPP_PROCESS_STATE_RETURN_FUNCTION(
-      // TODO(crbug.com/522844976): Pass ChildProcessId directly to Rust.
-      rust::child_process_security_policy::can_send_midi_message(
-          child_id.GetUnsafeValue()),
+      rust::child_process_security_policy::can_send_midi_message(child_id),
       CanSendMidiMessage_Cpp(child_id));
 }
 
@@ -2952,9 +2942,8 @@ bool ChildProcessSecurityPolicyImpl::CanSendMidiMessage_Cpp(
 bool ChildProcessSecurityPolicyImpl::CanSendMidiSysExMessage(
     ChildProcessId child_id) {
   RUST_CPP_PROCESS_STATE_RETURN_FUNCTION(
-      // TODO(crbug.com/522844976): Pass ChildProcessId directly to Rust.
       rust::child_process_security_policy::can_send_midi_sysex_message(
-          child_id.GetUnsafeValue()),
+          child_id),
       CanSendMidiSysExMessage_Cpp(child_id));
 }
 
@@ -3449,7 +3438,7 @@ ChildProcessSecurityPolicyImpl::LookupOriginAgentClusterState(
             OriginAgentClusterIsolationState::SiteKeyedByDefault;
     if (rust::child_process_security_policy::lookup_origin_agent_cluster_state(
             // Make a copy of the origin for Rust to own.
-            browsing_instance_id.value(), std::make_unique<url::Origin>(origin),
+            browsing_instance_id, std::make_unique<url::Origin>(origin),
             state)) {
       rust_result =
           std::make_optional(FromRustOriginAgentClusterIsolationState(state));
@@ -3502,7 +3491,7 @@ void ChildProcessSecurityPolicyImpl::RecordDefaultOriginAgentClusterOriginIfNew(
   RUST_CPP_VOID_FUNCTION(
       rust::child_process_security_policy::
           record_default_origin_agent_cluster_origin_if_new(
-              isolation_context.browsing_instance_id().value(),
+              isolation_context.browsing_instance_id(),
               browser_context->UniqueId(),
               // Make a copy of the origin for Rust to own.
               std::make_unique<url::Origin>(origin),
@@ -3632,7 +3621,7 @@ void ChildProcessSecurityPolicyImpl::EraseOriginAgentClusterState(
     const BrowsingInstanceId& browsing_instance_id) {
   RUST_CPP_VOID_FUNCTION(
       rust::child_process_security_policy::erase_origin_agent_cluster_state(
-          browsing_instance_id.value()),
+          browsing_instance_id),
       EraseOriginAgentClusterState_Cpp(browsing_instance_id));
 }
 
@@ -3646,7 +3635,7 @@ void ChildProcessSecurityPolicyImpl::EraseV8OptimizationState(
     const BrowsingInstanceId& browsing_instance_id) {
   RUST_CPP_VOID_FUNCTION(
       rust::child_process_security_policy::erase_v8_optimization_state(
-          browsing_instance_id.value()),
+          browsing_instance_id),
       EraseV8OptimizationState_Cpp(browsing_instance_id));
 }
 
@@ -3717,22 +3706,18 @@ void ChildProcessSecurityPolicyImpl::
   // TODO(crbug.com/482216433): Support this check on the Rust side.
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-  // TODO(crbug.com/482216433): Support this lookup on the Rust side.
-  bool is_oac_enabled_by_default =
-      SiteIsolationPolicy::AreOriginAgentClustersEnabledByDefault(
-          isolation_context.browser_context());
-
   RUST_CPP_VOID_FUNCTION(
       rust::child_process_security_policy::
           add_origin_agent_cluster_state_for_browsing_instance(
-              isolation_context.browsing_instance_id().value(),
+              isolation_context.browsing_instance_id(),
               // Make a copy of the origin for Rust to own.
               std::make_unique<url::Origin>(origin),
               ToRustOriginAgentClusterIsolationState(oac_isolation_state),
-              is_oac_enabled_by_default),
+              ToRustOriginAgentClusterIsolationState(
+                  isolation_context.default_isolation_state())),
       AddOriginAgentClusterStateForBrowsingInstance_Cpp(
           isolation_context.browsing_instance_id(), origin, oac_isolation_state,
-          is_oac_enabled_by_default));
+          isolation_context.default_isolation_state()));
 }
 
 void ChildProcessSecurityPolicyImpl::
@@ -3740,15 +3725,11 @@ void ChildProcessSecurityPolicyImpl::
         const BrowsingInstanceId& browsing_instance_id,
         const url::Origin& origin,
         const OriginAgentClusterIsolationState& oac_isolation_state,
-        bool is_oac_enabled_by_default) {
-  // We should only explicitly record states from OAC header requests, either
-  // opt-ins or opt-outs. Opt-outs only make sense if OAC is enabled by
-  // default.
-  DCHECK(oac_isolation_state.logical_oac_status() ==
-             AgentClusterKey::OACStatus::kOriginKeyedByHeader ||
-         (oac_isolation_state.logical_oac_status() ==
-              AgentClusterKey::OACStatus::kSiteKeyedByHeader &&
-          is_oac_enabled_by_default));
+        const OriginAgentClusterIsolationState& default_isolation_state) {
+  // We should only be registering an isolation state if it deviates from the
+  // default isolation state (e.g., if it's explicitly requested by a header or
+  // if an ad frame's process isolation is being bypassed).
+  DCHECK(oac_isolation_state != default_isolation_state);
 
   // We ought to have validated the origin prior to getting here.  If the
   // origin isn't valid at this point, something has gone wrong.
@@ -3836,7 +3817,7 @@ void ChildProcessSecurityPolicyImpl::
   RUST_CPP_VOID_FUNCTION(
       rust::child_process_security_policy::
           add_v8_optimization_disabled_state_for_origin_if_not_cached(
-              browsing_instance_id.value(),
+              browsing_instance_id,
               // Make a copy for Rust to own.
               std::make_unique<url::Origin>(process_lock_origin),
               are_v8_optimizations_disabled),
@@ -3884,7 +3865,7 @@ ChildProcessSecurityPolicyImpl::LookupAreV8OptimizationsDisabled(
     bool result = false;
     if (rust::child_process_security_policy::
             lookup_are_v8_optimizations_disabled(
-                browsing_instance_id.value(),
+                browsing_instance_id,
                 // Make a copy for Rust to own.
                 std::make_unique<url::Origin>(process_lock_origin), result)) {
       rust_result = std::make_optional(result);
@@ -4094,9 +4075,7 @@ void ChildProcessSecurityPolicyImpl::ProcessStateMaps::RemoveProcessReference(
   // allow the C++ cleanup code to complete, since Rust doesn't yet support
   // everything in ProcessState.
   if (IsRustEnabled(GetRustPolicy(CpspRustFeature::kProcessState))) {
-    // TODO(crbug.com/522844976): Pass ChildProcessId directly to Rust.
-    rust::child_process_security_policy::remove_process(
-        child_id.GetUnsafeValue());
+    rust::child_process_security_policy::remove_process(child_id);
   }
 
   // |child_id| could be inside tasks that are on the IO thread task queues. We

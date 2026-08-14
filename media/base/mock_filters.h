@@ -224,6 +224,7 @@ class MockDemuxerStream : public DemuxerStream {
   VideoDecoderConfig video_decoder_config() override;
   MOCK_METHOD0(EnableBitstreamConverter, void());
   MOCK_METHOD0(SupportsConfigChanges, bool());
+  MOCK_METHOD(bool, ManagesTrackSwitchesInternally, (), (const, override));
 
   void set_audio_decoder_config(const AudioDecoderConfig& config);
   void set_video_decoder_config(const VideoDecoderConfig& config);
@@ -858,6 +859,7 @@ class MockStreamParser : public StreamParser {
                     EndMediaSegmentCB end_of_segment_cb,
                     MediaLog* media_log));
   MOCK_METHOD0(Flush, void());
+  MOCK_METHOD0(MarkEndOfStream, void());
   MOCK_CONST_METHOD0(GetGenerateTimestampsFlag, bool());
   MOCK_METHOD1(AppendToParseBuffer, bool(base::span<const uint8_t>));
   MOCK_METHOD1(Parse, ParseStatus(int));

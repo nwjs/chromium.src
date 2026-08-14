@@ -31,6 +31,7 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/translate/translate_bubble_controller.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/read_anything/read_anything.mojom-shared.h"
 #include "chrome/common/read_anything/read_anything.mojom.h"
@@ -152,6 +153,9 @@ class MockPage : public read_anything::mojom::UntrustedPage {
               OnMainFrameSameDocumentNavigation,
               (const GURL& url),
               (override));
+  MOCK_METHOD(void,
+              OnReadingModeShown,
+              (read_anything::mojom::ReadAnythingOpenTrigger open_trigger));
 
   mojo::Receiver<read_anything::mojom::UntrustedPage> receiver_{this};
 };
@@ -288,7 +292,7 @@ class ReadAnythingUntrustedPageHandlerTest
         ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
     web_contents_ = content::WebContents::Create(
-        content::WebContents::CreateParams(browser()->profile()));
+        content::WebContents::CreateParams(browser()->GetProfile()));
     test_web_ui_ = std::make_unique<content::TestWebUI>();
     test_web_ui_->set_web_contents(web_contents_.get());
 
@@ -410,6 +414,8 @@ class ReadAnythingUntrustedPageHandlerTest
     handler_->OnLinksEnabledChanged(enabled);
   }
 
+  void OnTranslationRequested() { handler_->OnTranslationRequested(); }
+
   void OnImagesEnabledChanged(bool enabled) {
     handler_->OnImagesEnabledChanged(enabled);
   }
@@ -440,12 +446,11 @@ class ReadAnythingUntrustedPageHandlerTest
 
   void OnEntryShown(SidePanelEntry* entry) {
     if (IsImmersiveEnabled()) {
-      std::optional<ReadAnythingOpenTrigger> read_anything_trigger;
-      if (entry->last_open_trigger().has_value()) {
-        read_anything_trigger =
-            read_anything::SidePanelToReadAnythingOpenTrigger(
-                entry->last_open_trigger().value());
-      }
+      ReadAnythingOpenTrigger read_anything_trigger =
+          entry->last_open_trigger().has_value()
+              ? read_anything::SidePanelToReadAnythingOpenTrigger(
+                    entry->last_open_trigger().value())
+              : ReadAnythingOpenTrigger::kUnknown;
       ReadAnythingController::From(browser()->GetActiveTabInterface())
           ->OnEntryShown(read_anything_trigger);
     } else {
@@ -537,7 +542,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest,
       read_anything::mojom::HighlightGranularity::kDefaultValue;
   auto expected_line_focus = read_anything::mojom::LineFocus::kDefaultValue;
   bool expected_line_focus_enabled = false;
-  PrefService* prefs = browser()->profile()->GetPrefs();
+  PrefService* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetInteger(prefs::kAccessibilityReadAnythingLineSpacing, 3);
   prefs->SetInteger(prefs::kAccessibilityReadAnythingLetterSpacing, 2);
   prefs->SetString(prefs::kAccessibilityReadAnythingFontName,
@@ -640,12 +645,12 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest,
   handler_ = CreateHandler();
 
   OnLineSpaceChange(kSpacing1);
-  int spacing1 = browser()->profile()->GetPrefs()->GetInteger(
+  int spacing1 = browser()->GetProfile()->GetPrefs()->GetInteger(
       prefs::kAccessibilityReadAnythingLineSpacing);
   ASSERT_EQ(spacing1, static_cast<int>(kSpacing1));
 
   OnLineSpaceChange(kSpacing2);
-  int spacing2 = browser()->profile()->GetPrefs()->GetInteger(
+  int spacing2 = browser()->GetProfile()->GetPrefs()->GetInteger(
       prefs::kAccessibilityReadAnythingLineSpacing);
   ASSERT_EQ(spacing2, static_cast<int>(kSpacing2));
 }
@@ -659,12 +664,12 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest,
   handler_ = CreateHandler();
 
   OnLetterSpaceChange(kSpacing1);
-  const int spacing1 = browser()->profile()->GetPrefs()->GetInteger(
+  const int spacing1 = browser()->GetProfile()->GetPrefs()->GetInteger(
       prefs::kAccessibilityReadAnythingLetterSpacing);
   ASSERT_EQ(spacing1, static_cast<int>(kSpacing1));
 
   OnLetterSpaceChange(kSpacing2);
-  const int spacing2 = browser()->profile()->GetPrefs()->GetInteger(
+  const int spacing2 = browser()->GetProfile()->GetPrefs()->GetInteger(
       prefs::kAccessibilityReadAnythingLetterSpacing);
   ASSERT_EQ(spacing2, static_cast<int>(kSpacing2));
 }
@@ -677,12 +682,12 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest, OnColorChange) {
   handler_ = CreateHandler();
 
   OnColorChange(kColor1);
-  const int spacing1 = browser()->profile()->GetPrefs()->GetInteger(
+  const int spacing1 = browser()->GetProfile()->GetPrefs()->GetInteger(
       prefs::kAccessibilityReadAnythingColorInfo);
   ASSERT_EQ(spacing1, static_cast<int>(kColor1));
 
   OnColorChange(kColor2);
-  const int spacing2 = browser()->profile()->GetPrefs()->GetInteger(
+  const int spacing2 = browser()->GetProfile()->GetPrefs()->GetInteger(
       prefs::kAccessibilityReadAnythingColorInfo);
   ASSERT_EQ(spacing2, static_cast<int>(kColor2));
 }
@@ -696,12 +701,12 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest,
   handler_ = CreateHandler();
 
   OnHighlightGranularityChanged(kGranularity1);
-  const int granularity1 = browser()->profile()->GetPrefs()->GetInteger(
+  const int granularity1 = browser()->GetProfile()->GetPrefs()->GetInteger(
       prefs::kAccessibilityReadAnythingHighlightGranularity);
   ASSERT_EQ(granularity1, static_cast<int>(kGranularity1));
 
   OnHighlightGranularityChanged(kGranularity2);
-  const int granularity2 = browser()->profile()->GetPrefs()->GetInteger(
+  const int granularity2 = browser()->GetProfile()->GetPrefs()->GetInteger(
       prefs::kAccessibilityReadAnythingHighlightGranularity);
   ASSERT_EQ(granularity2, static_cast<int>(kGranularity2));
 }
@@ -715,12 +720,12 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest,
   handler_ = CreateHandler();
 
   handler_->OnLineFocusChanged(kLineFocus1, kLineFocus1);
-  const int LineFocus1 = browser()->profile()->GetPrefs()->GetInteger(
+  const int LineFocus1 = browser()->GetProfile()->GetPrefs()->GetInteger(
       prefs::kAccessibilityReadAnythingLineFocus);
   ASSERT_EQ(LineFocus1, static_cast<int>(kLineFocus1));
 
   handler_->OnLineFocusChanged(kLineFocus2, kLineFocus1);
-  const int LineFocus2 = browser()->profile()->GetPrefs()->GetInteger(
+  const int LineFocus2 = browser()->GetProfile()->GetPrefs()->GetInteger(
       prefs::kAccessibilityReadAnythingLineFocus);
   ASSERT_EQ(LineFocus2, static_cast<int>(kLineFocus2));
 }
@@ -734,13 +739,13 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest,
   handler_ = CreateHandler();
 
   handler_->OnLineFocusChanged(kLineFocus1, kLineFocus1);
-  const int LineFocus1 = browser()->profile()->GetPrefs()->GetInteger(
+  const int LineFocus1 = browser()->GetProfile()->GetPrefs()->GetInteger(
       prefs::kAccessibilityReadAnythingLastNonDisabledLineFocus);
   ASSERT_EQ(LineFocus1, static_cast<int>(kLineFocus1));
 
   // When line focus changes to off, enabled mode should not change
   handler_->OnLineFocusChanged(kLineFocus2, kLineFocus1);
-  const int LineFocus2 = browser()->profile()->GetPrefs()->GetInteger(
+  const int LineFocus2 = browser()->GetProfile()->GetPrefs()->GetInteger(
       prefs::kAccessibilityReadAnythingLastNonDisabledLineFocus);
   ASSERT_EQ(LineFocus2, static_cast<int>(kLineFocus1));
 }
@@ -751,12 +756,12 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest, OnFontChange) {
   handler_ = CreateHandler();
 
   OnFontChange(kFont1);
-  const std::string font1 = browser()->profile()->GetPrefs()->GetString(
+  const std::string font1 = browser()->GetProfile()->GetPrefs()->GetString(
       prefs::kAccessibilityReadAnythingFontName);
   ASSERT_EQ(font1, kFont1);
 
   OnFontChange(kFont2);
-  const std::string font2 = browser()->profile()->GetPrefs()->GetString(
+  const std::string font2 = browser()->GetProfile()->GetPrefs()->GetString(
       prefs::kAccessibilityReadAnythingFontName);
   ASSERT_EQ(font2, kFont2);
 }
@@ -828,12 +833,12 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest, OnFontSizeChange) {
   handler_ = CreateHandler();
 
   OnFontSizeChange(kFontSize1);
-  const double fontSize1 = browser()->profile()->GetPrefs()->GetDouble(
+  const double fontSize1 = browser()->GetProfile()->GetPrefs()->GetDouble(
       prefs::kAccessibilityReadAnythingFontScale);
   ASSERT_EQ(fontSize1, kFontSize1);
 
   OnFontSizeChange(kFontSize2);
-  const double fontSize2 = browser()->profile()->GetPrefs()->GetDouble(
+  const double fontSize2 = browser()->GetProfile()->GetPrefs()->GetDouble(
       prefs::kAccessibilityReadAnythingFontScale);
   ASSERT_EQ(fontSize2, kFontSize2);
 }
@@ -843,12 +848,12 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest,
   handler_ = CreateHandler();
 
   OnLinksEnabledChanged(true);
-  const double fontSize1 = browser()->profile()->GetPrefs()->GetBoolean(
+  const double fontSize1 = browser()->GetProfile()->GetPrefs()->GetBoolean(
       prefs::kAccessibilityReadAnythingLinksEnabled);
   ASSERT_TRUE(fontSize1);
 
   OnLinksEnabledChanged(false);
-  const double fontSize2 = browser()->profile()->GetPrefs()->GetBoolean(
+  const double fontSize2 = browser()->GetProfile()->GetPrefs()->GetBoolean(
       prefs::kAccessibilityReadAnythingLinksEnabled);
   ASSERT_FALSE(fontSize2);
 }
@@ -858,12 +863,12 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest,
   handler_ = CreateHandler();
 
   OnImagesEnabledChanged(true);
-  const double fontSize1 = browser()->profile()->GetPrefs()->GetBoolean(
+  const double fontSize1 = browser()->GetProfile()->GetPrefs()->GetBoolean(
       prefs::kAccessibilityReadAnythingImagesEnabled);
   ASSERT_TRUE(fontSize1);
 
   OnImagesEnabledChanged(false);
-  const double fontSize2 = browser()->profile()->GetPrefs()->GetBoolean(
+  const double fontSize2 = browser()->GetProfile()->GetPrefs()->GetBoolean(
       prefs::kAccessibilityReadAnythingImagesEnabled);
   ASSERT_FALSE(fontSize2);
 }
@@ -875,12 +880,12 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest,
   handler_ = CreateHandler();
 
   OnSpeechRateChange(kRate1);
-  const double rate1 = browser()->profile()->GetPrefs()->GetDouble(
+  const double rate1 = browser()->GetProfile()->GetPrefs()->GetDouble(
       prefs::kAccessibilityReadAnythingSpeechRate);
   ASSERT_EQ(rate1, kRate1);
 
   OnSpeechRateChange(kRate2);
-  const double rate2 = browser()->profile()->GetPrefs()->GetDouble(
+  const double rate2 = browser()->GetProfile()->GetPrefs()->GetDouble(
       prefs::kAccessibilityReadAnythingSpeechRate);
   ASSERT_EQ(rate2, kRate2);
 }
@@ -896,7 +901,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest,
   OnLanguagePrefChange(kLang2, true);
   OnLanguagePrefChange(kDisabledLang, false);
 
-  const base::ListValue* langs = &browser()->profile()->GetPrefs()->GetList(
+  const base::ListValue* langs = &browser()->GetProfile()->GetPrefs()->GetList(
       prefs::kAccessibilityReadAnythingLanguagesEnabled);
   ASSERT_EQ(langs->size(), 2u);
   ASSERT_EQ((*langs)[0].GetString(), kLang1);
@@ -907,7 +912,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest,
                        OnLanguagePrefChange_SameLang_StoresLatestInPrefs) {
   const char kLang[] = "bn";
   handler_ = CreateHandler();
-  PrefService* prefs = browser()->profile()->GetPrefs();
+  PrefService* prefs = browser()->GetProfile()->GetPrefs();
 
   OnLanguagePrefChange(kLang, true);
   ASSERT_EQ(
@@ -928,7 +933,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest,
                        OnLanguagePrefChange_SameLang_StoresOnce) {
   const char kLang[] = "bn";
   handler_ = CreateHandler();
-  PrefService* prefs = browser()->profile()->GetPrefs();
+  PrefService* prefs = browser()->GetProfile()->GetPrefs();
 
   OnLanguagePrefChange(kLang, true);
   ASSERT_EQ(
@@ -964,7 +969,7 @@ IN_PROC_BROWSER_TEST_P(
   double expected_speech_rate = 1.2;
   read_anything::mojom::HighlightGranularity expected_highlight_granularity =
       read_anything::mojom::HighlightGranularity::kOff;
-  PrefService* prefs = browser()->profile()->GetPrefs();
+  PrefService* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetDouble(prefs::kAccessibilityReadAnythingSpeechRate,
                    expected_speech_rate);
   prefs->SetDict(prefs::kAccessibilityReadAnythingVoiceName, std::move(voices));
@@ -999,7 +1004,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest,
   page_.receiver_.FlushForTesting();
 
   // Change a preference.
-  PrefService* prefs = browser()->profile()->GetPrefs();
+  PrefService* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetInteger(prefs::kAccessibilityReadAnythingColorInfo,
                     static_cast<int>(read_anything::mojom::Colors::kDark));
 
@@ -1024,7 +1029,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest,
   OnVoiceChange(kVoice1, kLang1);
   OnVoiceChange(kVoice2, kLang2);
 
-  const base::DictValue* voices = &browser()->profile()->GetPrefs()->GetDict(
+  const base::DictValue* voices = &browser()->GetProfile()->GetPrefs()->GetDict(
       prefs::kAccessibilityReadAnythingVoiceName);
   ASSERT_EQ(voices->size(), 2u);
   EXPECT_THAT(*voices,
@@ -1042,7 +1047,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest,
   OnVoiceChange(kVoice1, kLang);
   OnVoiceChange(kVoice2, kLang);
 
-  const base::DictValue* voices = &browser()->profile()->GetPrefs()->GetDict(
+  const base::DictValue* voices = &browser()->GetProfile()->GetPrefs()->GetDict(
       prefs::kAccessibilityReadAnythingVoiceName);
   ASSERT_EQ(voices->size(), 1u);
   EXPECT_THAT(*voices,
@@ -1059,7 +1064,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTest,
   OnVoiceChange(kVoice, kLang1);
   OnVoiceChange(kVoice, kLang2);
 
-  const base::DictValue* voices = &browser()->profile()->GetPrefs()->GetDict(
+  const base::DictValue* voices = &browser()->GetProfile()->GetPrefs()->GetDict(
       prefs::kAccessibilityReadAnythingVoiceName);
   ASSERT_EQ(voices->size(), 2u);
   EXPECT_THAT(*voices,
@@ -2069,6 +2074,34 @@ IN_PROC_BROWSER_TEST_P(
   }
 }
 
+class ReadAnythingUntrustedPageHandlerTranslateEntryPointTest
+    : public ReadAnythingUntrustedPageHandlerTest {
+ public:
+  ReadAnythingUntrustedPageHandlerTranslateEntryPointTest()
+      : ReadAnythingUntrustedPageHandlerTest(
+            {features::kReadAnythingTranslateEntryPoint}) {}
+};
+
+IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerTranslateEntryPointTest,
+                       OnTranslationRequested) {
+  // Navigate to a simple page and set up the handler.
+  ASSERT_TRUE(embedded_test_server()->Start());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("/simple.html")));
+  translate::TranslateManager::SetIgnoreMissingKeyForTesting(true);
+
+  handler_ = CreateHandler();
+  TranslateBubbleController* controller =
+      TranslateBubbleController::From(browser());
+  EXPECT_TRUE(!controller || !controller->GetTranslateBubble());
+
+  OnTranslationRequested();
+
+  controller = TranslateBubbleController::From(browser());
+  ASSERT_NE(controller, nullptr);
+  EXPECT_NE(controller->GetTranslateBubble(), nullptr);
+}
+
 class ReadAnythingUntrustedPageHandlerDistillerTest
     : public ReadAnythingUntrustedPageHandlerTest {
  public:
@@ -2149,8 +2182,14 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerDistillerTest,
   handler_->OnActiveAXTreeIDChanged();
 }
 
+// TODO(crbug.com/531483974): Failing on ChromiumOS Msan.
+#if BUILDFLAG(IS_CHROMEOS) && defined(MEMORY_SANITIZER)
+#define MAYBE_DistillationPopulatesContent DISABLED_DistillationPopulatesContent
+#else
+#define MAYBE_DistillationPopulatesContent DistillationPopulatesContent
+#endif
 IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerDistillerTest,
-                       DistillationPopulatesContent) {
+                       MAYBE_DistillationPopulatesContent) {
   ASSERT_TRUE(embedded_test_server()->Start());
   handler_ = CreateHandler();
 
@@ -2262,6 +2301,39 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerDistillerTest,
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("about:blank")));
 }
 
+IN_PROC_BROWSER_TEST_P(
+    ReadAnythingUntrustedPageHandlerTest,
+    Activate_ListenTrigger_CallsReadingModeShownWithListenTrigger) {
+  handler_ = CreateHandler();
+  page_.receiver_.FlushForTesting();
+
+  EXPECT_CALL(page_,
+              OnReadingModeShown(read_anything::mojom::ReadAnythingOpenTrigger::
+                                     kListenToThisPageContextMenu))
+      .Times(1);
+
+  SidePanelOpenTrigger trigger =
+      SidePanelOpenTrigger::kReadAnythingListenToThisPageContextMenu;
+  Activate(true, &trigger);
+  page_.receiver_.FlushForTesting();
+}
+
+IN_PROC_BROWSER_TEST_P(
+    ReadAnythingUntrustedPageHandlerTest,
+    Activate_OtherTrigger_CallsReadingModeShownWithOtherTrigger) {
+  handler_ = CreateHandler();
+  page_.receiver_.FlushForTesting();
+
+  EXPECT_CALL(page_,
+              OnReadingModeShown(
+                  read_anything::mojom::ReadAnythingOpenTrigger::kOmniboxChip))
+      .Times(1);
+
+  SidePanelOpenTrigger trigger = SidePanelOpenTrigger::kReadAnythingOmniboxChip;
+  Activate(true, &trigger);
+  page_.receiver_.FlushForTesting();
+}
+
 IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerDistillerTest,
                        RequestReadabilityDistillation_TriggersDistillation) {
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -2329,6 +2401,11 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingUntrustedPageHandlerAutomationTest,
 INSTANTIATE_TEST_SUITE_P(All,
                          ReadAnythingUntrustedPageHandlerTest,
                          testing::Bool());
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    ReadAnythingUntrustedPageHandlerTranslateEntryPointTest,
+    testing::Bool());
 
 INSTANTIATE_TEST_SUITE_P(All,
                          ReadAnythingUntrustedPageHandlerDistillerTest,

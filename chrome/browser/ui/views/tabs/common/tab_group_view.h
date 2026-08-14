@@ -14,7 +14,6 @@
 #include "chrome/browser/ui/views/tabs/shared/tab_strip_types.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "ui/base/metadata/metadata_header_macros.h"
-#include "ui/views/layout/delegating_layout_manager.h"
 #include "ui/views/view.h"
 
 class TabCollectionNode;
@@ -24,11 +23,10 @@ namespace tabs {
 class TabGroupDataObserver;
 }
 
-// The view class for vertical tab group container. It manages layout
-// of the group header, underline and all the tabs within the group. It also
-// handles serves as the drag target for tab dragging.
+// The view class for the tab group container. It hosts the group header,
+// underline and all the tabs within the group, and serves as the drag target
+// for tab dragging. Layout is managed by TabGroupViewLayout.
 class TabGroupView : public views::View,
-                     public views::LayoutDelegate,
                      public TabGroupHeaderView::Delegate,
                      public DraggedTabsContainer,
                      public TabCollectionAnimatingLayoutManager::Delegate {
@@ -46,10 +44,6 @@ class TabGroupView : public views::View,
   void OnThemeChanged() override;
   void OnGestureEvent(ui::GestureEvent* event) override;
 
-  // views::LayoutDelegate:
-  views::ProposedLayout CalculateProposedLayout(
-      const views::SizeBounds& size_bounds) const override;
-
   // TabGroupHeaderView::Delegate:
   void ToggleCollapsedState(ToggleTabGroupCollapsedStateOrigin origin) override;
   std::unique_ptr<views::Widget> ShowGroupEditorBubble(
@@ -60,6 +54,7 @@ class TabGroupView : public views::View,
   bool ContinueHeaderDrag(const ui::LocatedEvent& event) override;
   void CancelHeaderDrag() override;
   const TabGroup& GetTabGroup() const override;
+  const tabs::TabGroupData& GetTabGroupData() const override;
   void UpdateHoverCard(int update_type) const override;
   void HideHoverCard(int update_type) const override;
   bool IsFocusInTabStrip() override;
@@ -86,6 +81,8 @@ class TabGroupView : public views::View,
   const TabGroupHeaderView* group_header() const { return group_header_; }
 
  private:
+  friend class TabGroupViewLayout;
+
   // DraggedTabsContainer:
   views::ScrollView* GetScrollViewForContainer() const override;
   void UpdateTargetLayoutForDrag(

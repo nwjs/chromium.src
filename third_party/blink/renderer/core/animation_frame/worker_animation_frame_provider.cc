@@ -32,13 +32,14 @@ int WorkerAnimationFrameProvider::RegisterCallback(FrameCallback* callback) {
   }
 
   FrameRequestCallbackCollection::CallbackId id =
-      callback_collection_.RegisterFrameCallback(callback);
+      callback_collection_.RegisterFrameCallback(
+          callback, FrameCallbackType::kWebExposed);
   begin_frame_provider_->RequestBeginFrame();
   return id;
 }
 
 void WorkerAnimationFrameProvider::CancelCallback(int id) {
-  callback_collection_.CancelFrameCallback(id);
+  callback_collection_.CancelFrameCallback(id, FrameCallbackType::kWebExposed);
 }
 
 void WorkerAnimationFrameProvider::BeginFrame(const viz::BeginFrameArgs& args) {
@@ -88,8 +89,9 @@ WorkerAnimationFrameProvider::GetCompositorTaskRunner() {
 }
 
 void WorkerAnimationFrameProvider::RegisterOffscreenCanvas(
-    OffscreenCanvas* context) {
-  auto result = offscreen_canvases_.insert(context);
+    OffscreenCanvas* canvas) {
+  CHECK(canvas->HasPlaceholderCanvas());
+  auto result = offscreen_canvases_.insert(canvas);
   DCHECK(result.is_new_entry);
 }
 

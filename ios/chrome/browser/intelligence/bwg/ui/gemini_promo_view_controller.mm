@@ -4,11 +4,13 @@
 
 #import "ios/chrome/browser/intelligence/bwg/ui/gemini_promo_view_controller.h"
 
+#import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
 #import "ios/chrome/browser/intelligence/bwg/ui/gemini_first_run_mutator.h"
 #import "ios/chrome/browser/intelligence/bwg/ui/gemini_ui_utils.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
+#import "ios/chrome/common/ui/button_stack/button_stack_configuration.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -81,6 +83,48 @@ const CGFloat kBaselineAdjustment = 10.0;
                           withContainerWidth:self.view.bounds.size.width];
 }
 
+#pragma mark - GeminiFirstRunStep
+
+- (GeminiFirstRunStepIdentifier)stepIdentifier {
+  return GeminiFirstRunStepIdentifier::kPromo;
+}
+
+- (ButtonStackConfiguration*)buttonStackConfiguration {
+  ButtonStackConfiguration* configuration =
+      [[ButtonStackConfiguration alloc] init];
+  configuration.primaryActionString =
+      l10n_util::GetNSString(IDS_IOS_BWG_PROMO_PRIMARY_BUTTON);
+  configuration.secondaryActionString =
+      l10n_util::GetNSString(IDS_IOS_BWG_PROMO_SECONDARY_BUTTON);
+  return configuration;
+}
+
+- (void)stepDidBecomeActive {
+  // If the related `WebState` was hidden asynchronously while the sheet was
+  // appearing, the mutator becomes nil. Automatically dismiss to avoid leaving
+  // a broken view.
+  if (!self.mutator) {
+    [self dismissViewControllerAnimated:YES completion:nil];
+    return;
+  }
+  [self.mutator didShowGeminiPromo];
+}
+
+- (void)stepWillResignActive {
+  // No-op.
+}
+
+- (void)didTapPrimaryButton {
+  // TODO(crbug.com/528293203): Handle step transitions programmatically once
+  // the generic container page view controller is introduced.
+  RecordFirstRunPromoAction(IOSGeminiFirstRunAction::kAccept);
+}
+
+- (void)didTapSecondaryButton {
+  RecordFirstRunPromoAction(IOSGeminiFirstRunAction::kDismiss);
+  [self.mutator didCloseGeminiPromo];
+}
+
 #pragma mark - Private
 
 // Creates a tiny horizontal separator.
@@ -137,29 +181,27 @@ const CGFloat kBaselineAdjustment = 10.0;
       configurationWithPointSize:kIconSize
                           weight:UIImageSymbolWeightMedium];
 
-  UIView* askRow =
-      [self createFeatureRowWithIcon:CustomSymbolWithConfiguration(
-                                         kTextSearchSymbol, config)
-                             titleID:IDS_IOS_BWG_PROMO_FIRST_BOX_TITLE
-                              bodyID:IDS_IOS_BWG_PROMO_FIRST_BOX_BODY];
+  UIView* askRow = [self
+      createFeatureRowWithIcon:SymbolWithConfiguration(SymbolTextSearch, config)
+                       titleID:IDS_IOS_BWG_PROMO_FIRST_BOX_TITLE
+                        bodyID:IDS_IOS_BWG_PROMO_FIRST_BOX_BODY];
   [_mainStackView addArrangedSubview:askRow];
   [_mainStackView addArrangedSubview:[self createSeparatorView]];
 
   if ([self.mutator shouldShowImageRemixRow]) {
     UIView* remixRow = [self
-        createFeatureRowWithIcon:DefaultSymbolWithConfiguration(
-                                     kPhotoOnRectangleAngled, config)
+        createFeatureRowWithIcon:SymbolWithConfiguration(
+                                     SymbolPhotoOnRectangleAngled, config)
                          titleID:IDS_IOS_GEMINI_PROMO_REMIX_IMAGE_BOX_TITLE
                           bodyID:IDS_IOS_GEMINI_PROMO_REMIX_IMAGE_BOX_BODY];
     [_mainStackView addArrangedSubview:remixRow];
     [_mainStackView addArrangedSubview:[self createSeparatorView]];
   }
 
-  UIView* summarizeRow =
-      [self createFeatureRowWithIcon:DefaultSymbolWithConfiguration(
-                                         kListBulletSymbol, config)
-                             titleID:IDS_IOS_BWG_PROMO_SECOND_BOX_TITLE
-                              bodyID:IDS_IOS_BWG_PROMO_SECOND_BOX_BODY];
+  UIView* summarizeRow = [self
+      createFeatureRowWithIcon:SymbolWithConfiguration(SymbolListBullet, config)
+                       titleID:IDS_IOS_BWG_PROMO_SECOND_BOX_TITLE
+                        bodyID:IDS_IOS_BWG_PROMO_SECOND_BOX_BODY];
   [_mainStackView addArrangedSubview:summarizeRow];
 }
 
@@ -190,8 +232,8 @@ const CGFloat kBaselineAdjustment = 10.0;
 #if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
   NSString* gradientSubstring =
       l10n_util::GetNSString(IDS_IOS_BWG_PROMO_GRADIENT_TEXT);
-  UIImage* geminiIcon = CustomSymbolWithPointSize(
-      kGeminiFullSymbol, labelFont.pointSize + kGeminiLogoFontScale);
+  UIImage* geminiIcon = SymbolWithPointSize(
+      SymbolGeminiFull, labelFont.pointSize + kGeminiLogoFontScale);
   UIImage* gradientImage = [self createGradientImageFromSymbol:geminiIcon];
 
   NSAttributedString* gradientGeminiString =

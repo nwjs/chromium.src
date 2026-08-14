@@ -125,6 +125,19 @@ enum TimeEnum {
   kLastHour,
   kMax,
 };
+std::string ToString(TimeEnum delete_begin_time) {
+  switch (delete_begin_time) {
+    case TimeEnum::kDefault:
+      return "kDefault";
+    case TimeEnum::kLastHour:
+      return "kLastHour";
+    case TimeEnum::kStart:
+      return "kStart";
+    case TimeEnum::kMax:
+      return "kMax";
+  }
+  NOTREACHED();
+}
 
 base::Time TimeEnumToTime(TimeEnum time) {
   switch (time) {
@@ -202,7 +215,7 @@ class BrowsingDataRemoverBrowserTest
                      TimeEnum delete_begin,
                      TimeEnum delete_end) {
     content::BrowsingDataRemover* remover =
-        GetBrowser()->profile()->GetBrowsingDataRemover();
+        GetBrowser()->GetProfile()->GetBrowsingDataRemover();
     content::BrowsingDataRemoverCompletionObserver completion_observer(remover);
     remover->RemoveAndReply(
         TimeEnumToTime(delete_begin), TimeEnumToTime(delete_end), remove_mask,
@@ -215,7 +228,7 @@ class BrowsingDataRemoverBrowserTest
       uint64_t remove_mask,
       std::unique_ptr<BrowsingDataFilterBuilder> filter_builder) {
     content::BrowsingDataRemover* remover =
-        GetBrowser()->profile()->GetBrowsingDataRemover();
+        GetBrowser()->GetProfile()->GetBrowsingDataRemover();
     content::BrowsingDataRemoverCompletionObserver completion_observer(remover);
     remover->RemoveWithFilterAndReply(
         base::Time(), base::Time::Max(), remove_mask,
@@ -293,7 +306,7 @@ class BrowsingDataRemoverBrowserTest
 
   network::mojom::NetworkContext* network_context() const {
     return GetBrowser()
-        ->profile()
+        ->GetProfile()
         ->GetDefaultStoragePartition()
         ->GetNetworkContext();
   }
@@ -309,7 +322,7 @@ class BrowsingDataRemoverBrowserTest
                              .registrable_domain_or_host_for_testing());
     base::RunLoop loop;
     content::ClearSiteData(
-        GetBrowser()->profile()->GetWeakPtr(),
+        GetBrowser()->GetProfile()->GetWeakPtr(),
         /*storage_partition_config=*/std::nullopt,
         /*origin=*/origin, content::ClearSiteDataTypeSet::All(),
         /*storage_buckets_to_remove=*/storage_buckets_to_remove,
@@ -409,7 +422,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, MediaDeviceIdSalt) {
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 // Test that Sync is not paused when cookies are cleared.
 IN_PROC_BROWSER_TEST_F(DiceBrowsingDataRemoverBrowserTest, SyncToken) {
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
   // Set a Gaia cookie.
   ASSERT_TRUE(SetGaiaCookieForProfile(profile));
   // Set a Sync account and a secondary account.
@@ -437,7 +450,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowsingDataRemoverBrowserTest, SyncToken) {
 // Test that Sync is not paused when cookies are cleared.
 IN_PROC_BROWSER_TEST_F(DiceBrowsingDataRemoverBrowserTest,
                        SyncTokenScopedDeletion) {
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
   // Set a Gaia cookie.
   ASSERT_TRUE(SetGaiaCookieForProfile(profile));
   // Set a Sync account and a secondary account.
@@ -463,7 +476,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowsingDataRemoverBrowserTest,
 
 // Test that Sync is left in error when cookies are cleared.
 IN_PROC_BROWSER_TEST_F(DiceBrowsingDataRemoverBrowserTest, SyncTokenError) {
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
   // Set a Gaia cookie.
   ASSERT_TRUE(SetGaiaCookieForProfile(profile));
   // Set a Sync account with authentication error.
@@ -494,7 +507,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowsingDataRemoverBrowserTest, SyncTokenError) {
 // Test that the tokens are revoked when cookies are cleared when there is no
 // primary account.
 IN_PROC_BROWSER_TEST_F(DiceBrowsingDataRemoverBrowserTest, NoSync) {
-  Profile* profile = browser()->profile();
+  Profile* profile = browser()->GetProfile();
   // Set a Gaia cookie.
   ASSERT_TRUE(SetGaiaCookieForProfile(profile));
   // Set a non-Sync account.
@@ -516,7 +529,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowsingDataRemoverBrowserTest, NoSync) {
 // Test BrowsingDataRemover for prohibited downloads. Note that this only
 // really exercises the code in a Release build.
 IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, DownloadProhibited) {
-  PrefService* prefs = GetBrowser()->profile()->GetPrefs();
+  PrefService* prefs = GetBrowser()->GetProfile()->GetPrefs();
   prefs->SetBoolean(prefs::kAllowDeletingBrowserHistory, false);
 
   DownloadAnItem();
@@ -529,7 +542,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, DownloadProhibited) {
 // beginning of time.
 IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, VideoDecodePerfHistory) {
   media::VideoDecodePerfHistory* video_decode_perf_history =
-      GetBrowser()->profile()->GetVideoDecodePerfHistory();
+      GetBrowser()->GetProfile()->GetVideoDecodePerfHistory();
 
   // Save a video decode record. Note: we avoid using a web page to generate the
   // stats as this takes at least 5 seconds and even then is not a guarantee
@@ -602,7 +615,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, VideoDecodePerfHistory) {
 // beginning of time.
 IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, WebrtcVideoPerfHistory) {
   media::WebrtcVideoPerfHistory* webrtc_video_perf_history =
-      GetBrowser()->profile()->GetWebrtcVideoPerfHistory();
+      GetBrowser()->GetProfile()->GetWebrtcVideoPerfHistory();
 
   // Save a video decode record. Note: we avoid using a web page to generate the
   // stats as this takes at least 5 seconds and even then is not a guarantee
@@ -789,7 +802,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, VerifyNQECacheCleared) {
 
 IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
                        ExternalProtocolHandlerPerOriginPrefs) {
-  Profile* profile = GetBrowser()->profile();
+  Profile* profile = GetBrowser()->GetProfile();
   url::Origin test_origin = url::Origin::Create(GURL("https://example.test/"));
   const std::string serialized_test_origin = test_origin.Serialize();
   base::DictValue allowed_protocols_for_origin;
@@ -849,7 +862,7 @@ class BrowsingDataRemoverStorageBucketsBrowserTest
     // We're clearing some storage buckets and not all of them.
     clear_site_data_types.Remove(content::ClearSiteDataType::kStorage);
     content::ClearSiteData(
-        GetBrowser()->profile()->GetWeakPtr(),
+        GetBrowser()->GetProfile()->GetWeakPtr(),
         /*storage_partition_config=*/std::nullopt,
         /*origin=*/origin, clear_site_data_types,
         /*storage_buckets_to_remove=*/storage_buckets_to_remove,
@@ -871,8 +884,10 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverStorageBucketsBrowserTest,
   url::Origin origin = url::Origin::Create(url);
   const auto storage_key = blink::StorageKey::CreateFirstParty(origin);
 
-  storage::QuotaManager* quota_manager =
-      GetBrowser()->profile()->GetDefaultStoragePartition()->GetQuotaManager();
+  storage::QuotaManager* quota_manager = GetBrowser()
+                                             ->GetProfile()
+                                             ->GetDefaultStoragePartition()
+                                             ->GetQuotaManager();
 
   auto* quota_manager_proxy = quota_manager->proxy();
 
@@ -1024,7 +1039,7 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataRemoverBrowserTestP,
   // Start data removal.  This will CreateTaskCompletionClosureForMojo and
   // register it as a completion callback for mojo calls to NetworkContext
   // and other StorageParition-owned mojo::Remote(s).
-  content::BrowserContext* browser_context = GetBrowser()->profile();
+  content::BrowserContext* browser_context = GetBrowser()->GetProfile();
   content::BrowsingDataRemover* remover =
       browser_context->GetBrowsingDataRemover();
   content::BrowsingDataRemoverCompletionObserver completion_observer(remover);
@@ -1149,19 +1164,59 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataRemoverBrowserTestP,
   TestEmptySiteData("FileSystem", GetParam());
 }
 
-IN_PROC_BROWSER_TEST_P(BrowsingDataRemoverBrowserTestP, IndexedDbDeletion) {
-  TestSiteData("IndexedDb", GetParam());
+// Run IndexedDB tests with both SQLite and LevelDB.
+class BrowsingDataRemoverIndexedDbBrowserTest
+    : public BrowsingDataRemoverBrowserTest,
+      public testing::WithParamInterface<
+          std::tuple<TimeEnum, /*is_sqlite_enabled=*/bool>> {
+ public:
+  BrowsingDataRemoverIndexedDbBrowserTest() {
+    indexed_db_feature_list_.InitWithFeatureState(
+        features::kIdbSqliteBackingStore, std::get<1>(GetParam()));
+  }
+
+  TimeEnum GetDeleteBeginTime() const { return std::get<0>(GetParam()); }
+
+ private:
+  base::test::ScopedFeatureList indexed_db_feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    /*no prefix*/,
+    BrowsingDataRemoverIndexedDbBrowserTest,
+    testing::Combine(testing::Values(TimeEnum::kDefault, TimeEnum::kLastHour),
+                     /*is_sqlite_enabled=*/testing::Bool()),
+    /*name_generator=*/
+    [](const testing::TestParamInfo<
+        BrowsingDataRemoverIndexedDbBrowserTest::ParamType>& info) {
+      TimeEnum delete_begin_time;
+      bool is_sqlite_enabled;
+      std::tie(delete_begin_time, is_sqlite_enabled) = info.param;
+
+      std::string description = ToString(delete_begin_time);
+      if (is_sqlite_enabled) {
+        description += "_SQLite";
+      } else {
+        description += "_LevelDB";
+      }
+      return description;
+    });
+
+IN_PROC_BROWSER_TEST_P(BrowsingDataRemoverIndexedDbBrowserTest,
+                       IndexedDbDeletion) {
+  TestSiteData("IndexedDb", GetDeleteBeginTime());
 }
 
-IN_PROC_BROWSER_TEST_P(BrowsingDataRemoverBrowserTestP,
+IN_PROC_BROWSER_TEST_P(BrowsingDataRemoverIndexedDbBrowserTest,
                        IndexedDbIncognitoDeletion) {
   UseIncognitoBrowser();
-  TestSiteData("IndexedDb", GetParam());
+  TestSiteData("IndexedDb", GetDeleteBeginTime());
 }
 
 // Test that empty indexed dbs are deleted correctly.
-IN_PROC_BROWSER_TEST_P(BrowsingDataRemoverBrowserTestP, EmptyIndexedDb) {
-  TestEmptySiteData("IndexedDb", GetParam());
+IN_PROC_BROWSER_TEST_P(BrowsingDataRemoverIndexedDbBrowserTest,
+                       EmptyIndexedDb) {
+  TestEmptySiteData("IndexedDb", GetDeleteBeginTime());
 }
 
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
@@ -1383,8 +1438,9 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataHistoryRemoverBrowserTest,
 // Restart after creating the data to ensure that everything was written to
 // disk.
 // TODO(crbug.com/522179929): Flaky on ASAN/LSAN/MSAN. Re-enable this test.
+// TODO(crbug.com/515997680): Flaky on Linux Debug. Re-enable this test.
 #if defined(ADDRESS_SANITIZER) || defined(LEAK_SANITIZER) || \
-    defined(MEMORY_SANITIZER)
+    defined(MEMORY_SANITIZER) || (BUILDFLAG(IS_LINUX) && !defined(NDEBUG))
 #define MAYBE_StorageRemovedFromDisk DISABLED_StorageRemovedFromDisk
 #else
 #define MAYBE_StorageRemovedFromDisk StorageRemovedFromDisk
@@ -1448,7 +1504,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
   }
 
   ExpectTotalModelCount(1);
-  HostContentSettingsMapFactory::GetForProfile(GetBrowser()->profile())
+  HostContentSettingsMapFactory::GetForProfile(GetBrowser()->GetProfile())
       ->SetDefaultContentSetting(ContentSettingsType::COOKIES,
                                  CONTENT_SETTING_SESSION_ONLY);
 }
@@ -1599,14 +1655,5 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(TimeEnum::kDefault, TimeEnum::kLastHour),
     [](const ::testing::TestParamInfo<
         BrowsingDataRemoverBrowserTestP::ParamType>& info) {
-      switch (info.param) {
-        case TimeEnum::kDefault:
-          return "kDefault";
-        case TimeEnum::kLastHour:
-          return "kLastHour";
-        case TimeEnum::kStart:
-          return "kStart";
-        case TimeEnum::kMax:
-          return "kMax";
-      }
+      return ToString(info.param);
     });

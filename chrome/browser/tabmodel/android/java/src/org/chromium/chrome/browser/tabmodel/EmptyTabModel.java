@@ -20,8 +20,10 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
+import org.chromium.chrome.browser.tab.TabDestroyStatus;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
+import org.chromium.chrome.browser.tabmodel.NextTabPolicy.NextTabPolicySupplier;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.components.tabs.TabStripCollection;
 
@@ -162,6 +164,11 @@ public class EmptyTabModel implements IncognitoTabModelInternal {
     }
 
     @Override
+    public NextTabPolicySupplier getNextTabPolicySupplier() {
+        return () -> NextTabPolicy.HIERARCHICAL;
+    }
+
+    @Override
     public void setIndex(int i, @TabSelectionType int type) {}
 
     @Override
@@ -182,7 +189,9 @@ public class EmptyTabModel implements IncognitoTabModelInternal {
     public void unpinTab(int tabId) {}
 
     @Override
-    public void destroy() {}
+    public @TabDestroyStatus int destroy() {
+        return TabDestroyStatus.FAST_SHUTDOWN;
+    }
 
     @Override
     public boolean isClosurePending(int tabId) {

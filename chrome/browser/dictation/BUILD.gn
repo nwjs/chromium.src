@@ -4,11 +4,13 @@
 
 source_set("dictation") {
   public = [
+    "application_registration_delegate.h",
     "connector_component_extension.h",
     "dictation_keyed_service.h",
     "dictation_keyed_service_factory.h",
     "dictation_multiplexer.h",
     "features.h",
+    "local_hotkey_manager.h",
     "logging.h",
     "metrics.h",
     "onboarding_manager.h",
@@ -26,11 +28,15 @@ source_set("dictation") {
     "//chrome/browser/profiles:profile",
     "//content/public/browser",
   ]
-  deps = [ "//components/prefs" ]
+  deps = [
+    "//chrome/browser/ui/views/dictation",
+    "//components/prefs",
+  ]
 }
 
 source_set("impl") {
   sources = [
+    "application_registration_delegate.cc",
     "connector_component_extension.cc",
     "dictation_context.cc",
     "dictation_context.h",
@@ -42,6 +48,7 @@ source_set("impl") {
     "features.cc",
     "listener_stream_provider.cc",
     "listener_stream_provider.h",
+    "local_hotkey_manager.cc",
     "metrics.cc",
     "onboarding_manager.cc",
     "session_controller.cc",
@@ -61,13 +68,16 @@ source_set("impl") {
     "//chrome/browser/ui",
     "//chrome/browser/ui:browser_element_identifiers",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/tabs",
     "//chrome/browser/ui/toasts",
     "//chrome/browser/ui/toasts/api:toasts",
+    "//chrome/browser/ui/views/dictation",
     "//chrome/browser/ui/views/interaction",
     "//chrome/common/extensions/api",
     "//components/optimization_guide/content/browser",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/page_content_annotations/content",
+    "//components/tabs:public",
     "//content/public/browser",
     "//extensions/browser",
     "//ui/base",
@@ -106,6 +116,7 @@ source_set("unit_tests") {
   testonly = true
   sources = [
     "dictation_keyed_service_unittest.cc",
+    "local_hotkey_manager_unittest.cc",
     "session_controller_unittest.cc",
     "target_unittest.cc",
   ]
@@ -132,6 +143,7 @@ source_set("browser_tests") {
     "dictation_interactive_browser_test_base.h",
     "dictation_keyed_service_browsertest.cc",
     "dictation_onboarding_browsertest.cc",
+    "metrics_browsertest.cc",
     "policy_browsertest.cc",
     "session_ui_impl_browsertest.cc",
   ]
@@ -141,9 +153,12 @@ source_set("browser_tests") {
     "//chrome/browser/glic/test_support",
     "//chrome/browser/policy:test_support",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui/tabs",
     "//chrome/browser/ui/toasts",
     "//chrome/browser/ui/toasts/api:toasts",
+    "//chrome/browser/ui/views/dictation",
     "//chrome/test:test_support",
+    "//components/tabs:test_support",
     "//content/test:test_support",
   ]
 }

@@ -42,7 +42,6 @@ import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxSta
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
-import org.chromium.chrome.browser.theme.ThemeUtils;
 import org.chromium.chrome.browser.toolbar.R;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarProgressBar;
@@ -87,6 +86,13 @@ public class ToolbarTablet extends ToolbarLayout {
     private ImageButton mBookmarkButton;
     private View mFixedHeightBackground;
 
+    /**
+     * The inner layout containing toolbar components, used to apply horizontal padding to. The
+     * padding used to set to ToolbarTablet, but it caused a transparent gap on the left when
+     * Fusebox gets enabled and turned the background transparent.
+     */
+    private View mToolbarTabletLayout;
+
     private boolean mIsInTabSwitcherMode;
     private boolean mToolbarButtonsVisible;
     private boolean mOptionalButtonForciblyHidden;
@@ -112,6 +118,10 @@ public class ToolbarTablet extends ToolbarLayout {
     private @Nullable ExtensionsToolbarCoordinator mExtensionsToolbarCoordinator;
     private @Nullable ImageButton mGlicActionChip;
     private @Nullable View mGlicDivider;
+    private boolean mShouldShowGlicButton;
+    private boolean mHasSpaceToShowGlicButton = true;
+    private View.@Nullable OnClickListener mGlicClickListener;
+    private View.@Nullable OnLongClickListener mGlicLongClickListener;
 
     private final @Nullable ToolbarWidthConsumer[] mToolbarWidthConsumers =
             new ToolbarWidthConsumer[ToolbarComponentId.COUNT];
@@ -142,6 +152,7 @@ public class ToolbarTablet extends ToolbarLayout {
 
         mBookmarkButton = findViewById(R.id.bookmark_button);
         mFixedHeightBackground = findViewById(R.id.toolbar_tablet_fixed_height_bg);
+        mToolbarTabletLayout = findViewById(R.id.toolbar_tablet_layout);
 
         // Initialize values needed for showing/hiding toolbar buttons when the activity size
         // changes.
@@ -157,8 +168,7 @@ public class ToolbarTablet extends ToolbarLayout {
                 .getFuseboxStateSupplier()
                 .addSyncObserverAndPostIfNonNull(
                         mCallbackController.makeCancelable(mFuseboxStateObserver));
-        final @ColorInt int color = SemanticColorUtils.getColorSurfaceContainer(getContext());
-        mLocationBar.getTabletCoordinator().tintBackground(color);
+        mLocationBar.updateVisualsForState();
 
         mToolbarWidthConsumers[ToolbarComponentId.OMNIBOX_BOOKMARK] =
                 mLocationBar.getBookmarkButtonToolbarWidthConsumer();
@@ -289,10 +299,6 @@ public class ToolbarTablet extends ToolbarLayout {
     public void onThemeColorChanged(@ColorInt int color, boolean shouldAnimate) {
         setBackgroundColor(color);
         mFixedHeightBackground.setBackgroundColor(color);
-        final @ColorInt int textBoxColor =
-                ThemeUtils.getTextBoxColorForToolbarBackgroundInNonNativePage(
-                        getContext(), color, isIncognitoBranded(), /* isCustomTab= */ false);
-        mLocationBar.getTabletCoordinator().tintBackground(textBoxColor);
         mLocationBar.updateVisualsForState();
         setToolbarHairlineColor(color);
 
@@ -449,12 +455,11 @@ public class ToolbarTablet extends ToolbarLayout {
         if (signinButtonCoordinator != null) {
             signinButtonCoordinator.setShowOnAllPages(
                     SigninFeatureMap.sProfileDiscOnAllPages.isEnabled());
-            signinButtonCoordinator.showAvatarWhenSignedOut(true);
         }
         mToolbarWidthConsumers[ToolbarComponentId.TAB_SWITCHER] = tabSwitcherButtonCoordinator;
         mToolbarWidthConsumers[ToolbarComponentId.MENU] = menuButtonCoordinator;
         mToolbarWidthConsumers[ToolbarComponentId.PADDING] =
-                new ToolbarPaddingWidthConsumer(this, mStartPaddingWithButtons);
+                new ToolbarPaddingWidthConsumer(mToolbarTabletLayout, mStartPaddingWithButtons);
     }
 
     @Override
@@ -530,11 +535,21 @@ public class ToolbarTablet extends ToolbarLayout {
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         assert !mIsDestroyed;
 
-        int width = MeasureSpec.getSize(widthMeasureSpec);
+        // The inner layout R.id.toolbar_tablet_layout is the actual container of the buttons.
+        // It could have a side margin when the toolbar is overlapped with the system toolbar
+        // (such as with Vertical Tabs enabled). Take it into account for the initial width.
+        int width =
+                Math.max(0, MeasureSpec.getSize(widthMeasureSpec) - getControlContainerMargin());
         allocateAvailableToolbarWidth(
                 mToolbarWidthConsumers, width, widthMeasureSpec, heightMeasureSpec);
 
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+    }
+
+    private int getControlContainerMargin() {
+        if (mToolbarTabletLayout == null) return 0;
+        var lp = (MarginLayoutParams) mToolbarTabletLayout.getLayoutParams();
+        return lp != null ? lp.leftMargin + lp.rightMargin : 0;
     }
 
     @Override
@@ -545,8 +560,9 @@ public class ToolbarTablet extends ToolbarLayout {
 
         // Re-allocate width to account for a change in a width consumer's visibility.
         int unspecifiedSpec = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED);
+        int width = Math.max(0, getWidth() - getControlContainerMargin());
         allocateAvailableToolbarWidth(
-                mToolbarWidthConsumers, getWidth(), unspecifiedSpec, unspecifiedSpec);
+                mToolbarWidthConsumers, width, unspecifiedSpec, unspecifiedSpec);
     }
 
     /**
@@ -596,6 +612,9 @@ public class ToolbarTablet extends ToolbarLayout {
         if (buttonSpec.getHoverTooltipTextId() != ButtonSpec.INVALID_TOOLTIP_TEXT_ID) {
             super.setTooltipText(
                     mOptionalButton, getContext().getString(buttonSpec.getHoverTooltipTextId()));
+        } else if (buttonSpec.getContentDescription() != null) {
+            // Fallback to the content description if a static tooltip string ID is not provided.
+            super.setTooltipText(mOptionalButton, buttonSpec.getContentDescription());
         } else {
             super.setTooltipText(mOptionalButton, null);
         }
@@ -662,11 +681,47 @@ public class ToolbarTablet extends ToolbarLayout {
     }
 
     /**
-     * Set {@link ToolbarWidthConsumer} for Glic button pinned on the tab strip but moved to the
-     * toolbar when the tab strip becomes hidden.
+     * Ensure {@link ToolbarWidthConsumer} for Glic button pinned on the tab strip (moved to the
+     * toolbar when the tab strip becomes hidden) is installed.
      */
-    public void setGlicToolbarWidthConsumer(ToolbarWidthConsumer consumer) {
-        mToolbarWidthConsumers[ToolbarComponentId.GLIC_PINNED_MOVED] = consumer;
+    public void ensureGlicToolbarWidthConsumer() {
+        var widthConsumer = mToolbarWidthConsumers[ToolbarComponentId.GLIC_PINNED_MOVED];
+        if (widthConsumer != null) return;
+
+        mToolbarWidthConsumers[ToolbarComponentId.GLIC_PINNED_MOVED] =
+                new ToolbarWidthConsumer() {
+                    @Override
+                    public boolean isVisible() {
+                        return mGlicActionChip != null
+                                && mGlicActionChip.getVisibility() == View.VISIBLE;
+                    }
+
+                    @Override
+                    public boolean hasSpaceToShow() {
+                        return mHasSpaceToShowGlicButton;
+                    }
+
+                    @Override
+                    public int updateVisibility(int availableWidth) {
+                        if (!mShouldShowGlicButton) {
+                            mHasSpaceToShowGlicButton = false;
+                            updateGlicActionChipVisibilityInternal();
+                            return 0;
+                        }
+
+                        int width =
+                                getResources().getDimensionPixelSize(R.dimen.min_touch_target_size);
+                        mHasSpaceToShowGlicButton = availableWidth >= width;
+                        updateGlicActionChipVisibilityInternal();
+                        return Math.min(width, availableWidth);
+                    }
+
+                    @Override
+                    public int updateVisibilityWithAnimation(
+                            int availableWidth, Collection<Animator> animators) {
+                        return updateVisibility(availableWidth);
+                    }
+                };
     }
 
     /**
@@ -674,23 +729,41 @@ public class ToolbarTablet extends ToolbarLayout {
      *
      * @param visible Whether the button should be visible or not.
      * @param clickListener Callback to invoke when the Glic action button is clicked.
+     * @param longClickListener Callback to invoke when the Glic action button is long-pressed or
+     *     right-clicked.
      */
-    public void setGlicActionChipVisibility(boolean visible, OnClickListener clickListener) {
+    public void setGlicActionChipVisibility(
+            boolean visible, OnClickListener clickListener, OnLongClickListener longClickListener) {
+        mShouldShowGlicButton = visible;
+        mGlicClickListener = clickListener;
+        mGlicLongClickListener = longClickListener;
+        updateGlicActionChipVisibilityInternal();
+        onWidthConsumerVisibilityChanged();
+    }
+
+    private void updateGlicActionChipVisibilityInternal() {
+        boolean show = mShouldShowGlicButton && mHasSpaceToShowGlicButton;
         if (mGlicDivider == null) {
             mGlicDivider = assumeNonNull(findViewById(R.id.glic_divider));
         }
-        mGlicDivider.setVisibility(visible ? VISIBLE : GONE);
-        if (visible) {
+        mGlicDivider.setVisibility(show ? VISIBLE : GONE);
+        if (show) {
             ViewStub glicActionChipStub = findViewById(R.id.glic_action_chip_stub);
             if (mGlicActionChip == null && glicActionChipStub != null) {
                 mGlicActionChip = (ImageButton) glicActionChipStub.inflate();
-                mGlicActionChip.setOnClickListener(clickListener);
+                mGlicActionChip.setOnClickListener(mGlicClickListener);
                 mGlicActionChip.setImageResource(R.drawable.ic_spark_24dp);
                 mGlicActionChip.setContentDescription(
                         getContext().getString(R.string.glic_tab_strip_button_tooltip));
                 ImageViewCompat.setImageTintList(mGlicActionChip, getButtonTintList());
             }
-            assumeNonNull(mGlicActionChip).setVisibility(VISIBLE);
+            ImageButton actionChip = assumeNonNull(mGlicActionChip);
+            actionChip.setVisibility(VISIBLE);
+            View.OnLongClickListener longClickListener = assumeNonNull(mGlicLongClickListener);
+            // These listeners are for Vertical Tabs only.
+            actionChip.setOnLongClickListener(longClickListener);
+            // Right-click has the same behavior as long-press.
+            actionChip.setOnContextClickListener(longClickListener::onLongClick);
         } else {
             if (mGlicActionChip != null) {
                 mGlicActionChip.setVisibility(GONE);
@@ -698,9 +771,17 @@ public class ToolbarTablet extends ToolbarLayout {
         }
     }
 
-    private class ToolbarPaddingWidthConsumer implements ToolbarWidthConsumer {
+    /**
+     * @return The {@link View} representing the Glic action chip.
+     */
+    public @Nullable View getGlicActionChipView() {
+        return mGlicActionChip;
+    }
+
+    private static class ToolbarPaddingWidthConsumer implements ToolbarWidthConsumer {
         private final View mToolbarView;
         private final int mHorizontalPadding;
+        private boolean mHasSpaceToShow;
 
         ToolbarPaddingWidthConsumer(View toolbarView, int horizontalPadding) {
             mToolbarView = toolbarView;
@@ -714,11 +795,20 @@ public class ToolbarTablet extends ToolbarLayout {
         }
 
         @Override
+        public boolean hasSpaceToShow() {
+            return mHasSpaceToShow;
+        }
+
+        @Override
         public int updateVisibility(int availableWidth) {
             assert availableWidth >= 0;
             int paddingWidth = Math.min(availableWidth, 2 * mHorizontalPadding);
             mToolbarView.setPaddingRelative(
-                    paddingWidth / 2, getPaddingTop(), paddingWidth / 2, getPaddingBottom());
+                    paddingWidth / 2,
+                    mToolbarView.getPaddingTop(),
+                    paddingWidth / 2,
+                    mToolbarView.getPaddingBottom());
+            mHasSpaceToShow = paddingWidth > 0;
             return paddingWidth;
         }
 
@@ -730,19 +820,32 @@ public class ToolbarTablet extends ToolbarLayout {
     }
 
     private class LocationBarMinWidthConsumer implements ToolbarWidthConsumer {
+        private boolean mHasSpaceToShow;
+
         @Override
         public boolean isVisible() {
             return true;
         }
 
         @Override
+        public boolean hasSpaceToShow() {
+            return mHasSpaceToShow;
+        }
+
+        @Override
         public int updateVisibility(int availableWidth) {
             assert ToolbarUtils.isToolbarTabletResizeRefactorEnabled();
-            return Math.min(
-                    availableWidth,
-                    (int)
-                            (MINIMUM_LOCATION_BAR_WIDTH_DP
-                                    * getContext().getResources().getDisplayMetrics().density));
+            int width =
+                    Math.min(
+                            availableWidth,
+                            (int)
+                                    (MINIMUM_LOCATION_BAR_WIDTH_DP
+                                            * getContext()
+                                                    .getResources()
+                                                    .getDisplayMetrics()
+                                                    .density));
+            mHasSpaceToShow = width > 0;
+            return width;
         }
 
         @Override
@@ -753,9 +856,16 @@ public class ToolbarTablet extends ToolbarLayout {
     }
 
     private class OptionalButtonToolbarWidthConsumer implements ToolbarWidthConsumer {
+        private boolean mHasSpaceToShow;
+
         @Override
         public boolean isVisible() {
             return mOptionalButton != null && mOptionalButton.getVisibility() == View.VISIBLE;
+        }
+
+        @Override
+        public boolean hasSpaceToShow() {
+            return mHasSpaceToShow;
         }
 
         @Override
@@ -763,11 +873,13 @@ public class ToolbarTablet extends ToolbarLayout {
             assert ToolbarUtils.isToolbarTabletResizeRefactorEnabled();
             if (mOptionalButtonForciblyHidden) {
                 setOptionalButtonVisibility(false);
+                mHasSpaceToShow = false;
                 return 0;
             }
 
             int width = getResources().getDimensionPixelSize(R.dimen.toolbar_button_width);
-            setOptionalButtonVisibility(availableWidth >= width);
+            mHasSpaceToShow = availableWidth >= width;
+            setOptionalButtonVisibility(mHasSpaceToShow);
             return Math.min(availableWidth, width);
         }
 
@@ -817,11 +929,11 @@ public class ToolbarTablet extends ToolbarLayout {
     private void setStartPaddingBasedOnButtonVisibility(boolean buttonsVisible) {
         buttonsVisible = buttonsVisible || mHomeButton.getVisibility() == View.VISIBLE;
 
-        this.setPaddingRelative(
+        mToolbarTabletLayout.setPaddingRelative(
                 buttonsVisible ? mStartPaddingWithButtons : mStartPaddingWithoutButtons,
-                getPaddingTop(),
-                ViewCompat.getPaddingEnd(this),
-                getPaddingBottom());
+                mToolbarTabletLayout.getPaddingTop(),
+                ViewCompat.getPaddingEnd(mToolbarTabletLayout),
+                mToolbarTabletLayout.getPaddingBottom());
     }
 
     /**
@@ -946,6 +1058,18 @@ public class ToolbarTablet extends ToolbarLayout {
                 new OptionalButtonToolbarWidthConsumer();
     }
 
+    ToolbarWidthConsumer getOptionalButtonWidthConsumerForTesting() {
+        return assumeNonNull(mToolbarWidthConsumers[ToolbarComponentId.ADAPTIVE_BUTTON]);
+    }
+
+    @Nullable View getGlicActionChipForTesting() {
+        return mGlicActionChip;
+    }
+
+    @Nullable ToolbarWidthConsumer getGlicWidthConsumerForTesting() {
+        return mToolbarWidthConsumers[ToolbarComponentId.GLIC_PINNED_MOVED];
+    }
+
     void setTabStackButtonCoordinatorForTesting(ToggleTabStackButtonCoordinator coordinator) {
         mToolbarWidthConsumers[ToolbarComponentId.TAB_SWITCHER] = coordinator;
     }
@@ -956,9 +1080,13 @@ public class ToolbarTablet extends ToolbarLayout {
         mToolbarWidthConsumers[ToolbarComponentId.MENU] = coordinator;
     }
 
+    void setToolbarTabletLayoutForTesting(View view) {
+        mToolbarTabletLayout = view;
+    }
+
     void ensurePaddingWidthConsumer() {
         mToolbarWidthConsumers[ToolbarComponentId.PADDING] =
-                new ToolbarPaddingWidthConsumer(this, mStartPaddingWithButtons);
+                new ToolbarPaddingWidthConsumer(mToolbarTabletLayout, mStartPaddingWithButtons);
     }
 
     void ensureLocationBarMidWidthConsumer() {
@@ -971,7 +1099,7 @@ public class ToolbarTablet extends ToolbarLayout {
         for (@ToolbarComponentId int toolbarComponentId : toolbarComponents) {
             @Nullable ToolbarWidthConsumer widthConsumer =
                     mToolbarWidthConsumers[toolbarComponentId];
-            if (widthConsumer == null || !widthConsumer.isVisible()) return true;
+            if (widthConsumer == null || !widthConsumer.hasSpaceToShow()) return true;
         }
         return false;
     }
