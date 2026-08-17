@@ -1637,15 +1637,6 @@ void ChromeMainDelegate::PreSandboxStartup() {
   // line for crash reporting.
   crash_keys::SetCrashKeysFromCommandLine(command_line);
 
-#if BUILDFLAG(IS_WIN)
-  auto process_token = base::win::AccessToken::FromCurrentProcess();
-  if (process_token && process_token->GetSecurityAttribute(
-                           installer::GetIsolationAttributeName())) {
-    static crash_reporter::CrashKeyString<32> is_isolated("is-isolated");
-    is_isolated.Set("yes");
-  }
-#endif
-
 #if 1 //!defined(OS_WIN)
   if (!report_url.empty()) {
     GURL url(report_url);
