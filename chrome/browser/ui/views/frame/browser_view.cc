@@ -1197,7 +1197,7 @@ void BrowserView::SetShowInTaskbar(bool show) {
     return;
   }
 #elif defined(OS_MAC)
-  NWSetNSWindowShowInTaskbar(browser()->window()->GetNativeWindow(), show);
+  NWSetNSWindowShowInTaskbar(browser()->GetWindow()->GetNativeWindow(), show);
 #endif
 }
 
